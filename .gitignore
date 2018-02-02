@@ -1,0 +1,15 @@
+bin
+obj
+TestResults
+*.psess
+*.vsp
+*.testsettings
+*.suo
+*.vsmdi
+*.user
+*.ctl
+*.vs
+*.ide
+*.ncrunchproject
+*.ncrunchsolution
+*.cache
