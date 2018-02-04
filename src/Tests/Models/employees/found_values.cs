@@ -6,14 +6,18 @@ namespace Tests.Models
 {
     public interface found_values : ITableModel
     {
+        [PrimaryKey]
+        [Type("varchar", 30)]
+        string table_name { get; }
+
+        [Type("varchar", 100)]
         string crc_md5 { get; }
 
+        [Type("varchar", 100)]
         string crc_sha { get; }
 
+        [Type("int")]
         int recs { get; }
-
-        [PrimaryKey]
-        string table_name { get; }
 
     }
 }
