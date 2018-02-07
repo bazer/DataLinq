@@ -33,7 +33,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Models\employees\" />
     <Folder Include="Views\" />
   </ItemGroup>
 

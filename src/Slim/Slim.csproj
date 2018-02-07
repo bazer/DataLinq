@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Castle.Core" Version="4.2.1" />
     <PackageReference Include="MySqlConnector" Version="0.35.0" />
   </ItemGroup>
 

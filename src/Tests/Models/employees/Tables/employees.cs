@@ -1,9 +1,11 @@
 using System;
+using Slim;
 using Slim.Interfaces;
 using Slim.Attributes;
 
 namespace Tests.Models
 {
+    [Name("employees")]
     public interface employees : ITableModel
     {
         [PrimaryKey]

@@ -1,14 +1,13 @@
 using System;
+using Slim;
 using Slim.Interfaces;
 using Slim.Attributes;
 
 namespace Tests.Models
 {
-    public interface current_dept_emp : IViewModel
+    [Name("dept_emp_latest_date")]
+    public interface dept_emp_latest_date : IViewModel
     {
-        [Type("char", 4)]
-        Guid dept_no { get; }
-
         [Type("int")]
         int emp_no { get; }
 

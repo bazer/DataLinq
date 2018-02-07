@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 
 namespace Slim.Metadata
 {
@@ -6,7 +8,7 @@ namespace Slim.Metadata
     {
         public List<Constraint> Constraints { get; set; } = new List<Constraint>();
         public bool CsNullable { get; set; }
-        public string CsType { get; set; }
+        public string CsTypeName { get; set; }
         public string DbType { get; set; }
         public string Default { get; set; }
         public long? Length { get; set; }
@@ -14,5 +16,7 @@ namespace Slim.Metadata
         public bool Nullable { get; set; }
         public bool PrimaryKey { get; set; }
         public Table Table { get; set; }
+        public Type CsType { get; set; }
+        public PropertyInfo Property { get; set; }
     }
 }

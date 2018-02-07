@@ -1,10 +1,12 @@
 using System;
+using Slim;
 using Slim.Interfaces;
 using Slim.Attributes;
 
 namespace Tests.Models
 {
-    public interface expected_values : ITableModel
+    [Name("found_values")]
+    public interface found_values : ITableModel
     {
         [PrimaryKey]
         [Type("varchar", 30)]

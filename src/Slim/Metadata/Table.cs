@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Slim.Metadata
 {
@@ -14,5 +15,6 @@ namespace Slim.Metadata
         public Database Database { get; set; }
         public string Name { get; set; }
         public TableType Type { get; set; }
+        public Type SystemType { get; set; }
     }
 }

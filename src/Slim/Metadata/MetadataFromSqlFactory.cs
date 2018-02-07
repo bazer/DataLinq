@@ -102,8 +102,8 @@ namespace Slim.Metadata
             //if (reader[4] != DBNull.Value)
             //    column.Default = reader.GetString(4);
 
-            column.CsType = ParseCsType(column.DbType);
-            column.CsNullable = column.Nullable && IsCsTypeNullable(column.CsType);
+            column.CsTypeName = ParseCsType(column.DbType);
+            column.CsNullable = column.Nullable && IsCsTypeNullable(column.CsTypeName);
             
             return column;
         }

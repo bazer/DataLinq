@@ -16,7 +16,7 @@ namespace Slim.Attributes
             Length = length;
         }
 
-        public long Length { get; }
+        public long? Length { get; }
         public string Name { get; }
     }
 }

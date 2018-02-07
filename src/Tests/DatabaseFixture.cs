@@ -28,9 +28,9 @@ namespace Tests
             ConnectionString = configuration.GetConnectionString("Slim");
             DbAccess.ConnectionString = ConnectionString;
 
-            DbName = "slim";
+            //DbName = "slim";
 
-            CreateDatabase();
+            //CreateDatabase();
         }
 
         public string ConnectionString { get; private set; }
