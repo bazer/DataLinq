@@ -1,48 +1,109 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Text;
-using MySql.Data.MySqlClient;
+using System.Data.Common;
+using Modl.Db;
+using Modl.Db.Query;
 
 namespace Slim.MySql
 {
-    public static class DbAccess
-    {
-        public static string ConnectionString { get; set; }
+	public static class DbAccess
+	{
+        static public bool ExecuteNonQuery(params IQuery[] queries)
+		{
+            return ExecuteNonQuery(new List<IQuery>(queries));
+		}
 
-        static public int ExecuteNonQuery(string query)
+        static public bool ExecuteNonQuery(List<IQuery> queries)
+		{
+			return ExecuteNonQuery(DatabaseProvider.GetDbCommands(queries));
+		}
+
+		static public bool ExecuteNonQuery(List<IDbCommand> commands)
+		{
+			for (int i = 0; i < commands.Count; i++)
+			{
+				if (commands[i].Connection.State != ConnectionState.Open)
+					commands[i].Connection.Open();
+
+				commands[i].ExecuteNonQuery();
+
+                if (i + 1 == commands.Count || commands[i].Connection != commands[i + 1].Connection)
+                    commands[i].Connection.Close();
+			}
+
+            return true;
+		}
+
+		static public object ExecuteScalar(Type type, params IQuery[] queries)
+		{
+			return ExecuteScalar(type, new List<IQuery>(queries));
+		}
+
+        static public object ExecuteScalar(Type type, List<IQuery> queries)
+		{
+            return ExecuteScalar(type, DatabaseProvider.GetDbCommands(queries));
+		}
+
+        static public object ExecuteScalar(Type type, List<IDbCommand> commands)
+		{
+			//T result = default(T);
+            object result = null;
+			
+			for (int i = 0; i < commands.Count; i++)
+			{
+				if (commands[i].Connection.State != ConnectionState.Open)
+					commands[i].Connection.Open();
+
+				object o = commands[i].ExecuteScalar();
+
+                if (i + 1 == commands.Count || commands[i].Connection != commands[i + 1].Connection)
+                    commands[i].Connection.Close();
+
+				if (o != null && o != DBNull.Value)
+					result = Convert.ChangeType(o, type);
+			}
+
+			return result;
+		}
+
+        static public IEnumerable<DbDataReader> ExecuteReader(params IQuery[] queries)
         {
-            var command = new MySqlCommand(query);
-
-            return ExecuteNonQuery(command);
+            return ExecuteReader(new List<IQuery>(queries));
         }
 
-        static public int ExecuteNonQuery(MySqlCommand command)
+        static public IEnumerable<DbDataReader> ExecuteReader(List<IQuery> queries)
         {
-            using (var connection = new MySqlConnection(ConnectionString))
+            return ExecuteReader(DatabaseProvider.GetDbCommands(queries));
+        }
+
+        static public IEnumerable<DbDataReader> ExecuteReader(List<IDbCommand> commands)
+        {
+            for (int i = 0; i < commands.Count; i++)
             {
-                connection.Open();
-                command.Connection = connection;
-                int result = command.ExecuteNonQuery();
-                connection.Close();
-                return result;
+                if (commands[i].Connection.State != ConnectionState.Open)
+                    commands[i].Connection.Open();
+
+                yield return (DbDataReader)commands[i].ExecuteReader(CommandBehavior.CloseConnection);
             }
         }
 
-        static public MySqlDataReader ExecuteReader(MySqlCommand command)
-        {
-            var connection = new MySqlConnection(ConnectionString);
-            command.Connection = connection;
-            connection.Open();
+        //static public IEnumerable<DbDataReader> ReadReader(this IDbCommand command)
+        //{
+        //    using (var reader = ExecuteReader(command))
+        //        while (reader.Read())
+        //            yield return reader;
+        //}
 
-            return command.ExecuteReader(CommandBehavior.CloseConnection);
-        }
 
-        static public IEnumerable<MySqlDataReader> ReadReader(this MySqlCommand command)
-        {
-            using (var reader = ExecuteReader(command))
-                while (reader.Read())
-                    yield return reader;
-        }
+
+        //static public DbDataReader ExecuteReader(IDbCommand command)
+        //{
+        //    if (command.Connection.State != ConnectionState.Open)
+        //        command.Connection.Open();
+
+        //    //return (DbDataReader)command.ExecuteReader();
+        //    return (DbDataReader)command.ExecuteReader(CommandBehavior.CloseConnection);
+        //}
     }
 }

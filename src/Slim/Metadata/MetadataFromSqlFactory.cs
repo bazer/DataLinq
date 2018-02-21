@@ -137,7 +137,7 @@ namespace Slim.Metadata
                 case "bigint":
                     return "long";
                 case "char":
-                    return "Guid";
+                    return "string";
                 case "binary":
                     return "Guid";
                 case "enum":

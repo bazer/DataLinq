@@ -15,6 +15,7 @@ namespace Slim.Metadata
         public Database Database { get; set; }
         public string Name { get; set; }
         public TableType Type { get; set; }
-        public Type SystemType { get; set; }
+        public Type CsType { get; set; }
+        public string CsTypeName { get; set; }
     }
 }

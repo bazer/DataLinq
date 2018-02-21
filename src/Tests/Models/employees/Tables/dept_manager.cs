@@ -11,7 +11,7 @@ namespace Tests.Models
         [PrimaryKey]
         [ConstraintTo("departments", "dept_no", "dept_manager_ibfk_2")]
         [Type("char", 4)]
-        Guid dept_no { get; }
+        string dept_no { get; }
 
         [PrimaryKey]
         [ConstraintTo("employees", "emp_no", "dept_manager_ibfk_1")]

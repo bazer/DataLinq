@@ -33,7 +33,7 @@ namespace Slim.Tools
             var configuration = builder.Build();
 
             ConnectionString = configuration.GetConnectionString("Slim");
-            DbAccess.ConnectionString = ConnectionString;
+            MySqlDbAccess.ConnectionString = ConnectionString;
 
             DbName = "slim";
         }

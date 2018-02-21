@@ -25,7 +25,7 @@ namespace Slim.Metadata
             }
             
             database.Tables = type
-                .GetProperties(BindingFlags.Static | BindingFlags.Public)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Select(GetTableType)
                 .Select(x => ParseTable(database, x))
                 .ToList();
@@ -49,6 +49,8 @@ namespace Slim.Metadata
             var table = new Table();
             table.Database = database;
             table.Name = type.Name;
+            table.CsType = type;
+            table.CsTypeName = type.Name;
             table.Type = type.GetInterfaces().Any(x => x.Name == "ITableModel")
                 ? TableType.Table
                 : TableType.View;
