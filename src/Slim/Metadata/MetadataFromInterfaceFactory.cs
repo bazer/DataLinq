@@ -67,6 +67,7 @@ namespace Slim.Metadata
             var column = new Column();
             column.Table = table;
             column.Name = property.Name;
+            column.CsName = property.Name;
             column.CsType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
             column.CsTypeName = GetKeywordName(column.CsType);
             column.CsNullable = property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);

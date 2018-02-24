@@ -8,6 +8,7 @@ using Modl.Db.Query;
 using Slim.Interfaces;
 using Slim.Metadata;
 using System.Data.Common;
+using Slim.Instances;
 
 namespace Slim
 {
@@ -23,6 +24,26 @@ namespace Slim
     //    //IDbCommand ToDbCommand(IQuery query);
     //}
 
+    public abstract class DatabaseProvider<T> : DatabaseProvider
+        where T : class, IDatabaseModel
+    {
+        public T Query { get; }
+
+        protected DatabaseProvider(string connectionString) : base(connectionString, typeof(T))
+        {
+            Query = GetDatabaseInstance();
+        }
+
+        protected DatabaseProvider(string connectionString, string databaseName) : base(connectionString, typeof(T), databaseName)
+        {
+            Query = GetDatabaseInstance();
+        }
+
+        private T GetDatabaseInstance()
+        {
+            return InstanceFactory.NewDatabase<T>(this);
+        }
+    }
     public abstract class DatabaseProvider
     {
         //public readonly DatabaseType Type;
@@ -33,13 +54,16 @@ namespace Slim
         protected string[] ProviderNames { get; set; }
         protected IDbConnection activeConnection;
 
-        protected DatabaseProvider(string name, string connectionString, Type databaseType = null)
+        protected DatabaseProvider(string connectionString, Type databaseType = null, string name = null)
         {
             Name = name;
             ConnectionString = connectionString;
 
             if (databaseType != null)
                 Database = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
+
+            if (Name == null && Database != null)
+                Name = Database.Name;
         }
 
         //internal abstract IDbConnection GetConnection();

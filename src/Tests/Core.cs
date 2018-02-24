@@ -42,10 +42,10 @@ namespace Tests
             //employeesDb.dept_manager.Where(x => x.from_date > DateTime.Now);
             //var dept_emp = employeesDb.current_dept_emp.Where(x => x.dept_no == Guid.NewGuid()).Single();
 
-            var department4 = fixture.Employees.departments.Get("d004");
+            var department4 = fixture.Employees.Query.departments.Get("d004");
             Assert.Equal("d004", department4.dept_no);
-
-            Assert.Equal(9, fixture.Employees.departments.Count());
+            //fixture.Employees.Querydepartments.Where(x => x.dept_name == "dsfs");
+            Assert.Equal(9, fixture.Employees.Query.departments.Count());
         }
     }
 }

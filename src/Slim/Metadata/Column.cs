@@ -13,6 +13,7 @@ namespace Slim.Metadata
         public string Default { get; set; }
         public long? Length { get; set; }
         public string Name { get; set; }
+        public string CsName { get; set; }
         public bool Nullable { get; set; }
         public bool PrimaryKey { get; set; }
         public Table Table { get; set; }

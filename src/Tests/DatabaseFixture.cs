@@ -24,11 +24,13 @@ namespace Tests
 
             ConnectionString = configuration.GetConnectionString("Employees");
 
-            var provider = new MySQLProvider<employeesDb>("employees", ConnectionString);
+            Employees = new MySQLProvider<employeesDb>(ConnectionString);
+
+            //provider.Query.dept_manager
 
             //provider.
 
-            Employees = new employeesDb(provider);
+            //Employees = new employeesDb(provider);
 
             //DbAccess.ConnectionString = ConnectionString;
 
@@ -37,7 +39,7 @@ namespace Tests
             //CreateDatabase();
         }
 
-        public employeesDb Employees { get; set; }
+        public MySQLProvider<employeesDb> Employees { get; set; }
 
         public string ConnectionString { get; private set; }
         public string DbName { get; private set; }

@@ -9,20 +9,25 @@ using Slim.Interfaces;
 
 namespace Slim.MySql
 {
-    public class MySQLProvider<T> : MySQLProvider
-        where T : IDatabaseModel
-    {
-        public MySQLProvider(string name, string connectionString) : base(name, connectionString, typeof(T))
-        {
-        }
-    }
+    //public class MySQLProvider<T> : DatabaseProvider<T>
+    //    where T : IDatabaseModel
+    //{
+    //    public MySQLProvider(string name, string connectionString) : base(name, connectionString, typeof(T))
+    //    {
+    //    }
+    //}
 
-    public class MySQLProvider : DatabaseProvider
+    public class MySQLProvider<T> : DatabaseProvider<T>
+        where T : class, IDatabaseModel
     {
-        public MySQLProvider(string name, string connectionString, Type databaseType = null) : base(name, connectionString, databaseType)
+        public MySQLProvider(string connectionString) : base(connectionString)
         {
         }
-        
+
+        public MySQLProvider(string connectionString, string databaseName) : base(connectionString, databaseName)
+        {
+        }
+
         public override IQuery GetLastIdQuery()
         {
             return new Literal(this, "SELECT last_insert_id()");

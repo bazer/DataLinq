@@ -63,7 +63,7 @@ namespace Slim
             return new Select(DatabaseProvider, Table)
                 .Where(Table.Columns.First(x => x.PrimaryKey).Name).EqualTo(id[0])
                 .ReadInstances()
-                .Select(x => ImmutableInstanceCreator<T>.NewInstance(x))
+                .Select(InstanceFactory.NewImmutableRow<T>)
                 .SingleOrDefault();
             
             //DbAccess.ExecuteReader(query)

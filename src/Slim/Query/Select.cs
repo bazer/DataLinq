@@ -73,11 +73,11 @@ namespace Modl.Db.Query
             get { return whereList.Count; }
         }
 
-        public IEnumerable<InstanceData> ReadInstances()
+        public IEnumerable<RowData> ReadInstances()
         {
             return DatabaseProvider
                 .ReadReader(DatabaseProvider.ToDbCommand(this))
-                .Select(x => new InstanceData(x, Table));
+                .Select(x => new RowData(x, Table));
         }
         
         //public DbDataReader Execute()

@@ -47,12 +47,12 @@ namespace Slim.Metadata
         private static IEnumerable<string> DatabaseFileContents(Database database, string dbName)
         {
             yield return $"{tab}[Name(\"{database.Name}\")]";
-            yield return $"{tab}public static class {dbName}";
+            yield return $"{tab}public interface {dbName} : IDatabaseModel";
             yield return tab + "{";
 
             foreach (var t in database.Tables.OrderBy(x => x.Name))
             {
-                yield return $"{tab}{tab}public static DbRead<{t.Name}> {t.Name} => new DbRead<{t.Name}>();";
+                yield return $"{tab}{tab}DbRead<{t.Name}> {t.Name} {{ get; }}";
             }
 
             yield return tab + "}";

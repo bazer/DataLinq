@@ -1,18 +1,18 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using Microsoft.Extensions.Configuration;
+using Slim.Models;
 using Slim.MySql;
 
 namespace Slim.Tools
 {
-    static class Program
+    internal static class Program
     {
-        static DatabaseProvider DatabaseProvider { get; set; }
-        static string DbName { get; set; }
-        static string WritePath { get; set; }
-        static string Namespace { get; set; }
+        private static DatabaseProvider DatabaseProvider { get; set; }
+        private static string DbName { get; set; }
+        private static string WritePath { get; set; }
+        private static string Namespace { get; set; }
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             DatabaseFixture();
 
@@ -21,10 +21,9 @@ namespace Slim.Tools
             WritePath = Path.GetFullPath(args[2]);
 
             new CreateModels().Execute(DbName, Namespace, WritePath, DatabaseProvider);
-
         }
 
-        static void DatabaseFixture()
+        private static void DatabaseFixture()
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
@@ -33,7 +32,7 @@ namespace Slim.Tools
             var configuration = builder.Build();
 
             var connectionString = configuration.GetConnectionString("Slim");
-            DatabaseProvider = new MySQLProvider("Slim", connectionString);
+            DatabaseProvider = new MySQLProvider<information_schema>(connectionString);
         }
     }
 }
