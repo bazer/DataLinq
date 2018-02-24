@@ -1,15 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
-using System.Text;
-using MySql.Data.MySqlClient;
-using Slim.MySql;
 
 namespace Slim.Metadata
 {
     public static class MetadataFromSqlFactory
     {
-        public static Database ParseDatabase(string dbName)
+        public static Database ParseDatabase(string dbName, DatabaseProvider databaseProvider)
         {
             //string sql = $@"
             //    select * from information_schema.`TABLES` t
@@ -25,9 +22,9 @@ namespace Slim.Metadata
 
             var database = new Database(dbName);
 
-            database.Tables = new MySqlCommand(tableSql)
-                .ReadReader()
-                .Select(x => ParseTable(database, x))
+            database.Tables = databaseProvider
+                .ReadReader(tableSql)
+                .Select(x => ParseTable(database, databaseProvider, x))
                 .ToList();
 
             string keysSql = $@"
@@ -36,7 +33,7 @@ namespace Slim.Metadata
                 k.TABLE_SCHEMA = '{dbName}' AND
                 REFERENCED_COLUMN_NAME IS NOT NULL;";
 
-            foreach (var reader in new MySqlCommand(keysSql).ReadReader())
+            foreach (var reader in databaseProvider.ReadReader(keysSql))
             {
                 var constraint = new Constraint();
                 constraint.Name = reader.GetString(0);
@@ -54,10 +51,9 @@ namespace Slim.Metadata
             }
 
             return database;
-
         }
 
-        private static Table ParseTable(Database database, MySqlDataReader reader)
+        private static Table ParseTable(Database database, DatabaseProvider databaseProvider, DbDataReader reader)
         {
             var table = new Table();
 
@@ -71,16 +67,15 @@ namespace Slim.Metadata
                 c.TABLE_SCHEMA = '{database.Name}' AND
                 c.TABLE_NAME = '{table.Name}';";
 
-
-            table.Columns = new MySqlCommand(columnSql)
-                .ReadReader()
+            table.Columns = databaseProvider
+                .ReadReader(columnSql)
                 .Select(x => ParseColumn(table, x))
                 .ToList();
 
             return table;
         }
 
-        private static Column ParseColumn(Table table, MySqlDataReader reader)
+        private static Column ParseColumn(Table table, DbDataReader reader)
         {
             var column = new Column();
 
@@ -104,11 +99,9 @@ namespace Slim.Metadata
 
             column.CsTypeName = ParseCsType(column.DbType);
             column.CsNullable = column.Nullable && IsCsTypeNullable(column.CsTypeName);
-            
+
             return column;
         }
-
-
 
         private static string ParseCsType(string dbType)
         {
@@ -116,40 +109,58 @@ namespace Slim.Metadata
             {
                 case "int":
                     return "int";
+
                 case "tinyint":
                     return "int";
+
                 case "varchar":
                     return "string";
+
                 case "text":
                     return "string";
+
                 case "mediumtext":
                     return "string";
+
                 case "bit":
                     return "bool";
+
                 case "double":
                     return "double";
+
                 case "datetime":
                     return "DateTime";
+
                 case "date":
                     return "DateTime";
+
                 case "float":
                     return "float";
+
                 case "bigint":
                     return "long";
+
                 case "char":
                     return "string";
+
                 case "binary":
                     return "Guid";
+
                 case "enum":
                     return "int";
+
                 case "longtext":
                     return "string";
+
                 case "decimal":
                     return "decimal";
+
                 case "blob":
                     return "byte[]";
+
                 case "smallint":
                     return "int";
+
                 default:
                     throw new NotImplementedException($"Unknown type '{dbType}'");
             }
@@ -161,24 +172,34 @@ namespace Slim.Metadata
             {
                 case "int":
                     return true;
+
                 case "string":
                     return false;
+
                 case "bool":
                     return true;
+
                 case "double":
                     return true;
+
                 case "DateTime":
                     return true;
+
                 case "float":
                     return true;
+
                 case "long":
                     return true;
+
                 case "Guid":
                     return true;
+
                 case "byte[]":
                     return false;
+
                 case "decimal":
                     return true;
+
                 default:
                     throw new NotImplementedException($"Unknown type '{csType}'");
             }

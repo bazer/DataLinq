@@ -1,19 +1,15 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using Modl.Db;
 using Modl.Db.Query;
-using MySql.Data.MySqlClient;
 using Remotion.Linq;
 using Remotion.Linq.Parsing.Structure;
+using Slim.Instances;
 using Slim.Interfaces;
 using Slim.Linq;
 using Slim.Metadata;
-using Slim.Models;
-using Slim.MySql;
 
 namespace Slim
 {
@@ -21,7 +17,7 @@ namespace Slim
         where T : class, IModel
     {
         private DatabaseProvider DatabaseProvider { get; }
-        private Table Table { get; } 
+        private Table Table { get; }
 
         public DbRead(IQueryParser queryParser, IQueryExecutor executor)
             : base(new DefaultQueryProvider(typeof(DbRead<>), queryParser, executor))
@@ -37,9 +33,7 @@ namespace Slim
         {
             this.DatabaseProvider = databaseProvider;
             this.Table = databaseProvider.Database.Tables.Single(x => x.CsType == typeof(T));
-
         }
-
 
         //internal ModelReader(string name, IModl m) : base(name, m)
         //{
@@ -66,15 +60,16 @@ namespace Slim
 
         public T Get(params object[] id)
         {
-            var query = new Select(DatabaseProvider, Table)
-                .Where(Table.Columns.First(x => x.PrimaryKey).Name).EqualTo(id);
-                
-
+            return new Select(DatabaseProvider, Table)
+                .Where(Table.Columns.First(x => x.PrimaryKey).Name).EqualTo(id[0])
+                .ReadInstances()
+                .Select(x => ImmutableInstanceCreator<T>.NewInstance(x))
+                .SingleOrDefault();
+            
             //DbAccess.ExecuteReader(query)
+
             //    .Select(x )
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
-
-
     }
 }

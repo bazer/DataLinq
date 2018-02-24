@@ -1,24 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Modl.Db.DatabaseProviders;
-using System.Data;
+﻿using Slim;
 using Slim.Metadata;
 
 namespace Modl.Db.Query
 {
     public class Insert : Change
-        //where M : IDbModl, new()
+    //where M : IDbModl, new()
     {
-        public Insert(DatabaseProvider database, Table table) : base(database, table) { }
+        public Insert(DatabaseProvider database, Table table) : base(database, table)
+        {
+        }
 
         protected Sql GetWith(Sql sql, string paramPrefix)
         {
             int length = withList.Count;
             if (length == 0)
                 return sql.AddFormat("VALUES (NULL)");
-             
 
             sql.AddFormat("({0}) VALUES (", string.Join(",", withList.Keys));
 
@@ -61,7 +57,7 @@ namespace Modl.Db.Query
         public override Sql ToSql(string paramPrefix)
         {
             return GetWith(
-                new Sql().AddFormat("INSERT INTO {0} ", table.Name),
+                new Sql().AddFormat("INSERT INTO {0} ", Table.Name),
                 paramPrefix);
 
             //var with = GetWith(paramPrefix);

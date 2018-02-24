@@ -1,16 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Modl.Db.DatabaseProviders;
+﻿using System.Collections.Generic;
+using Slim;
 using Slim.Metadata;
 
 namespace Modl.Db.Query
 {
     public abstract class Change : Query<Change>
-        //where M : IDbModl, new()
+    //where M : IDbModl, new()
     {
-        public Change(DatabaseProvider database, Table table) : base(database, table) { }
+        public Change(DatabaseProvider database, Table table) : base(database, table)
+        {
+        }
 
         protected Dictionary<string, object> withList = new Dictionary<string, object>();
 

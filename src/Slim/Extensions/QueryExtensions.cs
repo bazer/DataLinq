@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Modl.Db.Query;
+﻿using Modl.Db.Query;
 
 namespace Slim.Extensions
 {
     public static class QueryExtensions
     {
-        internal static string ToSql(this Relation relation)
+        public static string ToSql(this Relation relation)
         {
             if (relation == Relation.Equal)
                 return "=";

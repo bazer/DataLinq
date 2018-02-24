@@ -1,20 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Modl.Db.DatabaseProviders;
-using System.Data;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
+using Slim;
 using Slim.Metadata;
 
 namespace Modl.Db.Query
 {
     public class Delete : Query<Delete>
-        //where M : IDbModl, new()
+    //where M : IDbModl, new()
     {
-        Expression expression;
+        private Expression expression;
 
-        public Delete(DatabaseProvider database, Table table) : base(database, table) { }
+        public Delete(DatabaseProvider database, Table table) : base(database, table)
+        {
+        }
 
         public Delete(DatabaseProvider database, Table table, Expression expression)
             : base(database, table)
@@ -29,9 +26,8 @@ namespace Modl.Db.Query
             //var sql = new Sql().AddFormat("DELETE FROM {0} \r\n", Modl<M, IdType>.Table);
 
             return GetWhere(
-                new Sql().AddFormat("DELETE FROM {0} \r\n", table.Name), 
+                new Sql().AddFormat("DELETE FROM {0} \r\n", Table.Name),
                 paramPrefix);
-
 
             //var where = GetWhere(sql, paramPrefix);
 

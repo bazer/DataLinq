@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Data;
 using System.Configuration;
-using Modl.Db.DatabaseProviders;
 using Modl.Db.Query;
 using Slim.Interfaces;
 using Slim.Metadata;
+using System.Data.Common;
 
-namespace Modl.Db
+namespace Slim
 {
     //public enum DatabaseType
     //{
@@ -33,25 +33,47 @@ namespace Modl.Db
         protected string[] ProviderNames { get; set; }
         protected IDbConnection activeConnection;
 
-        protected DatabaseProvider(string name, string connectionString, Type databaseType)
+        protected DatabaseProvider(string name, string connectionString, Type databaseType = null)
         {
             Name = name;
             ConnectionString = connectionString;
-            Database = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
+
+            if (databaseType != null)
+                Database = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
         }
 
-        internal abstract IDbConnection GetConnection();
-        internal abstract IDbCommand ToDbCommand(IQuery query);
-        internal abstract List<IDbCommand> ToDbCommands(List<IQuery> queries);
-        internal abstract IQuery GetLastIdQuery();
-        internal abstract Sql GetParameter(Sql sql, string key, object value);
-        internal abstract Sql GetParameterValue(Sql sql, string key);
-        internal abstract Sql GetParameterComparison(Sql sql, string field, Relation relation, string key);
+        //internal abstract IDbConnection GetConnection();
+        public abstract IDbCommand ToDbCommand(IQuery query);
+        //internal abstract List<IDbCommand> ToDbCommands(List<IQuery> queries);
+        public abstract IQuery GetLastIdQuery();
+        public abstract Sql GetParameter(Sql sql, string key, object value);
+        public abstract Sql GetParameterValue(Sql sql, string key);
+        public abstract Sql GetParameterComparison(Sql sql, string field, Relation relation, string key);
 
-        internal static List<IDbCommand> GetDbCommands(List<IQuery> queries)
+        public abstract DbDataReader ExecuteReader(IDbCommand command);
+        public abstract DbDataReader ExecuteReader(string query);
+        public abstract int ExecuteNonQuery(IDbCommand command);
+        public abstract int ExecuteNonQuery(string query);
+
+        public IEnumerable<DbDataReader> ReadReader(IDbCommand command)
         {
-            return queries.GroupBy(x => x.DatabaseProvider).SelectMany(x => x.Key.ToDbCommands(x.ToList())).ToList();
+            using (var reader = ExecuteReader(command))
+                while (reader.Read())
+                    yield return reader;
         }
+
+        public IEnumerable<DbDataReader> ReadReader(string query)
+        {
+            using (var reader = ExecuteReader(query))
+                while (reader.Read())
+                    yield return reader;
+        }
+
+
+        //internal static List<IDbCommand> GetDbCommands(List<IQuery> queries)
+        //{
+        //    return queries.GroupBy(x => x.DatabaseProvider).SelectMany(x => x.Key.ToDbCommands(x.ToList())).ToList();
+        //}
 
         //internal static DatabaseProvider GetNewDatabaseProvider<T>(string databaseName, string connectionString, DatabaseType providerType) where T : IDatabaseModel
         //{

@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.Data;
-using Modl.Db.DatabaseProviders;
+using System.Linq;
+using Slim;
+using Slim.Instances;
 using Slim.Metadata;
 
 namespace Modl.Db.Query
@@ -11,8 +10,11 @@ namespace Modl.Db.Query
     public interface IQuery
     {
         DatabaseProvider DatabaseProvider { get; }
+
         IDbCommand ToDbCommand();
+
         Sql ToSql(string paramPrefix);
+
         int ParameterCount { get; }
         //Where<C, T> Where(string key);
         //IEnumerable<IDataParameter> QueryPartsParameters();
@@ -23,22 +25,25 @@ namespace Modl.Db.Query
         where Q : Query<Q>
     {
         protected List<Where<Q>> whereList = new List<Where<Q>>();
+
         //protected IModl owner;
-        protected DatabaseProvider provider;
-        public DatabaseProvider DatabaseProvider { get { return provider; } }
+        //protected DatabaseProvider provider;
+
+        public DatabaseProvider DatabaseProvider { get; }
+
         public abstract Sql ToSql(string paramPrefix);
+
         public abstract int ParameterCount { get; }
-        protected Table table;
-        
+        protected Table Table;
 
         public Query()
         {
         }
 
-        public Query(DatabaseProvider database, Table table)
+        public Query(DatabaseProvider provider, Table table)
         {
-            this.provider = database;
-            this.table = table;
+            this.DatabaseProvider = provider;
+            this.Table = table;
         }
 
         //public Query(IModl owner)
@@ -74,11 +79,11 @@ namespace Modl.Db.Query
         {
             int length = whereList.Count;
             if (length == 0)
-                return sql; 
+                return sql;
 
             sql.AddText("WHERE \r\n");
-            
-            for (int i=0; i<length; i++)
+
+            for (int i = 0; i < length; i++)
             {
                 whereList[i].GetCommandParameter(sql, paramPrefix, i);
                 whereList[i].GetCommandString(sql, paramPrefix, i);
@@ -100,5 +105,7 @@ namespace Modl.Db.Query
             var sql = ToSql(string.Empty);
             return sql.Text + "; " + string.Join(", ", sql.Parameters.Select(x => x.ParameterName + ": " + x.Value));
         }
+
+        
     }
 }

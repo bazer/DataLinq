@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
-using System.Configuration;
-using Modl.Db.DatabaseProviders;
-using System.Data;
+using Slim;
 
 namespace Modl.Db
 {
@@ -31,15 +26,14 @@ namespace Modl.Db
         //public static CacheLevel DefaultCacheLevel { get { return CacheConfig.DefaultCacheLevel; } set { CacheConfig.DefaultCacheLevel = value; } }
         //public static int DefaultCacheTimeout { get { return CacheConfig.DefaultCacheTimeout; } set { CacheConfig.DefaultCacheTimeout = value; } }
 
-
         //private static CacheLevel cacheLevel;
-        //public static CacheLevel CacheLevel 
-        //{ 
+        //public static CacheLevel CacheLevel
+        //{
         //    get
         //    {
         //        return cacheLevel;
         //    }
-        //    set 
+        //    set
         //    {
         //        cacheLevel = value;
 
@@ -51,7 +45,6 @@ namespace Modl.Db
         //    }
         //}
 
-        
         protected static Dictionary<string, DatabaseProvider> DatabaseProviders = new Dictionary<string, DatabaseProvider>();
 
         static Config()
@@ -64,9 +57,8 @@ namespace Modl.Db
             //        Database.AddFromConnectionString(connString);
         }
 
-        
-
         private static DatabaseProvider defaultDbProvider = null;
+
         internal static DatabaseProvider DefaultDatabase
         {
             get
@@ -113,7 +105,5 @@ namespace Modl.Db
         //{
         //    return DatabaseProviders[databaseName].GetConnection();
         //}
-
-        
     }
 }

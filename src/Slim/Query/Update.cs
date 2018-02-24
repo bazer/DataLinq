@@ -1,24 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Modl.Db.DatabaseProviders;
-using System.Data;
+﻿using Slim;
 using Slim.Metadata;
 
 namespace Modl.Db.Query
 {
     public class Update : Change
-        //where M : IDbModl, new()
+    //where M : IDbModl, new()
     {
-        public Update(DatabaseProvider database, Table table) : base(database, table) { }
+        public Update(DatabaseProvider database, Table table) : base(database, table)
+        {
+        }
 
         protected Sql GetWith(Sql sql, string paramPrefix)
         {
             int length = withList.Count;
             if (length == 0)
                 return sql;
-            
+
             int i = 0;
             foreach (var with in withList)
             {
@@ -47,7 +44,7 @@ namespace Modl.Db.Query
         public override Sql ToSql(string paramPrefix)
         {
             var sql = GetWith(
-                new Sql().AddFormat("UPDATE {0} SET ", table.Name),
+                new Sql().AddFormat("UPDATE {0} SET ", Table.Name),
                 paramPrefix);
 
             return GetWhere(

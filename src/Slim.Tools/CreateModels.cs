@@ -1,20 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
-using MySql.Data.MySqlClient;
-using Slim.MySql;
-using Slim.Extensions;
 using Slim.Metadata;
 
 namespace Slim.Tools
 {
-    class CreateModels
+    internal class CreateModels
     {
-         public void Execute(string dbname, string namespaceName, string path)
+        public void Execute(string dbname, string namespaceName, string path, DatabaseProvider databaseProvider)
         {
-            var database = MetadataFromSqlFactory.ParseDatabase(dbname);
+
+
+            var database = MetadataFromSqlFactory.ParseDatabase(dbname, databaseProvider);
 
             Console.WriteLine($"Database: {dbname}");
             Console.WriteLine($"Table count: {database.Tables.Count}");

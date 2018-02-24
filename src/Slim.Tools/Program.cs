@@ -7,7 +7,7 @@ namespace Slim.Tools
 {
     static class Program
     {
-        static string ConnectionString { get; set; }
+        static DatabaseProvider DatabaseProvider { get; set; }
         static string DbName { get; set; }
         static string WritePath { get; set; }
         static string Namespace { get; set; }
@@ -20,7 +20,7 @@ namespace Slim.Tools
             Namespace = args[1];
             WritePath = Path.GetFullPath(args[2]);
 
-            new CreateModels().Execute(DbName, Namespace, WritePath);
+            new CreateModels().Execute(DbName, Namespace, WritePath, DatabaseProvider);
 
         }
 
@@ -32,10 +32,8 @@ namespace Slim.Tools
 
             var configuration = builder.Build();
 
-            ConnectionString = configuration.GetConnectionString("Slim");
-            MySqlDbAccess.ConnectionString = ConnectionString;
-
-            DbName = "slim";
+            var connectionString = configuration.GetConnectionString("Slim");
+            DatabaseProvider = new MySQLProvider("Slim", connectionString);
         }
     }
 }

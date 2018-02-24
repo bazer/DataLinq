@@ -1,13 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using MySql.Data.MySqlClient;
 using Slim.Attributes;
-using Slim.Interfaces;
-using Slim.MySql;
-using Microsoft.CSharp;
 
 namespace Slim.Metadata
 {
@@ -23,15 +17,14 @@ namespace Slim.Metadata
                 if (attribute is NameAttribute)
                     database.Name = ((NameAttribute)attribute).Name;
             }
-            
+
             database.Tables = type
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Select(GetTableType)
                 .Select(x => ParseTable(database, x))
                 .ToList();
-            
-            return database;
 
+            return database;
         }
 
         private static Type GetTableType(PropertyInfo property)
@@ -54,7 +47,7 @@ namespace Slim.Metadata
             table.Type = type.GetInterfaces().Any(x => x.Name == "ITableModel")
                 ? TableType.Table
                 : TableType.View;
-            
+
             foreach (var attribute in type.GetCustomAttributes(false))
             {
                 if (attribute is NameAttribute)
@@ -104,8 +97,11 @@ namespace Slim.Metadata
         {
             switch (type.Name)
             {
-                case "Int32": return "int";
-                default: return type.Name;
+                case "Int32":
+                    return "int";
+
+                default:
+                    return type.Name;
             }
         }
     }

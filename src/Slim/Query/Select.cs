@@ -1,19 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
+﻿using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Data.Common;
-using System.Threading.Tasks;
+using Slim;
+using Slim.Extensions;
+using Slim.Instances;
 using Slim.Metadata;
-using Slim.MySql;
 
 namespace Modl.Db.Query
 {
     public class Select : Query<Select>
-        //where M : IDbModl, new()
+    //where M : IDbModl, new()
     {
-        Expression expression;
+        private Expression expression;
         protected List<Join<Select>> joinList = new List<Join<Select>>();
 
         public Select(DatabaseProvider database, Table table)
@@ -32,7 +31,9 @@ namespace Modl.Db.Query
 
         public override Sql ToSql(string paramPrefix)
         {
-            var sql = new Sql().AddFormat("SELECT * FROM {0} \r\n", table.Name);
+            var columns = Table.Columns.Select(x => x.Name).ToJoinedString(", ");
+
+            var sql = new Sql().AddFormat("SELECT {0} FROM {1} \r\n", columns, Table.Name);
             GetJoins(sql, "");
             GetWhere(sql, paramPrefix);
 
@@ -66,17 +67,23 @@ namespace Modl.Db.Query
 
             return join;
         }
-        
 
         public override int ParameterCount
         {
             get { return whereList.Count; }
         }
 
-        public DbDataReader Execute()
+        public IEnumerable<InstanceData> ReadInstances()
         {
-            return DbAccess.ExecuteReader(this).First();
+            return DatabaseProvider
+                .ReadReader(DatabaseProvider.ToDbCommand(this))
+                .Select(x => new InstanceData(x, Table));
         }
+        
+        //public DbDataReader Execute()
+        //{
+        //    return DbAccess.ExecuteReader(this).First();
+        //}
 
         //public M Get<M>() where M : IDbModl, new()
         //{

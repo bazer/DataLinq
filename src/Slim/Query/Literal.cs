@@ -1,16 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.Data;
-using Modl.Db.DatabaseProviders;
+using System.Linq;
+using Slim;
 
 namespace Modl.Db.Query
 {
     public class Literal : IQuery
     {
         private string sql;
-        IEnumerable<IDataParameter> parameters;
+        private IEnumerable<IDataParameter> parameters;
         protected DatabaseProvider provider;
         public DatabaseProvider DatabaseProvider { get { return provider; } }
 

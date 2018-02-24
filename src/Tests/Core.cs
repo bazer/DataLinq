@@ -1,6 +1,4 @@
-using System;
 using System.Linq;
-using Modl.Db.DatabaseProviders;
 using Slim.Metadata;
 using Tests.Models;
 using Xunit;
@@ -43,8 +41,6 @@ namespace Tests
         {
             //employeesDb.dept_manager.Where(x => x.from_date > DateTime.Now);
             //var dept_emp = employeesDb.current_dept_emp.Where(x => x.dept_no == Guid.NewGuid()).Single();
-
-
 
             var department4 = fixture.Employees.departments.Get("d004");
             Assert.Equal("d004", department4.dept_no);

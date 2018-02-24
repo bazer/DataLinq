@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using Microsoft.Extensions.Configuration;
-using Modl.Db;
-using Modl.Db.DatabaseProviders;
-using MySql.Data.MySqlClient;
 using Slim.MySql;
 using Tests.Models;
 using Xunit;
@@ -17,7 +12,6 @@ namespace Tests
     {
     }
 
-
     public class DatabaseFixture : IDisposable
     {
         public DatabaseFixture()
@@ -28,7 +22,7 @@ namespace Tests
 
             var configuration = builder.Build();
 
-            ConnectionString = configuration.GetConnectionString("Slim");
+            ConnectionString = configuration.GetConnectionString("Employees");
 
             var provider = new MySQLProvider<employeesDb>("employees", ConnectionString);
 
@@ -75,7 +69,6 @@ namespace Tests
 
         public void Dispose()
         {
-            
         }
     }
 }
