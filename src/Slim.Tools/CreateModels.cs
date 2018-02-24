@@ -2,6 +2,7 @@
 using System.IO;
 using System.Text;
 using Slim.Metadata;
+using Slim.MySql;
 
 namespace Slim.Tools
 {
@@ -9,8 +10,6 @@ namespace Slim.Tools
     {
         public void Execute(string dbname, string namespaceName, string path, DatabaseProvider databaseProvider)
         {
-
-
             var database = MetadataFromSqlFactory.ParseDatabase(dbname, databaseProvider);
 
             Console.WriteLine($"Database: {dbname}");

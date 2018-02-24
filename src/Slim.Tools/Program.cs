@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using Microsoft.Extensions.Configuration;
-using Slim.Models;
 using Slim.MySql;
+using Slim.MySql.Models;
 
 namespace Slim.Tools
 {
