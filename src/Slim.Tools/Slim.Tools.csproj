@@ -20,7 +20,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Slim.MySql\Slim.MySql.csproj" />
-    <ProjectReference Include="..\Slim\Slim.csproj" />
   </ItemGroup>
 
   <ItemGroup>

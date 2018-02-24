@@ -44,7 +44,11 @@ namespace Tests
 
             var department4 = fixture.Employees.Query.departments.Get("d004");
             Assert.Equal("d004", department4.dept_no);
+
+            var department5 = fixture.Employees.Query.departments.Get("d005");
+            Assert.Equal("d005", department5.dept_no);
             //fixture.Employees.Querydepartments.Where(x => x.dept_name == "dsfs");
+            Assert.Equal(9, fixture.Employees.Query.departments.Count());
             Assert.Equal(9, fixture.Employees.Query.departments.Count());
         }
     }

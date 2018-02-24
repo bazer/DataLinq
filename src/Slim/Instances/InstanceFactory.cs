@@ -13,9 +13,10 @@ namespace Slim.Instances
     {
         private static ProxyGenerator generator = new ProxyGenerator();
 
-        public static T NewImmutableRow<T>(RowData instanceData) where T : class, IModel
+        public static T NewImmutableRow<T>(RowData instanceData) // where T : class, IModel
         {
-            return generator.CreateInterfaceProxyWithoutTarget<T>(new ImmutableRowInterceptor(instanceData));
+            return (T)generator.CreateInterfaceProxyWithoutTarget(typeof(T), new ImmutableRowInterceptor(instanceData));
+            //return generator.CreateInterfaceProxyWithoutTarget<T>(new ImmutableRowInterceptor(instanceData));
         }
 
         public static T NewDatabase<T>(DatabaseProvider databaseProvider) where T : class, IDatabaseModel

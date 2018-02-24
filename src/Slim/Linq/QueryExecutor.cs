@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
+using Modl.Db.Query;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.ExpressionVisitors;
 using Remotion.Linq.Parsing.Structure;
+using Slim.Instances;
 using Slim.Interfaces;
+using Slim.Metadata;
 
 namespace Slim.Linq
 {
@@ -18,8 +21,18 @@ namespace Slim.Linq
         public string Description { get; set; }
     }
 
-    internal class SlimQueryExecutor : IQueryExecutor
+    internal class QueryExecutor : IQueryExecutor
     {
+        internal QueryExecutor(DatabaseProvider databaseProvider, Table table)
+        {
+            this.DatabaseProvider = databaseProvider;
+            this.Table = table;
+        }
+
+        private DatabaseProvider DatabaseProvider { get; }
+
+        private Table Table { get; }
+
         // Set up a proeprty that will hold the current item being enumerated.
         public SampleDataSourceItem Current { get; private set; }
 
@@ -67,8 +80,25 @@ namespace Slim.Linq
 
         public T ExecuteScalar<T>(QueryModel queryModel)
         {
+            var results = GetSelect()
+                .ReadInstances();
+                //.Select(InstanceFactory.NewImmutableRow<T>);
+
+            if (queryModel.ResultOperators.Any())
+            {
+                if (queryModel.ResultOperators[0].ToString() == "Count()")
+                    return (T)(object)results.Count();
+
+            }
+
+
             // We'll get to this one later...
             throw new NotImplementedException();
+        }
+
+        private Select GetSelect()
+        {
+            return new Select(DatabaseProvider, Table);
         }
     }
 }
