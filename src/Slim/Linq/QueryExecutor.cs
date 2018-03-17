@@ -15,11 +15,11 @@ using Slim.Metadata;
 namespace Slim.Linq
 {
     //The item type that our data source will return.
-    public class SampleDataSourceItem
-    {
-        public string Name { get; set; }
-        public string Description { get; set; }
-    }
+    //public class SampleDataSourceItem
+    //{
+    //    public string Name { get; set; }
+    //    public string Description { get; set; }
+    //}
 
     internal class QueryExecutor : IQueryExecutor
     {
@@ -34,15 +34,37 @@ namespace Slim.Linq
         private Table Table { get; }
 
         // Set up a proeprty that will hold the current item being enumerated.
-        public SampleDataSourceItem Current { get; private set; }
+        //public SampleDataSourceItem Current { get; private set; }
+
+        private Select ParseQueryModel(QueryModel queryModel)
+        {
+            var select = GetSelect();
+
+            foreach (var body in queryModel.BodyClauses)
+            {
+                if (body is WhereClause where)
+                {
+                    select.Where(where);
+                }
+            }
+
+            return select;
+        }
+        
 
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
         {
-            // Create an expression that returns the current item when invoked.
-            Expression currentItemExpression = Expression.Property(Expression.Constant(this), "Current");
+            return ParseQueryModel(queryModel)
+                .ReadInstances()
+                .Select(InstanceFactory.NewImmutableRow<T>);
 
-            yield return default;
-            
+
+
+            // Create an expression that returns the current item when invoked.
+            //Expression currentItemExpression = Expression.Property(Expression.Constant(this), "Current");
+
+            //yield return default;
+
 
             //// Now replace references like the "i" in "select i" that refers to the "i" in "from i in items"
             //var mapping = new QuerySourceMapping();
@@ -80,19 +102,15 @@ namespace Slim.Linq
 
         public T ExecuteScalar<T>(QueryModel queryModel)
         {
-            var results = GetSelect()
+            var results = ParseQueryModel(queryModel)
                 .ReadInstances();
-                //.Select(InstanceFactory.NewImmutableRow<T>);
 
             if (queryModel.ResultOperators.Any())
             {
                 if (queryModel.ResultOperators[0].ToString() == "Count()")
                     return (T)(object)results.Count();
-
             }
 
-
-            // We'll get to this one later...
             throw new NotImplementedException();
         }
 

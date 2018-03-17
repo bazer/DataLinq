@@ -1,8 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Linq.Expressions;
+using Remotion.Linq.Clauses;
 using Slim;
+using Slim.Exceptions;
 using Slim.Extensions;
 using Slim.Instances;
 using Slim.Metadata;
@@ -12,22 +15,22 @@ namespace Modl.Db.Query
     public class Select : Query<Select>
     //where M : IDbModl, new()
     {
-        private Expression expression;
+        //private Expression expression;
         protected List<Join<Select>> joinList = new List<Join<Select>>();
 
         public Select(DatabaseProvider database, Table table)
             : base(database, table)
         {
-            expression = Expression.Constant(this);
+            
         }
 
-        public Select(DatabaseProvider database, Table table, Expression expression)
-            : base(database, table)
-        {
-            this.expression = expression;
-            //var parser = new LinqParser<Select>(this);
-            //parser.ParseTree(expression);
-        }
+        //public Select(DatabaseProvider database, Table table, Expression expression)
+        //    : base(database, table)
+        //{
+        //    this.expression = expression;
+        //    //var parser = new LinqParser<Select>(this);
+        //    //parser.ParseTree(expression);
+        //}
 
         public override Sql ToSql(string paramPrefix)
         {
@@ -79,7 +82,10 @@ namespace Modl.Db.Query
                 .ReadReader(DatabaseProvider.ToDbCommand(this))
                 .Select(x => new RowData(x, Table));
         }
-        
+
+
+
+
         //public DbDataReader Execute()
         //{
         //    return DbAccess.ExecuteReader(this).First();

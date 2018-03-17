@@ -1,7 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Linq.Expressions;
+using Modl.Db.Linq.Visitors;
+using Remotion.Linq.Clauses;
 using Slim;
+using Slim.Exceptions;
 using Slim.Instances;
 using Slim.Metadata;
 
@@ -59,6 +63,15 @@ namespace Modl.Db.Query
             return where;
         }
 
+        public Q Where(WhereClause where)
+        {
+            new WhereVisitor<Q>(this).Parse(where);
+
+            //whereList.AddRange(Where<Q>.Parse(this as Q, where));
+
+            return this as Q;
+        }
+
         //public Q WhereNotAny(IEnumerable<IModl> collection)
         //{
         //    foreach (var m in collection)
@@ -106,6 +119,33 @@ namespace Modl.Db.Query
             return sql.Text + "; " + string.Join(", ", sql.Parameters.Select(x => x.ParameterName + ": " + x.Value));
         }
 
-        
+
+        internal KeyValuePair<string, object> GetFields(BinaryExpression node)
+        {
+            if (node.Left is ConstantExpression && node.Right is ConstantExpression)
+                throw new InvalidQueryException("Unable to compare 2 constants.");
+
+            if (node.Left is MemberExpression)
+                return GetValues(node.Left, node.Right);
+            else
+                return GetValues(node.Right, node.Left);
+        }
+
+        internal KeyValuePair<string, object> GetValues(Expression field, Expression value)
+        {
+            return new KeyValuePair<string, object>((string)GetValue(field), GetValue(value));
+        }
+
+        internal object GetValue(Expression expression)
+        {
+            if (expression is ConstantExpression constExp)
+                return constExp.Value;
+            else if (expression is MemberExpression propExp)
+                return Table.Columns.Single(x => x.CsName == propExp.Member.Name).Name;
+            //else if (expression.NodeType == ExpressionType.Lambda)
+            //    return GetValue<T>(((LambdaExpression)expression).Body);
+            else
+                throw new InvalidQueryException("Value is not a member or constant.");
+        }
     }
 }

@@ -1,23 +1,24 @@
 ﻿using System.Linq;
+using System.Linq.Expressions;
 using Modl.Db.Query;
+using Remotion.Linq;
+using Remotion.Linq.Parsing.Structure;
 using Slim.Instances;
 using Slim.Interfaces;
+using Slim.Linq;
 using Slim.Metadata;
 
 namespace Slim
 {
     public class DbRead<T> : Queryable<T>
-        where T : class, IModel
     {
         public DbRead(DatabaseProvider databaseProvider) : base(databaseProvider, databaseProvider.Database.Tables.Single(x => x.CsType == typeof(T)))
         {
-            //this.DatabaseProvider = databaseProvider;
-            //this.Table = databaseProvider.Database.Tables.Single(x => x.CsType == typeof(T));
         }
 
-        //private DatabaseProvider DatabaseProvider { get; } 
-
-        //private Table Table { get; }
+        public DbRead(IQueryProvider provider, Expression expression) : base(provider, expression)
+        {
+        }
 
         public T Get(params object[] id)
         {

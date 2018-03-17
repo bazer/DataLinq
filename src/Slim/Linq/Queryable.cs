@@ -14,7 +14,7 @@ using Slim.Metadata;
 namespace Slim
 {
     public class Queryable<T> : QueryableBase<T>
-        where T : class, IModel
+        //where T : class, IModel
     {
         protected DatabaseProvider DatabaseProvider { get; }
         protected Table Table { get; }
@@ -24,10 +24,10 @@ namespace Slim
         //{
         //}
 
-        //public Queryable(IQueryProvider provider, Expression expression)
-        //    : base(provider, expression)
-        //{
-        //}
+        public Queryable(IQueryProvider provider, Expression expression)
+            : base(provider, expression)
+        {
+        }
 
         public Queryable(DatabaseProvider databaseProvider, Table table) : base(QueryParser.CreateDefault(), new QueryExecutor(databaseProvider, table))
         {

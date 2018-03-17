@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Data;
 using Slim.Extensions;
+using Remotion.Linq.Clauses;
+using System.Linq.Expressions;
 
 namespace Modl.Db.Query
 {
@@ -35,10 +37,12 @@ namespace Modl.Db.Query
             this.IsValue = isValue;
         }
 
-        public Where(string key)
-        {
-            this.Key = key;
-        }
+        //public Where(string key)
+        //{
+        //    this.Key = key;
+        //}
+
+
 
         public Q EqualTo<V>(V value)
         {
@@ -100,8 +104,8 @@ namespace Modl.Db.Query
                 return Query.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + number);
             else
                 return sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
-                
-            
+
+
             //return Query.DatabaseProvider.GetParameterComparison(sql, Key, Relation, Value.ToString());
 
             //return string.Format("{0} {1} @{2}", Key, RelationToString(Relation), number);
@@ -116,7 +120,5 @@ namespace Modl.Db.Query
 
             //return new Tuple<string, object>("@" + number, Value);
         }
-
-        
     }
 }
