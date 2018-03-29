@@ -44,7 +44,7 @@ namespace Modl.Db.Query
         public override Sql ToSql(string paramPrefix)
         {
             var sql = GetWith(
-                new Sql().AddFormat("UPDATE {0} SET ", Table.Name),
+                new Sql().AddFormat("UPDATE {0} SET ", Table.DbName),
                 paramPrefix);
 
             return GetWhere(

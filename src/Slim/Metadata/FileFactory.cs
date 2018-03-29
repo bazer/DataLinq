@@ -13,7 +13,7 @@ namespace Slim.Metadata
 
         public static IEnumerable<(string path, string contents)> CreateModelFiles(Database database, string namespaceName)
         {
-            var dbName = database.Tables.Any(x => x.Name == database.Name) 
+            var dbName = database.Tables.Any(x => x.DbName == database.Name) 
                 ? $"{database.Name}Db"
                 : database.Name;
 
@@ -32,8 +32,8 @@ namespace Slim.Metadata
                     .ToJoinedString("\r\n");
 
                 var path = table.Type == TableType.Table
-                    ? $"Tables{Path.DirectorySeparatorChar}{table.Name}.cs"
-                    : $"Views{Path.DirectorySeparatorChar}{table.Name}.cs";
+                    ? $"Tables{Path.DirectorySeparatorChar}{table.DbName}.cs"
+                    : $"Views{Path.DirectorySeparatorChar}{table.DbName}.cs";
 
                 yield return (path, file);
 
@@ -50,9 +50,9 @@ namespace Slim.Metadata
             yield return $"{tab}public interface {dbName} : IDatabaseModel";
             yield return tab + "{";
 
-            foreach (var t in database.Tables.OrderBy(x => x.Name))
+            foreach (var t in database.Tables.OrderBy(x => x.DbName))
             {
-                yield return $"{tab}{tab}DbRead<{t.Name}> {t.Name} {{ get; }}";
+                yield return $"{tab}{tab}DbRead<{t.DbName}> {t.DbName} {{ get; }}";
             }
 
             yield return tab + "}";
@@ -60,11 +60,11 @@ namespace Slim.Metadata
 
         private static IEnumerable<string> ModelFileContents(Table table)
         {
-            yield return $"{tab}[Name(\"{table.Name}\")]";
-            yield return $"{tab}public interface {table.Name} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
+            yield return $"{tab}[Name(\"{table.DbName}\")]";
+            yield return $"{tab}public interface {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
             yield return tab + "{";
 
-            foreach (var c in table.Columns.OrderByDescending(x => x.PrimaryKey).ThenBy(x => x.Name))
+            foreach (var c in table.Columns.OrderByDescending(x => x.PrimaryKey).ThenBy(x => x.DbName))
             {
                 if (c.PrimaryKey)
                     yield return $"{tab}{tab}[PrimaryKey]";
@@ -72,9 +72,9 @@ namespace Slim.Metadata
                 foreach (var constraint in c.Constraints)
                 {
                     if (constraint.Column == c)
-                        yield return $"{tab}{tab}[ConstraintTo(\"{constraint.ReferencedColumn.Table.Name}\", \"{constraint.ReferencedColumn.Name}\", \"{constraint.Name}\")]";
+                        yield return $"{tab}{tab}[ConstraintTo(\"{constraint.ReferencedColumn.Table.DbName}\", \"{constraint.ReferencedColumn.DbName}\", \"{constraint.Name}\")]";
                     else
-                        yield return $"{tab}{tab}[ConstraintFrom(\"{constraint.Column.Table.Name}\", \"{constraint.Column.Name}\", \"{constraint.Name}\")]";
+                        yield return $"{tab}{tab}[ConstraintFrom(\"{constraint.Column.Table.DbName}\", \"{constraint.Column.DbName}\", \"{constraint.Name}\")]";
                 }
 
                 if (c.Nullable)
@@ -90,7 +90,7 @@ namespace Slim.Metadata
                 //else if (c.ForeignKey && c.Nullable)
                 //    yield return $"{tab}{tab}[ForeignKey(nullable: true)]";
 
-                yield return $"{tab}{tab}{c.CsTypeName}{(c.CsNullable ? "?" : "")} {c.Name} {{ get; }}";
+                yield return $"{tab}{tab}{c.CsTypeName}{(c.CsNullable ? "?" : "")} {c.DbName} {{ get; }}";
                 yield return $"";
             }
 

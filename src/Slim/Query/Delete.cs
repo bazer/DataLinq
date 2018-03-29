@@ -26,7 +26,7 @@ namespace Modl.Db.Query
             //var sql = new Sql().AddFormat("DELETE FROM {0} \r\n", Modl<M, IdType>.Table);
 
             return GetWhere(
-                new Sql().AddFormat("DELETE FROM {0} \r\n", Table.Name),
+                new Sql().AddFormat("DELETE FROM {0} \r\n", Table.DbName),
                 paramPrefix);
 
             //var where = GetWhere(sql, paramPrefix);

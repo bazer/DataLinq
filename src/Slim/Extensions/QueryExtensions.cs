@@ -6,20 +6,27 @@ namespace Slim.Extensions
     {
         public static string ToSql(this Relation relation)
         {
-            if (relation == Relation.Equal)
-                return "=";
-            else if (relation == Modl.Db.Query.Relation.NotEqual)
-                return "<>";
-            else if (relation == Modl.Db.Query.Relation.Like)
-                return "LIKE";
-            else if (relation == Modl.Db.Query.Relation.BiggerThan)
-                return ">";
-            else if (relation == Modl.Db.Query.Relation.BiggerThanOrEqual)
-                return ">=";
-            else if (relation == Modl.Db.Query.Relation.SmallerThan)
-                return "<";
-            else if (relation == Modl.Db.Query.Relation.SmallerThanOrEqual)
-                return "<=";
+            switch (relation)
+            {
+                case Relation.Equal:
+                    return "=";
+                case Relation.EqualNull:
+                    return "IS";
+                case Relation.NotEqual:
+                    return "<>";
+                case Relation.NotEqualNull:
+                    return "IS NOT";
+                case Relation.Like:
+                    return "LIKE";
+                case Relation.BiggerThan:
+                    return ">";
+                case Relation.BiggerThanOrEqual:
+                    return ">=";
+                case Relation.SmallerThan:
+                    return "<";
+                case Relation.SmallerThanOrEqual:
+                    return "<=";
+            }
 
             return null;
         }

@@ -20,13 +20,13 @@ namespace Slim
         {
         }
 
-        public T Get(params object[] id)
-        {
-            return new Select(DatabaseProvider, Table)
-                .Where(Table.Columns.First(x => x.PrimaryKey).Name).EqualTo(id[0])
-                .ReadInstances()
-                .Select(InstanceFactory.NewImmutableRow<T>)
-                .SingleOrDefault();
-        }
+        //public T Get(params object[] id)
+        //{
+        //    return new Select(DatabaseProvider, Table)
+        //        .Where(Table.Columns.First(x => x.PrimaryKey).Name).EqualTo(id[0])
+        //        .ReadInstances()
+        //        .Select(InstanceFactory.NewImmutableRow)
+        //        .SingleOrDefault();
+        //}
     }
 }

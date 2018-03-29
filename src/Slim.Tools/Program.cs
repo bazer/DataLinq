@@ -7,7 +7,7 @@ namespace Slim.Tools
 {
     internal static class Program
     {
-        private static DatabaseProvider DatabaseProvider { get; set; }
+        private static MySQLProvider<information_schema> DatabaseProvider { get; set; }
         private static string DbName { get; set; }
         private static string WritePath { get; set; }
         private static string Namespace { get; set; }

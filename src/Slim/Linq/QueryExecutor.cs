@@ -54,10 +54,27 @@ namespace Slim.Linq
 
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
         {
-            return ParseQueryModel(queryModel)
+            var rows = ParseQueryModel(queryModel)
                 .ReadInstances()
-                .Select(InstanceFactory.NewImmutableRow<T>);
+                .Select(InstanceFactory.NewImmutableRow);
 
+            //if (queryModel.SelectClause != null)
+            //{
+            //    var keySelectorLambda = ReverseResolvingExpressionVisitor.ReverseResolve(input.DataInfo.ItemExpression, KeySelector);
+            //    var keySelector = (Func<TSource, TKey>)keySelectorLambda.Compile();
+
+            //    queryModel.SelectClause.
+
+            //    var lambda = Expression.Lambda(typeof(Func<Table.CsType,>), queryModel.SelectClause.Selector, Expression.Parameter(Table.CsType, "source"));
+            //    var func = lambda.Compile();
+
+            //}
+
+
+            foreach (var row in rows)
+            {
+                yield return (T)row;
+            }
 
 
             // Create an expression that returns the current item when invoked.

@@ -2,16 +2,13 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
-using System.Text;
+using Slim.Extensions;
 using Slim.Metadata;
 
 namespace Slim.Instances
 {
     public class RowData
     {
-        public Dictionary<string, object> Data { get; }
-        public Table Table { get; }
-
         public RowData(Dictionary<string, object> data, Table table)
         {
             Data = data;
@@ -24,15 +21,25 @@ namespace Slim.Instances
             Data = ReadReader(reader, table).ToDictionary(x => x.name, x => x.value);
         }
 
+        public Dictionary<string, object> Data { get; }
+        public Table Table { get; }
+
         private IEnumerable<(string name, object value)> ReadReader(DbDataReader reader, Table table)
         {
             foreach (var column in table.Columns)
             {
-                var ordinal = reader.GetOrdinal(column.Name);
-                yield return (column.CsName, reader.GetValue(ordinal));
+                var ordinal = reader.GetOrdinal(column.DbName);
+                var value = reader.GetValue(ordinal);
+
+                if (value is DBNull)
+                    value = null;
+                else if (column.CsNullable)
+                    value = Convert.ChangeType(value, column.CsType.GetNullableConversionType());
+                else if (value.GetType() != column.CsType)
+                    value = Convert.ChangeType(value, column.CsType);
+
+                yield return (column.CsName, value);
             }
         }
-
-        //private object GetByType()
     }
 }

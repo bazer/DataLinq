@@ -27,16 +27,16 @@ namespace Slim
     public abstract class DatabaseProvider<T> : DatabaseProvider
         where T : class, IDatabaseModel
     {
-        public T Query { get; }
+        public T Schema { get; }
 
         protected DatabaseProvider(string connectionString) : base(connectionString, typeof(T))
         {
-            Query = GetDatabaseInstance();
+            Schema = GetDatabaseInstance();
         }
 
         protected DatabaseProvider(string connectionString, string databaseName) : base(connectionString, typeof(T), databaseName)
         {
-            Query = GetDatabaseInstance();
+            Schema = GetDatabaseInstance();
         }
 
         private T GetDatabaseInstance()

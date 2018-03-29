@@ -10,8 +10,9 @@ namespace Slim.Metadata
             Name = name;
         }
 
+        public List<Constraint> Constraints { get; set; }
         public string Name { get; set; }
-        public List<Table> Tables { get; set; }
         public Type SystemType { get; set; }
+        public List<Table> Tables { get; set; }
     }
 }

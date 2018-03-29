@@ -57,7 +57,7 @@ namespace Modl.Db.Query
         public override Sql ToSql(string paramPrefix)
         {
             return GetWith(
-                new Sql().AddFormat("INSERT INTO {0} ", Table.Name),
+                new Sql().AddFormat("INSERT INTO {0} ", Table.DbName),
                 paramPrefix);
 
             //var with = GetWith(paramPrefix);

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Slim.Metadata;
+using Slim.MySql;
 using Tests.Models;
 using Xunit;
 
@@ -19,22 +20,37 @@ namespace Tests
         [Fact]
         public void TestMetadataFromInterfaceFactory()
         {
-            var database = MetadataFromInterfaceFactory.ParseDatabase(typeof(employeesDb));
+            TestDatabase(MetadataFromInterfaceFactory.ParseDatabase(typeof(employeesDb)), true);
+        }
 
+        [Fact]
+        public void TestMetadataFromSqlFactory()
+        {
+            TestDatabase(MetadataFromSqlFactory.ParseDatabase("employees", fixture.information_schema), false);
+        }
+
+        private void TestDatabase(Database database, bool testCsType)
+        {
             Assert.NotEmpty(database.Tables);
             Assert.Equal(10, database.Tables.Count);
             Assert.Equal(2, database.Tables.Count(x => x.Type == TableType.View));
-            Assert.DoesNotContain(database.Tables, x => x.CsType == null);
+            Assert.Equal(6, database.Constraints.Count);
+            Assert.Contains(database.Tables, x => x.Columns.Any(y => y.Constraints.Any()));
 
-            var employees = database.Tables.Single(x => x.Name == "employees");
+            var employees = database.Tables.Single(x => x.DbName == "employees");
 
             Assert.Equal(6, employees.Columns.Count);
 
-            var emp_no = employees.Columns.Single(x => x.Name == "emp_no");
+            var emp_no = employees.Columns.Single(x => x.DbName == "emp_no");
             Assert.True(emp_no.PrimaryKey);
             Assert.Equal("int", emp_no.DbType);
-            Assert.Equal(typeof(int), emp_no.CsType);
             Assert.Equal("int", emp_no.CsTypeName);
+
+            if (testCsType)
+            {
+                Assert.Equal(typeof(int), emp_no.CsType);
+                Assert.DoesNotContain(database.Tables, x => x.CsType == null);
+            }
         }
     }
 }

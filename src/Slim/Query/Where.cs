@@ -12,7 +12,9 @@ namespace Modl.Db.Query
     public enum Relation
     {
         Equal,
+        EqualNull,
         NotEqual,
+        NotEqualNull,
         Like,
         BiggerThan,
         BiggerThanOrEqual,
@@ -46,43 +48,49 @@ namespace Modl.Db.Query
 
         public Q EqualTo<V>(V value)
         {
-            return SetAndReturn(value, Modl.Db.Query.Relation.Equal);
+#pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
+            return SetAndReturn(value, value == null ? Relation.EqualNull : Relation.Equal);
+#pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
         public Q EqualTo<V>(V value, bool isValue)
         {
             this.IsValue = isValue;
-            return SetAndReturn(value, Modl.Db.Query.Relation.Equal);
+#pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
+            return SetAndReturn(value, value == null ? Relation.EqualNull : Relation.Equal);
+#pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
         public Q NotEqualTo<V>(V value)
         {
-            return SetAndReturn(value, Modl.Db.Query.Relation.NotEqual);
+#pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
+            return SetAndReturn(value, value == null ? Relation.NotEqualNull : Relation.NotEqual);
+#pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
         public Q Like<V>(V value)
         {
-            return SetAndReturn(value, Modl.Db.Query.Relation.Like);
+            return SetAndReturn(value, Relation.Like);
         }
 
         public Q GreaterThan<V>(V value)
         {
-            return SetAndReturn(value, Modl.Db.Query.Relation.BiggerThan);
+            return SetAndReturn(value, Relation.BiggerThan);
         }
 
         public Q GreaterThanOrEqual<V>(V value)
         {
-            return SetAndReturn(value, Modl.Db.Query.Relation.BiggerThanOrEqual);
+            return SetAndReturn(value, Relation.BiggerThanOrEqual);
         }
 
         public Q LessThan<V>(V value)
         {
-            return SetAndReturn(value, Modl.Db.Query.Relation.SmallerThan);
+            return SetAndReturn(value, Relation.SmallerThan);
         }
 
         public Q LessThanOrEqual<V>(V value)
         {
-            return SetAndReturn(value, Modl.Db.Query.Relation.SmallerThanOrEqual);
+            return SetAndReturn(value, Relation.SmallerThanOrEqual);
         }
 
         private Q SetAndReturn<V>(V value, Relation relation)

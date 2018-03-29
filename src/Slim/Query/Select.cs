@@ -34,9 +34,9 @@ namespace Modl.Db.Query
 
         public override Sql ToSql(string paramPrefix)
         {
-            var columns = Table.Columns.Select(x => x.Name).ToJoinedString(", ");
+            var columns = Table.Columns.Select(x => x.DbName).ToJoinedString(", ");
 
-            var sql = new Sql().AddFormat("SELECT {0} FROM {1} \r\n", columns, Table.Name);
+            var sql = new Sql().AddFormat("SELECT {0} FROM {1} \r\n", columns, Table.DbName);
             GetJoins(sql, "");
             GetWhere(sql, paramPrefix);
 

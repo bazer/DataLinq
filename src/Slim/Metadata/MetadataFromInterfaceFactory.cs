@@ -9,7 +9,6 @@ namespace Slim.Metadata
     {
         public static Database ParseDatabase(Type type)
         {
-            //var type = databaseModel.GetType();
             var database = new Database(type.Name);
 
             foreach (var attribute in type.GetCustomAttributes(false))
@@ -23,6 +22,17 @@ namespace Slim.Metadata
                 .Select(GetTableType)
                 .Select(x => ParseTable(database, x))
                 .ToList();
+
+            database.Constraints = database
+                .Tables.SelectMany(x => x.Columns.SelectMany(y => y.Constraints))
+                .ToList();
+
+            foreach (var constraint in database.Constraints)
+            {
+                constraint.ReferencedColumn = database
+                    .Tables.Single(x => x.DbName == constraint.ReferencedTableName)
+                    .Columns.Single(x => x.DbName == constraint.ReferencedColumnName);
+            }
 
             return database;
         }
@@ -41,7 +51,7 @@ namespace Slim.Metadata
         {
             var table = new Table();
             table.Database = database;
-            table.Name = type.Name;
+            table.DbName = type.Name;
             table.CsType = type;
             table.CsTypeName = type.Name;
             table.Type = type.GetInterfaces().Any(x => x.Name == "ITableModel")
@@ -51,7 +61,7 @@ namespace Slim.Metadata
             foreach (var attribute in type.GetCustomAttributes(false))
             {
                 if (attribute is NameAttribute)
-                    table.Name = ((NameAttribute)attribute).Name;
+                    table.DbName = ((NameAttribute)attribute).Name;
             }
 
             table.Columns = type
@@ -66,7 +76,7 @@ namespace Slim.Metadata
         {
             var column = new Column();
             column.Table = table;
-            column.Name = property.Name;
+            column.DbName = property.Name;
             column.CsName = property.Name;
             column.CsType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
             column.CsTypeName = GetKeywordName(column.CsType);
@@ -76,13 +86,16 @@ namespace Slim.Metadata
             foreach (var attribute in property.GetCustomAttributes(false))
             {
                 if (attribute is NameAttribute)
-                    column.Name = ((NameAttribute)attribute).Name;
+                    column.DbName = ((NameAttribute)attribute).Name;
 
                 if (attribute is NullableAttribute)
                     column.Nullable = true;
 
                 if (attribute is PrimaryKeyAttribute)
                     column.PrimaryKey = true;
+
+                if (attribute is ConstraintToAttribute constraintToAttribute)
+                    column.Constraints.Add(constraintToAttribute.ReadAttribute(column));
 
                 if (attribute is TypeAttribute t)
                 {
@@ -93,6 +106,16 @@ namespace Slim.Metadata
 
             return column;
         }
+
+        private static Constraint ReadAttribute(this ConstraintToAttribute attribute, Column column) =>
+            new Constraint
+            {
+                Column = column,
+                ColumnName = column.DbName,
+                Name = attribute.Name,
+                ReferencedColumnName = attribute.Column,
+                ReferencedTableName = attribute.Table
+            };
 
         private static string GetKeywordName(Type type)
         {

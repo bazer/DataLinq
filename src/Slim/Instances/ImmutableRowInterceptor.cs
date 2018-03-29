@@ -1,17 +1,16 @@
-﻿using Castle.DynamicProxy;
-using Slim.Interfaces;
-using System;
+﻿using System;
+using Castle.DynamicProxy;
 
 namespace Slim.Instances
 {
     internal class ImmutableRowInterceptor : IInterceptor
     {
-        public RowData InstanceData { get; }
-
         public ImmutableRowInterceptor(RowData rowData)
         {
-            InstanceData = rowData;
+            RowData = rowData;
         }
+
+        public RowData RowData { get; }
 
         public void Intercept(IInvocation invocation)
         {
@@ -24,20 +23,7 @@ namespace Slim.Instances
                 throw new NotImplementedException();
 
             name = name.Substring(4);
-
-            invocation.ReturnValue = InstanceData.Data[name];
-
-            //if (name == "Modl")
-            //    invocation.ReturnValue = ModlData;
-            //else if (name == "IsMutable")
-            //    invocation.ReturnValue = false;
-            //else if (name == "IsNew")
-            //    invocation.ReturnValue = ModlData.Backer.IsNew;
-            //else
-            //{
-            //    var value = ModlData.Backer.SimpleValueBacker.GetValue(name).Get();
-            //    invocation.ReturnValue = value;
-            //}
+            invocation.ReturnValue = RowData.Data[name];
         }
     }
 }

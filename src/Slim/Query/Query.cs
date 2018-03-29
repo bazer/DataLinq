@@ -141,7 +141,7 @@ namespace Modl.Db.Query
             if (expression is ConstantExpression constExp)
                 return constExp.Value;
             else if (expression is MemberExpression propExp)
-                return Table.Columns.Single(x => x.CsName == propExp.Member.Name).Name;
+                return Table.Columns.Single(x => x.CsName == propExp.Member.Name).DbName;
             //else if (expression.NodeType == ExpressionType.Lambda)
             //    return GetValue<T>(((LambdaExpression)expression).Body);
             else

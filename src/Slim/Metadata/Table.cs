@@ -12,10 +12,10 @@ namespace Slim.Metadata
     public class Table
     {
         public List<Column> Columns { get; set; }
-        public Database Database { get; set; }
-        public string Name { get; set; }
-        public TableType Type { get; set; }
         public Type CsType { get; set; }
         public string CsTypeName { get; set; }
+        public Database Database { get; set; }
+        public string DbName { get; set; }
+        public TableType Type { get; set; }
     }
 }
