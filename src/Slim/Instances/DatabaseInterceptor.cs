@@ -22,10 +22,10 @@ namespace Slim.Instances
         {
             foreach (var table in databaseProvider.Database.Tables)
             {
-                var dbReadType = typeof(DbRead<>).MakeGenericType(table.CsType);
+                var dbReadType = typeof(DbRead<>).MakeGenericType(table.Model.CsType);
                 var dbRead = Activator.CreateInstance(dbReadType, databaseProvider);
 
-                yield return (table.CsTypeName, dbRead);
+                yield return (table.Model.CsTypeName, dbRead);
             }
         }
 

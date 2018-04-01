@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Slim;
 using Slim.Interfaces;
 using Slim.Attributes;
@@ -14,8 +15,6 @@ namespace Tests.Models
         DbRead<dept_emp_latest_date> dept_emp_latest_date { get; }
         DbRead<dept_manager> dept_manager { get; }
         DbRead<employees> employees { get; }
-        DbRead<expected_values> expected_values { get; }
-        DbRead<found_values> found_values { get; }
         DbRead<salaries> salaries { get; }
         DbRead<titles> titles { get; }
     }

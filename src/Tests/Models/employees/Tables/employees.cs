@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Slim;
 using Slim.Interfaces;
 using Slim.Attributes;
@@ -9,12 +10,20 @@ namespace Tests.Models
     public interface employees : ITableModel
     {
         [PrimaryKey]
-        [ConstraintFrom("dept_emp", "emp_no", "dept_emp_ibfk_1")]
-        [ConstraintFrom("dept_manager", "emp_no", "dept_manager_ibfk_1")]
-        [ConstraintFrom("salaries", "emp_no", "salaries_ibfk_1")]
-        [ConstraintFrom("titles", "emp_no", "titles_ibfk_1")]
         [Type("int")]
         int emp_no { get; }
+
+        [Relation("dept_emp", "emp_no")]
+        IEnumerable<dept_emp> dept_emp { get; }
+
+        [Relation("dept_manager", "emp_no")]
+        IEnumerable<dept_manager> dept_manager { get; }
+
+        [Relation("salaries", "emp_no")]
+        IEnumerable<salaries> salaries { get; }
+
+        [Relation("titles", "emp_no")]
+        IEnumerable<titles> titles { get; }
 
         [Type("date")]
         DateTime birth_date { get; }

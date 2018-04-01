@@ -21,32 +21,46 @@ namespace Slim.MySql
             foreach (var key in information_Schema
                 .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == dbName && x.REFERENCED_COLUMN_NAME != null))
             {
-                var constraint = new Constraint
+                var relation = new Relation
                 {
-                    Name = key.CONSTRAINT_NAME,
-                    Column = database
-                        .Tables.Single(x => x.DbName == key.TABLE_NAME)
-                        .Columns.Single(x => x.DbName == key.COLUMN_NAME),
-                    ReferencedColumn = database
-                        .Tables.Single(x => x.DbName == key.REFERENCED_TABLE_NAME)
-                        .Columns.Single(x => x.DbName == key.REFERENCED_COLUMN_NAME)
+                    Constraint = key.CONSTRAINT_NAME,
+                    Type = RelationType.OneToMany
                 };
 
-                constraint.ColumnName = constraint.Column.DbName;
-                constraint.ReferencedColumnName = constraint.ReferencedColumn.DbName;
-                constraint.ReferencedTableName = constraint.ReferencedColumn.Table.DbName;
+                var foreignKeyColumn = database
+                    .Tables.Single(x => x.DbName == key.TABLE_NAME)
+                    .Columns.Single(x => x.DbName == key.COLUMN_NAME);
 
-                constraint.Column.Constraints.Add(constraint);
-                constraint.ReferencedColumn.Constraints.Add(constraint);
+                var candidateKeyColumn = database
+                    .Tables.Single(x => x.DbName == key.REFERENCED_TABLE_NAME)
+                    .Columns.Single(x => x.DbName == key.REFERENCED_COLUMN_NAME);
+
+                relation.ForeignKey = CreateRelationPart(relation, foreignKeyColumn, RelationPartType.ForeignKey);
+                relation.CandidateKey = CreateRelationPart(relation, candidateKeyColumn, RelationPartType.CandidateKey);
             }
 
-            database.Constraints = database
-                .Tables.SelectMany(x => x.Columns.SelectMany(y => y.Constraints))
+            database.Relations = database
+                .Tables.SelectMany(x => x.Columns.SelectMany(y => y.RelationParts.Select(z => z.Relation)))
                 .Distinct()
                 .ToList();
 
             return database;
         }
+
+        private static RelationPart CreateRelationPart(Relation relation, Column column, RelationPartType type)
+        {
+            var relationPart = new RelationPart
+            {
+                Relation = relation,
+                Column = column,
+                Type = type
+            };
+
+            column.RelationParts.Add(relationPart);
+
+            return relationPart;
+        }
+
 
         private static Table ParseTable(Database database, information_schema information_Schema, TABLES dbTables)
         {
@@ -55,7 +69,10 @@ namespace Slim.MySql
             table.Database = database;
             table.DbName = dbTables.TABLE_NAME;
             table.Type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
-            table.CsTypeName = dbTables.TABLE_NAME;
+            table.Model = new Model
+            {
+                CsTypeName = dbTables.TABLE_NAME
+            };
 
             table.Columns = information_Schema
                 .COLUMNS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == table.DbName)
@@ -76,8 +93,11 @@ namespace Slim.MySql
             column.Nullable = dbColumns.IS_NULLABLE == "YES";
             column.Length = dbColumns.CHARACTER_MAXIMUM_LENGTH;
             column.PrimaryKey = dbColumns.COLUMN_KEY == "PRI";
-            column.CsTypeName = ParseCsType(column.DbType);
-            column.CsNullable = column.Nullable && IsCsTypeNullable(column.CsTypeName);
+
+            var property = new Property();
+            property.CsTypeName = ParseCsType(column.DbType);
+            property.CsNullable = column.Nullable && IsCsTypeNullable(property.CsTypeName);
+            column.ValueProperty = property;
 
             return column;
         }

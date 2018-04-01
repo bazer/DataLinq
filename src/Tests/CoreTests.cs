@@ -32,10 +32,10 @@ namespace Tests
         private void TestDatabase(Database database, bool testCsType)
         {
             Assert.NotEmpty(database.Tables);
-            Assert.Equal(10, database.Tables.Count);
+            Assert.Equal(8, database.Tables.Count);
             Assert.Equal(2, database.Tables.Count(x => x.Type == TableType.View));
-            Assert.Equal(6, database.Constraints.Count);
-            Assert.Contains(database.Tables, x => x.Columns.Any(y => y.Constraints.Any()));
+            Assert.Equal(6, database.Relations.Count);
+            Assert.Contains(database.Tables, x => x.Columns.Any(y => y.RelationParts.Any()));
 
             var employees = database.Tables.Single(x => x.DbName == "employees");
 
@@ -44,12 +44,12 @@ namespace Tests
             var emp_no = employees.Columns.Single(x => x.DbName == "emp_no");
             Assert.True(emp_no.PrimaryKey);
             Assert.Equal("int", emp_no.DbType);
-            Assert.Equal("int", emp_no.CsTypeName);
+            Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
 
             if (testCsType)
             {
-                Assert.Equal(typeof(int), emp_no.CsType);
-                Assert.DoesNotContain(database.Tables, x => x.CsType == null);
+                Assert.Equal(typeof(int), emp_no.ValueProperty.CsType);
+                Assert.DoesNotContain(database.Tables, x => x.Model.CsType == null);
             }
         }
     }

@@ -31,7 +31,7 @@ namespace Slim.Tools
 
             var configuration = builder.Build();
 
-            var connectionString = configuration.GetConnectionString("Slim");
+            var connectionString = configuration.GetConnectionString("information_schema");
             DatabaseProvider = new MySQLProvider<information_schema>(connectionString);
         }
     }

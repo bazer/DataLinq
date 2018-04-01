@@ -33,12 +33,12 @@ namespace Slim.Instances
 
                 if (value is DBNull)
                     value = null;
-                else if (column.CsNullable)
-                    value = Convert.ChangeType(value, column.CsType.GetNullableConversionType());
-                else if (value.GetType() != column.CsType)
-                    value = Convert.ChangeType(value, column.CsType);
+                else if (column.ValueProperty.CsNullable)
+                    value = Convert.ChangeType(value, column.ValueProperty.CsType.GetNullableConversionType());
+                else if (value.GetType() != column.ValueProperty.CsType)
+                    value = Convert.ChangeType(value, column.ValueProperty.CsType);
 
-                yield return (column.CsName, value);
+                yield return (column.ValueProperty.CsName, value);
             }
         }
     }

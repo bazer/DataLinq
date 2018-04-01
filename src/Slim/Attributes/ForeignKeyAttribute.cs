@@ -5,9 +5,9 @@ using System.Text;
 namespace Slim.Attributes
 {
     [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
-    public sealed class ConstraintToAttribute : Attribute
+    public sealed class ForeignKeyAttribute : Attribute
     {
-        public ConstraintToAttribute(string table, string column, string name)
+        public ForeignKeyAttribute(string table, string column, string name)
         {
             Table = table;
             Column = column;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Slim;
 using Slim.Interfaces;
 using Slim.Attributes;
@@ -9,9 +10,12 @@ namespace Tests.Models
     public interface salaries : ITableModel
     {
         [PrimaryKey]
-        [ConstraintTo("employees", "emp_no", "salaries_ibfk_1")]
+        [ForeignKey("employees", "emp_no", "salaries_ibfk_1")]
         [Type("int")]
         int emp_no { get; }
+
+        [Relation("employees", "emp_no")]
+        employees employees { get; }
 
         [PrimaryKey]
         [Type("date")]

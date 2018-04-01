@@ -72,7 +72,7 @@ namespace Slim
         public abstract IQuery GetLastIdQuery();
         public abstract Sql GetParameter(Sql sql, string key, object value);
         public abstract Sql GetParameterValue(Sql sql, string key);
-        public abstract Sql GetParameterComparison(Sql sql, string field, Relation relation, string key);
+        public abstract Sql GetParameterComparison(Sql sql, string field, Modl.Db.Query.Relation relation, string key);
 
         public abstract DbDataReader ExecuteReader(IDbCommand command);
         public abstract DbDataReader ExecuteReader(string query);

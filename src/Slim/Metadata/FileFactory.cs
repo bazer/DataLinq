@@ -69,12 +69,9 @@ namespace Slim.Metadata
                 if (c.PrimaryKey)
                     yield return $"{tab}{tab}[PrimaryKey]";
 
-                foreach (var constraint in c.Constraints)
+                foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
                 {
-                    if (constraint.Column == c)
-                        yield return $"{tab}{tab}[ConstraintTo(\"{constraint.ReferencedColumn.Table.DbName}\", \"{constraint.ReferencedColumn.DbName}\", \"{constraint.Name}\")]";
-                    else
-                        yield return $"{tab}{tab}[ConstraintFrom(\"{constraint.Column.Table.DbName}\", \"{constraint.Column.DbName}\", \"{constraint.Name}\")]";
+                    yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.Constraint}\")]";
                 }
 
                 if (c.Nullable)
@@ -85,13 +82,24 @@ namespace Slim.Metadata
                 else
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
 
-                //if (c.ForeignKey && !c.Nullable)
-                //    yield return $"{tab}{tab}[ForeignKey]";
-                //else if (c.ForeignKey && c.Nullable)
-                //    yield return $"{tab}{tab}[ForeignKey(nullable: true)]";
-
-                yield return $"{tab}{tab}{c.CsTypeName}{(c.CsNullable ? "?" : "")} {c.DbName} {{ get; }}";
+                yield return $"{tab}{tab}{c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable ? "?" : "")} {c.DbName} {{ get; }}";
                 yield return $"";
+
+                foreach (var relationPart in c.RelationParts)
+                {
+                    var column = relationPart.Type == RelationPartType.ForeignKey
+                        ? relationPart.Relation.CandidateKey.Column
+                        : relationPart.Relation.ForeignKey.Column;
+
+                    yield return $"{tab}{tab}[Relation(\"{column.Table.DbName}\", \"{column.DbName}\")]";
+
+                    if (relationPart.Type == RelationPartType.ForeignKey)
+                        yield return $"{tab}{tab}{column.Table.Model.CsTypeName} {column.Table.Model.CsTypeName} {{ get; }}";
+                    else
+                        yield return $"{tab}{tab}IEnumerable<{column.Table.Model.CsTypeName}> {column.Table.Model.CsTypeName} {{ get; }}";
+
+                    yield return $"";
+                }
             }
 
             yield return tab + "}";
@@ -105,6 +113,7 @@ namespace Slim.Metadata
         private static IEnumerable<string> FileHeader(string namespaceName)
         {
             yield return "using System;";
+            yield return "using System.Collections.Generic;";
             yield return "using Slim;";
             yield return "using Slim.Interfaces;";
             yield return "using Slim.Attributes;";

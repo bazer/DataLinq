@@ -12,7 +12,7 @@ namespace Slim
 {
     public class DbRead<T> : Queryable<T>
     {
-        public DbRead(DatabaseProvider databaseProvider) : base(databaseProvider, databaseProvider.Database.Tables.Single(x => x.CsType == typeof(T)))
+        public DbRead(DatabaseProvider databaseProvider) : base(databaseProvider, databaseProvider.Database.Tables.Single(x => x.Model.CsType == typeof(T)))
         {
         }
 
