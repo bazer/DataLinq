@@ -60,7 +60,10 @@ namespace Slim
             ConnectionString = connectionString;
 
             if (databaseType != null)
+            {
                 Database = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
+                Database.DatabaseProvider = this;
+            }
 
             if (Name == null && Database != null)
                 Name = Database.Name;

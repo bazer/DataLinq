@@ -1,5 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Castle.DynamicProxy;
+using Modl.Db.Query;
+using Slim.Metadata;
 
 namespace Slim.Instances
 {
@@ -10,7 +14,10 @@ namespace Slim.Instances
             RowData = rowData;
         }
 
-        public RowData RowData { get; }
+        protected List<Property> Properties =>
+            RowData.Table.Model.Properties;
+
+        protected RowData RowData { get; }
 
         public void Intercept(IInvocation invocation)
         {
@@ -23,7 +30,36 @@ namespace Slim.Instances
                 throw new NotImplementedException();
 
             name = name.Substring(4);
-            invocation.ReturnValue = RowData.Data[name];
+
+            var property = Properties.Single(x => x.CsName == name);
+
+            if (property.Type == PropertyType.Value)
+                invocation.ReturnValue = RowData.Data[property.Column.DbName];
+            else
+            {
+                var column = property.Column;
+                var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)
+                    .Where(column.DbName).EqualTo(RowData.Data[property.RelationPart.Column.DbName]);
+
+                var result = select
+                    .ReadInstances()
+                    .Select(InstanceFactory.NewImmutableRow);
+
+                if (property.RelationPart.Type == RelationPartType.ForeignKey)
+                    invocation.ReturnValue = result.SingleOrDefault();
+                else
+                {
+                    var list = result.ToList();
+
+                    if (list.Count != 0)
+                    {
+                        invocation.ReturnValue = typeof(Enumerable)
+                            .GetMethod("Cast")
+                            .MakeGenericMethod(list[0].GetType())
+                            .Invoke(null, new object[] { list });
+                    }
+                }
+            }
         }
     }
 }

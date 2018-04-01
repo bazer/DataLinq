@@ -55,8 +55,8 @@ namespace Slim.Metadata
                 relation.ForeignKey = CreateRelationPart(relation, column, RelationPartType.ForeignKey);
                 relation.CandidateKey = CreateRelationPart(relation, candidateColumn, RelationPartType.CandidateKey);
 
-                AttachRelationProperty(column.Table.Model, candidateColumn);
-                AttachRelationProperty(candidateColumn.Table.Model, column);
+                AttachRelationProperty(relation.ForeignKey, candidateColumn);
+                AttachRelationProperty(relation.CandidateKey, column);
 
                 yield return relation;
             }
@@ -76,9 +76,9 @@ namespace Slim.Metadata
             return relationPart;
         }
 
-        private static Property AttachRelationProperty(Model model, Column column)
+        private static Property AttachRelationProperty(RelationPart relationPart, Column column)
         {
-            var property = model
+            var property = relationPart.Column.Table.Model
                 .Properties.SingleOrDefault(x =>
                     x.Attributes.Any(y => 
                         y is RelationAttribute relationAttribute
@@ -87,6 +87,7 @@ namespace Slim.Metadata
 
             property.Column = column;
             property.Type = PropertyType.Relation;
+            property.RelationPart = relationPart;
             column.RelationProperties.Add(property);
 
             return property;

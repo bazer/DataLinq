@@ -20,5 +20,6 @@ namespace Slim.Metadata
         public Model Model { get; set; }
         public PropertyInfo PropertyInfo { get; set; }
         public PropertyType Type { get; set; }
+        public RelationPart RelationPart { get; set; }
     }
 }

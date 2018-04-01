@@ -38,7 +38,7 @@ namespace Slim.Instances
                 else if (value.GetType() != column.ValueProperty.CsType)
                     value = Convert.ChangeType(value, column.ValueProperty.CsType);
 
-                yield return (column.ValueProperty.CsName, value);
+                yield return (column.DbName, value);
             }
         }
     }
