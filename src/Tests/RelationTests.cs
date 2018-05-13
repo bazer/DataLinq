@@ -33,7 +33,7 @@ namespace Tests
             Assert.NotNull(department.dept_manager);
             Assert.NotEmpty(department.dept_manager);
             Assert.Equal(2, department.dept_manager.Count());
-            Assert.Equal("d005", department.dept_emp.First().departments.dept_no);
+            Assert.Equal("d005", department.dept_manager.First().departments.dept_no);
         }
     }
 }
