@@ -7,7 +7,7 @@ namespace Modl.Db.Query
     public class Delete : Query<Delete>
     //where M : IDbModl, new()
     {
-        private Expression expression;
+        private readonly Expression expression;
 
         public Delete(DatabaseProvider database, Table table) : base(database, table)
         {

@@ -40,11 +40,11 @@ namespace Modl.Db.Query
         public abstract int ParameterCount { get; }
         protected Table Table;
 
-        public Query()
-        {
-        }
+        //public Query()
+        //{
+        //}
 
-        public Query(DatabaseProvider provider, Table table)
+        protected Query(DatabaseProvider provider, Table table)
         {
             this.DatabaseProvider = provider;
             this.Table = table;
@@ -118,7 +118,6 @@ namespace Modl.Db.Query
             var sql = ToSql(string.Empty);
             return sql.Text + "; " + string.Join(", ", sql.Parameters.Select(x => x.ParameterName + ": " + x.Value));
         }
-
 
         internal KeyValuePair<string, object> GetFields(BinaryExpression node)
         {

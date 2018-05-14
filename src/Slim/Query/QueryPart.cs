@@ -11,9 +11,5 @@ namespace Modl.Db.Query
     {
         public abstract Sql GetCommandString(Sql sql, string prefix, int number);
         public abstract Sql GetCommandParameter(Sql sql, string prefix, int number);
-
-        public QueryPart()
-        {
-        }
     }
 }

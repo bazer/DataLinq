@@ -44,6 +44,7 @@ namespace Slim
             return InstanceFactory.NewDatabase<T>(this);
         }
     }
+
     public abstract class DatabaseProvider
     {
         //public readonly DatabaseType Type;
@@ -85,17 +86,20 @@ namespace Slim
         public IEnumerable<DbDataReader> ReadReader(IDbCommand command)
         {
             using (var reader = ExecuteReader(command))
+            {
                 while (reader.Read())
                     yield return reader;
+            }
         }
 
         public IEnumerable<DbDataReader> ReadReader(string query)
         {
             using (var reader = ExecuteReader(query))
+            {
                 while (reader.Read())
                     yield return reader;
+            }
         }
-
 
         //internal static List<IDbCommand> GetDbCommands(List<IQuery> queries)
         //{
@@ -144,8 +148,6 @@ namespace Slim
         //    }
         //}
 
-
-
         ////internal static Database AddFromConnectionString(ConnectionStringSettings connectionConfig)
         ////{
         ////    return Config.AddDatabase(Database.GetNewDatabaseProvider(connectionConfig));
@@ -190,8 +192,6 @@ namespace Slim
         //{
         //    Config.RemoveAllDatabases();
         //}
-
-
 
         //public M New<M, IdType>() where M : Modl<M, IdType>, new()
         //{
@@ -246,7 +246,6 @@ namespace Slim
         //object Execute(Expression expression)
         //{
         //    //Type elementType = TypeSystem.GetElementType(expression.Type);
-
 
         //    //var method = expression.Type.GetMethods(BindingFlags.Static | BindingFlags.FlattenHierarchy | BindingFlags.Public).Single(x => x.Name == "Get" && x.GetParameters().Count() == 2);
         //    //return method.Invoke(null, new object[] { Convert.ToInt32(value.AttemptedValue), true });

@@ -9,7 +9,7 @@ namespace Tests
     [Collection("Database")]
     public class RelationTests
     {
-        private DatabaseFixture fixture;
+        private readonly DatabaseFixture fixture;
 
         public RelationTests(DatabaseFixture fixture)
         {

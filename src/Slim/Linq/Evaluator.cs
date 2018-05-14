@@ -39,7 +39,7 @@ namespace Modl.Db.Linq
         /// </summary>
         class SubtreeEvaluator : ExpressionVisitor
         {
-            HashSet<Expression> candidates;
+            readonly HashSet<Expression> candidates;
 
             internal SubtreeEvaluator(HashSet<Expression> candidates)
             {
@@ -82,7 +82,7 @@ namespace Modl.Db.Linq
         /// </summary>
         class Nominator : ExpressionVisitor
         {
-            Func<Expression, bool> fnCanBeEvaluated;
+            readonly Func<Expression, bool> fnCanBeEvaluated;
             HashSet<Expression> candidates;
             bool cannotBeEvaluated;
 

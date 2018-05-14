@@ -7,8 +7,8 @@ namespace Modl.Db.Query
 {
     public class Literal : IQuery
     {
-        private string sql;
-        private IEnumerable<IDataParameter> parameters;
+        private readonly string sql;
+        private readonly IEnumerable<IDataParameter> parameters;
         protected DatabaseProvider provider;
         public DatabaseProvider DatabaseProvider { get { return provider; } }
 

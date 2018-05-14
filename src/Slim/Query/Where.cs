@@ -26,11 +26,11 @@ namespace Modl.Db.Query
         //where M : IDbModl, new()
         where Q : Query<Q>
     {
-        Q Query;
-        string Key;
-        object Value;
-        Relation Relation;
-        bool IsValue = true;
+        private readonly Q Query;
+        private readonly string Key;
+        private object Value;
+        private Relation Relation;
+        private bool IsValue = true;
 
         internal Where(Q query, string key, bool isValue = true)
         {
@@ -43,8 +43,6 @@ namespace Modl.Db.Query
         //{
         //    this.Key = key;
         //}
-
-
 
         public Q EqualTo<V>(V value)
         {
@@ -112,7 +110,6 @@ namespace Modl.Db.Query
                 return Query.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + number);
             else
                 return sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
-
 
             //return Query.DatabaseProvider.GetParameterComparison(sql, Key, Relation, Value.ToString());
 

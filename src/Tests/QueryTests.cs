@@ -9,13 +9,12 @@ namespace Tests
     [Collection("Database")]
     public class QueryTests
     {
-        private DatabaseFixture fixture;
+        private readonly DatabaseFixture fixture;
 
         public QueryTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
         }
-
 
         [Fact]
         public void ToList()
@@ -34,7 +33,7 @@ namespace Tests
         {
             var where = fixture.employeesDb.departments.Where(x => x.dept_no == "d005").ToList();
             Assert.Single(where);
-            Assert.Equal("d005", where.First().dept_no);
+            Assert.Equal("d005", where[0].dept_no);
         }
 
         [Fact]
@@ -42,7 +41,7 @@ namespace Tests
         {
             var where = fixture.employeesDb.departments.Where(x => "d005" == x.dept_no).ToList();
             Assert.Single(where);
-            Assert.Equal("d005", where.First().dept_no);
+            Assert.Equal("d005", where[0].dept_no);
         }
 
         [Fact]

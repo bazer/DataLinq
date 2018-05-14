@@ -14,10 +14,10 @@ namespace Slim.Metadata
 
             foreach (var attribute in type.GetCustomAttributes(false))
             {
-                if (attribute is NameAttribute)
-                    database.Name = ((NameAttribute)attribute).Name;
+                if (attribute is NameAttribute nameAttribute)
+                    database.Name = nameAttribute.Name;
             }
-            
+
             database.Models = type
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Select(GetTableType)
@@ -80,7 +80,7 @@ namespace Slim.Metadata
         {
             var property = relationPart.Column.Table.Model
                 .Properties.SingleOrDefault(x =>
-                    x.Attributes.Any(y => 
+                    x.Attributes.Any(y =>
                         y is RelationAttribute relationAttribute
                         && relationAttribute.Table == column.Table.DbName
                         && relationAttribute.Column == column.DbName));
@@ -123,18 +123,20 @@ namespace Slim.Metadata
 
         private static Table ParseTable(Model model)
         {
-            var table = new Table();
-            table.Model = model;
-            table.Database = model.Database;
-            table.DbName = model.CsTypeName;
-            table.Type = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel")
-                ? TableType.Table
-                : TableType.View;
+            var table = new Table
+            {
+                Model = model,
+                Database = model.Database,
+                DbName = model.CsTypeName,
+                Type = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel")
+                    ? TableType.Table
+                    : TableType.View
+            };
 
             foreach (var attribute in model.Attributes)
             {
-                if (attribute is NameAttribute)
-                    table.DbName = ((NameAttribute)attribute).Name;
+                if (attribute is NameAttribute nameAttribute)
+                    table.DbName = nameAttribute.Name;
             }
 
             table.Columns = model.Properties
@@ -147,17 +149,20 @@ namespace Slim.Metadata
 
         private static Column ParseColumn(Table table, Property property)
         {
-            var column = new Column();
-            column.Table = table;
-            column.DbName = property.PropertyInfo.Name;
-            column.ValueProperty = property;
+            var column = new Column
+            {
+                Table = table,
+                DbName = property.PropertyInfo.Name,
+                ValueProperty = property
+            };
+
             property.Column = column;
             property.Type = PropertyType.Value;
 
             foreach (var attribute in property.Attributes)
             {
-                if (attribute is NameAttribute)
-                    column.DbName = ((NameAttribute)attribute).Name;
+                if (attribute is NameAttribute nameAttribute)
+                    column.DbName = nameAttribute.Name;
 
                 if (attribute is NullableAttribute)
                     column.Nullable = true;
@@ -194,7 +199,7 @@ namespace Slim.Metadata
 
             return property;
         }
-        
+
         private static string GetKeywordName(Type type)
         {
             switch (type.Name)

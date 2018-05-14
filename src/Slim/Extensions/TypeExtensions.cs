@@ -6,7 +6,7 @@ namespace Slim.Extensions
 {
     internal static class TypeExtensions
     {
-        private static ConcurrentDictionary<Type, Type> nullableTypes = new ConcurrentDictionary<Type, Type>();
+        private static readonly ConcurrentDictionary<Type, Type> nullableTypes = new ConcurrentDictionary<Type, Type>();
 
         internal static Type GetNullableConversionType(this Type returnType)
         {

@@ -50,7 +50,6 @@ namespace Slim.Linq
 
             return select;
         }
-        
 
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
         {
@@ -70,18 +69,15 @@ namespace Slim.Linq
 
             //}
 
-
             foreach (var row in rows)
             {
                 yield return (T)row;
             }
 
-
             // Create an expression that returns the current item when invoked.
             //Expression currentItemExpression = Expression.Property(Expression.Constant(this), "Current");
 
             //yield return default;
-
 
             //// Now replace references like the "i" in "select i" that refers to the "i" in "from i in items"
             //var mapping = new QuerySourceMapping();

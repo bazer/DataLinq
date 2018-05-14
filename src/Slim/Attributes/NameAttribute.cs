@@ -9,7 +9,7 @@ namespace Slim.Attributes
         {
             Name = name;
         }
-        
+
         public string Name { get; }
     }
 }

@@ -11,7 +11,7 @@ namespace Slim.Instances
 {
     public static class InstanceFactory
     {
-        private static ProxyGenerator generator = new ProxyGenerator();
+        private static readonly ProxyGenerator generator = new ProxyGenerator();
 
         public static object NewImmutableRow(RowData instanceData) // where T : class, IModel
         {
@@ -113,9 +113,6 @@ namespace Slim.Instances
     //            }
     //        }
 
-
-            
-
     //        private IEnumerable<Change> GetChanges()
     //        {
     //            if (immutableInstance.IsNew)
@@ -130,7 +127,7 @@ namespace Slim.Instances
     //                var oldProperty = newProperty.Metadata.IsLink 
     //                    ? new RelationProperty(newProperty.Metadata, mutatedValue.Key, immutableInstance.Modl.Backer.RelationValueBacker.GetValue(mutatedValue.Key).Get() as IModl) as IProperty
     //                    : new SimpleProperty(newProperty.Metadata, immutableInstance.Modl.Backer.SimpleValueBacker.GetValue(mutatedValue.Key).Get());
-                    
+
     //                yield return new Change(Guid.NewGuid(), immutableInstance, oldProperty, newProperty, ChangeType.Value);
     //            }
     //        }
@@ -152,7 +149,6 @@ namespace Slim.Instances
 
     internal struct InvocationInfo
     {
-        
 
         internal CallType CallType { get; }
         internal MethodType MethodType { get; }

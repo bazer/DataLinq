@@ -34,7 +34,9 @@ namespace Slim.Instances
             var property = Properties.Single(x => x.CsName == name);
 
             if (property.Type == PropertyType.Value)
+            {
                 invocation.ReturnValue = RowData.Data[property.Column.DbName];
+            }
             else
             {
                 var column = property.Column;
@@ -46,7 +48,9 @@ namespace Slim.Instances
                     .Select(InstanceFactory.NewImmutableRow);
 
                 if (property.RelationPart.Type == RelationPartType.ForeignKey)
+                {
                     invocation.ReturnValue = result.SingleOrDefault();
+                }
                 else
                 {
                     var list = result.ToList();

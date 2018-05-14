@@ -9,11 +9,11 @@ namespace Slim.Metadata
 {
     public static class FileFactory
     {
-        static string tab = "    ";
+        static readonly string tab = "    ";
 
         public static IEnumerable<(string path, string contents)> CreateModelFiles(Database database, string namespaceName)
         {
-            var dbName = database.Tables.Any(x => x.DbName == database.Name) 
+            var dbName = database.Tables.Any(x => x.DbName == database.Name)
                 ? $"{database.Name}Db"
                 : database.Name;
 

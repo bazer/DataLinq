@@ -9,10 +9,7 @@ namespace Slim.Attributes
     {
         public PrimaryKeyAttribute()
         {
-            
+
         }
-
-        
     }
-
 }

@@ -6,7 +6,7 @@ namespace Modl.Db.Query
 {
     public class Sql
     {
-        private StringBuilder builder = new StringBuilder();
+        private readonly StringBuilder builder = new StringBuilder();
         public List<IDataParameter> Parameters = new List<IDataParameter>();
         public string Text { get { return builder.ToString(); } }
 

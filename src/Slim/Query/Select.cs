@@ -21,7 +21,7 @@ namespace Modl.Db.Query
         public Select(DatabaseProvider database, Table table)
             : base(database, table)
         {
-            
+
         }
 
         //public Select(DatabaseProvider database, Table table, Expression expression)
@@ -82,9 +82,6 @@ namespace Modl.Db.Query
                 .ReadReader(DatabaseProvider.ToDbCommand(this))
                 .Select(x => new RowData(x, Table));
         }
-
-
-
 
         //public DbDataReader Execute()
         //{

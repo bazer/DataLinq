@@ -7,7 +7,7 @@ namespace Slim.Exceptions
 {
     public class InvalidQueryException : System.Exception
     {
-        private string message;
+        private readonly string message;
 
         public InvalidQueryException(string message)
         {

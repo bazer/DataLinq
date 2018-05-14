@@ -16,6 +16,5 @@ namespace Slim.Metadata
         public Type CsType { get; set; }
         public List<Table> Tables { get; set; }
         public List<Model> Models { get; set; }
-
     }
 }

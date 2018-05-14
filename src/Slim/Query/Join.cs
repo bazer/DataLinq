@@ -15,12 +15,11 @@ namespace Modl.Db.Query
     public class Join<Q>
         where Q : Query<Q>
     {
-        Q Query;
-        string TableName;
-        JoinType Type;
+        readonly Q Query;
+        readonly string TableName;
+        readonly JoinType Type;
 
         protected List<Where<Q>> whereList = new List<Where<Q>>();
-
 
         internal Join(Q query, string tableName, JoinType type)
         {

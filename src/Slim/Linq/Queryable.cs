@@ -37,7 +37,5 @@ namespace Slim
             //this.DatabaseProvider = databaseProvider;
             //this.Table = databaseProvider.Database.Tables.Single(x => x.CsType == typeof(T));
         }
-
-     
     }
 }

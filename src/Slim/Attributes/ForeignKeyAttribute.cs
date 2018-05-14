@@ -18,5 +18,4 @@ namespace Slim.Attributes
         public string Column { get; }
         public string Name { get; }
     }
-
 }
