@@ -28,15 +28,7 @@ namespace Slim.Instances
         {
             foreach (var column in table.Columns)
             {
-                var ordinal = reader.GetOrdinal(column.DbName);
-                var value = reader.GetValue(ordinal);
-
-                if (value is DBNull)
-                    value = null;
-                else if (column.ValueProperty.CsNullable)
-                    value = Convert.ChangeType(value, column.ValueProperty.CsType.GetNullableConversionType());
-                else if (value.GetType() != column.ValueProperty.CsType)
-                    value = Convert.ChangeType(value, column.ValueProperty.CsType);
+                var value = reader.ReadColumn(column);
 
                 yield return (column.DbName, value);
             }

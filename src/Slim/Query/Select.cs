@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using Remotion.Linq.Clauses;
 using Slim;
+using Slim.Cache;
 using Slim.Exceptions;
 using Slim.Extensions;
 using Slim.Instances;
@@ -81,6 +82,13 @@ namespace Modl.Db.Query
             return DatabaseProvider
                 .ReadReader(DatabaseProvider.ToDbCommand(this))
                 .Select(x => new RowData(x, Table));
+        }
+
+        public IEnumerable<RowKey> ReadKeys()
+        {
+            return DatabaseProvider
+                .ReadReader(DatabaseProvider.ToDbCommand(this))
+                .Select(x => new RowKey(x, Table));
         }
 
         //public DbDataReader Execute()

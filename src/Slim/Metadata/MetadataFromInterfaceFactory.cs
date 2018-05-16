@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Slim.Attributes;
+using Slim.Cache;
 
 namespace Slim.Metadata
 {
@@ -143,6 +144,8 @@ namespace Slim.Metadata
                 .Where(x => !x.Attributes.Any(attribute => attribute is RelationAttribute))
                 .Select(x => ParseColumn(table, x))
                 .ToList();
+
+            table.Cache = new TableCache(table);
 
             return table;
         }

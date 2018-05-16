@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Slim.Cache;
 
 namespace Slim.Metadata
 {
@@ -15,5 +16,6 @@ namespace Slim.Metadata
         public string DbName { get; set; }
         public Model Model { get; set; }
         public TableType Type { get; set; }
+        public TableCache Cache { get; set; }
     }
 }

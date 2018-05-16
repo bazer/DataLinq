@@ -40,12 +40,15 @@ namespace Slim.Instances
             else
             {
                 var column = property.Column;
-                var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)
-                    .Where(column.DbName).EqualTo(RowData.Data[property.RelationPart.Column.DbName]);
+                var result = column.Table.Cache.GetRows(column, RowData.Data[property.RelationPart.Column.DbName]);
 
-                var result = select
-                    .ReadInstances()
-                    .Select(InstanceFactory.NewImmutableRow);
+                //var column = property.Column;
+                //var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)
+                //    .Where(column.DbName).EqualTo(RowData.Data[property.RelationPart.Column.DbName]);
+
+                //var result = select
+                //    .ReadInstances()
+                //    .Select(InstanceFactory.NewImmutableRow);
 
                 if (property.RelationPart.Type == RelationPartType.ForeignKey)
                 {
