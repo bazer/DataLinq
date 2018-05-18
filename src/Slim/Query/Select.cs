@@ -18,6 +18,7 @@ namespace Modl.Db.Query
     {
         //private Expression expression;
         protected List<Join<Select>> joinList = new List<Join<Select>>();
+        protected List<Column> columnsToSelect;
 
         public Select(DatabaseProvider database, Table table)
             : base(database, table)
@@ -35,7 +36,7 @@ namespace Modl.Db.Query
 
         public override Sql ToSql(string paramPrefix)
         {
-            var columns = Table.Columns.Select(x => x.DbName).ToJoinedString(", ");
+            var columns = (columnsToSelect ?? Table.Columns).Select(x => x.DbName).ToJoinedString(", ");
 
             var sql = new Sql().AddFormat("SELECT {0} FROM {1} \r\n", columns, Table.DbName);
             GetJoins(sql, "");
@@ -89,6 +90,13 @@ namespace Modl.Db.Query
             return DatabaseProvider
                 .ReadReader(DatabaseProvider.ToDbCommand(this))
                 .Select(x => new RowKey(x, Table));
+        }
+
+        public Select What(IEnumerable<Column> columns)
+        {
+            columnsToSelect = columns.ToList();
+
+            return this;
         }
 
         //public DbDataReader Execute()

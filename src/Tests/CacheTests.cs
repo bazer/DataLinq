@@ -43,15 +43,20 @@ namespace Tests
             Assert.NotEmpty(employee.dept_emp);
             Assert.Equal(2, employee.dept_emp.Count());
 
-            var dept = fixture.employeesDb.departments.Single(x => x.dept_no == "d004");
+            var dept = fixture.employeesDb.departments.Single(x => x.dept_no == "d002");
             Assert.NotNull(dept);
             Assert.NotEmpty(dept.dept_emp);
-            Assert.Equal(73485, dept.dept_emp.Count());
+            Assert.Equal(17346, dept.dept_emp.Count());
+
+            var dept6 = fixture.employeesDb.departments.Single(x => x.dept_no == "d006");
+            Assert.NotNull(dept6);
+            Assert.NotEmpty(dept6.dept_emp);
+            Assert.Equal(20117, dept6.dept_emp.Count());
 
             var table = fixture.employeesDb_provider.Database
                 .Tables.Single(x => x.DbName == "dept_emp");
 
-            Assert.Equal(73487, table.Cache.RowCount);
+            Assert.Equal(20117 + 17346 + 2 - 1, table.Cache.RowCount);
         }
     }
 }
