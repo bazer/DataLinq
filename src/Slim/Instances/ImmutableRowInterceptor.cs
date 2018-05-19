@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Castle.DynamicProxy;
@@ -18,6 +19,7 @@ namespace Slim.Instances
             RowData.Table.Model.Properties;
 
         protected RowData RowData { get; }
+        protected ConcurrentDictionary<string, object> RelationCache;
 
         public void Intercept(IInvocation invocation)
         {
@@ -39,33 +41,47 @@ namespace Slim.Instances
             }
             else
             {
-                var column = property.Column;
-                var result = column.Table.Cache.GetRows(column, RowData.Data[property.RelationPart.Column.DbName]);
+                if (RelationCache == null)
+                    RelationCache = new ConcurrentDictionary<string, object>();
 
-                //var column = property.Column;
-                //var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)
-                //    .Where(column.DbName).EqualTo(RowData.Data[property.RelationPart.Column.DbName]);
-
-                //var result = select
-                //    .ReadInstances()
-                //    .Select(InstanceFactory.NewImmutableRow);
-
-                if (property.RelationPart.Type == RelationPartType.ForeignKey)
+                if (!RelationCache.TryGetValue(name, out object returnvalue))
                 {
-                    invocation.ReturnValue = result.SingleOrDefault();
-                }
-                else
-                {
-                    var list = result.ToList();
+                    var column = property.Column;
+                    var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.Data[property.RelationPart.Column.DbName]));
 
-                    if (list.Count != 0)
+                    //var column = property.Column;
+                    //var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)
+                    //    .Where(column.DbName).EqualTo(RowData.Data[property.RelationPart.Column.DbName]);
+
+                    //var result = select
+                    //    .ReadInstances()
+                    //    .Select(InstanceFactory.NewImmutableRow);
+
+
+
+                    if (property.RelationPart.Type == RelationPartType.ForeignKey)
                     {
-                        invocation.ReturnValue = typeof(Enumerable)
-                            .GetMethod("Cast")
-                            .MakeGenericMethod(list[0].GetType())
-                            .Invoke(null, new object[] { list });
+                        returnvalue = result.SingleOrDefault();
+                        
+                        //invocation.ReturnValue = result.SingleOrDefault();
                     }
+                    else
+                    {
+                        var list = result.ToList();
+
+                        if (list.Count != 0)
+                        {
+                            returnvalue = typeof(Enumerable)
+                                .GetMethod("Cast")
+                                .MakeGenericMethod(list[0].GetType())
+                                .Invoke(null, new object[] { list });
+                        }
+                    }
+
+                    RelationCache.TryAdd(name, returnvalue);
                 }
+
+                invocation.ReturnValue = returnvalue;
             }
         }
     }

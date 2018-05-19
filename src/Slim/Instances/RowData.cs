@@ -24,8 +24,8 @@ namespace Slim.Instances
         public Dictionary<string, object> Data { get; }
         public Table Table { get; }
 
-        public RowKey GetKey() => 
-            new RowKey(this);
+        public PrimaryKeys GetKey() => 
+            new PrimaryKeys(this);
 
         private IEnumerable<(string name, object value)> ReadReader(DbDataReader reader, Table table)
         {

@@ -85,11 +85,11 @@ namespace Modl.Db.Query
                 .Select(x => new RowData(x, Table));
         }
 
-        public IEnumerable<RowKey> ReadKeys()
+        public IEnumerable<PrimaryKeys> ReadKeys()
         {
             return DatabaseProvider
                 .ReadReader(DatabaseProvider.ToDbCommand(this))
-                .Select(x => new RowKey(x, Table));
+                .Select(x => new PrimaryKeys(x, Table));
         }
 
         public Select What(IEnumerable<Column> columns)

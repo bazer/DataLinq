@@ -37,26 +37,29 @@ namespace Tests
         [Fact]
         public void CheckRowDuplicates()
         {
-            var employee = fixture.employeesDb.employees.Single(x => x.emp_no == 10010);
+            for (var i = 0; i < 100; i++)
+            {
+                var employee = fixture.employeesDb.employees.Single(x => x.emp_no == 10010);
 
-            Assert.NotNull(employee);
-            Assert.NotEmpty(employee.dept_emp);
-            Assert.Equal(2, employee.dept_emp.Count());
+                Assert.NotNull(employee);
+                Assert.NotEmpty(employee.dept_emp);
+                Assert.Equal(2, employee.dept_emp.Count());
 
-            var dept = fixture.employeesDb.departments.Single(x => x.dept_no == "d002");
-            Assert.NotNull(dept);
-            Assert.NotEmpty(dept.dept_emp);
-            Assert.Equal(17346, dept.dept_emp.Count());
+                var dept = fixture.employeesDb.departments.Single(x => x.dept_no == "d002");
+                Assert.NotNull(dept);
+                Assert.NotEmpty(dept.dept_emp);
+                Assert.Equal(17346, dept.dept_emp.Count());
 
-            var dept6 = fixture.employeesDb.departments.Single(x => x.dept_no == "d006");
-            Assert.NotNull(dept6);
-            Assert.NotEmpty(dept6.dept_emp);
-            Assert.Equal(20117, dept6.dept_emp.Count());
+                var dept6 = fixture.employeesDb.departments.Single(x => x.dept_no == "d006");
+                Assert.NotNull(dept6);
+                Assert.NotEmpty(dept6.dept_emp);
+                Assert.Equal(20117, dept6.dept_emp.Count());
 
-            var table = fixture.employeesDb_provider.Database
-                .Tables.Single(x => x.DbName == "dept_emp");
+                var table = fixture.employeesDb_provider.Database
+                    .Tables.Single(x => x.DbName == "dept_emp");
 
-            Assert.Equal(20117 + 17346 + 2 - 1, table.Cache.RowCount);
+                Assert.Equal(20117 + 17346 + 2 - 1, table.Cache.RowCount);
+            }
         }
     }
 }

@@ -12,27 +12,29 @@ namespace Slim.Cache
 {
     public class TableCache
     {
-        protected ConcurrentDictionary<RowKey, object> Rows = new ConcurrentDictionary<RowKey, object>();
+        protected ConcurrentDictionary<PrimaryKeys, object> Rows = new ConcurrentDictionary<PrimaryKeys, object>();
+        protected int primaryKeyColumnsCount;
 
         public TableCache(Table table)
         {
             this.Table = table;
+            this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Count;
         }
 
         public int RowCount => Rows.Count;
         public Table Table { get; }
 
-        public IEnumerable<RowKey> GetKeys(Column column, object foreignKey)
+        public IEnumerable<PrimaryKeys> GetKeys(ForeignKey foreignKey)
         {
             var select = new Select(Table.Database.DatabaseProvider, Table)
-                .What(Table.Columns.Where(x => x.PrimaryKey))
-                .Where(column.DbName).EqualTo(foreignKey);
+                .What(Table.PrimaryKeyColumns)
+                .Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data);
 
             return select
                 .ReadKeys();
         }
 
-        public IEnumerable<RowData> GetRowData(IEnumerable<RowKey> keys)
+        public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys)
         {
             var select = new Select(Table.Database.DatabaseProvider, Table);
 
@@ -41,20 +43,38 @@ namespace Slim.Cache
                 .Append(Table.DbName)
                 .Append(" WHERE ")
                 .Append(keys
-                    .Select(x => $"({x.Data.Select(y => $"{y.column.DbName} = '{y.value}'").ToJoinedString(" AND ")})")
+                    .Select(x => $"({formatRowKey(x.Data).ToJoinedString(" AND ")})")
                     .ToJoinedString(" OR "));
 
             return Table.Database.DatabaseProvider.ReadReader(query.ToString())
                 .Select(x => new RowData(x, Table));
+
+            IEnumerable<string> formatRowKey(object[] data)
+            {
+                for (var i = 0; i < primaryKeyColumnsCount; i++)
+                    yield return $"{Table.PrimaryKeyColumns[i].DbName} = '{data[i]}'";
+            }
         }
 
-        public IEnumerable<object> GetRows(Column column, object foreignKey)
+        public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey)
         {
-            var keys = column.Index.GetOrAdd(foreignKey, x => GetKeys(column, x).ToArray());
+            var select = new Select(Table.Database.DatabaseProvider, Table);
+            select.Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data);
 
+            return select.ReadInstances();
+        }
 
-            var keysToLoad = new List<RowKey>(keys.Length);
-            foreach (var key in keys)
+        public IEnumerable<object> GetRows(ForeignKey foreignKey)
+        {
+            var keys = foreignKey.Column.Index.GetOrAdd(foreignKey.Data, _ => GetKeys(foreignKey).ToArray());
+
+            return GetRows(keys, foreignKey);
+        }
+
+        public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, ForeignKey foreignKey = null)
+        {
+            var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
+            foreach (var key in primaryKeys)
             {
                 if (Rows.TryGetValue(key, out object row))
                     yield return row;
@@ -62,11 +82,21 @@ namespace Slim.Cache
                     keysToLoad.Add(key);
             }
 
-            if (keysToLoad.Count < keys.Length / 2)
+            if (foreignKey != null && keysToLoad.Count > primaryKeys.Length / 2)
+            {
+                foreach (var rowData in GetRowDataFromForeignKey(foreignKey))
+                {
+                    var row = InstanceFactory.NewImmutableRow(rowData);
+
+                    if (Rows.TryAdd(rowData.GetKey(), row))
+                        yield return row;
+                }
+            }
+            else if (keysToLoad.Count != 0)
             {
                 foreach (var split in keysToLoad.splitList(100))
                 {
-                    foreach (var rowData in GetRowData(split))
+                    foreach (var rowData in GetRowDataFromPrimaryKeys(split))
                     {
                         var row = InstanceFactory.NewImmutableRow(rowData);
 
@@ -75,17 +105,6 @@ namespace Slim.Cache
 
                         yield return row;
                     }
-                }
-            }
-            else if (keysToLoad.Count != 0)
-            {
-                var key = new RowKey((column, foreignKey));
-                foreach (var rowData in GetRowData(key.Yield()))
-                {
-                    var row = InstanceFactory.NewImmutableRow(rowData);
-
-                    if (Rows.TryAdd(rowData.GetKey(), row))
-                        yield return row;
                 }
             }
         }

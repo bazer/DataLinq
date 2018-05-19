@@ -17,6 +17,6 @@ namespace Slim.Metadata
         public List<Property> RelationProperties { get; set; } = new List<Property>();
         public Table Table { get; set; }
         public Property ValueProperty { get; set; }
-        public ConcurrentDictionary<object, RowKey[]> Index { get; } = new ConcurrentDictionary<object, RowKey[]>();
+        public ConcurrentDictionary<object, PrimaryKeys[]> Index { get; } = new ConcurrentDictionary<object, PrimaryKeys[]>();
     }
 }

@@ -14,13 +14,6 @@ using Slim.Metadata;
 
 namespace Slim.Linq
 {
-    //The item type that our data source will return.
-    //public class SampleDataSourceItem
-    //{
-    //    public string Name { get; set; }
-    //    public string Description { get; set; }
-    //}
-
     internal class QueryExecutor : IQueryExecutor
     {
         internal QueryExecutor(DatabaseProvider databaseProvider, Table table)
@@ -32,9 +25,6 @@ namespace Slim.Linq
         private DatabaseProvider DatabaseProvider { get; }
 
         private Table Table { get; }
-
-        // Set up a proeprty that will hold the current item being enumerated.
-        //public SampleDataSourceItem Current { get; private set; }
 
         private Select ParseQueryModel(QueryModel queryModel)
         {
@@ -53,57 +43,29 @@ namespace Slim.Linq
 
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
         {
-            var rows = ParseQueryModel(queryModel)
-                .ReadInstances()
-                .Select(InstanceFactory.NewImmutableRow);
 
-            //if (queryModel.SelectClause != null)
-            //{
-            //    var keySelectorLambda = ReverseResolvingExpressionVisitor.ReverseResolve(input.DataInfo.ItemExpression, KeySelector);
-            //    var keySelector = (Func<TSource, TKey>)keySelectorLambda.Compile();
+            var select = ParseQueryModel(queryModel);
 
-            //    queryModel.SelectClause.
-
-            //    var lambda = Expression.Lambda(typeof(Func<Table.CsType,>), queryModel.SelectClause.Selector, Expression.Parameter(Table.CsType, "source"));
-            //    var func = lambda.Compile();
-
-            //}
-
-            foreach (var row in rows)
+            if (Table.PrimaryKeyColumns.Count != 0)
             {
-                yield return (T)row;
+                select.What(Table.PrimaryKeyColumns);
+
+                var keys = ParseQueryModel(queryModel)
+                    .ReadKeys()
+                    .ToArray();
+
+                foreach (var row in Table.Cache.GetRows(keys))
+                    yield return (T)row;
             }
+            else
+            {
+                var rows = ParseQueryModel(queryModel)
+                    .ReadInstances()
+                    .Select(InstanceFactory.NewImmutableRow);
 
-            // Create an expression that returns the current item when invoked.
-            //Expression currentItemExpression = Expression.Property(Expression.Constant(this), "Current");
-
-            //yield return default;
-
-            //// Now replace references like the "i" in "select i" that refers to the "i" in "from i in items"
-            //var mapping = new QuerySourceMapping();
-            //mapping.AddMapping(queryModel.MainFromClause, currentItemExpression);
-            //queryModel.TransformExpressions(e =>
-            //    ReferenceReplacingExpressionVisitor.ReplaceClauseReferences(e, mapping, true));
-
-            //// Create a lambda that takes our SampleDataSourceItem and passes it through the select clause
-            //// to produce a type of T.  (T may be SampleDataSourceItem, in which case this is an identity function.)
-            //var currentItemProperty = Expression.Parameter(typeof(SampleDataSourceItem));
-            //var projection = Expression.Lambda<Func<SampleDataSourceItem, T>>(queryModel.SelectClause.Selector, currentItemProperty);
-            //var projector = projection.Compile();
-
-            //// Pretend we're getting SampleDataSourceItems from somewhere...
-            //for (var i = 0; i < 10; i++)
-            //{
-            //    // Set the current item so currentItemExpression can access it.
-            //    Current = new SampleDataSourceItem();
-            //    //{
-            //    //    Name = "Name " + i,
-            //    //    Description = "This describes the item in position " + i
-            //    //};
-
-            //    // Use the projector to convert (if necessary) the current item to what is being selected and return it.
-            //    yield return projector(Current);
-            //}
+                foreach (var row in rows)
+                    yield return (T)row;
+            }
         }
 
         public T ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
@@ -115,13 +77,16 @@ namespace Slim.Linq
 
         public T ExecuteScalar<T>(QueryModel queryModel)
         {
-            var results = ParseQueryModel(queryModel)
-                .ReadInstances();
+            var keys = ParseQueryModel(queryModel)
+                .ReadKeys();
+
+            //var results = ParseQueryModel(queryModel)
+            //    .ReadInstances();
 
             if (queryModel.ResultOperators.Any())
             {
                 if (queryModel.ResultOperators[0].ToString() == "Count()")
-                    return (T)(object)results.Count();
+                    return (T)(object)keys.Count();
             }
 
             throw new NotImplementedException();
