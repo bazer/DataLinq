@@ -7,38 +7,38 @@ using Slim.Attributes;
 namespace Tests.Models
 {
     [Name("employees")]
-    public interface employees : ITableModel
+    public partial class employees : ITableModel
     {
         [PrimaryKey]
         [Type("int")]
-        int emp_no { get; }
+        public virtual int emp_no { get; set; }
 
         [Relation("dept_emp", "emp_no")]
-        IEnumerable<dept_emp> dept_emp { get; }
+        public virtual IEnumerable<dept_emp> dept_emp { get; }
 
         [Relation("dept_manager", "emp_no")]
-        IEnumerable<dept_manager> dept_manager { get; }
+        public virtual IEnumerable<dept_manager> dept_manager { get; }
 
         [Relation("salaries", "emp_no")]
-        IEnumerable<salaries> salaries { get; }
+        public virtual IEnumerable<salaries> salaries { get; }
 
         [Relation("titles", "emp_no")]
-        IEnumerable<titles> titles { get; }
+        public virtual IEnumerable<titles> titles { get; }
 
         [Type("date")]
-        DateTime birth_date { get; }
+        public virtual DateTime birth_date { get; set; }
 
         [Type("varchar", 14)]
-        string first_name { get; }
+        public virtual string first_name { get; set; }
 
         [Type("enum", 1)]
-        int gender { get; }
+        public virtual int gender { get; set; }
 
         [Type("date")]
-        DateTime hire_date { get; }
+        public virtual DateTime hire_date { get; set; }
 
         [Type("varchar", 16)]
-        string last_name { get; }
+        public virtual string last_name { get; set; }
 
     }
 }

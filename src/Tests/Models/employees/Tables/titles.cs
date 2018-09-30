@@ -7,27 +7,27 @@ using Slim.Attributes;
 namespace Tests.Models
 {
     [Name("titles")]
-    public interface titles : ITableModel
+    public partial class titles : ITableModel
     {
         [PrimaryKey]
         [ForeignKey("employees", "emp_no", "titles_ibfk_1")]
         [Type("int")]
-        int emp_no { get; }
+        public virtual int emp_no { get; set; }
 
         [Relation("employees", "emp_no")]
-        employees employees { get; }
+        public virtual employees employees { get; }
 
         [PrimaryKey]
         [Type("date")]
-        DateTime from_date { get; }
+        public virtual DateTime from_date { get; set; }
 
         [PrimaryKey]
         [Type("varchar", 50)]
-        string title { get; }
+        public virtual string title { get; set; }
 
         [Nullable]
         [Type("date")]
-        DateTime? to_date { get; }
+        public virtual DateTime? to_date { get; set; }
 
     }
 }

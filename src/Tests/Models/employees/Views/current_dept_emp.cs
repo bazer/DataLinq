@@ -7,21 +7,21 @@ using Slim.Attributes;
 namespace Tests.Models
 {
     [Name("current_dept_emp")]
-    public interface current_dept_emp : IViewModel
+    public partial class current_dept_emp : IViewModel
     {
         [Type("char", 4)]
-        string dept_no { get; }
+        public virtual string dept_no { get; set; }
 
         [Type("int")]
-        int emp_no { get; }
+        public virtual int emp_no { get; set; }
 
         [Nullable]
         [Type("date")]
-        DateTime? from_date { get; }
+        public virtual DateTime? from_date { get; set; }
 
         [Nullable]
         [Type("date")]
-        DateTime? to_date { get; }
+        public virtual DateTime? to_date { get; set; }
 
     }
 }

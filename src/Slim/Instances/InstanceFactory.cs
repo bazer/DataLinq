@@ -15,7 +15,12 @@ namespace Slim.Instances
 
         public static object NewImmutableRow(RowData instanceData) // where T : class, IModel
         {
-            return generator.CreateInterfaceProxyWithoutTarget(instanceData.Table.Model.CsType, new ImmutableRowInterceptor(instanceData));
+            if (instanceData.Table.Model.CsType.IsInterface)
+                return generator.CreateInterfaceProxyWithoutTarget(instanceData.Table.Model.CsType, new ImmutableRowInterceptor(instanceData));
+            else
+                return generator.CreateClassProxy(instanceData.Table.Model.CsType, new ImmutableRowInterceptor(instanceData));
+
+            //return generator.CreateInterfaceProxyWithoutTarget(instanceData.Table.Model.CsType, new ImmutableRowInterceptor(instanceData));
             //return generator.CreateInterfaceProxyWithoutTarget<T>(new ImmutableRowInterceptor(instanceData));
         }
 

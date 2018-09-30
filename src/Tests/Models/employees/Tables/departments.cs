@@ -7,20 +7,20 @@ using Slim.Attributes;
 namespace Tests.Models
 {
     [Name("departments")]
-    public interface departments : ITableModel
+    public partial class departments : ITableModel
     {
         [PrimaryKey]
         [Type("char", 4)]
-        string dept_no { get; }
+        public virtual string dept_no { get; set; }
 
         [Relation("dept_emp", "dept_no")]
-        IEnumerable<dept_emp> dept_emp { get; }
+        public virtual IEnumerable<dept_emp> dept_emp { get; }
 
         [Relation("dept_manager", "dept_no")]
-        IEnumerable<dept_manager> dept_manager { get; }
+        public virtual IEnumerable<dept_manager> dept_manager { get; }
 
         [Type("varchar", 40)]
-        string dept_name { get; }
+        public virtual string dept_name { get; set; }
 
     }
 }

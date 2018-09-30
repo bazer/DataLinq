@@ -29,6 +29,11 @@ namespace Slim
     {
         public T Schema { get; }
 
+        public Transaction<T> StartTransaction()
+        {
+            return new Transaction<T>(this);
+        }
+
         protected DatabaseProvider(string connectionString) : base(connectionString, typeof(T))
         {
             Schema = GetDatabaseInstance();

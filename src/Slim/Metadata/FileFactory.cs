@@ -61,7 +61,7 @@ namespace Slim.Metadata
         private static IEnumerable<string> ModelFileContents(Table table)
         {
             yield return $"{tab}[Name(\"{table.DbName}\")]";
-            yield return $"{tab}public interface {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
+            yield return $"{tab}public partial class {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
             yield return tab + "{";
 
             foreach (var c in table.Columns.OrderByDescending(x => x.PrimaryKey).ThenBy(x => x.DbName))
@@ -82,7 +82,7 @@ namespace Slim.Metadata
                 else
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
 
-                yield return $"{tab}{tab}{c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable ? "?" : "")} {c.DbName} {{ get; }}";
+                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable ? "?" : "")} {c.DbName} {{ get; set; }}";
                 yield return $"";
 
                 foreach (var relationPart in c.RelationParts)
@@ -94,9 +94,9 @@ namespace Slim.Metadata
                     yield return $"{tab}{tab}[Relation(\"{column.Table.DbName}\", \"{column.DbName}\")]";
 
                     if (relationPart.Type == RelationPartType.ForeignKey)
-                        yield return $"{tab}{tab}{column.Table.Model.CsTypeName} {column.Table.Model.CsTypeName} {{ get; }}";
+                        yield return $"{tab}{tab}public virtual {column.Table.Model.CsTypeName} {column.Table.Model.CsTypeName} {{ get; }}";
                     else
-                        yield return $"{tab}{tab}IEnumerable<{column.Table.Model.CsTypeName}> {column.Table.Model.CsTypeName} {{ get; }}";
+                        yield return $"{tab}{tab}public virtual IEnumerable<{column.Table.Model.CsTypeName}> {column.Table.Model.CsTypeName} {{ get; }}";
 
                     yield return $"";
                 }
