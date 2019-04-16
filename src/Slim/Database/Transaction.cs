@@ -71,7 +71,7 @@ namespace Slim
             {
                 //change.Model.RowData()
 
-                var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType());
+                var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
 
                 if (change.Type == TransactionChangeType.Insert)
                 {

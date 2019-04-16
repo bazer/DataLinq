@@ -42,7 +42,7 @@ namespace Tests
 
             var dbEmployee = fixture.employeesDb.employees.Single(x => x.emp_no == emp_no);
 
-            Assert.Equal(employee.birth_date, dbEmployee.birth_date);
+            Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }
 
         //[Fact]
