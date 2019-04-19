@@ -10,6 +10,7 @@ namespace Tests
     public class TransactionTests
     {
         private readonly DatabaseFixture fixture;
+        private Random rnd = new Random();
 
         public TransactionTests(DatabaseFixture fixture)
         {
@@ -23,7 +24,7 @@ namespace Tests
 
             var employee = new employees
             {
-                birth_date = DateTime.Now,
+                birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
                 emp_no = emp_no,
                 first_name = "Test employee",
                 last_name = "Test",
@@ -43,6 +44,15 @@ namespace Tests
             var dbEmployee = fixture.employeesDb.employees.Single(x => x.emp_no == emp_no);
 
             Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
+        }
+
+
+        public DateTime RandomDate(DateTime rangeStart, DateTime rangeEnd)
+        {
+            TimeSpan span = rangeEnd - rangeStart;
+
+            int randomMinutes = rnd.Next(0, (int)span.TotalMinutes);
+            return rangeStart + TimeSpan.FromMinutes(randomMinutes);
         }
 
         //[Fact]
