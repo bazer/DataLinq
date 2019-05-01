@@ -76,7 +76,7 @@ namespace Slim.Cache
             var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
             foreach (var key in primaryKeys)
             {
-                if (Rows.TryGetValue(key, out object row))
+                if (transaction.Type == TransactionType.NoTransaction && Rows.TryGetValue(key, out object row))
                     yield return row;
                 else
                     keysToLoad.Add(key);
@@ -88,8 +88,15 @@ namespace Slim.Cache
                 {
                     var row = InstanceFactory.NewImmutableRow(rowData);
 
-                    if (Rows.TryAdd(rowData.GetKey(), row))
+                    if (transaction.Type == TransactionType.NoTransaction)
+                    {
+                        if (Rows.TryAdd(rowData.GetKey(), row))
+                            yield return row;
+                    }
+                    else
+                    {
                         yield return row;
+                    }
                 }
             }
             else if (keysToLoad.Count != 0)
@@ -100,8 +107,11 @@ namespace Slim.Cache
                     {
                         var row = InstanceFactory.NewImmutableRow(rowData);
 
-                        if (!Rows.TryAdd(rowData.GetKey(), row))
-                            throw new Exception("Couldn't add row");
+                        if (transaction.Type == TransactionType.NoTransaction)
+                        {
+                            if (!Rows.TryAdd(rowData.GetKey(), row))
+                                throw new Exception("Couldn't add row");
+                        }
 
                         yield return row;
                     }

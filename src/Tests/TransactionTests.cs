@@ -34,7 +34,7 @@ namespace Tests
 
             using (var transaction = fixture.employeesDb_provider.Write())
             {
-                foreach (var alreadyExists in fixture.employeesDb_provider.Read().employees.Where(x => x.emp_no == emp_no))
+                foreach (var alreadyExists in fixture.employeesDb.employees.Where(x => x.emp_no == emp_no))
                     transaction.Delete(alreadyExists);
 
                 transaction.Insert(employee);
