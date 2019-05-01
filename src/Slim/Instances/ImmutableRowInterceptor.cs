@@ -47,7 +47,7 @@ namespace Slim.Instances
                 if (!RelationCache.TryGetValue(name, out object returnvalue))
                 {
                     var column = property.Column;
-                    var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.Data[property.RelationPart.Column.DbName]));
+                    var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.Data[property.RelationPart.Column.DbName]), column.Table.Database.DatabaseProvider.StartTransaction(TransactionType.NoTransaction));
 
                     //var column = property.Column;
                     //var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)

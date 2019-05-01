@@ -16,7 +16,7 @@ namespace Slim
     public class Queryable<T> : QueryableBase<T>
         //where T : class, IModel
     {
-        protected DatabaseProvider DatabaseProvider { get; }
+        protected Transaction DatabaseProvider { get; }
         protected Table Table { get; }
 
         //public Queryable(IQueryParser queryParser, IQueryExecutor executor)
@@ -29,7 +29,7 @@ namespace Slim
         {
         }
 
-        public Queryable(DatabaseProvider databaseProvider, Table table) : base(QueryParser.CreateDefault(), new QueryExecutor(databaseProvider, table))
+        public Queryable(Transaction databaseProvider, Table table) : base(QueryParser.CreateDefault(), new QueryExecutor(databaseProvider, table))
         {
             this.DatabaseProvider = databaseProvider;
             this.Table = table;

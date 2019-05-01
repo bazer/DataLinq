@@ -30,7 +30,7 @@ namespace Slim.Instances
             //return generator.CreateInterfaceProxyWithoutTarget<T>(new ImmutableRowInterceptor(instanceData));
         }
 
-        public static T NewDatabase<T>(DatabaseProvider databaseProvider) where T : class, IDatabaseModel
+        public static T NewDatabase<T>(Transaction databaseProvider) where T : class, IDatabaseModel
         {
             return generator.CreateInterfaceProxyWithoutTarget<T>(new DatabaseInterceptor(databaseProvider));
         }

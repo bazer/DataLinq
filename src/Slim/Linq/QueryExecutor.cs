@@ -16,13 +16,13 @@ namespace Slim.Linq
 {
     internal class QueryExecutor : IQueryExecutor
     {
-        internal QueryExecutor(DatabaseProvider databaseProvider, Table table)
+        internal QueryExecutor(Transaction transaction, Table table)
         {
-            this.DatabaseProvider = databaseProvider;
+            this.Transaction = transaction;
             this.Table = table;
         }
 
-        private DatabaseProvider DatabaseProvider { get; }
+        private Transaction Transaction { get; }
 
         private Table Table { get; }
 
@@ -54,7 +54,7 @@ namespace Slim.Linq
                     .ReadKeys()
                     .ToArray();
 
-                foreach (var row in Table.Cache.GetRows(keys))
+                foreach (var row in Table.Cache.GetRows(keys, Transaction))
                     yield return (T)row;
             }
             else
@@ -94,7 +94,7 @@ namespace Slim.Linq
 
         private Select GetSelect()
         {
-            return new Select(DatabaseProvider, Table);
+            return new Select(Transaction, Table);
         }
     }
 }

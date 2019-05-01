@@ -1,23 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Text;
 using MySql.Data.MySqlClient;
 
 namespace Slim.MySql
 {
-    public static class MySqlDbAccess
+    public class MySqlDbAccess : DatabaseTransaction
     {
-        public static string ConnectionString { get; set; }
-
-        static public int ExecuteNonQuery(string query)
+        public MySqlDbAccess(string connectionString, TransactionType type) : base(connectionString, type)
         {
-            var command = new MySqlCommand(query);
-
-            return ExecuteNonQuery(command);
+            if (type != TransactionType.NoTransaction)
+                throw new ArgumentException("Only 'TransactionType.NoTransaction' is allowed");
         }
 
-        static public int ExecuteNonQuery(MySqlCommand command)
+        public override void Commit()
+        {
+            
+        }
+
+        public override void Dispose()
+        {
+            
+        }
+
+        public override int ExecuteNonQuery(IDbCommand command)
         {
             using (var connection = new MySqlConnection(ConnectionString))
             {
@@ -25,24 +33,29 @@ namespace Slim.MySql
                 command.Connection = connection;
                 int result = command.ExecuteNonQuery();
                 connection.Close();
+
                 return result;
             }
         }
 
-        static public MySqlDataReader ExecuteReader(MySqlCommand command)
+        public override int ExecuteNonQuery(string query) => 
+            ExecuteNonQuery(new MySqlCommand(query));
+
+        public override DbDataReader ExecuteReader(IDbCommand command)
         {
             var connection = new MySqlConnection(ConnectionString);
             command.Connection = connection;
             connection.Open();
 
-            return command.ExecuteReader(CommandBehavior.CloseConnection);
+            return command.ExecuteReader(CommandBehavior.CloseConnection) as DbDataReader;
         }
 
-        static public IEnumerable<MySqlDataReader> ReadReader(this MySqlCommand command)
+        public override DbDataReader ExecuteReader(string query) => 
+            ExecuteReader(new MySqlCommand(query));
+
+        public override void Rollback()
         {
-            using (var reader = ExecuteReader(command))
-                while (reader.Read())
-                    yield return reader;
+            
         }
     }
 }

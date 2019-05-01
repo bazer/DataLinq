@@ -32,12 +32,15 @@ namespace Tests
                 hire_date = DateTime.Now
             };
 
-            using (var transaction = fixture.employeesDb_provider.StartTransaction())
+            using (var transaction = fixture.employeesDb_provider.Write())
             {
-                foreach (var alreadyExists in transaction.Read().employees.Where(x => x.emp_no == emp_no))
+                foreach (var alreadyExists in fixture.employeesDb_provider.Read().employees.Where(x => x.emp_no == emp_no))
                     transaction.Delete(alreadyExists);
 
                 transaction.Insert(employee);
+                var dbTransactionEmployee = transaction.Read().employees.Single(x => x.emp_no == emp_no);
+                Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
+
                 transaction.Commit();
             }
 

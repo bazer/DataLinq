@@ -6,7 +6,7 @@ namespace Modl.Db.Query
     public class Insert : Change
     //where M : IDbModl, new()
     {
-        public Insert(DatabaseProvider database, Table table) : base(database, table)
+        public Insert(Transaction database, Table table) : base(database, table)
         {
         }
 
@@ -21,8 +21,8 @@ namespace Modl.Db.Query
             int i = 0;
             foreach (var with in withList)
             {
-                DatabaseProvider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-                DatabaseProvider.GetParameterValue(sql, paramPrefix + "v" + i);
+                DatabaseProvider.DatabaseProvider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+                DatabaseProvider.DatabaseProvider.GetParameterValue(sql, paramPrefix + "v" + i);
 
                 if (i + 1 < length)
                     sql.AddText(",");

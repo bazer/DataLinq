@@ -107,7 +107,7 @@ namespace Modl.Db.Query
         public override Sql GetCommandString(Sql sql, string prefix, int number)
         {
             if (IsValue)
-                return Query.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + number);
+                return Query.DatabaseProvider.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + number);
             else
                 return sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
 
@@ -119,7 +119,7 @@ namespace Modl.Db.Query
         public override Sql GetCommandParameter(Sql sql, string prefix, int number)
         {
             if (IsValue)
-                return Query.DatabaseProvider.GetParameter(sql, prefix + "w" + number, Value);
+                return Query.DatabaseProvider.DatabaseProvider.GetParameter(sql, prefix + "w" + number, Value);
             else
                 return sql;
 

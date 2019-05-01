@@ -11,7 +11,7 @@ namespace Slim.Tools
     {
         public void Execute(string dbname, string namespaceName, string path, MySQLProvider<information_schema> databaseProvider)
         {
-            var database = MetadataFromSqlFactory.ParseDatabase(dbname, databaseProvider.Schema);
+            var database = MetadataFromSqlFactory.ParseDatabase(dbname, databaseProvider.Read());
 
             Console.WriteLine($"Database: {dbname}");
             Console.WriteLine($"Table count: {database.Tables.Count}");

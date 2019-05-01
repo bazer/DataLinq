@@ -20,7 +20,7 @@ namespace Modl.Db.Query
         protected List<Join<Select>> joinList = new List<Join<Select>>();
         protected List<Column> columnsToSelect;
 
-        public Select(DatabaseProvider database, Table table)
+        public Select(Transaction database, Table table)
             : base(database, table)
         {
 
@@ -81,14 +81,16 @@ namespace Modl.Db.Query
         public IEnumerable<RowData> ReadInstances()
         {
             return DatabaseProvider
-                .ReadReader(DatabaseProvider.ToDbCommand(this))
+                .DatabaseTransaction
+                .ReadReader(DatabaseProvider.DatabaseProvider.ToDbCommand(this))
                 .Select(x => new RowData(x, Table));
         }
 
         public IEnumerable<PrimaryKeys> ReadKeys()
         {
             return DatabaseProvider
-                .ReadReader(DatabaseProvider.ToDbCommand(this))
+                .DatabaseTransaction
+                .ReadReader(DatabaseProvider.DatabaseProvider.ToDbCommand(this))
                 .Select(x => new PrimaryKeys(x, Table));
         }
 

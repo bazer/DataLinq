@@ -1,14 +1,26 @@
 ﻿using Modl.Db.Query;
 using Slim.Extensions;
+using Slim.Instances;
 using Slim.Interfaces;
+using Slim.Metadata;
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
 
 namespace Slim
 {
+    public enum TransactionType
+    {
+        NoTransaction,
+        ReadAndWrite,
+        ReadOnly,
+        WriteOnly
+    }
+
     public enum TransactionChangeType
     {
         Insert,
@@ -28,77 +40,106 @@ namespace Slim
         }
     }
 
-    public class Transaction<T> : IDisposable where T : class, IDatabaseModel
+    public class Transaction : IDisposable
     {
-        public T Read() => DatabaseProvider.Schema;
-        public DatabaseProvider<T> DatabaseProvider { get; }
+        public IDatabaseProvider DatabaseProvider { get; }
 
-        private List<TransactionChange> changes = new List<TransactionChange>();
+        public DatabaseTransaction DatabaseTransaction { get; set; }
+        public List<TransactionChange> Changes { get; } = new List<TransactionChange>();
 
-        public Transaction(DatabaseProvider<T> databaseProvider)
+        public TransactionType Type { get; protected set; }
+
+        public Transaction(IDatabaseProvider databaseProvider, TransactionType type)
         {
             this.DatabaseProvider = databaseProvider;
+            this.DatabaseTransaction = databaseProvider.GetNewDatabaseTransaction(type);
+            this.Type = type;
         }
+
 
         public void Insert(IModel model)
         {
-            changes.Add(new TransactionChange(model, TransactionChangeType.Insert));
+            AddAndExecute(new TransactionChange(model, TransactionChangeType.Insert));
         }
 
         public void Update(IModel model)
         {
-            changes.Add(new TransactionChange(model, TransactionChangeType.Update));
+            AddAndExecute(new TransactionChange(model, TransactionChangeType.Update));
         }
 
         public void Delete(IModel model)
         {
-            changes.Add(new TransactionChange(model, TransactionChangeType.Delete));
+            AddAndExecute(new TransactionChange(model, TransactionChangeType.Delete));
+        }
+
+        private void AddAndExecute(params TransactionChange[] changes)
+        {
+            Changes.AddRange(changes);
+
+            var commands = changes.Select(x => DatabaseProvider.ToDbCommand(GetQuery(x)));
+
+            foreach (var command in commands)
+                DatabaseTransaction.ExecuteNonQuery(command);
         }
 
         public void Commit()
         {
-            var changes = GetChanges();
-
-            var commands = changes.Select(x => DatabaseProvider.ToDbCommand(x));
-
-            foreach (var command in commands)
-                DatabaseProvider.ExecuteNonQuery(command);
+            DatabaseTransaction.Commit();
         }
 
-        private IEnumerable<IQuery> GetChanges()
+        public void Rollback()
         {
-            foreach (var change in changes)
+            DatabaseTransaction.Rollback();
+        }
+
+        //private Table GetTable() =>
+        //    DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
+
+        private IQuery GetQuery(TransactionChange change)
+        {
+            var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
+
+            if (change.Type == TransactionChangeType.Insert)
             {
-                //change.Model.RowData()
+                var insert = new Insert(this, table);
 
-                var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
+                foreach (var column in table.Columns)
+                    insert.With(column.DbName, column.ValueProperty.GetValue(change.Model));
 
-                if (change.Type == TransactionChangeType.Insert)
-                {
-                    var insert = new Insert(DatabaseProvider, table);
-
-                    foreach (var column in table.Columns)
-                        insert.With(column.DbName, column.ValueProperty.GetValue(change.Model));
-
-                    yield return insert;
-                }
-                else if (change.Type == TransactionChangeType.Delete)
-                {
-                    var delete = new Delete(DatabaseProvider, table);
-
-                    foreach (var key in table.PrimaryKeyColumns)
-                        delete.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
-
-                    yield return delete;
-                }
-
+                return insert;
             }
+            else if (change.Type == TransactionChangeType.Delete)
+            {
+                var delete = new Delete(this, table);
+
+                foreach (var key in table.PrimaryKeyColumns)
+                    delete.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
+
+                return delete;
+            }
+
+            throw new NotImplementedException();
         }
 
         public void Dispose()
         {
-            
+            DatabaseTransaction.Dispose();
+        }
+    }
+
+    public class Transaction<T> : Transaction where T : class, IDatabaseModel
+    {
+        public T Read() => Schema;
+        public T Schema { get; }
+
+        public Transaction(DatabaseProvider<T> databaseProvider, TransactionType type) : base(databaseProvider, type)
+        {
+            this.Schema = GetDatabaseInstance();
         }
 
+        private T GetDatabaseInstance()
+        {
+            return InstanceFactory.NewDatabase<T>(this);
+        }
     }
 }

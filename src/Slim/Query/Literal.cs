@@ -9,17 +9,17 @@ namespace Modl.Db.Query
     {
         private readonly string sql;
         private readonly IEnumerable<IDataParameter> parameters;
-        protected DatabaseProvider provider;
-        public DatabaseProvider DatabaseProvider { get { return provider; } }
+        protected Transaction provider;
+        public Transaction DatabaseProvider { get { return provider; } }
 
-        public Literal(DatabaseProvider database, string sql)
+        public Literal(Transaction database, string sql)
         {
             this.provider = database;
             this.sql = sql;
             this.parameters = new List<IDataParameter>();
         }
 
-        public Literal(DatabaseProvider database, string sql, IEnumerable<IDataParameter> parameters)
+        public Literal(Transaction database, string sql, IEnumerable<IDataParameter> parameters)
         {
             this.provider = database;
             this.sql = sql;
@@ -33,7 +33,7 @@ namespace Modl.Db.Query
 
         public IDbCommand ToDbCommand()
         {
-            return DatabaseProvider.ToDbCommand(this);
+            return DatabaseProvider.DatabaseProvider.ToDbCommand(this);
         }
 
         public int ParameterCount

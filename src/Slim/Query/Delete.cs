@@ -9,11 +9,11 @@ namespace Modl.Db.Query
     {
         private readonly Expression expression;
 
-        public Delete(DatabaseProvider database, Table table) : base(database, table)
+        public Delete(Transaction database, Table table) : base(database, table)
         {
         }
 
-        public Delete(DatabaseProvider database, Table table, Expression expression)
+        public Delete(Transaction database, Table table, Expression expression)
             : base(database, table)
         {
             this.expression = expression;

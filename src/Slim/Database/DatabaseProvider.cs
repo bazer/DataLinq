@@ -19,42 +19,60 @@ namespace Slim
     //    MySQL
     //}
 
-    //public interface IDatabaseProvider
-    //{
-    //    //IDbCommand ToDbCommand(IQuery query);
-    //}
+    public interface IDatabaseProvider
+    {
+        //IDbCommand ToDbCommand(IQuery query);
+        string Name { get; }
+        string ConnectionString { get; }
+        Database Database { get; }
+        IDbCommand ToDbCommand(IQuery query);
+
+        Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite);
+        DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
+
+        string GetLastIdQuery();
+        Sql GetParameter(Sql sql, string key, object value);
+        Sql GetParameterValue(Sql sql, string key);
+        Sql GetParameterComparison(Sql sql, string field, Modl.Db.Query.Relation relation, string key);
+    }
 
     public abstract class DatabaseProvider<T> : DatabaseProvider
         where T : class, IDatabaseModel
     {
-        public T Schema { get; }
+        //public T Schema { get; }
 
-        public Transaction<T> StartTransaction()
+        public T Read()
         {
-            return new Transaction<T>(this);
+            return new Transaction<T>(this, TransactionType.NoTransaction).Schema;
+        }
+
+        public Transaction<T> Write(TransactionType transactionType = TransactionType.ReadAndWrite)
+        {
+            return new Transaction<T>(this, transactionType);
         }
 
         protected DatabaseProvider(string connectionString) : base(connectionString, typeof(T))
         {
-            Schema = GetDatabaseInstance();
+            //Schema = GetDatabaseInstance();
         }
 
         protected DatabaseProvider(string connectionString, string databaseName) : base(connectionString, typeof(T), databaseName)
         {
-            Schema = GetDatabaseInstance();
+            //Schema = GetDatabaseInstance();
         }
 
-        private T GetDatabaseInstance()
-        {
-            return InstanceFactory.NewDatabase<T>(this);
-        }
+        //private T GetDatabaseInstance()
+        //{
+        //    return InstanceFactory.NewDatabase<T>(this);
+        //}
     }
 
-    public abstract class DatabaseProvider
+    public abstract class DatabaseProvider : IDatabaseProvider
     {
         //public readonly DatabaseType Type;
-        public readonly string Name;
-        public readonly string ConnectionString;
+        //public readonly string Name;
+        public string Name { get; }
+        public string ConnectionString { get; }
         public Database Database { get; }
 
         protected string[] ProviderNames { get; set; }
@@ -75,36 +93,44 @@ namespace Slim
                 Name = Database.Name;
         }
 
+        
+
+        public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite)
+        {
+            return new Transaction(this, transactionType);
+        }
+
         //internal abstract IDbConnection GetConnection();
         public abstract IDbCommand ToDbCommand(IQuery query);
         //internal abstract List<IDbCommand> ToDbCommands(List<IQuery> queries);
-        public abstract IQuery GetLastIdQuery();
+        public abstract string GetLastIdQuery();
         public abstract Sql GetParameter(Sql sql, string key, object value);
         public abstract Sql GetParameterValue(Sql sql, string key);
         public abstract Sql GetParameterComparison(Sql sql, string field, Modl.Db.Query.Relation relation, string key);
 
-        public abstract DbDataReader ExecuteReader(IDbCommand command);
-        public abstract DbDataReader ExecuteReader(string query);
-        public abstract int ExecuteNonQuery(IDbCommand command);
-        public abstract int ExecuteNonQuery(string query);
+        public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
+        //public abstract DbDataReader ExecuteReader(IDbCommand command);
+        //public abstract DbDataReader ExecuteReader(string query);
+        //public abstract int ExecuteNonQuery(IDbCommand command);
+        //public abstract int ExecuteNonQuery(string query);
 
-        public IEnumerable<DbDataReader> ReadReader(IDbCommand command)
-        {
-            using (var reader = ExecuteReader(command))
-            {
-                while (reader.Read())
-                    yield return reader;
-            }
-        }
+        //public IEnumerable<DbDataReader> ReadReader(IDbCommand command)
+        //{
+        //    using (var reader = ExecuteReader(command))
+        //    {
+        //        while (reader.Read())
+        //            yield return reader;
+        //    }
+        //}
 
-        public IEnumerable<DbDataReader> ReadReader(string query)
-        {
-            using (var reader = ExecuteReader(query))
-            {
-                while (reader.Read())
-                    yield return reader;
-            }
-        }
+        //public IEnumerable<DbDataReader> ReadReader(string query)
+        //{
+        //    using (var reader = ExecuteReader(query))
+        //    {
+        //        while (reader.Read())
+        //            yield return reader;
+        //    }
+        //}
 
         //internal static List<IDbCommand> GetDbCommands(List<IQuery> queries)
         //{

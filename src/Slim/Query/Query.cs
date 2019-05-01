@@ -13,7 +13,7 @@ namespace Modl.Db.Query
 {
     public interface IQuery
     {
-        DatabaseProvider DatabaseProvider { get; }
+        Transaction DatabaseProvider { get; }
 
         IDbCommand ToDbCommand();
 
@@ -33,7 +33,7 @@ namespace Modl.Db.Query
         //protected IModl owner;
         //protected DatabaseProvider provider;
 
-        public DatabaseProvider DatabaseProvider { get; }
+        public Transaction DatabaseProvider { get; }
 
         public abstract Sql ToSql(string paramPrefix);
 
@@ -44,7 +44,7 @@ namespace Modl.Db.Query
         //{
         //}
 
-        protected Query(DatabaseProvider provider, Table table)
+        protected Query(Transaction provider, Table table)
         {
             this.DatabaseProvider = provider;
             this.Table = table;
@@ -110,7 +110,7 @@ namespace Modl.Db.Query
 
         public IDbCommand ToDbCommand()
         {
-            return DatabaseProvider.ToDbCommand(this);
+            return DatabaseProvider.DatabaseProvider.ToDbCommand(this);
         }
 
         public override string ToString()

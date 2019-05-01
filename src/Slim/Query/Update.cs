@@ -6,7 +6,7 @@ namespace Modl.Db.Query
     public class Update : Change
     //where M : IDbModl, new()
     {
-        public Update(DatabaseProvider database, Table table) : base(database, table)
+        public Update(Transaction database, Table table) : base(database, table)
         {
         }
 
@@ -19,8 +19,8 @@ namespace Modl.Db.Query
             int i = 0;
             foreach (var with in withList)
             {
-                DatabaseProvider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-                DatabaseProvider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
+                DatabaseProvider.DatabaseProvider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+                DatabaseProvider.DatabaseProvider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
 
                 if (i + 1 < length)
                     sql.AddText(",");

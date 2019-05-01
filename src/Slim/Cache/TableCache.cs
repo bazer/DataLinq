@@ -24,9 +24,9 @@ namespace Slim.Cache
         public int RowCount => Rows.Count;
         public Table Table { get; }
 
-        public IEnumerable<PrimaryKeys> GetKeys(ForeignKey foreignKey)
+        public IEnumerable<PrimaryKeys> GetKeys(ForeignKey foreignKey, Transaction transaction)
         {
-            var select = new Select(Table.Database.DatabaseProvider, Table)
+            var select = new Select(transaction, Table)
                 .What(Table.PrimaryKeyColumns)
                 .Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data);
 
@@ -34,9 +34,9 @@ namespace Slim.Cache
                 .ReadKeys();
         }
 
-        public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys)
+        public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction)
         {
-            var select = new Select(Table.Database.DatabaseProvider, Table);
+            var select = new Select(transaction, Table);
 
             var query = new StringBuilder()
                 .Append("SELECT * FROM ")
@@ -46,7 +46,7 @@ namespace Slim.Cache
                     .Select(x => $"({formatRowKey(x.Data).ToJoinedString(" AND ")})")
                     .ToJoinedString(" OR "));
 
-            return Table.Database.DatabaseProvider.ReadReader(query.ToString())
+            return transaction.DatabaseTransaction.ReadReader(query.ToString())
                 .Select(x => new RowData(x, Table));
 
             IEnumerable<string> formatRowKey(object[] data)
@@ -56,22 +56,22 @@ namespace Slim.Cache
             }
         }
 
-        public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey)
+        public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey, Transaction transaction)
         {
-            var select = new Select(Table.Database.DatabaseProvider, Table);
+            var select = new Select(transaction, Table);
             select.Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data);
 
             return select.ReadInstances();
         }
 
-        public IEnumerable<object> GetRows(ForeignKey foreignKey)
+        public IEnumerable<object> GetRows(ForeignKey foreignKey, Transaction transaction)
         {
-            var keys = foreignKey.Column.Index.GetOrAdd(foreignKey.Data, _ => GetKeys(foreignKey).ToArray());
+            var keys = foreignKey.Column.Index.GetOrAdd(foreignKey.Data, _ => GetKeys(foreignKey, transaction).ToArray());
 
-            return GetRows(keys, foreignKey);
+            return GetRows(keys, transaction, foreignKey);
         }
 
-        public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, ForeignKey foreignKey = null)
+        public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, ForeignKey foreignKey = null)
         {
             var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
             foreach (var key in primaryKeys)
@@ -84,7 +84,7 @@ namespace Slim.Cache
 
             if (foreignKey != null && keysToLoad.Count > primaryKeys.Length / 2)
             {
-                foreach (var rowData in GetRowDataFromForeignKey(foreignKey))
+                foreach (var rowData in GetRowDataFromForeignKey(foreignKey, transaction))
                 {
                     var row = InstanceFactory.NewImmutableRow(rowData);
 
@@ -96,7 +96,7 @@ namespace Slim.Cache
             {
                 foreach (var split in keysToLoad.splitList(100))
                 {
-                    foreach (var rowData in GetRowDataFromPrimaryKeys(split))
+                    foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction))
                     {
                         var row = InstanceFactory.NewImmutableRow(rowData);
 

@@ -7,7 +7,7 @@ namespace Modl.Db.Query
     public abstract class Change : Query<Change>
     //where M : IDbModl, new()
     {
-        protected Change(DatabaseProvider database, Table table) : base(database, table)
+        protected Change(Transaction database, Table table) : base(database, table)
         {
         }
 

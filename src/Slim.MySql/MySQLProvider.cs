@@ -28,9 +28,27 @@ namespace Slim.MySql
         {
         }
 
-        public override IQuery GetLastIdQuery()
+        //public override Transaction<T> StartTransaction()
+        //{
+        //    return new MySqlTransactionProvider<T>(this);
+        //}
+
+        public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
         {
-            return new Literal(this, "SELECT last_insert_id()");
+            if (type == TransactionType.NoTransaction)
+                return new MySqlDbAccess(ConnectionString, type);
+            else
+                return new MySqlDatabaseTransaction(ConnectionString, type);
+        }
+
+        //public override IQuery GetLastIdQuery()
+        //{
+        //    return new Literal(this, "SELECT last_insert_id()");
+        //}
+
+        public override string GetLastIdQuery()
+        {
+            return "SELECT last_insert_id()";
         }
 
         public override Sql GetParameterValue(Sql sql, string key)
@@ -57,38 +75,6 @@ namespace Slim.MySql
             return command;
         }
 
-        public override int ExecuteNonQuery(string query)
-        {
-            var command = new MySqlCommand(query);
-
-            return ExecuteNonQuery(command);
-        }
-
-        public override int ExecuteNonQuery(IDbCommand command)
-        {
-            using (var connection = new MySqlConnection(ConnectionString))
-            {
-                connection.Open();
-                command.Connection = connection;
-                int result = command.ExecuteNonQuery();
-                connection.Close();
-                return result;
-            }
-        }
-
-        public override DbDataReader ExecuteReader(IDbCommand command)
-        {
-            var connection = new MySqlConnection(ConnectionString);
-            command.Connection = connection;
-            connection.Open();
-
-            return command.ExecuteReader(CommandBehavior.CloseConnection) as DbDataReader;
-        }
-
-        public override DbDataReader ExecuteReader(string query)
-        {
-            return ExecuteReader(new MySqlCommand(query));
-        }
 
         //internal override List<IDbCommand> ToDbCommands(List<IQuery> queries)
         //{

@@ -27,9 +27,9 @@ namespace Tests
         }
 
         public MySQLProvider<employeesDb> employeesDb_provider { get; set; }
-        public employeesDb employeesDb => employeesDb_provider.Schema;
+        public employeesDb employeesDb => employeesDb_provider.Read();
         public MySQLProvider<information_schema> information_schema_provider { get; set; }
-        public information_schema information_schema => information_schema_provider.Schema;
+        public information_schema information_schema => information_schema_provider.Read();
 
         //public string ConnectionString { get; private set; }
         public string DbName { get; private set; }
