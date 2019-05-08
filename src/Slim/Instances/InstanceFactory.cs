@@ -1,11 +1,6 @@
 ﻿using Castle.DynamicProxy;
 using Slim.Interfaces;
-using Slim.Metadata;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Slim.Instances
 {
@@ -52,7 +47,6 @@ namespace Slim.Instances
 
     //    //internal static void MutateProperty(M mutableInstance, string property, object value)
     //    //{
-
     //    //}
 
     //    internal class MutableInterceptor : IInterceptor //<M> : IInterceptor where M : class, IModl
@@ -64,8 +58,8 @@ namespace Slim.Instances
     //        {
     //            this.immutableInstance = immutableInstance;
 
-    //            //if (this.immutableInstance.Modl.Backer.IsNew && 
-    //            //    immutableInstance.Modl.Backer.Definitions.HasIdProperty && 
+    //            //if (this.immutableInstance.Modl.Backer.IsNew &&
+    //            //    immutableInstance.Modl.Backer.Definitions.HasIdProperty &&
     //            //    immutableInstance.Modl.Backer.Definitions.IdProperty (Id.IsAutomatic || Id.IsSet))
 
     //        }
@@ -135,7 +129,7 @@ namespace Slim.Instances
     //            foreach (var mutatedValue in mutatedValues)
     //            {
     //                var newProperty = mutatedValue.Value;
-    //                var oldProperty = newProperty.Metadata.IsLink 
+    //                var oldProperty = newProperty.Metadata.IsLink
     //                    ? new RelationProperty(newProperty.Metadata, mutatedValue.Key, immutableInstance.Modl.Backer.RelationValueBacker.GetValue(mutatedValue.Key).Get() as IModl) as IProperty
     //                    : new SimpleProperty(newProperty.Metadata, immutableInstance.Modl.Backer.SimpleValueBacker.GetValue(mutatedValue.Key).Get());
 
@@ -160,7 +154,6 @@ namespace Slim.Instances
 
     internal struct InvocationInfo
     {
-
         internal CallType CallType { get; }
         internal MethodType MethodType { get; }
         internal string Property { get; }

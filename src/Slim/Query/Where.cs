@@ -7,7 +7,7 @@ using Slim.Extensions;
 using Remotion.Linq.Clauses;
 using System.Linq.Expressions;
 
-namespace Modl.Db.Query
+namespace Slim.Query
 {
     public enum Relation
     {
@@ -23,7 +23,6 @@ namespace Modl.Db.Query
     }
 
     public class Where<Q> : QueryPart
-        //where M : IDbModl, new()
         where Q : Query<Q>
     {
         private readonly Q Query;
@@ -38,11 +37,6 @@ namespace Modl.Db.Query
             this.Key = key;
             this.IsValue = isValue;
         }
-
-        //public Where(string key)
-        //{
-        //    this.Key = key;
-        //}
 
         public Q EqualTo<V>(V value)
         {
@@ -99,31 +93,20 @@ namespace Modl.Db.Query
             return Query;
         }
 
-        //public override string ToString()
-        //{
-        //    return string.Format("{0} {1} '{2}'", Key, RelationToString(Relation), Value.ToString());
-        //}
-
         public override Sql GetCommandString(Sql sql, string prefix, int number)
         {
             if (IsValue)
-                return Query.DatabaseProvider.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + number);
+                return Query.Transaction.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + number);
             else
                 return sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
-
-            //return Query.DatabaseProvider.GetParameterComparison(sql, Key, Relation, Value.ToString());
-
-            //return string.Format("{0} {1} @{2}", Key, RelationToString(Relation), number);
         }
 
         public override Sql GetCommandParameter(Sql sql, string prefix, int number)
         {
             if (IsValue)
-                return Query.DatabaseProvider.DatabaseProvider.GetParameter(sql, prefix + "w" + number, Value);
+                return Query.Transaction.DatabaseProvider.GetParameter(sql, prefix + "w" + number, Value);
             else
                 return sql;
-
-            //return new Tuple<string, object>("@" + number, Value);
         }
     }
 }

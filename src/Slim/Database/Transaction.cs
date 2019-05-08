@@ -1,15 +1,9 @@
-﻿using Modl.Db.Query;
-using Slim.Extensions;
-using Slim.Instances;
+﻿using Slim.Instances;
 using Slim.Interfaces;
-using Slim.Metadata;
+using Slim.Query;
 using System;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.Common;
 using System.Linq;
-using System.Reflection;
-using System.Reflection.Metadata;
 
 namespace Slim
 {
@@ -55,7 +49,6 @@ namespace Slim
             this.DatabaseTransaction = databaseProvider.GetNewDatabaseTransaction(type);
             this.Type = type;
         }
-
 
         public void Insert(IModel model)
         {
@@ -130,6 +123,7 @@ namespace Slim
     public class Transaction<T> : Transaction where T : class, IDatabaseModel
     {
         public T Read() => Schema;
+
         public T Schema { get; }
 
         public Transaction(DatabaseProvider<T> databaseProvider, TransactionType type) : base(databaseProvider, type)

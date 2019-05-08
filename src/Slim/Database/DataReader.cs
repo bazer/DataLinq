@@ -13,13 +13,13 @@ namespace Slim
             var value = reader.GetValue(ordinal);
 
             if (value is DBNull)
-                value = null;
+                return null;
             else if (column.ValueProperty.CsNullable)
-                value = Convert.ChangeType(value, column.ValueProperty.CsType.GetNullableConversionType());
+                return Convert.ChangeType(value, column.ValueProperty.CsType.GetNullableConversionType());
             else if (column.DbType == "enum")
-                value = 0;
+                return 0;
             else if (value.GetType() != column.ValueProperty.CsType)
-                value = Convert.ChangeType(value, column.ValueProperty.CsType);
+                return Convert.ChangeType(value, column.ValueProperty.CsType);
 
             return value;
         }

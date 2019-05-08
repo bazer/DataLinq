@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Linq.Expressions;
 
-namespace Modl.Db.Linq
+namespace Slim.Linq
 {
     public static class Evaluator
     {
@@ -37,9 +35,9 @@ namespace Modl.Db.Linq
         /// <summary>
         /// Evaluates & replaces sub-trees when first candidate is reached (top-down)
         /// </summary>
-        class SubtreeEvaluator : ExpressionVisitor
+        private class SubtreeEvaluator : ExpressionVisitor
         {
-            readonly HashSet<Expression> candidates;
+            private readonly HashSet<Expression> candidates;
 
             internal SubtreeEvaluator(HashSet<Expression> candidates)
             {
@@ -51,17 +49,17 @@ namespace Modl.Db.Linq
                 return this.Visit(exp);
             }
 
-            public override Expression Visit(Expression exp)
+            public override Expression Visit(Expression node)
             {
-                if (exp == null)
+                if (node == null)
                 {
                     return null;
                 }
-                if (this.candidates.Contains(exp))
+                if (this.candidates.Contains(node))
                 {
-                    return this.Evaluate(exp);
+                    return this.Evaluate(node);
                 }
-                return base.Visit(exp);
+                return base.Visit(node);
             }
 
             private Expression Evaluate(Expression e)
@@ -80,11 +78,11 @@ namespace Modl.Db.Linq
         /// Performs bottom-up analysis to determine which nodes can possibly
         /// be part of an evaluated sub-tree.
         /// </summary>
-        class Nominator : ExpressionVisitor
+        private class Nominator : ExpressionVisitor
         {
-            readonly Func<Expression, bool> fnCanBeEvaluated;
-            HashSet<Expression> candidates;
-            bool cannotBeEvaluated;
+            private readonly Func<Expression, bool> fnCanBeEvaluated;
+            private HashSet<Expression> candidates;
+            private bool cannotBeEvaluated;
 
             internal Nominator(Func<Expression, bool> fnCanBeEvaluated)
             {
@@ -98,18 +96,18 @@ namespace Modl.Db.Linq
                 return this.candidates;
             }
 
-            public override Expression Visit(Expression expression)
+            public override Expression Visit(Expression node)
             {
-                if (expression != null)
+                if (node != null)
                 {
                     bool saveCannotBeEvaluated = this.cannotBeEvaluated;
                     this.cannotBeEvaluated = false;
-                    base.Visit(expression);
+                    base.Visit(node);
                     if (!this.cannotBeEvaluated)
                     {
-                        if (this.fnCanBeEvaluated(expression))
+                        if (this.fnCanBeEvaluated(node))
                         {
-                            this.candidates.Add(expression);
+                            this.candidates.Add(node);
                         }
                         else
                         {
@@ -118,7 +116,7 @@ namespace Modl.Db.Linq
                     }
                     this.cannotBeEvaluated |= saveCannotBeEvaluated;
                 }
-                return expression;
+                return node;
             }
         }
     }

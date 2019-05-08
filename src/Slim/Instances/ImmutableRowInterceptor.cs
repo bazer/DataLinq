@@ -1,10 +1,9 @@
-﻿using System;
+﻿using Castle.DynamicProxy;
+using Slim.Metadata;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using Castle.DynamicProxy;
-using Modl.Db.Query;
-using Slim.Metadata;
 
 namespace Slim.Instances
 {
@@ -57,12 +56,10 @@ namespace Slim.Instances
                     //    .ReadInstances()
                     //    .Select(InstanceFactory.NewImmutableRow);
 
-
-
                     if (property.RelationPart.Type == RelationPartType.ForeignKey)
                     {
                         returnvalue = result.SingleOrDefault();
-                        
+
                         //invocation.ReturnValue = result.SingleOrDefault();
                     }
                     else

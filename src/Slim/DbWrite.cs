@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Slim
+﻿namespace Slim
 {
     public class DbWrite
     {
         public DbWrite()
         {
-
         }
     }
 }

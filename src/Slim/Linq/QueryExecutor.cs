@@ -1,16 +1,11 @@
-﻿using System;
+﻿using Remotion.Linq;
+using Remotion.Linq.Clauses;
+using Slim.Instances;
+using Slim.Metadata;
+using Slim.Query;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
-using Modl.Db.Query;
-using Remotion.Linq;
-using Remotion.Linq.Clauses;
-using Remotion.Linq.Clauses.ExpressionVisitors;
-using Remotion.Linq.Parsing.Structure;
-using Slim.Instances;
-using Slim.Interfaces;
-using Slim.Metadata;
 
 namespace Slim.Linq
 {
@@ -43,7 +38,6 @@ namespace Slim.Linq
 
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
         {
-
             var select = ParseQueryModel(queryModel);
 
             if (Table.PrimaryKeyColumns.Count != 0)
@@ -79,9 +73,6 @@ namespace Slim.Linq
         {
             var keys = ParseQueryModel(queryModel)
                 .ReadKeys();
-
-            //var results = ParseQueryModel(queryModel)
-            //    .ReadInstances();
 
             if (queryModel.ResultOperators.Any())
             {

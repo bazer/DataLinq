@@ -1,59 +1,42 @@
-﻿using System.Collections.Generic;
+﻿using Remotion.Linq.Clauses;
+using Slim.Exceptions;
+using Slim.Linq.Visitors;
+using Slim.Metadata;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
-using Modl.Db.Linq.Visitors;
-using Remotion.Linq.Clauses;
-using Slim;
-using Slim.Exceptions;
-using Slim.Instances;
-using Slim.Metadata;
 
-namespace Modl.Db.Query
+namespace Slim.Query
 {
     public interface IQuery
     {
-        Transaction DatabaseProvider { get; }
+        Transaction Transaction { get; }
 
         IDbCommand ToDbCommand();
 
         Sql ToSql(string paramPrefix);
 
         int ParameterCount { get; }
-        //Where<C, T> Where(string key);
-        //IEnumerable<IDataParameter> QueryPartsParameters();
     }
 
     public abstract class Query<Q> : IQuery
-        //where M : IDbModl, new()
         where Q : Query<Q>
     {
         protected List<Where<Q>> whereList = new List<Where<Q>>();
 
-        //protected IModl owner;
-        //protected DatabaseProvider provider;
-
-        public Transaction DatabaseProvider { get; }
+        public Transaction Transaction { get; }
 
         public abstract Sql ToSql(string paramPrefix);
 
         public abstract int ParameterCount { get; }
         protected Table Table;
 
-        //public Query()
-        //{
-        //}
-
-        protected Query(Transaction provider, Table table)
+        protected Query(Transaction transaction, Table table)
         {
-            this.DatabaseProvider = provider;
+            this.Transaction = transaction;
             this.Table = table;
         }
-
-        //public Query(IModl owner)
-        //{
-        //    this.owner = owner;
-        //}
 
         public Where<Q> Where(string key)
         {
@@ -67,26 +50,8 @@ namespace Modl.Db.Query
         {
             new WhereVisitor<Q>(this).Parse(where);
 
-            //whereList.AddRange(Where<Q>.Parse(this as Q, where));
-
             return this as Q;
         }
-
-        //public Q WhereNotAny(IEnumerable<IModl> collection)
-        //{
-        //    foreach (var m in collection)
-        //        Where(table.IdName).NotEqualTo(m.GetId());
-
-        //    return (Q)this;
-        //}
-
-        //public Q WhereNotAny(IEnumerable<object> collection)
-        //{
-        //    foreach (var id in collection)
-        //        Where(table.PrimaryKeyName).NotEqualTo(id);
-
-        //    return (Q)this;
-        //}
 
         protected Sql GetWhere(Sql sql, string paramPrefix)
         {
@@ -110,7 +75,7 @@ namespace Modl.Db.Query
 
         public IDbCommand ToDbCommand()
         {
-            return DatabaseProvider.DatabaseProvider.ToDbCommand(this);
+            return Transaction.DatabaseProvider.ToDbCommand(this);
         }
 
         public override string ToString()
@@ -141,8 +106,6 @@ namespace Modl.Db.Query
                 return constExp.Value;
             else if (expression is MemberExpression propExp)
                 return Table.Columns.Single(x => x.ValueProperty.CsName == propExp.Member.Name).DbName;
-            //else if (expression.NodeType == ExpressionType.Lambda)
-            //    return GetValue<T>(((LambdaExpression)expression).Body);
             else
                 throw new InvalidQueryException("Value is not a member or constant.");
         }

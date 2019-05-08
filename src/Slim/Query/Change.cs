@@ -1,13 +1,11 @@
-﻿using System.Collections.Generic;
-using Slim;
-using Slim.Metadata;
+﻿using Slim.Metadata;
+using System.Collections.Generic;
 
-namespace Modl.Db.Query
+namespace Slim.Query
 {
     public abstract class Change : Query<Change>
-    //where M : IDbModl, new()
     {
-        protected Change(Transaction database, Table table) : base(database, table)
+        protected Change(Transaction transaction, Table table) : base(transaction, table)
         {
         }
 

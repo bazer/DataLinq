@@ -1,9 +1,9 @@
-﻿using System;
+﻿using Remotion.Linq.Clauses;
+using Slim.Query;
+using System;
 using System.Linq.Expressions;
-using Modl.Db.Query;
-using Remotion.Linq.Clauses;
 
-namespace Modl.Db.Linq.Visitors
+namespace Slim.Linq.Visitors
 {
     internal class WhereVisitor<Q> : ExpressionVisitor
     where Q : Query<Q>
@@ -34,8 +34,6 @@ namespace Modl.Db.Linq.Visitors
         {
             if (node.NodeType == ExpressionType.AndAlso)
             {
-                //return base.VisitBinary(node);
-
                 Visit(node.Left);
                 Visit(node.Right);
 

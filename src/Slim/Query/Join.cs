@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Data;
 
-namespace Modl.Db.Query
+namespace Slim.Query
 {
     internal enum JoinType
     {
@@ -53,7 +53,6 @@ namespace Modl.Db.Query
 
             for (int i = 0; i < length; i++)
             {
-                //whereList[i].GetCommandParameter(sql, paramPrefix, i);
                 whereList[i].GetCommandString(sql, "", i);
 
                 if (i + 1 < length)
@@ -64,15 +63,5 @@ namespace Modl.Db.Query
 
             return sql;
         }
-
-        //public override Sql GetCommandString(Sql sql, string prefix, int number)
-        //{
-        //    return Query.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + number);
-        //}
-
-        //public override Sql GetCommandParameter(Sql sql, string prefix, int number)
-        //{
-        //    return Query.DatabaseProvider.GetParameter(sql, prefix + "w" + number, Value);
-        //}
     }
 }

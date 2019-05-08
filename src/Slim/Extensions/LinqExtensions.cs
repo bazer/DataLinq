@@ -10,7 +10,7 @@ namespace Slim.Extensions
             string.Join(separator, source);
 
         //https://stackoverflow.com/a/11463800
-        public static IEnumerable<List<T>> splitList<T>(this List<T> locations, int nSize = 30)
+        public static IEnumerable<List<T>> SplitList<T>(this List<T> locations, int nSize = 30)
         {
             for (int i = 0; i < locations.Count; i += nSize)
             {

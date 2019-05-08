@@ -3,25 +3,25 @@ using System.Data;
 using System.Linq;
 using Slim;
 
-namespace Modl.Db.Query
+namespace Slim.Query
 {
     public class Literal : IQuery
     {
         private readonly string sql;
         private readonly IEnumerable<IDataParameter> parameters;
-        protected Transaction provider;
-        public Transaction DatabaseProvider { get { return provider; } }
+        protected Transaction transaction;
+        public Transaction Transaction => transaction;
 
-        public Literal(Transaction database, string sql)
+        public Literal(Transaction transaction, string sql)
         {
-            this.provider = database;
+            this.transaction = transaction;
             this.sql = sql;
             this.parameters = new List<IDataParameter>();
         }
 
         public Literal(Transaction database, string sql, IEnumerable<IDataParameter> parameters)
         {
-            this.provider = database;
+            this.transaction = database;
             this.sql = sql;
             this.parameters = parameters;
         }
@@ -33,17 +33,12 @@ namespace Modl.Db.Query
 
         public IDbCommand ToDbCommand()
         {
-            return DatabaseProvider.DatabaseProvider.ToDbCommand(this);
+            return Transaction.DatabaseProvider.ToDbCommand(this);
         }
 
         public int ParameterCount
         {
             get { return parameters.Count(); }
         }
-
-        //public IEnumerable<IDataParameter> QueryPartsParameters()
-        //{
-        //    return new List<IDataParameter>();
-        //}
     }
 }

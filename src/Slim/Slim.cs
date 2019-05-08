@@ -7,9 +7,5 @@ namespace Slim
 {
     public static class Slim
     {
-        //public static IEnumerable<T> Get<T>(string sql) where T : IModel
-        //{
-
-        //}
     }
 }

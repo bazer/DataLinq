@@ -1,8 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Slim;
 
-namespace Modl.Db
+namespace Slim
 {
     //public enum CacheLevel
     //{

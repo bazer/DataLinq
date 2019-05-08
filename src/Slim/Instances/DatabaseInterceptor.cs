@@ -42,18 +42,6 @@ namespace Slim.Instances
             name = name.Substring(4);
 
             invocation.ReturnValue = Data[name];
-
-            //if (name == "Modl")
-            //    invocation.ReturnValue = ModlData;
-            //else if (name == "IsMutable")
-            //    invocation.ReturnValue = false;
-            //else if (name == "IsNew")
-            //    invocation.ReturnValue = ModlData.Backer.IsNew;
-            //else
-            //{
-            //    var value = ModlData.Backer.SimpleValueBacker.GetValue(name).Get();
-            //    invocation.ReturnValue = value;
-            //}
         }
     }
 }

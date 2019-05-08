@@ -14,6 +14,14 @@ namespace Slim.Exceptions
             this.message = message + " ";
         }
 
+        public InvalidQueryException() : base()
+        {
+        }
+
+        public InvalidQueryException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
+
         public override string Message
         {
             get

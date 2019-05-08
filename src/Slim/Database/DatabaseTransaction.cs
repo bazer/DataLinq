@@ -13,7 +13,7 @@ namespace Slim
 
         public TransactionType Type { get; protected set; }
 
-        public DatabaseTransaction(string connectionString, TransactionType type)
+        protected DatabaseTransaction(string connectionString, TransactionType type)
         {
             ConnectionString = connectionString;
             Type = type;

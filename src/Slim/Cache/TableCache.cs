@@ -1,12 +1,12 @@
-﻿using System;
+﻿using Slim.Extensions;
+using Slim.Instances;
+using Slim.Metadata;
+using Slim.Query;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Modl.Db.Query;
-using Slim.Extensions;
-using Slim.Instances;
-using Slim.Metadata;
 
 namespace Slim.Cache
 {
@@ -101,7 +101,7 @@ namespace Slim.Cache
             }
             else if (keysToLoad.Count != 0)
             {
-                foreach (var split in keysToLoad.splitList(100))
+                foreach (var split in keysToLoad.SplitList(100))
                 {
                     foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction))
                     {

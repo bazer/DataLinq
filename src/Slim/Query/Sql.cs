@@ -2,7 +2,7 @@
 using System.Text;
 using System.Collections.Generic;
 
-namespace Modl.Db.Query
+namespace Slim.Query
 {
     public class Sql
     {

@@ -1,12 +1,11 @@
 ﻿using Slim;
 using Slim.Metadata;
 
-namespace Modl.Db.Query
+namespace Slim.Query
 {
     public class Update : Change
-    //where M : IDbModl, new()
     {
-        public Update(Transaction database, Table table) : base(database, table)
+        public Update(Transaction transaction, Table table) : base(transaction, table)
         {
         }
 
@@ -19,8 +18,8 @@ namespace Modl.Db.Query
             int i = 0;
             foreach (var with in withList)
             {
-                DatabaseProvider.DatabaseProvider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-                DatabaseProvider.DatabaseProvider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
+                Transaction.DatabaseProvider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+                Transaction.DatabaseProvider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
 
                 if (i + 1 < length)
                     sql.AddText(",");
@@ -29,16 +28,6 @@ namespace Modl.Db.Query
             }
 
             return sql;
-
-            //int i = 0, j = 0;
-
-            //return sql
-            //    .Join(",", withList.Select(x => DatabaseProvider.GetParameterComparison(x.Key, Relation.Equal, paramPrefix + "v" + i++)).ToArray())
-            //    .AddParameters(withList.Select(x => DatabaseProvider.GetParameter(paramPrefix + "v" + j++, x.Value)).ToArray());
-
-            //return new Sql(
-            //    string.Join(",", withList.Select(x => DatabaseProvider.GetParameterComparison(x.Key, Relation.Equal, paramPrefix + "v" + i++))),
-            //    withList.Select(x => DatabaseProvider.GetParameter(paramPrefix + "v" + j++, x.Value)).ToArray());
         }
 
         public override Sql ToSql(string paramPrefix)
@@ -50,13 +39,6 @@ namespace Modl.Db.Query
             return GetWhere(
                 sql.AddText(" \r\n"),
                 paramPrefix);
-
-            //var with = GetWith(paramPrefix);
-            //var where = GetWhere(paramPrefix);
-
-            //return new Sql(
-            //    string.Format("UPDATE {0} SET {1} \r\n{2}", Modl<M, IdType>.Table, with.Text, where.Text),
-            //    with.Parameters.Concat(where.Parameters).ToArray());
         }
 
         public override int ParameterCount
