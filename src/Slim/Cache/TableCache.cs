@@ -18,6 +18,7 @@ namespace Slim.Cache
         public TableCache(Table table)
         {
             this.Table = table;
+            this.Table.Cache = this;
             this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Count;
         }
 

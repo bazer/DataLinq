@@ -78,6 +78,8 @@ namespace Slim
         public void Commit()
         {
             DatabaseTransaction.Commit();
+
+
         }
 
         public void Rollback()
