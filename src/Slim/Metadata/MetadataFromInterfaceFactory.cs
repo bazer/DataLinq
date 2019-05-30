@@ -32,8 +32,6 @@ namespace Slim.Metadata
             database.Relations = ParseRelations(database)
                 .ToList();
 
-            database.Cache = new DatabaseCache(database);
-
             return database;
         }
 

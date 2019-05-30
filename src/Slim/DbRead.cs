@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using Slim.Mutation;
+using System.Linq;
 using System.Linq.Expressions;
 
 namespace Slim

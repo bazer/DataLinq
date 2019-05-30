@@ -2,6 +2,7 @@
 using Slim.Exceptions;
 using Slim.Linq.Visitors;
 using Slim.Metadata;
+using Slim.Mutation;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;

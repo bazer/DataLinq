@@ -1,6 +1,7 @@
 ﻿using Slim.Interfaces;
 using Slim.Metadata;
 using Slim.Query;
+using Slim.Mutation;
 using System;
 using System.Data;
 
@@ -12,7 +13,7 @@ namespace Slim
 
         string ConnectionString { get; }
         Database Database { get; }
-
+        State State { get; }
         IDbCommand ToDbCommand(IQuery query);
 
         Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite);
@@ -56,7 +57,7 @@ namespace Slim
 
         public string ConnectionString { get; }
         public Database Database { get; }
-
+        public State State { get; }
         protected string[] ProviderNames { get; set; }
         protected IDbConnection activeConnection;
 
@@ -69,6 +70,8 @@ namespace Slim
             {
                 Database = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
                 Database.DatabaseProvider = this;
+
+                State = new State(Database);
             }
 
             if (Name == null && Database != null)

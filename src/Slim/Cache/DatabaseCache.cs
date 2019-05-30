@@ -1,4 +1,5 @@
 ﻿using Slim.Metadata;
+using Slim.Mutation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,9 +22,12 @@ namespace Slim.Cache
                 .ToList();
         }
 
-        public void Apply(params TransactionChange[] changes)
+        public void Apply(params StateChange[] changes)
         {
-
+            foreach (var change in changes)
+            {
+                TableCaches.Single(x => x.Table == change.Table).Apply(change);
+            }
         }
     }
 }

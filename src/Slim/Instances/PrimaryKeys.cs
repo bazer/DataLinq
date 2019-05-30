@@ -22,6 +22,11 @@ namespace Slim.Instances
             Data = data;
         }
 
+        public PrimaryKeys(IEnumerable<object> data)
+        {
+            Data = data.ToArray();
+        }
+
         public object[] Data { get; }
         //public (Column column, object value)[] Data { get; }
 

@@ -4,12 +4,12 @@ using System.Data.Common;
 using System.Linq;
 using System.Linq.Expressions;
 using Remotion.Linq.Clauses;
-using Slim;
 using Slim.Cache;
 using Slim.Exceptions;
 using Slim.Extensions;
 using Slim.Instances;
 using Slim.Metadata;
+using Slim.Mutation;
 
 namespace Slim.Query
 {

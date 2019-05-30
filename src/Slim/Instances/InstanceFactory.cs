@@ -1,5 +1,6 @@
 ﻿using Castle.DynamicProxy;
 using Slim.Interfaces;
+using Slim.Mutation;
 using System;
 
 namespace Slim.Instances

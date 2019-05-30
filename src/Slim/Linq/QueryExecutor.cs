@@ -2,6 +2,7 @@
 using Remotion.Linq.Clauses;
 using Slim.Instances;
 using Slim.Metadata;
+using Slim.Mutation;
 using Slim.Query;
 using System;
 using System.Collections.Generic;

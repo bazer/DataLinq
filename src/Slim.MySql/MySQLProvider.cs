@@ -1,6 +1,7 @@
 ﻿using MySql.Data.MySqlClient;
 using Slim.Extensions;
 using Slim.Interfaces;
+using Slim.Mutation;
 using Slim.Query;
 using System;
 using System.Data;

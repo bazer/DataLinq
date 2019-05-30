@@ -4,6 +4,7 @@ using System.Data;
 using System.Data.Common;
 using System.Text;
 using MySql.Data.MySqlClient;
+using Slim.Mutation;
 
 namespace Slim.MySql
 {

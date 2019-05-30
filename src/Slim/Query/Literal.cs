@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using Slim;
+using Slim.Mutation;
 
 namespace Slim.Query
 {

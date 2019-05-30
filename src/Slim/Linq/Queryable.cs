@@ -2,6 +2,7 @@
 using Remotion.Linq.Parsing.Structure;
 using Slim.Linq;
 using Slim.Metadata;
+using Slim.Mutation;
 using System.Linq;
 using System.Linq.Expressions;
 

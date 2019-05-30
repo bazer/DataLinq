@@ -1,6 +1,7 @@
 ﻿using Castle.DynamicProxy;
 using Slim.Interfaces;
 using Slim.Metadata;
+using Slim.Mutation;
 using System;
 using System.Collections.Generic;
 using System.Linq;

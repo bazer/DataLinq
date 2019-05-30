@@ -1,6 +1,6 @@
 ﻿using System.Linq.Expressions;
-using Slim;
 using Slim.Metadata;
+using Slim.Mutation;
 
 namespace Slim.Query
 {

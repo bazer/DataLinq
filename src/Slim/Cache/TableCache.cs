@@ -1,6 +1,7 @@
 ﻿using Slim.Extensions;
 using Slim.Instances;
 using Slim.Metadata;
+using Slim.Mutation;
 using Slim.Query;
 using System;
 using System.Collections.Concurrent;
@@ -24,6 +25,20 @@ namespace Slim.Cache
 
         public int RowCount => Rows.Count;
         public Table Table { get; }
+
+        public void Apply(params StateChange[] changes)
+        {
+            foreach (var change in changes)
+            {
+                if (change.Table != Table)
+                    continue;
+
+                if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
+                {
+                    Rows.TryRemove(change.PrimaryKeys, out var temp);
+                }
+            }
+        }
 
         public IEnumerable<PrimaryKeys> GetKeys(ForeignKey foreignKey, Transaction transaction)
         {

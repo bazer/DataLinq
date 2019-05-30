@@ -1,4 +1,5 @@
 ﻿using Slim.Metadata;
+using Slim.Mutation;
 using System.Collections.Generic;
 
 namespace Slim.Query

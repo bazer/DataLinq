@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Slim
+namespace Slim.Mutation
 {
     public enum TransactionType
     {
@@ -22,50 +22,45 @@ namespace Slim
         Delete
     }
 
-    public class TransactionChange
-    {
-        public TransactionChangeType Type { get; }
-        public IModel Model { get; }
-
-        public TransactionChange(IModel model, TransactionChangeType type)
-        {
-            Model = model;
-            Type = type;
-        }
-    }
-
     public class Transaction : IDisposable
     {
         public IDatabaseProvider DatabaseProvider { get; }
 
         public DatabaseTransaction DatabaseTransaction { get; set; }
-        public List<TransactionChange> Changes { get; } = new List<TransactionChange>();
+        public List<StateChange> Changes { get; } = new List<StateChange>();
 
         public TransactionType Type { get; protected set; }
 
         public Transaction(IDatabaseProvider databaseProvider, TransactionType type)
         {
-            this.DatabaseProvider = databaseProvider;
-            this.DatabaseTransaction = databaseProvider.GetNewDatabaseTransaction(type);
-            this.Type = type;
+            DatabaseProvider = databaseProvider;
+            DatabaseTransaction = databaseProvider.GetNewDatabaseTransaction(type);
+            Type = type;
         }
 
         public void Insert(IModel model)
         {
-            AddAndExecute(new TransactionChange(model, TransactionChangeType.Insert));
+            AddAndExecute(model, TransactionChangeType.Insert);
         }
 
         public void Update(IModel model)
         {
-            AddAndExecute(new TransactionChange(model, TransactionChangeType.Update));
+            AddAndExecute(model, TransactionChangeType.Update);
         }
 
         public void Delete(IModel model)
         {
-            AddAndExecute(new TransactionChange(model, TransactionChangeType.Delete));
+            AddAndExecute(model, TransactionChangeType.Delete);
         }
 
-        private void AddAndExecute(params TransactionChange[] changes)
+        private void AddAndExecute(IModel model, TransactionChangeType type)
+        {
+            var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == model.GetType() || x.Model.ProxyType == model.GetType());
+
+            AddAndExecute(new StateChange(model, table, type));
+        }
+
+        private void AddAndExecute(params StateChange[] changes)
         {
             Changes.AddRange(changes);
 
@@ -79,7 +74,7 @@ namespace Slim
         {
             DatabaseTransaction.Commit();
 
-
+            DatabaseProvider.State.ApplyChanges(Changes.ToArray());
         }
 
         public void Rollback()
@@ -90,24 +85,24 @@ namespace Slim
         //private Table GetTable() =>
         //    DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
 
-        private IQuery GetQuery(TransactionChange change)
+        private IQuery GetQuery(StateChange change)
         {
-            var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
+            //var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
 
             if (change.Type == TransactionChangeType.Insert)
             {
-                var insert = new Insert(this, table);
+                var insert = new Insert(this, change.Table);
 
-                foreach (var column in table.Columns)
+                foreach (var column in change.Table.Columns)
                     insert.With(column.DbName, column.ValueProperty.GetValue(change.Model));
 
                 return insert;
             }
             else if (change.Type == TransactionChangeType.Delete)
             {
-                var delete = new Delete(this, table);
+                var delete = new Delete(this, change.Table);
 
-                foreach (var key in table.PrimaryKeyColumns)
+                foreach (var key in change.Table.PrimaryKeyColumns)
                     delete.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
 
                 return delete;
@@ -130,7 +125,7 @@ namespace Slim
 
         public Transaction(DatabaseProvider<T> databaseProvider, TransactionType type) : base(databaseProvider, type)
         {
-            this.Schema = GetDatabaseInstance();
+            Schema = GetDatabaseInstance();
         }
 
         private T GetDatabaseInstance()
