@@ -104,104 +104,46 @@ namespace Slim.MySql
 
         private static string ParseCsType(string dbType)
         {
-            switch (dbType)
+            return dbType switch
             {
-                case "int":
-                    return "int";
-
-                case "tinyint":
-                    return "int";
-
-                case "varchar":
-                    return "string";
-
-                case "text":
-                    return "string";
-
-                case "mediumtext":
-                    return "string";
-
-                case "bit":
-                    return "bool";
-
-                case "double":
-                    return "double";
-
-                case "datetime":
-                    return "DateTime";
-
-                case "date":
-                    return "DateTime";
-
-                case "float":
-                    return "float";
-
-                case "bigint":
-                    return "long";
-
-                case "char":
-                    return "string";
-
-                case "binary":
-                    return "Guid";
-
-                case "enum":
-                    return "int";
-
-                case "longtext":
-                    return "string";
-
-                case "decimal":
-                    return "decimal";
-
-                case "blob":
-                    return "byte[]";
-
-                case "smallint":
-                    return "int";
-
-                default:
-                    throw new NotImplementedException($"Unknown type '{dbType}'");
-            }
+                "int" => "int",
+                "tinyint" => "int",
+                "varchar" => "string",
+                "text" => "string",
+                "mediumtext" => "string",
+                "bit" => "bool",
+                "double" => "double",
+                "datetime" => "DateTime",
+                "date" => "DateTime",
+                "float" => "float",
+                "bigint" => "long",
+                "char" => "string",
+                "binary" => "Guid",
+                "enum" => "int",
+                "longtext" => "string",
+                "decimal" => "decimal",
+                "blob" => "byte[]",
+                "smallint" => "int",
+                _ => throw new NotImplementedException($"Unknown type '{dbType}'"),
+            };
         }
 
         private static bool IsCsTypeNullable(string csType)
         {
-            switch (csType)
+            return csType switch
             {
-                case "int":
-                    return true;
-
-                case "string":
-                    return false;
-
-                case "bool":
-                    return true;
-
-                case "double":
-                    return true;
-
-                case "DateTime":
-                    return true;
-
-                case "float":
-                    return true;
-
-                case "long":
-                    return true;
-
-                case "Guid":
-                    return true;
-
-                case "byte[]":
-                    return false;
-
-                case "decimal":
-                    return true;
-
-                default:
-                    throw new NotImplementedException($"Unknown type '{csType}'");
-            }
+                "int" => true,
+                "string" => false,
+                "bool" => true,
+                "double" => true,
+                "DateTime" => true,
+                "float" => true,
+                "long" => true,
+                "Guid" => true,
+                "byte[]" => false,
+                "decimal" => true,
+                _ => throw new NotImplementedException($"Unknown type '{csType}'"),
+            };
         }
     }
 }
