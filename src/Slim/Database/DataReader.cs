@@ -17,7 +17,7 @@ namespace Slim
             else if (column.ValueProperty.CsNullable)
                 return Convert.ChangeType(value, column.ValueProperty.CsType.GetNullableConversionType());
             else if (column.DbType == "enum")
-                return 0;
+                return 1; //TODO: Fix enum support
             else if (value.GetType() != column.ValueProperty.CsType)
                 return Convert.ChangeType(value, column.ValueProperty.CsType);
 

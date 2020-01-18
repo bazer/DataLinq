@@ -95,7 +95,7 @@ namespace Slim.Instances
         private IEnumerable<object> ReadRow(RowData row)
         {
             foreach (var column in row.Table.PrimaryKeyColumns)
-                yield return row.Data[column.DbName];
+                yield return row.GetValue(column.DbName);
         }
     }
 }

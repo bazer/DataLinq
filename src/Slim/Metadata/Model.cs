@@ -8,6 +8,7 @@ namespace Slim.Metadata
     {
         public Type CsType { get; set; }
         public Type ProxyType { get; set; }
+        public Type MutableProxyType { get; set; }
         public string CsTypeName { get; set; }
         public Database Database { get; set; }
         public List<Property> Properties { get; set; }

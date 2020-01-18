@@ -21,6 +21,7 @@ namespace Slim.MySql
             {
                 if (dbConnection == null || dbTransaction == null || !IsTransactionPending)
                 {
+                    Status = DatabaseTransactionStatus.Open;
                     IsTransactionPending = true;
                     dbConnection = new MySqlConnection(ConnectionString);
                     dbConnection.Open();
@@ -85,6 +86,7 @@ namespace Slim.MySql
             {
                 dbTransaction.Commit();
                 IsTransactionPending = false;
+                Status = DatabaseTransactionStatus.Committed;
             }
 
             Dispose();
@@ -95,6 +97,7 @@ namespace Slim.MySql
             if (IsTransactionPending)
             {
                 IsTransactionPending = false;
+                Status = DatabaseTransactionStatus.RolledBack;
                 dbTransaction?.Rollback();
             }
 
@@ -106,6 +109,7 @@ namespace Slim.MySql
             if (IsTransactionPending)
             {
                 IsTransactionPending = false;
+                Status = DatabaseTransactionStatus.RolledBack;
                 dbTransaction?.Rollback();
             }
 

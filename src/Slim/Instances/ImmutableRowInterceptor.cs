@@ -8,79 +8,99 @@ using System.Linq;
 
 namespace Slim.Instances
 {
-    internal class ImmutableRowInterceptor : IInterceptor
+    internal class ImmutableRowInterceptor : RowInterceptor
     {
-        public ImmutableRowInterceptor(RowData rowData)
+        public ImmutableRowInterceptor(RowData rowData) : base(rowData)
         {
-            RowData = rowData;
         }
 
-        protected List<Property> Properties =>
-            RowData.Table.Model.Properties;
-
-        protected RowData RowData { get; }
-        protected ConcurrentDictionary<string, object> RelationCache;
-
-        public void Intercept(IInvocation invocation)
+        public override void Intercept(IInvocation invocation)
         {
-            var name = invocation.Method.Name;
+            var info = new InvocationInfo(invocation);
 
-            if (name.StartsWith("set_", StringComparison.Ordinal))
+            if (info.CallType == CallType.Set)
                 throw new Exception("Call to setter not allowed on an immutable type");
 
-            if (!name.StartsWith("get_", StringComparison.Ordinal))
+            if (info.MethodType != MethodType.Property)
                 throw new NotImplementedException();
 
-            name = name.Substring(4);
+            if (info.Name == "IsNew")
+            {
+                invocation.ReturnValue = false;
+                return;
+            }
+
+            if (info.Name == "Mutate")
+            {
+                invocation.ReturnValue = InstanceFactory.NewMutableRow(this.RowData);
+                return;
+            }
+
+            var name = info.Name;
+
+            //var name = invocation.Method.Name;
+
+            //if (name.StartsWith("set_", StringComparison.Ordinal))
+            //    throw new Exception("Call to setter not allowed on an immutable type");
+
+            //if (!name.StartsWith("get_", StringComparison.Ordinal))
+            //    throw new NotImplementedException();
+
+            //name = name.Substring(4);
+
+
 
             var property = Properties.Single(x => x.CsName == name);
 
             if (property.Type == PropertyType.Value)
             {
-                invocation.ReturnValue = RowData.Data[property.Column.DbName];
+                invocation.ReturnValue = RowData.GetValue(property.Column.DbName);
             }
             else
             {
-                if (RelationCache == null)
-                    RelationCache = new ConcurrentDictionary<string, object>();
+                invocation.ReturnValue = GetRelation(info);
 
-                if (!RelationCache.TryGetValue(name, out object returnvalue))
-                {
-                    var column = property.Column;
-                    var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.Data[property.RelationPart.Column.DbName]), column.Table.Database.DatabaseProvider.StartTransaction(TransactionType.NoTransaction));
+                //if (RelationCache == null)
+                //    RelationCache = new ConcurrentDictionary<string, object>();
 
-                    //var column = property.Column;
-                    //var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)
-                    //    .Where(column.DbName).EqualTo(RowData.Data[property.RelationPart.Column.DbName]);
+                //if (!RelationCache.TryGetValue(name, out object returnvalue))
+                //{
+                //    var column = property.Column;
+                //    var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), column.Table.Database.DatabaseProvider.StartTransaction(TransactionType.NoTransaction));
 
-                    //var result = select
-                    //    .ReadInstances()
-                    //    .Select(InstanceFactory.NewImmutableRow);
+                //    //var column = property.Column;
+                //    //var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)
+                //    //    .Where(column.DbName).EqualTo(RowData.Data[property.RelationPart.Column.DbName]);
 
-                    if (property.RelationPart.Type == RelationPartType.ForeignKey)
-                    {
-                        returnvalue = result.SingleOrDefault();
+                //    //var result = select
+                //    //    .ReadInstances()
+                //    //    .Select(InstanceFactory.NewImmutableRow);
 
-                        //invocation.ReturnValue = result.SingleOrDefault();
-                    }
-                    else
-                    {
-                        var list = result.ToList();
+                //    if (property.RelationPart.Type == RelationPartType.ForeignKey)
+                //    {
+                //        returnvalue = result.SingleOrDefault();
 
-                        if (list.Count != 0)
-                        {
-                            returnvalue = typeof(Enumerable)
-                                .GetMethod("Cast")
-                                .MakeGenericMethod(list[0].GetType())
-                                .Invoke(null, new object[] { list });
-                        }
-                    }
+                //        //invocation.ReturnValue = result.SingleOrDefault();
+                //    }
+                //    else
+                //    {
+                //        var list = result.ToList();
 
-                    RelationCache.TryAdd(name, returnvalue);
-                }
+                //        if (list.Count != 0)
+                //        {
+                //            returnvalue = typeof(Enumerable)
+                //                .GetMethod("Cast")
+                //                .MakeGenericMethod(list[0].GetType())
+                //                .Invoke(null, new object[] { list });
+                //        }
+                //    }
 
-                invocation.ReturnValue = returnvalue;
+                //    RelationCache.TryAdd(name, returnvalue);
+                //}
+
+                //invocation.ReturnValue = returnvalue;
             }
         }
+        
     }
 }

@@ -21,11 +21,16 @@ namespace Slim.Instances
             Data = ReadReader(reader, table).ToDictionary(x => x.name, x => x.value);
         }
 
-        public Dictionary<string, object> Data { get; }
+        protected Dictionary<string, object> Data { get; }
         public Table Table { get; }
 
         public PrimaryKeys GetKey() => 
             new PrimaryKeys(this);
+
+        public object GetValue(string columnDbName)
+        {
+            return Data[columnDbName];
+        }
 
         private IEnumerable<(string name, object value)> ReadReader(DbDataReader reader, Table table)
         {

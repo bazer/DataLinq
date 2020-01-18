@@ -5,25 +5,47 @@ using System;
 
 namespace Slim.Instances
 {
+    public interface Test
+    {
+        bool IsNew { get; }
+        object Mutate { get; }
+    }
+
     public static class InstanceFactory
     {
         private static readonly ProxyGenerator generator = new ProxyGenerator();
 
-        public static object NewImmutableRow(RowData instanceData) // where T : class, IModel
+        public static object NewImmutableRow(RowData rowData) // where T : class, IModel
         {
-            object row = null;
+            object row;
 
-            if (instanceData.Table.Model.CsType.IsInterface)
-                row = generator.CreateInterfaceProxyWithoutTarget(instanceData.Table.Model.CsType, new ImmutableRowInterceptor(instanceData));
+            //var slimModel = new SlimModel()
+
+            if (rowData.Table.Model.CsType.IsInterface)
+                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new Type[] { typeof(Test) }, new ImmutableRowInterceptor(rowData));
             else
-                row = generator.CreateClassProxy(instanceData.Table.Model.CsType, new ImmutableRowInterceptor(instanceData));
+                row = generator.CreateClassProxy(rowData.Table.Model.CsType, new Type[] { typeof(Test) } , new ImmutableRowInterceptor(rowData));
 
-            if (instanceData.Table.Model.ProxyType == null)
-                instanceData.Table.Model.ProxyType = row.GetType();
+            if (rowData.Table.Model.ProxyType == null)
+                rowData.Table.Model.ProxyType = row.GetType();
 
             return row;
             //return generator.CreateInterfaceProxyWithoutTarget(instanceData.Table.Model.CsType, new ImmutableRowInterceptor(instanceData));
             //return generator.CreateInterfaceProxyWithoutTarget<T>(new ImmutableRowInterceptor(instanceData));
+        }
+
+        public static object NewMutableRow(RowData rowData) // where T : class, IModel
+        {
+            object row;
+            if (rowData.Table.Model.CsType.IsInterface)
+                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new MutableRowInterceptor(rowData));
+            else
+                row = generator.CreateClassProxy(rowData.Table.Model.CsType, new MutableRowInterceptor(rowData));
+
+            if (rowData.Table.Model.MutableProxyType == null)
+                rowData.Table.Model.MutableProxyType = row.GetType();
+
+            return row;
         }
 
         public static T NewDatabase<T>(Transaction databaseProvider) where T : class, IDatabaseModel
@@ -140,63 +162,9 @@ namespace Slim.Instances
     //    }
     //}
 
-    internal enum CallType
-    {
-        Get,
-        Set
-    }
+    
 
-    internal enum MethodType
-    {
-        Property,
-        Indexer,
-        Changes
-    }
-
-    internal struct InvocationInfo
-    {
-        internal CallType CallType { get; }
-        internal MethodType MethodType { get; }
-        internal string Property { get; }
-        internal object Value { get; }
-
-        internal InvocationInfo(IInvocation invocation)
-        {
-            var name = invocation.Method.Name;
-
-            if (name.StartsWith("set_", StringComparison.Ordinal))
-                this.CallType = CallType.Set;
-            else if (name.StartsWith("get_", StringComparison.Ordinal))
-                this.CallType = CallType.Get;
-            else if (name == "GetChanges")
-                this.CallType = CallType.Get;
-            else
-                throw new NotImplementedException();
-
-            if (this.CallType == CallType.Get && name == "GetChanges")
-            {
-                this.MethodType = MethodType.Property;
-                this.Property = name;
-            }
-            else if ((this.CallType == CallType.Get && invocation.Arguments.Length == 1) || (this.CallType == CallType.Set && invocation.Arguments.Length == 2))
-            {
-                this.MethodType = MethodType.Indexer;
-                this.Property = invocation.Arguments[0] as string;
-            }
-            else
-            {
-                this.MethodType = MethodType.Property;
-                this.Property = name.Substring(4);
-            }
-
-            if (this.CallType == CallType.Set && this.MethodType == MethodType.Property)
-                this.Value = invocation.Arguments[0];
-            else if (this.CallType == CallType.Set && this.MethodType == MethodType.Indexer)
-                this.Value = invocation.Arguments[1];
-            else
-                this.Value = null;
-        }
-    }
+    
 
     //public class DelegateWrapper
     //{

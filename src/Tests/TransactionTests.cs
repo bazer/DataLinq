@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Slim.Extensions;
 using Slim.Metadata;
 using Tests.Models;
 using Xunit;
@@ -22,15 +23,7 @@ namespace Tests
         {
             var emp_no = 999999;
 
-            var employee = new employees
-            {
-                birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
-                emp_no = emp_no,
-                first_name = "Test employee",
-                last_name = "Test",
-                gender = 1,
-                hire_date = DateTime.Now
-            };
+            var employee = NewEmployee(emp_no);
 
             using (var transaction = fixture.employeesDb_provider.Write())
             {
@@ -49,6 +42,46 @@ namespace Tests
             Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }
 
+        [Fact]
+        public void Update()
+        {
+            var emp_no = 999997;
+
+            var employee = fixture.employeesDb.employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
+
+            if (employee.IsNew())
+            {
+                fixture.employeesDb_provider.Write().Insert(employee).Commit();
+                employee = fixture.employeesDb.employees.SingleOrDefault(x => x.emp_no == emp_no);
+            }
+
+            var orgBirthDate = employee.birth_date;
+
+            var employeeMut = employee.Mutate();
+
+            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            employeeMut.birth_date = newBirthDate;
+            Assert.Equal(newBirthDate, employeeMut.birth_date);
+
+            fixture.employeesDb_provider.Write().Update(employeeMut).Commit();
+
+            var dbEmployee = fixture.employeesDb.employees.Single(x => x.emp_no == emp_no);
+
+            Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
+        }
+
+        private employees NewEmployee(int emp_no)
+        {
+            return new employees
+            {
+                birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+                emp_no = emp_no,
+                first_name = "Test employee",
+                last_name = "Test",
+                gender = 1,
+                hire_date = DateTime.Now
+            };
+        }
 
         public DateTime RandomDate(DateTime rangeStart, DateTime rangeEnd)
         {

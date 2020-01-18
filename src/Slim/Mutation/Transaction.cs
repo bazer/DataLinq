@@ -1,4 +1,5 @@
-﻿using Slim.Instances;
+﻿using Slim.Extensions;
+using Slim.Instances;
 using Slim.Interfaces;
 using Slim.Query;
 using System;
@@ -31,6 +32,8 @@ namespace Slim.Mutation
 
         public TransactionType Type { get; protected set; }
 
+        public DatabaseTransactionStatus TransactionStatus => DatabaseTransaction.Status;
+
         public Transaction(IDatabaseProvider databaseProvider, TransactionType type)
         {
             DatabaseProvider = databaseProvider;
@@ -38,24 +41,48 @@ namespace Slim.Mutation
             Type = type;
         }
 
-        public void Insert(IModel model)
+        public Transaction Insert(IModel model)
         {
+            CheckIfTransactionIsValid();
+
+            if (model == null)
+                throw new ArgumentException("Model argument has null value");
+
+            if (!model.IsNew())
+                throw new ArgumentException("Model is not a new row, unable to insert");
+
             AddAndExecute(model, TransactionChangeType.Insert);
+
+            return this;
         }
 
-        public void Update(IModel model)
+        public Transaction Update(IModel model)
         {
+            CheckIfTransactionIsValid();
+
+            if (model == null)
+                throw new ArgumentException("Model argument has null value");
+
             AddAndExecute(model, TransactionChangeType.Update);
+
+            return this;
         }
 
-        public void Delete(IModel model)
+        public Transaction Delete(IModel model)
         {
+            CheckIfTransactionIsValid();
+
+            if (model == null)
+                throw new ArgumentException("Model argument has null value");
+
             AddAndExecute(model, TransactionChangeType.Delete);
+
+            return this;
         }
 
         private void AddAndExecute(IModel model, TransactionChangeType type)
         {
-            var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == model.GetType() || x.Model.ProxyType == model.GetType());
+            var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == model.GetType() || x.Model.ProxyType == model.GetType() || x.Model.MutableProxyType == model.GetType());
 
             AddAndExecute(new StateChange(model, table, type));
         }
@@ -72,6 +99,8 @@ namespace Slim.Mutation
 
         public void Commit()
         {
+            CheckIfTransactionIsValid();
+
             DatabaseTransaction.Commit();
 
             DatabaseProvider.State.ApplyChanges(Changes.ToArray());
@@ -79,6 +108,8 @@ namespace Slim.Mutation
 
         public void Rollback()
         {
+            CheckIfTransactionIsValid();
+
             DatabaseTransaction.Rollback();
         }
 
@@ -98,6 +129,18 @@ namespace Slim.Mutation
 
                 return insert;
             }
+            else if (change.Type == TransactionChangeType.Update)
+            {
+                var update = new Update(this, change.Table);
+
+                foreach (var key in change.Table.PrimaryKeyColumns)
+                    update.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
+
+                foreach (var column in change.Table.Columns)
+                    update.With(column.DbName, column.ValueProperty.GetValue(change.Model));
+
+                return update;
+            }
             else if (change.Type == TransactionChangeType.Delete)
             {
                 var delete = new Delete(this, change.Table);
@@ -109,6 +152,18 @@ namespace Slim.Mutation
             }
 
             throw new NotImplementedException();
+        }
+
+        private void CheckIfTransactionIsValid()
+        {
+            if (Type == TransactionType.NoTransaction)
+                return;
+
+            if (TransactionStatus == DatabaseTransactionStatus.Committed)
+                throw new Exception("Transaction is already committed");
+
+            if (TransactionStatus == DatabaseTransactionStatus.RolledBack)
+                throw new Exception("Transaction is rolled back");
         }
 
         public void Dispose()

@@ -7,8 +7,17 @@ using System.Text;
 
 namespace Slim
 {
+    public enum DatabaseTransactionStatus
+    {
+        Closed,
+        Open,
+        Committed,
+        RolledBack
+    }
+
     public abstract class DatabaseTransaction : IDisposable
     {
+        public DatabaseTransactionStatus Status { get; protected set; } = DatabaseTransactionStatus.Closed;
         public bool IsTransactionPending { get; protected set; }
         public string ConnectionString { get; }
 
