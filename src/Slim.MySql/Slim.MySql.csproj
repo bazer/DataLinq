@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <Version>0.0.1</Version>
+    <Authors>Sebastian Öberg</Authors>
   </PropertyGroup>
 
   <ItemGroup>
