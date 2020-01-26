@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Slim;
 using Slim.Extensions;
 using Slim.Metadata;
 using Tests.Models;
@@ -25,7 +26,7 @@ namespace Tests
 
             var employee = NewEmployee(emp_no);
 
-            using (var transaction = fixture.employeesDb_provider.Write())
+            using (var transaction = fixture.employeesDb_provider.Transaction())
             {
                 foreach (var alreadyExists in fixture.employeesDb.employees.Where(x => x.emp_no == emp_no))
                     transaction.Delete(alreadyExists);
@@ -51,7 +52,7 @@ namespace Tests
 
             if (employee.IsNew())
             {
-                fixture.employeesDb_provider.Write().Insert(employee).Commit();
+                fixture.employeesDb_provider.Transaction().Insert(employee).Commit();
                 employee = fixture.employeesDb.employees.SingleOrDefault(x => x.emp_no == emp_no);
             }
 
@@ -63,7 +64,7 @@ namespace Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            fixture.employeesDb_provider.Write().Update(employeeMut).Commit();
+            fixture.employeesDb_provider.Transaction().Update(employeeMut).Commit();
 
             var dbEmployee = fixture.employeesDb.employees.Single(x => x.emp_no == emp_no);
 

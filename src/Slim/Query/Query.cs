@@ -16,9 +16,9 @@ namespace Slim.Query
 
         IDbCommand ToDbCommand();
 
-        Sql ToSql(string paramPrefix);
+        Sql ToSql(string paramPrefix = null);
 
-        int ParameterCount { get; }
+        //int ParameterCount { get; }
     }
 
     public abstract class Query<Q> : IQuery
@@ -28,20 +28,20 @@ namespace Slim.Query
 
         public Transaction Transaction { get; }
 
-        public abstract Sql ToSql(string paramPrefix);
+        public abstract Sql ToSql(string paramPrefix = null);
 
-        public abstract int ParameterCount { get; }
+        //public abstract int ParameterCount { get; }
         protected Table Table;
 
-        protected Query(Transaction transaction, Table table)
+        protected Query(Table table, Transaction transaction)
         {
             this.Transaction = transaction;
             this.Table = table;
         }
 
-        public Where<Q> Where(string key)
+        public Where<Q> Where(string columnName)
         {
-            var where = new Where<Q>((Q)this, key);
+            var where = new Where<Q>((Q)this, columnName);
             whereList.Add(where);
 
             return where;
@@ -60,15 +60,15 @@ namespace Slim.Query
             if (length == 0)
                 return sql;
 
-            sql.AddText("WHERE \r\n");
+            sql.AddText("WHERE\r\n");
 
             for (int i = 0; i < length; i++)
             {
-                whereList[i].GetCommandParameter(sql, paramPrefix, i);
-                whereList[i].GetCommandString(sql, paramPrefix, i);
+                //whereList[i].GetCommandParameter(sql, paramPrefix);
+                whereList[i].GetCommandString(sql, paramPrefix);
 
                 if (i + 1 < length)
-                    sql.AddText(" AND \r\n");
+                    sql.AddText(" AND\r\n");
             }
 
             return sql;
@@ -106,9 +106,14 @@ namespace Slim.Query
             if (expression is ConstantExpression constExp)
                 return constExp.Value;
             else if (expression is MemberExpression propExp)
-                return Table.Columns.Single(x => x.ValueProperty.CsName == propExp.Member.Name).DbName;
+                return GetColumn(propExp).DbName;
             else
                 throw new InvalidQueryException("Value is not a member or constant.");
+        }
+
+        internal Column GetColumn(MemberExpression expression)
+        {
+            return Table.Columns.Single(x => x.ValueProperty.CsName == expression.Member.Name);
         }
     }
 }

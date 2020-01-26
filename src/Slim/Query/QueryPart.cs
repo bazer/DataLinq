@@ -8,7 +8,7 @@ namespace Slim.Query
 {
     public abstract class QueryPart
     {
-        public abstract Sql GetCommandString(Sql sql, string prefix, int number);
-        public abstract Sql GetCommandParameter(Sql sql, string prefix, int number);
+        public abstract void GetCommandString(Sql sql, string prefix, bool addCommandParameter = true);
+        //protected abstract void GetCommandParameter(Sql sql, string prefix);
     }
 }

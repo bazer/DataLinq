@@ -8,10 +8,16 @@ namespace Slim.Query
     {
         private readonly StringBuilder builder = new StringBuilder();
         public List<IDataParameter> Parameters = new List<IDataParameter>();
+        public int Index { get; protected set; } = 0;
         public string Text { get { return builder.ToString(); } }
 
         public Sql()
         {
+        }
+
+        public int IndexAdd()
+        {
+            return Index++;
         }
 
         public Sql(string text, params IDataParameter[] parameters)

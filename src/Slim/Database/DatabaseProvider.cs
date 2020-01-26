@@ -26,7 +26,7 @@ namespace Slim
 
         Sql GetParameterValue(Sql sql, string key);
 
-        Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key);
+        Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string prefix);
     }
 
     public abstract class DatabaseProvider<T> : DatabaseProvider
@@ -37,7 +37,7 @@ namespace Slim
             return new Transaction<T>(this, TransactionType.NoTransaction).Schema;
         }
 
-        public Transaction<T> Write(TransactionType transactionType = TransactionType.ReadAndWrite)
+        public Transaction<T> Transaction(TransactionType transactionType = TransactionType.ReadAndWrite)
         {
             return new Transaction<T>(this, transactionType);
         }

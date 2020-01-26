@@ -122,7 +122,7 @@ namespace Slim.Mutation
 
             if (change.Type == TransactionChangeType.Insert)
             {
-                var insert = new Insert(this, change.Table);
+                var insert = new Insert(change.Table, this);
 
                 foreach (var column in change.Table.Columns)
                     insert.With(column.DbName, column.ValueProperty.GetValue(change.Model));
@@ -131,7 +131,7 @@ namespace Slim.Mutation
             }
             else if (change.Type == TransactionChangeType.Update)
             {
-                var update = new Update(this, change.Table);
+                var update = new Update(change.Table, this);
 
                 foreach (var key in change.Table.PrimaryKeyColumns)
                     update.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
@@ -143,7 +143,7 @@ namespace Slim.Mutation
             }
             else if (change.Type == TransactionChangeType.Delete)
             {
-                var delete = new Delete(this, change.Table);
+                var delete = new Delete(change.Table, this);
 
                 foreach (var key in change.Table.PrimaryKeyColumns)
                     delete.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));

@@ -5,7 +5,7 @@ namespace Slim.Query
 {
     public class Insert : Change
     {
-        public Insert(Transaction transaction, Table table) : base(transaction, table)
+        public Insert(Table table, Transaction transaction) : base(table, transaction)
         {
         }
 
@@ -41,9 +41,9 @@ namespace Slim.Query
                 paramPrefix);
         }
 
-        public override int ParameterCount
-        {
-            get { return withList.Count; }
-        }
+        //public override int ParameterCount
+        //{
+        //    get { return withList.Count; }
+        //}
     }
 }

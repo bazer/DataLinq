@@ -53,7 +53,7 @@ namespace Slim.Query
 
             for (int i = 0; i < length; i++)
             {
-                whereList[i].GetCommandString(sql, "", i);
+                whereList[i].GetCommandString(sql, "", false);
 
                 if (i + 1 < length)
                     sql.AddText(" AND ");

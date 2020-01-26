@@ -8,26 +8,26 @@ namespace Slim.Query
     {
         private readonly Expression expression;
 
-        public Delete(Transaction transaction, Table table) : base(transaction, table)
+        public Delete(Table table, Transaction transaction) : base(table, transaction)
         {
         }
 
-        public Delete(Transaction transaction, Table table, Expression expression)
-            : base(transaction, table)
+        public Delete(Table table, Transaction transaction, Expression expression)
+            : base(table, transaction)
         {
             this.expression = expression;
         }
 
-        public override Sql ToSql(string paramPrefix)
+        public override Sql ToSql(string paramPrefix = null)
         {
             return GetWhere(
                 new Sql().AddFormat("DELETE FROM {0} \r\n", Table.DbName),
                 paramPrefix);
         }
 
-        public override int ParameterCount
-        {
-            get { return whereList.Count; }
-        }
+        //public override int ParameterCount
+        //{
+        //    get { return whereList.Count; }
+        //}
     }
 }

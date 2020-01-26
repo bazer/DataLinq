@@ -1,20 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27130.2036
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29709.97
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Slim", "Slim\Slim.csproj", "{7C2EBB29-CF9D-46B0-B6F2-A57ECC9E9DFA}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tests", "Tests\Tests.csproj", "{4D623680-7EE0-4E0E-A06B-866A1BAECF56}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Slim.Tools", "Slim.Tools\Slim.Tools.csproj", "{10FD4E6A-D1E5-4175-B702-A6B86433D1F9}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Slim.MySql", "Slim.MySql\Slim.MySql.csproj", "{FD858437-C682-4A9C-839E-FC2B61FA89B9}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Slim.Tests", "Slim.Tests\Slim.Tests.csproj", "{DB2BC162-DCBC-4C14-AD96-AA9E3ECDBAD7}"
+EndProject
 Global
-	GlobalSection(Performance) = preSolution
-		HasPerformanceSessions = true
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -24,10 +21,6 @@ Global
 		{7C2EBB29-CF9D-46B0-B6F2-A57ECC9E9DFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7C2EBB29-CF9D-46B0-B6F2-A57ECC9E9DFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7C2EBB29-CF9D-46B0-B6F2-A57ECC9E9DFA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4D623680-7EE0-4E0E-A06B-866A1BAECF56}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4D623680-7EE0-4E0E-A06B-866A1BAECF56}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4D623680-7EE0-4E0E-A06B-866A1BAECF56}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4D623680-7EE0-4E0E-A06B-866A1BAECF56}.Release|Any CPU.Build.0 = Release|Any CPU
 		{10FD4E6A-D1E5-4175-B702-A6B86433D1F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{10FD4E6A-D1E5-4175-B702-A6B86433D1F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{10FD4E6A-D1E5-4175-B702-A6B86433D1F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -36,11 +29,18 @@ Global
 		{FD858437-C682-4A9C-839E-FC2B61FA89B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FD858437-C682-4A9C-839E-FC2B61FA89B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FD858437-C682-4A9C-839E-FC2B61FA89B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB2BC162-DCBC-4C14-AD96-AA9E3ECDBAD7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB2BC162-DCBC-4C14-AD96-AA9E3ECDBAD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB2BC162-DCBC-4C14-AD96-AA9E3ECDBAD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB2BC162-DCBC-4C14-AD96-AA9E3ECDBAD7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4DF6624D-190E-4BB2-863C-F3EAB4CF184F}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
 	EndGlobalSection
 EndGlobal

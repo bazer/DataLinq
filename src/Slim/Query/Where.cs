@@ -30,6 +30,7 @@ namespace Slim.Query
         private object Value;
         private Relation Relation;
         private bool IsValue = true;
+        protected List<WhereContinuation<Q>> continuationList = new List<WhereContinuation<Q>>();
 
         internal Where(Q query, string key, bool isValue = true)
         {
@@ -38,14 +39,14 @@ namespace Slim.Query
             this.IsValue = isValue;
         }
 
-        public Q EqualTo<V>(V value)
+        public WhereContinuation<Q> EqualTo<V>(V value)
         {
 #pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
             return SetAndReturn(value, value == null ? Relation.EqualNull : Relation.Equal);
 #pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
-        public Q EqualTo<V>(V value, bool isValue)
+        public WhereContinuation<Q> EqualTo<V>(V value, bool isValue)
         {
             this.IsValue = isValue;
 #pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
@@ -53,60 +54,68 @@ namespace Slim.Query
 #pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
-        public Q NotEqualTo<V>(V value)
+        public WhereContinuation<Q> NotEqualTo<V>(V value)
         {
 #pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
             return SetAndReturn(value, value == null ? Relation.NotEqualNull : Relation.NotEqual);
 #pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
-        public Q Like<V>(V value)
+        public WhereContinuation<Q> Like<V>(V value)
         {
             return SetAndReturn(value, Relation.Like);
         }
 
-        public Q GreaterThan<V>(V value)
+        public WhereContinuation<Q> GreaterThan<V>(V value)
         {
             return SetAndReturn(value, Relation.BiggerThan);
         }
 
-        public Q GreaterThanOrEqual<V>(V value)
+        public WhereContinuation<Q> GreaterThanOrEqual<V>(V value)
         {
             return SetAndReturn(value, Relation.BiggerThanOrEqual);
         }
 
-        public Q LessThan<V>(V value)
+        public WhereContinuation<Q> LessThan<V>(V value)
         {
             return SetAndReturn(value, Relation.SmallerThan);
         }
 
-        public Q LessThanOrEqual<V>(V value)
+        public WhereContinuation<Q> LessThanOrEqual<V>(V value)
         {
             return SetAndReturn(value, Relation.SmallerThanOrEqual);
         }
 
-        private Q SetAndReturn<V>(V value, Relation relation)
+        private WhereContinuation<Q> SetAndReturn<V>(V value, Relation relation)
         {
             this.Value = value;
             this.Relation = relation;
 
-            return Query;
+            var continuation = new WhereContinuation<Q>(Query);
+            this.continuationList.Add(continuation);
+
+            return continuation;
         }
 
-        public override Sql GetCommandString(Sql sql, string prefix, int number)
+        public override void GetCommandString(Sql sql, string prefix, bool addCommandParameter = true)
         {
+            if (addCommandParameter)
+                GetCommandParameter(sql, prefix);
+
             if (IsValue)
-                return Query.Transaction.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + number);
+                Query.Transaction.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + sql.IndexAdd());
             else
-                return sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
+                sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
+
+            foreach (var continuation in continuationList)
+                continuation.GetWhere(sql, prefix);
         }
 
-        public override Sql GetCommandParameter(Sql sql, string prefix, int number)
+        protected void GetCommandParameter(Sql sql, string prefix)
         {
             if (IsValue)
-                return Query.Transaction.DatabaseProvider.GetParameter(sql, prefix + "w" + number, Value);
-            else
-                return sql;
+                Query.Transaction.DatabaseProvider.GetParameter(sql, prefix + "w" + sql.Index, Value);
+            
         }
     }
 }

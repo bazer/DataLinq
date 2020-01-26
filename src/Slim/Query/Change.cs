@@ -6,7 +6,7 @@ namespace Slim.Query
 {
     public abstract class Change : Query<Change>
     {
-        protected Change(Transaction transaction, Table table) : base(transaction, table)
+        protected Change(Table table, Transaction transaction) : base(table, transaction)
         {
         }
 

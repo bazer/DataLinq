@@ -73,5 +73,24 @@ namespace Tests
             Assert.NotNull(dept);
             Assert.Equal("d005", dept.dept_no);
         }
+
+        [Fact]
+        public void Any()
+        {
+            Assert.True(fixture.employeesDb.departments.Any(x => x.dept_no == "d005"));
+            Assert.True(fixture.employeesDb.departments.Where(x => x.dept_no == "d005").Any());
+            Assert.False(fixture.employeesDb.departments.Any(x => x.dept_no == "not_existing"));
+            Assert.False(fixture.employeesDb.departments.Where(x => x.dept_no == "not_existing").Any());
+        }
+
+        [Fact]
+        public void OrderBy()
+        {
+            var deptByDeptNo = fixture.employeesDb.departments.OrderBy(x => x.dept_no);
+            Assert.Equal("d001", deptByDeptNo.FirstOrDefault().dept_no);
+            Assert.Equal("d009", deptByDeptNo.Last().dept_no);
+
+            
+        }
     }
 }

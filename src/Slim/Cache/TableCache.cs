@@ -42,17 +42,19 @@ namespace Slim.Cache
 
         public IEnumerable<PrimaryKeys> GetKeys(ForeignKey foreignKey, Transaction transaction)
         {
-            var select = new Select(transaction, Table)
+            var select = new Select(Table, transaction)
                 .What(Table.PrimaryKeyColumns)
-                .Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data);
+                .Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data)
+                .Query();
 
             return select
                 .ReadKeys();
         }
 
-        public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction)
+        public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction, List<OrderBy> orderings = null)
         {
-            var select = new Select(transaction, Table);
+            var select = new Select(Table, transaction);
+
 
             var query = new StringBuilder()
                 .Append("SELECT * FROM ")
@@ -74,7 +76,7 @@ namespace Slim.Cache
 
         public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey, Transaction transaction)
         {
-            var select = new Select(transaction, Table);
+            var select = new Select(Table, transaction);
             select.Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data);
 
             return select.ReadInstances();
@@ -87,7 +89,7 @@ namespace Slim.Cache
             return GetRows(keys, transaction, foreignKey);
         }
 
-        public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, ForeignKey foreignKey = null)
+        public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, ForeignKey foreignKey = null, List<OrderBy> orderings = null)
         {
             var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
             foreach (var key in primaryKeys)

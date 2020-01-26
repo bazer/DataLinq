@@ -32,6 +32,11 @@ namespace Slim.Linq
                 {
                     select.Where(where);
                 }
+
+                if (body is OrderByClause orderBy)
+                {
+                    select.OrderBy(orderBy);
+                }
             }
 
             return select;
@@ -67,7 +72,21 @@ namespace Slim.Linq
         {
             var sequence = ExecuteCollection<T>(queryModel);
 
-            return returnDefaultWhenEmpty ? sequence.SingleOrDefault() : sequence.Single();
+            if (queryModel.ResultOperators.Any())
+            {
+                var op = queryModel.ResultOperators[0].ToString();
+
+                return op switch
+                {
+                    "Single()" => sequence.Single(),
+                    "SingleOrDefault()" => sequence.SingleOrDefault(),
+                    "First()" => sequence.First(),
+                    "FirstOrDefault()" => sequence.FirstOrDefault(),
+                    _ => throw new NotImplementedException($"Unknown operator '{op}'")
+                };
+            }
+
+            throw new NotImplementedException();
         }
 
         public T ExecuteScalar<T>(QueryModel queryModel)
@@ -79,6 +98,8 @@ namespace Slim.Linq
             {
                 if (queryModel.ResultOperators[0].ToString() == "Count()")
                     return (T)(object)keys.Count();
+                else if (queryModel.ResultOperators[0].ToString() == "Any()")
+                    return (T)(object)keys.Any();
             }
 
             throw new NotImplementedException();
@@ -86,7 +107,7 @@ namespace Slim.Linq
 
         private Select GetSelect()
         {
-            return new Select(Transaction, Table);
+            return new Select(Table, Transaction);
         }
     }
 }

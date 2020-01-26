@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Slim.Extensions
+namespace Slim
 {
     public static class IModelExtensions
     {
