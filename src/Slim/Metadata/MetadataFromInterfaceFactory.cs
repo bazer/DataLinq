@@ -9,9 +9,9 @@ namespace Slim.Metadata
 {
     public static class MetadataFromInterfaceFactory
     {
-        public static Database ParseDatabase(Type type)
+        public static DatabaseMetadata ParseDatabase(Type type)
         {
-            var database = new Database(type.Name);
+            var database = new DatabaseMetadata(type.Name);
 
             foreach (var attribute in type.GetCustomAttributes(false))
             {
@@ -35,7 +35,7 @@ namespace Slim.Metadata
             return database;
         }
 
-        private static IEnumerable<Relation> ParseRelations(Database database)
+        private static IEnumerable<Relation> ParseRelations(DatabaseMetadata database)
         {
             foreach (var column in database.
                 Tables.SelectMany(x => x.Columns.Where(y => y.ForeignKey)))
@@ -104,7 +104,7 @@ namespace Slim.Metadata
                 throw new NotImplementedException();
         }
 
-        private static Model ParseModel(Database database, Type type)
+        private static Model ParseModel(DatabaseMetadata database, Type type)
         {
             var model = new Model
             {

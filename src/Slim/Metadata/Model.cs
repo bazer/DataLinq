@@ -10,7 +10,7 @@ namespace Slim.Metadata
         public Type ProxyType { get; set; }
         public Type MutableProxyType { get; set; }
         public string CsTypeName { get; set; }
-        public Database Database { get; set; }
+        public DatabaseMetadata Database { get; set; }
         public List<Property> Properties { get; set; }
         public object[] Attributes { get; set; }
     }

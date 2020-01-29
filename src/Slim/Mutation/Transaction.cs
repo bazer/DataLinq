@@ -1,6 +1,7 @@
 ﻿using Slim.Extensions;
 using Slim.Instances;
 using Slim.Interfaces;
+using Slim.Metadata;
 using Slim.Query;
 using System;
 using System.Collections.Generic;
@@ -25,19 +26,19 @@ namespace Slim.Mutation
 
     public class Transaction : IDisposable
     {
-        public IDatabaseProvider DatabaseProvider { get; }
+        public IDatabaseProvider Provider { get; }
 
-        public DatabaseTransaction DatabaseTransaction { get; set; }
+        public DatabaseTransaction DbTransaction { get; set; }
         public List<StateChange> Changes { get; } = new List<StateChange>();
 
         public TransactionType Type { get; protected set; }
 
-        public DatabaseTransactionStatus TransactionStatus => DatabaseTransaction.Status;
+        public DatabaseTransactionStatus Status => DbTransaction.Status;
 
         public Transaction(IDatabaseProvider databaseProvider, TransactionType type)
         {
-            DatabaseProvider = databaseProvider;
-            DatabaseTransaction = databaseProvider.GetNewDatabaseTransaction(type);
+            Provider = databaseProvider;
+            DbTransaction = databaseProvider.GetNewDatabaseTransaction(type);
             Type = type;
         }
 
@@ -82,7 +83,7 @@ namespace Slim.Mutation
 
         private void AddAndExecute(IModel model, TransactionChangeType type)
         {
-            var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == model.GetType() || x.Model.ProxyType == model.GetType() || x.Model.MutableProxyType == model.GetType());
+            var table = Provider.Metadata.Tables.Single(x => x.Model.CsType == model.GetType() || x.Model.ProxyType == model.GetType() || x.Model.MutableProxyType == model.GetType());
 
             AddAndExecute(new StateChange(model, table, type));
         }
@@ -91,26 +92,26 @@ namespace Slim.Mutation
         {
             Changes.AddRange(changes);
 
-            var commands = changes.Select(x => DatabaseProvider.ToDbCommand(GetQuery(x)));
+            var commands = changes.Select(x => Provider.ToDbCommand(GetQuery(x)));
 
             foreach (var command in commands)
-                DatabaseTransaction.ExecuteNonQuery(command);
+                DbTransaction.ExecuteNonQuery(command);
         }
 
         public void Commit()
         {
             CheckIfTransactionIsValid();
 
-            DatabaseTransaction.Commit();
+            DbTransaction.Commit();
 
-            DatabaseProvider.State.ApplyChanges(Changes.ToArray());
+            Provider.State.ApplyChanges(Changes.ToArray());
         }
 
         public void Rollback()
         {
             CheckIfTransactionIsValid();
 
-            DatabaseTransaction.Rollback();
+            DbTransaction.Rollback();
         }
 
         //private Table GetTable() =>
@@ -159,28 +160,47 @@ namespace Slim.Mutation
             if (Type == TransactionType.NoTransaction)
                 return;
 
-            if (TransactionStatus == DatabaseTransactionStatus.Committed)
+            if (Status == DatabaseTransactionStatus.Committed)
                 throw new Exception("Transaction is already committed");
 
-            if (TransactionStatus == DatabaseTransactionStatus.RolledBack)
+            if (Status == DatabaseTransactionStatus.RolledBack)
                 throw new Exception("Transaction is rolled back");
         }
 
         public void Dispose()
         {
-            DatabaseTransaction.Dispose();
+            DbTransaction.Dispose();
         }
     }
 
     public class Transaction<T> : Transaction where T : class, IDatabaseModel
     {
-        public T Read() => Schema;
+        
 
-        public T Schema { get; }
+        protected T Schema { get; }
 
         public Transaction(DatabaseProvider<T> databaseProvider, TransactionType type) : base(databaseProvider, type)
         {
             Schema = GetDatabaseInstance();
+        }
+
+        public T Select() => Schema;
+
+        public QuerySelector Query(string tableName)
+        {
+            var table = Provider.Metadata.Tables.Single(x => x.DbName == tableName);
+
+            return new QuerySelector(table, this);
+        }
+
+        public QuerySelector Query(Table table)
+        {
+            return new QuerySelector(table, this);
+        }
+
+        public QuerySelector<V> Query<V>() where V : IModel
+        {
+            return new QuerySelector<V>(this);
         }
 
         private T GetDatabaseInstance()

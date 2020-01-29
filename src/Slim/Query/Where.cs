@@ -103,7 +103,7 @@ namespace Slim.Query
                 GetCommandParameter(sql, prefix);
 
             if (IsValue)
-                Query.Transaction.DatabaseProvider.GetParameterComparison(sql, Key, Relation, prefix + "w" + sql.IndexAdd());
+                Query.Transaction.Provider.GetParameterComparison(sql, Key, Relation, prefix + "w" + sql.IndexAdd());
             else
                 sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
 
@@ -114,7 +114,7 @@ namespace Slim.Query
         protected void GetCommandParameter(Sql sql, string prefix)
         {
             if (IsValue)
-                Query.Transaction.DatabaseProvider.GetParameter(sql, prefix + "w" + sql.Index, Value);
+                Query.Transaction.Provider.GetParameter(sql, prefix + "w" + sql.Index, Value);
             
         }
     }

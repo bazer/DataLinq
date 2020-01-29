@@ -11,20 +11,20 @@ namespace Slim.Instances
     internal class DatabaseInterceptor : IInterceptor
     {
         public Dictionary<string, object> Data { get; }
-        public Transaction DatabaseProvider { get; }
+        public Transaction Transaction { get; }
 
-        public DatabaseInterceptor(Transaction databaseProvider)
+        public DatabaseInterceptor(Transaction transaction)
         {
-            DatabaseProvider = databaseProvider;
-            Data = ReadDatabase(databaseProvider).ToDictionary(x => x.name, x => x.value);
+            Transaction = transaction;
+            Data = ReadDatabase(transaction).ToDictionary(x => x.name, x => x.value);
         }
 
-        private IEnumerable<(string name, object value)> ReadDatabase(Transaction databaseProvider)
+        private IEnumerable<(string name, object value)> ReadDatabase(Transaction transaction)
         {
-            foreach (var table in databaseProvider.DatabaseProvider.Database.Tables)
+            foreach (var table in transaction.Provider.Metadata.Tables)
             {
                 var dbReadType = typeof(DbRead<>).MakeGenericType(table.Model.CsType);
-                var dbRead = Activator.CreateInstance(dbReadType, databaseProvider);
+                var dbRead = Activator.CreateInstance(dbReadType, transaction);
 
                 yield return (table.Model.CsTypeName, dbRead);
             }

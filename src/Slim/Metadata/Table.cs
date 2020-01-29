@@ -16,7 +16,7 @@ namespace Slim.Metadata
 
         public TableCache Cache { get; set; }
         public List<Column> Columns { get; set; }
-        public Database Database { get; set; }
+        public DatabaseMetadata Database { get; set; }
         public string DbName { get; set; }
         public Model Model { get; set; }
 

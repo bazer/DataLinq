@@ -46,26 +46,28 @@ namespace Slim.Linq
         {
             var select = ParseQueryModel(queryModel);
 
-            if (Table.PrimaryKeyColumns.Count != 0)
-            {
-                select.What(Table.PrimaryKeyColumns);
+            return select.Execute<T>();
 
-                var keys = ParseQueryModel(queryModel)
-                    .ReadKeys()
-                    .ToArray();
+            //if (Table.PrimaryKeyColumns.Count != 0)
+            //{
+            //    select.What(Table.PrimaryKeyColumns);
 
-                foreach (var row in Table.Cache.GetRows(keys, Transaction))
-                    yield return (T)row;
-            }
-            else
-            {
-                var rows = ParseQueryModel(queryModel)
-                    .ReadInstances()
-                    .Select(InstanceFactory.NewImmutableRow);
+            //    var keys = ParseQueryModel(queryModel)
+            //        .ReadKeys()
+            //        .ToArray();
 
-                foreach (var row in rows)
-                    yield return (T)row;
-            }
+            //    foreach (var row in Table.Cache.GetRows(keys, Transaction))
+            //        yield return (T)row;
+            //}
+            //else
+            //{
+            //    var rows = ParseQueryModel(queryModel)
+            //        .ReadInstances()
+            //        .Select(InstanceFactory.NewImmutableRow);
+
+            //    foreach (var row in rows)
+            //        yield return (T)row;
+            //}
         }
 
         public T ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)

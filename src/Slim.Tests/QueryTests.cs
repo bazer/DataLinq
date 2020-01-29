@@ -19,19 +19,19 @@ namespace Tests
         [Fact]
         public void ToList()
         {
-            Assert.Equal(9, fixture.employeesDb.departments.ToList().Count);
+            Assert.Equal(9, fixture.employeesDb.Select().departments.ToList().Count);
         }
 
         [Fact]
         public void Count()
         {
-            Assert.Equal(9, fixture.employeesDb.departments.Count());
+            Assert.Equal(9, fixture.employeesDb.Select().departments.Count());
         }
 
         [Fact]
         public void SimpleWhere()
         {
-            var where = fixture.employeesDb.departments.Where(x => x.dept_no == "d005").ToList();
+            var where = fixture.employeesDb.Select().departments.Where(x => x.dept_no == "d005").ToList();
             Assert.Single(where);
             Assert.Equal("d005", where[0].dept_no);
         }
@@ -39,7 +39,7 @@ namespace Tests
         [Fact]
         public void SimpleWhereReverse()
         {
-            var where = fixture.employeesDb.departments.Where(x => "d005" == x.dept_no).ToList();
+            var where = fixture.employeesDb.Select().departments.Where(x => "d005" == x.dept_no).ToList();
             Assert.Single(where);
             Assert.Equal("d005", where[0].dept_no);
         }
@@ -47,7 +47,7 @@ namespace Tests
         [Fact]
         public void SimpleWhereNot()
         {
-            var where = fixture.employeesDb.departments.Where(x => x.dept_no != "d005").ToList();
+            var where = fixture.employeesDb.Select().departments.Where(x => x.dept_no != "d005").ToList();
             Assert.Equal(8, where.Count);
             Assert.DoesNotContain(where, x => x.dept_no == "d005");
         }
@@ -55,21 +55,21 @@ namespace Tests
         [Fact]
         public void WhereAndToList()
         {
-            var where = fixture.employeesDb.dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateTime.Parse("1990-01-01")).ToList();
+            var where = fixture.employeesDb.Select().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateTime.Parse("1990-01-01")).ToList();
             Assert.Equal(2, where.Count);
         }
 
         [Fact]
         public void WhereAndCount()
         {
-            var where = fixture.employeesDb.dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateTime.Parse("1990-01-01"));
+            var where = fixture.employeesDb.Select().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateTime.Parse("1990-01-01"));
             Assert.Equal(2, where.Count());
         }
 
         [Fact]
         public void Single()
         {
-            var dept = fixture.employeesDb.departments.Single(x => x.dept_no == "d005");
+            var dept = fixture.employeesDb.Select().departments.Single(x => x.dept_no == "d005");
             Assert.NotNull(dept);
             Assert.Equal("d005", dept.dept_no);
         }
@@ -77,16 +77,16 @@ namespace Tests
         [Fact]
         public void Any()
         {
-            Assert.True(fixture.employeesDb.departments.Any(x => x.dept_no == "d005"));
-            Assert.True(fixture.employeesDb.departments.Where(x => x.dept_no == "d005").Any());
-            Assert.False(fixture.employeesDb.departments.Any(x => x.dept_no == "not_existing"));
-            Assert.False(fixture.employeesDb.departments.Where(x => x.dept_no == "not_existing").Any());
+            Assert.True(fixture.employeesDb.Select().departments.Any(x => x.dept_no == "d005"));
+            Assert.True(fixture.employeesDb.Select().departments.Where(x => x.dept_no == "d005").Any());
+            Assert.False(fixture.employeesDb.Select().departments.Any(x => x.dept_no == "not_existing"));
+            Assert.False(fixture.employeesDb.Select().departments.Where(x => x.dept_no == "not_existing").Any());
         }
 
         [Fact]
         public void OrderBy()
         {
-            var deptByDeptNo = fixture.employeesDb.departments.OrderBy(x => x.dept_no);
+            var deptByDeptNo = fixture.employeesDb.Select().departments.OrderBy(x => x.dept_no);
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault().dept_no);
             Assert.Equal("d009", deptByDeptNo.Last().dept_no);
 

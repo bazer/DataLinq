@@ -11,7 +11,7 @@ namespace Slim.Metadata
     {
         static readonly string tab = "    ";
 
-        public static IEnumerable<(string path, string contents)> CreateModelFiles(Database database, string namespaceName)
+        public static IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database, string namespaceName)
         {
             var dbName = database.Tables.Any(x => x.DbName == database.Name)
                 ? $"{database.Name}Db"
@@ -44,7 +44,7 @@ namespace Slim.Metadata
             }
         }
 
-        private static IEnumerable<string> DatabaseFileContents(Database database, string dbName)
+        private static IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName)
         {
             yield return $"{tab}[Name(\"{database.Name}\")]";
             yield return $"{tab}public interface {dbName} : IDatabaseModel";

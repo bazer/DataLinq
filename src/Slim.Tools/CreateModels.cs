@@ -9,9 +9,9 @@ namespace Slim.Tools
 {
     internal class CreateModels
     {
-        public void Execute(string dbname, string namespaceName, string path, MySQLProvider<information_schema> databaseProvider)
+        public void Execute(string dbname, string namespaceName, string path, MySqlDatabase<information_schema> information_schema)
         {
-            var database = MetadataFromSqlFactory.ParseDatabase(dbname, databaseProvider.Read());
+            var database = MetadataFromSqlFactory.ParseDatabase(dbname, information_schema.Select());
 
             Console.WriteLine($"Database: {dbname}");
             Console.WriteLine($"Table count: {database.Tables.Count}");

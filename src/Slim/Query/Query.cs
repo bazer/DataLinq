@@ -76,7 +76,7 @@ namespace Slim.Query
 
         public IDbCommand ToDbCommand()
         {
-            return Transaction.DatabaseProvider.ToDbCommand(this);
+            return Transaction.Provider.ToDbCommand(this);
         }
 
         public override string ToString()

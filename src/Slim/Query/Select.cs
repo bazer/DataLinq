@@ -8,6 +8,7 @@ using Slim.Cache;
 using Slim.Exceptions;
 using Slim.Extensions;
 using Slim.Instances;
+using Slim.Interfaces;
 using Slim.Linq.Visitors;
 using Slim.Metadata;
 using Slim.Mutation;
@@ -37,7 +38,7 @@ namespace Slim.Query
         }
 
         public Select(string tableName, Transaction transaction)
-            : base(transaction.DatabaseProvider.Database.Tables.Single(x => x.DbName == tableName), transaction)
+            : base(transaction.Provider.Metadata.Tables.Single(x => x.DbName == tableName), transaction)
         {
         }
 
@@ -120,19 +121,19 @@ namespace Slim.Query
         //    get { return whereList.Count; }
         //}
 
-        public IEnumerable<RowData> ReadInstances()
+        public IEnumerable<RowData> ReadRows()
         {
             return Transaction
-                .DatabaseTransaction
-                .ReadReader(Transaction.DatabaseProvider.ToDbCommand(this))
+                .DbTransaction
+                .ReadReader(Transaction.Provider.ToDbCommand(this))
                 .Select(x => new RowData(x, Table));
         }
 
         public IEnumerable<PrimaryKeys> ReadKeys()
         {
             return Transaction
-                .DatabaseTransaction
-                .ReadReader(Transaction.DatabaseProvider.ToDbCommand(this))
+                .DbTransaction
+                .ReadReader(Transaction.Provider.ToDbCommand(this))
                 .Select(x => new PrimaryKeys(x, Table));
         }
 
@@ -141,6 +142,57 @@ namespace Slim.Query
             columnsToSelect = columns.ToList();
 
             return this;
+        }
+
+        public IEnumerable<T> Execute<T>()// where T: IModel
+        {
+            if (Table.PrimaryKeyColumns.Count != 0)
+            {
+                this.What(Table.PrimaryKeyColumns);
+
+                var keys = this
+                    .ReadKeys()
+                    .ToArray();
+
+                foreach (var row in Table.Cache.GetRows(keys, Transaction))
+                    yield return (T)row;
+            }
+            else
+            {
+                var rows = this
+                    .ReadRows()
+                    .Select(InstanceFactory.NewImmutableRow);
+
+                foreach (var row in rows)
+                    yield return (T)row;
+            }
+        }
+    }
+
+    public class Select<T> : Select
+            where T : IModel
+    {
+        public Select(Transaction transaction) : base(transaction.Provider.Metadata.Tables.Single(x => x.Model.CsType == typeof(T)), transaction)
+        {
+
+        }
+
+        public Select(Table table, Transaction transaction)
+            : base(table, transaction)
+        {
+        }
+
+        //public override Where<Select<T>> Where(string columnName)
+        //{
+        //    var where = new Where<Select<T>>(this, columnName);
+        //    whereList.Add(where);
+
+        //    return where;
+        //}
+
+        public IEnumerable<T> Execute()
+        {
+            return this.Execute<T>();
         }
     }
 }

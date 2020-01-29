@@ -64,7 +64,7 @@ namespace Slim.Cache
                     .Select(x => $"({formatRowKey(x.Data).ToJoinedString(" AND ")})")
                     .ToJoinedString(" OR "));
 
-            return transaction.DatabaseTransaction.ReadReader(query.ToString())
+            return transaction.DbTransaction.ReadReader(query.ToString())
                 .Select(x => new RowData(x, Table));
 
             IEnumerable<string> formatRowKey(object[] data)
@@ -79,7 +79,7 @@ namespace Slim.Cache
             var select = new Select(Table, transaction);
             select.Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data);
 
-            return select.ReadInstances();
+            return select.ReadRows();
         }
 
         public IEnumerable<object> GetRows(ForeignKey foreignKey, Transaction transaction)
@@ -108,7 +108,7 @@ namespace Slim.Cache
 
                     if (transaction.Type == TransactionType.NoTransaction)
                     {
-                        if (Rows.TryAdd(rowData.GetKey(), row))
+                        if (Rows.TryAdd(rowData.GetKeys(), row))
                             yield return row;
                     }
                     else
@@ -127,7 +127,7 @@ namespace Slim.Cache
 
                         if (transaction.Type == TransactionType.NoTransaction)
                         {
-                            if (!Rows.TryAdd(rowData.GetKey(), row))
+                            if (!Rows.TryAdd(rowData.GetKeys(), row))
                                 throw new Exception("Couldn't add row");
                         }
 

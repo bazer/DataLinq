@@ -17,13 +17,15 @@ namespace Tests
         public SqlTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
-            this.transaction = fixture.employeesDb_provider.Transaction(Slim.Mutation.TransactionType.ReadOnly);
+            this.transaction = fixture.employeesDb.Transaction(Slim.Mutation.TransactionType.ReadOnly);
         }
 
         [Fact]
         public void SimpleWhere()
         {
-            var sql = new Select("departments", transaction)
+            var sql = fixture.employeesDb
+                .Query("departments")
+                .Select()
                 .Where("dept_no").EqualTo("d005")
                 .ToSql();
 

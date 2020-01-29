@@ -12,7 +12,7 @@ namespace Slim
         string Name { get; }
 
         string ConnectionString { get; }
-        Database Database { get; }
+        DatabaseMetadata Metadata { get; }
         State State { get; }
         IDbCommand ToDbCommand(IQuery query);
 
@@ -32,15 +32,15 @@ namespace Slim
     public abstract class DatabaseProvider<T> : DatabaseProvider
         where T : class, IDatabaseModel
     {
-        public T Read()
-        {
-            return new Transaction<T>(this, TransactionType.NoTransaction).Schema;
-        }
+        //public T Read()
+        //{
+        //    return new Transaction<T>(this, TransactionType.NoTransaction).Schema;
+        //}
 
-        public Transaction<T> Transaction(TransactionType transactionType = TransactionType.ReadAndWrite)
-        {
-            return new Transaction<T>(this, transactionType);
-        }
+        //public Transaction<T> Transaction(TransactionType transactionType = TransactionType.ReadAndWrite)
+        //{
+        //    return new Transaction<T>(this, transactionType);
+        //}
 
         protected DatabaseProvider(string connectionString) : base(connectionString, typeof(T))
         {
@@ -56,7 +56,7 @@ namespace Slim
         public string Name { get; }
 
         public string ConnectionString { get; }
-        public Database Database { get; }
+        public DatabaseMetadata Metadata { get; }
         public State State { get; }
         protected string[] ProviderNames { get; set; }
         protected IDbConnection activeConnection;
@@ -68,14 +68,14 @@ namespace Slim
 
             if (databaseType != null)
             {
-                Database = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
-                Database.DatabaseProvider = this;
+                Metadata = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
+                Metadata.DatabaseProvider = this;
 
-                State = new State(Database);
+                State = new State(Metadata);
             }
 
-            if (Name == null && Database != null)
-                Name = Database.Name;
+            if (Name == null && Metadata != null)
+                Name = Metadata.Name;
         }
 
         public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite)

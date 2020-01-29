@@ -10,9 +10,9 @@ namespace Slim.Mutation
     {
         public History History { get; set; }
         public DatabaseCache Cache { get; set; }
-        public Database Database { get; }
+        public DatabaseMetadata Database { get; }
 
-        public State(Database database)
+        public State(DatabaseMetadata database)
         {
             this.Database = database;
             this.Cache = new DatabaseCache(database);

@@ -5,9 +5,9 @@ using System.Collections.Generic;
 
 namespace Slim.Metadata
 {
-    public class Database
+    public class DatabaseMetadata
     {
-        public Database(string name)
+        public DatabaseMetadata(string name)
         {
             Name = name;
         }

@@ -8,9 +8,9 @@ namespace Slim.MySql
 {
     public static class MetadataFromSqlFactory
     {
-        public static Database ParseDatabase(string dbName, information_schema information_Schema)
+        public static DatabaseMetadata ParseDatabase(string dbName, information_schema information_Schema)
         {
-            var database = new Database(dbName);
+            var database = new DatabaseMetadata(dbName);
 
             database.Tables = information_Schema
                 .TABLES.Where(x => x.TABLE_SCHEMA == dbName)
@@ -62,7 +62,7 @@ namespace Slim.MySql
         }
 
 
-        private static Table ParseTable(Database database, information_schema information_Schema, TABLES dbTables)
+        private static Table ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {
             var table = new Table();
 

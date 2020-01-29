@@ -26,19 +26,19 @@ namespace Tests
 
             var employee = NewEmployee(emp_no);
 
-            using (var transaction = fixture.employeesDb_provider.Transaction())
+            using (var transaction = fixture.employeesDb.Transaction())
             {
-                foreach (var alreadyExists in fixture.employeesDb.employees.Where(x => x.emp_no == emp_no))
+                foreach (var alreadyExists in fixture.employeesDb.Select().employees.Where(x => x.emp_no == emp_no))
                     transaction.Delete(alreadyExists);
 
                 transaction.Insert(employee);
-                var dbTransactionEmployee = transaction.Read().employees.Single(x => x.emp_no == emp_no);
+                var dbTransactionEmployee = transaction.Select().employees.Single(x => x.emp_no == emp_no);
                 Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
 
                 transaction.Commit();
             }
 
-            var dbEmployee = fixture.employeesDb.employees.Single(x => x.emp_no == emp_no);
+            var dbEmployee = fixture.employeesDb.Select().employees.Single(x => x.emp_no == emp_no);
 
             Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }
@@ -48,12 +48,12 @@ namespace Tests
         {
             var emp_no = 999997;
 
-            var employee = fixture.employeesDb.employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
+            var employee = fixture.employeesDb.Select().employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
 
             if (employee.IsNew())
             {
-                fixture.employeesDb_provider.Transaction().Insert(employee).Commit();
-                employee = fixture.employeesDb.employees.SingleOrDefault(x => x.emp_no == emp_no);
+                fixture.employeesDb.Transaction().Insert(employee).Commit();
+                employee = fixture.employeesDb.Select().employees.SingleOrDefault(x => x.emp_no == emp_no);
             }
 
             var orgBirthDate = employee.birth_date;
@@ -64,9 +64,9 @@ namespace Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            fixture.employeesDb_provider.Transaction().Update(employeeMut).Commit();
+            fixture.employeesDb.Transaction().Update(employeeMut).Commit();
 
-            var dbEmployee = fixture.employeesDb.employees.Single(x => x.emp_no == emp_no);
+            var dbEmployee = fixture.employeesDb.Select().employees.Single(x => x.emp_no == emp_no);
 
             Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }

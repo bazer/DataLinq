@@ -20,8 +20,8 @@ namespace Slim.Query
             int i = 0;
             foreach (var with in withList)
             {
-                Transaction.DatabaseProvider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-                Transaction.DatabaseProvider.GetParameterValue(sql, paramPrefix + "v" + i);
+                Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+                Transaction.Provider.GetParameterValue(sql, paramPrefix + "v" + i);
 
                 if (i + 1 < length)
                     sql.AddText(",");

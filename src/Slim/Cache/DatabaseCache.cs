@@ -9,11 +9,11 @@ namespace Slim.Cache
 {
     public class DatabaseCache
     {
-        public Database Database { get; set; }
+        public DatabaseMetadata Database { get; set; }
 
         public List<TableCache> TableCaches { get; }
 
-        public DatabaseCache(Database database)
+        public DatabaseCache(DatabaseMetadata database)
         {
             this.Database = database;
 

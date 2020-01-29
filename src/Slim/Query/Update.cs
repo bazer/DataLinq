@@ -18,8 +18,8 @@ namespace Slim.Query
             int i = 0;
             foreach (var with in withList)
             {
-                Transaction.DatabaseProvider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-                Transaction.DatabaseProvider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
+                Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+                Transaction.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
 
                 if (i + 1 < length)
                     sql.AddText(",");

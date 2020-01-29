@@ -24,7 +24,7 @@ namespace Slim.Instances
         protected Dictionary<string, object> Data { get; }
         public Table Table { get; }
 
-        public PrimaryKeys GetKey() => 
+        public PrimaryKeys GetKeys() => 
             new PrimaryKeys(this);
 
         public object GetValue(string columnDbName)

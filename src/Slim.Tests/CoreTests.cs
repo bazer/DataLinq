@@ -26,10 +26,10 @@ namespace Tests
         [Fact]
         public void TestMetadataFromSqlFactory()
         {
-            TestDatabase(MetadataFromSqlFactory.ParseDatabase("employees", fixture.information_schema), false);
+            TestDatabase(MetadataFromSqlFactory.ParseDatabase("employees", fixture.information_schema.Select()), false);
         }
 
-        private void TestDatabase(Database database, bool testCsType)
+        private void TestDatabase(DatabaseMetadata database, bool testCsType)
         {
             Assert.NotEmpty(database.Tables);
             Assert.Equal(8, database.Tables.Count);
