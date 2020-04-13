@@ -7,12 +7,12 @@ namespace Slim.Linq.Visitors
 {
     internal class OrderByVisitor : ExpressionVisitor
     {
-        protected Select select;
+        protected SqlQuery select;
         protected OrderingDirection direction;
 
-        internal OrderByVisitor(Select select)
+        internal OrderByVisitor(SqlQuery query)
         {
-            this.select = select;
+            this.select = query;
         }
 
         internal void Parse(Ordering ordering)

@@ -42,10 +42,10 @@ namespace Slim.Cache
 
         public IEnumerable<PrimaryKeys> GetKeys(ForeignKey foreignKey, Transaction transaction)
         {
-            var select = new Select(Table, transaction)
+            var select = new SqlQuery(Table, transaction)
                 .What(Table.PrimaryKeyColumns)
                 .Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data)
-                .Query();
+                .SelectQuery();
 
             return select
                 .ReadKeys();
@@ -53,7 +53,7 @@ namespace Slim.Cache
 
         public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction, List<OrderBy> orderings = null)
         {
-            var select = new Select(Table, transaction);
+            //var select = new Select(Table, transaction);
 
 
             var query = new StringBuilder()
@@ -76,8 +76,9 @@ namespace Slim.Cache
 
         public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey, Transaction transaction)
         {
-            var select = new Select(Table, transaction);
-            select.Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data);
+            var select = new SqlQuery(Table, transaction)
+                .Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data)
+                .SelectQuery();
 
             return select.ReadRows();
         }

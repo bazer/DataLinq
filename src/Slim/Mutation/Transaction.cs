@@ -114,42 +114,33 @@ namespace Slim.Mutation
             DbTransaction.Rollback();
         }
 
-        //private Table GetTable() =>
-        //    DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
-
         private IQuery GetQuery(StateChange change)
         {
-            //var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == change.Model.GetType() || x.Model.ProxyType == change.Model.GetType());
+            var query = new SqlQuery(change.Table, this);
 
             if (change.Type == TransactionChangeType.Insert)
             {
-                var insert = new Insert(change.Table, this);
-
                 foreach (var column in change.Table.Columns)
-                    insert.With(column.DbName, column.ValueProperty.GetValue(change.Model));
+                    query.Set(column.DbName, column.ValueProperty.GetValue(change.Model));
 
-                return insert;
+                return query.InsertQuery();
             }
             else if (change.Type == TransactionChangeType.Update)
             {
-                var update = new Update(change.Table, this);
-
                 foreach (var key in change.Table.PrimaryKeyColumns)
-                    update.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
+                    query.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
 
                 foreach (var column in change.Table.Columns)
-                    update.With(column.DbName, column.ValueProperty.GetValue(change.Model));
+                    query.Set(column.DbName, column.ValueProperty.GetValue(change.Model));
 
-                return update;
+                return query.UpdateQuery();
             }
             else if (change.Type == TransactionChangeType.Delete)
             {
-                var delete = new Delete(change.Table, this);
-
                 foreach (var key in change.Table.PrimaryKeyColumns)
-                    delete.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
+                    query.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
 
-                return delete;
+                return query.DeleteQuery();
             }
 
             throw new NotImplementedException();
@@ -175,8 +166,6 @@ namespace Slim.Mutation
 
     public class Transaction<T> : Transaction where T : class, IDatabaseModel
     {
-        
-
         protected T Schema { get; }
 
         public Transaction(DatabaseProvider<T> databaseProvider, TransactionType type) : base(databaseProvider, type)
@@ -184,23 +173,23 @@ namespace Slim.Mutation
             Schema = GetDatabaseInstance();
         }
 
-        public T Select() => Schema;
+        public T From() => Schema;
 
-        public QuerySelector Query(string tableName)
+        public SqlQuery From(string tableName)
         {
             var table = Provider.Metadata.Tables.Single(x => x.DbName == tableName);
 
-            return new QuerySelector(table, this);
+            return new SqlQuery(table, this);
         }
 
-        public QuerySelector Query(Table table)
+        public SqlQuery From(Table table)
         {
-            return new QuerySelector(table, this);
+            return new SqlQuery(table, this);
         }
 
-        public QuerySelector<V> Query<V>() where V : IModel
+        public SqlQuery<V> From<V>() where V : IModel
         {
-            return new QuerySelector<V>(this);
+            return new SqlQuery<V>(this);
         }
 
         private T GetDatabaseInstance()

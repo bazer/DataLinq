@@ -1,49 +1,38 @@
 ﻿using Slim.Metadata;
 using Slim.Mutation;
+using System;
+using System.Data;
 
 namespace Slim.Query
 {
-    public class Update : Change
+    public class Update<T> : IQuery
     {
-        public Update(Table table, Transaction transaction) : base(table, transaction)
+        private readonly SqlQuery<T> query;
+
+        public Update(SqlQuery<T> query)
         {
+            this.query = query;
         }
 
-        protected Sql GetWith(Sql sql, string paramPrefix)
+        public IDbCommand ToDbCommand()
         {
-            int length = withList.Count;
-            if (length == 0)
-                return sql;
-
-            int i = 0;
-            foreach (var with in withList)
-            {
-                Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-                Transaction.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
-
-                if (i + 1 < length)
-                    sql.AddText(",");
-
-                i++;
-            }
-
-            return sql;
+            throw new System.NotImplementedException();
         }
 
-        public override Sql ToSql(string paramPrefix)
+        public Sql ToSql(string paramPrefix = null)
         {
-            var sql = GetWith(
-                new Sql().AddFormat("UPDATE {0} SET ", Table.DbName),
+            var sql = query.GetSet(
+                new Sql().AddFormat("UPDATE {0} SET ", query.Table.DbName),
                 paramPrefix);
 
-            return GetWhere(
+            return query.GetWhere(
                 sql.AddText(" \r\n"),
                 paramPrefix);
         }
 
-        //public override int ParameterCount
-        //{
-        //    get { return withList.Count + whereList.Count; }
-        //}
+        public QueryResult Execute()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

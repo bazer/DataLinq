@@ -19,7 +19,7 @@ namespace Tests
         [Fact]
         public void LazyLoadSingleValue()
         {
-            var manager = fixture.employeesDb.Select().dept_manager.Single(x => x.dept_no == "d005" && x.emp_no == 110511);
+            var manager = fixture.employeesDb.Query().dept_manager.Single(x => x.dept_no == "d005" && x.emp_no == 110511);
 
             Assert.NotNull(manager.departments);
             Assert.Equal("d005", manager.departments.dept_no);
@@ -28,7 +28,7 @@ namespace Tests
         [Fact]
         public void LazyLoadList()
         {
-            var department = fixture.employeesDb.Select().departments.Single(x => x.dept_no == "d005");
+            var department = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d005");
 
             Assert.NotNull(department.dept_manager);
             Assert.NotEmpty(department.dept_manager);

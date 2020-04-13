@@ -26,7 +26,7 @@ namespace Tests
         [Fact]
         public void TestMetadataFromSqlFactory()
         {
-            TestDatabase(MetadataFromSqlFactory.ParseDatabase("employees", fixture.information_schema.Select()), false);
+            TestDatabase(MetadataFromSqlFactory.ParseDatabase("employees", fixture.information_schema.Query()), false);
         }
 
         private void TestDatabase(DatabaseMetadata database, bool testCsType)

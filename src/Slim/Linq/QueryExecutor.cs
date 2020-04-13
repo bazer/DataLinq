@@ -22,24 +22,24 @@ namespace Slim.Linq
 
         private Table Table { get; }
 
-        private Select ParseQueryModel(QueryModel queryModel)
+        private Select<object> ParseQueryModel(QueryModel queryModel)
         {
-            var select = GetSelect();
+            var query = new SqlQuery(Table, Transaction);
 
             foreach (var body in queryModel.BodyClauses)
             {
                 if (body is WhereClause where)
                 {
-                    select.Where(where);
+                    query.Where(where);
                 }
 
                 if (body is OrderByClause orderBy)
                 {
-                    select.OrderBy(orderBy);
+                    query.OrderBy(orderBy);
                 }
             }
 
-            return select;
+            return query.SelectQuery();
         }
 
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
@@ -105,11 +105,6 @@ namespace Slim.Linq
             }
 
             throw new NotImplementedException();
-        }
-
-        private Select GetSelect()
-        {
-            return new Select(Table, Transaction);
         }
     }
 }

@@ -1,27 +1,32 @@
 ﻿using Slim.Metadata;
 using Slim.Mutation;
+using System;
+using System.Data;
 
 namespace Slim.Query
 {
-    public class Insert : Change
+    public class Insert<T> : IQuery
     {
-        public Insert(Table table, Transaction transaction) : base(table, transaction)
+        private readonly SqlQuery<T> query;
+
+        public Insert(SqlQuery<T> query)
         {
+            this.query = query;
         }
 
-        protected Sql GetWith(Sql sql, string paramPrefix)
+        protected Sql GetSet(Sql sql, string paramPrefix)
         {
-            int length = withList.Count;
+            int length = query.SetList.Count;
             if (length == 0)
                 return sql.AddFormat("VALUES (NULL)");
 
-            sql.AddFormat("({0}) VALUES (", string.Join(",", withList.Keys));
+            sql.AddFormat("({0}) VALUES (", string.Join(",", query.SetList.Keys));
 
             int i = 0;
-            foreach (var with in withList)
+            foreach (var with in query.SetList)
             {
-                Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-                Transaction.Provider.GetParameterValue(sql, paramPrefix + "v" + i);
+                query.Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+                query.Transaction.Provider.GetParameterValue(sql, paramPrefix + "v" + i);
 
                 if (i + 1 < length)
                     sql.AddText(",");
@@ -34,16 +39,21 @@ namespace Slim.Query
             return sql;
         }
 
-        public override Sql ToSql(string paramPrefix)
+        public Sql ToSql(string paramPrefix = null)
         {
-            return GetWith(
-                new Sql().AddFormat("INSERT INTO {0} ", Table.DbName),
+            return GetSet(
+                new Sql().AddFormat("INSERT INTO {0} ", query.Table.DbName),
                 paramPrefix);
         }
 
-        //public override int ParameterCount
-        //{
-        //    get { return withList.Count; }
-        //}
+        public IDbCommand ToDbCommand()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public QueryResult Execute()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -2,10 +2,7 @@
 using Slim.Metadata;
 using Slim.Mutation;
 using Slim.Query;
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Slim
 {
@@ -24,31 +21,31 @@ namespace Slim
             return new Transaction<T>(this.Provider, transactionType);
         }
 
-        public T Select()
+        public T Query()
         {
-            return Transaction(TransactionType.NoTransaction).Select();
+            return Transaction(TransactionType.NoTransaction).From();
         }
 
-        public QuerySelector Query(string tableName)
+        public SqlQuery From(string tableName)
         {
             var transaction = Transaction(TransactionType.NoTransaction);
             var table = transaction.Provider.Metadata.Tables.Single(x => x.DbName == tableName);
 
-            return new QuerySelector(table, transaction);
+            return new SqlQuery(table, transaction);
         }
 
-        public QuerySelector Query(Table table)
+        public SqlQuery From(Table table)
         {
             var transaction = Transaction(TransactionType.NoTransaction);
 
-            return new QuerySelector(table, transaction);
+            return new SqlQuery(table, transaction);
         }
 
-        public QuerySelector<V> Query<V>() where V: IModel
+        public SqlQuery<V> From<V>() where V: IModel
         {
             var transaction = Transaction(TransactionType.NoTransaction);
 
-            return new QuerySelector<V>(transaction);
+            return transaction.From<V>();
         }
     }
 }

@@ -1,16 +1,15 @@
 ﻿using Remotion.Linq.Clauses;
-using Slim.Query;
 using System;
 using System.Linq.Expressions;
+using Slim.Query;
 
 namespace Slim.Linq.Visitors
 {
-    internal class WhereVisitor<Q> : ExpressionVisitor
-    where Q : Query<Q>
+    internal class WhereVisitor: ExpressionVisitor
     {
-        protected Query<Q> query;
+        protected SqlQuery query;
 
-        internal WhereVisitor(Query<Q> query)
+        internal WhereVisitor(SqlQuery query)
         {
             this.query = query;
         }

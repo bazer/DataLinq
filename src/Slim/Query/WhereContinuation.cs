@@ -16,18 +16,17 @@ namespace Slim.Query
         Or
     }
 
-    public class WhereContinuation<Q> : IQuery
-        where Q : Query<Q>
+    public class WhereContinuation<T>
     {
-        private readonly Q query;
-        protected List<(Where<Q> where, ContinuationType type)> whereList;
+        private readonly SqlQuery<T> query;
+        protected List<(Where<T> where, ContinuationType type)> whereList;
 
         public Transaction Transaction => throw new NotImplementedException();
 
-        internal WhereContinuation(Q query)
+        internal WhereContinuation(SqlQuery<T> query)
         {
             this.query = query;
-            
+
         }
 
         internal Sql GetWhere(Sql sql, string paramPrefix, bool addCommandParameter = true)
@@ -51,39 +50,59 @@ namespace Slim.Query
             return sql;
         }
 
-        protected Where<Q> AddWhere(Where<Q> where, ContinuationType type)
+        protected Where<T> AddWhere(Where<T> where, ContinuationType type)
         {
             if (whereList == null)
-                whereList = new List<(Where<Q> where, ContinuationType type)>();
+                whereList = new List<(Where<T> where, ContinuationType type)>();
 
             whereList.Add((where, type));
 
             return where;
         }
 
-        public Where<Q> And(string columnName)
+        public Where<T> And(string columnName)
         {
-            return AddWhere(new Where<Q>(query, columnName), ContinuationType.And);
+            return AddWhere(new Where<T>(query, columnName), ContinuationType.And);
         }
 
-        public Where<Q> Or(string columnName)
+        public Where<T> Or(string columnName)
         {
-            return AddWhere(new Where<Q>(query, columnName), ContinuationType.Or);
+            return AddWhere(new Where<T>(query, columnName), ContinuationType.Or);
         }
 
-        public Q Query()
+        public SqlQuery<T> Set<V>(string key, V value)
+        {
+            return query.Set(key, value);
+        }
+
+        public SqlQuery<T> Query()
         {
             return query;
         }
 
-        public IDbCommand ToDbCommand()
+        public IEnumerable<T> Select()
         {
-            return query.ToDbCommand();
+            return query.Select();
         }
 
-        public Sql ToSql(string paramPrefix = null)
+        public QueryResult Delete()
         {
-            return query.ToSql(paramPrefix);
+            return query.Delete();
+        }
+
+        public QueryResult Insert()
+        {
+            return query.Insert();
+        }
+
+        public QueryResult Update()
+        {
+            return query.Update();
+        }
+
+        public Select<T> SelectQuery()
+        {
+            return new Select<T>(query);
         }
     }
 }
