@@ -22,30 +22,57 @@ namespace Slim.Query
         SmallerThanOrEqual
     }
 
-    public class Where<T> : QueryPart
+    public interface IWhere<T>: IQueryPart
     {
-        private readonly SqlQuery<T> Query;
-        private readonly string Key;
+        //IWhere<T> And(string columnName);
+
+        //IWhere<T> Or(string columnName);
+        //WhereContinuation<T> EqualTo<V>(V value);
+        //WhereContinuation<T> EqualTo<V>(V value, bool isValue);
+        //WhereContinuation<T> NotEqualTo<V>(V value);
+        //WhereContinuation<T> Like<V>(V value);
+        //WhereContinuation<T> GreaterThan<V>(V value);
+        //WhereContinuation<T> GreaterThanOrEqual<V>(V value);
+        //WhereContinuation<T> LessThan<V>(V value);
+        //WhereContinuation<T> LessThanOrEqual<V>(V value);
+    }
+
+    public class Where<T> : IWhere<T>
+    {
+        private string Key;
         private object Value;
         private Relation Relation;
         private bool IsValue = true;
-        protected List<WhereContinuation<T>> continuationList = new List<WhereContinuation<T>>();
+        protected WhereGroup<T> Container;
 
-        internal Where(SqlQuery<T> query, string key, bool isValue = true)
+        internal Where(WhereGroup<T> container, string key, bool isValue = true)
         {
-            this.Query = query;
+            this.Container = container;
             this.Key = key;
             this.IsValue = isValue;
         }
 
-        public WhereContinuation<T> EqualTo<V>(V value)
+        internal Where(WhereGroup<T> container)
+        {
+            this.Container = container;
+        }
+
+        internal Where<T> AddKey(string key, bool isValue = true)
+        {
+            this.Key = key;
+            this.IsValue = isValue;
+
+            return this;
+        }
+
+        public WhereGroup<T> EqualTo<V>(V value)
         {
 #pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
             return SetAndReturn(value, value == null ? Relation.EqualNull : Relation.Equal);
 #pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
-        public WhereContinuation<T> EqualTo<V>(V value, bool isValue)
+        public WhereGroup<T> EqualTo<V>(V value, bool isValue)
         {
             this.IsValue = isValue;
 #pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
@@ -53,67 +80,67 @@ namespace Slim.Query
 #pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
-        public WhereContinuation<T> NotEqualTo<V>(V value)
+        public WhereGroup<T> NotEqualTo<V>(V value)
         {
 #pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
             return SetAndReturn(value, value == null ? Relation.NotEqualNull : Relation.NotEqual);
 #pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
-        public WhereContinuation<T> Like<V>(V value)
+        public WhereGroup<T> Like<V>(V value)
         {
             return SetAndReturn(value, Relation.Like);
         }
 
-        public WhereContinuation<T> GreaterThan<V>(V value)
+        public WhereGroup<T> GreaterThan<V>(V value)
         {
             return SetAndReturn(value, Relation.BiggerThan);
         }
 
-        public WhereContinuation<T> GreaterThanOrEqual<V>(V value)
+        public WhereGroup<T> GreaterThanOrEqual<V>(V value)
         {
             return SetAndReturn(value, Relation.BiggerThanOrEqual);
         }
 
-        public WhereContinuation<T> LessThan<V>(V value)
+        public WhereGroup<T> LessThan<V>(V value)
         {
             return SetAndReturn(value, Relation.SmallerThan);
         }
 
-        public WhereContinuation<T> LessThanOrEqual<V>(V value)
+        public WhereGroup<T> LessThanOrEqual<V>(V value)
         {
             return SetAndReturn(value, Relation.SmallerThanOrEqual);
         }
 
-        protected WhereContinuation<T> SetAndReturn<V>(V value, Relation relation)
+        protected WhereGroup<T> SetAndReturn<V>(V value, Relation relation)
         {
             this.Value = value;
             this.Relation = relation;
 
-            var continuation = new WhereContinuation<T>(Query);
-            this.continuationList.Add(continuation);
-
-            return continuation;
+            return this.Container;
         }
 
-        public override void GetCommandString(Sql sql, string prefix, bool addCommandParameter = true)
+        public void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false)
         {
             if (addCommandParameter)
                 GetCommandParameter(sql, prefix);
 
+            if (addParentheses)
+                sql.AddText("(");
+
             if (IsValue)
-                Query.Transaction.Provider.GetParameterComparison(sql, Key, Relation, prefix + "w" + sql.IndexAdd());
+                Container.Query.Transaction.Provider.GetParameterComparison(sql, Key, Relation, prefix + "w" + sql.IndexAdd());
             else
                 sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
 
-            foreach (var continuation in continuationList)
-                continuation.GetWhere(sql, prefix);
+            if (addParentheses)
+                sql.AddText(")");
         }
 
         protected void GetCommandParameter(Sql sql, string prefix)
         {
             if (IsValue)
-                Query.Transaction.Provider.GetParameter(sql, prefix + "w" + sql.Index, Value);
+                Container.Query.Transaction.Provider.GetParameter(sql, prefix + "w" + sql.Index, Value);
 
         }
     }

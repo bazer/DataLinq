@@ -56,11 +56,11 @@ namespace Slim.Query
 
     public class SqlQuery<T>
     {
-        public List<Where<T>> WhereList = new List<Where<T>>();
-        public Dictionary<string, object> SetList = new Dictionary<string, object>();
+        protected WhereGroup<T> WhereContainer;
+        internal Dictionary<string, object> SetList = new Dictionary<string, object>();
         //protected List<Join<Query>> joinList = new List<Join<Query>>();
-        public List<OrderBy> OrderByList = new List<OrderBy>();
-        public List<Column> WhatList;
+        internal List<OrderBy> OrderByList = new List<OrderBy>();
+        internal List<Column> WhatList;
         public Transaction Transaction { get; }
 
         public Table Table { get; }
@@ -125,28 +125,35 @@ namespace Slim.Query
 
         public Where<T> Where(string columnName)
         {
-            var where = new Where<T>(this, columnName);
-            WhereList.Add(where);
+            if (WhereContainer == null)
+                WhereContainer = new WhereGroup<T>(this);
 
-            return where;
+            return WhereContainer.AddWhere(columnName, BooleanType.And);
+        }
+
+        public WhereGroup<T> Where(Func<Func<string, Where<T>>, WhereGroup<T>> func)
+        {
+            if (WhereContainer == null)
+                WhereContainer = new WhereGroup<T>(this);
+
+            return WhereContainer.And(func);
+        }
+
+        public WhereGroup<T> CreateWhereGroup(BooleanType type = BooleanType.And)
+        {
+            if (WhereContainer == null)
+                WhereContainer = new WhereGroup<T>(this);
+
+            return WhereContainer.AddWhereContainer(new WhereGroup<T>(this), type);
         }
 
         internal Sql GetWhere(Sql sql, string paramPrefix)
         {
-            int length = WhereList.Count;
-            if (length == 0)
+            if (WhereContainer == null)
                 return sql;
 
             sql.AddText("WHERE\r\n");
-
-            for (int i = 0; i < length; i++)
-            {
-                //whereList[i].GetCommandParameter(sql, paramPrefix);
-                WhereList[i].GetCommandString(sql, paramPrefix);
-
-                if (i + 1 < length)
-                    sql.AddText(" AND\r\n");
-            }
+            WhereContainer.AddCommandString(sql, paramPrefix, true);
 
             return sql;
         }

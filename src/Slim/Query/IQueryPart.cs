@@ -6,9 +6,9 @@ using System.Data;
 
 namespace Slim.Query
 {
-    public abstract class QueryPart
+    public interface IQueryPart
     {
-        public abstract void GetCommandString(Sql sql, string prefix, bool addCommandParameter = true);
+        void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false);
         //protected abstract void GetCommandParameter(Sql sql, string prefix);
     }
 }

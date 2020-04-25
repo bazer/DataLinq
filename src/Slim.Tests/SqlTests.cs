@@ -73,23 +73,24 @@ dept_no = ?w0 OR dept_name = ?w1 OR dept_name = ?w2", sql.Text);
             Assert.Equal("Development", sql.Parameters[1].Value);
         }
 
-//        [Fact]
-//        public void ComplexWhereOR()
-//        {
-//            var sql = new Query("departments", transaction)
-//                .Where(x => x("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
-//                .Or(x => x("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
-//                .SelectQuery()
-//                .ToSql();
+        [Fact]
+        public void ComplexWhereOR()
+        {
+            var sql = new SqlQuery("departments", transaction)
+                .Where(x => x("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
+                .Or(x => x("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
+                .SelectQuery()
+                .ToSql();
 
-//            Assert.Equal(@"SELECT dept_no, dept_name FROM departments 
-//WHERE
-//(dept_no = ?w0 AND dept_name = ?w1) OR
-//(dept_no = ?w2 AND dept_name = ?w3)", sql.Text);
-//            Assert.Equal(4, sql.Parameters.Count);
-//            Assert.Equal("?w1", sql.Parameters[1].ParameterName);
-//            Assert.Equal("Development", sql.Parameters[1].Value);
-//        }
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments 
+WHERE
+(dept_no = ?w0 AND dept_name = ?w1) OR (dept_no = ?w2 AND dept_name = ?w3)", sql.Text);
+            Assert.Equal(4, sql.Parameters.Count);
+            Assert.Equal("?w1", sql.Parameters[1].ParameterName);
+            Assert.Equal("Marketing", sql.Parameters[1].Value);
+            Assert.Equal("?w3", sql.Parameters[3].ParameterName);
+            Assert.Equal("Development", sql.Parameters[3].Value);
+        }
 
         //[Fact]
         //public void SimpleWhereReverse()

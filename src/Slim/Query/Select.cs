@@ -113,7 +113,7 @@ namespace Slim.Query
                     .ReadKeys()
                     .ToArray();
 
-                foreach (var row in query.Table.Cache.GetRows(keys, query.Transaction))
+                foreach (var row in query.Table.Cache.GetRows(keys, query.Transaction, orderings: query.OrderByList))
                     yield return (V)row;
             }
             else

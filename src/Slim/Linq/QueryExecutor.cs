@@ -84,6 +84,8 @@ namespace Slim.Linq
                     "SingleOrDefault()" => sequence.SingleOrDefault(),
                     "First()" => sequence.First(),
                     "FirstOrDefault()" => sequence.FirstOrDefault(),
+                    "Last()" => sequence.Last(),
+                    "LastOrDefault()" => sequence.LastOrDefault(),
                     _ => throw new NotImplementedException($"Unknown operator '{op}'")
                 };
             }

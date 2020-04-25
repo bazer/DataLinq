@@ -53,25 +53,24 @@ namespace Slim.Cache
 
         public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction, List<OrderBy> orderings = null)
         {
-            //var select = new Select(Table, transaction);
+            var q = new SqlQuery(Table.DbName, transaction);
 
-
-            var query = new StringBuilder()
-                .Append("SELECT * FROM ")
-                .Append(Table.DbName)
-                .Append(" WHERE ")
-                .Append(keys
-                    .Select(x => $"({formatRowKey(x.Data).ToJoinedString(" AND ")})")
-                    .ToJoinedString(" OR "));
-
-            return transaction.DbTransaction.ReadReader(query.ToString())
-                .Select(x => new RowData(x, Table));
-
-            IEnumerable<string> formatRowKey(object[] data)
+            foreach (var key in keys)
             {
+                var where = q.CreateWhereGroup(BooleanType.Or);
                 for (var i = 0; i < primaryKeyColumnsCount; i++)
-                    yield return $"{Table.PrimaryKeyColumns[i].DbName} = '{data[i]}'";
+                    where.And(Table.PrimaryKeyColumns[i].DbName).EqualTo(key.Data[i]);
             }
+
+            if (orderings != null)
+            {
+                foreach (var order in orderings)
+                    q.OrderBy(order.Column, order.Ascending);
+            }
+
+            return q
+                .SelectQuery()
+                .ReadRows();
         }
 
         public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey, Transaction transaction)
@@ -83,11 +82,11 @@ namespace Slim.Cache
             return select.ReadRows();
         }
 
-        public IEnumerable<object> GetRows(ForeignKey foreignKey, Transaction transaction)
+        public IEnumerable<object> GetRows(ForeignKey foreignKey, Transaction transaction, List<OrderBy> orderings = null)
         {
             var keys = foreignKey.Column.Index.GetOrAdd(foreignKey.Data, _ => GetKeys(foreignKey, transaction).ToArray());
 
-            return GetRows(keys, transaction, foreignKey);
+            return GetRows(keys, transaction, foreignKey, orderings);
         }
 
         public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, ForeignKey foreignKey = null, List<OrderBy> orderings = null)
@@ -122,7 +121,7 @@ namespace Slim.Cache
             {
                 foreach (var split in keysToLoad.SplitList(100))
                 {
-                    foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction))
+                    foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction, orderings))
                     {
                         var row = InstanceFactory.NewImmutableRow(rowData);
 

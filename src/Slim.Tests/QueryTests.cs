@@ -89,8 +89,6 @@ namespace Tests
             var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no);
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault().dept_no);
             Assert.Equal("d009", deptByDeptNo.Last().dept_no);
-
-            
         }
     }
 }
