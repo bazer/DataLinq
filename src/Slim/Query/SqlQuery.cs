@@ -152,7 +152,7 @@ namespace Slim.Query
             if (WhereContainer == null)
                 return sql;
 
-            sql.AddText("WHERE\r\n");
+            sql.AddText("\r\nWHERE");
             WhereContainer.AddCommandString(sql, paramPrefix, true);
 
             return sql;
@@ -220,20 +220,20 @@ namespace Slim.Query
             if (length == 0)
                 return sql;
 
-            sql.AddText("ORDER BY ");
-            sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.Column.DbName} {(x.Ascending ? "" : "DESC")}")));
+            sql.AddText("\r\nORDER BY ");
+            sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.Column.DbName}{(x.Ascending ? "" : " DESC")}")));
 
             return sql;
         }
 
-        public SqlQuery<T> OrderBy(string columnName, bool ascending)
+        public SqlQuery<T> OrderBy(string columnName, bool ascending = true)
         {
             var column = this.Table.Columns.Single(x => x.DbName == columnName);
 
             return OrderBy(column, ascending);
         }
 
-        public SqlQuery<T> OrderBy(Column column, bool ascending)
+        public SqlQuery<T> OrderBy(Column column, bool ascending = true)
         {
             if (!this.Table.Columns.Contains(column))
                 throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");

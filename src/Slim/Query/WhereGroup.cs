@@ -1,4 +1,5 @@
-﻿using Slim.Mutation;
+﻿using Slim.Metadata;
+using Slim.Mutation;
 using System;
 using System.Collections.Generic;
 
@@ -31,6 +32,8 @@ namespace Slim.Query
 
             if (addParentheses)
                 sql.AddText("(");
+            else
+                sql.AddText("\r\n");
 
             for (int i = 0; i < length; i++)
             {
@@ -136,6 +139,16 @@ namespace Slim.Query
         public Select<T> SelectQuery()
         {
             return new Select<T>(Query);
+        }
+
+        public SqlQuery<T> OrderBy(string columnName, bool ascending = true)
+        {
+            return Query.OrderBy(columnName, ascending);
+        }
+
+        public SqlQuery<T> OrderBy(Column column, bool ascending = true)
+        {
+            return Query.OrderBy(column, ascending);
         }
     }
 }

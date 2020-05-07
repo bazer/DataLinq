@@ -29,7 +29,7 @@ namespace Tests
                 .SelectQuery()
                 .ToSql();
 
-            Assert.Equal(@"SELECT dept_no, dept_name FROM departments 
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
 WHERE
 dept_no = ?w0", sql.Text);
             Assert.Single(sql.Parameters);
@@ -47,7 +47,7 @@ dept_no = ?w0", sql.Text);
                 .SelectQuery()
                 .ToSql();
 
-            Assert.Equal(@"SELECT dept_no, dept_name FROM departments 
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
 WHERE
 dept_no = ?w0 AND dept_name = ?w1 AND dept_name = ?w2", sql.Text);
             Assert.Equal(3, sql.Parameters.Count);
@@ -65,7 +65,7 @@ dept_no = ?w0 AND dept_name = ?w1 AND dept_name = ?w2", sql.Text);
                 .SelectQuery()
                 .ToSql();
 
-            Assert.Equal(@"SELECT dept_no, dept_name FROM departments 
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
 WHERE
 dept_no = ?w0 OR dept_name = ?w1 OR dept_name = ?w2", sql.Text);
             Assert.Equal(3, sql.Parameters.Count);
@@ -82,7 +82,7 @@ dept_no = ?w0 OR dept_name = ?w1 OR dept_name = ?w2", sql.Text);
                 .SelectQuery()
                 .ToSql();
 
-            Assert.Equal(@"SELECT dept_no, dept_name FROM departments 
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
 WHERE
 (dept_no = ?w0 AND dept_name = ?w1) OR (dept_no = ?w2 AND dept_name = ?w3)", sql.Text);
             Assert.Equal(4, sql.Parameters.Count);
@@ -92,61 +92,235 @@ WHERE
             Assert.Equal("Development", sql.Parameters[3].Value);
         }
 
-        //[Fact]
-        //public void SimpleWhereReverse()
-        //{
-        //    var where = fixture.employeesDb.departments.Where(x => "d005" == x.dept_no).ToList();
-        //    Assert.Single(where);
-        //    Assert.Equal("d005", where[0].dept_no);
-        //}
+        [Fact]
+        public void ComplexWhereAND()
+        {
+            var sql = new SqlQuery("departments", transaction)
+                .Where(x => x("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
+                .And(x => x("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
+                .SelectQuery()
+                .ToSql();
 
-        //[Fact]
-        //public void SimpleWhereNot()
-        //{
-        //    var where = fixture.employeesDb.departments.Where(x => x.dept_no != "d005").ToList();
-        //    Assert.Equal(8, where.Count);
-        //    Assert.DoesNotContain(where, x => x.dept_no == "d005");
-        //}
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+(dept_no = ?w0 AND dept_name = ?w1) AND (dept_no = ?w2 AND dept_name = ?w3)", sql.Text);
+            Assert.Equal(4, sql.Parameters.Count);
+            Assert.Equal("?w1", sql.Parameters[1].ParameterName);
+            Assert.Equal("Marketing", sql.Parameters[1].Value);
+            Assert.Equal("?w3", sql.Parameters[3].ParameterName);
+            Assert.Equal("Development", sql.Parameters[3].Value);
+        }
 
-        //[Fact]
-        //public void WhereAndToList()
-        //{
-        //    var where = fixture.employeesDb.dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateTime.Parse("1990-01-01")).ToList();
-        //    Assert.Equal(2, where.Count);
-        //}
+        [Fact]
+        public void SimpleWhereNot()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").NotEqualTo("d005")
+                .SelectQuery()
+                .ToSql();
 
-        //[Fact]
-        //public void WhereAndCount()
-        //{
-        //    var where = fixture.employeesDb.dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateTime.Parse("1990-01-01"));
-        //    Assert.Equal(2, where.Count());
-        //}
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no <> ?w0", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
 
-        //[Fact]
-        //public void Single()
-        //{
-        //    var dept = fixture.employeesDb.departments.Single(x => x.dept_no == "d005");
-        //    Assert.NotNull(dept);
-        //    Assert.Equal("d005", dept.dept_no);
-        //}
+        [Fact]
+        public void SimpleWhereGreaterThan()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").GreaterThan("d005")
+                .SelectQuery()
+                .ToSql();
 
-        //[Fact]
-        //public void Any()
-        //{
-        //    Assert.True(fixture.employeesDb.departments.Any(x => x.dept_no == "d005"));
-        //    Assert.True(fixture.employeesDb.departments.Where(x => x.dept_no == "d005").Any());
-        //    Assert.False(fixture.employeesDb.departments.Any(x => x.dept_no == "not_existing"));
-        //    Assert.False(fixture.employeesDb.departments.Where(x => x.dept_no == "not_existing").Any());
-        //}
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no > ?w0", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
 
-        //[Fact]
-        //public void OrderBy()
-        //{
-        //    var deptByDeptNo = fixture.employeesDb.departments.OrderBy(x => x.dept_no);
-        //    Assert.Equal("d001", deptByDeptNo.FirstOrDefault().dept_no);
-        //    Assert.Equal("d009", deptByDeptNo.Last().dept_no);
+        [Fact]
+        public void SimpleWhereGreaterThanOrEqual()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").GreaterThanOrEqual("d005")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no >= ?w0", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
+
+        [Fact]
+        public void SimpleWhereLessThan()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").LessThan("d005")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no < ?w0", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
+
+        [Fact]
+        public void SimpleWhereLessThanOrEqual()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").LessThanOrEqual("d005")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no <= ?w0", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
+
+        [Fact]
+        public void SimpleOrderBy()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .OrderBy("dept_no")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+ORDER BY dept_no", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
+        public void SimpleOrderByDesc()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .OrderBy("dept_no", false)
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+ORDER BY dept_no DESC", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
 
 
-        //}
+        [Fact]
+        public void SimpleOrderByTwice()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .OrderBy("dept_no")
+                .OrderBy("dept_name")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+ORDER BY dept_no, dept_name", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
+        public void SimpleOrderByDescTwice()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .OrderBy("dept_no", false)
+                .OrderBy("dept_name", false)
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+ORDER BY dept_no DESC, dept_name DESC", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
+        public void SimpleOrderByTwiceMixed()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .OrderBy("dept_no")
+                .OrderBy("dept_name", false)
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+ORDER BY dept_no, dept_name DESC", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
+        public void SimpleOrderByDescTwiceMixed()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .OrderBy("dept_no", false)
+                .OrderBy("dept_name")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+ORDER BY dept_no DESC, dept_name", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
+        public void SimpleWhereOrderBy()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").EqualTo("d005")
+                .OrderBy("dept_no")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no = ?w0
+ORDER BY dept_no", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
+
+        [Fact]
+        public void SimpleWhereOrderByDesc()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").EqualTo("d005")
+                .OrderBy("dept_no", false)
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no = ?w0
+ORDER BY dept_no DESC", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
     }
 }
