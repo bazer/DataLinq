@@ -226,12 +226,8 @@ namespace Slim.Query
             return sql;
         }
 
-        public SqlQuery<T> OrderBy(string columnName, bool ascending = true)
-        {
-            var column = this.Table.Columns.Single(x => x.DbName == columnName);
-
-            return OrderBy(column, ascending);
-        }
+        public SqlQuery<T> OrderBy(string columnName, bool ascending = true) =>
+            OrderBy(this.Table.Columns.Single(x => x.DbName == columnName), ascending);
 
         public SqlQuery<T> OrderBy(Column column, bool ascending = true)
         {
@@ -239,6 +235,19 @@ namespace Slim.Query
                 throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
 
             this.OrderByList.Add(new OrderBy(column, ascending));
+
+            return this;
+        }
+
+        public SqlQuery<T> OrderByDesc(string columnName) =>
+            OrderByDesc(this.Table.Columns.Single(x => x.DbName == columnName));
+
+        public SqlQuery<T> OrderByDesc(Column column)
+        {
+            if (!this.Table.Columns.Contains(column))
+                throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
+
+            this.OrderByList.Add(new OrderBy(column, false));
 
             return this;
         }

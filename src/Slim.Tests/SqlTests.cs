@@ -215,7 +215,7 @@ ORDER BY dept_no", sql.Text);
         {
             var sql = fixture.employeesDb
                 .From("departments")
-                .OrderBy("dept_no", false)
+                .OrderByDesc("dept_no")
                 .SelectQuery()
                 .ToSql();
 
@@ -245,8 +245,8 @@ ORDER BY dept_no, dept_name", sql.Text);
         {
             var sql = fixture.employeesDb
                 .From("departments")
-                .OrderBy("dept_no", false)
-                .OrderBy("dept_name", false)
+                .OrderByDesc("dept_no")
+                .OrderByDesc("dept_name")
                 .SelectQuery()
                 .ToSql();
 
@@ -261,7 +261,7 @@ ORDER BY dept_no DESC, dept_name DESC", sql.Text);
             var sql = fixture.employeesDb
                 .From("departments")
                 .OrderBy("dept_no")
-                .OrderBy("dept_name", false)
+                .OrderByDesc("dept_name")
                 .SelectQuery()
                 .ToSql();
 
@@ -275,7 +275,7 @@ ORDER BY dept_no, dept_name DESC", sql.Text);
         {
             var sql = fixture.employeesDb
                 .From("departments")
-                .OrderBy("dept_no", false)
+                .OrderByDesc("dept_no")
                 .OrderBy("dept_name")
                 .SelectQuery()
                 .ToSql();
@@ -310,7 +310,7 @@ ORDER BY dept_no", sql.Text);
             var sql = fixture.employeesDb
                 .From("departments")
                 .Where("dept_no").EqualTo("d005")
-                .OrderBy("dept_no", false)
+                .OrderByDesc("dept_no")
                 .SelectQuery()
                 .ToSql();
 

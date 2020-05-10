@@ -150,5 +150,15 @@ namespace Slim.Query
         {
             return Query.OrderBy(column, ascending);
         }
+
+        public SqlQuery<T> OrderByDesc(string columnName)
+        {
+            return Query.OrderByDesc(columnName);
+        }
+
+        public SqlQuery<T> OrderByDesc(Column column)
+        {
+            return Query.OrderByDesc(column);
+        }
     }
 }
