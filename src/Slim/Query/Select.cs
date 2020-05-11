@@ -47,6 +47,7 @@ namespace Slim.Query
             //query.GetJoins(sql, "");
             query.GetWhere(sql, paramPrefix);
             query.GetOrderBy(sql);
+            query.GetLimit(sql);
 
             return sql;
         }

@@ -61,6 +61,7 @@ namespace Slim.Query
         //protected List<Join<Query>> joinList = new List<Join<Query>>();
         internal List<OrderBy> OrderByList = new List<OrderBy>();
         internal List<Column> WhatList;
+        protected (int offset, int rowCount)? limit;
         public Transaction Transaction { get; }
 
         public Table Table { get; }
@@ -250,6 +251,36 @@ namespace Slim.Query
             this.OrderByList.Add(new OrderBy(column, false));
 
             return this;
+        }
+
+        public SqlQuery<T> Limit(int rowCount)
+        {
+            if (rowCount < 0)
+                throw new ArgumentException($"Argument 'rows' must be positive");
+
+            this.limit = (0, rowCount);
+
+            return this;
+        }
+
+        public SqlQuery<T> Limit(int offset, int rowCount)
+        {
+            if (rowCount < 0)
+                throw new ArgumentException($"Argument 'rows' must be positive");
+
+            this.limit = (offset, rowCount);
+
+            return this;
+        }
+
+        internal Sql GetLimit(Sql sql)
+        {
+            if (!this.limit.HasValue)
+                return sql;
+
+            sql.AddText($"\r\nLIMIT {limit?.offset}, {limit?.rowCount}");
+
+            return sql;
         }
 
         internal Sql GetSet(Sql sql, string paramPrefix)

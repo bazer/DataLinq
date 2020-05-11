@@ -160,5 +160,10 @@ namespace Slim.Query
         {
             return Query.OrderByDesc(column);
         }
+
+        public SqlQuery<T> Limit(int rows)
+        {
+            return Query.Limit(rows);
+        }
     }
 }

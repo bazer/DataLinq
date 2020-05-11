@@ -322,5 +322,86 @@ ORDER BY dept_no DESC", sql.Text);
             Assert.Equal("?w0", sql.Parameters[0].ParameterName);
             Assert.Equal("d005", sql.Parameters[0].Value);
         }
+
+        [Fact]
+        public void Limit1()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Limit(1)
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+LIMIT 0, 1", sql.Text);
+        }
+
+        [Fact]
+        public void Limit2()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Limit(2)
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+LIMIT 0, 2", sql.Text);
+        }
+
+        [Fact]
+        public void Limit2Offset5()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Limit(5, 2)
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+LIMIT 5, 2", sql.Text);
+        }
+
+        [Fact]
+        public void SimpleWhereOrderByDescLimit1()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").EqualTo("d005")
+                .OrderByDesc("dept_no")
+                .Limit(1)
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no = ?w0
+ORDER BY dept_no DESC
+LIMIT 0, 1", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
+
+        [Fact]
+        public void SimpleWhereLimit1OrderByDesc()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Where("dept_no").EqualTo("d005")
+                .Limit(1)
+                .OrderByDesc("dept_no")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no = ?w0
+ORDER BY dept_no DESC
+LIMIT 0, 1", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
     }
 }
