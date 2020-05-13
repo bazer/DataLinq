@@ -39,40 +39,33 @@ namespace Slim.Linq
                 }
             }
 
+            foreach (var op in queryModel.ResultOperators)
+            {
+                var opString = op.ToString();
+
+                if (opString == "Single()")
+                    query.Limit(2);
+                else if (opString == "SingleOrDefault()")
+                    query.Limit(2);
+                else if (opString == "First()")
+                    query.Limit(1);
+                else if (opString == "FirstOrDefault()")
+                    query.Limit(1);
+            }
+
             return query.SelectQuery();
         }
 
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
         {
-            var select = ParseQueryModel(queryModel);
-
-            return select.Execute<T>();
-
-            //if (Table.PrimaryKeyColumns.Count != 0)
-            //{
-            //    select.What(Table.PrimaryKeyColumns);
-
-            //    var keys = ParseQueryModel(queryModel)
-            //        .ReadKeys()
-            //        .ToArray();
-
-            //    foreach (var row in Table.Cache.GetRows(keys, Transaction))
-            //        yield return (T)row;
-            //}
-            //else
-            //{
-            //    var rows = ParseQueryModel(queryModel)
-            //        .ReadInstances()
-            //        .Select(InstanceFactory.NewImmutableRow);
-
-            //    foreach (var row in rows)
-            //        yield return (T)row;
-            //}
+            return ParseQueryModel(queryModel)
+                .Execute<T>();
         }
 
         public T ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
         {
-            var sequence = ExecuteCollection<T>(queryModel);
+            var sequence = ParseQueryModel(queryModel)
+                .Execute<T>();
 
             if (queryModel.ResultOperators.Any())
             {

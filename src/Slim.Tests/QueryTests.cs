@@ -75,6 +75,72 @@ namespace Tests
         }
 
         [Fact]
+        public void SingleOrDefault()
+        {
+            var dept = fixture.employeesDb.Query().departments.SingleOrDefault(x => x.dept_no == "d005");
+            Assert.NotNull(dept);
+            Assert.Equal("d005", dept.dept_no);
+        }
+
+        [Fact]
+        public void SingleOrDefaultNull()
+        {
+            var dept = fixture.employeesDb.Query().departments.SingleOrDefault(x => x.dept_no == "1234");
+            Assert.Null(dept);
+        }
+
+        [Fact]
+        public void SingleThrow()
+        {
+            Assert.Throws<InvalidOperationException>(() => fixture.employeesDb.Query().salaries.Single(x => x.salary > 70000));
+        }
+
+        [Fact]
+        public void SingleOrDefaultThrow()
+        {
+            Assert.Throws<InvalidOperationException>(() => fixture.employeesDb.Query().salaries.SingleOrDefault(x => x.salary > 70000));
+        }
+
+        [Fact]
+        public void First()
+        {
+            var salary = fixture.employeesDb.Query().salaries.First(x => x.salary > 70000);
+            Assert.NotNull(salary);
+            Assert.Equal(71046, salary.salary);
+        }
+
+        [Fact]
+        public void FirstOrDefault()
+        {
+            var salary = fixture.employeesDb.Query().salaries.FirstOrDefault(x => x.salary > 70000);
+            Assert.NotNull(salary);
+            Assert.Equal(71046, salary.salary);
+        }
+
+        [Fact]
+        public void FirstOrderBy()
+        {
+            var salary = fixture.employeesDb.Query().salaries.OrderBy(x => x.salary).First(x => x.salary > 70000);
+            Assert.NotNull(salary);
+            Assert.Equal(70001, salary.salary);
+        }
+
+        [Fact]
+        public void FirstOrDefaultOrderBy()
+        {
+            var salary = fixture.employeesDb.Query().salaries.OrderBy(x => x.salary).FirstOrDefault(x => x.salary > 70000);
+            Assert.NotNull(salary);
+            Assert.Equal(70001, salary.salary);
+        }
+
+        [Fact]
+        public void FirstOrDefaultNull()
+        {
+            var salary = fixture.employeesDb.Query().salaries.FirstOrDefault(x => x.salary < 10000);
+            Assert.Null(salary);
+        }
+
+        [Fact]
         public void Any()
         {
             Assert.True(fixture.employeesDb.Query().departments.Any(x => x.dept_no == "d005"));
