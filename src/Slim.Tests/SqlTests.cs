@@ -403,5 +403,48 @@ LIMIT 0, 1", sql.Text);
             Assert.Equal("?w0", sql.Parameters[0].ParameterName);
             Assert.Equal("d005", sql.Parameters[0].Value);
         }
+
+        [Fact]
+        public void SimpleWhat()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .What("dept_name")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal("SELECT dept_name FROM departments", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
+        public void SimpleJoin()
+        {
+            var sql = fixture.employeesDb
+                .From("departments", "d")
+                .Join("dept_manager", "m").On("d", "dept_no").EqualTo("m", "dept_no")
+                .Where("d", "dept_no").EqualTo("d005")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments d
+JOIN dept_manager m ON d.dept_no == m.dept_no", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
+        public void SimpleJoin()
+        {
+            var sql = fixture.employeesDb
+                .From("departments d")
+                .Join("dept_manager m").On("d.dept_no").EqualTo("m.dept_no")
+                .Where("d.dept_no").EqualTo("d005")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments d
+JOIN dept_manager m ON d.dept_no == m.dept_no", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
     }
 }

@@ -318,5 +318,15 @@ namespace Slim.Query
 
             return this;
         }
+
+        public SqlQuery<T> What(IEnumerable<string> columns)
+        {
+            return What(columns.Select(x => Table.Columns.Single(y => y.DbName == x)));
+        }
+
+        public SqlQuery<T> What(params string[] columns)
+        {
+            return What(columns.AsEnumerable());
+        }
     }
 }
