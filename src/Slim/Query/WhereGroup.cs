@@ -21,7 +21,6 @@ namespace Slim.Query
         internal WhereGroup(SqlQuery<T> query)
         {
             this.Query = query;
-
         }
 
         public void AddCommandString(Sql sql, string prefix, bool addCommandParameter, bool addParentheses = false)
@@ -32,8 +31,8 @@ namespace Slim.Query
 
             if (addParentheses)
                 sql.AddText("(");
-            else
-                sql.AddText("\r\n");
+            //else
+            //    sql.AddText("\r\n");
 
             for (int i = 0; i < length; i++)
             {
@@ -54,9 +53,9 @@ namespace Slim.Query
                 sql.AddText(")");
         }
 
-        public Where<T> AddWhere(string columnName, BooleanType type)
+        public Where<T> AddWhere(string columnName, string alias, BooleanType type)
         {
-            return AddWhere(new Where<T>(this, columnName), type);
+            return AddWhere(new Where<T>(this, columnName, alias), type);
         }
 
         internal Where<T> AddWhere(Where<T> where, BooleanType type)
@@ -79,9 +78,9 @@ namespace Slim.Query
             return where;
         }
 
-        public Where<T> And(string columnName)
+        public Where<T> And(string columnName, string alias = null)
         {
-            return AddWhere(new Where<T>(this, columnName), BooleanType.And);
+            return AddWhere(new Where<T>(this, columnName, alias), BooleanType.And);
         }
 
         public WhereGroup<T> And(Func<Func<string, Where<T>>, WhereGroup<T>> func)
@@ -90,14 +89,14 @@ namespace Slim.Query
 
             var where = new Where<T>(container);
             container.AddWhere(where, BooleanType.And);
-            func(columnName => where.AddKey(columnName));
+            func(columnName => where.AddKey(columnName, null));
 
             return this;
         }
 
-        public Where<T> Or(string columnName)
+        public Where<T> Or(string columnName, string alias = null)
         {
-            return AddWhere(new Where<T>(this, columnName), BooleanType.Or);
+            return AddWhere(new Where<T>(this, columnName, alias), BooleanType.Or);
         }
 
         public WhereGroup<T> Or(Func<Func<string, Where<T>>, WhereGroup<T>> func)
@@ -106,7 +105,7 @@ namespace Slim.Query
 
             var where = new Where<T>(container);
             container.AddWhere(where, BooleanType.And);
-            func(columnName => where.AddKey(columnName));
+            func(columnName => where.AddKey(columnName, null));
 
             return this;
         }

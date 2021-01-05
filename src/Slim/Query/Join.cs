@@ -1,67 +1,65 @@
-﻿//using System;
-//using System.Collections.Generic;
-//using System.Linq;
-//using System.Text;
-//using System.Data;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Data;
 
-//namespace Slim.Query
-//{
-//    internal enum JoinType
-//    {
-//        Inner,
-//        Outer
-//    }
+namespace Slim.Query
+{
+    internal enum JoinType
+    {
+        Inner,
+        LeftOuter,
+        RightOuter
+    }
 
-//    public class Join<Q>
-//        where Q : Query
-//    {
-//        readonly Q Query;
-//        readonly string TableName;
-//        readonly JoinType Type;
+    public class Join<T>
+    {
+        public readonly SqlQuery<T> Query;
+        readonly string TableName;
+        readonly JoinType Type;
+        protected WhereGroup<T> WhereContainer;
+        private readonly string Alias;
 
-//        protected List<Where<Q>> whereList = new List<Where<Q>>();
+        internal string DbName => string.IsNullOrEmpty(Alias)
+            ? TableName
+            : $"{TableName} {Alias}";
 
-//        internal Join(Q query, string tableName, JoinType type)
-//        {
-//            this.Query = query;
-//            this.TableName = tableName;
-//            this.Type = type;
-//        }
+        internal Join(SqlQuery<T> query, string tableName, string alias, JoinType type)
+        {
+            this.Query = query;
+            this.TableName = tableName;
+            this.Type = type;
+            this.Alias = alias;
+        }
 
-//        public Where<Q> Where(string key)
-//        {
-//            var where = new Where<Q>(Query, key, false);
-//            whereList.Add(where);
+        public Where<T> On(string columnName, string alias = null)
+        {
+            if (WhereContainer == null)
+                WhereContainer = new WhereGroup<T>(Query);
 
-//            return where;
-//        }
+            if (alias == null)
+                (columnName, alias) = QueryUtils.ParseColumnNameAndAlias(columnName);
 
-//        public Sql GetSql(Sql sql, string tableAlias)
-//        {
-//            int length = whereList.Count;
-//            if (length == 0)
-//                return sql;
+            return WhereContainer.AddWhere(columnName, alias, BooleanType.And);
+        }
 
-//            if (Type == JoinType.Inner)
-//                sql.AddText("INNER JOIN ");
-//            else if (Type == JoinType.Outer)
-//                sql.AddText("LEFT OUTER JOIN ");
-//            else
-//                throw new NotImplementedException("Wrong JoinType: " + Type);
+        public Sql GetSql(Sql sql, string paramPrefix)
+        {
+            if (Type == JoinType.Inner)
+                sql.AddText("\r\nJOIN ");
+            else if (Type == JoinType.LeftOuter)
+                sql.AddText("\r\nLEFT JOIN ");
+            else if (Type == JoinType.RightOuter)
+                sql.AddText("\r\nRIGHT JOIN ");
+            else
+                throw new NotImplementedException("Wrong JoinType: " + Type);
 
-//            sql.AddFormat("{0} {1} ON ", TableName, tableAlias);
+            sql.AddFormat("{0} ON ", DbName);
 
-//            for (int i = 0; i < length; i++)
-//            {
-//                whereList[i].GetCommandString(sql, "", false);
+            WhereContainer.AddCommandString(sql, paramPrefix, true);
 
-//                if (i + 1 < length)
-//                    sql.AddText(" AND ");
-//            }
-
-//            sql.AddText(" \r\n");
-
-//            return sql;
-//        }
-//    }
-//}
+            return sql;
+        }
+    }
+}

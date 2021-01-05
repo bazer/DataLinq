@@ -43,8 +43,8 @@ namespace Slim.Query
         {
             var columns = (query.WhatList ?? query.Table.Columns).Select(x => x.DbName).ToJoinedString(", ");
 
-            var sql = new Sql().AddFormat("SELECT {0} FROM {1}", columns, query.Table.DbName);
-            //query.GetJoins(sql, "");
+            var sql = new Sql().AddFormat("SELECT {0} FROM {1}", columns, query.DbName);
+            query.GetJoins(sql, paramPrefix);
             query.GetWhere(sql, paramPrefix);
             query.GetOrderBy(sql);
             query.GetLimit(sql);

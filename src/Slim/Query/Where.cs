@@ -16,13 +16,13 @@ namespace Slim.Query
         NotEqual,
         NotEqualNull,
         Like,
-        BiggerThan,
-        BiggerThanOrEqual,
-        SmallerThan,
-        SmallerThanOrEqual
+        GreaterThan,
+        GreaterThanOrEqual,
+        LessThan,
+        LessThanOrEqual
     }
 
-    public interface IWhere<T>: IQueryPart
+    public interface IWhere<T> : IQueryPart
     {
         //IWhere<T> And(string columnName);
 
@@ -44,12 +44,23 @@ namespace Slim.Query
         private Relation Relation;
         private bool IsValue = true;
         protected WhereGroup<T> Container;
+        private string KeyAlias;
+        private string ValueAlias;
 
-        internal Where(WhereGroup<T> container, string key, bool isValue = true)
+        private string KeyName => string.IsNullOrEmpty(KeyAlias)
+            ? Key
+            : $"{KeyAlias}.{Key}";
+
+        private string ValueName => string.IsNullOrEmpty(ValueAlias)
+            ? Value as string
+            : $"{ValueAlias}.{Value}";
+
+        internal Where(WhereGroup<T> container, string key, string keyAlias, bool isValue = true)
         {
             this.Container = container;
             this.Key = key;
             this.IsValue = isValue;
+            this.KeyAlias = keyAlias;
         }
 
         internal Where(WhereGroup<T> container)
@@ -57,34 +68,33 @@ namespace Slim.Query
             this.Container = container;
         }
 
-        internal Where<T> AddKey(string key, bool isValue = true)
+        internal Where<T> AddKey(string key, string alias, bool isValue = true)
         {
             this.Key = key;
             this.IsValue = isValue;
+            this.KeyAlias = alias;
 
             return this;
         }
 
         public WhereGroup<T> EqualTo<V>(V value)
         {
-#pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
             return SetAndReturn(value, value == null ? Relation.EqualNull : Relation.Equal);
-#pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
         }
 
-        public WhereGroup<T> EqualTo<V>(V value, bool isValue)
+        public WhereGroup<T> EqualToColumn(string column, string alias = null)
         {
-            this.IsValue = isValue;
-#pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
-            return SetAndReturn(value, value == null ? Relation.EqualNull : Relation.Equal);
-#pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
+            return SetAndReturnColumn(column, alias, Relation.Equal);
         }
 
         public WhereGroup<T> NotEqualTo<V>(V value)
         {
-#pragma warning disable RCS1165 // Unconstrained type parameter checked for null.
             return SetAndReturn(value, value == null ? Relation.NotEqualNull : Relation.NotEqual);
-#pragma warning restore RCS1165 // Unconstrained type parameter checked for null.
+        }
+
+        public WhereGroup<T> NotEqualToColumn(string column, string alias = null)
+        {
+            return SetAndReturnColumn(column, alias, Relation.NotEqual);
         }
 
         public WhereGroup<T> Like<V>(V value)
@@ -92,29 +102,67 @@ namespace Slim.Query
             return SetAndReturn(value, Relation.Like);
         }
 
+        public WhereGroup<T> LikeColumn(string column, string alias = null)
+        {
+            return SetAndReturnColumn(column, alias, Relation.Like);
+        }
+
         public WhereGroup<T> GreaterThan<V>(V value)
         {
-            return SetAndReturn(value, Relation.BiggerThan);
+            return SetAndReturn(value, Relation.GreaterThan);
+        }
+
+        public WhereGroup<T> GreaterThanColumn(string column, string alias = null)
+        {
+            return SetAndReturnColumn(column, alias, Relation.GreaterThan);
         }
 
         public WhereGroup<T> GreaterThanOrEqual<V>(V value)
         {
-            return SetAndReturn(value, Relation.BiggerThanOrEqual);
+            return SetAndReturn(value, Relation.GreaterThanOrEqual);
+        }
+
+        public WhereGroup<T> GreaterThanOrEqualToColumn(string column, string alias = null)
+        {
+            return SetAndReturnColumn(column, alias, Relation.GreaterThanOrEqual);
         }
 
         public WhereGroup<T> LessThan<V>(V value)
         {
-            return SetAndReturn(value, Relation.SmallerThan);
+            return SetAndReturn(value, Relation.LessThan);
+        }
+
+        public WhereGroup<T> LessThanColumn(string column, string alias = null)
+        {
+            return SetAndReturnColumn(column, alias, Relation.LessThan);
         }
 
         public WhereGroup<T> LessThanOrEqual<V>(V value)
         {
-            return SetAndReturn(value, Relation.SmallerThanOrEqual);
+            return SetAndReturn(value, Relation.LessThanOrEqual);
+        }
+
+        public WhereGroup<T> LessThanOrEqualToColumn(string column, string alias = null)
+        {
+            return SetAndReturnColumn(column, alias, Relation.LessThanOrEqual);
         }
 
         protected WhereGroup<T> SetAndReturn<V>(V value, Relation relation)
         {
             this.Value = value;
+            this.Relation = relation;
+
+            return this.Container;
+        }
+
+        protected WhereGroup<T> SetAndReturnColumn(string column, string alias, Relation relation)
+        {
+            if (alias == null)
+                (column, alias) = QueryUtils.ParseColumnNameAndAlias(column);
+
+            this.Value = column;
+            this.ValueAlias = alias;
+            this.IsValue = false;
             this.Relation = relation;
 
             return this.Container;
@@ -129,9 +177,9 @@ namespace Slim.Query
                 sql.AddText("(");
 
             if (IsValue)
-                Container.Query.Transaction.Provider.GetParameterComparison(sql, Key, Relation, prefix + "w" + sql.IndexAdd());
+                Container.Query.Transaction.Provider.GetParameterComparison(sql, KeyName, Relation, prefix + "w" + sql.IndexAdd());
             else
-                sql.AddFormat("{0} {1} {2}", Key, Relation.ToSql(), Value.ToString());
+                sql.AddFormat("{0} {1} {2}", KeyName, Relation.ToSql(), ValueName);
 
             if (addParentheses)
                 sql.AddText(")");
@@ -141,7 +189,6 @@ namespace Slim.Query
         {
             if (IsValue)
                 Container.Query.Transaction.Provider.GetParameter(sql, prefix + "w" + sql.Index, Value);
-
         }
     }
 }

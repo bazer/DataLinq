@@ -24,15 +24,15 @@ namespace Slim.Query
 
     public class SqlQuery : SqlQuery<object>
     {
-        public SqlQuery(Transaction transaction) : base(transaction)
+        public SqlQuery(Transaction transaction, string alias = null) : base(transaction, alias)
         {
         }
 
-        public SqlQuery(Table table, Transaction transaction) : base(table, transaction)
+        public SqlQuery(Table table, Transaction transaction, string alias = null) : base(table, transaction, alias)
         {
         }
 
-        public SqlQuery(string tableName, Transaction transaction) : base(tableName, transaction)
+        public SqlQuery(string tableName, Transaction transaction, string alias = null) : base(tableName, transaction, alias)
         {
         }
 
@@ -58,30 +58,37 @@ namespace Slim.Query
     {
         protected WhereGroup<T> WhereContainer;
         internal Dictionary<string, object> SetList = new Dictionary<string, object>();
-        //protected List<Join<Query>> joinList = new List<Join<Query>>();
+        protected List<Join<T>> JoinList = new List<Join<T>>();
         internal List<OrderBy> OrderByList = new List<OrderBy>();
         internal List<Column> WhatList;
         protected (int offset, int rowCount)? limit;
         public Transaction Transaction { get; }
 
         public Table Table { get; }
+        public string Alias { get; }
+        internal string DbName => string.IsNullOrEmpty(Alias)
+            ? Table.DbName
+            : $"{Table.DbName} {Alias}";
 
-        public SqlQuery(Transaction transaction)
+        public SqlQuery(Transaction transaction, string alias = null)
         {
             this.Transaction = transaction;
             this.Table = transaction.Provider.Metadata.Tables.Single(x => x.Model.CsType == typeof(T));
+            this.Alias = alias;
         }
 
-        public SqlQuery(Table table, Transaction transaction)
+        public SqlQuery(Table table, Transaction transaction, string alias = null)
         {
             this.Transaction = transaction;
             this.Table = table;
+            this.Alias = alias;
         }
 
-        public SqlQuery(string tableName, Transaction transaction)
+        public SqlQuery(string tableName, Transaction transaction, string alias = null)
         {
             this.Transaction = transaction;
             this.Table = transaction.Provider.Metadata.Tables.Single(x => x.DbName == tableName);
+            this.Alias = alias;
         }
 
         public IEnumerable<T> Select()
@@ -124,12 +131,12 @@ namespace Slim.Query
             return new Update<T>(this);
         }
 
-        public Where<T> Where(string columnName)
+        public Where<T> Where(string columnName, string alias = null)
         {
             if (WhereContainer == null)
                 WhereContainer = new WhereGroup<T>(this);
 
-            return WhereContainer.AddWhere(columnName, BooleanType.And);
+            return WhereContainer.AddWhere(columnName, alias, BooleanType.And);
         }
 
         public WhereGroup<T> Where(Func<Func<string, Where<T>>, WhereGroup<T>> func)
@@ -153,7 +160,7 @@ namespace Slim.Query
             if (WhereContainer == null)
                 return sql;
 
-            sql.AddText("\r\nWHERE");
+            sql.AddText("\r\nWHERE\r\n");
             WhereContainer.AddCommandString(sql, paramPrefix, true);
 
             return sql;
@@ -189,31 +196,44 @@ namespace Slim.Query
         {
             return Table.Columns.Single(x => x.ValueProperty.CsName == expression.Member.Name);
         }
+    
+        internal Sql GetJoins(Sql sql, string paramPrefix)
+        {
+            foreach (var join in JoinList)
+                join.GetSql(sql, paramPrefix);
 
+            return sql;
+        }
 
-        //protected Sql GetJoins(Sql sql, string tableAlias)
-        //{
-        //    foreach (var join in joinList)
-        //        join.GetSql(sql, tableAlias);
+        public Join<T> Join(string tableName, string alias = null)
+        {
+            return Join(tableName, alias, JoinType.Inner);
+        }
 
-        //    return sql;
-        //}
+        public Join<T> LeftJoin(string tableName, string alias = null)
+        {
+            return Join(tableName, alias, JoinType.LeftOuter);
+        }
 
-        //public Join<Select> InnerJoin(string tableName)
-        //{
-        //    var join = new Join<Select>(this, tableName, JoinType.Inner);
-        //    joinList.Add(join);
+        public Join<T> RightJoin(string tableName, string alias = null)
+        {
+            return Join(tableName, alias, JoinType.RightOuter);
+        }
 
-        //    return join;
-        //}
+        private Join<T> Join(string tableName, string alias, JoinType type)
+        {
+            if (JoinList == null)
+                JoinList = new List<Join<T>>();
 
-        //public Join<Select> OuterJoin(string tableName)
-        //{
-        //    var join = new Join<Select>(this, tableName, JoinType.Outer);
-        //    joinList.Add(join);
+            if (alias == null)
+                (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
-        //    return join;
-        //}
+            var join = new Join<T>(this, tableName, alias, type);
+            JoinList.Add(join);
+
+            return join;
+        }
+
 
         internal Sql GetOrderBy(Sql sql)
         {

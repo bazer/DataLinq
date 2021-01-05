@@ -23,16 +23,16 @@ namespace Slim.Extensions
                 case Relation.Like:
                     return "LIKE";
 
-                case Relation.BiggerThan:
+                case Relation.GreaterThan:
                     return ">";
 
-                case Relation.BiggerThanOrEqual:
+                case Relation.GreaterThanOrEqual:
                     return ">=";
 
-                case Relation.SmallerThan:
+                case Relation.LessThan:
                     return "<";
 
-                case Relation.SmallerThanOrEqual:
+                case Relation.LessThanOrEqual:
                     return "<=";
             }
 
