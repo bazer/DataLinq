@@ -1,4 +1,4 @@
-﻿using MySql.Data.MySqlClient;
+﻿using MySqlConnector;
 using Slim.Extensions;
 using Slim.Interfaces;
 using Slim.Mutation;
