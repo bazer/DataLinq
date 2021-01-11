@@ -127,8 +127,8 @@ namespace Slim.Cache
 
                         if (transaction.Type == TransactionType.NoTransaction)
                         {
-                            if (!Rows.TryAdd(rowData.GetKeys(), row))
-                                throw new Exception("Couldn't add row");
+                            Rows.TryAdd(rowData.GetKeys(), row);
+                                //throw new Exception("Couldn't add row");
                         }
 
                         yield return row;
