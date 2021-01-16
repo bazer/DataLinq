@@ -65,7 +65,7 @@ namespace Slim.Cache
             if (orderings != null)
             {
                 foreach (var order in orderings)
-                    q.OrderBy(order.Column, order.Ascending);
+                    q.OrderBy(order.Column, order.Alias, order.Ascending);
             }
 
             return q

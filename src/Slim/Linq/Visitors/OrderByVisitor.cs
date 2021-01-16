@@ -32,7 +32,7 @@ namespace Slim.Linq.Visitors
             {
                 var column = select.GetColumn(node);
 
-                select.OrderBy(column, direction == OrderingDirection.Asc);
+                select.OrderBy(column, null, direction == OrderingDirection.Asc);
             }
             else
                 throw new NotImplementedException("Operation not implemented");

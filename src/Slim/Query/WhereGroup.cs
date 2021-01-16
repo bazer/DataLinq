@@ -140,14 +140,19 @@ namespace Slim.Query
             return new Select<T>(Query);
         }
 
-        public SqlQuery<T> OrderBy(string columnName, bool ascending = true)
+        public Where<T> Where(string columnName, string alias = null)
         {
-            return Query.OrderBy(columnName, ascending);
+            return Query.Where(columnName, alias);
         }
 
-        public SqlQuery<T> OrderBy(Column column, bool ascending = true)
+        public SqlQuery<T> OrderBy(string columnName, string alias = null, bool ascending = true)
         {
-            return Query.OrderBy(column, ascending);
+            return Query.OrderBy(columnName, alias, ascending);
+        }
+
+        public SqlQuery<T> OrderBy(Column column, string alias = null, bool ascending = true)
+        {
+            return Query.OrderBy(column, alias, ascending);
         }
 
         public SqlQuery<T> OrderByDesc(string columnName)
@@ -163,6 +168,21 @@ namespace Slim.Query
         public SqlQuery<T> Limit(int rows)
         {
             return Query.Limit(rows);
+        }
+
+        public Join<T> Join(string tableName, string alias = null)
+        {
+            return Query.Join(tableName, alias);
+        }
+
+        public Join<T> LeftJoin(string tableName, string alias = null)
+        {
+            return Query.Join(tableName, alias);
+        }
+
+        public Join<T> RightJoin(string tableName, string alias = null)
+        {
+            return Query.Join(tableName, alias);
         }
     }
 }
