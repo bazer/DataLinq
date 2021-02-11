@@ -11,7 +11,7 @@ namespace Tests.Models
     {
         [PrimaryKey]
         [Type("int")]
-        public virtual int emp_no { get; set; }
+        public virtual int? emp_no { get; set; }
 
         [Relation("dept_emp", "emp_no")]
         public virtual IEnumerable<dept_emp> dept_emp { get; }

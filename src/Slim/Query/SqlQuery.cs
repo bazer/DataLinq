@@ -62,6 +62,7 @@ namespace Slim.Query
         internal List<OrderBy> OrderByList = new List<OrderBy>();
         internal List<Column> WhatList;
         protected (int offset, int rowCount)? limit;
+        public bool LastIdQuery { get; protected set; }
         public Transaction Transaction { get; }
 
         public Table Table { get; }
@@ -347,6 +348,13 @@ namespace Slim.Query
         public SqlQuery<T> What(params string[] columns)
         {
             return What(columns.AsEnumerable());
+        }
+
+        public SqlQuery<T> AddLastIdQuery()
+        {
+            this.LastIdQuery = true;
+
+            return this;
         }
     }
 }

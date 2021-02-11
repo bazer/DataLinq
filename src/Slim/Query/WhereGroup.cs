@@ -140,6 +140,11 @@ namespace Slim.Query
             return new Select<T>(Query);
         }
 
+        public Insert<T> InsertQuery()
+        {
+            return new Insert<T>(Query);
+        }
+
         public SqlQuery<T> OrderBy(string columnName, bool ascending = true)
         {
             return Query.OrderBy(columnName, ascending);

@@ -444,5 +444,37 @@ JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
 JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
             Assert.Empty(sql.Parameters);
         }
+
+        [Fact]
+        public void SimpleInsert()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Set("dept_no", "d005")
+                .InsertQuery()
+                .ToSql();
+
+            Assert.Equal(@"INSERT INTO departments (dept_no) VALUES (?v0)", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?v0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
+
+        [Fact]
+        public void SimpleInsertWithLastId()
+        {
+            var sql = fixture.employeesDb
+                .From("departments")
+                .Set("dept_no", "d005")
+                .AddLastIdQuery()
+                .InsertQuery()
+                .ToSql();
+
+            Assert.Equal(@"INSERT INTO departments (dept_no) VALUES (?v0);
+SELECT last_insert_id()", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal("?v0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
     }
 }

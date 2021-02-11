@@ -41,9 +41,14 @@ namespace Slim.Query
 
         public Sql ToSql(string paramPrefix = null)
         {
-            return GetSet(
+            var sql = GetSet(
                 new Sql().AddFormat("INSERT INTO {0} ", query.Table.DbName),
                 paramPrefix);
+
+            if (query.LastIdQuery)
+                sql.AddFormat(";\r\n{0}", query.Transaction.Provider.GetLastIdQuery());
+
+            return sql;
         }
 
         public IDbCommand ToDbCommand()

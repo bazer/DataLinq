@@ -44,6 +44,25 @@ namespace Tests
         }
 
         [Fact]
+        public void AddAutoIncrement()
+        {
+            var employee = NewEmployee();
+
+            using (var transaction = fixture.employeesDb.Transaction())
+            {
+                transaction.Insert(employee);
+                var dbTransactionEmployee = transaction.From().employees.Single(x => x.emp_no == employee.emp_no);
+                Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
+
+                transaction.Commit();
+            }
+
+            var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == employee.emp_no);
+
+            Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
+        }
+
+        [Fact]
         public void Update()
         {
             var emp_no = 999997;
@@ -71,7 +90,7 @@ namespace Tests
             Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }
 
-        private employees NewEmployee(int emp_no)
+        private employees NewEmployee(int? emp_no = null)
         {
             return new employees
             {
