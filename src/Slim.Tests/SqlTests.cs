@@ -446,6 +446,81 @@ JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
         }
 
         [Fact]
+        public void SimpleJoinIncludedAliasWhere()
+        {
+            var sql = fixture.employeesDb
+                .From("departments d")
+                .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
+                .Where("m.dept_no").EqualTo("d005")
+                .Limit(1)
+                .OrderByDesc("d.dept_no")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments d
+JOIN dept_manager m ON d.dept_no = m.dept_no
+WHERE
+m.dept_no = ?w0
+ORDER BY d.dept_no DESC
+LIMIT 0, 1", sql.Text);
+            Assert.NotEmpty(sql.Parameters);
+        }
+
+
+        [Fact]
+        public void SimpleJoinIncludedAliasLimit()
+        {
+            var sql = fixture.employeesDb
+                .From("departments d")
+                .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
+                .Limit(1)
+                .OrderByDesc("d.dept_no")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments d
+JOIN dept_manager m ON d.dept_no = m.dept_no
+ORDER BY d.dept_no DESC
+LIMIT 0, 1", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+
+        [Fact]
+        public void SimpleJoinIncludedAliasOrderByDesc()
+        {
+            var sql = fixture.employeesDb
+                .From("departments d")
+                .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
+                .OrderByDesc("d.dept_no")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments d
+JOIN dept_manager m ON d.dept_no = m.dept_no
+ORDER BY d.dept_no DESC", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
+        public void DoubleJoinIncludedAliasOrderByDesc()
+        {
+            var sql = fixture.employeesDb
+                .From("departments d")
+                .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
+                .Join("dept_emp e").On("e.dept_no").EqualToColumn("m.dept_no")
+                .OrderByDesc("d.dept_no")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal(@"SELECT dept_no, dept_name FROM departments d
+JOIN dept_manager m ON d.dept_no = m.dept_no
+JOIN dept_emp e ON e.dept_no = m.dept_no
+ORDER BY d.dept_no DESC", sql.Text);
+            Assert.Empty(sql.Parameters);
+        }
+
+        [Fact]
         public void SimpleInsert()
         {
             var sql = fixture.employeesDb

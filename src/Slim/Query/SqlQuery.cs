@@ -243,33 +243,43 @@ namespace Slim.Query
                 return sql;
 
             sql.AddText("\r\nORDER BY ");
-            sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.Column.DbName}{(x.Ascending ? "" : " DESC")}")));
+            sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.DbName}{(x.Ascending ? "" : " DESC")}")));
 
             return sql;
         }
 
-        public SqlQuery<T> OrderBy(string columnName, bool ascending = true) =>
-            OrderBy(this.Table.Columns.Single(x => x.DbName == columnName), ascending);
+        public SqlQuery<T> OrderBy(string columnName, string alias = null, bool ascending = true)
+        {
+            if (alias == null)
+                (columnName, alias) = QueryUtils.ParseColumnNameAndAlias(columnName);
 
-        public SqlQuery<T> OrderBy(Column column, bool ascending = true)
+            return OrderBy(this.Table.Columns.Single(x => x.DbName == columnName), alias, ascending);
+        }
+
+        public SqlQuery<T> OrderBy(Column column, string alias = null, bool ascending = true)
         {
             if (!this.Table.Columns.Contains(column))
                 throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
 
-            this.OrderByList.Add(new OrderBy(column, ascending));
+            this.OrderByList.Add(new OrderBy(column, alias, ascending));
 
             return this;
         }
 
-        public SqlQuery<T> OrderByDesc(string columnName) =>
-            OrderByDesc(this.Table.Columns.Single(x => x.DbName == columnName));
+        public SqlQuery<T> OrderByDesc(string columnName, string alias = null)
+        {
+            if (alias == null)
+                (columnName, alias) = QueryUtils.ParseColumnNameAndAlias(columnName);
 
-        public SqlQuery<T> OrderByDesc(Column column)
+            return OrderByDesc(this.Table.Columns.Single(x => x.DbName == columnName), alias);
+        }
+
+        public SqlQuery<T> OrderByDesc(Column column, string alias = null)
         {
             if (!this.Table.Columns.Contains(column))
                 throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
 
-            this.OrderByList.Add(new OrderBy(column, false));
+            this.OrderByList.Add(new OrderBy(column, alias, false));
 
             return this;
         }

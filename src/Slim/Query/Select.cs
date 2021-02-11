@@ -16,18 +16,6 @@ using Slim.Mutation;
 
 namespace Slim.Query
 {
-    public class OrderBy
-    {
-        public Column Column { get; }
-        public bool Ascending { get; }
-
-        public OrderBy(Column column, bool ascending)
-        {
-            this.Column = column;
-            this.Ascending = ascending;
-        }
-    }
-
     public class Select<T> : IQuery
     {
         protected List<Column> columnsToSelect;
