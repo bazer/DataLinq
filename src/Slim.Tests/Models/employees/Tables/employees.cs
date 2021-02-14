@@ -10,6 +10,7 @@ namespace Tests.Models
     public partial class employees : ITableModel
     {
         [PrimaryKey]
+        [AutoIncrement]
         [Type("int")]
         public virtual int? emp_no { get; set; }
 

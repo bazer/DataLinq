@@ -42,6 +42,19 @@ namespace Slim.MySql
         public override int ExecuteNonQuery(string query) => 
             ExecuteNonQuery(new MySqlCommand(query));
 
+        public override object ExecuteScalar(IDbCommand command)
+        {
+            using (var connection = new MySqlConnection(ConnectionString))
+            {
+                connection.Open();
+                command.Connection = connection;
+                object result = command.ExecuteScalar();
+                connection.Close();
+
+                return result;
+            }
+        }
+
         public override DbDataReader ExecuteReader(IDbCommand command)
         {
             var connection = new MySqlConnection(ConnectionString);

@@ -51,6 +51,8 @@ namespace Tests
             using (var transaction = fixture.employeesDb.Transaction())
             {
                 transaction.Insert(employee);
+                Assert.NotNull(employee.emp_no);
+
                 var dbTransactionEmployee = transaction.From().employees.Single(x => x.emp_no == employee.emp_no);
                 Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
 

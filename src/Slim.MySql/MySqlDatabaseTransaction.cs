@@ -54,6 +54,21 @@ namespace Slim.MySql
             }
         }
 
+        public override object ExecuteScalar(IDbCommand command)
+        {
+            try
+            {
+                command.Connection = DbConnection;
+                command.Transaction = dbTransaction;
+                return command.ExecuteScalar();
+            }
+            catch (Exception)
+            {
+                //Rollback();
+                throw;
+            }
+        }
+
         public override DbDataReader ExecuteReader(string query)
         {
             return ExecuteReader(new MySqlCommand(query));

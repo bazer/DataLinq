@@ -25,29 +25,58 @@ namespace Slim.Metadata
         public PropertyType Type { get; set; }
         public RelationPart RelationPart { get; set; }
 
-        private Func<object, object> accessor = null;
+        private Func<object, object> getAccessor = null;
         public object GetValue(object m)
         {
-            if (accessor == null)
-                accessor = BuildAccessor(PropertyInfo.GetGetMethod(true));
+            if (getAccessor == null)
+                getAccessor = BuildGetAccessor();
 
-            return accessor(m);
+            return getAccessor(m);
         }
 
-        private static Func<object, object> BuildAccessor(MethodInfo method)
+        private Action<object, object> setAccessor = null;
+        public void SetValue(object m, object value)
         {
-            ParameterExpression obj = Expression.Parameter(typeof(object), "obj");
+            if (setAccessor == null)
+                setAccessor = BuildSetAccessor();
 
-            Expression<Func<object, object>> expr =
-                Expression.Lambda<Func<object, object>>(
-                    Expression.Convert(
-                        Expression.Call(
-                            Expression.Convert(obj, method.DeclaringType),
-                            method),
-                        typeof(object)),
-                    obj);
+            setAccessor(m, Convert.ChangeType(value, CsType));
+        }
 
-            return expr.Compile();
+        //http://geekswithblogs.net/Madman/archive/2008/06/27/faster-reflection-using-expression-trees.aspx
+        private Func<object, object> BuildGetAccessor()
+        {
+            var instance = Expression.Parameter(typeof(object), "instance");
+
+            UnaryExpression instanceCast = (!this.PropertyInfo.DeclaringType.IsValueType)
+                ? Expression.TypeAs(instance, this.PropertyInfo.DeclaringType)
+                : Expression.Convert(instance, this.PropertyInfo.DeclaringType);
+
+            return Expression.Lambda<Func<object, object>>(
+                Expression.TypeAs(Expression.Call(
+                    instanceCast,
+                    this.PropertyInfo.GetGetMethod()), typeof(object)), instance).Compile();
+        }
+
+        private Action<object, object> BuildSetAccessor()
+        {
+            ParameterExpression instance = Expression.Parameter(typeof(object), "instance");
+            ParameterExpression value = Expression.Parameter(typeof(object), "value");
+
+            // value as T is slightly faster than (T)value, so if it's not a value type, use that
+            UnaryExpression instanceCast = (!this.PropertyInfo.DeclaringType.IsValueType)
+                ? Expression.TypeAs(instance, this.PropertyInfo.DeclaringType)
+                : Expression.Convert(instance, this.PropertyInfo.DeclaringType);
+
+            UnaryExpression valueCast = (!this.PropertyInfo.PropertyType.IsValueType)
+                ? Expression.TypeAs(value, this.PropertyInfo.PropertyType)
+                : Expression.Convert(value, this.PropertyInfo.PropertyType);
+
+            return Expression.Lambda<Action<object, object>>(
+                Expression.Call(
+                    instanceCast,
+                    this.PropertyInfo.GetSetMethod(),
+                    valueCast), new ParameterExpression[] { instance, value }).Compile();
         }
     }
 }

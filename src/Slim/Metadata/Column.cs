@@ -13,6 +13,7 @@ namespace Slim.Metadata
         public long? Length { get; set; }
         public bool Nullable { get; set; }
         public bool PrimaryKey { get; set; }
+        public bool AutoIncrement { get; set; }
         public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
         public List<Property> RelationProperties { get; set; } = new List<Property>();
         public Table Table { get; set; }

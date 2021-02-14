@@ -43,6 +43,7 @@ namespace Tests
 
             var emp_no = employees.Columns.Single(x => x.DbName == "emp_no");
             Assert.True(emp_no.PrimaryKey);
+            Assert.True(emp_no.AutoIncrement);
             Assert.Equal("int", emp_no.DbType);
             Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
 

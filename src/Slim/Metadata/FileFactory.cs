@@ -74,6 +74,9 @@ namespace Slim.Metadata
                     yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.Constraint}\")]";
                 }
 
+                if (c.AutoIncrement)
+                    yield return $"{tab}{tab}[AutoIncrement]";
+
                 if (c.Nullable)
                     yield return $"{tab}{tab}[Nullable]";
 
@@ -82,7 +85,7 @@ namespace Slim.Metadata
                 else
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
 
-                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable ? "?" : "")} {c.DbName} {{ get; set; }}";
+                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.DbName} {{ get; set; }}";
                 yield return $"";
 
                 foreach (var relationPart in c.RelationParts)

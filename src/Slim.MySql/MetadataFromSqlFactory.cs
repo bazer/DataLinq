@@ -93,6 +93,7 @@ namespace Slim.MySql
             column.Nullable = dbColumns.IS_NULLABLE == "YES";
             column.Length = dbColumns.CHARACTER_MAXIMUM_LENGTH;
             column.PrimaryKey = dbColumns.COLUMN_KEY == "PRI";
+            column.AutoIncrement = dbColumns.EXTRA.Contains("auto_increment");
 
             var property = new Property();
             property.CsTypeName = ParseCsType(column.DbType);

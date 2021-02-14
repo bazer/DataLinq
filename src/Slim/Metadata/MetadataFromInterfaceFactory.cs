@@ -170,6 +170,9 @@ namespace Slim.Metadata
                 if (attribute is NullableAttribute)
                     column.Nullable = true;
 
+                if (attribute is AutoIncrementAttribute)
+                    column.AutoIncrement = true;
+
                 if (attribute is PrimaryKeyAttribute)
                     column.PrimaryKey = true;
 
@@ -195,7 +198,7 @@ namespace Slim.Metadata
                 CsType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType,
                 CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>),
                 PropertyInfo = propertyInfo,
-                Attributes = propertyInfo.GetCustomAttributes(false)
+                Attributes = propertyInfo.GetCustomAttributes(false),
             };
 
             property.CsTypeName = GetKeywordName(property.CsType);

@@ -92,10 +92,8 @@ namespace Slim.Mutation
         {
             Changes.AddRange(changes);
 
-            var commands = changes.Select(x => Provider.ToDbCommand(GetQuery(x)));
-
-            foreach (var command in commands)
-                DbTransaction.ExecuteNonQuery(command);
+            foreach (var change in changes)
+                change.ExecuteQuery(this);
         }
 
         public void Commit()
@@ -114,37 +112,7 @@ namespace Slim.Mutation
             DbTransaction.Rollback();
         }
 
-        private IQuery GetQuery(StateChange change)
-        {
-            var query = new SqlQuery(change.Table, this);
 
-            if (change.Type == TransactionChangeType.Insert)
-            {
-                foreach (var column in change.Table.Columns)
-                    query.Set(column.DbName, column.ValueProperty.GetValue(change.Model));
-
-                return query.InsertQuery();
-            }
-            else if (change.Type == TransactionChangeType.Update)
-            {
-                foreach (var key in change.Table.PrimaryKeyColumns)
-                    query.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
-
-                foreach (var column in change.Table.Columns)
-                    query.Set(column.DbName, column.ValueProperty.GetValue(change.Model));
-
-                return query.UpdateQuery();
-            }
-            else if (change.Type == TransactionChangeType.Delete)
-            {
-                foreach (var key in change.Table.PrimaryKeyColumns)
-                    query.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(change.Model));
-
-                return query.DeleteQuery();
-            }
-
-            throw new NotImplementedException();
-        }
 
         private void CheckIfTransactionIsValid()
         {

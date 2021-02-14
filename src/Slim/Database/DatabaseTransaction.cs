@@ -31,6 +31,7 @@ namespace Slim
 
         public abstract DbDataReader ExecuteReader(IDbCommand command);
         public abstract DbDataReader ExecuteReader(string query);
+        public abstract object ExecuteScalar(IDbCommand command);
         public abstract int ExecuteNonQuery(IDbCommand command);
         public abstract int ExecuteNonQuery(string query);
 
