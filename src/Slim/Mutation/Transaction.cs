@@ -49,7 +49,7 @@ namespace Slim.Mutation
             if (model == null)
                 throw new ArgumentException("Model argument has null value");
 
-            if (!model.IsNew())
+            if (!model.IsNewModel())
                 throw new ArgumentException("Model is not a new row, unable to insert");
 
             AddAndExecute(model, TransactionChangeType.Insert);

@@ -20,11 +20,12 @@ namespace Tests
         }
 
         [Fact]
-        public void Add()
+        public void Insert()
         {
             var emp_no = 999999;
 
             var employee = NewEmployee(emp_no);
+            Assert.True(employee.HasPrimaryKeysSet());
 
             using (var transaction = fixture.employeesDb.Transaction())
             {
@@ -32,6 +33,7 @@ namespace Tests
                     transaction.Delete(alreadyExists);
 
                 transaction.Insert(employee);
+                Assert.True(employee.HasPrimaryKeysSet());
                 var dbTransactionEmployee = transaction.From().employees.Single(x => x.emp_no == emp_no);
                 Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
 
@@ -44,17 +46,20 @@ namespace Tests
         }
 
         [Fact]
-        public void AddAutoIncrement()
+        public void InsertAutoIncrement()
         {
             var employee = NewEmployee();
+            Assert.False(employee.HasPrimaryKeysSet());
 
             using (var transaction = fixture.employeesDb.Transaction())
             {
                 transaction.Insert(employee);
                 Assert.NotNull(employee.emp_no);
+                Assert.True(employee.HasPrimaryKeysSet());
 
                 var dbTransactionEmployee = transaction.From().employees.Single(x => x.emp_no == employee.emp_no);
                 Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
+                Assert.True(dbTransactionEmployee.HasPrimaryKeysSet());
 
                 transaction.Commit();
             }
@@ -62,6 +67,54 @@ namespace Tests
             var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == employee.emp_no);
 
             Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
+            Assert.True(dbEmployee.HasPrimaryKeysSet());
+
+            using (var transaction = fixture.employeesDb.Transaction())
+            {
+                transaction.Delete(dbEmployee);
+                transaction.Commit();
+            }
+
+            Assert.False(fixture.employeesDb.Query().employees.Any(x => x.emp_no == employee.emp_no));
+        }
+
+        [Fact]
+        public void InsertAndUpdateAutoIncrement()
+        {
+            var employee = NewEmployee();
+            Assert.False(employee.HasPrimaryKeysSet());
+
+            using (var transaction = fixture.employeesDb.Transaction())
+            {
+                transaction.Insert(employee);
+                Assert.NotNull(employee.emp_no);
+                Assert.True(employee.HasPrimaryKeysSet());
+
+                transaction.Commit();
+            }
+
+            Assert.True(employee.HasPrimaryKeysSet());
+            employee.birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+
+
+            using (var transaction = fixture.employeesDb.Transaction())
+            {
+                transaction.Update(employee);
+                Assert.True(employee.HasPrimaryKeysSet());
+                transaction.Commit();
+            }
+
+            var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == employee.emp_no);
+            Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
+            Assert.True(dbEmployee.HasPrimaryKeysSet());
+
+            using (var transaction = fixture.employeesDb.Transaction())
+            {
+                transaction.Delete(dbEmployee);
+                transaction.Commit();
+            }
+
+            Assert.False(fixture.employeesDb.Query().employees.Any(x => x.emp_no == employee.emp_no));
         }
 
         [Fact]
@@ -71,7 +124,7 @@ namespace Tests
 
             var employee = fixture.employeesDb.Query().employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
 
-            if (employee.IsNew())
+            if (employee.IsNewModel())
             {
                 fixture.employeesDb.Transaction().Insert(employee).Commit();
                 employee = fixture.employeesDb.Query().employees.SingleOrDefault(x => x.emp_no == emp_no);
@@ -112,24 +165,5 @@ namespace Tests
             int randomMinutes = rnd.Next(0, (int)span.TotalMinutes);
             return rangeStart + TimeSpan.FromMinutes(randomMinutes);
         }
-
-        //[Fact]
-        //public void Mutate()
-        //{
-        //    using (var transaction = fixture.employeesDb_provider.StartTransaction())
-        //    {
-        //        var dept = transaction.Schema.current_dept_emp.First();
-
-        //        dept.dept_no = "45353";
-
-
-        //        transaction.Add(employee);
-        //        transaction.Commit();
-        //    }
-
-        //    fixture.employeesDb_provider.Schema.
-
-        //    Assert.Equal(9, fixture.employeesDb.departments.ToList().Count);
-        //}
     }
 }

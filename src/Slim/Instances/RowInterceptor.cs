@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace Slim.Instances
 {
@@ -35,31 +36,18 @@ namespace Slim.Instances
                 var column = property.Column;
                 var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), column.Table.Database.DatabaseProvider.StartTransaction(TransactionType.NoTransaction));
 
-                //var column = property.Column;
-                //var select = new Select(RowData.Table.Database.DatabaseProvider, column.Table)
-                //    .Where(column.DbName).EqualTo(RowData.Data[property.RelationPart.Column.DbName]);
-
-                //var result = select
-                //    .ReadInstances()
-                //    .Select(InstanceFactory.NewImmutableRow);
-
                 if (property.RelationPart.Type == RelationPartType.ForeignKey)
                 {
                     returnvalue = result.SingleOrDefault();
-
-                    //invocation.ReturnValue = result.SingleOrDefault();
                 }
                 else
                 {
-                    var list = result.ToList();
+                    var listType = property.CsType.GetTypeInfo().GenericTypeArguments[0];
 
-                    if (list.Count != 0)
-                    {
-                        returnvalue = typeof(Enumerable)
-                            .GetMethod("Cast")
-                            .MakeGenericMethod(list[0].GetType())
-                            .Invoke(null, new object[] { list });
-                    }
+                    returnvalue = typeof(Enumerable)
+                        .GetMethod("Cast")
+                        .MakeGenericMethod(listType)
+                        .Invoke(null, new object[] { result });
                 }
 
                 RelationCache.TryAdd(info.Name, returnvalue);

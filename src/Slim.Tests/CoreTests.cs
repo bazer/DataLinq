@@ -39,6 +39,7 @@ namespace Tests
 
             var employees = database.Tables.Single(x => x.DbName == "employees");
 
+            Assert.Same(employees, employees.Model.Table);
             Assert.Equal(6, employees.Columns.Count);
 
             var emp_no = employees.Columns.Single(x => x.DbName == "emp_no");

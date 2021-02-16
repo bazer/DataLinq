@@ -71,7 +71,8 @@ namespace Slim.MySql
             table.Type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
             table.Model = new Model
             {
-                CsTypeName = dbTables.TABLE_NAME
+                CsTypeName = dbTables.TABLE_NAME,
+                Table = table
             };
 
             table.Columns = information_Schema

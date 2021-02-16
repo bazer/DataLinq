@@ -35,5 +35,14 @@ namespace Tests
             Assert.Equal(2, department.dept_manager.Count());
             Assert.Equal("d005", department.dept_manager.First().departments.dept_no);
         }
+
+        [Fact]
+        public void EmptyList()
+        {
+            var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == 10001);
+
+            Assert.NotNull(employee.dept_manager);
+            Assert.Empty(employee.dept_manager);
+        }
     }
 }

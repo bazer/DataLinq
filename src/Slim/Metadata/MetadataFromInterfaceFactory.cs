@@ -145,6 +145,7 @@ namespace Slim.Metadata
                 .Select(x => ParseColumn(table, x))
                 .ToList();
 
+            model.Table = table;
             //table.Cache = new TableCache(table);
 
             return table;

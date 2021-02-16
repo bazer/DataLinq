@@ -1,7 +1,9 @@
 ﻿using Slim.Instances;
 using Slim.Interfaces;
+using Slim.Metadata;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace Slim
@@ -13,31 +15,26 @@ namespace Slim
             throw new NotImplementedException();
         }
 
-        public static bool IsNew(this IModel model)
+        public static bool HasPrimaryKeysSet(this IModel model)
         {
-            var type = model.GetType();
+            var metadata = Model.Find(model);
 
-            if (type.GetProperty("IsNew") == null)
-                return true;
+            if (metadata == null)
+                throw new Exception($"Metadata not loaded for model with type {model.GetType()}");
 
-            var method = type
-                .GetProperty("IsNew")
-                .GetGetMethod();
-
-            var obj = method
-                .Invoke(model, new object[] { });
-
-            return obj is bool result && result;
-
-
-            //var table = DatabaseProvider.Database.Tables.Single(x => x.Model.CsType == model.GetType() || x.Model.ProxyType == model.GetType());
+            return metadata.Table
+                .PrimaryKeyColumns
+                .All(x => x.ValueProperty.GetValue(model) != default);
         }
+
+        public static bool IsNewModel(this IModel model) =>
+            model.GetType().GetProperty("Mutate") == null;
 
         public static T Mutate<T>(this T model) where T:IModel
         {
             var type = model.GetType();
 
-            if (type.GetProperty("Mutate") == null)
+            if (model.IsNewModel())
                 return model;
 
             var method = type
