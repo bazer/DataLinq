@@ -24,7 +24,7 @@ namespace Slim
 
         public T Query()
         {
-            return Transaction(TransactionType.NoTransaction).From();
+            return Transaction(TransactionType.NoTransaction).Query();
         }
 
         public SqlQuery From(string tableName, string alias = null)
@@ -50,6 +50,31 @@ namespace Slim
             var transaction = Transaction(TransactionType.NoTransaction);
 
             return transaction.From<V>();
+        }
+
+        public M Insert<M>(M model) where M : IModel
+        {
+            using var transaction = Transaction();
+            var newModel = transaction.Insert(model);
+            transaction.Commit();
+
+            return newModel;
+        }
+
+        public M Update<M>(M model) where M : IModel
+        {
+            using var transaction = Transaction();
+            var newModel = transaction.Update(model);
+            transaction.Commit();
+
+            return newModel;
+        }
+
+        public void Delete<M>(M model) where M : IModel
+        {
+            using var transaction = Transaction();
+            transaction.Delete(model);
+            transaction.Commit();
         }
     }
 }

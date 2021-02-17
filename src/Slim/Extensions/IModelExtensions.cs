@@ -15,6 +15,16 @@ namespace Slim
             throw new NotImplementedException();
         }
 
+        public static PrimaryKeys PrimaryKeys(this IModel model)
+        {
+            var metadata = Model.Find(model);
+
+            if (metadata == null)
+                throw new Exception($"Metadata not loaded for model with type {model.GetType()}");
+
+            return new PrimaryKeys(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+        }
+
         public static bool HasPrimaryKeysSet(this IModel model)
         {
             var metadata = Model.Find(model);

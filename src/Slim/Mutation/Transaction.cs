@@ -42,7 +42,7 @@ namespace Slim.Mutation
             Type = type;
         }
 
-        public Transaction Insert(IModel model)
+        public T Insert<T>(T model) where T: IModel
         {
             CheckIfTransactionIsValid();
 
@@ -54,10 +54,10 @@ namespace Slim.Mutation
 
             AddAndExecute(model, TransactionChangeType.Insert);
 
-            return this;
+            return GetModelFromCache(model);
         }
 
-        public Transaction Update(IModel model)
+        public T Update<T>(T model) where T : IModel
         {
             CheckIfTransactionIsValid();
 
@@ -66,10 +66,10 @@ namespace Slim.Mutation
 
             AddAndExecute(model, TransactionChangeType.Update);
 
-            return this;
+            return GetModelFromCache(model);
         }
 
-        public Transaction Delete(IModel model)
+        public void Delete(IModel model)
         {
             CheckIfTransactionIsValid();
 
@@ -77,13 +77,11 @@ namespace Slim.Mutation
                 throw new ArgumentException("Model argument has null value");
 
             AddAndExecute(model, TransactionChangeType.Delete);
-
-            return this;
         }
 
         private void AddAndExecute(IModel model, TransactionChangeType type)
         {
-            var table = Provider.Metadata.Tables.Single(x => x.Model.CsType == model.GetType() || x.Model.ProxyType == model.GetType() || x.Model.MutableProxyType == model.GetType());
+            var table = Provider.Metadata.Tables.Single(x => x.Model.IsOfType(model.GetType()));
 
             AddAndExecute(new StateChange(model, table, type));
         }
@@ -112,6 +110,13 @@ namespace Slim.Mutation
             DbTransaction.Rollback();
         }
 
+        private T GetModelFromCache<T>(T model) where T : IModel
+        {
+            var metadata = Model.Find(model);
+            var keys = model.PrimaryKeys();
+
+           return (T)metadata.Table.Cache.GetRow(keys, this);
+        }
 
 
         private void CheckIfTransactionIsValid()
@@ -141,7 +146,7 @@ namespace Slim.Mutation
             Schema = GetDatabaseInstance();
         }
 
-        public T From() => Schema;
+        public T Query() => Schema;
 
         public SqlQuery From(string tableName)
         {
