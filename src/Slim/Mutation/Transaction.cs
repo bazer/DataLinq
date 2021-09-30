@@ -69,6 +69,29 @@ namespace Slim.Mutation
             return GetModelFromCache(model);
         }
 
+        public T Update<T>(T model, Action<T> changes) where T : IModel
+        {
+            var mut = model.Mutate();
+            changes(mut);
+
+            return Update(mut);
+        }
+
+        public T Save<T>(T model) where T : IModel
+        {
+            CheckIfTransactionIsValid();
+
+            if (model == null)
+                throw new ArgumentException("Model argument has null value");
+
+            if (model.IsNewModel())
+                AddAndExecute(model, TransactionChangeType.Insert);
+            else
+                AddAndExecute(model, TransactionChangeType.Update);
+
+            return GetModelFromCache(model);
+        }
+
         public void Delete(IModel model)
         {
             CheckIfTransactionIsValid();

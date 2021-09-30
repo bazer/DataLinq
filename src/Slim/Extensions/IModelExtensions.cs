@@ -1,6 +1,7 @@
 ﻿using Slim.Instances;
 using Slim.Interfaces;
 using Slim.Metadata;
+using Slim.Mutation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -55,6 +56,31 @@ namespace Slim
                 .Invoke(model, new object[] { });
 
             return (T)obj;
+        }
+
+        public static T Save<T>(this T model, Transaction transaction) where T : IModel
+        {
+            return transaction.Save(model);
+        }
+
+        public static T Insert<T>(this T model, Transaction transaction) where T : IModel
+        {
+            return transaction.Insert(model);
+        }
+
+        public static T Update<T>(this T model, Transaction transaction) where T : IModel
+        {
+            return transaction.Update(model);
+        }
+
+        public static T Update<T>(this T model, Transaction transaction, Action<T> changes) where T : IModel
+        {
+            return transaction.Update(model, changes);
+        }
+
+        public static void Delete<T>(this T model, Transaction transaction) where T : IModel
+        {
+            transaction.Delete(model);
         }
     }
 }

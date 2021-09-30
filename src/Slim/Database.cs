@@ -22,6 +22,15 @@ namespace Slim
             return new Transaction<T>(this.Provider, transactionType);
         }
 
+        public void Transact(Action<Transaction<T>> action, TransactionType transactionType = TransactionType.ReadAndWrite)
+        {
+            using (var transaction = Transaction(transactionType))
+            {
+                action(transaction);
+                transaction.Commit();
+            }
+        }
+
         public T Query()
         {
             return Transaction(TransactionType.NoTransaction).Query();
@@ -65,6 +74,15 @@ namespace Slim
         {
             using var transaction = Transaction();
             var newModel = transaction.Update(model);
+            transaction.Commit();
+
+            return newModel;
+        }
+
+        public M Update<M>(M model, Action<M> changes) where M : IModel
+        {
+            using var transaction = Transaction();
+            var newModel = transaction.Update(model, changes);
             transaction.Commit();
 
             return newModel;
