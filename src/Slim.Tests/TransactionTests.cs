@@ -28,18 +28,29 @@ namespace Tests
             var employee = NewEmployee(emp_no);
             Assert.True(employee.HasPrimaryKeysSet());
 
-            using (var transaction = fixture.employeesDb.Transaction())
-            {
-                foreach (var alreadyExists in fixture.employeesDb.Query().employees.Where(x => x.emp_no == emp_no))
-                    transaction.Delete(alreadyExists);
+            using var transaction = fixture.employeesDb.Transaction();
+            Assert.Equal(DatabaseTransactionStatus.Closed, transaction.Status);
 
-                transaction.Insert(employee);
-                Assert.True(employee.HasPrimaryKeysSet());
-                var dbTransactionEmployee = transaction.Query().employees.Single(x => x.emp_no == emp_no);
-                Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
+            foreach (var alreadyExists in fixture.employeesDb.Query().employees.Where(x => x.emp_no == emp_no))
+                transaction.Delete(alreadyExists);
 
-                transaction.Commit();
-            }
+            transaction.Insert(employee);
+            Assert.True(employee.HasPrimaryKeysSet());
+            var dbTransactionEmployee = transaction.Query().employees.Single(x => x.emp_no == emp_no);
+            Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
+
+            var table = fixture.employeesDb.Provider.Metadata
+                    .Tables.Single(x => x.DbName == "employees");
+
+            Assert.NotEqual(0, table.Cache.TransactionRowsCount);
+            Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
+
+            transaction.Commit();
+            Assert.Equal(0, table.Cache.TransactionRowsCount);
+            Assert.Equal(DatabaseTransactionStatus.Committed, transaction.Status);
+            
+
+            
 
             var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
 

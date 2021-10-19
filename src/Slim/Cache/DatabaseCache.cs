@@ -29,5 +29,13 @@ namespace Slim.Cache
                 TableCaches.Single(x => x.Table == change.Table).Apply(change);
             }
         }
+
+        public void RemoveTransaction(Transaction transaction)
+        {
+            foreach (var table in TableCaches)
+            {
+                table.TryRemoveTransaction(transaction);
+            }
+        }
     }
 }

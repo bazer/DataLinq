@@ -28,5 +28,10 @@ namespace Slim.Mutation
         {
             Cache.Apply(changes);
         }
+
+        public void RemoveTransactionFromCache(Transaction transaction)
+        {
+            Cache.RemoveTransaction(transaction);
+        }
     }
 }

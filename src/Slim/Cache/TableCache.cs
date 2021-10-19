@@ -25,6 +25,7 @@ namespace Slim.Cache
         }
 
         public int RowCount => Rows.Count;
+        public int TransactionRowsCount => TransactionRows.Count;
         public Table Table { get; }
 
         public void Apply(params StateChange[] changes)
@@ -39,6 +40,14 @@ namespace Slim.Cache
                     Rows.TryRemove(change.PrimaryKeys, out var temp);
                 }
             }
+        }
+
+        public bool TryRemoveTransaction(Transaction transaction)
+        {
+            if (TransactionRows.ContainsKey(transaction))
+                return TransactionRows.TryRemove(transaction, out var _);
+
+            return true;
         }
 
         public IEnumerable<PrimaryKeys> GetKeys(ForeignKey foreignKey, Transaction transaction)

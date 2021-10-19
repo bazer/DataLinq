@@ -124,6 +124,7 @@ namespace Slim.Mutation
             DbTransaction.Commit();
 
             Provider.State.ApplyChanges(Changes.ToArray());
+            Provider.State.RemoveTransactionFromCache(this);
         }
 
         public void Rollback()
@@ -131,6 +132,7 @@ namespace Slim.Mutation
             CheckIfTransactionIsValid();
 
             DbTransaction.Rollback();
+            Provider.State.RemoveTransactionFromCache(this);
         }
 
         private T GetModelFromCache<T>(T model) where T : IModel
@@ -156,6 +158,7 @@ namespace Slim.Mutation
 
         public void Dispose()
         {
+            Provider.State.RemoveTransactionFromCache(this);
             DbTransaction.Dispose();
         }
     }
