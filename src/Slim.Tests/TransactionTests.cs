@@ -42,15 +42,12 @@ namespace Tests
             var table = fixture.employeesDb.Provider.Metadata
                     .Tables.Single(x => x.DbName == "employees");
 
-            Assert.NotEqual(0, table.Cache.TransactionRowsCount);
+            Assert.Equal(1, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
 
             transaction.Commit();
             Assert.Equal(0, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.Committed, transaction.Status);
-            
-
-            
 
             var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
 
@@ -136,7 +133,6 @@ namespace Tests
             var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
 
             Assert.NotSame(dbEmployeeReturn, dbEmployee);
-            //Assert.Equal(dbEmployeeReturn, dbEmployee);
             Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }
 
@@ -163,8 +159,125 @@ namespace Tests
             var dbEmployee2 = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
 
             Assert.NotSame(dbEmployeeReturn, dbEmployee2);
-            //Assert.Equal(dbEmployeeReturn, dbEmployee2);
-            Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
+            Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
+        }
+
+        [Fact]
+        public void RollbackTransaction()
+        {
+            var emp_no = 999995;
+
+            var employee = GetEmployee(emp_no);
+            var orgBirthDate = employee.birth_date;
+            var employeeMut = employee.Mutate();
+
+            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            employeeMut.birth_date = newBirthDate;
+            Assert.Equal(newBirthDate, employeeMut.birth_date);
+
+            using var transaction = fixture.employeesDb.Transaction();
+            var dbEmployeeReturn = transaction.Update(employeeMut);
+            var dbEmployee = transaction.Query().employees.Single(x => x.emp_no == emp_no);
+            Assert.Same(dbEmployeeReturn, dbEmployee);
+            
+            var table = fixture.employeesDb.Provider.Metadata
+                    .Tables.Single(x => x.DbName == "employees");
+            Assert.Equal(1, table.Cache.TransactionRowsCount);
+            Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
+
+            transaction.Rollback();
+            Assert.Equal(0, table.Cache.TransactionRowsCount);
+            Assert.Equal(DatabaseTransactionStatus.RolledBack, transaction.Status);
+
+            var dbEmployee2 = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
+
+            Assert.NotSame(dbEmployeeReturn, dbEmployee2);
+            Assert.NotEqual(employeeMut.birth_date.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
+            Assert.Equal(orgBirthDate.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
+        }
+
+        [Fact]
+        public void DoubleCommitTransaction()
+        {
+            var emp_no = 999995;
+
+            var employee = GetEmployee(emp_no);
+            var orgBirthDate = employee.birth_date;
+            var employeeMut = employee.Mutate();
+
+            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            employeeMut.birth_date = newBirthDate;
+            Assert.Equal(newBirthDate, employeeMut.birth_date);
+
+            using var transaction = fixture.employeesDb.Transaction();
+            var dbEmployeeReturn = transaction.Update(employeeMut);
+
+            transaction.Commit();
+            Assert.Throws<Exception>(() => transaction.Commit());
+            Assert.Throws<Exception>(() => transaction.Rollback());
+        }
+
+        [Fact]
+        public void DoubleRollbackTransaction()
+        {
+            var emp_no = 999995;
+
+            var employee = GetEmployee(emp_no);
+            var orgBirthDate = employee.birth_date;
+            var employeeMut = employee.Mutate();
+
+            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            employeeMut.birth_date = newBirthDate;
+            Assert.Equal(newBirthDate, employeeMut.birth_date);
+
+            using var transaction = fixture.employeesDb.Transaction();
+            var dbEmployeeReturn = transaction.Update(employeeMut);
+
+            transaction.Rollback();
+            Assert.Throws<Exception>(() => transaction.Rollback());
+            Assert.Throws<Exception>(() => transaction.Commit());
+        }
+
+        [Fact]
+        public void CommitRollbackTransaction()
+        {
+            var emp_no = 999995;
+
+            var employee = GetEmployee(emp_no);
+            var orgBirthDate = employee.birth_date;
+            var employeeMut = employee.Mutate();
+
+            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            employeeMut.birth_date = newBirthDate;
+            Assert.Equal(newBirthDate, employeeMut.birth_date);
+
+            using var transaction = fixture.employeesDb.Transaction();
+            var dbEmployeeReturn = transaction.Update(employeeMut);
+
+            transaction.Commit();
+            Assert.Throws<Exception>(() => transaction.Rollback());
+            Assert.Throws<Exception>(() => transaction.Commit());
+        }
+
+        [Fact]
+        public void RollbackCommitTransaction()
+        {
+            var emp_no = 999995;
+
+            var employee = GetEmployee(emp_no);
+            var orgBirthDate = employee.birth_date;
+            var employeeMut = employee.Mutate();
+
+            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            employeeMut.birth_date = newBirthDate;
+            Assert.Equal(newBirthDate, employeeMut.birth_date);
+
+            using var transaction = fixture.employeesDb.Transaction();
+            var dbEmployeeReturn = transaction.Update(employeeMut);
+
+            transaction.Rollback();
+            Assert.Throws<Exception>(() => transaction.Commit());
+            Assert.Throws<Exception>(() => transaction.Rollback());
         }
 
         //[Fact]
@@ -182,7 +295,7 @@ namespace Tests
 
         //    using (var transaction = fixture.employeesDb.Transaction())
         //    {
-        //        Assert.Throws<InvalidMutationObjectException>(() => transaction.Update(employee));
+        //        Assert.Throws<InvalidMutationObjectException>(() => transaction.Insert(employee));
         //    }
         //}
 
