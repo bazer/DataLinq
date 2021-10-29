@@ -1,0 +1,46 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29709.97
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq", "DataLinq\DataLinq.csproj", "{77F0C212-8364-4DAA-9FC9-7D9034CD7C1B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.MySql", "DataLinq.MySql\DataLinq.MySql.csproj", "{6A93A77C-4D21-4759-9782-F007D840E119}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.Tests", "DataLinq.Tests\DataLinq.Tests.csproj", "{484CCB79-F7B3-427A-BB8F-999A9E7E5C2C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.Tools", "DataLinq.Tools\DataLinq.Tools.csproj", "{77EBB890-6007-4BC7-9D47-67556E65B8C2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{77F0C212-8364-4DAA-9FC9-7D9034CD7C1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77F0C212-8364-4DAA-9FC9-7D9034CD7C1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77F0C212-8364-4DAA-9FC9-7D9034CD7C1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77F0C212-8364-4DAA-9FC9-7D9034CD7C1B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A93A77C-4D21-4759-9782-F007D840E119}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A93A77C-4D21-4759-9782-F007D840E119}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A93A77C-4D21-4759-9782-F007D840E119}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A93A77C-4D21-4759-9782-F007D840E119}.Release|Any CPU.Build.0 = Release|Any CPU
+		{484CCB79-F7B3-427A-BB8F-999A9E7E5C2C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{484CCB79-F7B3-427A-BB8F-999A9E7E5C2C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{484CCB79-F7B3-427A-BB8F-999A9E7E5C2C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{484CCB79-F7B3-427A-BB8F-999A9E7E5C2C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77EBB890-6007-4BC7-9D47-67556E65B8C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77EBB890-6007-4BC7-9D47-67556E65B8C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77EBB890-6007-4BC7-9D47-67556E65B8C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77EBB890-6007-4BC7-9D47-67556E65B8C2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4DF6624D-190E-4BB2-863C-F3EAB4CF184F}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
+	EndGlobalSection
+EndGlobal

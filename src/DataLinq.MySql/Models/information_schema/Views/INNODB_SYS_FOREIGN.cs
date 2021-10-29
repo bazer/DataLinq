@@ -1,0 +1,27 @@
+using System;
+using DataLinq;
+using DataLinq.Interfaces;
+using DataLinq.Attributes;
+
+namespace DataLinq.MySql.Models
+{
+    [Name("INNODB_SYS_FOREIGN")]
+    public interface INNODB_SYS_FOREIGN : IViewModel
+    {
+        [Type("varchar", 193)]
+        string FOR_NAME { get; }
+
+        [Type("varchar", 193)]
+        string ID { get; }
+
+        [Type("int")]
+        int N_COLS { get; }
+
+        [Type("varchar", 193)]
+        string REF_NAME { get; }
+
+        [Type("int")]
+        int TYPE { get; }
+
+    }
+}
