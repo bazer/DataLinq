@@ -7,6 +7,7 @@ using DataLinq.Attributes;
 namespace Tests.Models
 {
     [Name("departments")]
+    [CacheTimeLimit(3600)]
     public partial class departments : ITableModel
     {
         [PrimaryKey]

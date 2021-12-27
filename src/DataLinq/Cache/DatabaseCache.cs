@@ -37,5 +37,24 @@ namespace DataLinq.Cache
                 table.TryRemoveTransaction(transaction);
             }
         }
+
+        public IEnumerable<(TableCache table, int numRows)> RemoveRowsInsertedBeforeTick(long tick)
+        {
+            foreach (var table in TableCaches)
+            {
+                var numRows = table.RemoveRowsInsertedBeforeTick(tick);
+
+                if (numRows > 0)
+                    yield return (table, numRows);
+            }
+        }
+
+        public void ClearCache()
+        {
+            foreach (var table in TableCaches)
+            {
+                table.ClearRows();
+            }
+        }
     }
 }

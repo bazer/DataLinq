@@ -13,7 +13,7 @@ namespace DataLinq.Cache
 {
     public class TableCache
     {
-        protected ConcurrentDictionary<PrimaryKeys, object> Rows = new ConcurrentDictionary<PrimaryKeys, object>();
+        protected ConcurrentDictionary<PrimaryKeys, (object value, long ticks)> Rows = new ConcurrentDictionary<PrimaryKeys, (object, long)>();
         protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>> TransactionRows = new ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>>();
         protected int primaryKeyColumnsCount;
 
@@ -40,6 +40,45 @@ namespace DataLinq.Cache
                     Rows.TryRemove(change.PrimaryKeys, out var temp);
                 }
             }
+        }
+
+        public void ClearRows()
+        {
+            Rows.Clear();
+        }
+
+        public int RemoveRowsInsertedBeforeTick(long tick)
+        {
+            var count = 0;
+            var rows = GetRowsInsertedBeforeTick(tick, 1000).ToList();
+
+            while (rows.Count > 0)
+            {
+                foreach (var row in rows)
+                {
+                    if (TryRemoveRow(row.Key))
+                        count += 1;
+                }
+
+                rows = GetRowsInsertedBeforeTick(tick, 1000).ToList();
+            }
+
+            return count;
+        }
+
+        private IEnumerable<KeyValuePair<PrimaryKeys, (object value, long ticks)>> GetRowsInsertedBeforeTick(long tick, int take)
+        {
+            return Rows
+                .Where(x => x.Value.ticks < tick)
+                .Take(take);
+        }
+
+        public bool TryRemoveRow(PrimaryKeys primaryKeys)
+        {
+            if (Rows.ContainsKey(primaryKeys))
+                return Rows.TryRemove(primaryKeys, out var _);
+
+            return true;
         }
 
         public bool TryRemoveTransaction(Transaction transaction)
@@ -113,8 +152,8 @@ namespace DataLinq.Cache
             var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
             foreach (var key in primaryKeys)
             {
-                if (transaction.Type == TransactionType.NoTransaction && Rows.TryGetValue(key, out object row))
-                    yield return row;
+                if (transaction.Type == TransactionType.NoTransaction && Rows.TryGetValue(key, out (object value, long) row))
+                    yield return row.value;
                 else if (transaction.Type != TransactionType.NoTransaction && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out object transactionRow))
                     yield return transactionRow;
                 else
@@ -151,8 +190,9 @@ namespace DataLinq.Cache
         {
             row = InstanceFactory.NewImmutableRow(rowData);
             var keys = rowData.GetKeys();
+            var ticks = DateTime.Now.Ticks;
 
-            if ((transaction.Type == TransactionType.NoTransaction && Rows.TryAdd(keys, row))
+            if ((transaction.Type == TransactionType.NoTransaction && Rows.TryAdd(keys, (row, ticks)))
                 || (transaction.Type != TransactionType.NoTransaction && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryAdd(keys, row)))
             {
                 return true;

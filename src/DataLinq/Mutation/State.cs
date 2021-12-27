@@ -33,5 +33,10 @@ namespace DataLinq.Mutation
         {
             Cache.RemoveTransaction(transaction);
         }
+
+        public void ClearCache()
+        {
+            Cache.ClearCache();
+        }
     }
 }
