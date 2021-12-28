@@ -3,13 +3,13 @@
 namespace DataLinq.Attributes
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
-    public sealed class CacheSizeLimitAttribute : Attribute
+    public sealed class UseCacheAttribute : Attribute
     {
-        public CacheSizeLimitAttribute(long bytes)
+        public UseCacheAttribute(bool useCache = true)
         {
-            Bytes = bytes;
+            UseCache = useCache;
         }
 
-        public long Bytes { get; }
+        public bool UseCache { get; }
     }
 }

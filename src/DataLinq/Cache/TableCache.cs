@@ -41,11 +41,49 @@ namespace DataLinq.Cache
                 }
             }
         }
-
         public void ClearRows()
         {
             Rows.Clear();
         }
+
+        public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
+        {
+            if (limitType == CacheLimitType.Seconds)
+                return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks);
+
+            if (limitType == CacheLimitType.Ticks)
+                return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks);
+
+            if (limitType == CacheLimitType.Rows)
+                return RemoveRowsOverLimit((int)amount);
+
+            if (limitType == CacheLimitType.Kilobytes)
+                return RemoveRowsOverLimit((int)amount);
+
+            throw new NotImplementedException();
+        }
+
+        public int RemoveRowsOverLimit(int maxRows)
+        {
+            var count = 0;
+            var rowCount = RowCount;
+
+            if (rowCount > maxRows)
+            {
+                var rows = Rows
+                    .OrderBy(x => x.Value.ticks)
+                    .Take(rowCount - maxRows);
+
+                foreach (var row in rows)
+                {
+                    if (TryRemoveRow(row.Key))
+                        count += 1;
+                }
+            }
+
+            return count;
+        }
+
 
         public int RemoveRowsInsertedBeforeTick(long tick)
         {
@@ -192,7 +230,7 @@ namespace DataLinq.Cache
             var keys = rowData.GetKeys();
             var ticks = DateTime.Now.Ticks;
 
-            if ((transaction.Type == TransactionType.NoTransaction && Rows.TryAdd(keys, (row, ticks)))
+            if ((transaction.Type == TransactionType.NoTransaction && (!Table.UseCache || Rows.TryAdd(keys, (row, ticks))))
                 || (transaction.Type != TransactionType.NoTransaction && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryAdd(keys, row)))
             {
                 return true;

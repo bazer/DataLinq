@@ -138,6 +138,12 @@ namespace DataLinq.Metadata
             {
                 if (attribute is NameAttribute nameAttribute)
                     table.DbName = nameAttribute.Name;
+
+                if (attribute is UseCacheAttribute useCache)
+                    table.UseCache = useCache.UseCache;
+
+                if (attribute is CacheLimitAttribute cacheLimit)
+                    table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
             }
 
             table.Columns = model.Properties

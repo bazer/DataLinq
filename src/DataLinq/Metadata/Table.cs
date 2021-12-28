@@ -4,6 +4,14 @@ using DataLinq.Cache;
 
 namespace DataLinq.Metadata
 {
+    public enum CacheLimitType
+    {
+        Rows,
+        Kilobytes,
+        Seconds,
+        Ticks
+    }
+
     public enum TableType
     {
         Table,
@@ -24,5 +32,8 @@ namespace DataLinq.Metadata
             primaryKeyColumns ?? (primaryKeyColumns = Columns.Where(x => x.PrimaryKey).ToList());
 
         public TableType Type { get; set; }
+        public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
+        public bool UseCache { get; set; }
+
     }
 }

@@ -38,6 +38,35 @@ namespace DataLinq.Cache
             }
         }
 
+        public IEnumerable<(TableCache table, int numRows)> RemoveRowsBySettings()
+        {
+            foreach (var table in TableCaches)
+            {
+                foreach (var (limitType, amount) in table.Table.CacheLimits)
+                {
+                    foreach (var rows in RemoveRowsByLimit(limitType, amount))
+                        yield return rows;
+                }
+            }
+
+            foreach (var (limitType, amount) in Database.CacheLimits)
+            {
+                foreach (var rows in RemoveRowsByLimit(limitType, amount))
+                    yield return rows;
+            }
+        }
+
+        public IEnumerable<(TableCache table, int numRows)> RemoveRowsByLimit(CacheLimitType limitType, long amount)
+        {
+            foreach (var table in TableCaches)
+            {
+                var numRows = table.RemoveRowsByLimit(limitType, amount);
+
+                if (numRows > 0)
+                    yield return (table, numRows);
+            }
+        }
+
         public IEnumerable<(TableCache table, int numRows)> RemoveRowsInsertedBeforeTick(long tick)
         {
             foreach (var table in TableCaches)
