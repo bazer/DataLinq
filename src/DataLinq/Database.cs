@@ -47,7 +47,7 @@ namespace DataLinq
             return new SqlQuery(table, transaction, alias);
         }
 
-        public SqlQuery From(Table table, string alias = null)
+        public SqlQuery From(TableMetadata table, string alias = null)
         {
             var transaction = Transaction(TransactionType.NoTransaction);
 

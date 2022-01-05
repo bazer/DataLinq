@@ -11,14 +11,14 @@ namespace DataLinq
     public class Queryable<T> : QueryableBase<T>
     {
         protected Transaction DatabaseProvider { get; }
-        protected Table Table { get; }
+        protected TableMetadata Table { get; }
 
         public Queryable(IQueryProvider provider, Expression expression)
             : base(provider, expression)
         {
         }
 
-        public Queryable(Transaction databaseProvider, Table table) : base(QueryParser.CreateDefault(), new QueryExecutor(databaseProvider, table))
+        public Queryable(Transaction databaseProvider, TableMetadata table) : base(QueryParser.CreateDefault(), new QueryExecutor(databaseProvider, table))
         {
             this.DatabaseProvider = databaseProvider;
             this.Table = table;

@@ -28,7 +28,7 @@ namespace DataLinq.Query
         {
         }
 
-        public SqlQuery(Table table, Transaction transaction, string alias = null) : base(table, transaction, alias)
+        public SqlQuery(TableMetadata table, Transaction transaction, string alias = null) : base(table, transaction, alias)
         {
         }
 
@@ -65,7 +65,7 @@ namespace DataLinq.Query
         public bool LastIdQuery { get; protected set; }
         public Transaction Transaction { get; }
 
-        public Table Table { get; }
+        public TableMetadata Table { get; }
         public string Alias { get; }
         internal string DbName => string.IsNullOrEmpty(Alias)
             ? Table.DbName
@@ -78,7 +78,7 @@ namespace DataLinq.Query
             this.Alias = alias;
         }
 
-        public SqlQuery(Table table, Transaction transaction, string alias = null)
+        public SqlQuery(TableMetadata table, Transaction transaction, string alias = null)
         {
             this.Transaction = transaction;
             this.Table = table;

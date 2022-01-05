@@ -14,7 +14,7 @@ namespace DataLinq.Metadata
         public Type MutableProxyType { get; set; }
         public string CsTypeName { get; set; }
         public DatabaseMetadata Database { get; set; }
-        public Table Table { get; set; }
+        public TableMetadata Table { get; set; }
         public List<Property> Properties { get; set; }
         public object[] Attributes { get; set; }
 

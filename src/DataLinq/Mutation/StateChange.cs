@@ -14,14 +14,14 @@ namespace DataLinq.Mutation
     {
         public TransactionChangeType Type { get; }
         public IModel Model { get; }
-        public Table Table { get; }
+        public TableMetadata Table { get; }
 
         public PrimaryKeys PrimaryKeys { get; }
         public bool HasAutoIncrement =>
             Table.PrimaryKeyColumns.Any(x => x.AutoIncrement);
 
 
-        public StateChange(IModel model, Table table, TransactionChangeType type)
+        public StateChange(IModel model, TableMetadata table, TransactionChangeType type)
         {
             Model = model;
             Table = table;

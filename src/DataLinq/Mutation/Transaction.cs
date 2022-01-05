@@ -181,7 +181,7 @@ namespace DataLinq.Mutation
             return new SqlQuery(table, this);
         }
 
-        public SqlQuery From(Table table)
+        public SqlQuery From(TableMetadata table)
         {
             return new SqlQuery(table, this);
         }

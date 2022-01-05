@@ -127,5 +127,32 @@ namespace Tests
 
             Assert.Empty(tables);
         }
+
+        [Fact]
+        public void RowLimit()
+        {
+            var dept = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d007");
+            Assert.Equal(17346, dept.dept_emp.Count());
+
+            var table = fixture.employeesDb.Provider.Metadata
+                    .Tables.Single(x => x.DbName == "dept_emp");
+
+            Assert.Equal(17346, table.Cache.RowCount);
+
+            var tables = fixture.employeesDb.Provider.State.Cache
+                .RemoveRowsByLimit(CacheLimitType.Rows, 10000)
+                .OrderBy(x => x.numRows)
+                .ToList();
+
+            Assert.Equal(1, tables.Count);
+            Assert.Equal("dept_emp", tables[1].table.Table.DbName);
+            Assert.Equal(7364, tables[1].numRows);
+            Assert.Equal(10000, table.Cache.RowCount);
+        }
+
+        [Fact]
+        public void SizeLimit()
+        {
+        }
     }
 }

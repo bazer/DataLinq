@@ -17,6 +17,12 @@ namespace DataLinq.Metadata
             {
                 if (attribute is NameAttribute nameAttribute)
                     database.Name = nameAttribute.Name;
+
+                if (attribute is UseCacheAttribute useCache)
+                    database.UseCache = useCache.UseCache;
+
+                if (attribute is CacheLimitAttribute cacheLimit)
+                    database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
             }
 
             database.Models = type
@@ -122,9 +128,9 @@ namespace DataLinq.Metadata
             return model;
         }
 
-        private static Table ParseTable(Model model)
+        private static TableMetadata ParseTable(Model model)
         {
-            var table = new Table
+            var table = new TableMetadata
             {
                 Model = model,
                 Database = model.Database,
@@ -157,7 +163,7 @@ namespace DataLinq.Metadata
             return table;
         }
 
-        private static Column ParseColumn(Table table, Property property)
+        private static Column ParseColumn(TableMetadata table, Property property)
         {
             var column = new Column
             {
@@ -209,6 +215,7 @@ namespace DataLinq.Metadata
             };
 
             property.CsTypeName = GetKeywordName(property.CsType);
+            property.CsSize = CsTypeSize(property.CsTypeName);
 
             return property;
         }
@@ -219,10 +226,32 @@ namespace DataLinq.Metadata
             {
                 case "Int32":
                     return "int";
-
+                case "Int64":
+                    return "long";
                 default:
                     return type.Name;
             }
+        }
+
+        private static int? CsTypeSize(string csType)
+        {
+            //if (csType.StartsWith("IEnumerable"))
+            //    return null;
+
+            return csType switch
+            {
+                "int" => sizeof(int),
+                "String" => null,
+                "bool" => sizeof(bool),
+                "double" => sizeof(double),
+                "DateTime" => 0,
+                "float" => sizeof(float),
+                "long" => sizeof(long),
+                "Guid" => 16,
+                "byte[]" => null,
+                "decimal" => sizeof(decimal),
+                _ => null
+            };
         }
     }
 }

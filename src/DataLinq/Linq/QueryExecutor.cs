@@ -12,7 +12,7 @@ namespace DataLinq.Linq
 {
     internal class QueryExecutor : IQueryExecutor
     {
-        internal QueryExecutor(Transaction transaction, Table table)
+        internal QueryExecutor(Transaction transaction, TableMetadata table)
         {
             this.Transaction = transaction;
             this.Table = table;
@@ -20,7 +20,7 @@ namespace DataLinq.Linq
 
         private Transaction Transaction { get; }
 
-        private Table Table { get; }
+        private TableMetadata Table { get; }
 
         private Select<object> ParseQueryModel(QueryModel queryModel)
         {

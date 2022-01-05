@@ -7,6 +7,7 @@ using DataLinq.Attributes;
 namespace Tests.Models
 {
     [Name("employees")]
+    [UseCache]
     public interface employeesDb : IDatabaseModel
     {
         DbRead<current_dept_emp> current_dept_emp { get; }

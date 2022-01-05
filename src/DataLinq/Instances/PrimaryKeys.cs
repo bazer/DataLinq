@@ -7,7 +7,7 @@ namespace DataLinq.Instances
 {
     public class PrimaryKeys
     {
-        public PrimaryKeys(DbDataReader reader, Table table)
+        public PrimaryKeys(DbDataReader reader, TableMetadata table)
         {
             Data = ReadReader(reader, table).ToArray();
         }
@@ -86,7 +86,7 @@ namespace DataLinq.Instances
             return false;
         }
 
-        private IEnumerable<object> ReadReader(DbDataReader reader, Table table)
+        private IEnumerable<object> ReadReader(DbDataReader reader, TableMetadata table)
         {
             foreach (var column in table.PrimaryKeyColumns)
                 yield return reader.ReadColumn(column);

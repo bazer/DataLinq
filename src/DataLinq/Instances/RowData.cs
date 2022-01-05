@@ -9,37 +9,66 @@ namespace DataLinq.Instances
 {
     public class RowData
     {
-        public RowData(Dictionary<string, object> data, Table table)
-        {
-            Data = data;
-            Table = table;
-        }
+        //public RowData(Dictionary<string, object> data, TableMetadata table)
+        //{
+        //    Data = data;
+        //    Table = table;
+        //}
 
-        public RowData(DbDataReader reader, Table table)
+        public RowData(DbDataReader reader, TableMetadata table)
         {
             Table = table;
-            Data = ReadReader(reader, table).ToDictionary(x => x.name, x => x.value);
+            (Data, Size) = ReadReader(reader, table);
         }
 
         protected Dictionary<string, object> Data { get; }
-        public Table Table { get; }
+
+        public TableMetadata Table { get; }
 
         public PrimaryKeys GetKeys() => 
             new PrimaryKeys(this);
+
+        public int Size { get; }
 
         public object GetValue(string columnDbName)
         {
             return Data[columnDbName];
         }
 
-        private IEnumerable<(string name, object value)> ReadReader(DbDataReader reader, Table table)
+        private (Dictionary<string, object> data, int size) ReadReader(DbDataReader reader, TableMetadata table)
         {
+            var data = new Dictionary<string, object>();
+            var size = 0;
+
             foreach (var column in table.Columns)
             {
                 var value = reader.ReadColumn(column);
+                size += GetSize(column, value);
 
-                yield return (column.DbName, value);
+                data.Add(column.DbName, value);
             }
+
+            return (data, size);
+        }
+
+        private int GetSize(Column column, object value)
+        {
+            if (column.ForeignKey)
+                return 0;
+
+            if (value == null)
+                return 0;
+
+            if (column.ValueProperty.CsSize.HasValue)
+                return column.ValueProperty.CsSize.Value;
+
+            if (column.ValueProperty.CsType == typeof(string))
+                return (value as string).Length * 2;
+
+            if (column.ValueProperty.CsType == typeof(byte[]))
+                return (value as byte[]).Length;
+
+            throw new NotImplementedException($"Size for type '{column.ValueProperty.CsType}' not implemented");
         }
     }
 }

@@ -58,7 +58,7 @@ namespace DataLinq.Metadata
             yield return tab + "}";
         }
 
-        private static IEnumerable<string> ModelFileContents(Table table)
+        private static IEnumerable<string> ModelFileContents(TableMetadata table)
         {
             yield return $"{tab}[Name(\"{table.DbName}\")]";
             yield return $"{tab}public partial class {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";

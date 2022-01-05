@@ -62,9 +62,9 @@ namespace DataLinq.MySql
         }
 
 
-        private static Table ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
+        private static TableMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {
-            var table = new Table();
+            var table = new TableMetadata();
 
             table.Database = database;
             table.DbName = dbTables.TABLE_NAME;
@@ -84,7 +84,7 @@ namespace DataLinq.MySql
             return table;
         }
 
-        private static Column ParseColumn(Table table, COLUMNS dbColumns)
+        private static Column ParseColumn(TableMetadata table, COLUMNS dbColumns)
         {
             var column = new Column();
 

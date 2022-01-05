@@ -18,7 +18,7 @@ namespace DataLinq.Metadata
         View
     }
 
-    public class Table
+    public class TableMetadata
     {
         private List<Column> primaryKeyColumns;
 
@@ -33,7 +33,12 @@ namespace DataLinq.Metadata
 
         public TableType Type { get; set; }
         public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
-        public bool UseCache { get; set; }
+        public bool UseCache 
+        { 
+            get => explicitUseCache.HasValue ? explicitUseCache.Value : Database.UseCache; 
+            set => explicitUseCache = value; 
+        }
 
+        internal bool? explicitUseCache;
     }
 }

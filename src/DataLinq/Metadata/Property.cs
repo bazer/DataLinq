@@ -19,11 +19,13 @@ namespace DataLinq.Metadata
         public string CsName { get; set; }
         public bool CsNullable { get; set; }
         public Type CsType { get; set; }
+        public int? CsSize { get; set; }
         public string CsTypeName { get; set; }
         public Model Model { get; set; }
         public PropertyInfo PropertyInfo { get; set; }
         public PropertyType Type { get; set; }
         public RelationPart RelationPart { get; set; }
+
 
         private Func<object, object> getAccessor = null;
         public object GetValue(object m)

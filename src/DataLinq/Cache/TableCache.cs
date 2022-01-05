@@ -13,11 +13,12 @@ namespace DataLinq.Cache
 {
     public class TableCache
     {
-        protected ConcurrentDictionary<PrimaryKeys, (object value, long ticks)> Rows = new ConcurrentDictionary<PrimaryKeys, (object, long)>();
-        protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>> TransactionRows = new ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>>();
+        protected ConcurrentQueue<(PrimaryKeys keys, long ticks, int size)> KeysTicks = new();
+        protected ConcurrentDictionary<PrimaryKeys, object> Rows = new();
+        protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>> TransactionRows = new();
         protected int primaryKeyColumnsCount;
 
-        public TableCache(Table table)
+        public TableCache(TableMetadata table)
         {
             this.Table = table;
             this.Table.Cache = this;
@@ -25,8 +26,10 @@ namespace DataLinq.Cache
         }
 
         public int RowCount => Rows.Count;
+        public int KeysTicksCount => KeysTicks.Count;
         public int TransactionRowsCount => TransactionRows.Count;
-        public Table Table { get; }
+        public long TotalSize => KeysTicks.Sum(x => x.size);
+        public TableMetadata Table { get; }
 
         public void Apply(params StateChange[] changes)
         {
@@ -37,13 +40,15 @@ namespace DataLinq.Cache
 
                 if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
                 {
-                    Rows.TryRemove(change.PrimaryKeys, out var temp);
+                    Rows.TryRemove(change.PrimaryKeys, out var _);
                 }
             }
         }
+
         public void ClearRows()
         {
             Rows.Clear();
+            KeysTicks.Clear();
         }
 
         public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
@@ -55,63 +60,86 @@ namespace DataLinq.Cache
                 return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks);
 
             if (limitType == CacheLimitType.Rows)
-                return RemoveRowsOverLimit((int)amount);
+                return RemoveRowsOverRowLimit((int)amount);
 
             if (limitType == CacheLimitType.Kilobytes)
-                return RemoveRowsOverLimit((int)amount);
+                return RemoveRowsOverSizeLimit(amount * 1024);
 
             throw new NotImplementedException();
         }
 
-        public int RemoveRowsOverLimit(int maxRows)
+        public int RemoveRowsOverRowLimit(int maxRows)
         {
             var count = 0;
             var rowCount = RowCount;
 
-            if (rowCount > maxRows)
-            {
-                var rows = Rows
-                    .OrderBy(x => x.Value.ticks)
-                    .Take(rowCount - maxRows);
+            KeysTicks.TryPeek(out var row);
 
-                foreach (var row in rows)
+            while (rowCount > maxRows)
+            {
+                if (TryRemoveRow(row.keys))
                 {
-                    if (TryRemoveRow(row.Key))
-                        count += 1;
+                    rowCount -= 1;
+                    count += 1;
+
+                    KeysTicks.TryDequeue(out row);
                 }
+                else
+                    break;
             }
 
             return count;
         }
 
+        public int RemoveRowsOverSizeLimit(long maxSize)
+        {
+            var count = 0;
+            var totalSize = TotalSize;
+
+            KeysTicks.TryPeek(out var row);
+
+            while (totalSize > maxSize)
+            {
+                if (TryRemoveRow(row.keys))
+                {
+                    totalSize -= row.size;
+                    count += 1;
+
+                    KeysTicks.TryDequeue(out row);
+                }
+                else
+                    break;
+            }
+
+            return count;
+        }
 
         public int RemoveRowsInsertedBeforeTick(long tick)
         {
+            if (!KeysTicks.TryPeek(out var row))
+                return 0;
+
             var count = 0;
-            var rows = GetRowsInsertedBeforeTick(tick, 1000).ToList();
 
-            while (rows.Count > 0)
+            while (row.ticks < tick)
             {
-                foreach (var row in rows)
+                if (TryRemoveRow(row.keys))
                 {
-                    if (TryRemoveRow(row.Key))
-                        count += 1;
-                }
+                    count += 1;
 
-                rows = GetRowsInsertedBeforeTick(tick, 1000).ToList();
+                    KeysTicks.TryDequeue(out var _);
+                }
+                else
+                    break;
+
+                if (!KeysTicks.TryPeek(out row))
+                    break;
             }
 
             return count;
         }
 
-        private IEnumerable<KeyValuePair<PrimaryKeys, (object value, long ticks)>> GetRowsInsertedBeforeTick(long tick, int take)
-        {
-            return Rows
-                .Where(x => x.Value.ticks < tick)
-                .Take(take);
-        }
-
-        public bool TryRemoveRow(PrimaryKeys primaryKeys)
+        private bool TryRemoveRow(PrimaryKeys primaryKeys)
         {
             if (Rows.ContainsKey(primaryKeys))
                 return Rows.TryRemove(primaryKeys, out var _);
@@ -190,8 +218,8 @@ namespace DataLinq.Cache
             var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
             foreach (var key in primaryKeys)
             {
-                if (transaction.Type == TransactionType.NoTransaction && Rows.TryGetValue(key, out (object value, long) row))
-                    yield return row.value;
+                if (transaction.Type == TransactionType.NoTransaction && Rows.TryGetValue(key, out var row))
+                    yield return row;
                 else if (transaction.Type != TransactionType.NoTransaction && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out object transactionRow))
                     yield return transactionRow;
                 else
@@ -228,15 +256,29 @@ namespace DataLinq.Cache
         {
             row = InstanceFactory.NewImmutableRow(rowData);
             var keys = rowData.GetKeys();
-            var ticks = DateTime.Now.Ticks;
 
-            if ((transaction.Type == TransactionType.NoTransaction && (!Table.UseCache || Rows.TryAdd(keys, (row, ticks))))
+
+            if ((transaction.Type == TransactionType.NoTransaction && (!Table.UseCache || TryAddRowAllDict(keys, rowData, row)))
                 || (transaction.Type != TransactionType.NoTransaction && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryAdd(keys, row)))
             {
                 return true;
             }
 
             return false;
+
+            bool TryAddRowAllDict(PrimaryKeys keys, RowData data, object instance)
+            {
+                var ticks = DateTime.Now.Ticks;
+
+                if (!Rows.TryAdd(keys, instance))
+                    return false;
+
+                KeysTicks.Enqueue((keys, ticks, data.Size));
+
+                return true;
+            }
         }
+
+
     }
 }
