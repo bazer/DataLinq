@@ -53,8 +53,8 @@ namespace DataLinq.Instances
 
         private int GetSize(Column column, object value)
         {
-            if (column.ForeignKey)
-                return 0;
+            //if (column.ForeignKey)
+            //    return 0;
 
             if (value == null)
                 return 0;
@@ -63,7 +63,7 @@ namespace DataLinq.Instances
                 return column.ValueProperty.CsSize.Value;
 
             if (column.ValueProperty.CsType == typeof(string))
-                return (value as string).Length * 2;
+                return (value as string).Length * sizeof(char) + sizeof(int);
 
             if (column.ValueProperty.CsType == typeof(byte[]))
                 return (value as byte[]).Length;

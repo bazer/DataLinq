@@ -132,12 +132,12 @@ namespace Tests
         public void RowLimit()
         {
             var dept = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d007");
-            Assert.Equal(17346, dept.dept_emp.Count());
+            Assert.Equal(52245, dept.dept_emp.Count());
 
             var table = fixture.employeesDb.Provider.Metadata
                     .Tables.Single(x => x.DbName == "dept_emp");
 
-            Assert.Equal(17346, table.Cache.RowCount);
+            Assert.Equal(52245, table.Cache.RowCount);
 
             var tables = fixture.employeesDb.Provider.State.Cache
                 .RemoveRowsByLimit(CacheLimitType.Rows, 10000)
@@ -145,14 +145,30 @@ namespace Tests
                 .ToList();
 
             Assert.Equal(1, tables.Count);
-            Assert.Equal("dept_emp", tables[1].table.Table.DbName);
-            Assert.Equal(7364, tables[1].numRows);
+            Assert.Equal("dept_emp", tables[0].table.Table.DbName);
+            Assert.Equal(42245, tables[0].numRows);
             Assert.Equal(10000, table.Cache.RowCount);
         }
 
         [Fact]
         public void SizeLimit()
         {
+            var dept = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d007");
+            var table = fixture.employeesDb.Provider.Metadata
+                    .Tables.Single(x => x.DbName == "dept_emp");
+
+            Assert.Equal(52245, dept.dept_emp.Count());
+            Assert.True(table.Cache.TotalBytes > 0);
+
+            var tables = fixture.employeesDb.Provider.State.Cache
+                .RemoveRowsByLimit(CacheLimitType.Megabytes, 1)
+                .OrderBy(x => x.numRows)
+                .ToList();
+
+            Assert.Equal(1, tables.Count);
+            Assert.Equal("dept_emp", tables[0].table.Table.DbName);
+            Assert.True(tables[0].numRows > 0);
+            Assert.True(table.Cache.TotalBytes <= 1024 * 1024);
         }
     }
 }

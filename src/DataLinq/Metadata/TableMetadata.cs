@@ -7,9 +7,15 @@ namespace DataLinq.Metadata
     public enum CacheLimitType
     {
         Rows,
-        Kilobytes,
+        Ticks,
         Seconds,
-        Ticks
+        Minutes,
+        Hours,
+        Days,
+        Bytes,
+        Kilobytes,
+        Megabytes,
+        Gigabytes
     }
 
     public enum TableType

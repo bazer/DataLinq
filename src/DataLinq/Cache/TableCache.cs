@@ -28,7 +28,7 @@ namespace DataLinq.Cache
         public int RowCount => Rows.Count;
         public int KeysTicksCount => KeysTicks.Count;
         public int TransactionRowsCount => TransactionRows.Count;
-        public long TotalSize => KeysTicks.Sum(x => x.size);
+        public long TotalBytes => KeysTicks.Sum(x => x.size);
         public TableMetadata Table { get; }
 
         public void Apply(params StateChange[] changes)
@@ -56,14 +56,32 @@ namespace DataLinq.Cache
             if (limitType == CacheLimitType.Seconds)
                 return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks);
 
+            if (limitType == CacheLimitType.Minutes)
+                return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks);
+
+            if (limitType == CacheLimitType.Hours)
+                return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks);
+
+            if (limitType == CacheLimitType.Days)
+                return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks);
+
             if (limitType == CacheLimitType.Ticks)
                 return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks);
 
             if (limitType == CacheLimitType.Rows)
                 return RemoveRowsOverRowLimit((int)amount);
 
+            if (limitType == CacheLimitType.Bytes)
+                return RemoveRowsOverSizeLimit(amount);
+
             if (limitType == CacheLimitType.Kilobytes)
                 return RemoveRowsOverSizeLimit(amount * 1024);
+
+            if (limitType == CacheLimitType.Megabytes)
+                return RemoveRowsOverSizeLimit(amount * 1024 * 1024);
+
+            if (limitType == CacheLimitType.Gigabytes)
+                return RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024);
 
             throw new NotImplementedException();
         }
@@ -77,10 +95,10 @@ namespace DataLinq.Cache
 
             while (rowCount > maxRows)
             {
-                if (TryRemoveRow(row.keys))
+                if (TryRemoveRow(row.keys, out var numRowsRemoved))
                 {
-                    rowCount -= 1;
-                    count += 1;
+                    rowCount -= numRowsRemoved;
+                    count += numRowsRemoved;
 
                     KeysTicks.TryDequeue(out row);
                 }
@@ -94,16 +112,16 @@ namespace DataLinq.Cache
         public int RemoveRowsOverSizeLimit(long maxSize)
         {
             var count = 0;
-            var totalSize = TotalSize;
+            var totalSize = TotalBytes;
 
             KeysTicks.TryPeek(out var row);
 
             while (totalSize > maxSize)
             {
-                if (TryRemoveRow(row.keys))
+                if (TryRemoveRow(row.keys, out var numRowsRemoved))
                 {
                     totalSize -= row.size;
-                    count += 1;
+                    count += numRowsRemoved;
 
                     KeysTicks.TryDequeue(out row);
                 }
@@ -123,9 +141,9 @@ namespace DataLinq.Cache
 
             while (row.ticks < tick)
             {
-                if (TryRemoveRow(row.keys))
+                if (TryRemoveRow(row.keys, out var numRowsRemoved))
                 {
-                    count += 1;
+                    count += numRowsRemoved;
 
                     KeysTicks.TryDequeue(out var _);
                 }
@@ -139,10 +157,21 @@ namespace DataLinq.Cache
             return count;
         }
 
-        private bool TryRemoveRow(PrimaryKeys primaryKeys)
+        private bool TryRemoveRow(PrimaryKeys primaryKeys, out int numRowsRemoved)
         {
+            numRowsRemoved = 0;
+
             if (Rows.ContainsKey(primaryKeys))
-                return Rows.TryRemove(primaryKeys, out var _);
+            {
+                if (Rows.TryRemove(primaryKeys, out var _))
+                {
+                    numRowsRemoved = 1;
+                    return true;
+                }
+                else
+                    return false;
+            }
+                    
 
             return true;
         }

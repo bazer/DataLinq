@@ -240,16 +240,16 @@ namespace DataLinq.Metadata
 
             return csType switch
             {
-                "int" => sizeof(int),
-                "String" => null,
                 "bool" => sizeof(bool),
-                "double" => sizeof(double),
-                "DateTime" => 0,
-                "float" => sizeof(float),
+                "int" => sizeof(int),
                 "long" => sizeof(long),
-                "Guid" => 16,
-                "byte[]" => null,
+                "float" => sizeof(float),
+                "double" => sizeof(double),
                 "decimal" => sizeof(decimal),
+                "DateTime" => 8,
+                "Guid" => 16,
+                "String" => null,
+                "byte[]" => null,
                 _ => null
             };
         }
