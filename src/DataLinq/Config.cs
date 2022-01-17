@@ -22,87 +22,89 @@ namespace DataLinq
 
     public class Config
     {
-        //public static CacheLevel DefaultCacheLevel { get { return CacheConfig.DefaultCacheLevel; } set { CacheConfig.DefaultCacheLevel = value; } }
-        //public static int DefaultCacheTimeout { get { return CacheConfig.DefaultCacheTimeout; } set { CacheConfig.DefaultCacheTimeout = value; } }
+        //public static 
 
-        //private static CacheLevel cacheLevel;
-        //public static CacheLevel CacheLevel
+        ////public static CacheLevel DefaultCacheLevel { get { return CacheConfig.DefaultCacheLevel; } set { CacheConfig.DefaultCacheLevel = value; } }
+        ////public static int DefaultCacheTimeout { get { return CacheConfig.DefaultCacheTimeout; } set { CacheConfig.DefaultCacheTimeout = value; } }
+
+        ////private static CacheLevel cacheLevel;
+        ////public static CacheLevel CacheLevel
+        ////{
+        ////    get
+        ////    {
+        ////        return cacheLevel;
+        ////    }
+        ////    set
+        ////    {
+        ////        cacheLevel = value;
+
+        ////        if (cacheLevel == Modl.CacheLevel.Off)
+        ////        {
+        ////            AsyncDbAccess.DisposeAllWorkers();
+        ////            CacheManager.Clear();
+        ////        }
+        ////    }
+        ////}
+
+        //protected static Dictionary<string, DatabaseProvider> DatabaseProviders = new Dictionary<string, DatabaseProvider>();
+
+        //static Config()
+        //{
+        //    //DefaultCacheLevel = CacheLevel.On;
+        //    //DefaultCacheTimeout = 20;
+
+        //    //foreach (ConnectionStringSettings connString in ConfigurationManager.ConnectionStrings)
+        //    //    if (!string.IsNullOrWhiteSpace(connString.ConnectionString) && !string.IsNullOrWhiteSpace(connString.Name) && !string.IsNullOrWhiteSpace(connString.ProviderName))
+        //    //        Database.AddFromConnectionString(connString);
+        //}
+
+        //private static DatabaseProvider defaultDbProvider = null;
+
+        //internal static DatabaseProvider DefaultDatabase
         //{
         //    get
         //    {
-        //        return cacheLevel;
+        //        if (defaultDbProvider == null)
+        //            defaultDbProvider = Config.DatabaseProviders.Last().Value;
+
+        //        return defaultDbProvider;
         //    }
         //    set
         //    {
-        //        cacheLevel = value;
-
-        //        if (cacheLevel == Modl.CacheLevel.Off)
-        //        {
-        //            AsyncDbAccess.DisposeAllWorkers();
-        //            CacheManager.Clear();
-        //        }
+        //        defaultDbProvider = value;
         //    }
         //}
 
-        protected static Dictionary<string, DatabaseProvider> DatabaseProviders = new Dictionary<string, DatabaseProvider>();
-
-        static Config()
-        {
-            //DefaultCacheLevel = CacheLevel.On;
-            //DefaultCacheTimeout = 20;
-
-            //foreach (ConnectionStringSettings connString in ConfigurationManager.ConnectionStrings)
-            //    if (!string.IsNullOrWhiteSpace(connString.ConnectionString) && !string.IsNullOrWhiteSpace(connString.Name) && !string.IsNullOrWhiteSpace(connString.ProviderName))
-            //        Database.AddFromConnectionString(connString);
-        }
-
-        private static DatabaseProvider defaultDbProvider = null;
-
-        internal static DatabaseProvider DefaultDatabase
-        {
-            get
-            {
-                if (defaultDbProvider == null)
-                    defaultDbProvider = Config.DatabaseProviders.Last().Value;
-
-                return defaultDbProvider;
-            }
-            set
-            {
-                defaultDbProvider = value;
-            }
-        }
-
-        internal static DatabaseProvider AddDatabase(DatabaseProvider database)
-        {
-            DatabaseProviders[database.Name] = database;
-
-            return database;
-        }
-
-        internal static DatabaseProvider GetDatabase(string databaseName)
-        {
-            return DatabaseProviders[databaseName];
-        }
-
-        internal static List<DatabaseProvider> GetAllDatabases()
-        {
-            return DatabaseProviders.Values.ToList();
-        }
-
-        internal static void RemoveDatabase(string databaseName)
-        {
-            DatabaseProviders.Remove(databaseName);
-        }
-
-        internal static void RemoveAllDatabases()
-        {
-            DatabaseProviders.Clear();
-        }
-
-        //public static IDbConnection GetConnection(string databaseName)
+        //internal static DatabaseProvider AddDatabase(DatabaseProvider database)
         //{
-        //    return DatabaseProviders[databaseName].GetConnection();
+        //    DatabaseProviders[database.Name] = database;
+
+        //    return database;
         //}
+
+        //internal static DatabaseProvider GetDatabase(string databaseName)
+        //{
+        //    return DatabaseProviders[databaseName];
+        //}
+
+        //internal static List<DatabaseProvider> GetAllDatabases()
+        //{
+        //    return DatabaseProviders.Values.ToList();
+        //}
+
+        //internal static void RemoveDatabase(string databaseName)
+        //{
+        //    DatabaseProviders.Remove(databaseName);
+        //}
+
+        //internal static void RemoveAllDatabases()
+        //{
+        //    DatabaseProviders.Clear();
+        //}
+
+        ////public static IDbConnection GetConnection(string databaseName)
+        ////{
+        ////    return DatabaseProviders[databaseName].GetConnection();
+        ////}
     }
 }

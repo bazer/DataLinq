@@ -15,6 +15,7 @@ namespace Tests
         public CacheTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
+            fixture.employeesDb.Provider.State.ClearCache();
         }
 
         [Fact]
@@ -144,7 +145,7 @@ namespace Tests
                 .OrderBy(x => x.numRows)
                 .ToList();
 
-            Assert.Equal(1, tables.Count);
+            Assert.Single(tables);
             Assert.Equal("dept_emp", tables[0].table.Table.DbName);
             Assert.Equal(42245, tables[0].numRows);
             Assert.Equal(10000, table.Cache.RowCount);
@@ -165,7 +166,7 @@ namespace Tests
                 .OrderBy(x => x.numRows)
                 .ToList();
 
-            Assert.Equal(1, tables.Count);
+            Assert.Single(tables);
             Assert.Equal("dept_emp", tables[0].table.Table.DbName);
             Assert.True(tables[0].numRows > 0);
             Assert.True(table.Cache.TotalBytes <= 1024 * 1024);
