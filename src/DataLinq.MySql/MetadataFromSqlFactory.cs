@@ -110,6 +110,7 @@ namespace DataLinq.MySql
             {
                 "int" => "int",
                 "tinyint" => "int",
+                "mediumint" => "int",
                 "varchar" => "string",
                 "text" => "string",
                 "mediumtext" => "string",
