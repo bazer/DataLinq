@@ -2,19 +2,28 @@ using System;
 using System.Linq;
 using DataLinq.Metadata;
 using DataLinq.MySql;
-using Tests.Models;
+using DataLinq.MySql.Models;
+using DataLinq.Tests.Models;
 using Xunit;
 
-namespace Tests
+namespace DataLinq.Tests
 {
-    [Collection("Database")]
-    public class CoreTests
+    public class CoreTests : IClassFixture<DatabaseFixture>
     {
         private DatabaseFixture fixture;
 
         public CoreTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
+        }
+
+        [Fact]
+        public void TestMetadataFromFixture()
+        {
+            //fixture.employeesDb.Provider.Metadata.lo
+            Assert.Equal(2, DatabaseMetadata.LoadedDatabases.Count);
+            Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(employeesDb));
+            Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(information_schema));
         }
 
         [Fact]

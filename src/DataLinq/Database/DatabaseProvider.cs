@@ -7,7 +7,7 @@ using System.Data;
 
 namespace DataLinq
 {
-    public interface IDatabaseProvider
+    public interface IDatabaseProvider : IDisposable
     {
         string Name { get; }
 
@@ -61,21 +61,30 @@ namespace DataLinq
         protected string[] ProviderNames { get; set; }
         protected IDbConnection activeConnection;
 
-        protected DatabaseProvider(string connectionString, Type databaseType = null, string name = null)
+        private static object lockObject = new object();
+
+        protected DatabaseProvider(string connectionString, Type databaseType, string name = null)
         {
             Name = name;
             ConnectionString = connectionString;
 
-            if (databaseType != null)
+            lock (lockObject)
             {
-                Metadata = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
-                Metadata.DatabaseProvider = this;
+                if (DatabaseMetadata.LoadedDatabases.TryGetValue(databaseType, out var metadata))
+                    Metadata = metadata;
+                else
+                {
+                    Metadata = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
+                    //Metadata.DatabaseProvider = this;
 
-                State = new State(Metadata);
+                    DatabaseMetadata.LoadedDatabases.TryAdd(databaseType, Metadata);
+                }
             }
 
-            if (Name == null && Metadata != null)
+            if (Name == null)
                 Name = Metadata.Name;
+
+            State = new State(this);
         }
 
         public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite)
@@ -94,5 +103,10 @@ namespace DataLinq
         public abstract Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key);
 
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
+
+        public void Dispose()
+        {
+            State.Dispose();
+        }
     }
 }

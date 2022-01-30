@@ -2,13 +2,13 @@ using System;
 using System.Linq;
 using DataLinq.Metadata;
 using DataLinq.MySql;
-using Tests.Models;
+using DataLinq.Tests.Models;
 using Xunit;
 
-namespace Tests
+namespace DataLinq.Tests
 {
-    [Collection("Database")]
-    public class CacheTests
+    [CollectionDefinition("CacheTests", DisableParallelization = true)]
+    public class CacheTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
 

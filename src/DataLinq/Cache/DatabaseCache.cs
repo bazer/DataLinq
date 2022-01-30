@@ -1,5 +1,6 @@
 ﻿using DataLinq.Metadata;
 using DataLinq.Mutation;
+using DataLinq.Workers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,19 +8,24 @@ using System.Text;
 
 namespace DataLinq.Cache
 {
-    public class DatabaseCache
+    public class DatabaseCache : IDisposable
     {
-        public DatabaseMetadata Database { get; set; }
+        public IDatabaseProvider Database { get; set; }
 
         public List<TableCache> TableCaches { get; }
 
-        public DatabaseCache(DatabaseMetadata database)
+        public CleanCacheWorker CleanCacheWorker { get; }
+
+        public DatabaseCache(IDatabaseProvider database)
         {
             this.Database = database;
 
-            this.TableCaches =  this.Database.Tables
-                .Select(x => new TableCache(x))
+            this.TableCaches =  this.Database.Metadata.Tables
+                .Select(x => new TableCache(x, database))
                 .ToList();
+
+            this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), TimeSpan.FromMinutes(5));
+            this.CleanCacheWorker.Start();
         }
 
         public void Apply(params StateChange[] changes)
@@ -49,7 +55,7 @@ namespace DataLinq.Cache
                 }
             }
 
-            foreach (var (limitType, amount) in Database.CacheLimits)
+            foreach (var (limitType, amount) in Database.Metadata.CacheLimits)
             {
                 foreach (var rows in RemoveRowsByLimit(limitType, amount))
                     yield return rows;
@@ -84,6 +90,12 @@ namespace DataLinq.Cache
             {
                 table.ClearRows();
             }
+        }
+
+        public void Dispose()
+        {
+            this.CleanCacheWorker.Stop();
+            this.ClearCache();
         }
     }
 }

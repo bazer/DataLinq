@@ -15,40 +15,40 @@ namespace DataLinq.Instances
     {
         private static readonly ProxyGenerator generator = new ProxyGenerator();
 
-        public static object NewImmutableRow(RowData rowData) // where T : class, IModel
+        public static object NewImmutableRow(RowData rowData, IDatabaseProvider database) // where T : class, IModel
         {
             object row;
 
             if (rowData.Table.Model.CsType.IsInterface)
-                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new Type[] { typeof(Test) }, new ImmutableRowInterceptor(rowData));
+                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new Type[] { typeof(Test) }, new ImmutableRowInterceptor(rowData, database));
             else
-                row = generator.CreateClassProxy(rowData.Table.Model.CsType, new Type[] { typeof(Test) } , new ImmutableRowInterceptor(rowData));
+                row = generator.CreateClassProxy(rowData.Table.Model.CsType, new Type[] { typeof(Test) } , new ImmutableRowInterceptor(rowData, database));
 
-            if (rowData.Table.Model.ProxyType == null)
-                rowData.Table.Model.ProxyType = row.GetType();
+            //if (rowData.Table.Model.ProxyType == null)
+            //    rowData.Table.Model.ProxyType = row.GetType();
 
             return row;
             //return generator.CreateInterfaceProxyWithoutTarget(instanceData.Table.Model.CsType, new ImmutableRowInterceptor(instanceData));
             //return generator.CreateInterfaceProxyWithoutTarget<T>(new ImmutableRowInterceptor(instanceData));
         }
 
-        public static object NewMutableRow(RowData rowData) // where T : class, IModel
+        public static object NewMutableRow(RowData rowData, IDatabaseProvider database) // where T : class, IModel
         {
             object row;
             if (rowData.Table.Model.CsType.IsInterface)
-                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new MutableRowInterceptor(rowData));
+                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new MutableRowInterceptor(rowData, database));
             else
-                row = generator.CreateClassProxy(rowData.Table.Model.CsType, new MutableRowInterceptor(rowData));
+                row = generator.CreateClassProxy(rowData.Table.Model.CsType, new MutableRowInterceptor(rowData, database));
 
-            if (rowData.Table.Model.MutableProxyType == null)
-                rowData.Table.Model.MutableProxyType = row.GetType();
+            //if (rowData.Table.Model.MutableProxyType == null)
+            //    rowData.Table.Model.MutableProxyType = row.GetType();
 
             return row;
         }
 
-        public static T NewDatabase<T>(Transaction databaseProvider) where T : class, IDatabaseModel
+        public static T NewDatabase<T>(Transaction transaction) where T : class, IDatabaseModel
         {
-            return generator.CreateInterfaceProxyWithoutTarget<T>(new DatabaseInterceptor(databaseProvider));
+            return generator.CreateInterfaceProxyWithoutTarget<T>(new DatabaseInterceptor(transaction));
         }
     }
 

@@ -2,7 +2,7 @@ using System;
 using DataLinq.Interfaces;
 using DataLinq.Attributes;
 
-namespace Tests.Models
+namespace DataLinq.Tests.Models
 {
     public interface users : ITableModel
     {

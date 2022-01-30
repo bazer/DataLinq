@@ -4,7 +4,7 @@ using DataLinq;
 using DataLinq.Interfaces;
 using DataLinq.Attributes;
 
-namespace Tests.Models
+namespace DataLinq.Tests.Models
 {
     [Name("dept_emp_latest_date")]
     public partial class dept_emp_latest_date : IViewModel

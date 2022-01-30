@@ -3,13 +3,12 @@ using System.Linq;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
-using Tests.Models;
+using DataLinq.Tests.Models;
 using Xunit;
 
-namespace Tests
+namespace DataLinq.Tests
 {
-    [Collection("Database")]
-    public class SqlQueryTests
+    public class SqlQueryTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
 

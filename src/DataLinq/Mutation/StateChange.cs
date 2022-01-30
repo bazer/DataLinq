@@ -23,6 +23,12 @@ namespace DataLinq.Mutation
 
         public StateChange(IModel model, TableMetadata table, TransactionChangeType type)
         {
+            if (model == null)
+                throw new ArgumentNullException(nameof(model));
+
+            if (table == null)
+                throw new ArgumentNullException(nameof(table)); 
+
             Model = model;
             Table = table;
             Type = type;
@@ -32,7 +38,9 @@ namespace DataLinq.Mutation
 
         public void ExecuteQuery(Transaction transaction)
         {
-            if (Type == TransactionChangeType.Insert && HasAutoIncrement)
+            var defaultId = Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)).All(x => x == default);
+
+            if (Type == TransactionChangeType.Insert && HasAutoIncrement && defaultId)
             {
                 var newId = transaction.DbTransaction.ExecuteScalar(GetDbCommand(transaction));
 

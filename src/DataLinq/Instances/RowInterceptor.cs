@@ -11,9 +11,10 @@ namespace DataLinq.Instances
 {
     internal abstract class RowInterceptor : IInterceptor
     {
-        protected RowInterceptor(RowData rowData)
+        protected RowInterceptor(RowData rowData, IDatabaseProvider database)
         {
             RowData = rowData;
+            Database = database;
         }
 
         protected List<Property> Properties =>
@@ -21,6 +22,7 @@ namespace DataLinq.Instances
 
         protected RowData RowData { get; }
         protected ConcurrentDictionary<string, object> RelationCache;
+        protected IDatabaseProvider Database;
 
         public abstract void Intercept(IInvocation invocation);
 
@@ -34,7 +36,7 @@ namespace DataLinq.Instances
             if (!RelationCache.TryGetValue(info.Name, out object returnvalue))
             {
                 var column = property.Column;
-                var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), column.Table.Database.DatabaseProvider.StartTransaction(TransactionType.NoTransaction));
+                var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), Database.StartTransaction(TransactionType.NoTransaction));
 
                 if (property.RelationPart.Type == RelationPartType.ForeignKey)
                 {

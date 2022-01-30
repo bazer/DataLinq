@@ -1,11 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances
 {
-    public class PrimaryKeys
+    public class PrimaryKeys : IEquatable<PrimaryKeys>
     {
         public PrimaryKeys(DbDataReader reader, TableMetadata table)
         {

@@ -10,7 +10,7 @@ namespace DataLinq.Instances
 {
     internal class ImmutableRowInterceptor : RowInterceptor
     {
-        public ImmutableRowInterceptor(RowData rowData) : base(rowData)
+        public ImmutableRowInterceptor(RowData rowData, IDatabaseProvider database) : base(rowData, database)
         {
         }
 
@@ -32,7 +32,7 @@ namespace DataLinq.Instances
 
             if (info.Name == "Mutate")
             {
-                invocation.ReturnValue = InstanceFactory.NewMutableRow(this.RowData);
+                invocation.ReturnValue = InstanceFactory.NewMutableRow(this.RowData, Database);
                 return;
             }
 

@@ -7,21 +7,21 @@ using System.Text;
 
 namespace DataLinq.Mutation
 {
-    public class State
+    public class State: IDisposable 
     {
-        public static ConcurrentDictionary<string, State> ActiveStates { get; } = new ConcurrentDictionary<string, State>();
+        //public static ConcurrentDictionary<string, State> ActiveStates { get; } = new ConcurrentDictionary<string, State>();
 
         public History History { get; set; }
         public DatabaseCache Cache { get; set; }
-        public DatabaseMetadata Database { get; }
+        public DatabaseProvider Database { get; }
 
-        public State(DatabaseMetadata database)
+        public State(DatabaseProvider database)
         {
             this.Database = database;
             this.Cache = new DatabaseCache(database);
 
-            if (!ActiveStates.ContainsKey(database.NameOrAlias) && !ActiveStates.TryAdd(database.NameOrAlias, this))
-                throw new Exception($"Failed while adding global state for database '{database.NameOrAlias}'.");
+            //if (!ActiveStates.ContainsKey(database.NameOrAlias) && !ActiveStates.TryAdd(database.NameOrAlias, this))
+            //    throw new Exception($"Failed while adding global state for database '{database.NameOrAlias}'.");
         }
 
         public void ApplyChanges(params StateChange[] changes)
@@ -37,6 +37,11 @@ namespace DataLinq.Mutation
         public void ClearCache()
         {
             Cache.ClearCache();
+        }
+
+        public void Dispose()
+        {
+            Cache.Dispose();
         }
     }
 }

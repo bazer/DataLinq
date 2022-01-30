@@ -4,20 +4,22 @@ using DataLinq;
 using DataLinq.Exceptions;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
-using Tests.Models;
+using DataLinq.Mutation;
+using DataLinq.Tests;
+using DataLinq.Tests.Models;
 using Xunit;
 
-namespace Tests
+namespace DataLinq.Tests
 {
-    [Collection("Database")]
-    public class TransactionTests
+    public class TransactionTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
-        private Random rnd = new Random();
+        private Helpers helpers;
 
         public TransactionTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
+            this.helpers = new Helpers(fixture);
         }
 
         [Fact]
@@ -25,7 +27,7 @@ namespace Tests
         {
             var emp_no = 999999;
 
-            var employee = NewEmployee(emp_no);
+            var employee = helpers.NewEmployee(emp_no);
             Assert.True(employee.HasPrimaryKeysSet());
 
             using var transaction = fixture.employeesDb.Transaction();
@@ -42,11 +44,11 @@ namespace Tests
             var table = fixture.employeesDb.Provider.Metadata
                     .Tables.Single(x => x.DbName == "employees");
 
-            Assert.Equal(1, table.Cache.TransactionRowsCount);
+            //Assert.Equal(1, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
 
             transaction.Commit();
-            Assert.Equal(0, table.Cache.TransactionRowsCount);
+            //Assert.Equal(0, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.Committed, transaction.Status);
 
             var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
@@ -57,7 +59,7 @@ namespace Tests
         [Fact]
         public void InsertAutoIncrement()
         {
-            var employee = NewEmployee();
+            var employee = helpers.NewEmployee();
             Assert.False(employee.HasPrimaryKeysSet());
 
             using (var transaction = fixture.employeesDb.Transaction())
@@ -85,7 +87,7 @@ namespace Tests
         [Fact]
         public void InsertAndUpdateAutoIncrement()
         {
-            var employee = NewEmployee();
+            var employee = helpers.NewEmployee();
             Assert.False(employee.HasPrimaryKeysSet());
 
             using (var transaction = fixture.employeesDb.Transaction())
@@ -98,7 +100,7 @@ namespace Tests
             }
 
             Assert.True(employee.HasPrimaryKeysSet());
-            employee.birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            employee.birth_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
 
 
             using (var transaction = fixture.employeesDb.Transaction())
@@ -119,13 +121,13 @@ namespace Tests
         [Fact]
         public void UpdateImplicitTransaction()
         {
-            var emp_no = 999997;
+            var emp_no = 999998;
 
-            var employee = GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
-            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
@@ -140,13 +142,13 @@ namespace Tests
         [Fact]
         public void UpdateExplicitTransaction()
         {
-            var emp_no = 999995;
+            var emp_no = 999997;
 
-            var employee = GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
-            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
@@ -165,13 +167,13 @@ namespace Tests
         [Fact]
         public void RollbackTransaction()
         {
-            var emp_no = 999995;
+            var emp_no = 999996;
 
-            var employee = GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
-            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
@@ -182,11 +184,11 @@ namespace Tests
             
             var table = fixture.employeesDb.Provider.Metadata
                     .Tables.Single(x => x.DbName == "employees");
-            Assert.Equal(1, table.Cache.TransactionRowsCount);
+            //Assert.Equal(1, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
 
             transaction.Rollback();
-            Assert.Equal(0, table.Cache.TransactionRowsCount);
+            //Assert.Equal(0, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.RolledBack, transaction.Status);
 
             var dbEmployee2 = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
@@ -201,11 +203,11 @@ namespace Tests
         {
             var emp_no = 999995;
 
-            var employee = GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
-            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
@@ -220,13 +222,13 @@ namespace Tests
         [Fact]
         public void DoubleRollbackTransaction()
         {
-            var emp_no = 999995;
+            var emp_no = 999994;
 
-            var employee = GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
-            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
@@ -241,13 +243,13 @@ namespace Tests
         [Fact]
         public void CommitRollbackTransaction()
         {
-            var emp_no = 999995;
+            var emp_no = 999993;
 
-            var employee = GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
-            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
@@ -262,13 +264,13 @@ namespace Tests
         [Fact]
         public void RollbackCommitTransaction()
         {
-            var emp_no = 999995;
+            var emp_no = 999992;
 
-            var employee = GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
-            var newBirthDate = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
@@ -278,6 +280,31 @@ namespace Tests
             transaction.Rollback();
             Assert.Throws<Exception>(() => transaction.Commit());
             Assert.Throws<Exception>(() => transaction.Rollback());
+        }
+
+        [Fact]
+        public void TransactionCache()
+        {
+            var emp_no = 999991;
+            var employee = helpers.GetEmployee(emp_no);
+            Transaction<employeesDb>[] transactions = new Transaction<employeesDb>[10];
+
+            for (int i = 0; i < 10; i++)
+            {
+                transactions[i] = fixture.employeesDb.Transaction(TransactionType.ReadOnly);
+                var dbEmployee = transactions[i].Query().employees.Single(x => x.emp_no == emp_no);
+                var dbEmployee2 = transactions[i].Query().employees.Single(x => x.emp_no == emp_no);
+                Assert.Same(dbEmployee, dbEmployee2);
+
+                if (i > 0)
+                {
+                    var dbEmployeePrev = transactions[i - 1].Query().employees.Single(x => x.emp_no == emp_no);
+                    Assert.NotSame(dbEmployee, dbEmployeePrev);
+                }
+            }
+
+            foreach (var transaction in transactions)
+                transaction.Dispose();
         }
 
         //[Fact]
@@ -313,35 +340,6 @@ namespace Tests
         //    Assert.Throws<InvalidMutationObjectException>(() => fixture.employeesDb.Update(employeeMut));
         //}
 
-        private employees GetEmployee(int? emp_no)
-        {
-            var employee = fixture.employeesDb.Query().employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
-
-            if (employee.IsNewModel())
-                return fixture.employeesDb.Insert(employee);
-
-            return employee;
-        }
-
-        private employees NewEmployee(int? emp_no = null)
-        {
-            return new employees
-            {
-                birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
-                emp_no = emp_no,
-                first_name = "Test employee",
-                last_name = "Test",
-                gender = 1,
-                hire_date = DateTime.Now
-            };
-        }
-
-        public DateTime RandomDate(DateTime rangeStart, DateTime rangeEnd)
-        {
-            TimeSpan span = rangeEnd - rangeStart;
-
-            int randomMinutes = rnd.Next(0, (int)span.TotalMinutes);
-            return rangeStart + TimeSpan.FromMinutes(randomMinutes);
-        }
+       
     }
 }

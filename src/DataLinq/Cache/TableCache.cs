@@ -18,10 +18,11 @@ namespace DataLinq.Cache
         protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>> TransactionRows = new();
         protected int primaryKeyColumnsCount;
 
-        public TableCache(TableMetadata table)
+        public TableCache(TableMetadata table, IDatabaseProvider database)
         {
             this.Table = table;
             this.Table.Cache = this;
+            this.Database = database;
             this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Count;
         }
 
@@ -30,6 +31,7 @@ namespace DataLinq.Cache
         public int TransactionRowsCount => TransactionRows.Count;
         public long TotalBytes => KeysTicks.Sum(x => x.size);
         public TableMetadata Table { get; }
+        public IDatabaseProvider Database { get; }
 
         public void Apply(params StateChange[] changes)
         {
@@ -283,7 +285,7 @@ namespace DataLinq.Cache
 
         private bool TryAddRow(RowData rowData, Transaction transaction, out object row)
         {
-            row = InstanceFactory.NewImmutableRow(rowData);
+            row = InstanceFactory.NewImmutableRow(rowData, Database);
             var keys = rowData.GetKeys();
 
 

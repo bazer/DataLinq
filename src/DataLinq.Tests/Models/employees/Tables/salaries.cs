@@ -4,7 +4,7 @@ using DataLinq;
 using DataLinq.Interfaces;
 using DataLinq.Attributes;
 
-namespace Tests.Models
+namespace DataLinq.Tests.Models
 {
     [Name("salaries")]
     public partial class salaries : ITableModel

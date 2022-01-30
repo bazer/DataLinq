@@ -8,7 +8,7 @@ namespace DataLinq.Metadata
 {
     public class DatabaseMetadata
     {
-        //public static ConcurrentDictionary<string, DatabaseMetadata> LoadedDatabases { get; } = new ConcurrentDictionary<string, DatabaseMetadata>();
+        public static ConcurrentDictionary<Type, DatabaseMetadata> LoadedDatabases { get; } = new();
 
         public string NameOrAlias => string.IsNullOrEmpty(Alias) ? Name : Alias;
 
@@ -21,7 +21,7 @@ namespace DataLinq.Metadata
             //    throw new Exception($"Failed while adding database with name {NameOrAlias} to global dictionary.");
         }
 
-        public DatabaseProvider DatabaseProvider { get; set; }
+        //public DatabaseProvider DatabaseProvider { get; set; }
         public List<Relation> Relations { get; set; }
         public string Name { get; set; }
         public string Alias { get; set; }

@@ -1,13 +1,12 @@
 using System;
 using System.Linq;
 using DataLinq.Metadata;
-using Tests.Models;
+using DataLinq.Tests.Models;
 using Xunit;
 
-namespace Tests
+namespace DataLinq.Tests
 {
-    [Collection("Database")]
-    public class QueryTests
+    public class QueryTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
 

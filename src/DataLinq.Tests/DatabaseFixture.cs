@@ -3,15 +3,15 @@ using System.IO;
 using Microsoft.Extensions.Configuration;
 using DataLinq.MySql;
 using DataLinq.MySql.Models;
-using Tests.Models;
+using DataLinq.Tests.Models;
 using Xunit;
 
-namespace Tests
+namespace DataLinq.Tests
 {
-    [CollectionDefinition("Database")]
-    public class DatabaseCollection : ICollectionFixture<DatabaseFixture>
-    {
-    }
+    //[CollectionDefinition("Database")]
+    //public class DatabaseCollection : ICollectionFixture<DatabaseFixture>
+    //{
+    //}
 
     public class DatabaseFixture : IDisposable
     {
@@ -36,6 +36,8 @@ namespace Tests
 
         public void Dispose()
         {
+            employeesDb.Dispose();
+            information_schema.Dispose();
         }
     }
 }

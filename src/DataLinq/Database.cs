@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace DataLinq
 {
-    public abstract class Database<T> 
+    public abstract class Database<T> : IDisposable
         where T : class, IDatabaseModel
     {
         public DatabaseProvider<T> Provider { get; }
@@ -93,6 +93,11 @@ namespace DataLinq
             using var transaction = Transaction();
             transaction.Delete(model);
             transaction.Commit();
+        }
+
+        public void Dispose()
+        {
+            Provider.Dispose();
         }
     }
 }

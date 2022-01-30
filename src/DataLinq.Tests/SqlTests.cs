@@ -3,13 +3,12 @@ using System.Linq;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
-using Tests.Models;
+using DataLinq.Tests.Models;
 using Xunit;
 
-namespace Tests
+namespace DataLinq.Tests
 {
-    [Collection("Database")]
-    public class SqlTests
+    public class SqlTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
         private readonly Transaction<employeesDb> transaction;
@@ -17,7 +16,7 @@ namespace Tests
         public SqlTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
-            this.transaction = fixture.employeesDb.Transaction(DataLinq.Mutation.TransactionType.ReadOnly);
+            this.transaction = fixture.employeesDb.Transaction(TransactionType.ReadOnly);
         }
 
         [Fact]

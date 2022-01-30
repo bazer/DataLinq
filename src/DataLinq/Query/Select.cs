@@ -85,7 +85,7 @@ namespace DataLinq.Query
             {
                 var rows = this
                     .ReadRows()
-                    .Select(InstanceFactory.NewImmutableRow);
+                    .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction.Provider));
 
                 foreach (var row in rows)
                     yield return (T)row;
@@ -109,7 +109,7 @@ namespace DataLinq.Query
             {
                 var rows = this
                     .ReadRows()
-                    .Select(InstanceFactory.NewImmutableRow);
+                    .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction.Provider));
 
                 foreach (var row in rows)
                     yield return (V)row;

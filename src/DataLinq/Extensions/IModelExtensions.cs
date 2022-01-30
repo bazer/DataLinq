@@ -18,24 +18,29 @@ namespace DataLinq
 
         public static PrimaryKeys PrimaryKeys(this IModel model)
         {
-            var metadata = Model.Find(model);
+            return new PrimaryKeys(model.Metadata().Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+        }
 
-            if (metadata == null)
-                throw new Exception($"Metadata not loaded for model with type {model.GetType()}");
-
+        internal static PrimaryKeys PrimaryKeys(this IModel model, Model metadata)
+        {
             return new PrimaryKeys(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
         }
 
         public static bool HasPrimaryKeysSet(this IModel model)
+        {
+            return model.Metadata().Table
+                .PrimaryKeyColumns
+                .All(x => x.ValueProperty.GetValue(model) != default);
+        }
+
+        public static Model Metadata(this IModel model)
         {
             var metadata = Model.Find(model);
 
             if (metadata == null)
                 throw new Exception($"Metadata not loaded for model with type {model.GetType()}");
 
-            return metadata.Table
-                .PrimaryKeyColumns
-                .All(x => x.ValueProperty.GetValue(model) != default);
+            return metadata;
         }
 
         public static bool IsNewModel(this IModel model) =>

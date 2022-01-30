@@ -6,6 +6,7 @@ using DataLinq.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace DataLinq.Mutation
 {
@@ -24,8 +25,11 @@ namespace DataLinq.Mutation
         Delete
     }
 
-    public class Transaction : IDisposable
+    public class Transaction : IDisposable, IEquatable<Transaction>
     {
+        private static uint transactionCount = 0;
+
+        public uint TransactionID { get; }
         public IDatabaseProvider Provider { get; }
 
         public DatabaseTransaction DbTransaction { get; set; }
@@ -40,9 +44,11 @@ namespace DataLinq.Mutation
             Provider = databaseProvider;
             DbTransaction = databaseProvider.GetNewDatabaseTransaction(type);
             Type = type;
+
+            TransactionID = Interlocked.Increment(ref transactionCount);
         }
 
-        public T Insert<T>(T model) where T: IModel
+        public T Insert<T>(T model) where T : IModel
         {
             CheckIfTransactionIsValid();
 
@@ -104,7 +110,9 @@ namespace DataLinq.Mutation
 
         private void AddAndExecute(IModel model, TransactionChangeType type)
         {
-            var table = Provider.Metadata.Tables.Single(x => x.Model.IsOfType(model.GetType()));
+            //var table = Provider.Metadata.Tables.Single(x => x.Model.IsOfType(model.GetType()));
+
+            var table = model.Metadata().Table;
 
             AddAndExecute(new StateChange(model, table, type));
         }
@@ -137,10 +145,10 @@ namespace DataLinq.Mutation
 
         private T GetModelFromCache<T>(T model) where T : IModel
         {
-            var metadata = Model.Find(model);
-            var keys = model.PrimaryKeys();
+            var metadata = model.Metadata();
+            var keys = model.PrimaryKeys(metadata);
 
-           return (T)metadata.Table.Cache.GetRow(keys, this);
+            return (T)metadata.Table.Cache.GetRow(keys, this);
         }
 
 
@@ -160,6 +168,38 @@ namespace DataLinq.Mutation
         {
             Provider.State.RemoveTransactionFromCache(this);
             DbTransaction.Dispose();
+        }
+
+        public bool Equals(Transaction? other)
+        {
+            if (ReferenceEquals(null, other))
+                return false;
+            if (ReferenceEquals(this, other))
+                return true;
+
+            return TransactionID.Equals(other.TransactionID);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj))
+                return false;
+            if (ReferenceEquals(this, obj))
+                return true;
+            if (obj.GetType() != typeof(Transaction))
+                return false;
+
+            return TransactionID.Equals((obj as Transaction).TransactionID);
+        }
+
+        public override int GetHashCode()
+        {
+            return TransactionID.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return $"Transaction with ID '{TransactionID}': {Type}";
         }
     }
 
