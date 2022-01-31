@@ -21,7 +21,6 @@ namespace DataLinq.Cache
         public TableCache(TableMetadata table, IDatabaseProvider database)
         {
             this.Table = table;
-            this.Table.Cache = this;
             this.Database = database;
             this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Count;
         }
@@ -33,8 +32,10 @@ namespace DataLinq.Cache
         public TableMetadata Table { get; }
         public IDatabaseProvider Database { get; }
 
-        public void Apply(params StateChange[] changes)
+        public int ApplyChanges(IEnumerable<StateChange> changes, Transaction transaction = null)
         {
+            var numRows = 0;
+
             foreach (var change in changes)
             {
                 if (change.Table != Table)
@@ -42,9 +43,20 @@ namespace DataLinq.Cache
 
                 if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
                 {
-                    Rows.TryRemove(change.PrimaryKeys, out var _);
+                    if (transaction != null)
+                    {
+                        if (TryRemoveTransactionRow(change.PrimaryKeys, transaction, out var rows))
+                            numRows += rows;
+                    }
+                    else
+                    {
+                        if (TryRemoveRow(change.PrimaryKeys, out var rows))
+                            numRows += rows;
+                    }
                 }
             }
+
+            return numRows;
         }
 
         public void ClearRows()
@@ -173,7 +185,27 @@ namespace DataLinq.Cache
                 else
                     return false;
             }
-                    
+
+            return true;
+        }
+
+        private bool TryRemoveTransactionRow(PrimaryKeys primaryKeys, Transaction transaction, out int numRowsRemoved)
+        {
+            numRowsRemoved = 0;
+
+            if (!TransactionRows.ContainsKey(transaction))
+                return false;
+
+            if (TransactionRows[transaction].ContainsKey(primaryKeys))
+            {
+                if (TransactionRows[transaction].TryRemove(primaryKeys, out var _))
+                {
+                    numRowsRemoved = 1;
+                    return true;
+                }
+                else
+                    return false;
+            }
 
             return true;
         }
@@ -233,15 +265,17 @@ namespace DataLinq.Cache
             if (foreignKey.Data == null)
                 return new List<object>();
 
-            var keys = foreignKey.Column.Index.GetOrAdd(foreignKey.Data, _ => GetKeys(foreignKey, transaction).ToArray());
+            //var keys = foreignKey.Column.Index.GetOrAdd(foreignKey.Data, _ => GetKeys(foreignKey, transaction).ToArray());
 
-            return GetRows(keys, transaction, foreignKey, orderings);
+            var keys = GetKeys(foreignKey, transaction).ToArray();
+
+            return GetRows(keys, transaction, orderings);
         }
 
         public object GetRow(PrimaryKeys primaryKeys, Transaction transaction) =>
             GetRows(primaryKeys.Yield().ToArray(), transaction).FirstOrDefault();
 
-        public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, ForeignKey foreignKey = null, List<OrderBy> orderings = null)
+        public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, List<OrderBy> orderings = null)
         {
             if (transaction.Type != TransactionType.NoTransaction && !TransactionRows.ContainsKey(transaction))
                 TransactionRows.TryAdd(transaction, new ConcurrentDictionary<PrimaryKeys, object>());
@@ -257,15 +291,17 @@ namespace DataLinq.Cache
                     keysToLoad.Add(key);
             }
 
-            if (foreignKey != null && keysToLoad.Count > primaryKeys.Length / 2)
-            {
-                foreach (var rowData in GetRowDataFromForeignKey(foreignKey, transaction))
-                {
-                    if (TryAddRow(rowData, transaction, out var row))
-                        yield return row;
-                }
-            }
-            else if (keysToLoad.Count != 0)
+            //if (foreignKey != null)// && keysToLoad.Count > primaryKeys.Length / 2)
+            //{
+            //    foreach (var rowData in GetRowDataFromForeignKey(foreignKey, transaction))
+            //    {
+            //        yield return AddRow(rowData, transaction);
+
+            //        //if (TryAddRow(rowData, transaction, out var row))
+            //        //    yield return row;
+            //    }
+            //}
+            if (keysToLoad.Count != 0)
             {
                 foreach (var split in keysToLoad.SplitList(100))
                 {
@@ -285,7 +321,7 @@ namespace DataLinq.Cache
 
         private bool TryAddRow(RowData rowData, Transaction transaction, out object row)
         {
-            row = InstanceFactory.NewImmutableRow(rowData, Database);
+            row = InstanceFactory.NewImmutableRow(rowData, transaction);
             var keys = rowData.GetKeys();
 
 

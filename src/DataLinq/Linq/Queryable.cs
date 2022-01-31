@@ -10,7 +10,7 @@ namespace DataLinq
 {
     public class Queryable<T> : QueryableBase<T>
     {
-        protected Transaction DatabaseProvider { get; }
+        protected Transaction Transaction { get; }
         protected TableMetadata Table { get; }
 
         public Queryable(IQueryProvider provider, Expression expression)
@@ -18,9 +18,9 @@ namespace DataLinq
         {
         }
 
-        public Queryable(Transaction databaseProvider, TableMetadata table) : base(QueryParser.CreateDefault(), new QueryExecutor(databaseProvider, table))
+        public Queryable(Transaction transaction, TableMetadata table) : base(QueryParser.CreateDefault(), new QueryExecutor(transaction, table))
         {
-            this.DatabaseProvider = databaseProvider;
+            this.Transaction = transaction;
             this.Table = table;
         }
     }

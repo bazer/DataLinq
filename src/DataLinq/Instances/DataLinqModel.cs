@@ -11,10 +11,10 @@ namespace DataLinq.Instances
             Model = model;
         }
 
-        public bool IsNew()
-        {
-            return true;
-        }
+        //public bool IsNew()
+        //{
+        //    return true;
+        //}
 
         public T Model { get; }
     }

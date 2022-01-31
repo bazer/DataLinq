@@ -12,7 +12,7 @@ namespace DataLinq.Instances
     {
         MutableRowData MutableRowData { get; }
 
-        public MutableRowInterceptor(RowData rowData, IDatabaseProvider database) : base(rowData, database)
+        public MutableRowInterceptor(RowData rowData, Transaction transaction) : base(rowData, transaction)
         {
             this.MutableRowData = new MutableRowData(rowData);
         }

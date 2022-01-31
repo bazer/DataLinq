@@ -38,9 +38,7 @@ namespace DataLinq.Mutation
 
         public void ExecuteQuery(Transaction transaction)
         {
-            var defaultId = Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)).All(x => x == default);
-
-            if (Type == TransactionChangeType.Insert && HasAutoIncrement && defaultId)
+            if (Type == TransactionChangeType.Insert && HasAutoIncrement && Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)).All(x => x == default))
             {
                 var newId = transaction.DbTransaction.ExecuteScalar(GetDbCommand(transaction));
 

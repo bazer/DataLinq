@@ -27,14 +27,14 @@ namespace DataLinq.Tests
         {
             var emp_no = 999999;
 
+            foreach (var alreadyExists in fixture.employeesDb.Query().employees.Where(x => x.emp_no == emp_no))
+                fixture.employeesDb.Delete(alreadyExists);
+
             var employee = helpers.NewEmployee(emp_no);
             Assert.True(employee.HasPrimaryKeysSet());
 
             using var transaction = fixture.employeesDb.Transaction();
             Assert.Equal(DatabaseTransactionStatus.Closed, transaction.Status);
-
-            foreach (var alreadyExists in fixture.employeesDb.Query().employees.Where(x => x.emp_no == emp_no))
-                transaction.Delete(alreadyExists);
 
             transaction.Insert(employee);
             Assert.True(employee.HasPrimaryKeysSet());
@@ -135,6 +135,7 @@ namespace DataLinq.Tests
             var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
 
             Assert.NotSame(dbEmployeeReturn, dbEmployee);
+            Assert.NotEqual(orgBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
             Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }
 
@@ -161,6 +162,7 @@ namespace DataLinq.Tests
             var dbEmployee2 = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
 
             Assert.NotSame(dbEmployeeReturn, dbEmployee2);
+            Assert.NotEqual(orgBirthDate.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
             Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
         }
 

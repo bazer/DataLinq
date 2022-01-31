@@ -78,14 +78,14 @@ namespace DataLinq.Query
                     .ReadKeys()
                     .ToArray();
 
-                foreach (var row in query.Table.Cache.GetRows(keys, query.Transaction))
+                foreach (var row in query.Transaction.Provider.GetTableCache(query.Table).GetRows(keys, query.Transaction))
                     yield return (T)row;
             }
             else
             {
                 var rows = this
                     .ReadRows()
-                    .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction.Provider));
+                    .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction));
 
                 foreach (var row in rows)
                     yield return (T)row;
@@ -102,14 +102,14 @@ namespace DataLinq.Query
                     .ReadKeys()
                     .ToArray();
 
-                foreach (var row in query.Table.Cache.GetRows(keys, query.Transaction, orderings: query.OrderByList))
+                foreach (var row in query.Transaction.Provider.GetTableCache(query.Table).GetRows(keys, query.Transaction, orderings: query.OrderByList))
                     yield return (V)row;
             }
             else
             {
                 var rows = this
                     .ReadRows()
-                    .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction.Provider));
+                    .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction));
 
                 foreach (var row in rows)
                     yield return (V)row;

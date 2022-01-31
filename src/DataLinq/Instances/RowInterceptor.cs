@@ -11,18 +11,18 @@ namespace DataLinq.Instances
 {
     internal abstract class RowInterceptor : IInterceptor
     {
-        protected RowInterceptor(RowData rowData, IDatabaseProvider database)
+        protected RowInterceptor(RowData rowData, Transaction transaction)
         {
             RowData = rowData;
-            Database = database;
+            Transaction = transaction;
         }
 
         protected List<Property> Properties =>
             RowData.Table.Model.Properties;
 
         protected RowData RowData { get; }
-        protected ConcurrentDictionary<string, object> RelationCache;
-        protected IDatabaseProvider Database;
+        //protected ConcurrentDictionary<string, object> RelationCache;
+        protected Transaction Transaction;
 
         public abstract void Intercept(IInvocation invocation);
 
@@ -30,30 +30,31 @@ namespace DataLinq.Instances
         {
             var property = Properties.Single(x => x.CsName == info.Name);
 
-            if (RelationCache == null)
-                RelationCache = new ConcurrentDictionary<string, object>();
+            //if (RelationCache == null)
+            //    RelationCache = new ConcurrentDictionary<string, object>();
 
-            if (!RelationCache.TryGetValue(info.Name, out object returnvalue))
+            //if (!RelationCache.TryGetValue(info.Name, out object returnvalue))
+            //{
+            object returnvalue;
+            var column = property.Column;
+            var result = Transaction.Provider.GetTableCache(column.Table).GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
+
+            if (property.RelationPart.Type == RelationPartType.ForeignKey)
             {
-                var column = property.Column;
-                var result = column.Table.Cache.GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), Database.StartTransaction(TransactionType.NoTransaction));
-
-                if (property.RelationPart.Type == RelationPartType.ForeignKey)
-                {
-                    returnvalue = result.SingleOrDefault();
-                }
-                else
-                {
-                    var listType = property.CsType.GetTypeInfo().GenericTypeArguments[0];
-
-                    returnvalue = typeof(Enumerable)
-                        .GetMethod("Cast")
-                        .MakeGenericMethod(listType)
-                        .Invoke(null, new object[] { result });
-                }
-
-                RelationCache.TryAdd(info.Name, returnvalue);
+                returnvalue = result.SingleOrDefault();
             }
+            else
+            {
+                var listType = property.CsType.GetTypeInfo().GenericTypeArguments[0];
+
+                returnvalue = typeof(Enumerable)
+                    .GetMethod("Cast")
+                    .MakeGenericMethod(listType)
+                    .Invoke(null, new object[] { result });
+            }
+
+            //    RelationCache.TryAdd(info.Name, returnvalue);
+            //}
 
             return returnvalue;
 

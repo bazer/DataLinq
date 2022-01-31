@@ -28,11 +28,11 @@ namespace DataLinq.Cache
             this.CleanCacheWorker.Start();
         }
 
-        public void Apply(params StateChange[] changes)
+        public void ApplyChanges(IEnumerable<StateChange> changes, Transaction transaction = null)
         {
-            foreach (var change in changes)
+            foreach (var change in changes.GroupBy(x => x.Table))
             {
-                TableCaches.Single(x => x.Table == change.Table).Apply(change);
+                TableCaches.Single(x => x.Table == change.Key).ApplyChanges(change, transaction);
             }
         }
 

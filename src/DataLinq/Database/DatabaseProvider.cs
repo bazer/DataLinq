@@ -4,6 +4,8 @@ using DataLinq.Query;
 using DataLinq.Mutation;
 using System;
 using System.Data;
+using System.Linq;
+using DataLinq.Cache;
 
 namespace DataLinq
 {
@@ -21,6 +23,8 @@ namespace DataLinq
         DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
 
         string GetLastIdQuery();
+
+        TableCache GetTableCache(TableMetadata table);
 
         Sql GetParameter(Sql sql, string key, object value);
 
@@ -62,6 +66,8 @@ namespace DataLinq
         protected IDbConnection activeConnection;
 
         private static object lockObject = new object();
+
+        public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches.Single(x => x.Table == table);
 
         protected DatabaseProvider(string connectionString, Type databaseType, string name = null)
         {

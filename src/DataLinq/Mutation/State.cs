@@ -24,9 +24,9 @@ namespace DataLinq.Mutation
             //    throw new Exception($"Failed while adding global state for database '{database.NameOrAlias}'.");
         }
 
-        public void ApplyChanges(params StateChange[] changes)
+        public void ApplyChanges(IEnumerable<StateChange> changes, Transaction transaction = null)
         {
-            Cache.Apply(changes);
+            Cache.ApplyChanges(changes, transaction);
         }
 
         public void RemoveTransactionFromCache(Transaction transaction)

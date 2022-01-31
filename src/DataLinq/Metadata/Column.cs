@@ -18,6 +18,6 @@ namespace DataLinq.Metadata
         public List<Property> RelationProperties { get; set; } = new List<Property>();
         public TableMetadata Table { get; set; }
         public Property ValueProperty { get; set; }
-        public ConcurrentDictionary<object, PrimaryKeys[]> Index { get; } = new ConcurrentDictionary<object, PrimaryKeys[]>();
+        //public ConcurrentDictionary<object, PrimaryKeys[]> Index { get; } = new ConcurrentDictionary<object, PrimaryKeys[]>();
     }
 }

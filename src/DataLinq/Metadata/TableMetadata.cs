@@ -28,7 +28,7 @@ namespace DataLinq.Metadata
     {
         private List<Column> primaryKeyColumns;
 
-        public TableCache Cache { get; set; }
+        //public TableCache Cache { get; set; }
         public List<Column> Columns { get; set; }
         public DatabaseMetadata Database { get; set; }
         public string DbName { get; set; }

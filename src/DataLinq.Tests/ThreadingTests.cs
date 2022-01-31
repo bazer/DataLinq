@@ -43,9 +43,11 @@ namespace DataLinq.Tests
         {
             var emp_no = 999990;
 
-            Parallel.For(0, 100, i =>
+            Parallel.For(0, 10, i =>
             {
-                var employee = helpers.GetEmployee(emp_no - i);
+                var id = emp_no - i;
+
+                var employee = helpers.GetEmployee(id);
                 var orgBirthDate = employee.birth_date;
                 var employeeMut = employee.Mutate();
 
@@ -58,11 +60,38 @@ namespace DataLinq.Tests
 
                 transaction.Commit();
 
-                var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no - i);
+                var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == id);
+                Assert.NotEqual(orgBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
                 Assert.Equal(newBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
             });
         }
 
-        
+        //[Fact]
+        //public void LazyLoadSingleValue()
+        //{
+        //    var emp_no = 10001;
+
+        //    Parallel.For(0, 100, i =>
+        //    {
+        //        var manager = fixture.employeesDb.Query().dept_manager.Single(x => x.dept_no == "d005" && x.emp_no == emp_no + i);
+
+        //        Assert.NotNull(manager.departments);
+        //        Assert.Equal("d005", manager.departments.dept_no);
+        //    });
+        //}
+
+        [Fact]
+        public void LazyLoadList()
+        {
+            Parallel.For(0, 100, i =>
+            {
+                var department = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d005");
+
+                Assert.NotNull(department.dept_manager);
+                Assert.NotEmpty(department.dept_manager);
+                Assert.Equal(2, department.dept_manager.Count());
+                Assert.Equal("d005", department.dept_manager.First().departments.dept_no);
+            });
+        }
     }
 }

@@ -123,6 +123,8 @@ namespace DataLinq.Mutation
 
             foreach (var change in changes)
                 change.ExecuteQuery(this);
+
+            Provider.State.ApplyChanges(changes, this);
         }
 
         public void Commit()
@@ -131,7 +133,7 @@ namespace DataLinq.Mutation
 
             DbTransaction.Commit();
 
-            Provider.State.ApplyChanges(Changes.ToArray());
+            Provider.State.ApplyChanges(Changes);
             Provider.State.RemoveTransactionFromCache(this);
         }
 
@@ -148,7 +150,8 @@ namespace DataLinq.Mutation
             var metadata = model.Metadata();
             var keys = model.PrimaryKeys(metadata);
 
-            return (T)metadata.Table.Cache.GetRow(keys, this);
+            return (T)Provider.GetTableCache(metadata.Table).GetRow(keys, this);
+            //return (T)metadata.Table.Cache.GetRow(keys, this);
         }
 
 
