@@ -1,23 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Cache;
 
 namespace DataLinq.Metadata
 {
-    public enum CacheLimitType
-    {
-        Rows,
-        Ticks,
-        Seconds,
-        Minutes,
-        Hours,
-        Days,
-        Bytes,
-        Kilobytes,
-        Megabytes,
-        Gigabytes
-    }
-
     public enum TableType
     {
         Table,
@@ -27,8 +14,6 @@ namespace DataLinq.Metadata
     public class TableMetadata
     {
         private List<Column> primaryKeyColumns;
-
-        //public TableCache Cache { get; set; }
         public List<Column> Columns { get; set; }
         public DatabaseMetadata Database { get; set; }
         public string DbName { get; set; }

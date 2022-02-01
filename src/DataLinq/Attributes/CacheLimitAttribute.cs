@@ -1,8 +1,21 @@
-﻿using DataLinq.Metadata;
-using System;
+﻿using System;
 
 namespace DataLinq.Attributes
 {
+    public enum CacheLimitType
+    {
+        Rows,
+        Ticks,
+        Seconds,
+        Minutes,
+        Hours,
+        Days,
+        Bytes,
+        Kilobytes,
+        Megabytes,
+        Gigabytes
+    }
+
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
     public sealed class CacheLimitAttribute : Attribute
     {

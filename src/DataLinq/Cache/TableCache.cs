@@ -1,4 +1,5 @@
-﻿using DataLinq.Extensions;
+﻿using DataLinq.Attributes;
+using DataLinq.Extensions;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;

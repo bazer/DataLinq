@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.Tests.Models;

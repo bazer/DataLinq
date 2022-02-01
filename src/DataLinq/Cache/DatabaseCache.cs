@@ -1,4 +1,5 @@
-﻿using DataLinq.Metadata;
+﻿using DataLinq.Attributes;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Workers;
 using System;
