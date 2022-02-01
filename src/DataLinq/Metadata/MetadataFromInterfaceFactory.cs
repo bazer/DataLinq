@@ -110,9 +110,9 @@ namespace DataLinq.Metadata
                 throw new NotImplementedException();
         }
 
-        private static Model ParseModel(DatabaseMetadata database, Type type)
+        private static ModelMetadata ParseModel(DatabaseMetadata database, Type type)
         {
-            var model = new Model
+            var model = new ModelMetadata
             {
                 Database = database,
                 CsType = type,
@@ -128,7 +128,7 @@ namespace DataLinq.Metadata
             return model;
         }
 
-        private static TableMetadata ParseTable(Model model)
+        private static TableMetadata ParseTable(ModelMetadata model)
         {
             var table = new TableMetadata
             {
@@ -202,7 +202,7 @@ namespace DataLinq.Metadata
             return column;
         }
 
-        private static Property ParseProperty(PropertyInfo propertyInfo, Model model)
+        private static Property ParseProperty(PropertyInfo propertyInfo, ModelMetadata model)
         {
             var property = new Property
             {

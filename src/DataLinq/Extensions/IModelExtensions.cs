@@ -3,9 +3,7 @@ using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace DataLinq
 {
@@ -21,7 +19,7 @@ namespace DataLinq
             return new PrimaryKeys(model.Metadata().Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
         }
 
-        internal static PrimaryKeys PrimaryKeys(this IModel model, Model metadata)
+        internal static PrimaryKeys PrimaryKeys(this IModel model, ModelMetadata metadata)
         {
             return new PrimaryKeys(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
         }
@@ -33,9 +31,9 @@ namespace DataLinq
                 .All(x => x.ValueProperty.GetValue(model) != default);
         }
 
-        public static Model Metadata(this IModel model)
+        public static ModelMetadata Metadata(this IModel model)
         {
-            var metadata = Model.Find(model);
+            var metadata = ModelMetadata.Find(model);
 
             if (metadata == null)
                 throw new Exception($"Metadata not loaded for model with type {model.GetType()}");
@@ -46,7 +44,7 @@ namespace DataLinq
         public static bool IsNewModel(this IModel model) =>
             model.GetType().GetProperty("Mutate") == null;
 
-        public static T Mutate<T>(this T model) where T:IModel
+        public static T Mutate<T>(this T model) where T : IModel
         {
             var type = model.GetType();
 
@@ -63,11 +61,6 @@ namespace DataLinq
             return (T)obj;
         }
 
-        public static T Save<T>(this T model, Transaction transaction) where T : IModel
-        {
-            return transaction.Save(model);
-        }
-
         public static T Insert<T>(this T model, Transaction transaction) where T : IModel
         {
             return transaction.Insert(model);
@@ -78,9 +71,19 @@ namespace DataLinq
             return transaction.Update(model);
         }
 
-        public static T Update<T>(this T model, Transaction transaction, Action<T> changes) where T : IModel
+        public static T Update<T>(this T model, Action<T> changes, Transaction transaction) where T : IModel
         {
             return transaction.Update(model, changes);
+        }
+
+        public static T InsertOrUpdate<T>(this T model, Transaction transaction) where T : IModel
+        {
+            return transaction.InsertOrUpdate(model);
+        }
+
+        public static T InsertOrUpdate<T>(this T model, Action<T> changes, Transaction transaction) where T : IModel, new()
+        {
+            return transaction.InsertOrUpdate(model, changes);
         }
 
         public static void Delete<T>(this T model, Transaction transaction) where T : IModel

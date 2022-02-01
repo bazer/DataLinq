@@ -8,11 +8,9 @@ using System.Text;
 
 namespace DataLinq.Metadata
 {
-    public class Model
+    public class ModelMetadata
     {
         public Type CsType { get; set; }
-        //public Type ProxyType { get; set; }
-        //public Type MutableProxyType { get; set; }
         public string CsTypeName { get; set; }
         public DatabaseMetadata Database { get; set; }
         public TableMetadata Table { get; set; }
@@ -20,11 +18,9 @@ namespace DataLinq.Metadata
         public object[] Attributes { get; set; }
 
         protected bool IsOfType(Type modelType) =>
-               modelType == CsType
-            || modelType.BaseType == CsType;
-            //|| modelType == MutableProxyType;
+               modelType == CsType || modelType.BaseType == CsType;
 
-        public static Model Find(IModel model) =>
+        public static ModelMetadata Find(IModel model) =>
             DatabaseMetadata
             .LoadedDatabases
             .Values

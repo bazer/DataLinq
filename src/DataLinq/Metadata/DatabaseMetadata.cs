@@ -22,7 +22,7 @@ namespace DataLinq.Metadata
         public string Alias { get; set; }
         public Type CsType { get; set; }
         public List<TableMetadata> Tables { get; set; }
-        public List<Model> Models { get; set; }
+        public List<ModelMetadata> Models { get; set; }
         public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
         public bool UseCache { get; set; }
     }

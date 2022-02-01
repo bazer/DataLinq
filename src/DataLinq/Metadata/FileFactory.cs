@@ -36,11 +36,6 @@ namespace DataLinq.Metadata
                     : $"Views{Path.DirectorySeparatorChar}{table.DbName}.cs";
 
                 yield return (path, file);
-
-                //var filename = $"{path}{Path.DirectorySeparatorChar}{table.Name}.cs";
-                //Console.WriteLine($"Writing {table} to: {filename}");
-
-                //File.WriteAllText(filename, file, Encoding.GetEncoding("iso-8859-1"));
             }
         }
 

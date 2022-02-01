@@ -83,19 +83,25 @@ namespace DataLinq.Mutation
             return Update(mut);
         }
 
-        public T Save<T>(T model) where T : IModel
+        public T InsertOrUpdate<T>(T model) where T : IModel
         {
-            CheckIfTransactionIsValid();
-
             if (model == null)
                 throw new ArgumentException("Model argument has null value");
 
             if (model.IsNewModel())
-                AddAndExecute(model, TransactionChangeType.Insert);
+                return Insert(model);
             else
-                AddAndExecute(model, TransactionChangeType.Update);
+                return Update(model);
+        }
 
-            return GetModelFromCache(model);
+        public T InsertOrUpdate<T>(T model, Action<T> changes) where T : IModel, new()
+        {
+            if (model == null)
+                model = new T();
+
+            changes(model);
+
+            return InsertOrUpdate(model);
         }
 
         public void Delete(IModel model)
@@ -110,8 +116,6 @@ namespace DataLinq.Mutation
 
         private void AddAndExecute(IModel model, TransactionChangeType type)
         {
-            //var table = Provider.Metadata.Tables.Single(x => x.Model.IsOfType(model.GetType()));
-
             var table = model.Metadata().Table;
 
             AddAndExecute(new StateChange(model, table, type));

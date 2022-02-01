@@ -69,7 +69,7 @@ namespace DataLinq.MySql
             table.Database = database;
             table.DbName = dbTables.TABLE_NAME;
             table.Type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
-            table.Model = new Model
+            table.Model = new ModelMetadata
             {
                 CsTypeName = dbTables.TABLE_NAME,
                 Table = table

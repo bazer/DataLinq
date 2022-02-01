@@ -17,7 +17,7 @@ namespace DataLinq.Metadata
         public List<Column> Columns { get; set; }
         public DatabaseMetadata Database { get; set; }
         public string DbName { get; set; }
-        public Model Model { get; set; }
+        public ModelMetadata Model { get; set; }
 
         public List<Column> PrimaryKeyColumns =>
             primaryKeyColumns ?? (primaryKeyColumns = Columns.Where(x => x.PrimaryKey).ToList());

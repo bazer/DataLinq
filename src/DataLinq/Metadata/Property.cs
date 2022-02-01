@@ -21,7 +21,7 @@ namespace DataLinq.Metadata
         public Type CsType { get; set; }
         public int? CsSize { get; set; }
         public string CsTypeName { get; set; }
-        public Model Model { get; set; }
+        public ModelMetadata Model { get; set; }
         public PropertyInfo PropertyInfo { get; set; }
         public PropertyType Type { get; set; }
         public RelationPart RelationPart { get; set; }

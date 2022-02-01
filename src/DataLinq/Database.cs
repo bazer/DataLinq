@@ -22,15 +22,6 @@ namespace DataLinq
             return new Transaction<T>(this.Provider, transactionType);
         }
 
-        public void Transact(Action<Transaction<T>> action, TransactionType transactionType = TransactionType.ReadAndWrite)
-        {
-            using (var transaction = Transaction(transactionType))
-            {
-                action(transaction);
-                transaction.Commit();
-            }
-        }
-
         public T Query()
         {
             return Transaction(TransactionType.NoTransaction).Query();
@@ -49,50 +40,58 @@ namespace DataLinq
 
         public SqlQuery From(TableMetadata table, string alias = null)
         {
-            var transaction = Transaction(TransactionType.NoTransaction);
-
-            return new SqlQuery(table, transaction, alias);
+            return new SqlQuery(table, Transaction(TransactionType.NoTransaction), alias);
         }
 
         public SqlQuery<V> From<V>() where V: IModel
         {
-            var transaction = Transaction(TransactionType.NoTransaction);
-
-            return transaction.From<V>();
+            return Transaction(TransactionType.NoTransaction).From<V>();
         }
 
-        public M Insert<M>(M model) where M : IModel
+        public M Insert<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
         {
-            using var transaction = Transaction();
-            var newModel = transaction.Insert(model);
-            transaction.Commit();
-
-            return newModel;
+            return Commit(transaction => transaction.Insert(model), transactionType);
         }
 
-        public M Update<M>(M model) where M : IModel
+        public M Update<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
         {
-            using var transaction = Transaction();
-            var newModel = transaction.Update(model);
-            transaction.Commit();
-
-            return newModel;
+            return Commit(transaction => transaction.Update(model), transactionType);
         }
 
-        public M Update<M>(M model, Action<M> changes) where M : IModel
+        public M Update<M>(M model, Action<M> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
         {
-            using var transaction = Transaction();
-            var newModel = transaction.Update(model, changes);
-            transaction.Commit();
-
-            return newModel;
+            return Commit(transaction => transaction.Update(model, changes), transactionType);
         }
 
-        public void Delete<M>(M model) where M : IModel
+        public M InsertOrUpdate<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
         {
-            using var transaction = Transaction();
-            transaction.Delete(model);
+            return Commit(transaction => transaction.InsertOrUpdate(model), transactionType);
+        }
+
+        public M InsertOrUpdate<M>(M model, Action<M> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel, new()
+        {
+            return Commit(transaction => transaction.InsertOrUpdate(model, changes), transactionType);
+        }
+
+        public void Delete<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
+        {
+            Commit(transaction => transaction.Delete(model), transactionType);
+        }
+
+        public void Commit(Action<Transaction> func, TransactionType transactionType = TransactionType.ReadAndWrite)
+        {
+            using var transaction = Transaction(transactionType);
+            func(transaction);
             transaction.Commit();
+        }
+
+        public M Commit<M>(Func<Transaction, M> func, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
+        {
+            using var transaction = Transaction(transactionType);
+            var result = func(transaction);
+            transaction.Commit();
+
+            return result;
         }
 
         public void Dispose()

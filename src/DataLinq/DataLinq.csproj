@@ -4,13 +4,11 @@
 		<TargetFrameworks>net5.0;net6.0</TargetFrameworks>
 		<LangVersion>10.0</LangVersion>
 		<Nullable>enable</Nullable>
-		<Version>0.1</Version>
 		<Authors>Sebastian Öberg</Authors>
 		<Copyright>Sebastian Öberg</Copyright>
 		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
 		<Description>Light weight ORM using Linq, with built in cache.</Description>
-		<PackageReleaseNotes>First release, use in production at your own risk.</PackageReleaseNotes>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
