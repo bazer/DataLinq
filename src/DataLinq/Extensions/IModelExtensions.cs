@@ -42,7 +42,7 @@ namespace DataLinq
         }
 
         public static bool IsNewModel(this IModel model) =>
-            model.GetType().GetProperty("Mutate") == null;
+            !typeof(InstanceBase).IsAssignableFrom(model.GetType());
 
         public static T Mutate<T>(this T model) where T : IModel
         {

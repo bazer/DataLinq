@@ -20,6 +20,13 @@ namespace DataLinq.Instances
         public override void Intercept(IInvocation invocation)
         {
             var info = new InvocationInfo(invocation);
+            
+            if (info.Name == "IsNewModel")
+            {
+                invocation.ReturnValue = false;
+                return;
+            }
+
             var property = Properties.Single(x => x.CsName == info.Name);
 
             if (info.CallType == CallType.Set && info.MethodType == MethodType.Property)

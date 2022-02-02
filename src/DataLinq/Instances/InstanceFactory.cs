@@ -5,10 +5,18 @@ using System;
 
 namespace DataLinq.Instances
 {
-    public interface ImmutableInstanceBase
+    public interface InstanceBase
     {
-        //bool IsNew { get; }
+        bool IsNewModel { get; }
+    }
+
+    public interface ImmutableInstanceBase : InstanceBase
+    {
         object Mutate { get; }
+    }
+
+    public interface MutableInstanceBase : InstanceBase
+    {
     }
 
     public static class InstanceFactory
@@ -36,9 +44,9 @@ namespace DataLinq.Instances
         {
             object row;
             if (rowData.Table.Model.CsType.IsInterface)
-                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new MutableRowInterceptor(rowData, transaction));
+                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new Type[] { typeof(MutableInstanceBase) }, new MutableRowInterceptor(rowData, transaction));
             else
-                row = generator.CreateClassProxy(rowData.Table.Model.CsType, new MutableRowInterceptor(rowData, transaction));
+                row = generator.CreateClassProxy(rowData.Table.Model.CsType, new Type[] { typeof(MutableInstanceBase) }, new MutableRowInterceptor(rowData, transaction));
 
             //if (rowData.Table.Model.MutableProxyType == null)
             //    rowData.Table.Model.MutableProxyType = row.GetType();

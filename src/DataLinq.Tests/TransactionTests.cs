@@ -124,8 +124,10 @@ namespace DataLinq.Tests
             var emp_no = 999998;
 
             var employee = helpers.GetEmployee(emp_no);
+            Assert.False(employee.IsNewModel());
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
+            Assert.False(employeeMut.IsNewModel());
 
             var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
             employeeMut.birth_date = newBirthDate;

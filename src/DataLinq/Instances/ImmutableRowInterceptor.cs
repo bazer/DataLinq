@@ -24,11 +24,11 @@ namespace DataLinq.Instances
             if (info.MethodType != MethodType.Property)
                 throw new NotImplementedException();
 
-            //if (info.Name == "IsNew")
-            //{
-            //    invocation.ReturnValue = false;
-            //    return;
-            //}
+            if (info.Name == "IsNewModel")
+            {
+                invocation.ReturnValue = false;
+                return;
+            }
 
             if (info.Name == "Mutate")
             {
