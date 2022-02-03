@@ -44,12 +44,18 @@ namespace DataLinq
         public static bool IsNewModel(this IModel model) =>
             !typeof(InstanceBase).IsAssignableFrom(model.GetType());
 
+        public static bool IsImmutable(this IModel model) =>
+            typeof(ImmutableInstanceBase).IsAssignableFrom(model.GetType());
+
+        public static bool IsMutable (this IModel model) =>
+            typeof(MutableInstanceBase).IsAssignableFrom(model.GetType());
+
         public static T Mutate<T>(this T model) where T : IModel
         {
-            var type = model.GetType();
-
-            if (model.IsNewModel())
+            if (model.IsNewModel() || model.IsMutable())
                 return model;
+
+            var type = model.GetType();
 
             var method = type
                 .GetProperty("Mutate")

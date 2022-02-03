@@ -311,6 +311,18 @@ namespace DataLinq.Tests
                 transaction.Dispose();
         }
 
+        [Fact]
+        public void InsertOrUpdate()
+        {
+            var emp_no = 999800;
+            var employee = helpers.GetEmployee(emp_no);
+
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var dbEmployee = fixture.employeesDb.InsertOrUpdate(employee, x => { x.birth_date = newBirthDate; });
+            Assert.Equal(emp_no, dbEmployee.emp_no);
+            Assert.Equal(newBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
+        }
+
         //[Fact]
         //public void InsertUpdateTwice()
         //{
@@ -344,6 +356,6 @@ namespace DataLinq.Tests
         //    Assert.Throws<InvalidMutationObjectException>(() => fixture.employeesDb.Update(employeeMut));
         //}
 
-       
+
     }
 }

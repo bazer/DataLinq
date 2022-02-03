@@ -99,9 +99,10 @@ namespace DataLinq.Mutation
             if (model == null)
                 model = new T();
 
-            changes(model);
+            var mut = model.Mutate();
+            changes(mut);
 
-            return InsertOrUpdate(model);
+            return InsertOrUpdate(mut);
         }
 
         public void Delete(IModel model)
