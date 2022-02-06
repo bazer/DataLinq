@@ -29,13 +29,13 @@ namespace DataLinq
             Type = type;
         }
 
-        public abstract DbDataReader ExecuteReader(IDbCommand command);
-        public abstract DbDataReader ExecuteReader(string query);
+        public abstract IDataLinqDataReader ExecuteReader(IDbCommand command);
+        public abstract IDataLinqDataReader ExecuteReader(string query);
         public abstract object ExecuteScalar(IDbCommand command);
         public abstract int ExecuteNonQuery(IDbCommand command);
         public abstract int ExecuteNonQuery(string query);
 
-        public IEnumerable<DbDataReader> ReadReader(IDbCommand command)
+        public IEnumerable<IDataLinqDataReader> ReadReader(IDbCommand command)
         {
             using (var reader = ExecuteReader(command))
             {
@@ -44,7 +44,7 @@ namespace DataLinq
             }
         }
 
-        public IEnumerable<DbDataReader> ReadReader(string query)
+        public IEnumerable<IDataLinqDataReader> ReadReader(string query)
         {
             using (var reader = ExecuteReader(query))
             {

@@ -14,11 +14,11 @@ namespace DataLinq.Tests.Models
 
         [Nullable]
         [Type("date")]
-        public virtual DateTime? from_date { get; set; }
+        public virtual DateOnly? from_date { get; set; }
 
         [Nullable]
         [Type("date")]
-        public virtual DateTime? to_date { get; set; }
+        public virtual DateOnly? to_date { get; set; }
 
     }
 }

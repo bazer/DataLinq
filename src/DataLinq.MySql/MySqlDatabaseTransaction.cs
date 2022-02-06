@@ -69,7 +69,7 @@ namespace DataLinq.MySql
             }
         }
 
-        public override DbDataReader ExecuteReader(string query)
+        public override IDataLinqDataReader ExecuteReader(string query)
         {
             return ExecuteReader(new MySqlCommand(query));
         }
@@ -79,14 +79,15 @@ namespace DataLinq.MySql
         /// </summary>
         /// <param name="command"></param>
         /// <returns></returns>
-        public override DbDataReader ExecuteReader(IDbCommand command)
+        public override IDataLinqDataReader ExecuteReader(IDbCommand command)
         {
             try
             {
                 command.Connection = DbConnection;
                 command.Transaction = dbTransaction;
 
-                return command.ExecuteReader() as DbDataReader;
+                //return command.ExecuteReader() as IDataLinqDataReader;
+                return new MySqlDataLinqDataReader(command.ExecuteReader() as MySqlDataReader);
             }
             catch (Exception)
             {

@@ -19,13 +19,13 @@ namespace DataLinq.Tests.Models
 
         [PrimaryKey]
         [Type("date")]
-        public virtual DateTime from_date { get; set; }
+        public virtual DateOnly from_date { get; set; }
 
         [Type("int")]
         public virtual int salary { get; set; }
 
         [Type("date")]
-        public virtual DateTime to_date { get; set; }
+        public virtual DateOnly to_date { get; set; }
 
     }
 }

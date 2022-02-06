@@ -55,16 +55,16 @@ namespace DataLinq.MySql
             }
         }
 
-        public override DbDataReader ExecuteReader(IDbCommand command)
+        public override IDataLinqDataReader ExecuteReader(IDbCommand command)
         {
             var connection = new MySqlConnection(ConnectionString);
             command.Connection = connection;
             connection.Open();
 
-            return command.ExecuteReader(CommandBehavior.CloseConnection) as DbDataReader;
+            return new MySqlDataLinqDataReader(command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
         }
 
-        public override DbDataReader ExecuteReader(string query) => 
+        public override IDataLinqDataReader ExecuteReader(string query) => 
             ExecuteReader(new MySqlCommand(query));
 
         public override void Rollback()

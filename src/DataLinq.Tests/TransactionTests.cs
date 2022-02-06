@@ -323,6 +323,108 @@ namespace DataLinq.Tests
             Assert.Equal(newBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }
 
+
+        [Fact]
+        public void InsertRelations()
+        {
+            var emp_no = 999799;
+            var employee = helpers.GetEmployee(emp_no);
+
+            foreach (var salary in employee.salaries)
+                fixture.employeesDb.Delete(salary);
+
+            using (var transaction = fixture.employeesDb.Transaction())
+            {
+                Assert.Empty(employee.salaries);
+
+                var newSalary = new salaries
+                {
+                    emp_no = employee.emp_no.Value,
+                    salary = 50000,
+                    from_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+                    to_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
+                };
+
+                Assert.Empty(employee.salaries);
+                transaction.Insert(newSalary);
+                Assert.Empty(employee.salaries);
+                transaction.Commit();
+            }
+
+            Assert.Single(employee.salaries);
+            fixture.employeesDb.Delete(employee.salaries.First());
+            Assert.Empty(employee.salaries);
+        }
+
+        [Fact]
+        public void InsertRelationsInTransaction()
+        {
+            var emp_no = 999798;
+            var employee = helpers.GetEmployee(emp_no);
+
+            foreach (var salary in employee.salaries)
+                fixture.employeesDb.Delete(salary);
+
+            using (var transaction = fixture.employeesDb.Transaction())
+            {
+                var employeeDb = transaction.Query().employees.Single(x => x.emp_no == emp_no);
+                Assert.Empty(employeeDb.salaries);
+
+                var newSalary = new salaries
+                {
+                    emp_no = employeeDb.emp_no.Value,
+                    salary = 50000,
+                    from_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+                    to_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
+                };
+
+                Assert.Null(newSalary.employees);
+                Assert.Empty(employeeDb.salaries);
+                var salary = transaction.Insert(newSalary);
+                Assert.NotNull(salary);
+                Assert.NotNull(salary.employees);
+                Assert.Single(employeeDb.salaries);
+                transaction.Commit();
+            }
+
+            Assert.Single(employee.salaries);
+            fixture.employeesDb.Delete(employee.salaries.First());
+            Assert.Empty(employee.salaries);
+        }
+
+        [Fact]
+        public void InsertRelationsReadAfterTransaction()
+        {
+            var emp_no = 999798;
+            var employee = helpers.GetEmployee(emp_no);
+
+            foreach (var salary in employee.salaries)
+                fixture.employeesDb.Delete(salary);
+
+            using (var transaction = fixture.employeesDb.Transaction())
+            {
+                var employeeDb = transaction.Query().employees.Single(x => x.emp_no == emp_no);
+                Assert.Empty(employeeDb.salaries);
+
+                var newSalary = new salaries
+                {
+                    emp_no = employeeDb.emp_no.Value,
+                    salary = 50000,
+                    from_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+                    to_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
+                };
+
+                Assert.Empty(employeeDb.salaries);
+                var salary = transaction.Insert(newSalary);
+                Assert.Single(employeeDb.salaries);
+                transaction.Commit();
+            }
+
+            Assert.Single(employee.salaries);
+            fixture.employeesDb.Delete(employee.salaries.First());
+            Assert.Empty(employee.salaries);
+        }
+
         //[Fact]
         //public void InsertUpdateTwice()
         //{

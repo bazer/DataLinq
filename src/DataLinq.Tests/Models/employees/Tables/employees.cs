@@ -27,7 +27,7 @@ namespace DataLinq.Tests.Models
         public virtual IEnumerable<titles> titles { get; }
 
         [Type("date")]
-        public virtual DateTime birth_date { get; set; }
+        public virtual DateOnly birth_date { get; set; }
 
         [Type("varchar", 14)]
         public virtual string first_name { get; set; }
@@ -36,7 +36,7 @@ namespace DataLinq.Tests.Models
         public virtual int gender { get; set; }
 
         [Type("date")]
-        public virtual DateTime hire_date { get; set; }
+        public virtual DateOnly hire_date { get; set; }
 
         [Type("varchar", 16)]
         public virtual string last_name { get; set; }

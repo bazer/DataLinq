@@ -247,6 +247,7 @@ namespace DataLinq.Metadata
                 "double" => sizeof(double),
                 "decimal" => sizeof(decimal),
                 "DateTime" => 8,
+                "DateOnly" => sizeof(int),
                 "Guid" => 16,
                 "String" => null,
                 "byte[]" => null,

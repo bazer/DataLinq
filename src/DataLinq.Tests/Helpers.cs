@@ -37,16 +37,16 @@ namespace DataLinq.Tests
                 first_name = "Test employee",
                 last_name = "Test",
                 gender = 1,
-                hire_date = DateTime.Now
+                hire_date = DateOnly.FromDateTime(DateTime.Now)
             };
         }
 
-        public DateTime RandomDate(DateTime rangeStart, DateTime rangeEnd)
+        public DateOnly RandomDate(DateTime rangeStart, DateTime rangeEnd)
         {
             TimeSpan span = rangeEnd - rangeStart;
 
             int randomMinutes = rnd.Next(0, (int)span.TotalMinutes);
-            return rangeStart + TimeSpan.FromMinutes(randomMinutes);
+            return DateOnly.FromDateTime(rangeStart + TimeSpan.FromMinutes(randomMinutes));
         }
     }
 }

@@ -15,7 +15,7 @@ namespace DataLinq.Instances
         //    Table = table;
         //}
 
-        public RowData(DbDataReader reader, TableMetadata table)
+        public RowData(IDataLinqDataReader reader, TableMetadata table)
         {
             Table = table;
             (Data, Size) = ReadReader(reader, table);
@@ -35,7 +35,7 @@ namespace DataLinq.Instances
             return Data[columnDbName];
         }
 
-        private (Dictionary<string, object> data, int size) ReadReader(DbDataReader reader, TableMetadata table)
+        private (Dictionary<string, object> data, int size) ReadReader(IDataLinqDataReader reader, TableMetadata table)
         {
             var data = new Dictionary<string, object>();
             var size = 0;

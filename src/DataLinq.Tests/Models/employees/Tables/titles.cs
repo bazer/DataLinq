@@ -19,7 +19,7 @@ namespace DataLinq.Tests.Models
 
         [PrimaryKey]
         [Type("date")]
-        public virtual DateTime from_date { get; set; }
+        public virtual DateOnly from_date { get; set; }
 
         [PrimaryKey]
         [Type("varchar", 50)]
@@ -27,7 +27,7 @@ namespace DataLinq.Tests.Models
 
         [Nullable]
         [Type("date")]
-        public virtual DateTime? to_date { get; set; }
+        public virtual DateOnly? to_date { get; set; }
 
     }
 }

@@ -54,14 +54,14 @@ namespace DataLinq.Tests
         [Fact]
         public void WhereAndToList()
         {
-            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateTime.Parse("1990-01-01")).ToList();
+            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("1990-01-01")).ToList();
             Assert.Equal(2, where.Count);
         }
 
         [Fact]
         public void WhereAndCount()
         {
-            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateTime.Parse("1990-01-01"));
+            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("1990-01-01"));
             Assert.Equal(2, where.Count());
         }
 
