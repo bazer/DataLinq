@@ -7,7 +7,7 @@ using DataLinq.Attributes;
 namespace DataLinq.Tests.Models
 {
     [Name("departments")]
-    public partial class departments : ITableModel
+    public partial record departments : ITableModel
     {
         [PrimaryKey]
         [Type("char", 4)]

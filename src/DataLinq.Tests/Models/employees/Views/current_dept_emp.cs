@@ -7,7 +7,7 @@ using DataLinq.Attributes;
 namespace DataLinq.Tests.Models
 {
     [Name("current_dept_emp")]
-    public partial class current_dept_emp : IViewModel
+    public partial record current_dept_emp : IViewModel
     {
         [Type("char", 4)]
         public virtual string dept_no { get; set; }

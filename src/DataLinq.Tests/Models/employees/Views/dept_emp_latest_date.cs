@@ -7,7 +7,7 @@ using DataLinq.Attributes;
 namespace DataLinq.Tests.Models
 {
     [Name("dept_emp_latest_date")]
-    public partial class dept_emp_latest_date : IViewModel
+    public partial record dept_emp_latest_date : IViewModel
     {
         [Type("int")]
         public virtual int emp_no { get; set; }

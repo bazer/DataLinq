@@ -7,27 +7,34 @@ using DataLinq.Extensions;
 
 namespace DataLinq.Metadata
 {
+    public class FileFactorySettings
+    {
+        public string NamespaceName { get; set; } = "Models";
+        public bool UseRecords { get; set; } = true;
+        public bool UseCache { get; set; } = true;
+    }
+
     public static class FileFactory
     {
         static readonly string tab = "    ";
 
-        public static IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database, string namespaceName)
+        public static IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database, FileFactorySettings settings)
         {
             var dbName = database.Tables.Any(x => x.DbName == database.Name)
                 ? $"{database.Name}Db"
                 : database.Name;
 
             yield return ($"{dbName}.cs",
-                    FileHeader(namespaceName)
-                    .Concat(DatabaseFileContents(database, dbName))
+                    FileHeader(settings.NamespaceName)
+                    .Concat(DatabaseFileContents(database, dbName, settings))
                     .Concat(FileFooter())
                     .ToJoinedString("\r\n"));
 
             foreach (var table in database.Tables)
             {
                 var file =
-                    FileHeader(namespaceName)
-                    .Concat(ModelFileContents(table))
+                    FileHeader(settings.NamespaceName)
+                    .Concat(ModelFileContents(table, settings))
                     .Concat(FileFooter())
                     .ToJoinedString("\r\n");
 
@@ -39,8 +46,11 @@ namespace DataLinq.Metadata
             }
         }
 
-        private static IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName)
+        private static IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName, FileFactorySettings settings)
         {
+            if (settings.UseCache)
+                yield return $"{tab}[UseCache]";
+
             yield return $"{tab}[Name(\"{database.Name}\")]";
             yield return $"{tab}public interface {dbName} : IDatabaseModel";
             yield return tab + "{";
@@ -53,10 +63,10 @@ namespace DataLinq.Metadata
             yield return tab + "}";
         }
 
-        private static IEnumerable<string> ModelFileContents(TableMetadata table)
+        private static IEnumerable<string> ModelFileContents(TableMetadata table, FileFactorySettings settings)
         {
             yield return $"{tab}[Name(\"{table.DbName}\")]";
-            yield return $"{tab}public partial class {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
+            yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
             yield return tab + "{";
 
             foreach (var c in table.Columns.OrderByDescending(x => x.PrimaryKey).ThenBy(x => x.DbName))

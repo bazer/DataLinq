@@ -39,21 +39,27 @@ namespace DataLinq.Tests
             transaction.Insert(employee);
             Assert.True(employee.HasPrimaryKeysSet());
             var dbTransactionEmployee = transaction.Query().employees.Single(x => x.emp_no == emp_no);
-            Assert.Equal(employee.birth_date.ToShortDateString(), dbTransactionEmployee.birth_date.ToShortDateString());
+            Assert.NotSame(employee, dbTransactionEmployee);
+            Assert.Equal(employee.birth_date, dbTransactionEmployee.birth_date);
 
             var table = fixture.employeesDb.Provider.Metadata
                     .Tables.Single(x => x.DbName == "employees");
 
-            //Assert.Equal(1, table.Cache.TransactionRowsCount);
+            var cache = fixture.employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
+            Assert.True(cache.IsTransactionInCache(transaction));
+            Assert.Single(cache.GetTransactionRows(transaction));
+            Assert.Same(dbTransactionEmployee, cache.GetTransactionRows(transaction).First());
             Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
 
             transaction.Commit();
-            //Assert.Equal(0, table.Cache.TransactionRowsCount);
+            Assert.False(cache.IsTransactionInCache(transaction));
             Assert.Equal(DatabaseTransactionStatus.Committed, transaction.Status);
 
             var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == emp_no);
 
-            Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
+            Assert.Equal(employee.birth_date, dbEmployee.birth_date);
+            Assert.Equal(dbTransactionEmployee, dbEmployee);
+            Assert.NotSame(dbTransactionEmployee, dbEmployee);
         }
 
         [Fact]
@@ -185,7 +191,7 @@ namespace DataLinq.Tests
             var dbEmployeeReturn = transaction.Update(employeeMut);
             var dbEmployee = transaction.Query().employees.Single(x => x.emp_no == emp_no);
             Assert.Same(dbEmployeeReturn, dbEmployee);
-            
+
             var table = fixture.employeesDb.Provider.Metadata
                     .Tables.Single(x => x.DbName == "employees");
             //Assert.Equal(1, table.Cache.TransactionRowsCount);
@@ -384,6 +390,10 @@ namespace DataLinq.Tests
                 Assert.NotNull(salary);
                 Assert.NotNull(salary.employees);
                 Assert.Single(employeeDb.salaries);
+                Assert.Same(salary, salary.employees.salaries.First());
+                Assert.Same(salary, employeeDb.salaries.First().employees.salaries.First());
+                Assert.Same(employeeDb, employeeDb.salaries.First().employees);
+                Assert.Same(employeeDb, salary.employees.salaries.First().employees);
                 transaction.Commit();
             }
 
@@ -395,30 +405,53 @@ namespace DataLinq.Tests
         [Fact]
         public void InsertRelationsReadAfterTransaction()
         {
-            var emp_no = 999798;
+            var emp_no = 999797;
             var employee = helpers.GetEmployee(emp_no);
 
-            foreach (var salary in employee.salaries)
-                fixture.employeesDb.Delete(salary);
+            foreach (var s in employee.salaries)
+                fixture.employeesDb.Delete(s);
 
-            using (var transaction = fixture.employeesDb.Transaction())
+            salaries salary = null;
+            employees employeeDb = null;
+
+            var table = fixture.employeesDb.Provider.Metadata
+                    .Tables.Single(x => x.DbName == "salaries");
+
+            var cache = fixture.employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
+
+            using var transaction = fixture.employeesDb.Transaction();
+
+            Assert.False(cache.IsTransactionInCache(transaction));
+            Assert.Empty(cache.GetTransactionRows(transaction));
+            employeeDb = transaction.Query().employees.Single(x => x.emp_no == emp_no);
+            Assert.Empty(employeeDb.salaries);
+
+            var newSalary = new salaries
             {
-                var employeeDb = transaction.Query().employees.Single(x => x.emp_no == emp_no);
-                Assert.Empty(employeeDb.salaries);
+                emp_no = employeeDb.emp_no.Value,
+                salary = 50000,
+                from_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+                to_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
+            };
 
-                var newSalary = new salaries
-                {
-                    emp_no = employeeDb.emp_no.Value,
-                    salary = 50000,
-                    from_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
-                    to_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
-                };
+            //Assert.Empty(employeeDb.salaries);
+            salary = transaction.Insert(newSalary);
+            Assert.True(cache.IsTransactionInCache(transaction));
+            Assert.Single(cache.GetTransactionRows(transaction));
+            //Assert.Single(employeeDb.salaries);
+            transaction.Commit();
+            Assert.Equal(DatabaseTransactionStatus.Committed, transaction.Status);
+            Assert.False(cache.IsTransactionInCache(transaction));
+            Assert.Empty(cache.GetTransactionRows(transaction));
 
-                Assert.Empty(employeeDb.salaries);
-                var salary = transaction.Insert(newSalary);
-                Assert.Single(employeeDb.salaries);
-                transaction.Commit();
-            }
+
+            Assert.Equal(salary, salary.employees.salaries.First());
+            Assert.Equal(salary, employeeDb.salaries.First().employees.salaries.First());
+            Assert.Equal(employeeDb, employeeDb.salaries.First().employees);
+            Assert.Equal(employeeDb, salary.employees.salaries.First().employees);
+
+            Assert.False(cache.IsTransactionInCache(transaction));
+            Assert.Empty(cache.GetTransactionRows(transaction));
 
             Assert.Single(employee.salaries);
             fixture.employeesDb.Delete(employee.salaries.First());

@@ -18,7 +18,7 @@ namespace DataLinq
     public abstract class DatabaseTransaction : IDisposable
     {
         public DatabaseTransactionStatus Status { get; protected set; } = DatabaseTransactionStatus.Closed;
-        public bool IsTransactionPending { get; protected set; }
+        //public bool IsTransactionPending { get; protected set; }
         public string ConnectionString { get; }
 
         public TransactionType Type { get; protected set; }

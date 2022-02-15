@@ -6,8 +6,8 @@ using DataLinq.Attributes;
 
 namespace DataLinq.Tests.Models
 {
-    [Name("employees")]
     [UseCache]
+    [Name("employees")]
     public interface employeesDb : IDatabaseModel
     {
         DbRead<current_dept_emp> current_dept_emp { get; }

@@ -188,7 +188,7 @@ namespace DataLinq.Mutation
             return TransactionID.Equals(other.TransactionID);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (ReferenceEquals(null, obj))
                 return false;

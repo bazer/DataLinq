@@ -33,6 +33,15 @@ namespace DataLinq.Cache
         public TableMetadata Table { get; }
         public IDatabaseProvider Database { get; }
 
+        public bool IsTransactionInCache(Transaction transaction) => TransactionRows.ContainsKey(transaction);
+        public IEnumerable<object> GetTransactionRows(Transaction transaction)
+        {
+            if (TransactionRows.TryGetValue(transaction, out var result))
+                return result.Values;
+
+            return new List<object>();
+        }
+
         public int ApplyChanges(IEnumerable<StateChange> changes, Transaction transaction = null)
         {
             var numRows = 0;

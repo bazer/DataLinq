@@ -17,7 +17,14 @@ namespace DataLinq.Tools
             Console.WriteLine($"Table count: {database.Tables.Count}");
             Console.WriteLine($"Writing models to: {path}");
 
-            foreach (var file in FileFactory.CreateModelFiles(database, namespaceName))
+            var settings = new FileFactorySettings
+            {
+                NamespaceName = namespaceName,
+                UseRecords = true,
+                UseCache = true
+            };
+
+            foreach (var file in FileFactory.CreateModelFiles(database, settings))
             {
                 var filepath = $"{path}{Path.DirectorySeparatorChar}{file.path}";
                 Console.WriteLine($"Writing {filepath}");

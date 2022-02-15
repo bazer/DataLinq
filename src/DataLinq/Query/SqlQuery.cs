@@ -73,6 +73,8 @@ namespace DataLinq.Query
 
         public SqlQuery(Transaction transaction, string alias = null)
         {
+            CheckTransaction(transaction);
+
             this.Transaction = transaction;
             this.Table = transaction.Provider.Metadata.Tables.Single(x => x.Model.CsType == typeof(T));
             this.Alias = alias;
@@ -80,6 +82,8 @@ namespace DataLinq.Query
 
         public SqlQuery(TableMetadata table, Transaction transaction, string alias = null)
         {
+            CheckTransaction(transaction);
+
             this.Transaction = transaction;
             this.Table = table;
             this.Alias = alias;
@@ -87,9 +91,17 @@ namespace DataLinq.Query
 
         public SqlQuery(string tableName, Transaction transaction, string alias = null)
         {
+            CheckTransaction(transaction);
+
             this.Transaction = transaction;
             this.Table = transaction.Provider.Metadata.Tables.Single(x => x.DbName == tableName);
             this.Alias = alias;
+        }
+
+        private void CheckTransaction(Transaction transaction)
+        {
+            if (transaction.Type != TransactionType.NoTransaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
+                throw new Exception("Can't open a new connection on a committed or rolled back transaction");
         }
 
         public IEnumerable<T> Select()

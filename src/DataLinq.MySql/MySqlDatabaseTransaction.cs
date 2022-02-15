@@ -19,10 +19,13 @@ namespace DataLinq.MySql
         {
             get
             {
-                if (dbConnection == null || dbTransaction == null || !IsTransactionPending)
+                if (Status == DatabaseTransactionStatus.Committed || Status == DatabaseTransactionStatus.RolledBack)
+                    throw new Exception("Can't open a new connection on a committed or rolled back transaction");
+
+                if (Status == DatabaseTransactionStatus.Closed) //dbConnection == null || dbTransaction == null || !IsTransactionPending)
                 {
                     Status = DatabaseTransactionStatus.Open;
-                    IsTransactionPending = true;
+                    //IsTransactionPending = true;
                     dbConnection = new MySqlConnection(ConnectionString);
                     dbConnection.Open();
                     dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
@@ -98,35 +101,34 @@ namespace DataLinq.MySql
 
         public override void Commit()
         {
-            if (IsTransactionPending)
+            if (Status == DatabaseTransactionStatus.Open)
             {
                 dbTransaction.Commit();
-                IsTransactionPending = false;
-                Status = DatabaseTransactionStatus.Committed;
             }
+
+            Status = DatabaseTransactionStatus.Committed;
 
             Dispose();
         }
 
         public override void Rollback()
         {
-            if (IsTransactionPending)
+            if (Status == DatabaseTransactionStatus.Open)
             {
-                IsTransactionPending = false;
-                Status = DatabaseTransactionStatus.RolledBack;
                 dbTransaction?.Rollback();
             }
+
+            Status = DatabaseTransactionStatus.RolledBack;
 
             Dispose();
         }
 
         private void Close()
         {
-            if (IsTransactionPending)
+            if (Status == DatabaseTransactionStatus.Open)
             {
-                IsTransactionPending = false;
-                Status = DatabaseTransactionStatus.RolledBack;
                 dbTransaction?.Rollback();
+                Status = DatabaseTransactionStatus.RolledBack;
             }
 
             dbConnection?.Close();

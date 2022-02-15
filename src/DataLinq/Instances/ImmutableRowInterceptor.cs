@@ -20,10 +20,7 @@ namespace DataLinq.Instances
 
             if (info.CallType == CallType.Set)
                 throw new Exception("Call to setter not allowed on an immutable type");
-
-            if (info.MethodType != MethodType.Property)
-                throw new NotImplementedException();
-
+            
             if (info.Name == "IsNewModel")
             {
                 invocation.ReturnValue = false;
@@ -36,18 +33,24 @@ namespace DataLinq.Instances
                 return;
             }
 
-            var name = info.Name;
-            var property = Properties.Single(x => x.CsName == name);
+            if (info.MethodType == MethodType.Property)
+            {
+                var name = info.Name;
+                var property = Properties.Single(x => x.CsName == name);
 
-            if (property.Type == PropertyType.Value)
-            {
-                invocation.ReturnValue = RowData.GetValue(property.Column.DbName);
+                if (property.Type == PropertyType.Value)
+                {
+                    invocation.ReturnValue = RowData.GetValue(property.Column.DbName);
+                }
+                else
+                {
+                    invocation.ReturnValue = GetRelation(info);
+                }
+
+                return;
             }
-            else
-            {
-                invocation.ReturnValue = GetRelation(info);
-            }
+            
+            throw new NotImplementedException($"No handler for '{info.Name}' implemented");
         }
-        
     }
 }

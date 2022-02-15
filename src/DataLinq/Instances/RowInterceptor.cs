@@ -1,7 +1,6 @@
 ﻿using Castle.DynamicProxy;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,6 +34,10 @@ namespace DataLinq.Instances
 
             //if (!RelationCache.TryGetValue(info.Name, out object returnvalue))
             //{
+
+            if (Transaction.Type != TransactionType.NoTransaction && (Transaction.Status == DatabaseTransactionStatus.Committed || Transaction.Status == DatabaseTransactionStatus.RolledBack))
+                Transaction = Transaction.Provider.StartTransaction(TransactionType.NoTransaction);
+
             object returnvalue;
             var column = property.Column;
             var result = Transaction.Provider.GetTableCache(column.Table).GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
@@ -57,65 +60,6 @@ namespace DataLinq.Instances
             //}
 
             return returnvalue;
-
         }
-    }
-
-    internal struct InvocationInfo
-    {
-        internal CallType CallType { get; }
-        internal MethodType MethodType { get; }
-        internal string Name { get; }
-        internal object Value { get; }
-
-        internal InvocationInfo(IInvocation invocation)
-        {
-            var name = invocation.Method.Name;
-
-            if (name.StartsWith("set_", StringComparison.Ordinal))
-                this.CallType = CallType.Set;
-            else if (name.StartsWith("get_", StringComparison.Ordinal))
-                this.CallType = CallType.Get;
-            //else if (name == "GetChanges")
-            //    this.CallType = CallType.Get;
-            else
-                throw new NotImplementedException();
-
-            //if (this.CallType == CallType.Get && name == "GetChanges")
-            //{
-            //    this.MethodType = MethodType.Property;
-            //    this.Property = name;
-            //}
-            if ((this.CallType == CallType.Get && invocation.Arguments.Length == 1) || (this.CallType == CallType.Set && invocation.Arguments.Length == 2))
-            {
-                this.MethodType = MethodType.Indexer;
-                this.Name = invocation.Arguments[0] as string;
-            }
-            else
-            {
-                this.MethodType = MethodType.Property;
-                this.Name = name.Substring(4);
-            }
-
-            if (this.CallType == CallType.Set && this.MethodType == MethodType.Property)
-                this.Value = invocation.Arguments[0];
-            else if (this.CallType == CallType.Set && this.MethodType == MethodType.Indexer)
-                this.Value = invocation.Arguments[1];
-            else
-                this.Value = null;
-        }
-    }
-
-    internal enum CallType
-    {
-        Get,
-        Set
-    }
-
-    internal enum MethodType
-    {
-        Property,
-        Indexer,
-        Changes
     }
 }

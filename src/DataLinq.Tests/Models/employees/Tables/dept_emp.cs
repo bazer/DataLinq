@@ -7,7 +7,7 @@ using DataLinq.Attributes;
 namespace DataLinq.Tests.Models
 {
     [Name("dept_emp")]
-    public partial class dept_emp : ITableModel
+    public partial record dept_emp : ITableModel
     {
         [PrimaryKey]
         [ForeignKey("departments", "dept_no", "dept_emp_ibfk_2")]

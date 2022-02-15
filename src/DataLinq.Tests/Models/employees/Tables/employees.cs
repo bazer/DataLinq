@@ -7,7 +7,7 @@ using DataLinq.Attributes;
 namespace DataLinq.Tests.Models
 {
     [Name("employees")]
-    public partial class employees : ITableModel
+    public partial record employees : ITableModel
     {
         [PrimaryKey]
         [AutoIncrement]
