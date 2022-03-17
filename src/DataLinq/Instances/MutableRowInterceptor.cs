@@ -27,6 +27,12 @@ namespace DataLinq.Instances
                 return;
             }
 
+            if (info.Name == "GetChanges")
+            {
+                invocation.ReturnValue = MutableRowData.GetChanges();
+                return;
+            }
+
             var property = Properties.Single(x => x.CsName == info.Name);
 
             if (info.CallType == CallType.Set && info.MethodType == MethodType.Property)

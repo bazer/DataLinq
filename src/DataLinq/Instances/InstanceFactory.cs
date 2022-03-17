@@ -2,6 +2,7 @@
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using System;
+using System.Collections.Generic;
 
 namespace DataLinq.Instances
 {
@@ -17,6 +18,7 @@ namespace DataLinq.Instances
 
     public interface MutableInstanceBase : InstanceBase
     {
+        IEnumerable<KeyValuePair<string, object>> GetChanges();
     }
 
     public static class InstanceFactory

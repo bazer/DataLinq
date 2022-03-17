@@ -27,7 +27,7 @@ namespace DataLinq.Mutation
                 throw new ArgumentNullException(nameof(model));
 
             if (table == null)
-                throw new ArgumentNullException(nameof(table)); 
+                throw new ArgumentNullException(nameof(table));
 
             Model = model;
             Table = table;
@@ -73,8 +73,8 @@ namespace DataLinq.Mutation
                 foreach (var key in Table.PrimaryKeyColumns)
                     query.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(Model));
 
-                foreach (var column in Table.Columns)
-                    query.Set(column.DbName, column.ValueProperty.GetValue(Model));
+                foreach (var change in (Model as MutableInstanceBase).GetChanges())
+                    query.Set(change.Key, change.Value);
 
                 return query.UpdateQuery();
             }

@@ -19,7 +19,7 @@ namespace DataLinq.Instances
             var info = new InvocationInfo(invocation);
 
             if (info.CallType == CallType.Set)
-                throw new Exception("Call to setter not allowed on an immutable type");
+                throw new Exception("Call to setter not allowed on an immutable type. Call Mutate() to get mutable object.");
             
             if (info.Name == "IsNewModel")
             {

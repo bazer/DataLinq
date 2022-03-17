@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 namespace DataLinq.Instances
 {
     public class MutableRowData
     {
         RowData ImmutableRowData { get; }
-        public Dictionary<string, object> MutatedData { get; } = new Dictionary<string, object>();
+        Dictionary<string, object> MutatedData { get; } = new Dictionary<string, object>();
 
         public MutableRowData(RowData immutableRowData)
         {
@@ -28,6 +29,12 @@ namespace DataLinq.Instances
         public void SetValue(string columnDbName, object value)
         {
             MutatedData[columnDbName] = value;
+        }
+
+        public IEnumerable<KeyValuePair<string, object>> GetChanges()
+        {
+            foreach (var change in MutatedData)
+                yield return change;
         }
     }
 }

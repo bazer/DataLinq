@@ -70,6 +70,9 @@ namespace DataLinq.Mutation
             if (model == null)
                 throw new ArgumentException("Model argument has null value");
 
+            if (model.IsNewModel())
+                throw new ArgumentException("Model is a new row, unable to update");
+
             AddAndExecute(model, TransactionChangeType.Update);
 
             return GetModelFromCache(model);

@@ -96,9 +96,10 @@ namespace DataLinq.Tests
             var employee = helpers.NewEmployee();
             Assert.False(employee.HasPrimaryKeysSet());
 
+            employees dbEmployee;
             using (var transaction = fixture.employeesDb.Transaction())
             {
-                transaction.Insert(employee);
+                dbEmployee = transaction.Insert(employee).Mutate();
                 Assert.NotNull(employee.emp_no);
                 Assert.True(employee.HasPrimaryKeysSet());
 
@@ -106,21 +107,21 @@ namespace DataLinq.Tests
             }
 
             Assert.True(employee.HasPrimaryKeysSet());
-            employee.birth_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            dbEmployee.birth_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
 
 
             using (var transaction = fixture.employeesDb.Transaction())
             {
-                transaction.Update(employee);
-                Assert.True(employee.HasPrimaryKeysSet());
+                transaction.Update(dbEmployee);
+                Assert.True(dbEmployee.HasPrimaryKeysSet());
                 transaction.Commit();
             }
 
-            var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == employee.emp_no);
-            Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
-            Assert.True(dbEmployee.HasPrimaryKeysSet());
+            var dbEmployee2 = fixture.employeesDb.Query().employees.Single(x => x.emp_no == employee.emp_no);
+            Assert.Equal(dbEmployee.birth_date, dbEmployee2.birth_date);
+            Assert.True(dbEmployee2.HasPrimaryKeysSet());
 
-            fixture.employeesDb.Delete(dbEmployee);
+            fixture.employeesDb.Delete(dbEmployee2);
             Assert.False(fixture.employeesDb.Query().employees.Any(x => x.emp_no == employee.emp_no));
         }
 
@@ -456,6 +457,24 @@ namespace DataLinq.Tests
             Assert.Single(employee.salaries);
             fixture.employeesDb.Delete(employee.salaries.First());
             Assert.Empty(employee.salaries);
+        }
+
+        [Fact]
+        public void UpdateOldModel()
+        {
+            var emp_no = 999796;
+            var employee = helpers.GetEmployee(emp_no);
+
+            var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var dbEmployee = fixture.employeesDb.InsertOrUpdate(employee, x => { x.birth_date = newBirthDate; });
+            Assert.Equal(emp_no, dbEmployee.emp_no);
+            Assert.Equal(newBirthDate, dbEmployee.birth_date);
+
+            var newHireDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
+            var dbEmployee2 = fixture.employeesDb.InsertOrUpdate(employee, x => { x.hire_date = newHireDate; });
+            Assert.Equal(emp_no, dbEmployee2.emp_no);
+            Assert.Equal(newBirthDate, dbEmployee2.birth_date);
+            Assert.Equal(newHireDate, dbEmployee2.hire_date);
         }
 
         //[Fact]
