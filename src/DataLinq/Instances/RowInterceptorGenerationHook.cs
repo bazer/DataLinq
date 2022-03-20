@@ -1,6 +1,5 @@
 ﻿using Castle.DynamicProxy;
 using System;
-using System.Linq;
 using System.Reflection;
 
 namespace DataLinq.Instances
@@ -20,8 +19,16 @@ namespace DataLinq.Instances
         public bool ShouldInterceptMethod(Type type, MethodInfo methodInfo)
         {
             return Array.IndexOf(methodsNotToIntercept, methodInfo.Name) == -1;
-            //return methodsNotToIntercept.Contains(methodInfo.Name);
-            //return methodInfo.Name != "Equals" && methodInfo.Name != "get_EqualityContract";
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return base.Equals(obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
         }
     }
 }
