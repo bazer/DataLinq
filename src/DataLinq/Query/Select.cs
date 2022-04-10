@@ -68,31 +68,34 @@ namespace DataLinq.Query
                 .Select(x => new PrimaryKeys(x, query.Table));
         }
 
-        public IEnumerable<T> Execute()
-        {
-            if (query.Table.PrimaryKeyColumns.Count != 0)
-            {
-                query.What(query.Table.PrimaryKeyColumns);
+        //public IEnumerable<T> Execute()
+        //{
+        //    if (query.Table.PrimaryKeyColumns.Count != 0)
+        //    {
+        //        query.What(query.Table.PrimaryKeyColumns);
 
-                var keys = this
-                    .ReadKeys()
-                    .ToArray();
+        //        var keys = this
+        //            .ReadKeys()
+        //            .ToArray();
 
-                foreach (var row in query.Transaction.Provider.GetTableCache(query.Table).GetRows(keys, query.Transaction))
-                    yield return (T)row;
-            }
-            else
-            {
-                var rows = this
-                    .ReadRows()
-                    .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction));
+        //        foreach (var row in query.Transaction.Provider.GetTableCache(query.Table).GetRows(keys, query.Transaction))
+        //            yield return (T)row;
+        //    }
+        //    else
+        //    {
+        //        var rows = this
+        //            .ReadRows()
+        //            .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction));
 
-                foreach (var row in rows)
-                    yield return (T)row;
-            }
-        }
+        //        foreach (var row in rows)
+        //            yield return (T)row;
+        //    }
+        //}
 
-        public IEnumerable<V> Execute<V>()
+        public IEnumerable<V> ExecuteAs<V>() =>
+            Execute().Select(x => (V)x);
+
+        public IEnumerable<object> Execute()
         {
             if (query.Table.PrimaryKeyColumns.Count != 0)
             {
@@ -103,7 +106,7 @@ namespace DataLinq.Query
                     .ToArray();
 
                 foreach (var row in query.Transaction.Provider.GetTableCache(query.Table).GetRows(keys, query.Transaction, orderings: query.OrderByList))
-                    yield return (V)row;
+                    yield return row;
             }
             else
             {
@@ -112,7 +115,7 @@ namespace DataLinq.Query
                     .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction));
 
                 foreach (var row in rows)
-                    yield return (V)row;
+                    yield return row;
             }
         }
     }

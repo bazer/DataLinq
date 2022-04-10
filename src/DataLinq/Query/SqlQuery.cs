@@ -106,7 +106,7 @@ namespace DataLinq.Query
 
         public IEnumerable<T> Select()
         {
-            return new Select<T>(this).Execute();
+            return new Select<T>(this).ExecuteAs<T>();
         }
 
         public QueryResult Delete()

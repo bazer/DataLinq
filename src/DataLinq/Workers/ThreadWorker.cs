@@ -141,7 +141,7 @@ namespace DataLinq.Workers
         public TimeSpan WaitTime { get; private set; }
         protected IDatabaseProvider DatabaseProvider { get; }
 
-        public CleanCacheWorker(IDatabaseProvider database, IThreadCreator threadCreator, TimeSpan waitTime): base(threadCreator)
+        public CleanCacheWorker(IDatabaseProvider database, IThreadCreator threadCreator, TimeSpan waitTime) : base(threadCreator)
         {
             this.DatabaseProvider = database;
             this.WaitTime = waitTime;
@@ -151,7 +151,7 @@ namespace DataLinq.Workers
 
         protected override void DoWork(int value)
         {
-            var rows = DatabaseProvider.State.Cache.RemoveRowsBySettings();
+            var rows = DatabaseProvider.State?.Cache.RemoveRowsBySettings();
             //TODO: Logging
 
             if (WorkQueue.Count == 0)

@@ -7,6 +7,8 @@ using DataLinq.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace DataLinq.Linq
 {
@@ -56,16 +58,50 @@ namespace DataLinq.Linq
             return query.SelectQuery();
         }
 
+        private Func<object, T> GetSelectFunc<T>(SelectClause selectClause)
+        {
+            if (selectClause != null && selectClause.Selector.NodeType == ExpressionType.MemberAccess)
+            {
+                var memberExpression = selectClause.Selector as MemberExpression;
+                var prop = memberExpression.Member as PropertyInfo;
+
+                return x => (T)prop.GetValue(x);
+            }
+            else if (selectClause?.Selector.NodeType == ExpressionType.New)
+            {
+                var memberExpression = selectClause.Selector as NewExpression;
+                var memberType = (memberExpression.Arguments[0] as MemberExpression).Expression.Type;
+                var param = Expression.Parameter(typeof(object));
+                var convert = Expression.Convert(param, memberType);
+
+                var arguments = memberExpression.Arguments.Select(x =>
+                {
+                    var memberExp = x as MemberExpression;
+                   
+                    return Expression.MakeMemberAccess(convert, memberExp.Member);
+                });
+
+                var newExpression = Expression.New(memberExpression.Constructor, arguments, memberExpression.Members);
+                var lambda = Expression.Lambda<Func<object, T>>(newExpression, param);
+
+                return lambda.Compile();
+            }
+
+            return x => (T)x;
+        }
+
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
         {
             return ParseQueryModel(queryModel)
-                .Execute<T>();
+                .Execute()
+                .Select(GetSelectFunc<T>(queryModel.SelectClause));
         }
 
-        public T ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
+        public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
         {
             var sequence = ParseQueryModel(queryModel)
-                .Execute<T>();
+                .Execute()
+                .Select(GetSelectFunc<T>(queryModel.SelectClause));
 
             if (queryModel.ResultOperators.Any())
             {

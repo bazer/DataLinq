@@ -133,9 +133,24 @@ namespace DataLinq.Tests
         }
 
         [Fact]
+        public void LastOrDefaultOrderBy()
+        {
+            var dept = fixture.employeesDb.Query().departments.OrderByDescending(x => x.dept_name).LastOrDefault(x => x.dept_no != "d009");
+            Assert.NotNull(dept);
+            Assert.Equal("d005", dept.dept_no);
+        }
+
+        [Fact]
         public void FirstOrDefaultNull()
         {
             var salary = fixture.employeesDb.Query().salaries.FirstOrDefault(x => x.salary < 10000);
+            Assert.Null(salary);
+        }
+
+        [Fact]
+        public void LastOrDefaultNull()
+        {
+            var salary = fixture.employeesDb.Query().salaries.LastOrDefault(x => x.salary < 10000);
             Assert.Null(salary);
         }
 
@@ -152,8 +167,45 @@ namespace DataLinq.Tests
         public void OrderBy()
         {
             var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no);
+            Assert.Equal("d001", deptByDeptNo.First().dept_no);
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault().dept_no);
             Assert.Equal("d009", deptByDeptNo.Last().dept_no);
+            Assert.Equal("d009", deptByDeptNo.LastOrDefault().dept_no);
         }
+
+        [Fact]
+        public void OrderBySelect()
+        {
+            var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no).Select(x => x.dept_no);
+            Assert.Equal("d001", deptByDeptNo.First());
+            Assert.Equal("d001", deptByDeptNo.FirstOrDefault());
+            Assert.Equal("d009", deptByDeptNo.Last());
+            Assert.Equal("d009", deptByDeptNo.LastOrDefault());
+        }
+
+        [Fact]
+        public void OrderBySelectAnonymous()
+        {
+            var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no).Select(x => new
+            {
+                no = x.dept_no,
+                name = x.dept_name
+            });
+            Assert.Equal("d001", deptByDeptNo.First().no);
+            Assert.Equal("d001", deptByDeptNo.FirstOrDefault().no);
+            Assert.Equal("d009", deptByDeptNo.Last().no);
+            Assert.Equal("d009", deptByDeptNo.LastOrDefault().no);
+        }
+
+        //[Fact]
+        //public void Any()
+        //{
+        //    fixture.employeesDb.Query().departments.Select(x => x.dept_no)
+
+        //    Assert.True();
+        //    Assert.True(fixture.employeesDb.Query().departments.Where(x => x.dept_no == "d005").Any());
+        //    Assert.False(fixture.employeesDb.Query().departments.Any(x => x.dept_no == "not_existing"));
+        //    Assert.False(fixture.employeesDb.Query().departments.Where(x => x.dept_no == "not_existing").Any());
+        //}
     }
 }

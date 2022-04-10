@@ -40,7 +40,9 @@ namespace DataLinq.Instances
 
             object returnvalue;
             var column = property.Column;
-            var result = Transaction.Provider.GetTableCache(column.Table).GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
+            var result = Transaction.Provider
+                .GetTableCache(column.Table)
+                .GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
 
             if (property.RelationPart.Type == RelationPartType.ForeignKey)
             {
