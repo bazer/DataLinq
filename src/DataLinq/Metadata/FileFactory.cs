@@ -85,7 +85,11 @@ namespace DataLinq.Metadata
                 if (c.Nullable)
                     yield return $"{tab}{tab}[Nullable]";
 
-                if (c.Length.HasValue)
+                if(c.Unsigned && c.Length.HasValue)
+                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length}, true)]";
+                else if(c.Unsigned && !c.Length.HasValue)
+                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", true)]";
+                else if (c.Length.HasValue)
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length})]";
                 else
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";

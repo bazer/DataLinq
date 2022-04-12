@@ -5,6 +5,7 @@ using DataLinq.Query;
 using System;
 using System.Data;
 using Microsoft.Data.Sqlite;
+using DataLinq.Metadata;
 
 namespace DataLinq.SQLite
 {
@@ -27,17 +28,14 @@ namespace DataLinq.SQLite
                 return new SQLiteDatabaseTransaction(ConnectionString, type);
         }
 
-        public override string GetLastIdQuery()
-        {
-            return "SELECT last_insert_rowid()";
-        }
+        public override string GetLastIdQuery() => "SELECT last_insert_rowid()";
 
         public override Sql GetParameterValue(Sql sql, string key)
         {
             return sql.AddFormat("@{0}", key);
         }
 
-        public override Sql GetParameterComparison(Sql sql, string field, Relation relation, string key)
+        public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key)
         {
             return sql.AddFormat("{0} {1} @{2}", field, relation.ToSql(), key);
         }
@@ -46,6 +44,8 @@ namespace DataLinq.SQLite
         {
             return sql.AddParameters(new SqliteParameter("@" + key, value ?? DBNull.Value));
         }
+
+        public override Sql GetCreateSql() => SqlFromMetadataFactory.GenerateSql(Metadata, true);
 
         public override IDbCommand ToDbCommand(IQuery query)
         {

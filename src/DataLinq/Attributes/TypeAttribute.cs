@@ -16,7 +16,21 @@ namespace DataLinq.Attributes
             Length = length;
         }
 
+        public TypeAttribute(string name, bool unsigned)
+        {
+            Name = name;
+            Unsigned = unsigned;
+        }
+
+        public TypeAttribute(string name, long length, bool unsigned)
+        {
+            Name = name;
+            Length = length;
+            Unsigned = unsigned;
+        }
+
         public long? Length { get; }
         public string Name { get; }
+        public bool Unsigned { get; }
     }
 }

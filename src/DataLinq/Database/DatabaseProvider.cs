@@ -108,6 +108,8 @@ namespace DataLinq
 
         public abstract Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key);
 
+        public abstract Sql GetCreateSql();
+
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
 
         public void Dispose()

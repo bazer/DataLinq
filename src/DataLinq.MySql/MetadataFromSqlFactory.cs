@@ -95,6 +95,7 @@ namespace DataLinq.MySql
             column.Length = dbColumns.CHARACTER_MAXIMUM_LENGTH;
             column.PrimaryKey = dbColumns.COLUMN_KEY == "PRI";
             column.AutoIncrement = dbColumns.EXTRA.Contains("auto_increment");
+            column.Unsigned = dbColumns.COLUMN_TYPE.Contains("unsigned");
 
             var property = new Property();
             property.CsTypeName = ParseCsType(column.DbType);
