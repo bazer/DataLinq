@@ -17,13 +17,14 @@ namespace DataLinq.SQLite
             var command = connection.CreateCommand();
             // https://sqlite.org/pragma.html
             command.CommandText = @"SELECT m.name AS tableName, 
-                                           p.*,
-                                           i.*
+                                           t.*,
+                                           i.*,
+                                           m.type
                                     FROM sqlite_master m
-                                    LEFT OUTER JOIN pragma_table_info(m.name) p
+                                    LEFT OUTER JOIN pragma_table_info(m.name) t
                                     LEFT OUTER JOIN pragma_index_info(m.name) i
-                                         ON m.name <> p.name
-                                    ORDER BY tableName, p.cid, p.name;";
+                                         ON m.name <> t.name
+                                    ORDER BY tableName, t.cid, t.name;";
 
 
             using (var reader = command.ExecuteReader())
@@ -36,7 +37,10 @@ namespace DataLinq.SQLite
                     {
                         table.Database = database;
                         table.DbName = reader.GetString(0);
-                        table.Type = TableType.Table; // TODO: Views
+                        if (table.DbName.StartsWith("sqlite_autoindex_"))
+                            continue;
+
+                        table.Type = reader.GetString(10) == "table" ? TableType.Table : TableType.View;
                         table.Model = new ModelMetadata
                         {
                             CsTypeName = table.DbName,
@@ -52,9 +56,11 @@ namespace DataLinq.SQLite
                     var column = new Column()
                     {
                         DbName=reader.GetString(2),
-                        DbType=reader.GetString(3),
+                        DbType=reader.GetString(3).ToLower(),
+                        Table = table,
                         Nullable=reader.GetBoolean(4)==false,
                         PrimaryKey=reader.GetBoolean(6),
+
                         /*
                          In SQLite, a column with type INTEGER PRIMARY KEY is an alias for the ROWID (except in WITHOUT ROWID tables) which is always a 64-bit signed integer.
                          On an INSERT, if the ROWID or INTEGER PRIMARY KEY column is not explicitly given a value, then it will be filled automatically with an unused integer, usually one more than the largest ROWID currently in use. 
@@ -76,26 +82,32 @@ namespace DataLinq.SQLite
                 }
             }
 
-            //foreach (var key in information_Schema
-            //    .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == dbName && x.REFERENCED_COLUMN_NAME != null))
-            //{
-            //    var relation = new Relation
-            //    {
-            //        Constraint = key.CONSTRAINT_NAME,
-            //        Type = RelationType.OneToMany
-            //    };
-            //
-            //    var foreignKeyColumn = database
-            //        .Tables.Single(x => x.DbName == key.TABLE_NAME)
-            //        .Columns.Single(x => x.DbName == key.COLUMN_NAME);
-            //
-            //    var candidateKeyColumn = database
-            //        .Tables.Single(x => x.DbName == key.REFERENCED_TABLE_NAME)
-            //        .Columns.Single(x => x.DbName == key.REFERENCED_COLUMN_NAME);
-            //
-            //    relation.ForeignKey = CreateRelationPart(relation, foreignKeyColumn, RelationPartType.ForeignKey);
-            //    relation.CandidateKey = CreateRelationPart(relation, candidateKeyColumn, RelationPartType.CandidateKey);
-            //}
+            // https://sqlite.org/foreignkeys.html
+            foreach (var table in database.Tables)
+            {
+                command = connection.CreateCommand();
+                command.CommandText = $"SELECT `id`, `table`, `from`, `to` FROM pragma_foreign_key_list('{table.DbName}')";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var relation = new Relation
+                    {
+                        Constraint = reader.GetString(0),
+                        Type = RelationType.OneToMany
+                    };
+
+                    var foreignKeyColumn = database
+                        .Tables.Single(x => x.DbName == table.DbName)
+                        .Columns.Single(x => x.DbName == reader.GetString(2));
+
+                    var candidateKeyColumn = database
+                        .Tables.Single(x => x.DbName == reader.GetString(1))
+                        .Columns.Single(x => x.DbName == reader.GetString(3));
+
+                    relation.ForeignKey = CreateRelationPart(relation, foreignKeyColumn, RelationPartType.ForeignKey);
+                    relation.CandidateKey = CreateRelationPart(relation, candidateKeyColumn, RelationPartType.CandidateKey);
+                }
+            }
 
             database.Relations = database
                 .Tables.SelectMany(x => x.Columns.SelectMany(y => y.RelationParts.Select(z => z.Relation)))
