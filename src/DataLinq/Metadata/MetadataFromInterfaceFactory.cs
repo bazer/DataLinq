@@ -198,7 +198,7 @@ namespace DataLinq.Metadata
                 {
                     column.DbType = t.Name;
                     column.Length = t.Length;
-                    column.Unsigned = t.Unsigned;
+                    column.Signed = t.Signed;
                 }
             }
 

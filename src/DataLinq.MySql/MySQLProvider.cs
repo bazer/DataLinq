@@ -56,6 +56,6 @@ namespace DataLinq.MySql
             return command;
         }
 
-        public override Sql GetCreateSql() => SqlFromMetadataFactory.GenerateSql(Metadata, true);
+        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GenerateSql(Metadata, true);
     }
 }

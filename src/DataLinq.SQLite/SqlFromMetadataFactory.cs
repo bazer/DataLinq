@@ -1,29 +1,36 @@
 using DataLinq.Metadata;
 using DataLinq.Query;
+using Microsoft.Data.Sqlite;
+using System.IO;
 using System.Linq;
 
 namespace DataLinq.SQLite
 {
-    public static class SqlFromMetadataFactory
+    public class SqlFromMetadataFactory : ISqlFromMetadataFactory, IDatabaseCreator
     {
-        public static Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict)
+        public static void Register()
+        {
+            DatabaseFactory.SqlGenerators[DatabaseFactory.DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            DatabaseFactory.DbCreators[DatabaseFactory.DatabaseType.SQLite] = new SqlFromMetadataFactory();
+        }
+
+        public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
             var sql = new SqlGeneration(2, '"', "/* Generated %datetime% by DataLinq */\r\n\r\n");
-            foreach(var table in metadata.Tables)
+            foreach(var table in sql.SortTablesByForeignKeys(metadata.Tables))
             {
                 sql.CreateTable(table.DbName, x =>
                 {
                     var longestName = table.Columns.Max(x => x.DbName.Length)+1;
-                    foreach (var column in table.Columns.OrderBy(x => x.ColumnId))
+                    foreach (var column in table.Columns.OrderBy(x => x.Index))
                     {
                         sql.NewRow().Indent()
                             .ColumnName(column.DbName)
                             .Type(column.DbType.ToUpper(), column.DbName, longestName)
-                            .Nullable(column.Nullable)
-                            .Autoincrement(column.AutoIncrement);
+                            .Add((column.PrimaryKey ? " PRIMARY KEY" : "") + (column.AutoIncrement ? " AUTOINCREMENT" : ""));
+                        if(!column.PrimaryKey)
+                            sql.Nullable(column.Nullable);
                     }
-                    foreach (var primaryKey in table.PrimaryKeyColumns)
-                        sql.PrimaryKey(primaryKey.DbName);
                     // TODO: Index
                     foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
                         foreach (var relation in foreignKey.RelationParts)
@@ -31,6 +38,21 @@ namespace DataLinq.SQLite
                 });
             }
             return sql.sql;
+        }
+
+        public bool CreateDatabase(Sql sql, string databaseFile, string connectionString, bool foreignKeyRestrict)
+        {
+            if (File.Exists(databaseFile))
+                return false;
+
+            File.WriteAllBytes(databaseFile, new byte[] { });
+
+            using var connection = new SqliteConnection($"Data Source={databaseFile}");
+            connection.Open();
+            var command = connection.CreateCommand();
+            command.CommandText = sql.Text;
+            var result = command.ExecuteNonQuery();
+            return true;
         }
 
     }

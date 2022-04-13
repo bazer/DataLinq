@@ -6,6 +6,7 @@ using System;
 using System.Data;
 using Microsoft.Data.Sqlite;
 using DataLinq.Metadata;
+using System.IO;
 
 namespace DataLinq.SQLite
 {
@@ -45,7 +46,7 @@ namespace DataLinq.SQLite
             return sql.AddParameters(new SqliteParameter("@" + key, value ?? DBNull.Value));
         }
 
-        public override Sql GetCreateSql() => SqlFromMetadataFactory.GenerateSql(Metadata, true);
+        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GenerateSql(Metadata, true);
 
         public override IDbCommand ToDbCommand(IQuery query)
         {

@@ -57,11 +57,11 @@ namespace DataLinq.SQLite
                     {
                         DbName=reader.GetString(2),
                         DbType=reader.GetString(3).ToLower(),
-                        ColumnId=reader.GetInt32(1),
+                        Index=reader.GetInt32(1),
                         Table = table,
                         Nullable=reader.GetBoolean(4)==false,
                         PrimaryKey=reader.GetBoolean(6),
-                        Unsigned = false,
+                        Signed = null,
                         /*
                          In SQLite, a column with type INTEGER PRIMARY KEY is an alias for the ROWID (except in WITHOUT ROWID tables) which is always a 64-bit signed integer.
                          On an INSERT, if the ROWID or INTEGER PRIMARY KEY column is not explicitly given a value, then it will be filled automatically with an unused integer, usually one more than the largest ROWID currently in use. 
