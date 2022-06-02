@@ -4,10 +4,10 @@ using System.Linq.Expressions;
 
 namespace DataLinq.Linq
 {
-    public static class Evaluator
+    internal static class Evaluator
     {
         /// <summary>
-        /// Performs evaluation & replacement of independent sub-trees
+        /// Performs evaluation and replacement of independent sub-trees
         /// </summary>
         /// <param name="expression">The root of the expression tree.</param>
         /// <param name="fnCanBeEvaluated">A function that decides whether a given expression node can be part of the local function.</param>
@@ -18,7 +18,7 @@ namespace DataLinq.Linq
         }
 
         /// <summary>
-        /// Performs evaluation & replacement of independent sub-trees
+        /// Performs evaluation and replacement of independent sub-trees
         /// </summary>
         /// <param name="expression">The root of the expression tree.</param>
         /// <returns>A new tree with sub-trees evaluated and replaced.</returns>
@@ -33,7 +33,7 @@ namespace DataLinq.Linq
         }
 
         /// <summary>
-        /// Evaluates & replaces sub-trees when first candidate is reached (top-down)
+        /// Evaluates and replaces sub-trees when first candidate is reached (top-down)
         /// </summary>
         private class SubtreeEvaluator : ExpressionVisitor
         {
@@ -44,12 +44,12 @@ namespace DataLinq.Linq
                 this.candidates = candidates;
             }
 
-            internal Expression Eval(Expression exp)
+            internal Expression? Eval(Expression exp)
             {
                 return this.Visit(exp);
             }
 
-            public override Expression Visit(Expression node)
+            public override Expression? Visit(Expression? node)
             {
                 if (node == null)
                 {
@@ -81,7 +81,7 @@ namespace DataLinq.Linq
         private class Nominator : ExpressionVisitor
         {
             private readonly Func<Expression, bool> fnCanBeEvaluated;
-            private HashSet<Expression> candidates;
+            private HashSet<Expression> candidates = new HashSet<Expression>();
             private bool cannotBeEvaluated;
 
             internal Nominator(Func<Expression, bool> fnCanBeEvaluated)
@@ -91,12 +91,12 @@ namespace DataLinq.Linq
 
             internal HashSet<Expression> Nominate(Expression expression)
             {
-                this.candidates = new HashSet<Expression>();
+                //this.candidates = new HashSet<Expression>();
                 this.Visit(expression);
                 return this.candidates;
             }
 
-            public override Expression Visit(Expression node)
+            public override Expression? Visit(Expression? node)
             {
                 if (node != null)
                 {

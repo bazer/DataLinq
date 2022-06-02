@@ -6,12 +6,13 @@ using DataLinq.Attributes;
 
 namespace DataLinq.Tests.Models
 {
-    [Name("employees")]
+    [Table("employees")]
     public partial record employees : ITableModel
     {
         [PrimaryKey]
         [AutoIncrement]
         [Type("int")]
+        [Column("emp_no")]
         public virtual int? emp_no { get; set; }
 
         [Relation("dept_emp", "emp_no")]
@@ -27,18 +28,23 @@ namespace DataLinq.Tests.Models
         public virtual IEnumerable<titles> titles { get; }
 
         [Type("date")]
+        [Column("birth_date")]
         public virtual DateOnly birth_date { get; set; }
 
         [Type("varchar", 14)]
+        [Column("first_name")]
         public virtual string first_name { get; set; }
 
         [Type("enum", 1)]
+        [Column("gender")]
         public virtual int gender { get; set; }
 
         [Type("date")]
+        [Column("hire_date")]
         public virtual DateOnly hire_date { get; set; }
 
         [Type("varchar", 16)]
+        [Column("last_name")]
         public virtual string last_name { get; set; }
 
     }

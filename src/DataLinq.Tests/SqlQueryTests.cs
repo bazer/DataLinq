@@ -21,12 +21,12 @@ namespace DataLinq.Tests
         public void SimpleWhere()
         {
             var departement = fixture.employeesDb
-                .From<departments>()
+                .From<Department>()
                 .Where("dept_no").EqualTo("d005")
                 .Select();
 
             Assert.Single(departement);
-            Assert.Equal("d005", departement.Single().dept_no);
+            Assert.Equal("d005", departement.Single().DeptNo);
         }
 
         //[Fact]

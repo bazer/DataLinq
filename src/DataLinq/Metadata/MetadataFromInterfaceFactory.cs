@@ -15,8 +15,8 @@ namespace DataLinq.Metadata
 
             foreach (var attribute in type.GetCustomAttributes(false))
             {
-                if (attribute is NameAttribute nameAttribute)
-                    database.Name = nameAttribute.Name;
+                if (attribute is DatabaseAttribute databaseAttribute)
+                    database.Name = databaseAttribute.Name;
 
                 if (attribute is UseCacheAttribute useCache)
                     database.UseCache = useCache.UseCache;
@@ -28,7 +28,7 @@ namespace DataLinq.Metadata
             database.Models = type
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Select(GetTableType)
-                .Select(x => ParseModel(database, x))
+                .Select(x => ParseModel(database, x.type, x.csName))
                 .ToList();
 
             database.Tables = database
@@ -100,23 +100,24 @@ namespace DataLinq.Metadata
             return property;
         }
 
-        private static Type GetTableType(PropertyInfo property)
+        private static (string csName, Type type) GetTableType(PropertyInfo property)
         {
             var type = property.PropertyType;
 
             if (type.GetGenericTypeDefinition() == typeof(DbRead<>))
-                return type.GetGenericArguments()[0];
+                return (property.Name, type.GetGenericArguments()[0]);
             else
                 throw new NotImplementedException();
         }
 
-        private static ModelMetadata ParseModel(DatabaseMetadata database, Type type)
+        private static ModelMetadata ParseModel(DatabaseMetadata database, Type type, string csPropertyName)
         {
             var model = new ModelMetadata
             {
                 Database = database,
                 CsType = type,
                 CsTypeName = type.Name,
+                CsDatabasePropertyName = csPropertyName,
                 Attributes = type.GetCustomAttributes(false)
             };
 
@@ -143,8 +144,8 @@ namespace DataLinq.Metadata
 
             foreach (var attribute in model.Attributes)
             {
-                if (attribute is NameAttribute nameAttribute)
-                    table.DbName = nameAttribute.Name;
+                if (attribute is TableAttribute tableAttribute)
+                    table.DbName = tableAttribute.Name;
 
                 if (attribute is UseCacheAttribute useCache)
                     table.UseCache = useCache.UseCache;
@@ -179,8 +180,8 @@ namespace DataLinq.Metadata
 
             foreach (var attribute in property.Attributes)
             {
-                if (attribute is NameAttribute nameAttribute)
-                    column.DbName = nameAttribute.Name;
+                if (attribute is ColumnAttribute columnAttribute)
+                    column.DbName = columnAttribute.Name;
 
                 if (attribute is NullableAttribute)
                     column.Nullable = true;
@@ -191,7 +192,7 @@ namespace DataLinq.Metadata
                 if (attribute is PrimaryKeyAttribute)
                     column.PrimaryKey = true;
 
-                if (attribute is ForeignKeyAttribute foreignKeyAttribute)
+                if (attribute is ForeignKeyAttribute)
                     column.ForeignKey = true;
 
                 if (attribute is TypeAttribute t)

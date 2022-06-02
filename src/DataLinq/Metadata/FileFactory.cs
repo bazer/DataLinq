@@ -51,7 +51,7 @@ namespace DataLinq.Metadata
             if (settings.UseCache)
                 yield return $"{tab}[UseCache]";
 
-            yield return $"{tab}[Name(\"{database.Name}\")]";
+            yield return $"{tab}[Database(\"{database.Name}\")]";
             yield return $"{tab}public interface {dbName} : IDatabaseModel";
             yield return tab + "{";
 
@@ -65,7 +65,7 @@ namespace DataLinq.Metadata
 
         private static IEnumerable<string> ModelFileContents(TableMetadata table, FileFactorySettings settings)
         {
-            yield return $"{tab}[Name(\"{table.DbName}\")]";
+            yield return $"{tab}[Table(\"{table.DbName}\")]";
             yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
             yield return tab + "{";
 
@@ -94,6 +94,7 @@ namespace DataLinq.Metadata
                 else
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
 
+                yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
                 yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.DbName} {{ get; set; }}";
                 yield return $"";
 

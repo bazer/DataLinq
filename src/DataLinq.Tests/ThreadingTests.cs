@@ -85,12 +85,12 @@ namespace DataLinq.Tests
         {
             Parallel.For(0, 100, i =>
             {
-                var department = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d005");
+                var department = fixture.employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
 
-                Assert.NotNull(department.dept_manager);
-                Assert.NotEmpty(department.dept_manager);
-                Assert.Equal(2, department.dept_manager.Count());
-                Assert.Equal("d005", department.dept_manager.First().departments.dept_no);
+                Assert.NotNull(department.Managers);
+                Assert.NotEmpty(department.Managers);
+                Assert.Equal(2, department.Managers.Count());
+                Assert.Equal("d005", department.Managers.First().departments.DeptNo);
             });
         }
     }

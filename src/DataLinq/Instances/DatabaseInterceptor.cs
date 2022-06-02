@@ -26,7 +26,10 @@ namespace DataLinq.Instances
                 var dbReadType = typeof(DbRead<>).MakeGenericType(table.Model.CsType);
                 var dbRead = Activator.CreateInstance(dbReadType, transaction);
 
-                yield return (table.Model.CsTypeName, dbRead);
+                if (dbRead == null)
+                    throw new Exception($"Failed to create instance of table model type '{table.Model.CsType}'");
+
+                yield return (table.Model.CsDatabasePropertyName, dbRead);
             }
         }
 

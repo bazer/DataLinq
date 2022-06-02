@@ -5,7 +5,7 @@ using DataLinq.Attributes;
 
 namespace DataLinq.MySql.Models
 {
-    [Name("KEY_COLUMN_USAGE")]
+    [Table("KEY_COLUMN_USAGE")]
     public interface KEY_COLUMN_USAGE : IViewModel
     {
         [Type("varchar", 64)]
