@@ -5,12 +5,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DataLinq.Config
+namespace DataLinq.Tools.Config
 {
     public enum DatabaseType
     {
         MySQL,
-        MariaDB
+        MariaDB,
+        SQLite
     }
 
     public record ConfigFile
@@ -22,6 +23,7 @@ namespace DataLinq.Config
     {
         public DatabaseType? Type { get; set; }
         public string? Name { get; set; }
+        public string? Namespace { get; set; }
         public ConnectionString? ConnectionString { get; set; }
         public string? SourceDirectory { get; set; }
         public string? DestinationDirectory { get; set; }
