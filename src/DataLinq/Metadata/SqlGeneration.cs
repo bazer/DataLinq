@@ -58,11 +58,13 @@ namespace DataLinq.Metadata
             => $"{QuoteCharacter}{s}{QuoteCharacter}";
         public SqlGeneration Space()
             => Add(" ");
-        public string QuotedParanthesis(string s)
+        public string QuotedParenthesis(string s)
             => $"({QuotedString(s)})";
+        public string Parenthesis(string s)
+            => $"({s})";
         public SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
         {
-            sql.AddText($"CREATE TABLE {QuoteCharacter}{tableName}{QuoteCharacter} (\r\n");
+            sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\r\n");
             func(this);
             NewRow();
             sql.AddText(string.Join(",\r\n", CreateRows.ToArray()));
@@ -70,6 +72,16 @@ namespace DataLinq.Metadata
             sql.AddText("\r\n);\r\n\r\n");
             return this;
         }
+        //public SqlGeneration CreateView(string viewName, Action<SqlGeneration> func)
+        //{
+        //    sql.AddText($"CREATE VIEW IF NOT EXISTS {QuoteCharacter}{viewName}{QuoteCharacter} (\r\n");
+        //    func(this);
+        //    NewRow();
+        //    sql.AddText(string.Join(",\r\n", CreateRows.ToArray()));
+        //    CreateRows.Clear();
+        //    sql.AddText("\r\n);\r\n\r\n");
+        //    return this;
+        //}
         public SqlGeneration Indent() 
             => Add(new string(' ', IndentationSpaces));
         public SqlGeneration NewLineComma() 
@@ -81,13 +93,13 @@ namespace DataLinq.Metadata
         public SqlGeneration Unsigned(bool? signed) => signed.HasValue && !signed.Value ? Space().Add("UNSIGNED") : this;
         public string Align(int longest, string text) => new string(' ', longest-text.Length);
 
-        public SqlGeneration Index(string index, string column) => NewRow().Indent().Add($"INDEX {QuotedString(index)} {QuotedParanthesis(column)}");
-        public SqlGeneration PrimaryKey(string key) 
-            => NewRow().Indent().Add($"PRIMARY KEY {QuotedParanthesis(key)}");
+        public SqlGeneration Index(string index, string column) => NewRow().Indent().Add($"INDEX {QuotedString(index)} {QuotedParenthesis(column)}");
+        public SqlGeneration PrimaryKey(params string[] keys) 
+            => NewRow().Indent().Add($"PRIMARY KEY {Parenthesis(string.Join(", ", keys.Select(key => QuotedString(key))))}");
         public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
             => ForeignKey(relation.Relation.Constraint, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict); 
         public SqlGeneration ForeignKey(string constraint, string from, string table, string to, bool restrict)
-            => NewRow().Indent().Add($"CONSTRAINT {QuotedString(constraint)} FOREIGN KEY {QuotedParanthesis(from)} REFERENCES {QuotedString(table)} {QuotedParanthesis(to)} {OnUpdateDelete(restrict)}");
+            => NewRow().Indent().Add($"CONSTRAINT {QuotedString(constraint)} FOREIGN KEY {QuotedParenthesis(from)} REFERENCES {QuotedString(table)} {QuotedParenthesis(to)} {OnUpdateDelete(restrict)}");
         public string OnUpdateDelete(bool restrict) 
             => restrict ? "ON UPDATE RESTRICT ON DELETE RESTRICT" : "ON UPDATE NO ACTION ON DELETE NO ACTION";
     }

@@ -27,6 +27,15 @@ namespace DataLinq.MySql
                 return new MySqlDatabaseTransaction(ConnectionString, type);
         }
 
+
+        public override string GetExists(string databaseName = null)
+        {
+            if (databaseName == null && DatabaseName == null)
+                throw new ArgumentNullException("DatabaseName not defined");
+
+           return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
+        }
+
         public override string GetLastIdQuery()
         {
             return "SELECT last_insert_id()";
@@ -50,7 +59,12 @@ namespace DataLinq.MySql
         public override IDbCommand ToDbCommand(IQuery query)
         {
             var sql = query.ToSql("");
-            var command = new MySqlCommand(sql.Text);
+
+            var sqlText = sql.Text;
+            if (DatabaseName != null)
+                sqlText = $"USE {DatabaseName};\r\n" + sqlText;
+
+            var command = new MySqlCommand(sqlText);
             command.Parameters.AddRange(sql.Parameters.ToArray());
 
             return command;

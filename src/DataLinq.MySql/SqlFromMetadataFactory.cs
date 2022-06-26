@@ -31,33 +31,47 @@ namespace DataLinq.MySql
         {
             var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\r\n\r\n");
 
-            foreach(var table in sql.SortTablesByForeignKeys(metadata.Tables))
+            foreach(var table in sql.SortTablesByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.Table).ToList()))
             {
                 sql.CreateTable(table.DbName, x =>
                 {
-                    var longestName = table.Columns.Max(x => x.DbName.Length)+1;
-                    foreach (var column in table.Columns.OrderBy(x => x.Index))
-                    {
-                        sql.NewRow().Indent()
-                            .ColumnName(column.DbName)
-                            .Type(column.DbType.ToUpper(), column.DbName, longestName);
-
-                        if (!NoLengthTypes.Contains(column.DbType.ToLower()))
-                            sql.TypeLength(column.Length);
-                        sql.Unsigned(column.Signed);
-                        sql.Nullable(column.Nullable)
-                            .Autoincrement(column.AutoIncrement);
-                        
-                    }
-                    foreach (var primaryKey in table.PrimaryKeyColumns)
-                        sql.PrimaryKey(primaryKey.DbName);
-                    foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
-                        foreach (var relation in foreignKey.RelationParts)
-                            sql.ForeignKey(relation, foreignKeyRestrict);
+                    CreateColumns(foreignKeyRestrict, x, table);
                 });
             }
+
+            //foreach (var table in sql.SortTablesByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.View).ToList()))
+            //{
+            //    sql.CreateTable(table.DbName, x =>
+            //    {
+            //        CreateColumns(foreignKeyRestrict, x, table);
+            //    });
+            //}
+
             return sql.sql;
         }
 
+        private static void CreateColumns(bool foreignKeyRestrict, SqlGeneration sql, TableMetadata table)
+        {
+            var longestName = table.Columns.Max(x => x.DbName.Length) + 1;
+            foreach (var column in table.Columns.OrderBy(x => x.Index))
+            {
+                sql.NewRow().Indent()
+                    .ColumnName(column.DbName)
+                    .Type(column.DbType.ToUpper(), column.DbName, longestName);
+
+                if (!NoLengthTypes.Contains(column.DbType.ToLower()))
+                    sql.TypeLength(column.Length);
+                sql.Unsigned(column.Signed);
+                sql.Nullable(column.Nullable)
+                    .Autoincrement(column.AutoIncrement);
+
+            }
+
+            sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
+
+            foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
+                foreach (var relation in foreignKey.RelationParts)
+                    sql.ForeignKey(relation, foreignKeyRestrict);
+        }
     }
 }

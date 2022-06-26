@@ -5,6 +5,7 @@ using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
 using Xunit;
+using DataLinq.Metadata;
 
 namespace DataLinq.Tests
 {
@@ -22,8 +23,17 @@ namespace DataLinq.Tests
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 
             var configuration = builder.Build();
-            employeesDb = new MySqlDatabase<employeesDb>(configuration.GetConnectionString("Employees"));
+            var connDataLinq = configuration.GetConnectionString("employees");
+            employeesDb = new MySqlDatabase<employeesDb>(connDataLinq, "employees");
             information_schema = new MySqlDatabase<information_schema>(configuration.GetConnectionString("information_schema"));
+        
+            if (!employeesDb.Exists())
+            {
+                MySql.SqlFromMetadataFactory.Register();
+
+                DatabaseFactory.CreateDatabaseFromMetadata(DatabaseFactory.DatabaseType.MySQL, 
+                    employeesDb.Provider.Metadata, "employees", connDataLinq, true);
+            }
         }
 
         public MySqlDatabase<employeesDb> employeesDb { get; set; }

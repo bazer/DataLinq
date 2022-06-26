@@ -17,6 +17,14 @@ namespace DataLinq
             this.Provider = provider;
         }
 
+        public bool Exists(string databaseName = null)
+        {
+            return Transaction(TransactionType.ReadOnly)
+                .DbTransaction
+                .ReadReader(Provider.GetExists(databaseName))
+                .Any();
+        }
+
         public Transaction<T> Transaction(TransactionType transactionType = TransactionType.ReadAndWrite)
         {
             return new Transaction<T>(this.Provider, transactionType);
