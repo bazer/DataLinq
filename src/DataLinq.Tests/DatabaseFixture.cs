@@ -6,6 +6,8 @@ using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
 using Xunit;
 using DataLinq.Metadata;
+using Bogus;
+using System.Linq;
 
 namespace DataLinq.Tests
 {
@@ -33,6 +35,8 @@ namespace DataLinq.Tests
 
                 DatabaseFactory.CreateDatabaseFromMetadata(DatabaseFactory.DatabaseType.MySQL, 
                     employeesDb.Provider.Metadata, "employees", connDataLinq, true);
+
+                FillEmployeesWithBogusData(employeesDb);
             }
         }
 
@@ -43,6 +47,44 @@ namespace DataLinq.Tests
 
         //public string ConnectionString { get; private set; }
         public string DbName { get; private set; }
+
+        public void FillEmployeesWithBogusData(Database<employeesDb> database)
+        {
+            Randomizer.Seed = new Random(59345922);
+
+
+            var numEmployees = 10000;
+            using var transaction = database.Transaction();
+
+            var employeeFaker = new Faker<employees>()
+                .StrictMode(false)
+                .RuleFor(x => x.first_name, x => x.Person.FirstName)
+                .RuleFor(x => x.last_name, x => x.Person.LastName)
+                .RuleFor(x => x.birth_date, x => DateOnly.FromDateTime(x.Person.DateOfBirth.Date))
+                .RuleFor(x => x.hire_date, x => x.Date.PastDateOnly(20))
+                .RuleFor(x => x.gender, x => (int)x.Person.Gender);
+
+            var employees = transaction.Insert(employeeFaker.Generate(numEmployees));
+
+            var deptNo = 1;
+            var departmentFaker = new Faker<departments>()
+                .StrictMode(false)
+                .RuleFor(x => x.dept_no, x => $"d{deptNo++:000}")
+                .RuleFor(x => x.dept_name, x => x.Commerce.Department());
+
+            var departments = transaction.Insert(departmentFaker.Generate(10));
+
+            var empNo = 0;
+            var dept_empFaker = new Faker<dept_emp>()
+               .StrictMode(false)
+               .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
+               .RuleFor(x => x.dept_no, x => x.PickRandom(departments).dept_no);
+
+            transaction.Insert(dept_empFaker.Generate(numEmployees));
+            transaction.Commit();
+        }
 
         public void Dispose()
         {

@@ -63,6 +63,13 @@ namespace DataLinq.Mutation
             return GetModelFromCache(model);
         }
 
+        public List<T> Insert<T>(IEnumerable<T> models) where T : IModel
+        {
+            return models
+                .Select(Insert)
+                .ToList();
+        }
+
         public T Update<T>(T model) where T : IModel
         {
             CheckIfTransactionIsValid();
