@@ -11,11 +11,20 @@ namespace DataLinq.Tests
     public class CacheTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
+        private readonly employees testEmployee;
+        private readonly int dept2Count;
+        private readonly int dept6Count;
 
         public CacheTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
             fixture.employeesDb.Provider.State.ClearCache();
+
+            testEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == 1010);
+            dept2Count = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d002").dept_emp.Count();
+            dept6Count = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d006").dept_emp.Count();
+
+            fixture.employeesDb.Provider.State.Cache.ClearCache();
         }
 
         //[Fact]
@@ -41,26 +50,27 @@ namespace DataLinq.Tests
         {
             for (var i = 0; i < 10; i++)
             {
-                var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == 10010);
+                var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == testEmployee.emp_no);
 
                 Assert.NotNull(employee);
                 Assert.NotEmpty(employee.dept_emp);
-                Assert.Equal(2, employee.dept_emp.Count());
+                Assert.Equal(testEmployee.dept_emp.Count(), employee.dept_emp.Count());
 
                 var dept = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d002");
                 Assert.NotNull(dept);
                 Assert.NotEmpty(dept.dept_emp);
-                Assert.Equal(17346, dept.dept_emp.Count());
+                Assert.True(dept.dept_emp.Count() > 0);
+                Assert.Equal(dept2Count, dept.dept_emp.Count());
 
                 var dept6 = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d006");
                 Assert.NotNull(dept6);
                 Assert.NotEmpty(dept6.dept_emp);
-                Assert.Equal(20117, dept6.dept_emp.Count());
+                Assert.Equal(dept6Count, dept6.dept_emp.Count());
 
                 var table = fixture.employeesDb.Provider.Metadata
                     .Tables.Single(x => x.DbName == "dept_emp");
 
-                Assert.Equal(20117 + 17346 + 2 - 1, fixture.employeesDb.Provider.GetTableCache(table).RowCount);
+                Assert.Equal(dept2Count + dept6Count + 2 - 1, fixture.employeesDb.Provider.GetTableCache(table).RowCount);
             }
         }
 

@@ -52,7 +52,6 @@ namespace DataLinq.Tests
         {
             Randomizer.Seed = new Random(59345922);
 
-
             var numEmployees = 10000;
             using var transaction = database.Transaction();
 
@@ -63,7 +62,6 @@ namespace DataLinq.Tests
                 .RuleFor(x => x.birth_date, x => DateOnly.FromDateTime(x.Person.DateOfBirth.Date))
                 .RuleFor(x => x.hire_date, x => x.Date.PastDateOnly(20))
                 .RuleFor(x => x.gender, x => (int)x.Person.Gender);
-
             var employees = transaction.Insert(employeeFaker.Generate(numEmployees));
 
             var deptNo = 1;
@@ -71,8 +69,7 @@ namespace DataLinq.Tests
                 .StrictMode(false)
                 .RuleFor(x => x.dept_no, x => $"d{deptNo++:000}")
                 .RuleFor(x => x.dept_name, x => x.Commerce.Department());
-
-            var departments = transaction.Insert(departmentFaker.Generate(10));
+            var departments = transaction.Insert(departmentFaker.Generate(20));
 
             var empNo = 0;
             var dept_empFaker = new Faker<dept_emp>()
@@ -81,8 +78,41 @@ namespace DataLinq.Tests
                .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
                .RuleFor(x => x.dept_no, x => x.PickRandom(departments).dept_no);
-
             transaction.Insert(dept_empFaker.Generate(numEmployees));
+
+            empNo = 0;
+            var titlesFaker = new Faker<titles>()
+               .StrictMode(false)
+               .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
+               .RuleFor(x => x.title, x => x.Name.JobTitle());
+            transaction.Insert(titlesFaker.Generate(numEmployees));
+
+            empNo = 0;
+            var salariesFaker = new Faker<salaries>()
+               .StrictMode(false)
+               .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
+               .RuleFor(x => x.salary, x => (int)x.Finance.Amount(10000, 200000, 0));
+            transaction.Insert(salariesFaker.Generate(numEmployees));
+
+            var dept_managerFaker = new Faker<dept_manager>()
+               .StrictMode(false)
+               .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.emp_no, x => x.PickRandom(employees).emp_no)
+               .RuleFor(x => x.dept_no, x => x.PickRandom(departments).dept_no);
+
+            var dept_managers = dept_managerFaker.Generate(numEmployees / 10);
+
+            foreach (var dm in dept_managers)
+            {
+                if (!transaction.Query().dept_manager.Any(x => x.dept_no == dm.dept_no && x.emp_no == dm.emp_no))
+                    transaction.Insert(dm);
+            }
+
             transaction.Commit();
         }
 
