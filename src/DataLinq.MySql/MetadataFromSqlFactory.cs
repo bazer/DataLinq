@@ -64,23 +64,35 @@ namespace DataLinq.MySql
 
         private static TableMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {
-            var table = new TableMetadata();
+            var type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
+
+            var table = type == TableType.Table
+                ? new TableMetadata()
+                : new ViewMetadata();
 
             table.Database = database;
             table.DbName = dbTables.TABLE_NAME;
-            table.Type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
             table.Model = new ModelMetadata
             {
                 CsTypeName = dbTables.TABLE_NAME,
                 Table = table
             };
 
+            if (table is ViewMetadata view)
+            {
+                view.Definition = information_Schema
+                    .VIEWS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == view.DbName)
+                    .AsEnumerable()
+                    .Select(x => x.VIEW_DEFINITION)
+                    .FirstOrDefault();
+            }
+            
             table.Columns = information_Schema
                 .COLUMNS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == table.DbName)
                 .AsEnumerable()
                 .Select(x => ParseColumn(table, x))
                 .ToList();
-
+            
             return table;
         }
 

@@ -32,7 +32,11 @@ namespace DataLinq.SQLite
                 database.Tables = new List<TableMetadata>();
                 while (reader.Read())
                 {
-                    var table = database.Tables.SingleOrDefault(x => x.DbName == reader.GetString(0)) ?? new TableMetadata();
+                    var table = database.Tables.SingleOrDefault(x => x.DbName == reader.GetString(0)) ?? (reader.GetString(10) == "table"
+                        ? new TableMetadata()
+                        : new ViewMetadata());
+
+                    //var table = database.Tables.SingleOrDefault(x => x.DbName == reader.GetString(0)) ?? new TableMetadata();
                     if (table.Database == null)
                     {
                         table.Database = database;
@@ -40,7 +44,7 @@ namespace DataLinq.SQLite
                         if (table.DbName.StartsWith("sqlite_autoindex_"))
                             continue;
 
-                        table.Type = reader.GetString(10) == "table" ? TableType.Table : TableType.View;
+                        //table.Type = reader.GetString(10) == "table" ? TableType.Table : TableType.View;
                         table.Model = new ModelMetadata
                         {
                             CsTypeName = table.DbName,

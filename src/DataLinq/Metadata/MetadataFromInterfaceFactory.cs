@@ -131,15 +131,13 @@ namespace DataLinq.Metadata
 
         private static TableMetadata ParseTable(ModelMetadata model)
         {
-            var table = new TableMetadata
-            {
-                Model = model,
-                Database = model.Database,
-                DbName = model.CsTypeName,
-                Type = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel")
-                    ? TableType.Table
-                    : TableType.View
-            };
+            var table = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel")
+                ? new TableMetadata()
+                : new ViewMetadata();
+
+            table.Model = model;
+            table.Database = model.Database;
+            table.DbName = model.CsTypeName;
 
             foreach (var attribute in model.Attributes)
             {
@@ -151,6 +149,9 @@ namespace DataLinq.Metadata
 
                 if (attribute is CacheLimitAttribute cacheLimit)
                     table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+
+                if (table is ViewMetadata view && attribute is DefinitionAttribute definitionAttribute)
+                    view.Definition = definitionAttribute.Sql;
             }
 
             table.Columns = model.Properties
