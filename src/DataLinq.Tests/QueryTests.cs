@@ -9,22 +9,24 @@ namespace DataLinq.Tests
     public class QueryTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
+        private string lastDepartmentName;
 
         public QueryTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
+            lastDepartmentName = $"d{fixture.employeesDb.Query().departments.Count():000}";
         }
 
         [Fact]
         public void ToList()
         {
-            Assert.Equal(9, fixture.employeesDb.Query().departments.ToList().Count);
+            Assert.True(10 < fixture.employeesDb.Query().departments.ToList().Count);
         }
 
         [Fact]
         public void Count()
         {
-            Assert.Equal(9, fixture.employeesDb.Query().departments.Count());
+            Assert.True(10 < fixture.employeesDb.Query().departments.Count());
         }
 
         [Fact]
@@ -47,22 +49,22 @@ namespace DataLinq.Tests
         public void SimpleWhereNot()
         {
             var where = fixture.employeesDb.Query().departments.Where(x => x.dept_no != "d005").ToList();
-            Assert.Equal(8, where.Count);
+            Assert.Equal(fixture.employeesDb.Query().departments.Count() - 1, where.Count);
             Assert.DoesNotContain(where, x => x.dept_no == "d005");
         }
 
         [Fact]
         public void WhereAndToList()
         {
-            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("1990-01-01")).ToList();
-            Assert.Equal(2, where.Count);
+            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
+            Assert.NotEqual(fixture.employeesDb.Query().dept_manager.Count(x => x.dept_no == "d004"), where.Count);
         }
 
         [Fact]
         public void WhereAndCount()
         {
-            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("1990-01-01"));
-            Assert.Equal(2, where.Count());
+            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("2010-01-01"));
+            Assert.NotEqual(fixture.employeesDb.Query().dept_manager.Count(x => x.dept_no == "d004"), where.Count());
         }
 
         [Fact]
@@ -105,7 +107,7 @@ namespace DataLinq.Tests
         {
             var salary = fixture.employeesDb.Query().salaries.First(x => x.salary > 70000);
             Assert.NotNull(salary);
-            Assert.Equal(71046, salary.salary);
+            Assert.True(70000 <= salary.salary);
         }
 
         [Fact]
@@ -113,7 +115,7 @@ namespace DataLinq.Tests
         {
             var salary = fixture.employeesDb.Query().salaries.FirstOrDefault(x => x.salary > 70000);
             Assert.NotNull(salary);
-            Assert.Equal(71046, salary.salary);
+            Assert.True(70000 <= salary.salary);
         }
 
         [Fact]
@@ -121,7 +123,8 @@ namespace DataLinq.Tests
         {
             var salary = fixture.employeesDb.Query().salaries.OrderBy(x => x.salary).First(x => x.salary > 70000);
             Assert.NotNull(salary);
-            Assert.Equal(70001, salary.salary);
+            Assert.True(70000 <= salary.salary);
+            Assert.NotEqual(salary.salary, fixture.employeesDb.Query().salaries.First(x => x.salary > 70000).salary);
         }
 
         [Fact]
@@ -129,15 +132,19 @@ namespace DataLinq.Tests
         {
             var salary = fixture.employeesDb.Query().salaries.OrderBy(x => x.salary).FirstOrDefault(x => x.salary > 70000);
             Assert.NotNull(salary);
-            Assert.Equal(70001, salary.salary);
+            Assert.True(70000 <= salary.salary);
+            Assert.NotEqual(salary.salary, fixture.employeesDb.Query().salaries.FirstOrDefault(x => x.salary > 70000).salary);
+            Assert.NotEqual(salary.salary, fixture.employeesDb.Query().salaries.OrderBy(x => x.salary).LastOrDefault(x => x.salary > 70000).salary);
         }
 
         [Fact]
         public void LastOrDefaultOrderBy()
         {
-            var dept = fixture.employeesDb.Query().departments.OrderByDescending(x => x.dept_name).LastOrDefault(x => x.dept_no != "d009");
-            Assert.NotNull(dept);
-            Assert.Equal("d005", dept.dept_no);
+            var salary = fixture.employeesDb.Query().salaries.OrderByDescending(x => x.salary).LastOrDefault(x => x.salary > 70000);
+            Assert.NotNull(salary);
+            Assert.True(70000 <= salary.salary);
+            Assert.NotEqual(salary.salary, fixture.employeesDb.Query().salaries.FirstOrDefault(x => x.salary > 70000).salary);
+            Assert.NotEqual(salary.salary, fixture.employeesDb.Query().salaries.OrderByDescending(x => x.salary).FirstOrDefault(x => x.salary > 70000).salary);
         }
 
         [Fact]
@@ -169,8 +176,8 @@ namespace DataLinq.Tests
             var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no);
             Assert.Equal("d001", deptByDeptNo.First().dept_no);
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault().dept_no);
-            Assert.Equal("d009", deptByDeptNo.Last().dept_no);
-            Assert.Equal("d009", deptByDeptNo.LastOrDefault().dept_no);
+            Assert.Equal(lastDepartmentName, deptByDeptNo.Last().dept_no);
+            Assert.Equal(lastDepartmentName, deptByDeptNo.LastOrDefault().dept_no);
         }
 
         [Fact]
@@ -179,8 +186,8 @@ namespace DataLinq.Tests
             var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no).Select(x => x.dept_no);
             Assert.Equal("d001", deptByDeptNo.First());
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault());
-            Assert.Equal("d009", deptByDeptNo.Last());
-            Assert.Equal("d009", deptByDeptNo.LastOrDefault());
+            Assert.Equal(lastDepartmentName, deptByDeptNo.Last());
+            Assert.Equal(lastDepartmentName, deptByDeptNo.LastOrDefault());
         }
 
         [Fact]
@@ -193,8 +200,8 @@ namespace DataLinq.Tests
             });
             Assert.Equal("d001", deptByDeptNo.First().no);
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault().no);
-            Assert.Equal("d009", deptByDeptNo.Last().no);
-            Assert.Equal("d009", deptByDeptNo.LastOrDefault().no);
+            Assert.Equal(lastDepartmentName, deptByDeptNo.Last().no);
+            Assert.Equal(lastDepartmentName, deptByDeptNo.LastOrDefault().no);
         }
 
         //[Fact]
