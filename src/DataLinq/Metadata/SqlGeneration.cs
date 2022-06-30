@@ -72,16 +72,13 @@ namespace DataLinq.Metadata
             sql.AddText("\r\n);\r\n\r\n");
             return this;
         }
-        //public SqlGeneration CreateView(string viewName, Action<SqlGeneration> func)
-        //{
-        //    sql.AddText($"CREATE VIEW IF NOT EXISTS {QuoteCharacter}{viewName}{QuoteCharacter} (\r\n");
-        //    func(this);
-        //    NewRow();
-        //    sql.AddText(string.Join(",\r\n", CreateRows.ToArray()));
-        //    CreateRows.Clear();
-        //    sql.AddText("\r\n);\r\n\r\n");
-        //    return this;
-        //}
+        public SqlGeneration CreateView(string viewName, string definition)
+        {
+            sql.AddText($"CREATE VIEW IF NOT EXISTS {QuoteCharacter}{viewName}{QuoteCharacter}\r\n");
+            sql.AddText($"AS {definition};");
+            sql.AddText("\r\n\r\n");
+            return this;
+        }
         public SqlGeneration Indent() 
             => Add(new string(' ', IndentationSpaces));
         public SqlGeneration NewLineComma() 

@@ -39,13 +39,10 @@ namespace DataLinq.MySql
                 });
             }
 
-            //foreach (var table in sql.SortTablesByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.View).ToList()))
-            //{
-            //    sql.CreateTable(table.DbName, x =>
-            //    {
-            //        CreateColumns(foreignKeyRestrict, x, table);
-            //    });
-            //}
+            foreach (ViewMetadata view in sql.SortTablesByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.View).ToList()))
+            {
+                sql.CreateView(view.DbName, view.Definition);
+            }
 
             return sql.sql;
         }

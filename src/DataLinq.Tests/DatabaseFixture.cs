@@ -26,8 +26,8 @@ namespace DataLinq.Tests
 
             var configuration = builder.Build();
             var connDataLinq = configuration.GetConnectionString("employees");
-            var employeesDbName = configuration.GetSection("employeesDbName")?.Value ?? "employees";
-            employeesDb = new MySqlDatabase<employeesDb>(connDataLinq, employeesDbName);
+            EmployeesDbName = configuration.GetSection("employeesDbName")?.Value ?? "employees";
+            employeesDb = new MySqlDatabase<employeesDb>(connDataLinq, EmployeesDbName);
             information_schema = new MySqlDatabase<information_schema>(configuration.GetConnectionString("information_schema"));
         
             if (!employeesDb.Exists())
@@ -35,7 +35,7 @@ namespace DataLinq.Tests
                 MySql.SqlFromMetadataFactory.Register();
 
                 DatabaseFactory.CreateDatabaseFromMetadata(DatabaseFactory.DatabaseType.MySQL, 
-                    employeesDb.Provider.Metadata, employeesDbName, connDataLinq, true);
+                    employeesDb.Provider.Metadata, EmployeesDbName, connDataLinq, true);
 
                 FillEmployeesWithBogusData(employeesDb);
             }
@@ -47,7 +47,7 @@ namespace DataLinq.Tests
         //public information_schema information_schema => information_schema_provider.Read();
 
         //public string ConnectionString { get; private set; }
-        public string DbName { get; private set; }
+        public string EmployeesDbName { get; private set; }
 
         public void FillEmployeesWithBogusData(Database<employeesDb> database)
         {
