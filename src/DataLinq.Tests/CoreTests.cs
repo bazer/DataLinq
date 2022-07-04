@@ -47,7 +47,6 @@ namespace DataLinq.Tests
             Assert.Contains(database.Tables, x => x.Columns.Any(y => y.RelationParts.Any()));
 
             var employees = database.Tables.Single(x => x.DbName == "employees");
-
             Assert.Same(employees, employees.Model.Table);
             Assert.Equal(6, employees.Columns.Count);
 
@@ -56,6 +55,14 @@ namespace DataLinq.Tests
             Assert.True(emp_no.AutoIncrement);
             Assert.Equal("int", emp_no.DbType);
             Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
+
+            var dept_name = database.Tables.Single(x => x.DbName == "departments").Columns.Single(x => x.DbName == "dept_name");
+            Assert.False(dept_name.PrimaryKey);
+            Assert.False(dept_name.AutoIncrement);
+            Assert.Single(dept_name.ColumnIndices);
+            Assert.Equal(IndexType.Unique, dept_name.ColumnIndices.Single().Type);
+            Assert.Equal("dept_name", dept_name.ColumnIndices.Single().ConstraintName);
+            Assert.Same(dept_name, dept_name.ColumnIndices.First().Columns.Single());
 
             if (testCsType)
             {

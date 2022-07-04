@@ -94,7 +94,7 @@ namespace DataLinq.Metadata
         public SqlGeneration PrimaryKey(params string[] keys) 
             => NewRow().Indent().Add($"PRIMARY KEY {Parenthesis(string.Join(", ", keys.Select(key => QuotedString(key))))}");
         public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
-            => ForeignKey(relation.Relation.Constraint, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict); 
+            => ForeignKey(relation.Relation.ConstraintName, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict); 
         public SqlGeneration ForeignKey(string constraint, string from, string table, string to, bool restrict)
             => NewRow().Indent().Add($"CONSTRAINT {QuotedString(constraint)} FOREIGN KEY {QuotedParenthesis(from)} REFERENCES {QuotedString(table)} {QuotedParenthesis(to)} {OnUpdateDelete(restrict)}");
         public string OnUpdateDelete(bool restrict) 

@@ -17,6 +17,7 @@ namespace DataLinq.Metadata
         public bool AutoIncrement { get; set; }
         public bool? Signed { get; set; }
         public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
+        public List<ColumnIndex> ColumnIndices { get; set; } = new List<ColumnIndex>();
         public List<Property> RelationProperties { get; set; } = new List<Property>();
         public TableMetadata Table { get; set; }
         public Property ValueProperty { get; set; }

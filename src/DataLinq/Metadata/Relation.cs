@@ -14,6 +14,6 @@ namespace DataLinq.Metadata
         public RelationPart ForeignKey { get; set; }
         public RelationPart CandidateKey { get; set; }
         public RelationType Type { get; set; }
-        public string Constraint { get; set; }
+        public string ConstraintName { get; set; }
     }
 }

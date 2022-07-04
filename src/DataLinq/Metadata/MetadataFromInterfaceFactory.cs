@@ -51,7 +51,7 @@ namespace DataLinq.Metadata
 
                 var relation = new Relation
                 {
-                    Constraint = attribute.Name,
+                    ConstraintName = attribute.Name,
                     Type = RelationType.OneToMany
                 };
 
@@ -192,8 +192,18 @@ namespace DataLinq.Metadata
                 if (attribute is PrimaryKeyAttribute)
                     column.PrimaryKey = true;
 
-                if (attribute is ForeignKeyAttribute foreignKeyAttribute)
+                if (attribute is ForeignKeyAttribute)
                     column.ForeignKey = true;
+
+                if (attribute is UniqueAttribute uniqueAttribute)
+                {
+                    column.ColumnIndices.Add(new ColumnIndex
+                    {
+                        Columns = new List<Column> { column },
+                        ConstraintName = uniqueAttribute.Name,
+                        Type = IndexType.Unique
+                    });
+                }
 
                 if (attribute is TypeAttribute t)
                 {

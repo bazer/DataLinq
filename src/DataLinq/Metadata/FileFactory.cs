@@ -77,9 +77,14 @@ namespace DataLinq.Metadata
                 if (c.PrimaryKey)
                     yield return $"{tab}{tab}[PrimaryKey]";
 
+                foreach (var index in c.ColumnIndices.Where(x => x.Type == IndexType.Unique))
+                {
+                    yield return $"{tab}{tab}[Unique(\"{index.ConstraintName}\")]";
+                }
+
                 foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
                 {
-                    yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.Constraint}\")]";
+                    yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
                 }
 
                 if (c.AutoIncrement)

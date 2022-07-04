@@ -23,7 +23,7 @@ namespace DataLinq.MySql
             {
                 var relation = new Relation
                 {
-                    Constraint = key.CONSTRAINT_NAME,
+                    ConstraintName = key.CONSTRAINT_NAME,
                     Type = RelationType.OneToMany
                 };
 
@@ -37,6 +37,27 @@ namespace DataLinq.MySql
 
                 relation.ForeignKey = CreateRelationPart(relation, foreignKeyColumn, RelationPartType.ForeignKey);
                 relation.CandidateKey = CreateRelationPart(relation, candidateKeyColumn, RelationPartType.CandidateKey);
+            }
+
+
+            foreach (var dbIndex in information_Schema
+                .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == dbName && x.REFERENCED_COLUMN_NAME == null && x.CONSTRAINT_NAME != "PRIMARY").ToList().GroupBy(x => x.CONSTRAINT_NAME))
+            {
+                var index = new ColumnIndex
+                {
+                    ConstraintName = dbIndex.First().CONSTRAINT_NAME,
+                    Type = IndexType.Unique
+                };
+
+                var columns = dbIndex.Select(key => database
+                    .Tables.Single(x => x.DbName == key.TABLE_NAME)
+                    .Columns.Single(x => x.DbName == key.COLUMN_NAME));
+
+                foreach (var column in columns)
+                {
+                    index.Columns.Add(column);
+                    column.ColumnIndices.Add(index);
+                }
             }
 
             database.Relations = database
@@ -60,7 +81,6 @@ namespace DataLinq.MySql
 
             return relationPart;
         }
-
 
         private static TableMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {

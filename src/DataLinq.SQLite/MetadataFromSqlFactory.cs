@@ -97,7 +97,7 @@ namespace DataLinq.SQLite
                 {
                     var relation = new Relation
                     {
-                        Constraint = reader.GetString(0),
+                        ConstraintName = reader.GetString(0),
                         Type = RelationType.OneToMany
                     };
 
