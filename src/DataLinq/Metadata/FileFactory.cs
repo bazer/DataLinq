@@ -77,7 +77,7 @@ namespace DataLinq.Metadata
                 if (c.PrimaryKey)
                     yield return $"{tab}{tab}[PrimaryKey]";
 
-                foreach (var index in c.ColumnIndices.Where(x => x.Type == IndexType.Unique))
+                foreach (var index in table.ColumnIndices.Where(x => x.Type == IndexType.Unique && x.Columns.Contains(c)))
                 {
                     yield return $"{tab}{tab}[Unique(\"{index.ConstraintName}\")]";
                 }

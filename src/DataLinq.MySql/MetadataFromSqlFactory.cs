@@ -53,11 +53,16 @@ namespace DataLinq.MySql
                     .Tables.Single(x => x.DbName == key.TABLE_NAME)
                     .Columns.Single(x => x.DbName == key.COLUMN_NAME));
 
-                foreach (var column in columns)
-                {
-                    index.Columns.Add(column);
-                    column.ColumnIndices.Add(index);
-                }
+                var tables = columns.GroupBy(x => x.Table);
+                if (tables.Count() != 1)
+                    throw new Exception($"Constraint '{index.ConstraintName}' seems to be split over multiple tables.");
+
+                var table = tables.Single().Key;
+                if (table.ColumnIndices.Any(x => x.ConstraintName == index.ConstraintName))
+                    throw new Exception($"Constraint '{index.ConstraintName}' already added to table '{table.DbName}'.");
+
+                index.Columns.AddRange(columns);
+                table.ColumnIndices.Add(index);
             }
 
             database.Relations = database
@@ -106,13 +111,13 @@ namespace DataLinq.MySql
                     .Select(x => x.VIEW_DEFINITION)
                     .FirstOrDefault();
             }
-            
+
             table.Columns = information_Schema
                 .COLUMNS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == table.DbName)
                 .AsEnumerable()
                 .Select(x => ParseColumn(table, x))
                 .ToList();
-            
+
             return table;
         }
 

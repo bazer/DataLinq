@@ -62,7 +62,10 @@ namespace DataLinq.Metadata
             => $"({QuotedString(s)})";
         public string Parenthesis(string s)
             => $"({s})";
-        public SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
+        public string ParenthesisList(string[] columns) =>
+            $"{Parenthesis(string.Join(", ", columns.Select(key => QuotedString(key))))}";
+
+    public SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
         {
             sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\r\n");
             func(this);
@@ -90,9 +93,12 @@ namespace DataLinq.Metadata
         public SqlGeneration Unsigned(bool? signed) => signed.HasValue && !signed.Value ? Space().Add("UNSIGNED") : this;
         public string Align(int longest, string text) => new string(' ', longest-text.Length);
 
-        public SqlGeneration Index(string index, string column) => NewRow().Indent().Add($"INDEX {QuotedString(index)} {QuotedParenthesis(column)}");
-        public SqlGeneration PrimaryKey(params string[] keys) 
-            => NewRow().Indent().Add($"PRIMARY KEY {Parenthesis(string.Join(", ", keys.Select(key => QuotedString(key))))}");
+        public SqlGeneration Index(string name, params string[] columns)
+            => NewRow().Indent().Add($"INDEX {QuotedString(name)} {ParenthesisList(columns)}");
+        public SqlGeneration PrimaryKey(params string[] columns) 
+            => NewRow().Indent().Add($"PRIMARY KEY {ParenthesisList(columns)}");
+        public SqlGeneration UniqueKey(string name, params string[] columns)
+            => NewRow().Indent().Add($"UNIQUE KEY {QuotedString(name)} {ParenthesisList(columns)}");
         public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
             => ForeignKey(relation.Relation.ConstraintName, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict); 
         public SqlGeneration ForeignKey(string constraint, string from, string table, string to, bool restrict)

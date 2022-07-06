@@ -66,6 +66,9 @@ namespace DataLinq.MySql
 
             sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
 
+            foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Type == IndexType.Unique))
+                sql.UniqueKey(uniqueIndex.ConstraintName, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
+
             foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
                 foreach (var relation in foreignKey.RelationParts)
                     sql.ForeignKey(relation, foreignKeyRestrict);

@@ -197,12 +197,19 @@ namespace DataLinq.Metadata
 
                 if (attribute is UniqueAttribute uniqueAttribute)
                 {
-                    column.ColumnIndices.Add(new ColumnIndex
+                    if (column.Table.ColumnIndices.Any(x => x.ConstraintName == uniqueAttribute.Name))
                     {
-                        Columns = new List<Column> { column },
-                        ConstraintName = uniqueAttribute.Name,
-                        Type = IndexType.Unique
-                    });
+                        column.Table.ColumnIndices.Single(x => x.ConstraintName == uniqueAttribute.Name).Columns.Add(column);
+                    }
+                    else
+                    {
+                        column.Table.ColumnIndices.Add(new ColumnIndex
+                        {
+                            Columns = new List<Column> { column },
+                            ConstraintName = uniqueAttribute.Name,
+                            Type = IndexType.Unique
+                        });
+                    }
                 }
 
                 if (attribute is TypeAttribute t)

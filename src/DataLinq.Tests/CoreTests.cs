@@ -20,7 +20,6 @@ namespace DataLinq.Tests
         [Fact]
         public void TestMetadataFromFixture()
         {
-            //fixture.employeesDb.Provider.Metadata.lo
             Assert.Equal(2, DatabaseMetadata.LoadedDatabases.Count);
             Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(employeesDb));
             Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(information_schema));
