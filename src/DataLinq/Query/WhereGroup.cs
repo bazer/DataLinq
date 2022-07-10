@@ -32,7 +32,7 @@ namespace DataLinq.Query
             if (addParentheses)
                 sql.AddText("(");
             //else
-            //    sql.AddText("\r\n");
+            //    sql.AddText("\n");
 
             for (int i = 0; i < length; i++)
             {

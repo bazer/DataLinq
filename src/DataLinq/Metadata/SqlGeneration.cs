@@ -51,7 +51,7 @@ namespace DataLinq.Metadata
         public SqlGeneration NewRow() { if(Buffer != "") CreateRows.Add(Buffer); Buffer=""; return this; }
         public SqlGeneration Add(string s) { Buffer+=s; return this; }
         public SqlGeneration NewLine()
-            => Add("\r\n");
+            => Add("\n");
 
         public SqlGeneration ColumnName(string column) => Add(QuotedString(column)); 
         public string QuotedString(string s)
@@ -67,19 +67,19 @@ namespace DataLinq.Metadata
 
     public SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
         {
-            sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\r\n");
+            sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\n");
             func(this);
             NewRow();
-            sql.AddText(string.Join(",\r\n", CreateRows.ToArray()));
+            sql.AddText(string.Join(",\n", CreateRows.ToArray()));
             CreateRows.Clear();
-            sql.AddText("\r\n);\r\n\r\n");
+            sql.AddText("\n);\n\n");
             return this;
         }
         public SqlGeneration CreateView(string viewName, string definition)
         {
-            sql.AddText($"CREATE VIEW IF NOT EXISTS {QuoteCharacter}{viewName}{QuoteCharacter}\r\n");
+            sql.AddText($"CREATE VIEW IF NOT EXISTS {QuoteCharacter}{viewName}{QuoteCharacter}\n");
             sql.AddText($"AS {definition};");
-            sql.AddText("\r\n\r\n");
+            sql.AddText("\n\n");
             return this;
         }
         public SqlGeneration Indent() 

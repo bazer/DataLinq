@@ -23,7 +23,7 @@ namespace DataLinq.Query
         public Sql ToSql(string paramPrefix = null)
         {
             return query.GetWhere(
-                new Sql().AddFormat("DELETE FROM {0} \r\n", query.Table.DbName),
+                new Sql().AddFormat("DELETE FROM {0} \n", query.Table.DbName),
                 paramPrefix);
         }
 

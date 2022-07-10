@@ -26,7 +26,7 @@ namespace DataLinq.Query
                 paramPrefix);
 
             return query.GetWhere(
-                sql.AddText(" \r\n"),
+                sql.AddText(" \n"),
                 paramPrefix);
         }
 

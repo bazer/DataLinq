@@ -62,7 +62,7 @@ namespace DataLinq.MySql
 
             var sqlText = sql.Text;
             if (DatabaseName != null)
-                sqlText = $"USE {DatabaseName};\r\n" + sqlText;
+                sqlText = $"USE {DatabaseName};\n" + sqlText;
 
             var command = new MySqlCommand(sqlText);
             command.Parameters.AddRange(sql.Parameters.ToArray());

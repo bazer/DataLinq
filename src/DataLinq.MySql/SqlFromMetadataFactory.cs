@@ -20,8 +20,8 @@ namespace DataLinq.MySql
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
             var command = connection.CreateCommand();
-            command.CommandText = $"CREATE DATABASE IF NOT EXISTS {database};\r\n"+
-                $"USE {database};\r\n"+
+            command.CommandText = $"CREATE DATABASE IF NOT EXISTS {database};\n"+
+                $"USE {database};\n"+
                 sql.Text;
             var result = command.ExecuteNonQuery();
             return true;
@@ -29,7 +29,7 @@ namespace DataLinq.MySql
 
         public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
-            var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\r\n\r\n");
+            var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
 
             foreach(var table in sql.SortTablesByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.Table).ToList()))
             {

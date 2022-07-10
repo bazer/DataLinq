@@ -28,7 +28,7 @@ namespace DataLinq.Metadata
                     FileHeader(settings.NamespaceName)
                     .Concat(DatabaseFileContents(database, dbName, settings))
                     .Concat(FileFooter())
-                    .ToJoinedString("\r\n"));
+                    .ToJoinedString("\n"));
 
             foreach (var table in database.Tables)
             {
@@ -36,7 +36,7 @@ namespace DataLinq.Metadata
                     FileHeader(settings.NamespaceName)
                     .Concat(ModelFileContents(table, settings))
                     .Concat(FileFooter())
-                    .ToJoinedString("\r\n");
+                    .ToJoinedString("\n");
 
                 var path = table.Type == TableType.Table
                     ? $"Tables{Path.DirectorySeparatorChar}{table.DbName}.cs"
