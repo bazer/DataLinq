@@ -109,7 +109,8 @@ namespace DataLinq.MySql
                     .VIEWS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == view.DbName)
                     .AsEnumerable()
                     .Select(x => x.VIEW_DEFINITION)
-                    .FirstOrDefault();
+                    .FirstOrDefault()?
+                    .Replace($"`{database.Name}`.", "");
             }
 
             table.Columns = information_Schema
