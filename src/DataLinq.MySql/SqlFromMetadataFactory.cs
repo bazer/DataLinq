@@ -39,7 +39,7 @@ namespace DataLinq.MySql
                 });
             }
 
-            foreach (ViewMetadata view in sql.SortTablesByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.View).ToList()))
+            foreach (var view in sql.SortViewsByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.View).Cast<ViewMetadata>().ToList()))
             {
                 sql.CreateView(view.DbName, view.Definition);
             }
