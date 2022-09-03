@@ -28,7 +28,7 @@ namespace DataLinq.Metadata
                     FileHeader(settings.NamespaceName)
                     .Concat(DatabaseFileContents(database, dbName, settings))
                     .Concat(FileFooter())
-                    .ToJoinedString("\r\n"));
+                    .ToJoinedString("\n"));
 
             foreach (var table in database.Tables)
             {
@@ -36,7 +36,7 @@ namespace DataLinq.Metadata
                     FileHeader(settings.NamespaceName)
                     .Concat(ModelFileContents(table, settings))
                     .Concat(FileFooter())
-                    .ToJoinedString("\r\n");
+                    .ToJoinedString("\n");
 
                 var path = table.Type == TableType.Table
                     ? $"Tables{Path.DirectorySeparatorChar}{table.DbName}.cs"
@@ -65,7 +65,10 @@ namespace DataLinq.Metadata
 
         private static IEnumerable<string> ModelFileContents(TableMetadata table, FileFactorySettings settings)
         {
-            yield return $"{tab}[Table(\"{table.DbName}\")]";
+            if (table is ViewMetadata view)
+                yield return $"{tab}[Definition(\"{view.Definition}\")]";
+
+            yield return $"{tab}[Name(\"{table.DbName}\")]";
             yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
             yield return tab + "{";
 
@@ -74,9 +77,14 @@ namespace DataLinq.Metadata
                 if (c.PrimaryKey)
                     yield return $"{tab}{tab}[PrimaryKey]";
 
+                foreach (var index in table.ColumnIndices.Where(x => x.Type == IndexType.Unique && x.Columns.Contains(c)))
+                {
+                    yield return $"{tab}{tab}[Unique(\"{index.ConstraintName}\")]";
+                }
+
                 foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
                 {
-                    yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.Constraint}\")]";
+                    yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
                 }
 
                 if (c.AutoIncrement)

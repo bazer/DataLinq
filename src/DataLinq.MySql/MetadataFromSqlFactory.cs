@@ -23,7 +23,7 @@ namespace DataLinq.MySql
             {
                 var relation = new Relation
                 {
-                    Constraint = key.CONSTRAINT_NAME,
+                    ConstraintName = key.CONSTRAINT_NAME,
                     Type = RelationType.OneToMany
                 };
 
@@ -37,6 +37,32 @@ namespace DataLinq.MySql
 
                 relation.ForeignKey = CreateRelationPart(relation, foreignKeyColumn, RelationPartType.ForeignKey);
                 relation.CandidateKey = CreateRelationPart(relation, candidateKeyColumn, RelationPartType.CandidateKey);
+            }
+
+
+            foreach (var dbIndex in information_Schema
+                .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == dbName && x.REFERENCED_COLUMN_NAME == null && x.CONSTRAINT_NAME != "PRIMARY").ToList().GroupBy(x => x.CONSTRAINT_NAME))
+            {
+                var index = new ColumnIndex
+                {
+                    ConstraintName = dbIndex.First().CONSTRAINT_NAME,
+                    Type = IndexType.Unique
+                };
+
+                var columns = dbIndex.Select(key => database
+                    .Tables.Single(x => x.DbName == key.TABLE_NAME)
+                    .Columns.Single(x => x.DbName == key.COLUMN_NAME));
+
+                var tables = columns.GroupBy(x => x.Table);
+                if (tables.Count() != 1)
+                    throw new Exception($"Constraint '{index.ConstraintName}' seems to be split over multiple tables.");
+
+                var table = tables.Single().Key;
+                if (table.ColumnIndices.Any(x => x.ConstraintName == index.ConstraintName))
+                    throw new Exception($"Constraint '{index.ConstraintName}' already added to table '{table.DbName}'.");
+
+                index.Columns.AddRange(columns);
+                table.ColumnIndices.Add(index);
             }
 
             database.Relations = database
@@ -61,19 +87,31 @@ namespace DataLinq.MySql
             return relationPart;
         }
 
-
         private static TableMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {
-            var table = new TableMetadata();
+            var type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
+
+            var table = type == TableType.Table
+                ? new TableMetadata()
+                : new ViewMetadata();
 
             table.Database = database;
             table.DbName = dbTables.TABLE_NAME;
-            table.Type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
             table.Model = new ModelMetadata
             {
                 CsTypeName = dbTables.TABLE_NAME,
                 Table = table
             };
+
+            if (table is ViewMetadata view)
+            {
+                view.Definition = information_Schema
+                    .VIEWS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == view.DbName)
+                    .AsEnumerable()
+                    .Select(x => x.VIEW_DEFINITION)
+                    .FirstOrDefault()?
+                    .Replace($"`{database.Name}`.", "");
+            }
 
             table.Columns = information_Schema
                 .COLUMNS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == table.DbName)

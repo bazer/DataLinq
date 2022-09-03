@@ -16,7 +16,7 @@ namespace DataLinq.SQLite
 
         public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
-            var sql = new SqlGeneration(2, '"', "/* Generated %datetime% by DataLinq */\r\n\r\n");
+            var sql = new SqlGeneration(2, '"', "/* Generated %datetime% by DataLinq */\n\n");
             foreach(var table in sql.SortTablesByForeignKeys(metadata.Tables))
             {
                 sql.CreateTable(table.DbName, x =>

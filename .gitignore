@@ -13,4 +13,5 @@ TestResults
 *.ncrunchproject
 *.ncrunchsolution
 *.cache
-/src/_NCrunch_DataLinq/StoredText
+
+/src/_NCrunch_DataLinq
