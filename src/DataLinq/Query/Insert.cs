@@ -46,7 +46,7 @@ namespace DataLinq.Query
                 paramPrefix);
 
             if (query.LastIdQuery)
-                sql.AddFormat(";\r\n{0}", query.Transaction.Provider.GetLastIdQuery());
+                sql.AddFormat(";\n{0}", query.Transaction.Provider.GetLastIdQuery());
 
             return sql;
         }

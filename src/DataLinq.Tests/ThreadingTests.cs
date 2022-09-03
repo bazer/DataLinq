@@ -24,11 +24,11 @@ namespace DataLinq.Tests
         {
             Parallel.For(0, 10, i =>
             {
-                SetAndTest(10004);
-                SetAndTest(10005);
-                SetAndTest(10006);
-                SetAndTest(10007);
-                SetAndTest(10008);
+                SetAndTest(1004);
+                SetAndTest(1005);
+                SetAndTest(1006);
+                SetAndTest(1007);
+                SetAndTest(1008);
             });
         }
 
@@ -89,7 +89,7 @@ namespace DataLinq.Tests
 
                 Assert.NotNull(department.dept_manager);
                 Assert.NotEmpty(department.dept_manager);
-                Assert.Equal(2, department.dept_manager.Count());
+                Assert.True(10 < department.dept_manager.Count());
                 Assert.Equal("d005", department.dept_manager.First().departments.dept_no);
             });
         }

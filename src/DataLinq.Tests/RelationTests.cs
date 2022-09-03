@@ -18,7 +18,7 @@ namespace DataLinq.Tests
         [Fact]
         public void LazyLoadSingleValue()
         {
-            var manager = fixture.employeesDb.Query().dept_manager.Single(x => x.dept_no == "d005" && x.emp_no == 110511);
+            var manager = fixture.employeesDb.Query().dept_manager.Single(x => x.dept_no == "d005" && x.emp_no == 4923);
 
             Assert.NotNull(manager.departments);
             Assert.Equal("d005", manager.departments.dept_no);
@@ -31,14 +31,14 @@ namespace DataLinq.Tests
 
             Assert.NotNull(department.dept_manager);
             Assert.NotEmpty(department.dept_manager);
-            Assert.Equal(2, department.dept_manager.Count());
+            Assert.True(10 < department.dept_manager.Count());
             Assert.Equal("d005", department.dept_manager.First().departments.dept_no);
         }
 
         [Fact]
         public void EmptyList()
         {
-            var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == 10001);
+            var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == 1000);
 
             Assert.NotNull(employee.dept_manager);
             Assert.Empty(employee.dept_manager);

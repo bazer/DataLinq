@@ -11,7 +11,7 @@ namespace DataLinq
 {
     public interface IDatabaseProvider : IDisposable
     {
-        string Name { get; }
+        string DatabaseName { get; }
 
         string ConnectionString { get; }
         DatabaseMetadata Metadata { get; }
@@ -57,7 +57,7 @@ namespace DataLinq
 
     public abstract class DatabaseProvider : IDatabaseProvider
     {
-        public string Name { get; }
+        public string DatabaseName { get; }
 
         public string ConnectionString { get; }
         public DatabaseMetadata Metadata { get; }
@@ -69,9 +69,9 @@ namespace DataLinq
 
         public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches.Single(x => x.Table == table);
 
-        protected DatabaseProvider(string connectionString, Type databaseType, string name = null)
+        protected DatabaseProvider(string connectionString, Type databaseType, string databaseName = null)
         {
-            Name = name;
+            DatabaseName = databaseName;
             ConnectionString = connectionString;
 
             lock (lockObject)
@@ -87,8 +87,8 @@ namespace DataLinq
                 }
             }
 
-            if (Name == null)
-                Name = Metadata.Name;
+            //if (Name == null)
+            //    Name = Metadata.Name;
 
             State = new State(this);
         }
@@ -111,6 +111,8 @@ namespace DataLinq
         public abstract Sql GetCreateSql();
 
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
+
+        public abstract string GetExists(string databaseName = null);
 
         public void Dispose()
         {

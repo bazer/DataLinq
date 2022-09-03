@@ -32,7 +32,7 @@ namespace DataLinq.Tests.Models
         [Type("varchar", 14)]
         public virtual string first_name { get; set; }
 
-        [Type("enum", 1)]
+        [Type("int", 1)]
         public virtual int gender { get; set; }
 
         [Type("date")]

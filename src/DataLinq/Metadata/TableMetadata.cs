@@ -22,7 +22,9 @@ namespace DataLinq.Metadata
         public List<Column> PrimaryKeyColumns =>
             primaryKeyColumns ?? (primaryKeyColumns = Columns.Where(x => x.PrimaryKey).ToList());
 
-        public TableType Type { get; set; }
+        public List<ColumnIndex> ColumnIndices { get; set; } = new List<ColumnIndex>();
+
+        public TableType Type { get; protected set; } = TableType.Table;
         public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
         public bool UseCache 
         { 
@@ -31,5 +33,15 @@ namespace DataLinq.Metadata
         }
 
         internal bool? explicitUseCache;
+    }
+
+    public class ViewMetadata : TableMetadata
+    {
+        public string Definition { get; set; }
+
+        public ViewMetadata()
+        {
+            Type = TableType.View;
+        }
     }
 }

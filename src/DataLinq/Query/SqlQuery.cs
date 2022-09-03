@@ -173,7 +173,7 @@ namespace DataLinq.Query
             if (WhereContainer == null)
                 return sql;
 
-            sql.AddText("\r\nWHERE\r\n");
+            sql.AddText("\nWHERE\n");
             WhereContainer.AddCommandString(sql, paramPrefix, true);
 
             return sql;
@@ -254,7 +254,7 @@ namespace DataLinq.Query
             if (length == 0)
                 return sql;
 
-            sql.AddText("\r\nORDER BY ");
+            sql.AddText("\nORDER BY ");
             sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.DbName}{(x.Ascending ? "" : " DESC")}")));
 
             return sql;
@@ -321,7 +321,7 @@ namespace DataLinq.Query
             if (!this.limit.HasValue)
                 return sql;
 
-            sql.AddText($"\r\nLIMIT {limit?.offset}, {limit?.rowCount}");
+            sql.AddText($"\nLIMIT {limit?.offset}, {limit?.rowCount}");
 
             return sql;
         }

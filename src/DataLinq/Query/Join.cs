@@ -47,11 +47,11 @@ namespace DataLinq.Query
         public Sql GetSql(Sql sql, string paramPrefix)
         {
             if (Type == JoinType.Inner)
-                sql.AddText("\r\nJOIN ");
+                sql.AddText("\nJOIN ");
             else if (Type == JoinType.LeftOuter)
-                sql.AddText("\r\nLEFT JOIN ");
+                sql.AddText("\nLEFT JOIN ");
             else if (Type == JoinType.RightOuter)
-                sql.AddText("\r\nRIGHT JOIN ");
+                sql.AddText("\nRIGHT JOIN ");
             else
                 throw new NotImplementedException("Wrong JoinType: " + Type);
 

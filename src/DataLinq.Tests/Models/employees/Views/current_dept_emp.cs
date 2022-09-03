@@ -6,6 +6,7 @@ using DataLinq.Attributes;
 
 namespace DataLinq.Tests.Models
 {
+    [Definition("select `l`.`emp_no` AS `emp_no`,`d`.`dept_no` AS `dept_no`,`l`.`from_date` AS `from_date`,`l`.`to_date` AS `to_date` from (`dept_emp` `d` join `dept_emp_latest_date` `l` on(`d`.`emp_no` = `l`.`emp_no` and `d`.`from_date` = `l`.`from_date` and `l`.`to_date` = `d`.`to_date`))")]
     [Name("current_dept_emp")]
     public partial record current_dept_emp : IViewModel
     {

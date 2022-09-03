@@ -56,5 +56,10 @@ namespace DataLinq.SQLite
 
             return command;
         }
+
+        public override string GetExists(string databaseName = null)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

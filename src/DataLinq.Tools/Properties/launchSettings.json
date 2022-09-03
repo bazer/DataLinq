@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DataLinq.Tools": {
+      "commandName": "Project",
+      "commandLineArgs": "employees DataLinq.Tests.Models D:\\Dev\\Github\\DataLinq\\src\\DataLinq.Tests\\Models\\employees"
+    }
+  }
+}
