@@ -41,6 +41,7 @@ namespace DataLinq.Tests.Models
         [Relation("dept_manager", "dept_no")]
         public virtual IEnumerable<dept_manager> Managers { get; }
 
+        [Unique("dept_name")]
         [Type("varchar", 40)]
         [Column("dept_name")]
         public virtual string Name { get; set; }

@@ -66,10 +66,10 @@ namespace DataLinq.Tests
             var employees = transaction.Insert(employeeFaker.Generate(numEmployees));
 
             var deptNo = 1;
-            var departmentFaker = new Faker<departments>()
+            var departmentFaker = new Faker<Department>()
                 .StrictMode(false)
-                .RuleFor(x => x.dept_no, x => $"d{deptNo++:000}")
-                .RuleFor(x => x.dept_name, x => x.Commerce.Department());
+                .RuleFor(x => x.DeptNo, x => $"d{deptNo++:000}")
+                .RuleFor(x => x.Name, x => x.Commerce.Department());
             var departments = transaction.Insert(departmentFaker.Generate(20));
 
             var empNo = 0;
@@ -78,7 +78,7 @@ namespace DataLinq.Tests
                .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
-               .RuleFor(x => x.dept_no, x => x.PickRandom(departments).dept_no);
+               .RuleFor(x => x.dept_no, x => x.PickRandom(departments).DeptNo);
             transaction.Insert(dept_empFaker.Generate(numEmployees));
 
             empNo = 0;
@@ -104,7 +104,7 @@ namespace DataLinq.Tests
                .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.emp_no, x => x.PickRandom(employees).emp_no)
-               .RuleFor(x => x.dept_no, x => x.PickRandom(departments).dept_no);
+               .RuleFor(x => x.dept_no, x => x.PickRandom(departments).DeptNo);
 
             var dept_managers = dept_managerFaker.Generate(numEmployees / 10);
 
