@@ -23,6 +23,7 @@ namespace DataLinq.Tools.Config
     {
         public DatabaseType? Type { get; set; }
         public string? Name { get; set; }
+        public string? NameOnServer { get; set; }
         public string? Namespace { get; set; }
         public ConnectionString? ConnectionString { get; set; }
         public string? SourceDirectory { get; set; }

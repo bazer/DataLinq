@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "DataLinq.CLI": {
+      "commandName": "Project",
+      "commandLineArgs": "list",
+      "workingDirectory": "D:\\Github\\DataLinq\\src\\DataLinq.Tests"
+    }
+  }
+}
