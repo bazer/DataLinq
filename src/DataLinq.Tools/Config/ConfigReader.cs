@@ -12,7 +12,8 @@ namespace DataLinq.Tools.Config
     {
         public static ConfigFile Read(string path)
         {
-            var config = System.Text.Json.JsonSerializer.Deserialize<ConfigFile>(path);
+            var file = File.ReadAllText(path);
+            var config = System.Text.Json.JsonSerializer.Deserialize<ConfigFile>(file);
 
             return config;
         }

@@ -38,12 +38,12 @@ namespace DataLinq.Tools
             Log($"Reading database: {db.Name}");
             Log($"Type: {db.Type}");
 
-            var dbMetadata = db.Type switch
+            var dbMetadata = db.ParsedType switch
             {
                 DatabaseType.MariaDB or DatabaseType.MySQL =>
-                    MySql.MetadataFromSqlFactory.ParseDatabase(db.Name, new MySqlDatabase<information_schema>(db.ConnectionString.Original).Query()),
+                    MySql.MetadataFromSqlFactory.ParseDatabase(db.Name, new MySqlDatabase<information_schema>(db.ConnectionString).Query()),
                 DatabaseType.SQLite =>
-                    SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, db.ConnectionString.Original)
+                    SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, db.ConnectionString)
             };
 
             Log($"Tables in database: {dbMetadata.Tables.Count}");

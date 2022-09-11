@@ -21,11 +21,26 @@ namespace DataLinq.Tools.Config
 
     public record DatabaseConfig
     {
-        public DatabaseType? Type { get; set; }
+        public DatabaseType? ParsedType
+        {
+            get
+            {
+                if (Type?.ToLower() == "mysql")
+                    return DatabaseType.MySQL;
+                else if (Type?.ToLower() == "mariadb")
+                    return DatabaseType.MariaDB;
+                else if (Type?.ToLower() == "sqlite")
+                    return DatabaseType.SQLite;
+                else
+                    return null;
+            }
+        }
+        public string? Type { get; set; }
         public string? Name { get; set; }
         public string? NameOnServer { get; set; }
         public string? Namespace { get; set; }
-        public ConnectionString? ConnectionString { get; set; }
+        public string? ConnectionString { get; set; }
+        public ConnectionString? ParsedConnectionString => new ConnectionString(ConnectionString);
         public string? SourceDirectory { get; set; }
         public string? DestinationDirectory { get; set; }
         public List<string>? Tables { get; set; }
@@ -39,9 +54,9 @@ namespace DataLinq.Tools.Config
         public string Original { get; }
         DbConnectionStringBuilder builder;
 
-        public bool HasPassword => 
-            builder.ContainsKey("Password") || 
-            builder.ContainsKey("password") || 
+        public bool HasPassword =>
+            builder.ContainsKey("Password") ||
+            builder.ContainsKey("password") ||
             builder.ContainsKey("pwd");
 
         public ConnectionString(string original)
