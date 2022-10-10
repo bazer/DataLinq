@@ -14,58 +14,70 @@ using Microsoft.CodeAnalysis.Emit;
 
 namespace DataLinq.Tools
 {
+    public struct ModelCreatorOptions
+    {
+        public bool ReadSourceModels { get; set; }
+        public bool OverwriteExistingModels { get; set; }
+    }
+
     public class ModelCreator
     {
-        public Action<string> Log { get; }
+        private readonly ModelCreatorOptions options;
 
-        public ModelCreator(Action<string> log)
+        private Action<string> log;
+
+        public ModelCreator(Action<string> log, ModelCreatorOptions options)
         {
-            Log = log;
+            this.log = log;
+            this.options = options;
         }
 
-
-        public void Create(ConfigFile config)
+        public void Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath)
         {
-            foreach (var database in config.Databases)
-            {
-                Create(database);
+            log($"Reading from database: {db.Name}");
 
+            if (options.ReadSourceModels)
+            {
+                var srcDir = basePath + Path.DirectorySeparatorChar + db.SourceDirectory;
+                if (Directory.Exists(srcDir))
+                {
+                    log($"Reading models from: {srcDir}");
+                    var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(srcDir, db.CsType);
+
+                    log($"Tables in model files: {srcMetadata.Tables.Count}");
+                }
+                else
+                {
+                    log($"Couldn't read from SourceDirectory: {srcDir}");
+                    return;
+                }
             }
-        }
 
-        public void Create(DatabaseConfig db)
-        {
-            Log($"Reading database: {db.Name}");
-            Log($"Type: {db.Type}");
+            log($"Type: {connection.Type}");
 
-            var dbMetadata = db.ParsedType switch
+            var dbMetadata = connection.ParsedType switch
             {
-                DatabaseType.MariaDB or DatabaseType.MySQL =>
-                    MySql.MetadataFromSqlFactory.ParseDatabase(db.Name, new MySqlDatabase<information_schema>(db.ConnectionString).Query()),
+                DatabaseType.MySQL =>
+                    MySql.MetadataFromSqlFactory.ParseDatabase(connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
                 DatabaseType.SQLite =>
-                    SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, db.ConnectionString)
+                    SQLite.MetadataFromSqlFactory.ParseDatabase(connection.DatabaseName, connection.ConnectionString)
             };
 
-            Log($"Tables in database: {dbMetadata.Tables.Count}");
-            Log($"Reading models from: {db.SourceDirectory}");
-
-            var srcMetadata = MetadataFromFileFactory.ReadFiles(db.SourceDirectory);
-
-            Log($"Tables in custom files: {srcMetadata.Tables.Count}");
-
-            Log($"Writing models to: {db.DestinationDirectory}");
+            log($"Tables in database: {dbMetadata.Tables.Count}");
+            log($"Writing models to: {db.DestinationDirectory}");
 
             var settings = new FileFactorySettings
             {
-                NamespaceName = db.Namespace ?? "DataLinq.Models",
+                NamespaceName = db.Namespace ?? "Models",
                 UseRecords = db.UseRecord ?? true,
                 UseCache = db.UseCache ?? true
             };
 
+            var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             foreach (var file in FileFactory.CreateModelFiles(dbMetadata, settings))
             {
-                var filepath = $"{db.DestinationDirectory}{Path.DirectorySeparatorChar}{file.path}";
-                Log($"Writing {filepath}");
+                var filepath = $"{destDir}{Path.DirectorySeparatorChar}{file.path}";
+                log($"Writing {filepath}");
 
                 if (!File.Exists(filepath))
                     Directory.CreateDirectory(Path.GetDirectoryName(filepath));

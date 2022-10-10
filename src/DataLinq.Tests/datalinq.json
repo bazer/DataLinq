@@ -2,16 +2,21 @@
   "Databases": [
     {
       "Name": "employees",
-      "NameOnServer": "datalinq_employees",
-      "Type": "MariaDB",
-      "ConnectionString": "Host=localhost;User=datalinq;Password=datalinq;database=employees;Max Pool Size=100;Pooling=true;CharSet=utf8mb4;",
       "Namespace": "DataLinq.Tests.Models",
-      "SourceDirectory": "Models\\employees\\src",
+      "CsType": "employeesDb",
+      "SourceDirectory": "Models\\employees",
       "DestinationDirectory": "Models\\employees\\dest",
       "Tables": [],
       "Views": [],
       "UseCache": true,
-      "UseRecord": true
+      "UseRecord": true,
+      "Connections": [
+        {
+          "DatabaseName": "datalinq_employees",
+          "Type": "MariaDB",
+          "ConnectionString": "Host=localhost;User=datalinq;Password=datalinq;database=employees;Max Pool Size=100;Pooling=true;CharSet=utf8mb4;"
+        }
+      ]
     }
   ]
 }

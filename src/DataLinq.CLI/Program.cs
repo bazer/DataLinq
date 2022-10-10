@@ -6,16 +6,28 @@ using DataLinq.Tools;
 using DataLinq.Tools.Config;
 using Microsoft.Extensions.Configuration;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Security.AccessControl;
 
 namespace DataLinq.CLI
 {
     static class Program
     {
-        [Verb("create", HelpText = "Create selected database")]
+        [Verb("create-database", HelpText = "Create selected database")]
         public class CreateDatabaseOptions : Options
         {
             [Option('n', "name", HelpText = "Database name", Required = true)]
             public string Name { get; set; }
+        }
+
+        [Verb("create-models", HelpText = "Create models for selected database")]
+        public class CreateDatabaseModelsOptions : Options
+        {
+            [Option('n', "name", HelpText = "Database name", Required = true)]
+            public string Name { get; set; }
+
+            [Option('t', "type", HelpText = "Which database connection type to read from", Required = false)]
+            public string ConnectionType { get; set; }
+
         }
 
         [Verb("delete", HelpText = "Delete selected database")]
@@ -41,18 +53,21 @@ namespace DataLinq.CLI
         static bool Verbose;
         static string ConfigPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json";
         static ConfigFile ConfigFile;
+        static string ConfigBasePath => Path.GetDirectoryName(ConfigPath);
 
-        //static public ConfigFile ReadConfig()
-        //{
-        //    if (!File.Exists(ConfigPath))
-        //    {
-        //        Console.WriteLine($"Couldn't find config file 'datalinq.json'. Tried searching path:");
-        //        Console.WriteLine(ConfigPath);
-        //        return null;
-        //    }
+        static public bool ReadConfig()
+        {
+            if (!File.Exists(ConfigPath))
+            {
+                Console.WriteLine($"Couldn't find config file 'datalinq.json'. Tried searching path:");
+                Console.WriteLine(ConfigPath);
+                return false;
+            }
 
-        //    return ConfigReader.Read(ConfigPath);
-        //}
+            ConfigFile = ConfigReader.Read(ConfigPath);
+
+            return true;
+        }
 
         static void Main(string[] args)
         {
@@ -66,7 +81,7 @@ namespace DataLinq.CLI
             //new ModelCreator(Console.WriteLine).Create(config);
 
             var parserResult = Parser.Default
-                .ParseArguments<Options, CreateDatabaseOptions, DeleteDatabaseOptions, ListOptions>(args);
+                .ParseArguments<Options, CreateDatabaseModelsOptions, CreateDatabaseOptions, DeleteDatabaseOptions, ListOptions>(args);
 
             parserResult
                 .WithParsed<Options>(options =>
@@ -79,40 +94,96 @@ namespace DataLinq.CLI
 
                     if (options.ConfigPath != null)
                     {
-                        ConfigPath = options.ConfigPath;
+                        ConfigPath = Path.GetFullPath(options.ConfigPath);
                         Console.WriteLine($"Reading config from {ConfigPath}");
                     }
 
 
-                    if (!File.Exists(ConfigPath))
-                    {
-                        Console.WriteLine($"Couldn't find config file 'datalinq.json'. Tried searching path:");
-                        Console.WriteLine(ConfigPath);
-                        return;
-                    }
+                    //if (!File.Exists(ConfigPath))
+                    //{
+                    //    Console.WriteLine($"Couldn't find config file 'datalinq.json'. Tried searching path:");
+                    //    Console.WriteLine(ConfigPath);
+                        
+                    //    return;
+                    //}
 
-                    ConfigFile = ConfigReader.Read(ConfigPath);
+                    //ConfigFile = ConfigReader.Read(ConfigPath);
                 })
                 .WithParsed<ListOptions>(options =>
                 {
+                    if (ReadConfig() == false)
+                        return;
+
                     Console.WriteLine($"Databases in config:");
                     foreach (var db in ConfigFile.Databases)
                     {
-                        Console.WriteLine($"{db.Name} ({db.Type})");
+                        Console.WriteLine($"{db.Name}");
+                        Console.WriteLine("Connections:");
+                        foreach (var connection in db.Connections)
+                        {
+                            Console.WriteLine($"{connection.ParsedType} ({connection.ConnectionString})");
+                        }
+
+                        var reader = new ModelReader(Console.WriteLine);
+                        reader.Read(ConfigFile, ConfigBasePath);
+                        Console.WriteLine();
                     }
                 })
-                //.WithParsed<CreateDatabaseOptions>(options =>
-                //{
-              
-                //})
+                .WithParsed<CreateDatabaseModelsOptions>(options =>
+                {
+                    if (ReadConfig() == false)
+                        return;
+
+                    var db = ConfigFile.Databases.SingleOrDefault(x => x.Name.ToLower() == options.Name.ToLower());
+                    if (db == null)
+                    {
+                        Console.WriteLine($"Couldn't find database with name '{options.Name}'");
+                        return;
+                    }
+
+                    if (db.Connections.Count == 0)
+                    {
+                        Console.WriteLine($"Database '{options.Name}' has no connections to read from");
+                        return;
+                    }
+
+                    if (db.Connections.Count > 1 && options.ConnectionType == null)
+                    {
+                        Console.WriteLine($"Database '{options.Name}' has more than one connection to read from, you need to select which one");
+                        return;
+                    }
+
+                    DatabaseConnectionConfig connection = null;
+                    if (options.ConnectionType != null)
+                    {
+                        connection = db.Connections.SingleOrDefault(x => x.Type.ToLower() == options.ConnectionType.ToLower());
+
+                        if (connection == null)
+                        {
+                            Console.WriteLine($"Couldn't find connection with type '{options.ConnectionType}' in configuration file.");
+                            return;
+                        }
+                    }
+
+                    if (connection == null)
+                        connection = db.Connections[0];
+
+                    var creator = new ModelCreator(Console.WriteLine, new ModelCreatorOptions
+                    {
+                        OverwriteExistingModels = true,
+                        ReadSourceModels = false
+                    });
+
+                    creator.Create(db, connection, ConfigBasePath);
+                })
                 //.WithParsed<DeleteDatabaseOptions>(options =>
                 //{
-               
+
                 //})
                 .WithNotParsed(options =>
                 {
                     Console.WriteLine($"Usage: datalinq [command] -n name");
-                    Console.WriteLine(HelpText.AutoBuild(parserResult, _ => _, _ => _));
+                    //Console.WriteLine(HelpText.AutoBuild(parserResult, _ => _, _ => _));
                 });
         }
     }

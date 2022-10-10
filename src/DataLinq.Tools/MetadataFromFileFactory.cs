@@ -18,20 +18,27 @@ namespace DataLinq.Metadata
 
     internal class MetadataFromFileFactory
     {
-        //public static DatabaseMetadata ParseDatabase(string path)
-        //{
+        public Action<string> Log { get; }
 
-        //}
-
-
-        public static DatabaseMetadata ReadFiles(string path)
+        public MetadataFromFileFactory(Action<string> log)
         {
-            DirectoryInfo d = new DirectoryInfo(path);
-            string[] sourceFiles = d.EnumerateFiles("*.cs", SearchOption.AllDirectories)
+            Log = log;
+        }
+
+        private static IEnumerable<MetadataReference> GetReferences(params Type[] types)
+        {
+            foreach (var type in types)
+                yield return MetadataReference.CreateFromFile(type.Assembly.Location);
+        }
+
+        public DatabaseMetadata ReadFiles(string path, string csType)
+        {
+            var d = new DirectoryInfo(path);
+            string[] sourceFiles = d
+                .EnumerateFiles("*.cs", SearchOption.AllDirectories)
                 .Select(a => a.FullName).ToArray();
 
-            // 2
-            List<SyntaxTree> trees = new List<SyntaxTree>();
+            var trees = new List<SyntaxTree>();
             foreach (string file in sourceFiles)
             {
                 string code = File.ReadAllText(file);
@@ -39,60 +46,34 @@ namespace DataLinq.Metadata
                 trees.Add(tree);
             }
 
-            MetadataReference mscorlib =
-                MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
-            MetadataReference codeAnalysis =
-                    MetadataReference.CreateFromFile(typeof(SyntaxTree).Assembly.Location);
-            MetadataReference csharpCodeAnalysis =
-                    MetadataReference.CreateFromFile(typeof(CSharpSyntaxTree).Assembly.Location);
+            var references = GetReferences(
+                typeof(object),
+                typeof(System.Runtime.DependentHandle),
+                typeof(DataLinq),
+                typeof(SyntaxTree),
+                typeof(CSharpSyntaxTree))
+                .ToList();
 
-            MetadataReference[] references = { mscorlib, codeAnalysis, csharpCodeAnalysis };
+            references.Add(MetadataReference.CreateFromFile(Assembly.Load("System.Runtime").Location));
 
             var compilation = CSharpCompilation.Create("datalinq_metadata.dll",
                trees,
                references,
                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-            //var result = compilation.Emit(Path.Combine(destinationLocation, "qwerty.dll"));
-
-            //SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(@"
-            //    using System;
-            //    namespace RoslynCompileSample
-            //    {
-            //        public class Writer
-            //        {
-            //            public void Write(string message)
-            //            {
-            //                Console.WriteLine(message);
-            //            }
-            //        }
-            //    }");
-
-            //string assemblyName = Path.GetRandomFileName();
-            //MetadataReference[] references = new MetadataReference[]
-            //{
-            //    MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            //    MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location)
-            //};
-
-            //CSharpCompilation compilation = CSharpCompilation.Create(
-            //    assemblyName,
-            //    syntaxTrees: new[] { syntaxTree },
-            //    references: references,
-            //    options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
             using (var ms = new MemoryStream())
             {
-                EmitResult result = compilation.Emit(ms);
+                var result = compilation.Emit(ms);
 
                 if (!result.Success)
                 {
-                    IEnumerable<Diagnostic> failures = result.Diagnostics.Where(diagnostic =>
+                    var failures = result.Diagnostics.Where(diagnostic =>
                         diagnostic.IsWarningAsError ||
                         diagnostic.Severity == DiagnosticSeverity.Error);
 
                     foreach (Diagnostic diagnostic in failures)
                     {
-                        Console.Error.WriteLine("{0}: {1}", diagnostic.Id, diagnostic.GetMessage());
+                        Log($"{diagnostic.Id}: {diagnostic.GetMessage()}");
                     }
 
                     return null;
@@ -101,18 +82,16 @@ namespace DataLinq.Metadata
                 ms.Seek(0, SeekOrigin.Begin);
                 Assembly assembly = Assembly.Load(ms.ToArray());
 
-                Type type = assembly.GetType("ICustomDatabaseModel");
-                object obj = Activator.CreateInstance(type);
-                //type.InvokeMember("Write",
-                //    BindingFlags.Default | BindingFlags.InvokeMethod,
-                //    null,
-                //    obj,
-                //    new object[] { "Hello World" });
+                Type type = assembly.ExportedTypes.SingleOrDefault(x => x.Name == csType);
+
+                if (type == null)
+                {
+                    Log($"Couldn't find type with name: '{csType}'");
+                    return null;
+                }
 
                 return MetadataFromInterfaceFactory.ParseDatabase(type);
-
             }
-
         }
     }
 }
