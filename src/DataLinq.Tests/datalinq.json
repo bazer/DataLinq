@@ -5,7 +5,7 @@
       "Namespace": "DataLinq.Tests.Models",
       "CsType": "employeesDb",
       "SourceDirectory": "Models\\employees",
-      "DestinationDirectory": "Models\\employees\\dest",
+      "DestinationDirectory": "Models\\employees",
       "Tables": [],
       "Views": [],
       "UseCache": true,

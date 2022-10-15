@@ -34,7 +34,7 @@ namespace DataLinq.Tests
         [Fact]
         public void TestMetadataFromSqlFactory()
         {
-            TestDatabase(MetadataFromSqlFactory.ParseDatabase(fixture.EmployeesDbName, fixture.information_schema.Query()), false);
+            TestDatabase(MetadataFromSqlFactory.ParseDatabase("employees", fixture.EmployeesDbName, fixture.information_schema.Query()), false);
         }
 
         private void TestDatabase(DatabaseMetadata database, bool testCsType)

@@ -66,9 +66,15 @@ namespace DataLinq.Metadata
         private static IEnumerable<string> ModelFileContents(TableMetadata table, FileFactorySettings settings)
         {
             if (table is ViewMetadata view)
+            {
                 yield return $"{tab}[Definition(\"{view.Definition}\")]";
+                yield return $"{tab}[View(\"{table.DbName}\")]";
+            }
+            else
+            {
+                yield return $"{tab}[Table(\"{table.DbName}\")]";
+            }
 
-            yield return $"{tab}[Name(\"{table.DbName}\")]";
             yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
             yield return tab + "{";
 

@@ -8,9 +8,9 @@ namespace DataLinq.MySql
 {
     public static class MetadataFromSqlFactory
     {
-        public static DatabaseMetadata ParseDatabase(string dbName, information_schema information_Schema)
+        public static DatabaseMetadata ParseDatabase(string name, string dbName, information_schema information_Schema)
         {
-            var database = new DatabaseMetadata(dbName);
+            var database = new DatabaseMetadata(name, dbName);
 
             database.Tables = information_Schema
                 .TABLES.Where(x => x.TABLE_SCHEMA == dbName)

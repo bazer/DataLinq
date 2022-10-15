@@ -8,9 +8,9 @@ namespace DataLinq.SQLite
 {
     public static class MetadataFromSqlFactory
     {
-        public static DatabaseMetadata ParseDatabase(string dbName, string connectionString)
+        public static DatabaseMetadata ParseDatabase(string name, string dbName, string connectionString)
         {
-            var database = new DatabaseMetadata(dbName);
+            var database = new DatabaseMetadata(name, dbName);
 
             using var connection = new SqliteConnection(connectionString);
             connection.Open();

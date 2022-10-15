@@ -9,17 +9,15 @@ namespace DataLinq.Metadata
     {
         public static ConcurrentDictionary<Type, DatabaseMetadata> LoadedDatabases { get; } = new();
 
-        public string NameOrAlias => string.IsNullOrEmpty(Alias) ? Name : Alias;
-
-        public DatabaseMetadata(string name, string alias = null)
+        public DatabaseMetadata(string name, string dbName = null)
         {
             Name = name;
-            Alias = alias;
+            DbName = dbName ?? name;
         }
 
         public List<Relation> Relations { get; set; }
         public string Name { get; set; }
-        public string Alias { get; set; }
+        public string DbName { get; set; }
         public Type CsType { get; set; }
         public List<TableMetadata> Tables { get; set; }
         public List<ModelMetadata> Models { get; set; }

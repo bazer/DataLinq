@@ -58,9 +58,9 @@ namespace DataLinq.Tools
             var dbMetadata = connection.ParsedType switch
             {
                 DatabaseType.MySQL =>
-                    MySql.MetadataFromSqlFactory.ParseDatabase(connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
+                    MySql.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
                 DatabaseType.SQLite =>
-                    SQLite.MetadataFromSqlFactory.ParseDatabase(connection.DatabaseName, connection.ConnectionString)
+                    SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, connection.ConnectionString)
             };
 
             log($"Tables in database: {dbMetadata.Tables.Count}");
