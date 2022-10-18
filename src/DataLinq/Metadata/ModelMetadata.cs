@@ -13,6 +13,7 @@ namespace DataLinq.Metadata
         public Type CsType { get; set; }
         public string CsTypeName { get; set; }
         public string CsDatabasePropertyName { get; set; }
+        public Type[] Interfaces { get; set; }
         public DatabaseMetadata Database { get; set; }
         public TableMetadata Table { get; set; }
         public List<Property> Properties { get; set; }

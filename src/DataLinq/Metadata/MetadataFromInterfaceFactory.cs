@@ -75,7 +75,8 @@ namespace DataLinq.Metadata
             {
                 Relation = relation,
                 Column = column,
-                Type = type
+                Type = type,
+                CsName = column.Table.Model.CsTypeName
             };
 
             column.RelationParts.Add(relationPart);
@@ -118,7 +119,8 @@ namespace DataLinq.Metadata
                 CsType = type,
                 CsTypeName = type.Name,
                 CsDatabasePropertyName = csPropertyName,
-                Attributes = type.GetCustomAttributes(false)
+                Attributes = type.GetCustomAttributes(false),
+                Interfaces = type.GetInterfaces()
             };
 
             model.Properties = type
@@ -173,6 +175,7 @@ namespace DataLinq.Metadata
             {
                 Table = table,
                 DbName = property.PropertyInfo.Name,
+                CsName = property.PropertyInfo.Name,
                 ValueProperty = property
             };
 

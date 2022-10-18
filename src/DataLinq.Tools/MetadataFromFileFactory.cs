@@ -82,7 +82,8 @@ namespace DataLinq.Metadata
                 ms.Seek(0, SeekOrigin.Begin);
                 Assembly assembly = Assembly.Load(ms.ToArray());
 
-                Type type = assembly.ExportedTypes.SingleOrDefault(x => x.Name == csType);
+                Type type = assembly.ExportedTypes.SingleOrDefault(x => x.Name == csType) ??
+                    assembly.ExportedTypes.SingleOrDefault(x => x.Name == "I" + csType);
 
                 if (type == null)
                 {

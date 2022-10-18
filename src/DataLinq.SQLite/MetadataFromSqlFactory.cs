@@ -59,12 +59,13 @@ namespace DataLinq.SQLite
 
                     var column = new Column()
                     {
-                        DbName=reader.GetString(2),
-                        DbType=reader.GetString(3).ToLower(),
-                        Index=reader.GetInt32(1),
+                        DbName = reader.GetString(2),
+                        CsName = reader.GetString(2),
+                        DbType = reader.GetString(3).ToLower(),
+                        Index = reader.GetInt32(1),
                         Table = table,
-                        Nullable=reader.GetBoolean(4)==false,
-                        PrimaryKey=reader.GetBoolean(6),
+                        Nullable = reader.GetBoolean(4) == false,
+                        PrimaryKey = reader.GetBoolean(6),
                         Signed = null,
                         /*
                          In SQLite, a column with type INTEGER PRIMARY KEY is an alias for the ROWID (except in WITHOUT ROWID tables) which is always a 64-bit signed integer.

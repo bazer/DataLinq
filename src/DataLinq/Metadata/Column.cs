@@ -9,6 +9,7 @@ namespace DataLinq.Metadata
     public class Column
     {
         public string DbName { get; set; }
+        public string CsName { get; set; }
         public string DbType { get; set; }
         public int Index { get; set; }
         public bool ForeignKey { get; set; }
@@ -23,5 +24,15 @@ namespace DataLinq.Metadata
         public TableMetadata Table { get; set; }
         public Property ValueProperty { get; set; }
         //public ConcurrentDictionary<object, PrimaryKeys[]> Index { get; } = new ConcurrentDictionary<object, PrimaryKeys[]>();
+
+        public override string ToString()
+        {
+            var desc = $"Column: {DbType} {DbName}";
+
+            if (CsName != DbName)
+                desc += $" ({CsName})";
+
+            return desc;
+        }
     }
 }

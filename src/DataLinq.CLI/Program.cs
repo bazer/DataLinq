@@ -171,7 +171,7 @@ namespace DataLinq.CLI
                     var creator = new ModelCreator(Console.WriteLine, new ModelCreatorOptions
                     {
                         OverwriteExistingModels = true,
-                        ReadSourceModels = false
+                        ReadSourceModels = true
                     });
 
                     creator.Create(db, connection, ConfigBasePath);

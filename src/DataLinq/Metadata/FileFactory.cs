@@ -39,8 +39,8 @@ namespace DataLinq.Metadata
                     .ToJoinedString("\n");
 
                 var path = table.Type == TableType.Table
-                    ? $"Tables{Path.DirectorySeparatorChar}{table.DbName}.cs"
-                    : $"Views{Path.DirectorySeparatorChar}{table.DbName}.cs";
+                    ? $"Tables{Path.DirectorySeparatorChar}{table.Model.CsTypeName}.cs"
+                    : $"Views{Path.DirectorySeparatorChar}{table.Model.CsTypeName}.cs";
 
                 yield return (path, file);
             }
@@ -57,7 +57,7 @@ namespace DataLinq.Metadata
 
             foreach (var t in database.Tables.OrderBy(x => x.DbName))
             {
-                yield return $"{tab}{tab}DbRead<{t.DbName}> {t.DbName} {{ get; }}";
+                yield return $"{tab}{tab}DbRead<{t.Model.CsTypeName}> {t.Model.CsTypeName} {{ get; }}";
             }
 
             yield return tab + "}";
@@ -75,7 +75,11 @@ namespace DataLinq.Metadata
                 yield return $"{tab}[Table(\"{table.DbName}\")]";
             }
 
-            yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
+            var interfaces = table.Type == TableType.Table ? "ITableModel" : "IViewModel";
+            if (table.Model.Interfaces?.Length > 0)
+                interfaces += ", " + table.Model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
+
+            yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
             yield return tab + "{";
 
             foreach (var c in table.Columns.OrderByDescending(x => x.PrimaryKey).ThenBy(x => x.DbName))
@@ -99,9 +103,9 @@ namespace DataLinq.Metadata
                 if (c.Nullable)
                     yield return $"{tab}{tab}[Nullable]";
 
-                if(c.Signed.HasValue && c.Length.HasValue)
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length}, {(c.Signed.Value ? "true":"false")})]";
-                else if(c.Signed.HasValue && !c.Length.HasValue)
+                if (c.Signed.HasValue && c.Length.HasValue)
+                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length}, {(c.Signed.Value ? "true" : "false")})]";
+                else if (c.Signed.HasValue && !c.Length.HasValue)
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\", {(c.Signed.Value ? "true" : "false")})]";
                 else if (c.Length.HasValue)
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length})]";
@@ -109,7 +113,7 @@ namespace DataLinq.Metadata
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
 
                 yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
-                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.DbName} {{ get; set; }}";
+                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.CsName} {{ get; set; }}";
                 yield return $"";
 
                 foreach (var relationPart in c.RelationParts)

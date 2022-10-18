@@ -79,7 +79,8 @@ namespace DataLinq.MySql
             {
                 Relation = relation,
                 Column = column,
-                Type = type
+                Type = type,
+                CsName = column.Table.Model.CsTypeName
             };
 
             column.RelationParts.Add(relationPart);
@@ -128,6 +129,7 @@ namespace DataLinq.MySql
 
             column.Table = table;
             column.DbName = dbColumns.COLUMN_NAME;
+            column.CsName = dbColumns.COLUMN_NAME;
             column.DbType = dbColumns.DATA_TYPE;
             column.Nullable = dbColumns.IS_NULLABLE == "YES";
             column.Length = dbColumns.CHARACTER_MAXIMUM_LENGTH;

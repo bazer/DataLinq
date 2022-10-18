@@ -20,8 +20,8 @@ namespace DataLinq.Tests
         {
             var manager = fixture.employeesDb.Query().dept_manager.Single(x => x.dept_no == "d005" && x.emp_no == 4923);
 
-            Assert.NotNull(manager.departments);
-            Assert.Equal("d005", manager.departments.DeptNo);
+            Assert.NotNull(manager.Department);
+            Assert.Equal("d005", manager.Department.DeptNo);
         }
 
         [Fact]
@@ -32,7 +32,7 @@ namespace DataLinq.Tests
             Assert.NotNull(department.Managers);
             Assert.NotEmpty(department.Managers);
             Assert.True(10 < department.Managers.Count());
-            Assert.Equal("d005", department.Managers.First().departments.DeptNo);
+            Assert.Equal("d005", department.Managers.First().Department.DeptNo);
         }
 
         [Fact]

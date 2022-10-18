@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using DataLinq;
 using DataLinq.Interfaces;
@@ -7,28 +7,7 @@ using DataLinq.Attributes;
 namespace DataLinq.Tests.Models
 {
     [Table("departments")]
-    public interface IDepartment : ICustomTableModel
-    {
-        [Column("dept_no")]
-        public string DeptNo { get; set; }
-
-        [Relation("dept_emp", "dept_no")]
-        public IEnumerable<dept_emp> DepartmentEmployees { get; }
-
-        [Relation("dept_manager", "dept_no")]
-        public IEnumerable<dept_manager> Managers { get; }
-
-        [Column("dept_name")]
-        public string Name { get; set; }
-
-        public string ToString()
-        {
-            return $"Department: {DeptNo}";
-        }
-    }
-
-    [Table("departments")]
-    public partial record Department : IDepartment
+    public partial record Department : ITableModel, IDepartment
     {
         [PrimaryKey]
         [Type("char", 4)]

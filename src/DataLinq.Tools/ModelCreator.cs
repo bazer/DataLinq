@@ -36,22 +36,6 @@ namespace DataLinq.Tools
         {
             log($"Reading from database: {db.Name}");
 
-            if (options.ReadSourceModels)
-            {
-                var srcDir = basePath + Path.DirectorySeparatorChar + db.SourceDirectory;
-                if (Directory.Exists(srcDir))
-                {
-                    log($"Reading models from: {srcDir}");
-                    var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(srcDir, db.CsType);
-
-                    log($"Tables in model files: {srcMetadata.Tables.Count}");
-                }
-                else
-                {
-                    log($"Couldn't read from SourceDirectory: {srcDir}");
-                    return;
-                }
-            }
 
             log($"Type: {connection.Type}");
 
@@ -64,6 +48,30 @@ namespace DataLinq.Tools
             };
 
             log($"Tables in database: {dbMetadata.Tables.Count}");
+
+            if (options.ReadSourceModels)
+            {
+                var srcDir = basePath + Path.DirectorySeparatorChar + db.SourceDirectory;
+                if (Directory.Exists(srcDir))
+                {
+                    log($"Reading models from: {srcDir}");
+                    var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(srcDir, db.CsType);
+
+                    if (srcMetadata != null)
+                    {
+                        log($"Tables in source model files: {srcMetadata.Tables.Count}");
+
+                        var transformer = new MetadataTransformer(log, new MetadataTransformerOptions(true));
+                        transformer.Transform(srcMetadata, dbMetadata);
+                    }
+                }
+                else
+                {
+                    log($"Couldn't read from SourceDirectory: {srcDir}");
+                    return;
+                }
+            }
+
             log($"Writing models to: {db.DestinationDirectory}");
 
             var settings = new FileFactorySettings

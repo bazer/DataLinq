@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using DataLinq;
 using DataLinq.Interfaces;
@@ -35,7 +35,7 @@ namespace DataLinq.Tests.Models
         [Column("first_name")]
         public virtual string first_name { get; set; }
 
-        [Type("enum", 1)]
+        [Type("int")]
         [Column("gender")]
         public virtual int gender { get; set; }
 

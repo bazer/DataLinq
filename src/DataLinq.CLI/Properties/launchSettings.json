@@ -2,7 +2,7 @@
   "profiles": {
     "DataLinq.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "list -c ..\\DataLinq.Tests\\datalinq.json",
+      "commandLineArgs": "create-models -c ..\\DataLinq.Tests\\datalinq.json -n employees",
       "workingDirectory": "D:\\Github\\DataLinq\\src\\DataLinq.Tests"
     }
   }
