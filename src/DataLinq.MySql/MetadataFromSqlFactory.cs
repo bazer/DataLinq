@@ -107,15 +107,15 @@ namespace DataLinq.MySql
             if (table is ViewMetadata view)
             {
                 view.Definition = information_Schema
-                    .VIEWS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == view.DbName)
+                    .VIEWS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == view.DbName)
                     .AsEnumerable()
                     .Select(x => x.VIEW_DEFINITION)
                     .FirstOrDefault()?
-                    .Replace($"`{database.Name}`.", "");
+                    .Replace($"`{database.DbName}`.", "");
             }
 
             table.Columns = information_Schema
-                .COLUMNS.Where(x => x.TABLE_SCHEMA == database.Name && x.TABLE_NAME == table.DbName)
+                .COLUMNS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == table.DbName)
                 .AsEnumerable()
                 .Select(x => ParseColumn(table, x))
                 .ToList();

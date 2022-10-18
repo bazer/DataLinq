@@ -90,7 +90,7 @@ namespace DataLinq.Tests
                 Assert.NotNull(department.Managers);
                 Assert.NotEmpty(department.Managers);
                 Assert.True(10 < department.Managers.Count());
-                Assert.Equal("d005", department.Managers.First().departments.DeptNo);
+                Assert.Equal("d005", department.Managers.First().Department.DeptNo);
             });
         }
     }

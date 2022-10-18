@@ -20,7 +20,7 @@ namespace DataLinq.Metadata
 
         public static IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database, FileFactorySettings settings)
         {
-            var dbName = database.Tables.Any(x => x.DbName == database.Name)
+            var dbName = database.Tables.Any(x => x.DbName == database.DbName)
                 ? $"{database.Name}Db"
                 : database.Name;
 

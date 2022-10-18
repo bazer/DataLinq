@@ -62,7 +62,7 @@ namespace DataLinq.Tools
                         SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, connection.ConnectionString)
                 };
 
-                Log($"Name in database: {dbMetadata.Name}");
+                Log($"Name in database: {dbMetadata.DbName}");
                 Log($"Tables in database: {dbMetadata.Tables.Count}");
             }
         }
