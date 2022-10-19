@@ -80,5 +80,10 @@ namespace DataLinq.Metadata
                     this.PropertyInfo.GetSetMethod(),
                     valueCast), new ParameterExpression[] { instance, value }).Compile();
         }
+
+        public override string ToString()
+        {
+            return $"Property: {CsTypeName} {CsName}";
+        }
     }
 }

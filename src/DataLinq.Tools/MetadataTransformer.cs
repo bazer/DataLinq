@@ -53,32 +53,33 @@ namespace DataLinq.Tools
                 destTable.Model.CsTypeName = csName;
                 destTable.Model.Interfaces = new Type[] { srcTable.Model.CsType };
 
-                foreach (var srcColumn in srcTable.Columns)
+                foreach (var srcProperty in srcTable.Model.Properties)
                 {
-                    var destColumn = destTable.Columns.FirstOrDefault(x => x.DbName == srcColumn.DbName);
+                    var destProperty = destTable.Model.Properties.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
+                    //var destColumn = destTable.Columns.FirstOrDefault(x => x.DbName == srcProperty.DbName);
 
-                    if (destColumn == null)
+                    if (destProperty == null)
                     {
-                        log($"Couldn't find property with name '{srcColumn.CsName}' in {destTable.DbName}");
+                        log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.DbName}");
                         continue;
                     }
 
-                    destColumn.CsName = srcColumn.CsName;
+                    destProperty.CsName = srcProperty.CsName;
                     
-                    foreach (var destRelation in destColumn.RelationParts)
-                    {
-                        //var destRelation = destColumn.RelationParts.FirstOrDefault(x => x.Relation.ConstraintName == srcRelation.Relation.ConstraintName);
+                    //foreach (var destRelation in destColumn.RelationParts)
+                    //{
+                    //    //var destRelation = destColumn.RelationParts.FirstOrDefault(x => x.Relation.ConstraintName == srcRelation.Relation.ConstraintName);
 
 
 
-                        if (destRelation == null)
-                        {
-                            log($"Couldn't find relation with name '{destRelation.Relation.ConstraintName}' in {destColumn.CsName}");
-                            continue;
-                        }
+                    //    if (destRelation == null)
+                    //    {
+                    //        log($"Couldn't find relation with name '{destRelation.Relation.ConstraintName}' in {destColumn.CsName}");
+                    //        continue;
+                    //    }
 
-                        //destRelation.CsName = srcRelation.CsName;
-                    }
+                    //    //destRelation.CsName = srcRelation.CsName;
+                    //}
                 }
             }
         }

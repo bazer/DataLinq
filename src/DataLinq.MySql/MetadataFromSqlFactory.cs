@@ -21,6 +21,8 @@ namespace DataLinq.MySql
             foreach (var key in information_Schema
                 .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == dbName && x.REFERENCED_COLUMN_NAME != null))
             {
+
+
                 var relation = new Relation
                 {
                     ConstraintName = key.CONSTRAINT_NAME,
@@ -37,6 +39,9 @@ namespace DataLinq.MySql
 
                 relation.ForeignKey = CreateRelationPart(relation, foreignKeyColumn, RelationPartType.ForeignKey);
                 relation.CandidateKey = CreateRelationPart(relation, candidateKeyColumn, RelationPartType.CandidateKey);
+
+                //MetadataFromInterfaceFactory.AttachRelationProperty(relation.ForeignKey, candidateKeyColumn);
+                //MetadataFromInterfaceFactory.AttachRelationProperty(relation.CandidateKey, foreignKeyColumn);
             }
 
 
@@ -129,7 +134,6 @@ namespace DataLinq.MySql
 
             column.Table = table;
             column.DbName = dbColumns.COLUMN_NAME;
-            column.CsName = dbColumns.COLUMN_NAME;
             column.DbType = dbColumns.DATA_TYPE;
             column.Nullable = dbColumns.IS_NULLABLE == "YES";
             column.Length = dbColumns.CHARACTER_MAXIMUM_LENGTH;
@@ -138,58 +142,19 @@ namespace DataLinq.MySql
             column.Signed = dbColumns.COLUMN_TYPE.Contains("unsigned") ? false : null;
 
             var property = new Property();
-            property.CsTypeName = ParseCsType(column.DbType);
-            property.CsNullable = column.Nullable && IsCsTypeNullable(property.CsTypeName);
+            property.Column = column;
+            property.Model = table.Model;
+            property.CsName = column.DbName;
+            property.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+            property.CsTypeName = MetadataTypeConverter.ParseCsType(column.DbType);
+            property.CsNullable = column.Nullable && MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName);
+
             column.ValueProperty = property;
+            table.Model.Properties.Add(property);
 
             return column;
         }
 
-        private static string ParseCsType(string dbType)
-        {
-            return dbType switch
-            {
-                "int" => "int",
-                "tinyint" => "int",
-                "mediumint" => "int",
-                "varchar" => "string",
-                "text" => "string",
-                "mediumtext" => "string",
-                "bit" => "bool",
-                "double" => "double",
-                "datetime" => "DateTime",
-                "timestamp" => "DateTime",
-                "date" => "DateOnly",
-                "float" => "float",
-                "bigint" => "long",
-                "char" => "string",
-                "binary" => "Guid",
-                "enum" => "int",
-                "longtext" => "string",
-                "decimal" => "decimal",
-                "blob" => "byte[]",
-                "smallint" => "int",
-                _ => throw new NotImplementedException($"Unknown type '{dbType}'"),
-            };
-        }
-
-        private static bool IsCsTypeNullable(string csType)
-        {
-            return csType switch
-            {
-                "int" => true,
-                "string" => false,
-                "bool" => true,
-                "double" => true,
-                "DateTime" => true,
-                "DateOnly" => true,
-                "float" => true,
-                "long" => true,
-                "Guid" => true,
-                "byte[]" => false,
-                "decimal" => true,
-                _ => throw new NotImplementedException($"Unknown type '{csType}'"),
-            };
-        }
+        
     }
 }

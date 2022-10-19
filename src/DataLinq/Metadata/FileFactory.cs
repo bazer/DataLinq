@@ -113,7 +113,7 @@ namespace DataLinq.Metadata
                     yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
 
                 yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
-                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.CsName} {{ get; set; }}";
+                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
                 yield return $"";
 
                 foreach (var relationPart in c.RelationParts)
@@ -125,9 +125,9 @@ namespace DataLinq.Metadata
                     yield return $"{tab}{tab}[Relation(\"{column.Table.DbName}\", \"{column.DbName}\")]";
 
                     if (relationPart.Type == RelationPartType.ForeignKey)
-                        yield return $"{tab}{tab}public virtual {column.Table.Model.CsTypeName} {column.Table.Model.CsTypeName} {{ get; }}";
+                        yield return $"{tab}{tab}public virtual {column.Table.Model.CsTypeName} {column.ValueProperty.CsName} {{ get; }}";
                     else
-                        yield return $"{tab}{tab}public virtual IEnumerable<{column.Table.Model.CsTypeName}> {column.Table.Model.CsTypeName} {{ get; }}";
+                        yield return $"{tab}{tab}public virtual IEnumerable<{column.Table.Model.CsTypeName}> {column.ValueProperty.CsName} {{ get; }}";
 
                     yield return $"";
                 }

@@ -16,7 +16,7 @@ namespace DataLinq.Metadata
         public Type[] Interfaces { get; set; }
         public DatabaseMetadata Database { get; set; }
         public TableMetadata Table { get; set; }
-        public List<Property> Properties { get; set; }
+        public List<Property> Properties { get; set; } = new List<Property>();
         public object[] Attributes { get; set; }
 
         protected bool IsOfType(Type modelType) =>

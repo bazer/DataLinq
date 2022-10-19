@@ -41,7 +41,7 @@ namespace DataLinq.Metadata
             return database;
         }
 
-        private static IEnumerable<Relation> ParseRelations(DatabaseMetadata database)
+        public static IEnumerable<Relation> ParseRelations(DatabaseMetadata database)
         {
             foreach (var column in database.
                 Tables.SelectMany(x => x.Columns.Where(y => y.ForeignKey)))
@@ -84,7 +84,7 @@ namespace DataLinq.Metadata
             return relationPart;
         }
 
-        private static Property AttachRelationProperty(RelationPart relationPart, Column column)
+        public static Property AttachRelationProperty(RelationPart relationPart, Column column)
         {
             var property = relationPart.Column.Table.Model
                 .Properties.SingleOrDefault(x =>
@@ -159,7 +159,6 @@ namespace DataLinq.Metadata
 
             table.Columns = model.Properties
                 .Where(x => !x.Attributes.Any(attribute => attribute is RelationAttribute))
-                
                 .Select(x => ParseColumn(table, x))
                 .ToList();
 
@@ -175,7 +174,6 @@ namespace DataLinq.Metadata
             {
                 Table = table,
                 DbName = property.PropertyInfo.Name,
-                CsName = property.PropertyInfo.Name,
                 ValueProperty = property
             };
 
@@ -239,74 +237,14 @@ namespace DataLinq.Metadata
                 Attributes = propertyInfo.GetCustomAttributes(false),
             };
 
-            property.CsTypeName = GetKeywordName(property.CsType);
-            property.CsSize = CsTypeSize(property.CsTypeName);
+            property.CsTypeName = MetadataTypeConverter.GetKeywordName(property.CsType);
+            property.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
 
             return property;
         }
 
-        private static string GetKeywordName(Type type)
-        {
-            switch (type.Name)
-            {
-                case "SByte":
-                    return "sbyte";
-                case "Byte":
-                    return "byte";
-                case "Int16":
-                    return "short";
-                case "UInt16":
-                    return "ushort";
-                case "Int32":
-                    return "int";
-                case "UInt32":
-                    return "uint";
-                case "Int64":
-                    return "long";
-                case "UInt64":
-                    return "ulong";
-                case "Char":
-                    return "char";
-                case "Single":
-                    return "float";
-                case "Double":
-                    return "double";
-                case "Boolean":
-                    return "bool";
-                case "Decimal":
-                    return "decimal";
-                default:
-                    return type.Name;
-            }
-        }
+        
 
-        private static int? CsTypeSize(string csType)
-        {
-            //if (csType.StartsWith("IEnumerable"))
-            //    return null;
-
-            return csType switch
-            {
-                "sbyte" => sizeof(sbyte),
-                "byte" => sizeof(byte),
-                "short" => sizeof(short),
-                "ushort" => sizeof(ushort),
-                "int" => sizeof(int),
-                "uint" => sizeof(uint),
-                "long" => sizeof(long),
-                "ulong" => sizeof(ulong),
-                "char" => sizeof(char),
-                "float" => sizeof(float),
-                "double" => sizeof(double),
-                "bool" => sizeof(bool),
-                "decimal" => sizeof(decimal),
-                "DateTime" => 8,
-                "DateOnly" => sizeof(int),
-                "Guid" => 16,
-                "String" => null,
-                "byte[]" => null,
-                _ => null
-            };
-        }
+        
     }
 }

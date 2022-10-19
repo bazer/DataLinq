@@ -60,7 +60,6 @@ namespace DataLinq.SQLite
                     var column = new Column()
                     {
                         DbName = reader.GetString(2),
-                        CsName = reader.GetString(2),
                         DbType = reader.GetString(3).ToLower(),
                         Index = reader.GetInt32(1),
                         Table = table,
