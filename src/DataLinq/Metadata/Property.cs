@@ -1,5 +1,6 @@
 ﻿using DataLinq.Interfaces;
 using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Metadata;
@@ -14,7 +15,7 @@ namespace DataLinq.Metadata
 
     public class Property
     {
-        public object[] Attributes { get; set; }
+        public List<Attribute> Attributes { get; set; }
         public Column Column { get; set; }
         public string CsName { get; set; }
         public bool CsNullable { get; set; }

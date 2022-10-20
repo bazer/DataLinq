@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Reflection;
 using DataLinq.Attributes;
@@ -35,10 +36,36 @@ namespace DataLinq.Metadata
                 .Models.Select(ParseTable)
                 .ToList();
 
+            ParseIndices(database);
+
             database.Relations = ParseRelations(database)
                 .ToList();
 
             return database;
+        }
+
+        public static void ParseIndices(DatabaseMetadata database)
+        {
+            foreach (var column in database.
+                Tables.SelectMany(x => x.Columns.Where(y => y.Unique)))
+            {
+                var uniqueAttribute = column.ValueProperty
+                    .Attributes.Single(x => x is UniqueAttribute) as UniqueAttribute;
+
+                if (column.Table.ColumnIndices.Any(x => x.ConstraintName == uniqueAttribute.Name))
+                {
+                    column.Table.ColumnIndices.Single(x => x.ConstraintName == uniqueAttribute.Name).Columns.Add(column);
+                }
+                else
+                {
+                    column.Table.ColumnIndices.Add(new ColumnIndex
+                    {
+                        Columns = new List<Column> { column },
+                        ConstraintName = uniqueAttribute.Name,
+                        Type = IndexType.Unique
+                    });
+                }
+            }
         }
 
         public static IEnumerable<Relation> ParseRelations(DatabaseMetadata database)
@@ -93,12 +120,65 @@ namespace DataLinq.Metadata
                         && relationAttribute.Table == column.Table.DbName
                         && relationAttribute.Column == column.DbName));
 
+            if (property == null)
+            {
+                property = ParseProperty(column);
+            }
             property.Column = column;
             property.Type = PropertyType.Relation;
             property.RelationPart = relationPart;
             column.RelationProperties.Add(property);
 
             return property;
+        }
+
+        public static Property ParseProperty(Column column)
+        {
+            var property = new Property();
+            property.Column = column;
+            property.Model = column.Table.Model;
+            property.CsName = column.DbName;
+            property.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+            property.CsTypeName = MetadataTypeConverter.ParseCsType(column.DbType);
+            property.CsNullable = column.Nullable && MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName);
+            property.Attributes = GetAttributes(property).ToList();
+
+            return property;
+        }
+
+        public static IEnumerable<Attribute> GetAttributes(Property property)
+        {
+            var column = property.Column;
+
+            if (column.PrimaryKey)
+                yield return new PrimaryKeyAttribute();
+
+            if (column.AutoIncrement)
+                yield return new AutoIncrementAttribute();
+
+            if (column.Nullable)
+                yield return new NullableAttribute();
+
+            if (property.Type == PropertyType.Value)
+            {
+                yield return new ColumnAttribute(column.DbName);
+
+                if (column.Length.HasValue && column.Signed.HasValue)
+                    yield return new TypeAttribute(column.DbType, column.Length.Value, column.Signed.Value);
+                else if (column.Length.HasValue)
+                    yield return new TypeAttribute(column.DbType, column.Length.Value);
+                else if (column.Signed.HasValue)
+                    yield return new TypeAttribute(column.DbType, column.Signed.Value);
+                else
+                    yield return new TypeAttribute(column.DbType);
+            }
+
+            //foreach (var index in column.Table.ColumnIndices.Where(x => x.Columns.Contains(column)))
+            //{
+            //    if (index.Type == IndexType.Unique)
+            //        yield return new UniqueAttribute(index.ConstraintName);
+            //}
+
         }
 
         private static (string csName, Type type) GetTableType(PropertyInfo property)
@@ -197,21 +277,22 @@ namespace DataLinq.Metadata
                 if (attribute is ForeignKeyAttribute)
                     column.ForeignKey = true;
 
-                if (attribute is UniqueAttribute uniqueAttribute)
+                if (attribute is UniqueAttribute)
                 {
-                    if (column.Table.ColumnIndices.Any(x => x.ConstraintName == uniqueAttribute.Name))
-                    {
-                        column.Table.ColumnIndices.Single(x => x.ConstraintName == uniqueAttribute.Name).Columns.Add(column);
-                    }
-                    else
-                    {
-                        column.Table.ColumnIndices.Add(new ColumnIndex
-                        {
-                            Columns = new List<Column> { column },
-                            ConstraintName = uniqueAttribute.Name,
-                            Type = IndexType.Unique
-                        });
-                    }
+                    column.Unique = true;
+                    //if (column.Table.ColumnIndices.Any(x => x.ConstraintName == uniqueAttribute.Name))
+                    //{
+                    //    column.Table.ColumnIndices.Single(x => x.ConstraintName == uniqueAttribute.Name).Columns.Add(column);
+                    //}
+                    //else
+                    //{
+                    //    column.Table.ColumnIndices.Add(new ColumnIndex
+                    //    {
+                    //        Columns = new List<Column> { column },
+                    //        ConstraintName = uniqueAttribute.Name,
+                    //        Type = IndexType.Unique
+                    //    });
+                    //}
                 }
 
                 if (attribute is TypeAttribute t)
@@ -234,7 +315,11 @@ namespace DataLinq.Metadata
                 CsType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType,
                 CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>),
                 PropertyInfo = propertyInfo,
-                Attributes = propertyInfo.GetCustomAttributes(false),
+                Attributes = propertyInfo
+                    .GetCustomAttributes(false)
+                    .Select(x => x as Attribute)
+                    .Where(x => x != null)
+                    .ToList(),
             };
 
             property.CsTypeName = MetadataTypeConverter.GetKeywordName(property.CsType);
@@ -243,8 +328,8 @@ namespace DataLinq.Metadata
             return property;
         }
 
-        
 
-        
+
+
     }
 }

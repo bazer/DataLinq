@@ -16,6 +16,7 @@ namespace DataLinq.Metadata
         public long? Length { get; set; }
         public bool Nullable { get; set; }
         public bool PrimaryKey { get; set; }
+        public bool Unique { get; set; }
         public bool AutoIncrement { get; set; }
         public bool? Signed { get; set; }
         public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
@@ -27,7 +28,7 @@ namespace DataLinq.Metadata
 
         public override string ToString()
         {
-            return $"Column: {DbType} {DbName}";
+            return $"{Table.DbName}.{DbName} ({DbType})";
         }
     }
 }
