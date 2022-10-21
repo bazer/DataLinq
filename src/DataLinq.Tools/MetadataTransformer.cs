@@ -1,4 +1,5 @@
-﻿using DataLinq.Extensions;
+﻿using DataLinq.Attributes;
+using DataLinq.Extensions;
 using DataLinq.Metadata;
 using System;
 using System.Collections.Generic;
@@ -53,9 +54,11 @@ namespace DataLinq.Tools
                 destTable.Model.CsTypeName = csName;
                 destTable.Model.Interfaces = new Type[] { srcTable.Model.CsType };
 
-                foreach (var srcProperty in srcTable.Model.Properties)
+                destTable.Model.CsDatabasePropertyName = srcTable.Model.CsDatabasePropertyName;
+
+                foreach (var srcProperty in srcTable.Model.ValueProperties)
                 {
-                    var destProperty = destTable.Model.Properties.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
+                    var destProperty = destTable.Model.ValueProperties.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
                     //var destColumn = destTable.Columns.FirstOrDefault(x => x.DbName == srcProperty.DbName);
 
                     if (destProperty == null)
@@ -66,6 +69,36 @@ namespace DataLinq.Tools
 
                     destProperty.CsName = srcProperty.CsName;
                     
+                    //foreach (var destRelation in destColumn.RelationParts)
+                    //{
+                    //    //var destRelation = destColumn.RelationParts.FirstOrDefault(x => x.Relation.ConstraintName == srcRelation.Relation.ConstraintName);
+
+
+
+                    //    if (destRelation == null)
+                    //    {
+                    //        log($"Couldn't find relation with name '{destRelation.Relation.ConstraintName}' in {destColumn.CsName}");
+                    //        continue;
+                    //    }
+
+                    //    //destRelation.CsName = srcRelation.CsName;
+                    //}
+                }
+
+                foreach (var srcProperty in srcTable.Model.RelationProperties)
+                {
+                    var destProperty = destTable.Model.RelationProperties.FirstOrDefault(x =>
+                        srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart.GetOtherSide().Column.Table.DbName == y.Table) &&
+                        srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart.GetOtherSide().Column.DbName == y.Column));
+
+                    if (destProperty == null)
+                    {
+                        log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.DbName}");
+                        continue;
+                    }
+
+                    destProperty.CsName = srcProperty.CsName;
+
                     //foreach (var destRelation in destColumn.RelationParts)
                     //{
                     //    //var destRelation = destColumn.RelationParts.FirstOrDefault(x => x.Relation.ConstraintName == srcRelation.Relation.ConstraintName);

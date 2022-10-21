@@ -31,19 +31,23 @@ namespace DataLinq.Metadata
                 yield return MetadataReference.CreateFromFile(type.Assembly.Location);
         }
 
-        public DatabaseMetadata ReadFiles(string path, string csType)
+        public DatabaseMetadata ReadFiles(string csType, params string[] paths)
         {
-            var d = new DirectoryInfo(path);
-            string[] sourceFiles = d
-                .EnumerateFiles("*.cs", SearchOption.AllDirectories)
-                .Select(a => a.FullName).ToArray();
-
             var trees = new List<SyntaxTree>();
-            foreach (string file in sourceFiles)
+
+            foreach (var path in paths)
             {
-                string code = File.ReadAllText(file);
-                SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
-                trees.Add(tree);
+                var d = new DirectoryInfo(path);
+                string[] sourceFiles = d
+                    .EnumerateFiles("*.cs", SearchOption.AllDirectories)
+                    .Select(a => a.FullName).ToArray();
+
+                foreach (string file in sourceFiles)
+                {
+                    string code = File.ReadAllText(file);
+                    SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
+                    trees.Add(tree);
+                }
             }
 
             var references = GetReferences(
@@ -82,16 +86,21 @@ namespace DataLinq.Metadata
                 ms.Seek(0, SeekOrigin.Begin);
                 Assembly assembly = Assembly.Load(ms.ToArray());
 
-                Type type = assembly.ExportedTypes.SingleOrDefault(x => x.Name == csType) ??
-                    assembly.ExportedTypes.SingleOrDefault(x => x.Name == "I" + csType);
+                List<Type> dbTypes = assembly.ExportedTypes.Where(x => x.Name == csType)
+                    .Concat(assembly.ExportedTypes.Where(x => x.Name == "I" + csType))
+                    .ToList();
 
-                if (type == null)
+                var dbType = 
+                    dbTypes.FirstOrDefault(x => x.GetInterface("ICustomDatabaseModel") != null) ??
+                    dbTypes.FirstOrDefault(x => x.GetInterface("IDatabaseModel") != null);
+
+                if (dbType == null)
                 {
-                    Log($"Couldn't find type with name: '{csType}'");
+                    Log($"Couldn't find a type '{csType}' that implements either 'ICustomDatabaseModel' or 'IDatabaseModel'");
                     return null;
                 }
 
-                return MetadataFromInterfaceFactory.ParseDatabase(type);
+                return MetadataFromInterfaceFactory.ParseDatabase(dbType);
             }
         }
     }

@@ -13,10 +13,10 @@ namespace DataLinq.Tests.Models
         public string DeptNo { get; set; }
 
         [Relation("dept_emp", "dept_no")]
-        public IEnumerable<Idept_emp> DepartmentEmployees { get; }
+        public IEnumerable<dept_emp> DepartmentEmployees { get; }
 
         [Relation("dept_manager", "dept_no")]
-        public IEnumerable<Idept_manager> Managers { get; }
+        public IEnumerable<Manager> Managers { get; }
 
         [Column("dept_name")]
         public string Name { get; set; }

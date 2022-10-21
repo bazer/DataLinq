@@ -13,19 +13,15 @@ namespace DataLinq.Metadata
         Relation
     }
 
-    public class Property
+    public abstract class Property
     {
-        public List<Attribute> Attributes { get; set; }
-        public Column Column { get; set; }
+        public List<Attribute> Attributes { get; set; } = new List<Attribute>();
         public string CsName { get; set; }
-        public bool CsNullable { get; set; }
         public Type CsType { get; set; }
-        public int? CsSize { get; set; }
         public string CsTypeName { get; set; }
         public ModelMetadata Model { get; set; }
         public PropertyInfo PropertyInfo { get; set; }
-        public PropertyType Type { get; set; }
-        public RelationPart RelationPart { get; set; }
+        public PropertyType Type { get; protected set; }
 
 
         private Func<object, object> getAccessor = null;
@@ -85,6 +81,29 @@ namespace DataLinq.Metadata
         public override string ToString()
         {
             return $"Property: {CsTypeName} {CsName}";
+        }
+    }
+
+    public class ValueProperty : Property
+    {
+        public Column Column { get; set; }
+        public bool CsNullable { get; set; }
+        public int? CsSize { get; set; }
+
+        public ValueProperty()
+        {
+            Type = PropertyType.Value;
+        }
+
+    }
+
+    public class RelationProperty : Property
+    {
+        public RelationPart RelationPart { get; set; }
+
+        public RelationProperty()
+        {
+            Type = PropertyType.Relation;
         }
     }
 }

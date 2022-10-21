@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Reflection;
+using System.Xml.Linq;
 using DataLinq.Attributes;
 using DataLinq.Cache;
 
@@ -83,8 +85,11 @@ namespace DataLinq.Metadata
                 };
 
                 var candidateColumn = database
-                    .Tables.Single(x => x.DbName == attribute.Table)
-                    .Columns.Single(x => x.DbName == attribute.Column);
+                    .Tables.FirstOrDefault(x => x.DbName == attribute.Table)?
+                    .Columns.FirstOrDefault(x => x.DbName == attribute.Column);
+
+                if (candidateColumn == null)
+                    continue;
 
                 relation.ForeignKey = CreateRelationPart(relation, column, RelationPartType.ForeignKey);
                 relation.CandidateKey = CreateRelationPart(relation, candidateColumn, RelationPartType.CandidateKey);
@@ -111,10 +116,10 @@ namespace DataLinq.Metadata
             return relationPart;
         }
 
-        public static Property AttachRelationProperty(RelationPart relationPart, Column column)
+        public static RelationProperty AttachRelationProperty(RelationPart relationPart, Column column)
         {
             var property = relationPart.Column.Table.Model
-                .Properties.SingleOrDefault(x =>
+                .RelationProperties.SingleOrDefault(x => 
                     x.Attributes.Any(y =>
                         y is RelationAttribute relationAttribute
                         && relationAttribute.Table == column.Table.DbName
@@ -122,31 +127,23 @@ namespace DataLinq.Metadata
 
             if (property == null)
             {
-                property = ParseProperty(column);
+                property = new RelationProperty();
+                property.Attributes.Add(new RelationAttribute(column.Table.DbName, column.DbName));
+                property.CsName = column.Table.Model.CsDatabasePropertyName;
+                property.Model = relationPart.Column.Table.Model;
+                relationPart.Column.Table.Model.Properties.Add(property);
             }
-            property.Column = column;
-            property.Type = PropertyType.Relation;
+            //property.Column = column;
+            //property.Type = PropertyType.Relation;
             property.RelationPart = relationPart;
             column.RelationProperties.Add(property);
 
             return property;
         }
 
-        public static Property ParseProperty(Column column)
-        {
-            var property = new Property();
-            property.Column = column;
-            property.Model = column.Table.Model;
-            property.CsName = column.DbName;
-            property.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
-            property.CsTypeName = MetadataTypeConverter.ParseCsType(column.DbType);
-            property.CsNullable = column.Nullable && MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName);
-            property.Attributes = GetAttributes(property).ToList();
+        
 
-            return property;
-        }
-
-        public static IEnumerable<Attribute> GetAttributes(Property property)
+        public static IEnumerable<Attribute> GetAttributes(ValueProperty property)
         {
             var column = property.Column;
 
@@ -159,8 +156,8 @@ namespace DataLinq.Metadata
             if (column.Nullable)
                 yield return new NullableAttribute();
 
-            if (property.Type == PropertyType.Value)
-            {
+            //if (property.Type == PropertyType.Value)
+            //{
                 yield return new ColumnAttribute(column.DbName);
 
                 if (column.Length.HasValue && column.Signed.HasValue)
@@ -171,7 +168,7 @@ namespace DataLinq.Metadata
                     yield return new TypeAttribute(column.DbType, column.Signed.Value);
                 else
                     yield return new TypeAttribute(column.DbType);
-            }
+//            }
 
             //foreach (var index in column.Table.ColumnIndices.Where(x => x.Columns.Contains(column)))
             //{
@@ -237,8 +234,9 @@ namespace DataLinq.Metadata
                     view.Definition = definitionAttribute.Sql;
             }
 
-            table.Columns = model.Properties
-                .Where(x => !x.Attributes.Any(attribute => attribute is RelationAttribute))
+            table.Columns = model.ValueProperties
+                //.Where(x => !x.Attributes.Any(attribute => attribute is RelationAttribute))
+                //.Where(x => x.Type == PropertyType.Value)
                 .Select(x => ParseColumn(table, x))
                 .ToList();
 
@@ -248,7 +246,7 @@ namespace DataLinq.Metadata
             return table;
         }
 
-        private static Column ParseColumn(TableMetadata table, Property property)
+        private static Column ParseColumn(TableMetadata table, ValueProperty property)
         {
             var column = new Column
             {
@@ -258,7 +256,7 @@ namespace DataLinq.Metadata
             };
 
             property.Column = column;
-            property.Type = PropertyType.Value;
+            //property.Type = PropertyType.Value;
 
             foreach (var attribute in property.Attributes)
             {
@@ -306,26 +304,64 @@ namespace DataLinq.Metadata
             return column;
         }
 
+        public static ValueProperty ParseProperty(Column column)
+        {
+            var property = new ValueProperty();
+            property.Column = column;
+            property.Model = column.Table.Model;
+            property.CsName = column.DbName;
+            property.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+            property.CsTypeName = MetadataTypeConverter.ParseCsType(column.DbType);
+            property.CsNullable = column.Nullable && MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName);
+            property.Attributes = GetAttributes(property).ToList();
+
+            return property;
+        }
+
         private static Property ParseProperty(PropertyInfo propertyInfo, ModelMetadata model)
         {
-            var property = new Property
-            {
-                Model = model,
-                CsName = propertyInfo.Name,
-                CsType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType,
-                CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>),
-                PropertyInfo = propertyInfo,
-                Attributes = propertyInfo
+            var attributes = propertyInfo
                     .GetCustomAttributes(false)
                     .Select(x => x as Attribute)
                     .Where(x => x != null)
-                    .ToList(),
-            };
+                    .ToList();
 
+            var property = GetProperty(attributes);
+
+            property.Model = model;
+            property.CsName = propertyInfo.Name;
+            property.CsType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
             property.CsTypeName = MetadataTypeConverter.GetKeywordName(property.CsType);
-            property.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+            property.PropertyInfo = propertyInfo;
+            property.Attributes = attributes;
+
+            if (property is ValueProperty valueProp)
+            {
+                valueProp.CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
+                valueProp.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+            }
+
+            //var property = new Property
+            //{
+            //    Model = model,
+            //    CsName = propertyInfo.Name,
+            //    CsType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType,
+            //    CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>),
+            //    PropertyInfo = propertyInfo,
+            //    Attributes = propertyInfo
+            //        .GetCustomAttributes(false)
+            //        .Select(x => x as Attribute)
+            //        .Where(x => x != null)
+            //        .ToList(),
+            //};
+
 
             return property;
+
+
+            Property GetProperty(List<Attribute> attributes) => attributes.Any(attribute => attribute is RelationAttribute)
+                ? new RelationProperty()
+                : new ValueProperty();
         }
 
 

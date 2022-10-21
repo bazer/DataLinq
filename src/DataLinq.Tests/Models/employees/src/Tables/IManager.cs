@@ -6,10 +6,11 @@ using DataLinq.Attributes;
 
 namespace DataLinq.Tests.Models
 {
-    [Table("dept_emp")]
-    public interface Idept_emp : ICustomTableModel
+    [Table("dept_manager")]
+    public interface IManager : ICustomTableModel
     {
-      
+        [Relation("departments", "dept_no")]
+        public Department Department { get; }
 
     }
 }

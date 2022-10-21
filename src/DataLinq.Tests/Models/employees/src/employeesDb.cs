@@ -11,7 +11,7 @@ namespace DataLinq.Tests.Models
     public partial interface IemployeesDb : ICustomDatabaseModel
     {
         DbRead<IDepartment> Departments { get; }
-        DbRead<Idept_emp> dept_emp { get; }
-        DbRead<Idept_manager> dept_manager { get; }
+        DbRead<IManager> Managers { get; }
+        DbRead<dept_emp> DepartmentEmployees { get; }
     }
 }

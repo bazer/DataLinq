@@ -20,7 +20,7 @@ namespace DataLinq.Metadata
 
         public static IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database, FileFactorySettings settings)
         {
-            var dbName = database.Tables.Any(x => x.DbName == database.DbName)
+            var dbName = database.Tables.Any(x => x.Model.CsTypeName == database.Name)
                 ? $"{database.Name}Db"
                 : database.Name;
 
@@ -34,7 +34,7 @@ namespace DataLinq.Metadata
             {
                 var file =
                     FileHeader(settings.NamespaceName)
-                    .Concat(ModelFileContents(table, settings))
+                    .Concat(ModelFileContents(table.Model, settings))
                     .Concat(FileFooter())
                     .ToJoinedString("\n");
 
@@ -57,14 +57,15 @@ namespace DataLinq.Metadata
 
             foreach (var t in database.Tables.OrderBy(x => x.DbName))
             {
-                yield return $"{tab}{tab}DbRead<{t.Model.CsTypeName}> {t.Model.CsTypeName} {{ get; }}";
+                yield return $"{tab}{tab}DbRead<{t.Model.CsTypeName}> {t.Model.CsDatabasePropertyName} {{ get; }}";
             }
 
             yield return tab + "}";
         }
 
-        private static IEnumerable<string> ModelFileContents(TableMetadata table, FileFactorySettings settings)
+        private static IEnumerable<string> ModelFileContents(ModelMetadata model, FileFactorySettings settings)
         {
+            var table = model.Table;
             if (table is ViewMetadata view)
             {
                 yield return $"{tab}[Definition(\"{view.Definition}\")]";
@@ -76,61 +77,78 @@ namespace DataLinq.Metadata
             }
 
             var interfaces = table.Type == TableType.Table ? "ITableModel" : "IViewModel";
-            if (table.Model.Interfaces?.Length > 0)
-                interfaces += ", " + table.Model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
+            //if (model.Interfaces?.Length > 0)
+            //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
 
             yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
             yield return tab + "{";
 
-            foreach (var c in table.Columns.OrderByDescending(x => x.PrimaryKey).ThenBy(x => x.DbName))
+            foreach (var property in model.Properties.OrderBy(x => x.CsName))
             {
-                if (c.PrimaryKey)
-                    yield return $"{tab}{tab}[PrimaryKey]";
-
-                foreach (var index in table.ColumnIndices.Where(x => x.Type == IndexType.Unique && x.Columns.Contains(c)))
+                if (property is ValueProperty valueProperty)
                 {
-                    yield return $"{tab}{tab}[Unique(\"{index.ConstraintName}\")]";
-                }
+                    var c = valueProperty.Column;
+                    if (c.PrimaryKey)
+                        yield return $"{tab}{tab}[PrimaryKey]";
 
-                foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
-                {
-                    yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
-                }
+                    foreach (var index in table.ColumnIndices.Where(x => x.Type == IndexType.Unique && x.Columns.Contains(c)))
+                    {
+                        yield return $"{tab}{tab}[Unique(\"{index.ConstraintName}\")]";
+                    }
 
-                if (c.AutoIncrement)
-                    yield return $"{tab}{tab}[AutoIncrement]";
+                    foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
+                    {
+                        yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
+                    }
 
-                if (c.Nullable)
-                    yield return $"{tab}{tab}[Nullable]";
+                    if (c.AutoIncrement)
+                        yield return $"{tab}{tab}[AutoIncrement]";
 
-                if (c.Signed.HasValue && c.Length.HasValue)
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length}, {(c.Signed.Value ? "true" : "false")})]";
-                else if (c.Signed.HasValue && !c.Length.HasValue)
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {(c.Signed.Value ? "true" : "false")})]";
-                else if (c.Length.HasValue)
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length})]";
-                else
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
+                    if (c.Nullable)
+                        yield return $"{tab}{tab}[Nullable]";
 
-                yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
-                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
-                yield return $"";
-
-                foreach (var relationPart in c.RelationParts)
-                {
-                    var column = relationPart.Type == RelationPartType.ForeignKey
-                        ? relationPart.Relation.CandidateKey.Column
-                        : relationPart.Relation.ForeignKey.Column;
-
-                    yield return $"{tab}{tab}[Relation(\"{column.Table.DbName}\", \"{column.DbName}\")]";
-
-                    if (relationPart.Type == RelationPartType.ForeignKey)
-                        yield return $"{tab}{tab}public virtual {column.Table.Model.CsTypeName} {column.ValueProperty.CsName} {{ get; }}";
+                    if (c.Signed.HasValue && c.Length.HasValue)
+                        yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length}, {(c.Signed.Value ? "true" : "false")})]";
+                    else if (c.Signed.HasValue && !c.Length.HasValue)
+                        yield return $"{tab}{tab}[Type(\"{c.DbType}\", {(c.Signed.Value ? "true" : "false")})]";
+                    else if (c.Length.HasValue)
+                        yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length})]";
                     else
-                        yield return $"{tab}{tab}public virtual IEnumerable<{column.Table.Model.CsTypeName}> {column.ValueProperty.CsName} {{ get; }}";
+                        yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
+
+                    yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
+                    yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
+                    yield return $"";
+                }
+                else if (property is RelationProperty relationProperty)
+                {
+                    var otherPart = relationProperty.RelationPart.GetOtherSide();
+
+                    yield return $"{tab}{tab}[Relation(\"{otherPart.Column.Table.DbName}\", \"{otherPart.Column.DbName}\")]";
+
+                    if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
+                        yield return $"{tab}{tab}public virtual {otherPart.Column.Table.Model.CsTypeName} {relationProperty.CsName} {{ get; }}";
+                    else
+                        yield return $"{tab}{tab}public virtual IEnumerable<{otherPart.Column.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
 
                     yield return $"";
                 }
+
+                //foreach (var relationPart in c.RelationParts)
+                //{
+                //    var column = relationPart.Type == RelationPartType.ForeignKey
+                //        ? relationPart.Relation.CandidateKey.Column
+                //        : relationPart.Relation.ForeignKey.Column;
+
+                //    yield return $"{tab}{tab}[Relation(\"{column.Table.DbName}\", \"{column.DbName}\")]";
+
+                //    if (relationPart.Type == RelationPartType.ForeignKey)
+                //        yield return $"{tab}{tab}public virtual {column.Table.Model.CsTypeName} {column.ValueProperty.CsName} {{ get; }}";
+                //    else
+                //        yield return $"{tab}{tab}public virtual IEnumerable<{column.Table.Model.CsTypeName}> {column.ValueProperty.CsName} {{ get; }}";
+
+                //    yield return $"";
+                //}
             }
 
             yield return tab + "}";

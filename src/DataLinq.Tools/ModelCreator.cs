@@ -35,8 +35,6 @@ namespace DataLinq.Tools
         public void Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath)
         {
             log($"Reading from database: {db.Name}");
-
-
             log($"Type: {connection.Type}");
 
             var dbMetadata = connection.ParsedType switch
@@ -49,13 +47,14 @@ namespace DataLinq.Tools
 
             log($"Tables in database: {dbMetadata.Tables.Count}");
 
+            var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             if (options.ReadSourceModels)
             {
                 var srcDir = basePath + Path.DirectorySeparatorChar + db.SourceDirectory;
                 if (Directory.Exists(srcDir))
                 {
                     log($"Reading models from: {srcDir}");
-                    var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(srcDir, db.CsType);
+                    var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(db.CsType, srcDir, destDir);
 
                     if (srcMetadata != null)
                     {
@@ -81,7 +80,6 @@ namespace DataLinq.Tools
                 UseCache = db.UseCache ?? true
             };
 
-            var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             foreach (var file in FileFactory.CreateModelFiles(dbMetadata, settings))
             {
                 var filepath = $"{destDir}{Path.DirectorySeparatorChar}{file.path}";

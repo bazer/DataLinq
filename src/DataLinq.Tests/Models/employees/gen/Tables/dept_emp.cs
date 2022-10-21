@@ -7,16 +7,16 @@ using DataLinq.Attributes;
 namespace DataLinq.Tests.Models
 {
     [Table("dept_emp")]
-    public partial record dept_emp : ITableModel, Idept_emp
+    public partial record dept_emp : ITableModel
     {
+        [Relation("departments", "dept_no")]
+        public virtual Department departments { get; }
+
         [PrimaryKey]
         [ForeignKey("departments", "dept_no", "dept_emp_ibfk_2")]
         [Type("char", 4)]
         [Column("dept_no")]
         public virtual string dept_no { get; set; }
-
-        [Relation("departments", "dept_no")]
-        public virtual Department Department { get; }
 
         [PrimaryKey]
         [ForeignKey("employees", "emp_no", "dept_emp_ibfk_1")]

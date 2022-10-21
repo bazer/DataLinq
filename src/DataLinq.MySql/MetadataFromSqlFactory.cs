@@ -25,6 +25,7 @@ namespace DataLinq.MySql
 
             ParseRelations(database, information_Schema);
             ParseIndices(database, information_Schema);
+            MetadataFromInterfaceFactory.ParseIndices(database);
             database.Relations = MetadataFromInterfaceFactory
                 .ParseRelations(database)
                 .ToList();
@@ -175,7 +176,9 @@ namespace DataLinq.MySql
             table.Model = new ModelMetadata
             {
                 CsTypeName = dbTables.TABLE_NAME,
-                Table = table
+                CsDatabasePropertyName = dbTables.TABLE_NAME,
+                Table = table,
+                Database = table.Database
             };
 
             if (table is ViewMetadata view)

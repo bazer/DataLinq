@@ -12,9 +12,9 @@ namespace DataLinq.Tests.Models
     {
         DbRead<current_dept_emp> current_dept_emp { get; }
         DbRead<Department> Departments { get; }
-        DbRead<dept_emp> dept_emp { get; }
+        DbRead<dept_emp> DepartmentEmployees { get; }
         DbRead<dept_emp_latest_date> dept_emp_latest_date { get; }
-        DbRead<dept_manager> dept_manager { get; }
+        DbRead<Manager> Managers { get; }
         DbRead<employees> employees { get; }
         DbRead<salaries> salaries { get; }
         DbRead<titles> titles { get; }

@@ -79,7 +79,7 @@ namespace DataLinq.SQLite
                         Length = 2147483647
                     };
 
-                    var property = new Property();
+                    var property = new ValueProperty();
                     property.CsTypeName = ParseCsType(column.DbType.ToLower());
                     property.CsNullable = column.Nullable && IsCsTypeNullable(property.CsTypeName);
                     column.ValueProperty = property;

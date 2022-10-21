@@ -37,11 +37,18 @@ namespace DataLinq.Tools
         {
             Log($"Reading database: {db.Name}");
 
-            var srcDir = basePath + Path.DirectorySeparatorChar + db.SourceDirectory;
+            List<string> dirs = new List<string>();
+            dirs.Add(basePath + Path.DirectorySeparatorChar + db.SourceDirectory);
+
+            if (db.DestinationDirectory != null)
+                dirs.Add(basePath + Path.DirectorySeparatorChar + db.DestinationDirectory);
+
+            var srcDir = dirs[0];
+
             if (Directory.Exists(srcDir))
             {
                 Log($"Reading models from: {srcDir}");
-                var srcMetadata = new MetadataFromFileFactory(Log).ReadFiles(srcDir, db.CsType);
+                var srcMetadata = new MetadataFromFileFactory(Log).ReadFiles(db.CsType, dirs.ToArray());
 
                 Log($"Tables in model files: {srcMetadata.Tables.Count}");
             }

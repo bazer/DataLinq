@@ -23,7 +23,7 @@ namespace DataLinq.Metadata
         public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
         public List<Property> RelationProperties { get; set; } = new List<Property>();
         public TableMetadata Table { get; set; }
-        public Property ValueProperty { get; set; }
+        public ValueProperty ValueProperty { get; set; }
         //public ConcurrentDictionary<object, PrimaryKeys[]> Index { get; } = new ConcurrentDictionary<object, PrimaryKeys[]>();
 
         public override string ToString()

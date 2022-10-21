@@ -13,6 +13,10 @@
         public RelationPartType Type { get; set; }
         public string CsName { get; set; }
 
+        public RelationPart GetOtherSide() => Type == RelationPartType.CandidateKey
+            ? Relation.ForeignKey
+            : Relation.CandidateKey;
+
         public override string ToString()
         {
             return $"{Type}: {Column}";

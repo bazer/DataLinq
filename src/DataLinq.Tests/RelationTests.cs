@@ -18,7 +18,7 @@ namespace DataLinq.Tests
         [Fact]
         public void LazyLoadSingleValue()
         {
-            var manager = fixture.employeesDb.Query().dept_manager.Single(x => x.dept_no == "d005" && x.emp_no == 4923);
+            var manager = fixture.employeesDb.Query().Managers.Single(x => x.dept_no == "d005" && x.emp_no == 4923);
 
             Assert.NotNull(manager.Department);
             Assert.Equal("d005", manager.Department.DeptNo);

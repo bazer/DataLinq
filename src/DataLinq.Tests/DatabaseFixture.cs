@@ -99,7 +99,7 @@ namespace DataLinq.Tests
                .RuleFor(x => x.salary, x => (int)x.Finance.Amount(10000, 200000, 0));
             transaction.Insert(salariesFaker.Generate(numEmployees));
 
-            var dept_managerFaker = new Faker<dept_manager>()
+            var dept_managerFaker = new Faker<Manager>()
                .StrictMode(false)
                .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
@@ -110,7 +110,7 @@ namespace DataLinq.Tests
 
             foreach (var dm in dept_managers)
             {
-                if (!transaction.Query().dept_manager.Any(x => x.dept_no == dm.dept_no && x.emp_no == dm.emp_no))
+                if (!transaction.Query().Managers.Any(x => x.dept_no == dm.dept_no && x.emp_no == dm.emp_no))
                     transaction.Insert(dm);
             }
 

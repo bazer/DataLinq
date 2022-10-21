@@ -38,9 +38,9 @@ namespace DataLinq.Instances
                 var name = info.Name;
                 var property = Properties.Single(x => x.CsName == name);
 
-                if (property.Type == PropertyType.Value)
+                if (property is ValueProperty valueProperty)
                 {
-                    invocation.ReturnValue = RowData.GetValue(property.Column.DbName);
+                    invocation.ReturnValue = RowData.GetValue(valueProperty.Column.DbName);
                 }
                 else
                 {
