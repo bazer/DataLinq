@@ -65,34 +65,6 @@ namespace DataLinq.Metadata
             }
         }
 
-        public static string ParseCsType(string dbType)
-        {
-            return dbType switch
-            {
-                "int" => "int",
-                "tinyint" => "int",
-                "mediumint" => "int",
-                "varchar" => "string",
-                "text" => "string",
-                "mediumtext" => "string",
-                "bit" => "bool",
-                "double" => "double",
-                "datetime" => "DateTime",
-                "timestamp" => "DateTime",
-                "date" => "DateOnly",
-                "float" => "float",
-                "bigint" => "long",
-                "char" => "string",
-                "binary" => "Guid",
-                "enum" => "int",
-                "longtext" => "string",
-                "decimal" => "decimal",
-                "blob" => "byte[]",
-                "smallint" => "int",
-                _ => throw new NotImplementedException($"Unknown type '{dbType}'"),
-            };
-        }
-
         public static bool IsCsTypeNullable(string csType)
         {
             return csType switch

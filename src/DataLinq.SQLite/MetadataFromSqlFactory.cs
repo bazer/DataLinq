@@ -60,12 +60,12 @@ namespace DataLinq.SQLite
                     var column = new Column()
                     {
                         DbName = reader.GetString(2),
-                        DbType = reader.GetString(3).ToLower(),
+                        //DbTypes = reader.GetString(3).ToLower(),
                         Index = reader.GetInt32(1),
                         Table = table,
                         Nullable = reader.GetBoolean(4) == false,
                         PrimaryKey = reader.GetBoolean(6),
-                        Signed = null,
+                        //Signed = null,
                         /*
                          In SQLite, a column with type INTEGER PRIMARY KEY is an alias for the ROWID (except in WITHOUT ROWID tables) which is always a 64-bit signed integer.
                          On an INSERT, if the ROWID or INTEGER PRIMARY KEY column is not explicitly given a value, then it will be filled automatically with an unused integer, usually one more than the largest ROWID currently in use. 
@@ -76,13 +76,25 @@ namespace DataLinq.SQLite
                         AutoIncrement = reader.GetBoolean(6) && reader.GetString(3).ToLower() == "integer",
                         // https://www.sqlite.org/limits.html
                         // The current implementation will only support a string or BLOB length up to 231-1 or 2147483647
-                        Length = 2147483647
+                        //Length = 2147483647
                     };
 
-                    var property = new ValueProperty();
-                    property.CsTypeName = ParseCsType(column.DbType.ToLower());
-                    property.CsNullable = column.Nullable && IsCsTypeNullable(property.CsTypeName);
-                    column.ValueProperty = property;
+                    var dbType = new DatabaseColumnType
+                    {
+                        DatabaseType = DatabaseType.SQLite,
+                        Name = reader.GetString(3).ToLower(),
+                        Length = 2147483647,
+                        Signed = null
+                    };
+
+                    column.DbTypes.Add(dbType);
+                    MetadataFactory.AttachValueProperty(column, ParseCsType(dbType.Name));
+
+                    //var property = new ValueProperty();
+                    //property.CsTypeName = ParseCsType(dbType.Name.ToLower());
+                    //property.CsNullable = column.Nullable && IsCsTypeNullable(property.CsTypeName);
+                    //column.ValueProperty = property;
+
                     table.Columns.Add(column);
                 }
             }
@@ -139,7 +151,7 @@ namespace DataLinq.SQLite
         // https://www.sqlite.org/datatype3.html
         private static string ParseCsType(string dbType)
         {
-            return dbType switch
+            return dbType.ToLower() switch
             {
                 "integer" => "int",
                 "real" => "double",
@@ -149,23 +161,23 @@ namespace DataLinq.SQLite
             };
         }
 
-        private static bool IsCsTypeNullable(string csType)
-        {
-            return csType switch
-            {
-                "int" => true,
-                "string" => false,
-                "bool" => true,
-                "double" => true,
-                "DateTime" => true,
-                "DateOnly" => true,
-                "float" => true,
-                "long" => true,
-                "Guid" => true,
-                "byte[]" => false,
-                "decimal" => true,
-                _ => throw new NotImplementedException($"Unknown type '{csType}'"),
-            };
-        }
+        //private static bool IsCsTypeNullable(string csType)
+        //{
+        //    return csType switch
+        //    {
+        //        "int" => true,
+        //        "string" => false,
+        //        "bool" => true,
+        //        "double" => true,
+        //        "DateTime" => true,
+        //        "DateOnly" => true,
+        //        "float" => true,
+        //        "long" => true,
+        //        "Guid" => true,
+        //        "byte[]" => false,
+        //        "decimal" => true,
+        //        _ => throw new NotImplementedException($"Unknown type '{csType}'"),
+        //    };
+        //}
     }
 }

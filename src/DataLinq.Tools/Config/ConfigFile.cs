@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DataLinq.Metadata;
+using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -7,12 +8,6 @@ using System.Threading.Tasks;
 
 namespace DataLinq.Tools.Config
 {
-    public enum DatabaseType
-    {
-        MySQL,
-        SQLite
-    }
-
     public record ConfigFile
     {
         public List<DatabaseConfig> Databases { get; set; } = new();

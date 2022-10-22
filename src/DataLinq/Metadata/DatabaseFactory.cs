@@ -10,12 +10,6 @@ namespace DataLinq.Metadata
 
     public static class DatabaseFactory
     {
-        public enum DatabaseType
-        {
-            MySQL,
-            SQLite
-        }
-
         public static Dictionary<DatabaseType, ISqlFromMetadataFactory> SqlGenerators = new();
         public static Dictionary<DatabaseType, IDatabaseCreator> DbCreators = new();
 

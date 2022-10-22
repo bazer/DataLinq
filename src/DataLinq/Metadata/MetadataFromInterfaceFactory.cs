@@ -140,9 +140,13 @@ namespace DataLinq.Metadata
 
                 if (attribute is TypeAttribute t)
                 {
-                    column.DbType = t.Name;
-                    column.Length = t.Length;
-                    column.Signed = t.Signed;
+                    column.DbTypes.Add(new DatabaseColumnType
+                    {
+                        DatabaseType = t.DatabaseType,
+                        Name = t.Name,
+                        Length = t.Length,
+                        Signed = t.Signed
+                    });
                 }
             }
 

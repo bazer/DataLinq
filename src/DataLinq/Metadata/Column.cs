@@ -1,23 +1,26 @@
-﻿using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using DataLinq.Cache;
-using DataLinq.Instances;
 
 namespace DataLinq.Metadata
 {
+    public struct DatabaseColumnType
+    {
+        public DatabaseType DatabaseType { get; set; }
+        public string Name { get; set; }
+        public long? Length { get; set; }
+        public bool? Signed { get; set; }
+    }
+
     public class Column
     {
         public string DbName { get; set; }
-        public string DbType { get; set; }
+        public List<DatabaseColumnType> DbTypes { get; set; } = new List<DatabaseColumnType>();
         public int Index { get; set; }
         public bool ForeignKey { get; set; }
-        public long? Length { get; set; }
-        public bool Nullable { get; set; }
         public bool PrimaryKey { get; set; }
         public bool Unique { get; set; }
         public bool AutoIncrement { get; set; }
-        public bool? Signed { get; set; }
+        public bool Nullable { get; set; }
         public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
         public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
         public TableMetadata Table { get; set; }
@@ -25,7 +28,7 @@ namespace DataLinq.Metadata
 
         public override string ToString()
         {
-            return $"{Table.DbName}.{DbName} ({DbType})";
+            return $"{Table.DbName}.{DbName} ({DbTypes})";
         }
     }
 }

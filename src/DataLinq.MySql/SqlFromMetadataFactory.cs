@@ -1,6 +1,7 @@
 using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
+using System;
 using System.Linq;
 
 namespace DataLinq.MySql
@@ -9,8 +10,8 @@ namespace DataLinq.MySql
     {
         public static void Register()
         {
-            DatabaseFactory.SqlGenerators[DatabaseFactory.DatabaseType.MySQL] = new SqlFromMetadataFactory();
-            DatabaseFactory.DbCreators[DatabaseFactory.DatabaseType.MySQL] = new SqlFromMetadataFactory();
+            DatabaseFactory.SqlGenerators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
+            DatabaseFactory.DbCreators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
         }
 
         private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext" };
@@ -52,13 +53,15 @@ namespace DataLinq.MySql
             var longestName = table.Columns.Max(x => x.DbName.Length) + 1;
             foreach (var column in table.Columns.OrderBy(x => x.Index))
             {
+                var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL);
+
                 sql.NewRow().Indent()
                     .ColumnName(column.DbName)
-                    .Type(column.DbType.ToUpper(), column.DbName, longestName);
+                    .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
-                if (!NoLengthTypes.Contains(column.DbType.ToLower()))
-                    sql.TypeLength(column.Length);
-                sql.Unsigned(column.Signed);
+                if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
+                    sql.TypeLength(dbType.Length);
+                sql.Unsigned(dbType.Signed);
                 sql.Nullable(column.Nullable)
                     .Autoincrement(column.AutoIncrement);
 
@@ -73,5 +76,7 @@ namespace DataLinq.MySql
                 foreach (var relation in foreignKey.RelationParts)
                     sql.ForeignKey(relation, foreignKeyRestrict);
         }
+
+        
     }
 }

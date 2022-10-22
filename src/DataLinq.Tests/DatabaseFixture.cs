@@ -34,7 +34,7 @@ namespace DataLinq.Tests
             {
                 MySql.SqlFromMetadataFactory.Register();
 
-                DatabaseFactory.CreateDatabaseFromMetadata(DatabaseFactory.DatabaseType.MySQL, 
+                DatabaseFactory.CreateDatabaseFromMetadata(DatabaseType.MySQL, 
                     employeesDb.Provider.Metadata, EmployeesDbName, connDataLinq, true);
 
                 FillEmployeesWithBogusData(employeesDb);

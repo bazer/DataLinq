@@ -10,12 +10,12 @@ namespace DataLinq.Tests.Models
     public partial record Department : ITableModel
     {
         [PrimaryKey]
-        [Type("char", 4)]
+        [Type(DatabaseType.MySQL, "char", 4)]
         [Column("dept_no")]
         public virtual string DeptNo { get; set; }
 
         [Unique("dept_name")]
-        [Type("varchar", 40)]
+        [Type(DatabaseType.MySQL, "varchar", 40)]
         [Column("dept_name")]
         public virtual string Name { get; set; }
 

@@ -10,8 +10,8 @@ namespace DataLinq.SQLite
     {
         public static void Register()
         {
-            DatabaseFactory.SqlGenerators[DatabaseFactory.DatabaseType.SQLite] = new SqlFromMetadataFactory();
-            DatabaseFactory.DbCreators[DatabaseFactory.DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            DatabaseFactory.SqlGenerators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            DatabaseFactory.DbCreators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
         }
 
         public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict)
@@ -24,9 +24,11 @@ namespace DataLinq.SQLite
                     var longestName = table.Columns.Max(x => x.DbName.Length)+1;
                     foreach (var column in table.Columns.OrderBy(x => x.Index))
                     {
+                        var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.SQLite);
+
                         sql.NewRow().Indent()
                             .ColumnName(column.DbName)
-                            .Type(column.DbType.ToUpper(), column.DbName, longestName)
+                            .Type(dbType.Name.ToUpper(), column.DbName, longestName)
                             .Add((column.PrimaryKey ? " PRIMARY KEY" : "") + (column.AutoIncrement ? " AUTOINCREMENT" : ""));
                         if(!column.PrimaryKey)
                             sql.Nullable(column.Nullable);

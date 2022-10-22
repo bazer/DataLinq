@@ -5,6 +5,12 @@ using DataLinq.Interfaces;
 
 namespace DataLinq
 {
+    public enum DatabaseType
+    {
+        MySQL,
+        SQLite
+    }
+
     public static class DataLinq
     {
     }

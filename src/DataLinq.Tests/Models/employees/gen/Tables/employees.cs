@@ -11,27 +11,27 @@ namespace DataLinq.Tests.Models
     {
         [PrimaryKey]
         [AutoIncrement]
-        [Type("int")]
+        [Type(DatabaseType.MySQL, "int")]
         [Column("emp_no")]
         public virtual int? emp_no { get; set; }
 
-        [Type("date")]
+        [Type(DatabaseType.MySQL, "date")]
         [Column("birth_date")]
         public virtual DateOnly birth_date { get; set; }
 
-        [Type("varchar", 14)]
+        [Type(DatabaseType.MySQL, "varchar", 14)]
         [Column("first_name")]
         public virtual string first_name { get; set; }
 
-        [Type("int")]
+        [Type(DatabaseType.MySQL, "int")]
         [Column("gender")]
         public virtual int gender { get; set; }
 
-        [Type("date")]
+        [Type(DatabaseType.MySQL, "date")]
         [Column("hire_date")]
         public virtual DateOnly hire_date { get; set; }
 
-        [Type("varchar", 16)]
+        [Type(DatabaseType.MySQL, "varchar", 16)]
         [Column("last_name")]
         public virtual string last_name { get; set; }
 

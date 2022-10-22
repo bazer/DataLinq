@@ -115,17 +115,19 @@ namespace DataLinq.Metadata
             return table.Model;
         }
 
-        public static ValueProperty AttachValueProperty(Column column)
+        public static ValueProperty AttachValueProperty(Column column, string csTypeName)
         {
-            var property = new ValueProperty();
-            property.Column = column;
-            property.Model = column.Table.Model;
-            property.CsName = column.DbName;
-            property.CsTypeName = MetadataTypeConverter.ParseCsType(column.DbType);
-            property.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
-            property.CsNullable = column.Nullable && MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName);
-            property.Attributes = GetAttributes(property).ToList();
+            var property = new ValueProperty
+            {
+                Column = column,
+                Model = column.Table.Model,
+                CsName = column.DbName,
+                CsTypeName = csTypeName,
+                CsSize = MetadataTypeConverter.CsTypeSize(csTypeName),
+                CsNullable = column.Nullable && MetadataTypeConverter.IsCsTypeNullable(csTypeName)
+            };
 
+            property.Attributes = GetAttributes(property).ToList();
             column.ValueProperty = property;
             column.Table.Model.Properties.Add(column.ValueProperty);
 
@@ -147,14 +149,19 @@ namespace DataLinq.Metadata
 
             yield return new ColumnAttribute(column.DbName);
 
-            if (column.Length.HasValue && column.Signed.HasValue)
-                yield return new TypeAttribute(column.DbType, column.Length.Value, column.Signed.Value);
-            else if (column.Length.HasValue)
-                yield return new TypeAttribute(column.DbType, column.Length.Value);
-            else if (column.Signed.HasValue)
-                yield return new TypeAttribute(column.DbType, column.Signed.Value);
-            else
-                yield return new TypeAttribute(column.DbType);
+            foreach (var dbType in column.DbTypes)
+            {
+                yield return new TypeAttribute(dbType);
+
+                //if (dbType.Length.HasValue && dbType.Signed.HasValue)
+                //    yield return new TypeAttribute(dbType.DatabaseType, dbType.Name, column.Length.Value, column.Signed.Value);
+                //else if (column.Length.HasValue)
+                //    yield return new TypeAttribute(column.DbTypes, column.Length.Value);
+                //else if (column.Signed.HasValue)
+                //    yield return new TypeAttribute(column.DbTypes, column.Signed.Value);
+                //else
+                //    yield return new TypeAttribute(column.DbTypes);
+            }
         }
     }
 }

@@ -1,23 +1,22 @@
-﻿using System;
+﻿using DataLinq.Attributes;
+using DataLinq.Extensions;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using DataLinq.Attributes;
-using DataLinq.Extensions;
 
 namespace DataLinq.Metadata
 {
     public class FileFactorySettings
     {
         public string NamespaceName { get; set; } = "Models";
+        public string Tab { get; set; } = "    ";
         public bool UseRecords { get; set; } = true;
         public bool UseCache { get; set; } = true;
     }
 
     public static class FileFactory
     {
-        static readonly string tab = "    ";
+        //static readonly string tab = "    ";
 
         public static IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database, FileFactorySettings settings)
         {
@@ -49,6 +48,7 @@ namespace DataLinq.Metadata
 
         private static IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName, FileFactorySettings settings)
         {
+            var tab = settings.Tab;
             if (settings.UseCache)
                 yield return $"{tab}[UseCache]";
 
@@ -66,6 +66,7 @@ namespace DataLinq.Metadata
 
         private static IEnumerable<string> ModelFileContents(ModelMetadata model, FileFactorySettings settings)
         {
+            var tab = settings.Tab;
             var table = model.Table;
             if (table is ViewMetadata view)
             {
@@ -114,14 +115,17 @@ namespace DataLinq.Metadata
                     if (c.Nullable)
                         yield return $"{tab}{tab}[Nullable]";
 
-                    if (c.Signed.HasValue && c.Length.HasValue)
-                        yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length}, {(c.Signed.Value ? "true" : "false")})]";
-                    else if (c.Signed.HasValue && !c.Length.HasValue)
-                        yield return $"{tab}{tab}[Type(\"{c.DbType}\", {(c.Signed.Value ? "true" : "false")})]";
-                    else if (c.Length.HasValue)
-                        yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length})]";
-                    else
-                        yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
+                    foreach (var dbType in c.DbTypes)
+                    {
+                        if (dbType.Signed.HasValue && dbType.Length.HasValue)
+                            yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
+                        else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
+                            yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {(dbType.Signed.Value ? "true" : "false")})]";
+                        else if (dbType.Length.HasValue)
+                            yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length})]";
+                        else
+                            yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
+                    }
 
                     yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
                     yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
@@ -140,22 +144,6 @@ namespace DataLinq.Metadata
 
                     yield return $"";
                 }
-
-                //foreach (var relationPart in c.RelationParts)
-                //{
-                //    var column = relationPart.Type == RelationPartType.ForeignKey
-                //        ? relationPart.Relation.CandidateKey.Column
-                //        : relationPart.Relation.ForeignKey.Column;
-
-                //    yield return $"{tab}{tab}[Relation(\"{column.Table.DbName}\", \"{column.DbName}\")]";
-
-                //    if (relationPart.Type == RelationPartType.ForeignKey)
-                //        yield return $"{tab}{tab}public virtual {column.Table.Model.CsTypeName} {column.ValueProperty.CsName} {{ get; }}";
-                //    else
-                //        yield return $"{tab}{tab}public virtual IEnumerable<{column.Table.Model.CsTypeName}> {column.ValueProperty.CsName} {{ get; }}";
-
-                //    yield return $"";
-                //}
             }
 
             yield return tab + "}";

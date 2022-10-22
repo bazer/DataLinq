@@ -1,6 +1,8 @@
 ﻿using DataLinq.Attributes;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
+using System;
+using System.Data;
 using System.Linq;
 
 namespace DataLinq.MySql
@@ -93,21 +95,55 @@ namespace DataLinq.MySql
 
         private static Column ParseColumn(TableMetadata table, COLUMNS dbColumns)
         {
+            var dbType = new DatabaseColumnType
+            {
+                DatabaseType = DatabaseType.MySQL,
+                Name = dbColumns.DATA_TYPE,
+                Length = dbColumns.CHARACTER_MAXIMUM_LENGTH,
+                Signed = dbColumns.COLUMN_TYPE.Contains("unsigned") ? false : null
+            };
+
             var column = new Column
             {
                 Table = table,
                 DbName = dbColumns.COLUMN_NAME,
-                DbType = dbColumns.DATA_TYPE,
                 Nullable = dbColumns.IS_NULLABLE == "YES",
-                Length = dbColumns.CHARACTER_MAXIMUM_LENGTH,
                 PrimaryKey = dbColumns.COLUMN_KEY == "PRI",
-                AutoIncrement = dbColumns.EXTRA.Contains("auto_increment"),
-                Signed = dbColumns.COLUMN_TYPE.Contains("unsigned") ? false : null
+                AutoIncrement = dbColumns.EXTRA.Contains("auto_increment")
             };
 
-            MetadataFactory.AttachValueProperty(column);
+            column.DbTypes.Add(dbType);
+            MetadataFactory.AttachValueProperty(column, ParseCsType(dbType.Name));
 
             return column;
+        }
+
+        private static string ParseCsType(string dbType)
+        {
+            return dbType.ToLower() switch
+            {
+                "int" => "int",
+                "tinyint" => "int",
+                "mediumint" => "int",
+                "varchar" => "string",
+                "text" => "string",
+                "mediumtext" => "string",
+                "bit" => "bool",
+                "double" => "double",
+                "datetime" => "DateTime",
+                "timestamp" => "DateTime",
+                "date" => "DateOnly",
+                "float" => "float",
+                "bigint" => "long",
+                "char" => "string",
+                "binary" => "Guid",
+                "enum" => "int",
+                "longtext" => "string",
+                "decimal" => "decimal",
+                "blob" => "byte[]",
+                "smallint" => "int",
+                _ => throw new NotImplementedException($"Unknown type '{dbType}'"),
+            };
         }
     }
 }
