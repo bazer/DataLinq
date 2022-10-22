@@ -9,9 +9,6 @@ namespace DataLinq.Tests.Models
     [Table("dept_emp")]
     public partial record dept_emp : ITableModel
     {
-        [Relation("departments", "dept_no")]
-        public virtual Department departments { get; }
-
         [PrimaryKey]
         [ForeignKey("departments", "dept_no", "dept_emp_ibfk_2")]
         [Type("char", 4)]
@@ -24,9 +21,6 @@ namespace DataLinq.Tests.Models
         [Column("emp_no")]
         public virtual int emp_no { get; set; }
 
-        [Relation("employees", "emp_no")]
-        public virtual employees employees { get; }
-
         [Type("date")]
         [Column("from_date")]
         public virtual DateOnly from_date { get; set; }
@@ -34,6 +28,12 @@ namespace DataLinq.Tests.Models
         [Type("date")]
         [Column("to_date")]
         public virtual DateOnly to_date { get; set; }
+
+        [Relation("departments", "dept_no")]
+        public virtual Department departments { get; }
+
+        [Relation("employees", "emp_no")]
+        public virtual employees employees { get; }
 
     }
 }

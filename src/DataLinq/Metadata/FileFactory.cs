@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DataLinq.Attributes;
 using DataLinq.Extensions;
 
 namespace DataLinq.Metadata
@@ -83,7 +84,13 @@ namespace DataLinq.Metadata
             yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
             yield return tab + "{";
 
-            foreach (var property in model.Properties.OrderBy(x => x.CsName))
+            var props = model.Properties
+                .OrderBy(x => x.Type)
+                .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
+                .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
+                .ThenBy(x => x.CsName);
+
+            foreach (var property in props)
             {
                 if (property is ValueProperty valueProperty)
                 {

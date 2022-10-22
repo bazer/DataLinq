@@ -15,9 +15,6 @@ namespace DataLinq.Tests.Models
         [Column("emp_no")]
         public virtual int emp_no { get; set; }
 
-        [Relation("employees", "emp_no")]
-        public virtual employees employees { get; }
-
         [PrimaryKey]
         [Type("date")]
         [Column("from_date")]
@@ -32,6 +29,9 @@ namespace DataLinq.Tests.Models
         [Type("date")]
         [Column("to_date")]
         public virtual DateOnly? to_date { get; set; }
+
+        [Relation("employees", "emp_no")]
+        public virtual employees employees { get; }
 
     }
 }
