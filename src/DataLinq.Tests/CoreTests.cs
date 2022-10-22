@@ -42,7 +42,7 @@ namespace DataLinq.Tests
             Assert.NotEmpty(database.Tables);
             Assert.Equal(8, database.Tables.Count);
             Assert.Equal(2, database.Tables.Count(x => x.Type == TableType.View));
-            Assert.Equal(6, database.Relations.Count);
+            Assert.Equal(12, database.Models.Sum(x => x.RelationProperties.Count()));
             Assert.Contains(database.Tables, x => x.Columns.Any(y => y.RelationParts.Any()));
 
             var employees = database.Tables.Single(x => x.DbName == "employees");

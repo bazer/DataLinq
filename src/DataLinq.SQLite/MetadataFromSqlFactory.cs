@@ -114,10 +114,10 @@ namespace DataLinq.SQLite
                 }
             }
 
-            database.Relations = database
-                .Tables.SelectMany(x => x.Columns.SelectMany(y => y.RelationParts.Select(z => z.Relation)))
-                .Distinct()
-                .ToList();
+            //database.Relations = database
+            //    .Tables.SelectMany(x => x.Columns.SelectMany(y => y.RelationParts.Select(z => z.Relation)))
+            //    .Distinct()
+            //    .ToList();
 
             return database;
         }

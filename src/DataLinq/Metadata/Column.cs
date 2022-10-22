@@ -9,7 +9,6 @@ namespace DataLinq.Metadata
     public class Column
     {
         public string DbName { get; set; }
-        //public string CsName { get; set; }
         public string DbType { get; set; }
         public int Index { get; set; }
         public bool ForeignKey { get; set; }
@@ -21,10 +20,8 @@ namespace DataLinq.Metadata
         public bool? Signed { get; set; }
         public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
         public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
-        public List<Property> RelationProperties { get; set; } = new List<Property>();
         public TableMetadata Table { get; set; }
         public ValueProperty ValueProperty { get; set; }
-        //public ConcurrentDictionary<object, PrimaryKeys[]> Index { get; } = new ConcurrentDictionary<object, PrimaryKeys[]>();
 
         public override string ToString()
         {

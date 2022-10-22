@@ -15,7 +15,6 @@ namespace DataLinq.Metadata
             DbName = dbName ?? name;
         }
 
-        public List<Relation> Relations { get; set; }
         public string Name { get; set; }
         public string DbName { get; set; }
         public Type CsType { get; set; }

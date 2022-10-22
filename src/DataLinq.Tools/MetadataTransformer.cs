@@ -1,11 +1,7 @@
 ﻿using DataLinq.Attributes;
-using DataLinq.Extensions;
 using DataLinq.Metadata;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DataLinq.Tools
 {
@@ -53,13 +49,11 @@ namespace DataLinq.Tools
 
                 destTable.Model.CsTypeName = csName;
                 destTable.Model.Interfaces = new Type[] { srcTable.Model.CsType };
-
                 destTable.Model.CsDatabasePropertyName = srcTable.Model.CsDatabasePropertyName;
 
                 foreach (var srcProperty in srcTable.Model.ValueProperties)
                 {
                     var destProperty = destTable.Model.ValueProperties.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
-                    //var destColumn = destTable.Columns.FirstOrDefault(x => x.DbName == srcProperty.DbName);
 
                     if (destProperty == null)
                     {
@@ -68,21 +62,6 @@ namespace DataLinq.Tools
                     }
 
                     destProperty.CsName = srcProperty.CsName;
-                    
-                    //foreach (var destRelation in destColumn.RelationParts)
-                    //{
-                    //    //var destRelation = destColumn.RelationParts.FirstOrDefault(x => x.Relation.ConstraintName == srcRelation.Relation.ConstraintName);
-
-
-
-                    //    if (destRelation == null)
-                    //    {
-                    //        log($"Couldn't find relation with name '{destRelation.Relation.ConstraintName}' in {destColumn.CsName}");
-                    //        continue;
-                    //    }
-
-                    //    //destRelation.CsName = srcRelation.CsName;
-                    //}
                 }
 
                 foreach (var srcProperty in srcTable.Model.RelationProperties)
@@ -98,21 +77,6 @@ namespace DataLinq.Tools
                     }
 
                     destProperty.CsName = srcProperty.CsName;
-
-                    //foreach (var destRelation in destColumn.RelationParts)
-                    //{
-                    //    //var destRelation = destColumn.RelationParts.FirstOrDefault(x => x.Relation.ConstraintName == srcRelation.Relation.ConstraintName);
-
-
-
-                    //    if (destRelation == null)
-                    //    {
-                    //        log($"Couldn't find relation with name '{destRelation.Relation.ConstraintName}' in {destColumn.CsName}");
-                    //        continue;
-                    //    }
-
-                    //    //destRelation.CsName = srcRelation.CsName;
-                    //}
                 }
             }
         }
