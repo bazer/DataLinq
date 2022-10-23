@@ -97,6 +97,12 @@ namespace DataLinq.Metadata
 
     }
 
+    public class EnumProperty : ValueProperty
+    {
+        public List<string> EnumValues { get; set; }
+        public bool DeclaredInClass { get; set; } = true;
+    }
+
     public class RelationProperty : Property
     {
         public RelationPart RelationPart { get; set; }

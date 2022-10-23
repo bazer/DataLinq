@@ -113,9 +113,25 @@ namespace DataLinq.MySql
             };
 
             column.DbTypes.Add(dbType);
-            MetadataFactory.AttachValueProperty(column, ParseCsType(dbType.Name));
+
+            var csType = ParseCsType(dbType.Name);
+
+            if (csType == "enum")
+                MetadataFactory.AttachEnumProperty(column, true, ParseEnumType(dbColumns.DATA_TYPE));
+            else
+                MetadataFactory.AttachValueProperty(column, csType);
 
             return column;
+        }
+
+        private static string[] ParseEnumType(string COLUMN_TYPE)
+        {
+            var values = COLUMN_TYPE[5..-1].Trim('\'').Split("','");
+
+            return values;
+
+
+            //COLUMN_TYPE.Substring(5, -1)
         }
 
         private static string ParseCsType(string dbType)
@@ -137,7 +153,7 @@ namespace DataLinq.MySql
                 "bigint" => "long",
                 "char" => "string",
                 "binary" => "Guid",
-                "enum" => "int",
+                "enum" => "enum",
                 "longtext" => "string",
                 "decimal" => "decimal",
                 "blob" => "byte[]",
