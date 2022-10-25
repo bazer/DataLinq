@@ -8,14 +8,14 @@ namespace DataLinq.Tests.Models
 {
     [UseCache]
     [Database("employees")]
-    public interface employeesDb : IDatabaseModel
+    public interface employees : IDatabaseModel
     {
         DbRead<current_dept_emp> current_dept_emp { get; }
         DbRead<Department> Departments { get; }
         DbRead<dept_emp> DepartmentEmployees { get; }
         DbRead<dept_emp_latest_date> dept_emp_latest_date { get; }
         DbRead<Manager> Managers { get; }
-        DbRead<employees> employees { get; }
+        DbRead<Employee> Employees { get; }
         DbRead<salaries> salaries { get; }
         DbRead<titles> titles { get; }
     }

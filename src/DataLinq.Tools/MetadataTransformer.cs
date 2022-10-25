@@ -39,15 +39,24 @@ namespace DataLinq.Tools
                 }
 
                 log($"Transforming model '{srcTable.DbName}'");
-                var csName = srcTable.Model.CsTypeName;
+                var modelCsTypeName = srcTable.Model.CsTypeName;
 
                 if (options.RemoveInterfacePrefix)
                 {
-                    if (csName.StartsWith("I"))
-                        csName = csName.Substring(1);
+                    if (modelCsTypeName.StartsWith("I"))
+                        modelCsTypeName = modelCsTypeName.Substring(1);
                 }
 
-                destTable.Model.CsTypeName = csName;
+                if (destTable.Model.CsTypeName != modelCsTypeName)
+                {
+                    destTable.Model.CsTypeName = modelCsTypeName;
+
+                    foreach (var enumProp in destTable.Model.Properties.OfType<EnumProperty>())
+                    {
+                        enumProp.CsTypeName = modelCsTypeName + enumProp.CsName;
+                    }
+                }
+
                 destTable.Model.Interfaces = new Type[] { srcTable.Model.CsType };
                 destTable.Model.CsDatabasePropertyName = srcTable.Model.CsDatabasePropertyName;
 
@@ -62,6 +71,11 @@ namespace DataLinq.Tools
                     }
 
                     destProperty.CsName = srcProperty.CsName;
+
+                    if (destProperty is EnumProperty destEnumProp)
+                    {
+                        destEnumProp.CsTypeName = modelCsTypeName + destEnumProp.CsName;
+                    }
                 }
 
                 foreach (var srcProperty in srcTable.Model.RelationProperties)

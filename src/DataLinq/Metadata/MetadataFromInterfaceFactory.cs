@@ -160,7 +160,7 @@ namespace DataLinq.Metadata
                     .OfType<Attribute>()
                     .ToList();
 
-            var property = GetProperty(attributes);
+            var property = GetProperty(propertyInfo.PropertyType.IsEnum, attributes);
 
             property.Model = model;
             property.CsName = propertyInfo.Name;
@@ -172,14 +172,37 @@ namespace DataLinq.Metadata
             if (property is ValueProperty valueProp)
             {
                 valueProp.CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
-                valueProp.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+
+                if (property is EnumProperty enumProp)
+                {
+                    enumProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
+
+                    if (attributes.Any(attribute => attribute is EnumAttribute))
+                        enumProp.EnumValues = attributes.OfType<EnumAttribute>().Single().Values.ToList();
+                    else
+                        enumProp.EnumValues = Enum.GetNames(property.CsType).ToList();
+                }
+                else
+                    valueProp.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
             }
 
             return property;
 
-            Property GetProperty(List<Attribute> attributes) => attributes.Any(attribute => attribute is RelationAttribute)
-                ? new RelationProperty()
-                : new ValueProperty();
+
+        }
+
+        private static Property GetProperty(bool isEnum, List<Attribute> attributes)
+        {
+            if (isEnum)
+                return new EnumProperty();
+
+            if (attributes.Any(attribute => attribute is RelationAttribute))
+                return new RelationProperty();
+
+            if (attributes.Any(attribute => attribute is EnumAttribute))
+                return new EnumProperty();
+
+            return new ValueProperty();
         }
     }
 }

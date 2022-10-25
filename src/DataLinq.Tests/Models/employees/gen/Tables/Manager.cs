@@ -33,7 +33,7 @@ namespace DataLinq.Tests.Models
         public virtual Department Department { get; }
 
         [Relation("employees", "emp_no")]
-        public virtual employees employees { get; }
+        public virtual Employee employees { get; }
 
     }
 }

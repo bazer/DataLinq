@@ -12,7 +12,7 @@
       "UseRecord": true,
       "Connections": [
         {
-          "DatabaseName": "datalinq_employees",
+          "DatabaseName": "employees",
           "Type": "MariaDB",
           "ConnectionString": "Host=localhost;User=datalinq;Password=datalinq;Max Pool Size=100;Pooling=true;CharSet=utf8mb4;"
         }

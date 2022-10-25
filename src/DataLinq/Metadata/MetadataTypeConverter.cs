@@ -26,6 +26,7 @@ namespace DataLinq.Metadata
                 "Guid" => 16,
                 "String" => null,
                 "byte[]" => null,
+                "enum" => sizeof(int),
                 _ => null
             };
         }

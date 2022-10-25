@@ -21,14 +21,14 @@ namespace DataLinq.Tests
         public void TestMetadataFromFixture()
         {
             Assert.Equal(2, DatabaseMetadata.LoadedDatabases.Count);
-            Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(employeesDb));
+            Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(employees));
             Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(information_schema));
         }
 
         [Fact]
         public void TestMetadataFromInterfaceFactory()
         {
-            TestDatabase(MetadataFromInterfaceFactory.ParseDatabase(typeof(employeesDb)), true);
+            TestDatabase(MetadataFromInterfaceFactory.ParseDatabase(typeof(employees)), true);
         }
 
         [Fact]

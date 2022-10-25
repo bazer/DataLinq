@@ -117,7 +117,7 @@ namespace DataLinq.MySql
             var csType = ParseCsType(dbType.Name);
 
             if (csType == "enum")
-                MetadataFactory.AttachEnumProperty(column, true, ParseEnumType(dbColumns.DATA_TYPE));
+                MetadataFactory.AttachEnumProperty(column, true, ParseEnumType(dbColumns.COLUMN_TYPE));
             else
                 MetadataFactory.AttachValueProperty(column, csType);
 
@@ -126,7 +126,7 @@ namespace DataLinq.MySql
 
         private static string[] ParseEnumType(string COLUMN_TYPE)
         {
-            var values = COLUMN_TYPE[5..-1].Trim('\'').Split("','");
+            var values = COLUMN_TYPE[5..^1].Trim('\'').Split("','");
 
             return values;
 

@@ -9,7 +9,7 @@ namespace DataLinq.Tests
     public class CacheTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
-        private readonly employees testEmployee;
+        private readonly Employee testEmployee;
         private readonly int testEmployeeDeptCount;
         private readonly int dept2Count;
         private readonly int dept6Count;
@@ -20,7 +20,7 @@ namespace DataLinq.Tests
             this.fixture = fixture;
             fixture.employeesDb.Provider.State.ClearCache();
 
-            testEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == 1010);
+            testEmployee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == 1010);
             testEmployeeDeptCount = testEmployee.dept_emp.Count();
             dept2Count = fixture.employeesDb.Query().Departments.Single(x => x.DeptNo == "d002").DepartmentEmployees.Count();
             dept6Count = fixture.employeesDb.Query().Departments.Single(x => x.DeptNo == "d006").DepartmentEmployees.Count();
@@ -34,7 +34,7 @@ namespace DataLinq.Tests
         {
             for (var i = 0; i < 10; i++)
             {
-                var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == testEmployee.emp_no);
+                var employee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == testEmployee.emp_no);
 
                 Assert.NotNull(employee);
                 Assert.NotEmpty(employee.dept_emp);
@@ -67,7 +67,7 @@ namespace DataLinq.Tests
             var cache = fixture.employeesDb.Provider.GetTableCache(table);
             cache.ClearRows();
 
-            var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == testEmployee.emp_no);
+            var employee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == testEmployee.emp_no);
             Assert.Equal(testEmployeeDeptCount, employee.dept_emp.Count());
 
             var ticks = DateTime.Now.Ticks;

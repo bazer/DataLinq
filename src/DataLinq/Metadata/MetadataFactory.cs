@@ -141,7 +141,7 @@ namespace DataLinq.Metadata
                 Column = column,
                 Model = column.Table.Model,
                 CsName = column.DbName,
-                CsTypeName = declaredInClass ? column.DbName + "Enum" : column.DbName,
+                CsTypeName = column.Table.Model.CsTypeName + column.DbName, //declaredInClass ? column.DbName + "Enum" : column.DbName,
                 CsSize = MetadataTypeConverter.CsTypeSize("int"),
                 CsNullable = column.Nullable,
                 EnumValues = values.ToList(),

@@ -34,7 +34,7 @@ namespace DataLinq.Tests
 
         private void SetAndTest(int value)
         {
-            var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == value);
+            var employee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == value);
             Assert.Equal(value, employee.emp_no);
         }
 
@@ -60,7 +60,7 @@ namespace DataLinq.Tests
 
                 transaction.Commit();
 
-                var dbEmployee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == id);
+                var dbEmployee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == id);
                 Assert.NotEqual(orgBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
                 Assert.Equal(newBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
             });

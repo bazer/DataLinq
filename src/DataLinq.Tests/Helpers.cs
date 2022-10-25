@@ -18,9 +18,9 @@ namespace DataLinq.Tests
             this.fixture = fixture;
         }
 
-        public employees GetEmployee(int? emp_no)
+        public Employee GetEmployee(int? emp_no)
         {
-            var employee = fixture.employeesDb.Query().employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
+            var employee = fixture.employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
 
             if (employee.IsNewModel())
                 return fixture.employeesDb.Insert(employee);
@@ -28,15 +28,15 @@ namespace DataLinq.Tests
             return employee;
         }
 
-        public employees NewEmployee(int? emp_no = null)
+        public Employee NewEmployee(int? emp_no = null)
         {
-            return new employees
+            return new Employee
             {
                 birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
                 emp_no = emp_no,
                 first_name = "Test employee",
                 last_name = "Test",
-                gender = 1,
+                gender = Employee.Employeegender.M,
                 hire_date = DateOnly.FromDateTime(DateTime.Now)
             };
         }

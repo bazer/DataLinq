@@ -13,5 +13,6 @@ namespace DataLinq.Tests.Models
         DbRead<IDepartment> Departments { get; }
         DbRead<IManager> Managers { get; }
         DbRead<dept_emp> DepartmentEmployees { get; }
+        DbRead<IEmployee> Employees { get; }
     }
 }

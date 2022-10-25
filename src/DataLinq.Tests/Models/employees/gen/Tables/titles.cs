@@ -31,7 +31,7 @@ namespace DataLinq.Tests.Models
         public virtual DateOnly? to_date { get; set; }
 
         [Relation("employees", "emp_no")]
-        public virtual employees employees { get; }
+        public virtual Employee employees { get; }
 
     }
 }

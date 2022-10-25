@@ -27,7 +27,7 @@ namespace DataLinq.Tests
             var configuration = builder.Build();
             var connDataLinq = configuration.GetConnectionString("employees");
             EmployeesDbName = configuration.GetSection("employeesDbName")?.Value ?? "employees";
-            employeesDb = new MySqlDatabase<employeesDb>(connDataLinq, EmployeesDbName);
+            employeesDb = new MySqlDatabase<employees>(connDataLinq, EmployeesDbName);
             information_schema = new MySqlDatabase<information_schema>(configuration.GetConnectionString("information_schema"));
         
             if (!employeesDb.Exists())
@@ -41,7 +41,7 @@ namespace DataLinq.Tests
             }
         }
 
-        public MySqlDatabase<employeesDb> employeesDb { get; set; }
+        public MySqlDatabase<employees> employeesDb { get; set; }
         //public employeesDb employeesDb => employeesDb_provider.Read();
         public MySqlDatabase<information_schema> information_schema { get; set; }
         //public information_schema information_schema => information_schema_provider.Read();
@@ -49,20 +49,20 @@ namespace DataLinq.Tests
         //public string ConnectionString { get; private set; }
         public string EmployeesDbName { get; private set; }
 
-        public void FillEmployeesWithBogusData(Database<employeesDb> database)
+        public void FillEmployeesWithBogusData(Database<employees> database)
         {
             Randomizer.Seed = new Random(59345922);
 
             var numEmployees = 10000;
             using var transaction = database.Transaction();
 
-            var employeeFaker = new Faker<employees>()
+            var employeeFaker = new Faker<Employee>()
                 .StrictMode(false)
                 .RuleFor(x => x.first_name, x => x.Person.FirstName)
                 .RuleFor(x => x.last_name, x => x.Person.LastName)
                 .RuleFor(x => x.birth_date, x => DateOnly.FromDateTime(x.Person.DateOfBirth.Date))
                 .RuleFor(x => x.hire_date, x => x.Date.PastDateOnly(20))
-                .RuleFor(x => x.gender, x => (int)x.Person.Gender);
+                .RuleFor(x => x.gender, x => (Employee.Employeegender)(((int)x.Person.Gender) + 1));
             var employees = transaction.Insert(employeeFaker.Generate(numEmployees));
 
             var deptNo = 1;

@@ -7,8 +7,15 @@ using DataLinq.Attributes;
 namespace DataLinq.Tests.Models
 {
     [Table("employees")]
-    public partial record employees : ITableModel
+    public partial record Employee : ITableModel
     {
+        public enum Employeegender
+        {
+            Empty,
+            M,
+            F,
+        }
+    
         [PrimaryKey]
         [AutoIncrement]
         [Type(DatabaseType.MySQL, "int")]
@@ -23,9 +30,10 @@ namespace DataLinq.Tests.Models
         [Column("first_name")]
         public virtual string first_name { get; set; }
 
-        [Type(DatabaseType.MySQL, "int")]
+        [Type(DatabaseType.MySQL, "enum", 1)]
+        [Enum("M","F")]
         [Column("gender")]
-        public virtual int gender { get; set; }
+        public virtual Employeegender gender { get; set; }
 
         [Type(DatabaseType.MySQL, "date")]
         [Column("hire_date")]

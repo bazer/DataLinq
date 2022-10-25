@@ -38,7 +38,7 @@ namespace DataLinq.Tests
         [Fact]
         public void EmptyList()
         {
-            var employee = fixture.employeesDb.Query().employees.Single(x => x.emp_no == 1000);
+            var employee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == 1000);
 
             Assert.NotNull(employee.dept_manager);
             Assert.Empty(employee.dept_manager);
