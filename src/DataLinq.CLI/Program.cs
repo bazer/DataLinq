@@ -24,6 +24,8 @@ namespace DataLinq.CLI
         {
             [Option('n', "name", HelpText = "Database name", Required = true)]
             public string Name { get; set; }
+            [Option('s', "skip-source", HelpText = "Skip reading from source models", Required = false)]
+            public bool SkipSource { get; set; }
 
             [Option('t', "type", HelpText = "Which database connection type to read from", Required = false)]
             public string ConnectionType { get; set; }
@@ -171,7 +173,8 @@ namespace DataLinq.CLI
                     var creator = new ModelCreator(Console.WriteLine, new ModelCreatorOptions
                     {
                         OverwriteExistingModels = true,
-                        ReadSourceModels = true
+                        ReadSourceModels = !options.SkipSource,
+                        CapitaliseNames = !db.CapitaliseNames.HasValue || db.CapitaliseNames == true
                     });
 
                     creator.Create(db, connection, ConfigBasePath);

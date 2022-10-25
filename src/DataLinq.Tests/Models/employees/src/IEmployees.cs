@@ -8,7 +8,7 @@ namespace DataLinq.Tests.Models
 {
     [UseCache]
     [Database("employees")]
-    public partial interface IemployeesDb : ICustomDatabaseModel
+    public partial interface IEmployees : ICustomDatabaseModel
     {
         DbRead<IDepartment> Departments { get; }
         DbRead<IManager> Managers { get; }

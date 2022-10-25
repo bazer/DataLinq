@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using DataLinq.Metadata;
+﻿using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.Tools.Config;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Emit;
+using System;
+using System.Collections.Generic;
+using System.IO;
 
 namespace DataLinq.Tools
 {
@@ -38,7 +32,7 @@ namespace DataLinq.Tools
             Log($"Reading database: {db.Name}");
 
             List<string> dirs = new List<string>();
-            dirs.Add(basePath + Path.DirectorySeparatorChar + db.SourceDirectory);
+            dirs.Add(basePath + Path.DirectorySeparatorChar + db.SourceDirectories);
 
             if (db.DestinationDirectory != null)
                 dirs.Add(basePath + Path.DirectorySeparatorChar + db.DestinationDirectory);
@@ -57,6 +51,12 @@ namespace DataLinq.Tools
                 Log($"Couldn't read from SourceDirectory: {srcDir}");
             }
 
+            var sqlOptions = new MetadataFromSqlFactoryOptions
+            {
+                CapitaliseNames = true,
+                DeclareEnumsInClass = true
+            };
+
             foreach (var connection in db.Connections)
             {
                 Log($"Type: {connection.ParsedType}");
@@ -64,7 +64,7 @@ namespace DataLinq.Tools
                 var dbMetadata = connection.ParsedType switch
                 {
                     DatabaseType.MySQL =>
-                        MySql.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
+                        new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
                     DatabaseType.SQLite =>
                         SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, connection.ConnectionString)
                 };

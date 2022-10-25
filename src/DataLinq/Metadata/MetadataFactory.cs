@@ -1,4 +1,5 @@
 ﻿using DataLinq.Attributes;
+using DataLinq.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -102,12 +103,16 @@ namespace DataLinq.Metadata
             return property;
         }
 
-        public static ModelMetadata AttachModel(TableMetadata table)
+        public static ModelMetadata AttachModel(TableMetadata table, bool capitaliseNames)
         {
+            var name = capitaliseNames 
+                ? table.DbName.FirstCharToUpper()
+                : table.DbName;
+
             table.Model = new ModelMetadata
             {
-                CsTypeName = table.DbName,
-                CsDatabasePropertyName = table.DbName,
+                CsTypeName = name,
+                CsDatabasePropertyName = name,
                 Table = table,
                 Database = table.Database
             };
@@ -115,13 +120,20 @@ namespace DataLinq.Metadata
             return table.Model;
         }
 
-        public static ValueProperty AttachValueProperty(Column column, string csTypeName)
+        public static ValueProperty AttachValueProperty(Column column, string csTypeName, bool capitaliseNames)
         {
+            var name = capitaliseNames
+                ? column.DbName.FirstCharToUpper()
+                : column.DbName;
+
+            var type = Type.GetType(csTypeName);
+
             var property = new ValueProperty
             {
                 Column = column,
                 Model = column.Table.Model,
-                CsName = column.DbName,
+                CsName = name,
+                CsType = type,
                 CsTypeName = csTypeName,
                 CsSize = MetadataTypeConverter.CsTypeSize(csTypeName),
                 CsNullable = column.Nullable && MetadataTypeConverter.IsCsTypeNullable(csTypeName)
@@ -134,14 +146,18 @@ namespace DataLinq.Metadata
             return property;
         }
 
-        public static EnumProperty AttachEnumProperty(Column column, bool declaredInClass, IEnumerable<string> values)
+        public static EnumProperty AttachEnumProperty(Column column, bool declaredInClass, bool capitaliseNames, IEnumerable<string> values)
         {
+            var name = capitaliseNames
+                ? column.DbName.FirstCharToUpper()
+                : column.DbName;
+
             var property = new EnumProperty
             {
                 Column = column,
                 Model = column.Table.Model,
-                CsName = column.DbName,
-                CsTypeName = column.Table.Model.CsTypeName + column.DbName, //declaredInClass ? column.DbName + "Enum" : column.DbName,
+                CsName = name,
+                CsTypeName = column.Table.Model.CsTypeName + name, //declaredInClass ? column.DbName + "Enum" : column.DbName,
                 CsSize = MetadataTypeConverter.CsTypeSize("int"),
                 CsNullable = column.Nullable,
                 EnumValues = values.ToList(),

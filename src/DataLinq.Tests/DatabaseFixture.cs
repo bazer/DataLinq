@@ -27,7 +27,7 @@ namespace DataLinq.Tests
             var configuration = builder.Build();
             var connDataLinq = configuration.GetConnectionString("employees");
             EmployeesDbName = configuration.GetSection("employeesDbName")?.Value ?? "employees";
-            employeesDb = new MySqlDatabase<employees>(connDataLinq, EmployeesDbName);
+            employeesDb = new MySqlDatabase<Employees>(connDataLinq, EmployeesDbName);
             information_schema = new MySqlDatabase<information_schema>(configuration.GetConnectionString("information_schema"));
         
             if (!employeesDb.Exists())
@@ -41,7 +41,7 @@ namespace DataLinq.Tests
             }
         }
 
-        public MySqlDatabase<employees> employeesDb { get; set; }
+        public MySqlDatabase<Employees> employeesDb { get; set; }
         //public employeesDb employeesDb => employeesDb_provider.Read();
         public MySqlDatabase<information_schema> information_schema { get; set; }
         //public information_schema information_schema => information_schema_provider.Read();
@@ -49,7 +49,7 @@ namespace DataLinq.Tests
         //public string ConnectionString { get; private set; }
         public string EmployeesDbName { get; private set; }
 
-        public void FillEmployeesWithBogusData(Database<employees> database)
+        public void FillEmployeesWithBogusData(Database<Employees> database)
         {
             Randomizer.Seed = new Random(59345922);
 

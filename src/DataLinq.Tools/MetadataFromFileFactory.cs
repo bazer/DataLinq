@@ -53,12 +53,18 @@ namespace DataLinq.Metadata
             var references = GetReferences(
                 typeof(object),
                 typeof(System.Runtime.DependentHandle),
+                typeof(System.Collections.ObjectModel.ObservableCollection<object>),
+                typeof(System.ComponentModel.DesignerCategoryAttribute),
+                typeof(System.ComponentModel.DataAnnotations.AssociatedMetadataTypeTypeDescriptionProvider),
+                typeof(System.Xml.Serialization.CodeGenerationOptions),
+                typeof(Newtonsoft.Json.ConstructorHandling),
                 typeof(DataLinq),
                 typeof(SyntaxTree),
                 typeof(CSharpSyntaxTree))
                 .ToList();
 
             references.Add(MetadataReference.CreateFromFile(Assembly.Load("System.Runtime").Location));
+            references.Add(MetadataReference.CreateFromFile(Assembly.Load("netstandard").Location));
 
             var compilation = CSharpCompilation.Create("datalinq_metadata.dll",
                trees,

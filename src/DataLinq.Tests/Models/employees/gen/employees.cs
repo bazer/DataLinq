@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using DataLinq;
 using DataLinq.Interfaces;
 using DataLinq.Attributes;
@@ -8,7 +7,7 @@ namespace DataLinq.Tests.Models
 {
     [UseCache]
     [Database("employees")]
-    public interface employees : IDatabaseModel
+    public interface Employees : IDatabaseModel
     {
         DbRead<current_dept_emp> current_dept_emp { get; }
         DbRead<Department> Departments { get; }

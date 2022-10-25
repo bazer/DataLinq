@@ -7,11 +7,24 @@ using System.Linq;
 
 namespace DataLinq.MySql
 {
-    public static class MetadataFromSqlFactory
+    public struct MetadataFromSqlFactoryOptions
     {
-        public static DatabaseMetadata ParseDatabase(string name, string dbName, information_schema information_Schema)
+        public bool CapitaliseNames { get; set; }
+        public bool DeclareEnumsInClass { get; set; }
+    }
+
+    public class MetadataFromSqlFactory
+    {
+        private readonly MetadataFromSqlFactoryOptions options;
+
+        public MetadataFromSqlFactory(MetadataFromSqlFactoryOptions options)
         {
-            var database = new DatabaseMetadata(name, dbName);
+            this.options = options;
+        }
+
+        public DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, information_schema information_Schema)
+        {
+            var database = new DatabaseMetadata(name, csTypeName, dbName);
 
             database.Tables = information_Schema
                 .TABLES.Where(x => x.TABLE_SCHEMA == dbName)
@@ -31,7 +44,7 @@ namespace DataLinq.MySql
             return database;
         }
 
-        private static void ParseRelations(DatabaseMetadata database, information_schema information_Schema)
+        private void ParseRelations(DatabaseMetadata database, information_schema information_Schema)
         {
             foreach (var key in information_Schema
                 .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
@@ -45,7 +58,7 @@ namespace DataLinq.MySql
             }
         }
 
-        private static void ParseIndices(DatabaseMetadata database, information_schema information_Schema)
+        private void ParseIndices(DatabaseMetadata database, information_schema information_Schema)
         {
             foreach (var dbIndex in information_Schema
                 .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME == null && x.CONSTRAINT_NAME != "PRIMARY").ToList().GroupBy(x => x.CONSTRAINT_NAME))
@@ -62,7 +75,7 @@ namespace DataLinq.MySql
             }
         }
 
-        private static TableMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
+        private TableMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {
             var type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
 
@@ -72,7 +85,7 @@ namespace DataLinq.MySql
 
             table.Database = database;
             table.DbName = dbTables.TABLE_NAME;
-            MetadataFactory.AttachModel(table);
+            MetadataFactory.AttachModel(table, options.CapitaliseNames);
 
             if (table is ViewMetadata view)
             {
@@ -93,7 +106,7 @@ namespace DataLinq.MySql
             return table;
         }
 
-        private static Column ParseColumn(TableMetadata table, COLUMNS dbColumns)
+        private Column ParseColumn(TableMetadata table, COLUMNS dbColumns)
         {
             var dbType = new DatabaseColumnType
             {
@@ -117,24 +130,17 @@ namespace DataLinq.MySql
             var csType = ParseCsType(dbType.Name);
 
             if (csType == "enum")
-                MetadataFactory.AttachEnumProperty(column, true, ParseEnumType(dbColumns.COLUMN_TYPE));
+                MetadataFactory.AttachEnumProperty(column, true, options.CapitaliseNames, ParseEnumType(dbColumns.COLUMN_TYPE));
             else
-                MetadataFactory.AttachValueProperty(column, csType);
+                MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
 
             return column;
         }
 
-        private static string[] ParseEnumType(string COLUMN_TYPE)
-        {
-            var values = COLUMN_TYPE[5..^1].Trim('\'').Split("','");
+        private string[] ParseEnumType(string COLUMN_TYPE) =>
+            COLUMN_TYPE[5..^1].Trim('\'').Split("','");
 
-            return values;
-
-
-            //COLUMN_TYPE.Substring(5, -1)
-        }
-
-        private static string ParseCsType(string dbType)
+        private string ParseCsType(string dbType)
         {
             return dbType.ToLower() switch
             {

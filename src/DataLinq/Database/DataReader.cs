@@ -33,10 +33,10 @@ namespace DataLinq
 
             if (value is DBNull)
                 return null;
+            else if (column.ValueProperty.CsType.IsEnum)
+                return Enum.ToObject(column.ValueProperty.CsType, value);
             else if (column.ValueProperty.CsNullable)
                 return Convert.ChangeType(value, column.ValueProperty.CsType.GetNullableConversionType());
-            else if (column.DbTypes[0].Name == "enum")
-                return 1; //TODO: Fix enum support
             else if (value.GetType() != column.ValueProperty.CsType)
                 return Convert.ChangeType(value, column.ValueProperty.CsType);
 

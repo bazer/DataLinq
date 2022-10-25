@@ -4,6 +4,7 @@ using DataLinq.MySql.Models;
 using DataLinq.Tools.Config;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace DataLinq.Tools
@@ -12,6 +13,9 @@ namespace DataLinq.Tools
     {
         public bool ReadSourceModels { get; set; }
         public bool OverwriteExistingModels { get; set; }
+        public bool CapitaliseNames { get; set; }
+        public bool DeclareEnumsInClass { get; set; }
+        public bool SeparateTablesAndViews { get; set; }
     }
 
     public class ModelCreator
@@ -31,10 +35,16 @@ namespace DataLinq.Tools
             log($"Reading from database: {db.Name}");
             log($"Type: {connection.Type}");
 
+            var sqlOptions = new MetadataFromSqlFactoryOptions
+            {
+                CapitaliseNames = this.options.CapitaliseNames,
+                DeclareEnumsInClass = this.options.DeclareEnumsInClass
+            };
+
             var dbMetadata = connection.ParsedType switch
             {
                 DatabaseType.MySQL =>
-                    MySql.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
+                    new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
                 DatabaseType.SQLite =>
                     SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, connection.ConnectionString)
             };
@@ -42,41 +52,54 @@ namespace DataLinq.Tools
             log($"Tables in database: {dbMetadata.Tables.Count}");
 
             var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
-            if (options.ReadSourceModels)
+            if (this.options.ReadSourceModels)
             {
-                var srcDir = basePath + Path.DirectorySeparatorChar + db.SourceDirectory;
-                if (Directory.Exists(srcDir))
+                if (db.SourceDirectories == null)
                 {
-                    log($"Reading models from:");
-                    log($"{srcDir}");
-                    log($"{destDir}");
-                    var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(db.CsType, srcDir, destDir);
-
-                    if (srcMetadata != null)
-                    {
-                        log($"Tables in source model files: {srcMetadata.Tables.Count}");
-
-                        var transformer = new MetadataTransformer(log, new MetadataTransformerOptions(true));
-                        transformer.Transform(srcMetadata, dbMetadata);
-                    }
+                    log($"No source directory set. Skipping reading of sources.");
                 }
                 else
                 {
-                    log($"Couldn't read from SourceDirectory: {srcDir}");
-                    return;
+                    var srcDirs = db.SourceDirectories.Select(dir => basePath + Path.DirectorySeparatorChar + dir);
+
+                    foreach (var srcDir in srcDirs.Where(x => !Directory.Exists(x)))
+                    {
+                        log($"Couldn't find dir: {srcDir}");
+                    }
+
+                    var srcDirsExists = srcDirs.Where(x => Directory.Exists(x)).ToArray();
+
+                    log($"Reading models from:");
+                    foreach (var srcDir in srcDirsExists)
+                    {
+                        log($"{srcDir}");
+                    }
+
+                    var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(db.CsType, srcDirsExists);
+                    if (srcMetadata == null)
+                    {
+                        log("Error: Unable to parse source files.");
+                        return;
+                    }
+
+                    log($"Tables in source model files: {srcMetadata.Tables.Count}");
+
+                    var transformer = new MetadataTransformer(log, new MetadataTransformerOptions(true));
+                    transformer.Transform(srcMetadata, dbMetadata);
                 }
             }
 
             log($"Writing models to: {db.DestinationDirectory}");
 
-            var settings = new FileFactorySettings
+            var options = new FileFactoryOptions
             {
                 NamespaceName = db.Namespace ?? "Models",
                 UseRecords = db.UseRecord ?? true,
-                UseCache = db.UseCache ?? true
+                UseCache = db.UseCache ?? true,
+                SeparateTablesAndViews = db.SeparateTablesAndViews ?? false,
             };
 
-            foreach (var file in FileFactory.CreateModelFiles(dbMetadata, settings))
+            foreach (var file in new FileFactory(options).CreateModelFiles(dbMetadata))
             {
                 var filepath = $"{destDir}{Path.DirectorySeparatorChar}{file.path}";
                 log($"Writing {filepath}");

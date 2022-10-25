@@ -7,47 +7,76 @@ using System.Linq;
 
 namespace DataLinq.Metadata
 {
-    public class FileFactorySettings
+    public class FileFactoryOptions
     {
         public string NamespaceName { get; set; } = "Models";
         public string Tab { get; set; } = "    ";
         public bool UseRecords { get; set; } = true;
         public bool UseCache { get; set; } = true;
+        public bool SeparateTablesAndViews { get; set; } = false;
+        public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes" };
     }
 
-    public static class FileFactory
+    public class FileFactory
     {
-        //static readonly string tab = "    ";
+        private readonly FileFactoryOptions options;
 
-        public static IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database, FileFactorySettings settings)
+        public FileFactory(FileFactoryOptions options)
         {
-            var dbName = database.Tables.Any(x => x.Model.CsTypeName == database.Name)
-                ? $"{database.Name}Db"
-                : database.Name;
+            this.options = options;
+        }
 
-            yield return ($"{dbName}.cs",
-                    FileHeader(settings.NamespaceName)
-                    .Concat(DatabaseFileContents(database, dbName, settings))
+        public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database)
+        {
+            var dbCsTypeName = database.Tables.Any(x => x.Model.CsTypeName == database.CsTypeName)
+                ? $"{database.CsTypeName}Db"
+                : database.CsTypeName;
+
+            yield return ($"{dbCsTypeName}.cs",
+                    FileHeader(options.NamespaceName, options.Usings)
+                    .Concat(DatabaseFileContents(database, dbCsTypeName, options))
                     .Concat(FileFooter())
                     .ToJoinedString("\n"));
 
             foreach (var table in database.Tables)
             {
+                var usings = options.Usings.Concat(table.Model.ValueProperties
+                        .Select(x => (x.CsType?.Namespace))
+                        .Where(x => x != null))
+                    .Concat(table.Model.RelationProperties
+                        .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
+                        .Select(x => "System.Collections.Generic"))
+                    .Distinct()
+                    .Select(name => (name.StartsWith("System"), name))
+                    .OrderByDescending(x => x.Item1)
+                    .ThenBy(x => x.name)
+                    .Select(x => x.name);
+
                 var file =
-                    FileHeader(settings.NamespaceName)
-                    .Concat(ModelFileContents(table.Model, settings))
+                    FileHeader(options.NamespaceName, usings)
+                    .Concat(ModelFileContents(table.Model, options))
                     .Concat(FileFooter())
                     .ToJoinedString("\n");
 
-                var path = table.Type == TableType.Table
-                    ? $"Tables{Path.DirectorySeparatorChar}{table.Model.CsTypeName}.cs"
-                    : $"Views{Path.DirectorySeparatorChar}{table.Model.CsTypeName}.cs";
+                var path = GetFilePath(table);
 
                 yield return (path, file);
             }
         }
 
-        private static IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName, FileFactorySettings settings)
+        private string GetFilePath(TableMetadata table)
+        {
+            var path = $"{table.Model.CsTypeName}.cs";
+
+            if (options.SeparateTablesAndViews)
+                return table.Type == TableType.Table
+                    ? $"Tables{Path.DirectorySeparatorChar}{path}"
+                    : $"Views{Path.DirectorySeparatorChar}{path}";
+
+            return path;
+        }
+
+        private IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName, FileFactoryOptions settings)
         {
             var tab = settings.Tab;
             if (settings.UseCache)
@@ -65,7 +94,7 @@ namespace DataLinq.Metadata
             yield return tab + "}";
         }
 
-        private static IEnumerable<string> ModelFileContents(ModelMetadata model, FileFactorySettings settings)
+        private IEnumerable<string> ModelFileContents(ModelMetadata model, FileFactoryOptions settings)
         {
             var tab = settings.Tab;
             var table = model.Table;
@@ -160,7 +189,7 @@ namespace DataLinq.Metadata
             yield return tab + "}";
         }
 
-        private static IEnumerable<string> WriteEnum(EnumProperty property, string tab)
+        private IEnumerable<string> WriteEnum(EnumProperty property, string tab)
         {
             yield return $"{tab}public enum {property.CsTypeName}";
             yield return tab + "{";
@@ -173,18 +202,16 @@ namespace DataLinq.Metadata
             yield return "";
         }
 
-        private static IEnumerable<string> FileFooter()
+        private IEnumerable<string> FileFooter()
         {
             yield return "}";
         }
 
-        private static IEnumerable<string> FileHeader(string namespaceName)
+        private IEnumerable<string> FileHeader(string namespaceName, IEnumerable<string> usings)
         {
-            yield return "using System;";
-            yield return "using System.Collections.Generic;";
-            yield return "using DataLinq;";
-            yield return "using DataLinq.Interfaces;";
-            yield return "using DataLinq.Attributes;";
+            foreach (var row in usings)
+                yield return $"using {row};";
+
             yield return "";
             yield return $"namespace {namespaceName}";
             yield return "{";

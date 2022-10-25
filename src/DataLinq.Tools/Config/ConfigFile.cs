@@ -18,12 +18,14 @@ namespace DataLinq.Tools.Config
         public string? Name { get; set; }
         public string? CsType { get; set; }
         public string? Namespace { get; set; }
-        public string? SourceDirectory { get; set; }
+        public List<string>? SourceDirectories { get; set; }
         public string? DestinationDirectory { get; set; }
         public List<string>? Tables { get; set; }
         public List<string>? Views { get; set; }
         public bool? UseCache { get; set; }
         public bool? UseRecord { get; set; }
+        public bool? CapitaliseNames { get; set; }
+        public bool? SeparateTablesAndViews { get; set; }
         public List<DatabaseConnectionConfig> Connections { get; set; } = new();
     }
 

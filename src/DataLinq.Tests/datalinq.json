@@ -3,13 +3,15 @@
     {
       "Name": "employees",
       "Namespace": "DataLinq.Tests.Models",
-      "CsType": "employeesDb",
-      "SourceDirectory": "Models\\employees\\src",
+      "CsType": "Employees",
+      "SourceDirectories": [ "Models\\employees\\src", "Models\\employees\\gen" ],
       "DestinationDirectory": "Models\\employees\\gen",
       "Tables": [],
       "Views": [],
       "UseCache": true,
       "UseRecord": true,
+      "CapitaliseNames": false,
+      "SeparateTablesAndViews": true,
       "Connections": [
         {
           "DatabaseName": "employees",

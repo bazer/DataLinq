@@ -21,20 +21,20 @@ namespace DataLinq.Tests
         public void TestMetadataFromFixture()
         {
             Assert.Equal(2, DatabaseMetadata.LoadedDatabases.Count);
-            Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(employees));
+            Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(Employees));
             Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(information_schema));
         }
 
         [Fact]
         public void TestMetadataFromInterfaceFactory()
         {
-            TestDatabase(MetadataFromInterfaceFactory.ParseDatabase(typeof(employees)), true);
+            TestDatabase(MetadataFromInterfaceFactory.ParseDatabase(typeof(Employees)), true);
         }
 
         [Fact]
         public void TestMetadataFromSqlFactory()
         {
-            TestDatabase(MetadataFromSqlFactory.ParseDatabase("employees", fixture.EmployeesDbName, fixture.information_schema.Query()), false);
+            TestDatabase(new MetadataFromSqlFactory(new MetadataFromSqlFactoryOptions { }).ParseDatabase("employees", "Employees", fixture.EmployeesDbName, fixture.information_schema.Query()), false);
         }
 
         private void TestDatabase(DatabaseMetadata database, bool testCsType)
@@ -56,6 +56,7 @@ namespace DataLinq.Tests
             Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
 
             var dept_name = database.Tables.Single(x => x.DbName == "departments").Columns.Single(x => x.DbName == "dept_name");
+            Assert.Same("string", dept_name.ValueProperty.CsTypeName);
             Assert.False(dept_name.PrimaryKey);
             Assert.False(dept_name.AutoIncrement);
             Assert.Single(dept_name.ColumnIndices);

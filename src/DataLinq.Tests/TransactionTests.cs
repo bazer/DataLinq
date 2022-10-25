@@ -298,7 +298,7 @@ namespace DataLinq.Tests
         {
             var emp_no = 999991;
             var employee = helpers.GetEmployee(emp_no);
-            Transaction<employees>[] transactions = new Transaction<employees>[10];
+            Transaction<Employees>[] transactions = new Transaction<Employees>[10];
 
             for (int i = 0; i < 10; i++)
             {

@@ -10,7 +10,7 @@ namespace DataLinq.SQLite
     {
         public static DatabaseMetadata ParseDatabase(string name, string dbName, string connectionString)
         {
-            var database = new DatabaseMetadata(name, dbName);
+            var database = new DatabaseMetadata(name, dbName: dbName);
 
             using var connection = new SqliteConnection(connectionString);
             connection.Open();
@@ -88,7 +88,7 @@ namespace DataLinq.SQLite
                     };
 
                     column.DbTypes.Add(dbType);
-                    MetadataFactory.AttachValueProperty(column, ParseCsType(dbType.Name));
+                    MetadataFactory.AttachValueProperty(column, ParseCsType(dbType.Name), false);
 
                     //var property = new ValueProperty();
                     //property.CsTypeName = ParseCsType(dbType.Name.ToLower());

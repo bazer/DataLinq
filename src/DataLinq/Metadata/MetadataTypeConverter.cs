@@ -61,6 +61,8 @@ namespace DataLinq.Metadata
                     return "bool";
                 case "Decimal":
                     return "decimal";
+                case "String":
+                    return "string";
                 default:
                     return type.Name;
             }

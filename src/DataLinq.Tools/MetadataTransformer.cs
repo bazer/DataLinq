@@ -71,11 +71,10 @@ namespace DataLinq.Tools
                     }
 
                     destProperty.CsName = srcProperty.CsName;
-
-                    if (destProperty is EnumProperty destEnumProp)
-                    {
-                        destEnumProp.CsTypeName = modelCsTypeName + destEnumProp.CsName;
-                    }
+                    destProperty.CsType = srcProperty.CsType;
+                    destProperty.CsTypeName = srcProperty.CsTypeName;
+                    destProperty.CsNullable = srcProperty.CsNullable;
+                    destProperty.CsSize = srcProperty.CsSize;
                 }
 
                 foreach (var srcProperty in srcTable.Model.RelationProperties)
