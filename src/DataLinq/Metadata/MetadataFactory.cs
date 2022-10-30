@@ -11,7 +11,7 @@ namespace DataLinq.Metadata
         public static void ParseIndices(DatabaseMetadata database)
         {
             foreach (var column in database.
-                Tables.SelectMany(x => x.Columns.Where(y => y.Unique)))
+                TableModels.SelectMany(x => x.Table.Columns.Where(y => y.Unique)))
             {
                 var uniqueAttribute = column.ValueProperty
                     .Attributes
@@ -37,7 +37,7 @@ namespace DataLinq.Metadata
         public static void ParseRelations(DatabaseMetadata database)
         {
             foreach (var column in database.
-                Tables.SelectMany(x => x.Columns.Where(y => y.ForeignKey)))
+                TableModels.SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
             {
                 var attribute = column.ValueProperty
                     .Attributes
@@ -51,8 +51,8 @@ namespace DataLinq.Metadata
                 };
 
                 var candidateColumn = database
-                    .Tables.FirstOrDefault(x => x.DbName == attribute.Table)?
-                    .Columns.FirstOrDefault(x => x.DbName == attribute.Column);
+                    .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table)
+                    ?.Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
 
                 if (candidateColumn == null)
                     continue;
@@ -93,7 +93,7 @@ namespace DataLinq.Metadata
             {
                 property = new RelationProperty();
                 property.Attributes.Add(new RelationAttribute(column.Table.DbName, column.DbName));
-                property.CsName = column.Table.Model.CsDatabasePropertyName;
+                property.CsName = column.Table.Database.TableModels.Single(x => x.Table == column.Table).CsPropertyName;
                 property.Model = relationPart.Column.Table.Model;
                 relationPart.Column.Table.Model.Properties.Add(property);
             }
@@ -112,7 +112,6 @@ namespace DataLinq.Metadata
             table.Model = new ModelMetadata
             {
                 CsTypeName = name,
-                CsDatabasePropertyName = name,
                 Table = table,
                 Database = table.Database
             };

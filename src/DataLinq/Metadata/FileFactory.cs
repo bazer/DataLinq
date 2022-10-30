@@ -28,7 +28,7 @@ namespace DataLinq.Metadata
 
         public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database)
         {
-            var dbCsTypeName = database.Tables.Any(x => x.Model.CsTypeName == database.CsTypeName)
+            var dbCsTypeName = database.TableModels.Any(x => x.Model.CsTypeName == database.CsTypeName)
                 ? $"{database.CsTypeName}Db"
                 : database.CsTypeName;
 
@@ -38,7 +38,7 @@ namespace DataLinq.Metadata
                     .Concat(FileFooter())
                     .ToJoinedString("\n"));
 
-            foreach (var table in database.Tables)
+            foreach (var table in database.TableModels)
             {
                 var usings = options.Usings.Concat(table.Model.ValueProperties
                         .Select(x => (x.CsType?.Namespace))
@@ -64,12 +64,12 @@ namespace DataLinq.Metadata
             }
         }
 
-        private string GetFilePath(TableMetadata table)
+        private string GetFilePath(TableModelMetadata table)
         {
             var path = $"{table.Model.CsTypeName}.cs";
 
             if (options.SeparateTablesAndViews)
-                return table.Type == TableType.Table
+                return table.Table.Type == TableType.Table
                     ? $"Tables{Path.DirectorySeparatorChar}{path}"
                     : $"Views{Path.DirectorySeparatorChar}{path}";
 
@@ -86,9 +86,9 @@ namespace DataLinq.Metadata
             yield return $"{tab}public interface {dbName} : IDatabaseModel";
             yield return tab + "{";
 
-            foreach (var t in database.Tables.OrderBy(x => x.DbName))
+            foreach (var t in database.TableModels.OrderBy(x => x.Table.DbName))
             {
-                yield return $"{tab}{tab}DbRead<{t.Model.CsTypeName}> {t.Model.CsDatabasePropertyName} {{ get; }}";
+                yield return $"{tab}{tab}DbRead<{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }}";
             }
 
             yield return tab + "}";

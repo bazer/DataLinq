@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using DataLinq.Interfaces;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
 using System;
@@ -8,9 +9,16 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using ThrowAway;
 
 namespace DataLinq.Metadata
 {
+    public enum MetadataFromFileFactoryError
+    {
+        CompilationError,
+        TypeNotFound
+    }
+
     public class MetadataFromFileFactorySettings
     {
 
@@ -31,23 +39,18 @@ namespace DataLinq.Metadata
                 yield return MetadataReference.CreateFromFile(type.Assembly.Location);
         }
 
-        public DatabaseMetadata ReadFiles(string csType, params string[] paths)
+        public Option<DatabaseMetadata, MetadataFromFileFactoryError> ReadFiles(string csType, params string[] paths)
         {
             var trees = new List<SyntaxTree>();
 
             foreach (var path in paths)
             {
-                var d = new DirectoryInfo(path);
-                string[] sourceFiles = d
+                var sourceFiles = new DirectoryInfo(path)
                     .EnumerateFiles("*.cs", SearchOption.AllDirectories)
-                    .Select(a => a.FullName).ToArray();
+                    .Select(a => a.FullName);
 
                 foreach (string file in sourceFiles)
-                {
-                    string code = File.ReadAllText(file);
-                    SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
-                    trees.Add(tree);
-                }
+                    trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file)));
             }
 
             var references = GetReferences(
@@ -86,27 +89,32 @@ namespace DataLinq.Metadata
                         Log($"{diagnostic.Id}: {diagnostic.GetMessage()}");
                     }
 
-                    return null;
+                    return MetadataFromFileFactoryError.CompilationError;
                 }
 
                 ms.Seek(0, SeekOrigin.Begin);
                 Assembly assembly = Assembly.Load(ms.ToArray());
 
-                List<Type> dbTypes = assembly.ExportedTypes.Where(x => x.Name == csType)
-                    .Concat(assembly.ExportedTypes.Where(x => x.Name == "I" + csType))
-                    .ToList();
+                //List<Type> dbTypes = assembly.ExportedTypes.Where(x => x.Name == csType)
+                //    .Concat(assembly.ExportedTypes.Where(x => x.Name == "I" + csType))
+                //    .ToList();
 
-                var dbType = 
-                    dbTypes.FirstOrDefault(x => x.GetInterface("ICustomDatabaseModel") != null) ??
-                    dbTypes.FirstOrDefault(x => x.GetInterface("IDatabaseModel") != null);
+                
 
-                if (dbType == null)
+                var types = assembly.ExportedTypes.Where(x => 
+                    x.GetInterface("ICustomDatabaseModel") != null ||
+                    x.GetInterface("IDatabaseModel") != null ||
+                    x.GetInterface("ICustomTableModel") != null ||
+                    x.GetInterface("ICustomViewModel") != null)
+                    .ToArray();
+
+                if (types.Length == 0)
                 {
-                    Log($"Couldn't find a type '{csType}' that implements either 'ICustomDatabaseModel' or 'IDatabaseModel'");
-                    return null;
+                    Log($"Couldn't find any type '{csType}' that implements 'IDatabaseModel', 'ICustomDatabaseModel', 'ICustomTableModel' or 'ICustomViewModel'");
+                    return MetadataFromFileFactoryError.TypeNotFound;
                 }
 
-                return MetadataFromInterfaceFactory.ParseDatabase(dbType);
+                return MetadataFromInterfaceFactory.ParseDatabaseFromSources(types);
             }
         }
     }

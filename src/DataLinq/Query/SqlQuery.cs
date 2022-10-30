@@ -76,7 +76,7 @@ namespace DataLinq.Query
             CheckTransaction(transaction);
 
             this.Transaction = transaction;
-            this.Table = transaction.Provider.Metadata.Tables.Single(x => x.Model.CsType == typeof(T));
+            this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
             this.Alias = alias;
         }
 
@@ -94,7 +94,7 @@ namespace DataLinq.Query
             CheckTransaction(transaction);
 
             this.Transaction = transaction;
-            this.Table = transaction.Provider.Metadata.Tables.Single(x => x.DbName == tableName);
+            this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
             this.Alias = alias;
         }
 

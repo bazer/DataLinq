@@ -41,7 +41,7 @@ namespace DataLinq
                 (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
             var transaction = Transaction(TransactionType.NoTransaction);
-            var table = transaction.Provider.Metadata.Tables.Single(x => x.DbName == tableName);
+            var table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
             return new SqlQuery(table, transaction, alias);
         }

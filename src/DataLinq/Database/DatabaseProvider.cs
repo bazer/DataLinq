@@ -80,7 +80,7 @@ namespace DataLinq
                     Metadata = metadata;
                 else
                 {
-                    Metadata = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
+                    Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(databaseType);
                     //Metadata.DatabaseProvider = this;
 
                     DatabaseMetadata.LoadedDatabases.TryAdd(databaseType, Metadata);

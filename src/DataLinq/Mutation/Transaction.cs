@@ -234,7 +234,7 @@ namespace DataLinq.Mutation
 
         public SqlQuery From(string tableName)
         {
-            var table = Provider.Metadata.Tables.Single(x => x.DbName == tableName);
+            var table = Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
             return new SqlQuery(table, this);
         }

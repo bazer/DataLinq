@@ -1,6 +1,7 @@
 ﻿using DataLinq.Attributes;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Reflection;
 
@@ -8,10 +9,79 @@ namespace DataLinq.Metadata
 {
     public static class MetadataFromInterfaceFactory
     {
-        public static DatabaseMetadata ParseDatabase(Type type)
+        public static DatabaseMetadata ParseDatabaseFromSources(params Type[] types)
         {
-            var database = new DatabaseMetadata(type.Name);
+            var dbType =
+                    types.FirstOrDefault(x => x.GetInterface("ICustomDatabaseModel") != null) ??
+                    types.FirstOrDefault(x => x.GetInterface("IDatabaseModel") != null);
 
+            var database = new DatabaseMetadata(dbType?.Name ?? "Unnamed", dbType);
+
+            database.TableModels = types
+                .Where(x =>
+                    x.GetInterface("ICustomTableModel") != null ||
+                    x.GetInterface("ICustomViewModel") != null)
+                .Select(x => ParseTableModel(database, x, x.Name))
+                .ToList();
+
+            if (dbType != null)
+            {
+                ParseAttributes(database, dbType);
+
+                var propertyModels = dbType
+                    .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Select(GetTableType)
+                    .Select(x => database.ParseTableModel(x.type, x.csName))
+                    .ToList();
+
+                foreach (var propertyModel in propertyModels)
+                {
+                    var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == propertyModel.Table.DbName);
+
+                    if (match != null)
+                        match.CsPropertyName = propertyModel.CsPropertyName;
+                    else
+                        database.TableModels.Add(propertyModel);
+                }
+            }
+
+            MetadataFactory.ParseIndices(database);
+            MetadataFactory.ParseRelations(database);
+
+            return database;
+
+        }
+
+        public static DatabaseMetadata ParseDatabaseFromDatabaseModel(Type type)
+        {
+            var database = new DatabaseMetadata(type.Name, type);
+            database.ParseAttributes(type);
+            database.TableModels = type
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(GetTableType)
+                .Select(x => database.ParseTableModel(x.type, x.csName))
+                .ToList();
+
+            MetadataFactory.ParseIndices(database);
+            MetadataFactory.ParseRelations(database);
+
+            return database;
+        }
+
+        private static TableModelMetadata ParseTableModel(this DatabaseMetadata database, Type type, string csPropertyName)
+        {
+            var model = database.ParseModel(type);
+
+            return new TableModelMetadata
+            {
+                Model = model,
+                Table = model.ParseTable(),
+                CsPropertyName = csPropertyName
+            };
+        }
+
+        private static void ParseAttributes(this DatabaseMetadata database, Type type)
+        {
             foreach (var attribute in type.GetCustomAttributes(false))
             {
                 if (attribute is DatabaseAttribute databaseAttribute)
@@ -23,24 +93,9 @@ namespace DataLinq.Metadata
                 if (attribute is CacheLimitAttribute cacheLimit)
                     database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
             }
-
-            database.Models = type
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Select(GetTableType)
-                .Select(x => ParseModel(database, x.type, x.csName))
-                .ToList();
-
-            database.Tables = database
-                .Models.Select(ParseTable)
-                .ToList();
-
-            MetadataFactory.ParseIndices(database);
-            MetadataFactory.ParseRelations(database);
-
-            return database;
         }
 
-        private static (string csName, Type type) GetTableType(PropertyInfo property)
+        private static (string csName, Type type) GetTableType(this PropertyInfo property)
         {
             var type = property.PropertyType;
 
@@ -50,14 +105,13 @@ namespace DataLinq.Metadata
                 throw new NotImplementedException();
         }
 
-        private static ModelMetadata ParseModel(DatabaseMetadata database, Type type, string csPropertyName)
+        private static ModelMetadata ParseModel(this DatabaseMetadata database, Type type)
         {
             var model = new ModelMetadata
             {
                 Database = database,
                 CsType = type,
                 CsTypeName = type.Name,
-                CsDatabasePropertyName = csPropertyName,
                 Attributes = type.GetCustomAttributes(false),
                 Interfaces = type.GetInterfaces()
             };
@@ -71,7 +125,7 @@ namespace DataLinq.Metadata
             return model;
         }
 
-        private static TableMetadata ParseTable(ModelMetadata model)
+        private static TableMetadata ParseTable(this ModelMetadata model)
         {
             var table = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel")
                 ? new TableMetadata()
@@ -97,7 +151,7 @@ namespace DataLinq.Metadata
             }
 
             table.Columns = model.ValueProperties
-                .Select(x => ParseColumn(table, x))
+                .Select(x => table.ParseColumn(x))
                 .ToList();
 
             model.Table = table;
@@ -105,7 +159,7 @@ namespace DataLinq.Metadata
             return table;
         }
 
-        private static Column ParseColumn(TableMetadata table, ValueProperty property)
+        private static Column ParseColumn(this TableMetadata table, ValueProperty property)
         {
             var column = new Column
             {
@@ -153,7 +207,7 @@ namespace DataLinq.Metadata
             return column;
         }
 
-        private static Property ParseProperty(PropertyInfo propertyInfo, ModelMetadata model)
+        private static Property ParseProperty(this PropertyInfo propertyInfo, ModelMetadata model)
         {
             var attributes = propertyInfo
                     .GetCustomAttributes(false)
@@ -187,8 +241,6 @@ namespace DataLinq.Metadata
             }
 
             return property;
-
-
         }
 
         private static Property GetProperty(bool isEnum, List<Attribute> attributes)

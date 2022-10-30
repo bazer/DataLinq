@@ -24,16 +24,12 @@ namespace DataLinq.MySql
 
         public DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, information_schema information_Schema)
         {
-            var database = new DatabaseMetadata(name, csTypeName, dbName);
+            var database = new DatabaseMetadata(name, null, csTypeName, dbName);
 
-            database.Tables = information_Schema
+            database.TableModels = information_Schema
                 .TABLES.Where(x => x.TABLE_SCHEMA == dbName)
                 .AsEnumerable()
                 .Select(x => ParseTable(database, information_Schema, x))
-                .ToList();
-
-            database.Models = database.Tables
-                .Select(x => x.Model)
                 .ToList();
 
             ParseIndices(database, information_Schema);
@@ -50,8 +46,8 @@ namespace DataLinq.MySql
                 .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
             {
                 var foreignKeyColumn = database
-                    .Tables.Single(x => x.DbName == key.TABLE_NAME)
-                    .Columns.Single(x => x.DbName == key.COLUMN_NAME);
+                    .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
+                    .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME);
 
                 foreignKeyColumn.ForeignKey = true;
                 foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
@@ -64,8 +60,8 @@ namespace DataLinq.MySql
                 .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME == null && x.CONSTRAINT_NAME != "PRIMARY").ToList().GroupBy(x => x.CONSTRAINT_NAME))
             {
                 var columns = dbIndex.Select(key => database
-                    .Tables.Single(x => x.DbName == key.TABLE_NAME)
-                    .Columns.Single(x => x.DbName == key.COLUMN_NAME));
+                    .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
+                    .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME));
 
                 foreach (var column in columns)
                 {
@@ -75,7 +71,7 @@ namespace DataLinq.MySql
             }
         }
 
-        private TableMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
+        private TableModelMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {
             var type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
 
@@ -103,7 +99,12 @@ namespace DataLinq.MySql
                 .Select(x => ParseColumn(table, x))
                 .ToList();
 
-            return table;
+            return new TableModelMetadata
+            {
+                Table = table,
+                Model = table.Model,
+                CsPropertyName = table.Model.CsTypeName
+            };
         }
 
         private Column ParseColumn(TableMetadata table, COLUMNS dbColumns)

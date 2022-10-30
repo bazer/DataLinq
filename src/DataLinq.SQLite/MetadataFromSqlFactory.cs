@@ -29,10 +29,10 @@ namespace DataLinq.SQLite
 
             using (var reader = command.ExecuteReader())
             {
-                database.Tables = new List<TableMetadata>();
+                database.TableModels = new List<TableModelMetadata>();
                 while (reader.Read())
                 {
-                    var table = database.Tables.SingleOrDefault(x => x.DbName == reader.GetString(0)) ?? (reader.GetString(10) == "table"
+                    var table = database.TableModels.SingleOrDefault(x => x.Table.DbName == reader.GetString(0))?.Table ?? (reader.GetString(10) == "table"
                         ? new TableMetadata()
                         : new ViewMetadata());
 
@@ -51,7 +51,12 @@ namespace DataLinq.SQLite
                             Table = table
                         };
                         table.Columns = new();
-                        database.Tables.Add(table);
+                        database.TableModels.Add(new TableModelMetadata
+                        {
+                            Table = table,
+                            Model = table.Model,
+                            CsPropertyName = table.Model.CsTypeName
+                        });
                     }
 
                     if (reader.IsDBNull(1))
@@ -100,10 +105,10 @@ namespace DataLinq.SQLite
             }
 
             // https://sqlite.org/foreignkeys.html
-            foreach (var table in database.Tables)
+            foreach (var table in database.TableModels)
             {
                 command = connection.CreateCommand();
-                command.CommandText = $"SELECT `id`, `table`, `from`, `to` FROM pragma_foreign_key_list('{table.DbName}')";
+                command.CommandText = $"SELECT `id`, `table`, `from`, `to` FROM pragma_foreign_key_list('{table.Table.DbName}')";
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
@@ -114,12 +119,12 @@ namespace DataLinq.SQLite
                     };
 
                     var foreignKeyColumn = database
-                        .Tables.Single(x => x.DbName == table.DbName)
-                        .Columns.Single(x => x.DbName == reader.GetString(2));
+                        .TableModels.Single(x => x.Table.DbName == table.Table.DbName)
+                        .Table.Columns.Single(x => x.DbName == reader.GetString(2));
 
                     var candidateKeyColumn = database
-                        .Tables.Single(x => x.DbName == reader.GetString(1))
-                        .Columns.Single(x => x.DbName == reader.GetString(3));
+                        .TableModels.Single(x => x.Table.DbName == reader.GetString(1))
+                        .Table.Columns.Single(x => x.DbName == reader.GetString(3));
 
                     relation.ForeignKey = CreateRelationPart(relation, foreignKeyColumn, RelationPartType.ForeignKey);
                     relation.CandidateKey = CreateRelationPart(relation, candidateKeyColumn, RelationPartType.CandidateKey);

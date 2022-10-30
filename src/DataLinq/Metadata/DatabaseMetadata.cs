@@ -9,10 +9,11 @@ namespace DataLinq.Metadata
     {
         public static ConcurrentDictionary<Type, DatabaseMetadata> LoadedDatabases { get; } = new();
 
-        public DatabaseMetadata(string name, string csTypeName = null, string dbName = null)
+        public DatabaseMetadata(string name, Type? csType = null, string? csTypeName = null, string? dbName = null)
         {
             Name = name;
-            CsTypeName = csTypeName ?? name;
+            CsType = csType;
+            CsTypeName = csTypeName ?? CsType?.Name ?? name;
             DbName = dbName ?? name;
         }
 
@@ -20,8 +21,7 @@ namespace DataLinq.Metadata
         public string DbName { get; set; }
         public Type CsType { get; set; }
         public string CsTypeName { get; set; }
-        public List<TableMetadata> Tables { get; set; }
-        public List<ModelMetadata> Models { get; set; }
+        public List<TableModelMetadata> TableModels { get; set; } = new();
         public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
         public bool UseCache { get; set; }
     }

@@ -32,7 +32,7 @@ namespace DataLinq.MySql
         {
             var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
 
-            foreach(var table in sql.SortTablesByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.Table).ToList()))
+            foreach(var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
             {
                 sql.CreateTable(table.DbName, x =>
                 {
@@ -40,7 +40,7 @@ namespace DataLinq.MySql
                 });
             }
 
-            foreach (var view in sql.SortViewsByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.View).Cast<ViewMetadata>().ToList()))
+            foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewMetadata>().ToList()))
             {
                 sql.CreateView(view.DbName, view.Definition);
             }

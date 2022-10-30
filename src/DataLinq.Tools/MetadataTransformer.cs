@@ -28,17 +28,17 @@ namespace DataLinq.Tools
 
         public void Transform(DatabaseMetadata srcMetadata, DatabaseMetadata destMetadata)
         {
-            foreach (var srcTable in srcMetadata.Tables)
+            foreach (var srcTable in srcMetadata.TableModels)
             {
-                var destTable = destMetadata.Tables.FirstOrDefault(x => x.DbName == srcTable.DbName);
+                var destTable = destMetadata.TableModels.FirstOrDefault(x => x.Table.DbName == srcTable.Table.DbName);
 
                 if (destTable == null)
                 {
-                    log($"Couldn't find table with name '{srcTable.DbName}' in {nameof(destMetadata)}");
+                    log($"Couldn't find table with name '{srcTable.Table.DbName}' in {nameof(destMetadata)}");
                     continue;
                 }
 
-                log($"Transforming model '{srcTable.DbName}'");
+                log($"Transforming model '{srcTable.Table.DbName}'");
                 var modelCsTypeName = srcTable.Model.CsTypeName;
 
                 if (options.RemoveInterfacePrefix)
@@ -58,7 +58,7 @@ namespace DataLinq.Tools
                 }
 
                 destTable.Model.Interfaces = new Type[] { srcTable.Model.CsType };
-                destTable.Model.CsDatabasePropertyName = srcTable.Model.CsDatabasePropertyName;
+                destTable.CsPropertyName = srcTable.CsPropertyName;
 
                 foreach (var srcProperty in srcTable.Model.ValueProperties)
                 {
@@ -66,7 +66,7 @@ namespace DataLinq.Tools
 
                     if (destProperty == null)
                     {
-                        log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.DbName}");
+                        log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
                         continue;
                     }
 
@@ -85,7 +85,7 @@ namespace DataLinq.Tools
 
                     if (destProperty == null)
                     {
-                        log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.DbName}");
+                        log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
                         continue;
                     }
 

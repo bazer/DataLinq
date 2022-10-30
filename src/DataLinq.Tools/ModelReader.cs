@@ -42,9 +42,9 @@ namespace DataLinq.Tools
             if (Directory.Exists(srcDir))
             {
                 Log($"Reading models from: {srcDir}");
-                var srcMetadata = new MetadataFromFileFactory(Log).ReadFiles(db.CsType, dirs.ToArray());
+                DatabaseMetadata srcMetadata = new MetadataFromFileFactory(Log).ReadFiles(db.CsType, dirs.ToArray());
 
-                Log($"Tables in model files: {srcMetadata.Tables.Count}");
+                Log($"Tables in model files: {srcMetadata.TableModels.Count}");
             }
             else
             {
@@ -70,7 +70,7 @@ namespace DataLinq.Tools
                 };
 
                 Log($"Name in database: {dbMetadata.DbName}");
-                Log($"Tables in database: {dbMetadata.Tables.Count}");
+                Log($"Tables in database: {dbMetadata.TableModels.Count}");
             }
         }
     }

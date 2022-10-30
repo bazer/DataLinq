@@ -43,7 +43,7 @@ namespace DataLinq.Tests
             Assert.Equal(employee.birth_date, dbTransactionEmployee.birth_date);
 
             var table = fixture.employeesDb.Provider.Metadata
-                    .Tables.Single(x => x.DbName == "employees");
+                    .TableModels.Single(x => x.Table.DbName == "employees").Table;
 
             var cache = fixture.employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
             Assert.True(cache.IsTransactionInCache(transaction));
@@ -194,7 +194,7 @@ namespace DataLinq.Tests
             Assert.Same(dbEmployeeReturn, dbEmployee);
 
             var table = fixture.employeesDb.Provider.Metadata
-                    .Tables.Single(x => x.DbName == "employees");
+                    .TableModels.Single(x => x.Table.DbName == "employees").Table;
             //Assert.Equal(1, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
 
@@ -416,7 +416,7 @@ namespace DataLinq.Tests
             Employee employeeDb = null;
 
             var table = fixture.employeesDb.Provider.Metadata
-                    .Tables.Single(x => x.DbName == "salaries");
+                    .TableModels.Single(x => x.Table.DbName == "salaries").Table;
 
             var cache = fixture.employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
 

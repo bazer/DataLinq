@@ -4,7 +4,7 @@
       "Name": "employees",
       "Namespace": "DataLinq.Tests.Models",
       "CsType": "Employees",
-      "SourceDirectories": [ "Models\\employees\\src", "Models\\employees\\gen" ],
+      "SourceDirectories": [ "Models\\employees" ],
       "DestinationDirectory": "Models\\employees\\gen",
       "Tables": [],
       "Views": [],

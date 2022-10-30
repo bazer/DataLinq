@@ -6,9 +6,15 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
+using ThrowAway;
 
 namespace DataLinq.Tools
 {
+    public enum ModelCreatorError
+    {
+        UnableToParseSourceFiles
+    }
+
     public struct ModelCreatorOptions
     {
         public bool ReadSourceModels { get; set; }
@@ -30,7 +36,7 @@ namespace DataLinq.Tools
             this.options = options;
         }
 
-        public void Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath)
+        public Option<DatabaseMetadata, ModelCreatorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath)
         {
             log($"Reading from database: {db.Name}");
             log($"Type: {connection.Type}");
@@ -49,7 +55,7 @@ namespace DataLinq.Tools
                     SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, connection.ConnectionString)
             };
 
-            log($"Tables in database: {dbMetadata.Tables.Count}");
+            log($"Tables in database: {dbMetadata.TableModels.Count}");
 
             var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             if (this.options.ReadSourceModels)
@@ -76,13 +82,13 @@ namespace DataLinq.Tools
                     }
 
                     var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(db.CsType, srcDirsExists);
-                    if (srcMetadata == null)
+                    if (srcMetadata.HasFailed)
                     {
                         log("Error: Unable to parse source files.");
-                        return;
+                        return ModelCreatorError.UnableToParseSourceFiles;
                     }
 
-                    log($"Tables in source model files: {srcMetadata.Tables.Count}");
+                    log($"Tables in source model files: {srcMetadata.Value.TableModels.Count}");
 
                     var transformer = new MetadataTransformer(log, new MetadataTransformerOptions(true));
                     transformer.Transform(srcMetadata, dbMetadata);
@@ -109,6 +115,8 @@ namespace DataLinq.Tools
 
                 File.WriteAllText(filepath, file.contents, Encoding.UTF8);
             }
+
+            return dbMetadata;
         }
     }
 }

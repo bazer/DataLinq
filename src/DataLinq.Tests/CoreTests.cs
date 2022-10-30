@@ -28,7 +28,7 @@ namespace DataLinq.Tests
         [Fact]
         public void TestMetadataFromInterfaceFactory()
         {
-            TestDatabase(MetadataFromInterfaceFactory.ParseDatabase(typeof(Employees)), true);
+            TestDatabase(MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(typeof(Employees)), true);
         }
 
         [Fact]
@@ -39,13 +39,13 @@ namespace DataLinq.Tests
 
         private void TestDatabase(DatabaseMetadata database, bool testCsType)
         {
-            Assert.NotEmpty(database.Tables);
-            Assert.Equal(8, database.Tables.Count);
-            Assert.Equal(2, database.Tables.Count(x => x.Type == TableType.View));
-            Assert.Equal(12, database.Models.Sum(x => x.RelationProperties.Count()));
-            Assert.Contains(database.Tables, x => x.Columns.Any(y => y.RelationParts.Any()));
+            Assert.NotEmpty(database.TableModels);
+            Assert.Equal(8, database.TableModels.Count);
+            Assert.Equal(2, database.TableModels.Count(x => x.Table.Type == TableType.View));
+            Assert.Equal(12, database.TableModels.Sum(x => x.Model.RelationProperties.Count()));
+            Assert.Contains(database.TableModels, x => x.Table.Columns.Any(y => y.RelationParts.Any()));
 
-            var employees = database.Tables.Single(x => x.DbName == "employees");
+            var employees = database.TableModels.Single(x => x.Table.DbName == "employees").Table;
             Assert.Same(employees, employees.Model.Table);
             Assert.Equal(6, employees.Columns.Count);
 
@@ -55,7 +55,7 @@ namespace DataLinq.Tests
             Assert.Equal("int", emp_no.DbTypes[0].Name);
             Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
 
-            var dept_name = database.Tables.Single(x => x.DbName == "departments").Columns.Single(x => x.DbName == "dept_name");
+            var dept_name = database.TableModels.Single(x => x.Table.DbName == "departments").Table.Columns.Single(x => x.DbName == "dept_name");
             Assert.Same("string", dept_name.ValueProperty.CsTypeName);
             Assert.False(dept_name.PrimaryKey);
             Assert.False(dept_name.AutoIncrement);
@@ -67,7 +67,7 @@ namespace DataLinq.Tests
             if (testCsType)
             {
                 Assert.Equal(typeof(int), emp_no.ValueProperty.CsType);
-                Assert.DoesNotContain(database.Tables, x => x.Model.CsType == null);
+                Assert.DoesNotContain(database.TableModels, x => x.Model.CsType == null);
             }
         }
     }

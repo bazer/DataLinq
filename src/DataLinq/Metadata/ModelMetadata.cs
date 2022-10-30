@@ -12,10 +12,6 @@ namespace DataLinq.Metadata
     {
         public Type CsType { get; set; }
         public string CsTypeName { get; set; }
-        /// <summary>
-        /// Name of the table's model property, in the IDatabaseModel
-        /// </summary>
-        public string CsDatabasePropertyName { get; set; }
         public Type[] Interfaces { get; set; }
         public DatabaseMetadata Database { get; set; }
         public TableMetadata Table { get; set; }
@@ -33,8 +29,9 @@ namespace DataLinq.Metadata
             DatabaseMetadata
             .LoadedDatabases
             .Values
-            .Select(x => x.Models.Find(y => y.IsOfType(model.GetType())))
-            .FirstOrDefault(x => x != null);
+            .Select(x => x.TableModels.Find(y => y.Model.IsOfType(model.GetType())))
+            .FirstOrDefault(x => x != null)
+            ?.Model;
 
         public override string ToString()
         {
