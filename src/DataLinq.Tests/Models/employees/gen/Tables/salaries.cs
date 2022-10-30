@@ -17,7 +17,7 @@ namespace DataLinq.Tests.Models
         [PrimaryKey]
         [Type(DatabaseType.MySQL, "date")]
         [Column("from_date")]
-        public virtual DateOnly from_date { get; set; }
+        public virtual DateOnly FromDate { get; set; }
 
         [Type(DatabaseType.MySQL, "int")]
         [Column("salary")]
@@ -25,7 +25,7 @@ namespace DataLinq.Tests.Models
 
         [Type(DatabaseType.MySQL, "date")]
         [Column("to_date")]
-        public virtual DateOnly to_date { get; set; }
+        public virtual DateOnly ToDate { get; set; }
 
         [Relation("employees", "emp_no")]
         public virtual Employee employees { get; }

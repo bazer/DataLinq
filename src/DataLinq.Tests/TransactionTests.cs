@@ -348,8 +348,8 @@ namespace DataLinq.Tests
                 {
                     emp_no = employee.emp_no.Value,
                     salary = 50000,
-                    from_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
-                    to_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
+                    FromDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+                    ToDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
                 };
 
                 Assert.Empty(employee.salaries);
@@ -381,8 +381,8 @@ namespace DataLinq.Tests
                 {
                     emp_no = employeeDb.emp_no.Value,
                     salary = 50000,
-                    from_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
-                    to_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
+                    FromDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+                    ToDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
                 };
 
                 Assert.Null(newSalary.employees);
@@ -431,8 +431,8 @@ namespace DataLinq.Tests
             {
                 emp_no = employeeDb.emp_no.Value,
                 salary = 50000,
-                from_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
-                to_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
+                FromDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
+                ToDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
             };
 
             //Assert.Empty(employeeDb.salaries);

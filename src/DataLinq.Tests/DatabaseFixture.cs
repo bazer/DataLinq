@@ -93,8 +93,8 @@ namespace DataLinq.Tests
             empNo = 0;
             var salariesFaker = new Faker<salaries>()
                .StrictMode(false)
-               .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
-               .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.FromDate, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.ToDate, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
                .RuleFor(x => x.salary, x => (int)x.Finance.Amount(10000, 200000, 0));
             transaction.Insert(salariesFaker.Generate(numEmployees));
