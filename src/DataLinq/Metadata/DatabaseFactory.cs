@@ -22,10 +22,16 @@ namespace DataLinq.Metadata
 
         public static bool CreateDatabaseFromMetadata(DatabaseType type, DatabaseMetadata metadata, string databaseNameOrFile, string connectionString, bool foreignKeyRestrict)
         {
+            var sql = GenerateSql(type, metadata, foreignKeyRestrict);
+            return CreateDatabaseFromSql(type, sql, databaseNameOrFile, connectionString, foreignKeyRestrict);
+        }
+
+        public static Sql GenerateSql(DatabaseType type, DatabaseMetadata metadata, bool foreignKeyRestrict)
+        {
             if (!SqlGenerators.ContainsKey(type))
                 throw new System.Exception($"No handler for {type}");
-            var sql = SqlGenerators[type].GenerateSql(metadata, foreignKeyRestrict);
-            return CreateDatabaseFromSql(type, sql, databaseNameOrFile, connectionString, foreignKeyRestrict);
+
+            return SqlGenerators[type].GenerateSql(metadata, foreignKeyRestrict);
         }
     }
 }

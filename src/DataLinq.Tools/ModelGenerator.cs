@@ -10,40 +10,40 @@ using ThrowAway;
 
 namespace DataLinq.Tools
 {
-    public enum ModelCreatorError
+    public enum ModelGeneratorError
     {
         UnableToParseSourceFiles
     }
 
-    public struct ModelCreatorOptions
+    public struct ModelGeneratorOptions
     {
         public bool ReadSourceModels { get; set; }
         public bool OverwriteExistingModels { get; set; }
-        public bool CapitaliseNames { get; set; }
+        public bool CapitalizeNames { get; set; }
         public bool DeclareEnumsInClass { get; set; }
         public bool SeparateTablesAndViews { get; set; }
     }
 
-    public class ModelCreator
+    public class ModelGenerator
     {
-        private readonly ModelCreatorOptions options;
+        private readonly ModelGeneratorOptions options;
 
         private Action<string> log;
 
-        public ModelCreator(Action<string> log, ModelCreatorOptions options)
+        public ModelGenerator(Action<string> log, ModelGeneratorOptions options)
         {
             this.log = log;
             this.options = options;
         }
 
-        public Option<DatabaseMetadata, ModelCreatorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath)
+        public Option<DatabaseMetadata, ModelGeneratorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath)
         {
             log($"Reading from database: {db.Name}");
             log($"Type: {connection.Type}");
 
             var sqlOptions = new MetadataFromSqlFactoryOptions
             {
-                CapitaliseNames = this.options.CapitaliseNames,
+                CapitaliseNames = this.options.CapitalizeNames,
                 DeclareEnumsInClass = this.options.DeclareEnumsInClass
             };
 
@@ -85,7 +85,7 @@ namespace DataLinq.Tools
                     if (srcMetadata.HasFailed)
                     {
                         log("Error: Unable to parse source files.");
-                        return ModelCreatorError.UnableToParseSourceFiles;
+                        return ModelGeneratorError.UnableToParseSourceFiles;
                     }
 
                     log($"Tables in source model files: {srcMetadata.Value.TableModels.Count}");

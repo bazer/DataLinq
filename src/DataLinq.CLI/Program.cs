@@ -1,12 +1,7 @@
-﻿using CommandLine.Text;
-using CommandLine;
-using DataLinq.MySql;
-using DataLinq.MySql.Models;
+﻿using CommandLine;
 using DataLinq.Tools;
 using DataLinq.Tools.Config;
-using Microsoft.Extensions.Configuration;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System.Security.AccessControl;
+using ThrowAway;
 
 namespace DataLinq.CLI
 {
@@ -19,8 +14,19 @@ namespace DataLinq.CLI
             public string Name { get; set; }
         }
 
+        [Verb("create-sql", HelpText = "Create SQL for selected database")]
+        public class CreateSqlOptions : Options
+        {
+            [Option('n', "name", HelpText = "Database name", Required = true)]
+            public string Name { get; set; }
+            [Option('t', "type", HelpText = "Which database connection type to create SQL for", Required = false)]
+            public string ConnectionType { get; set; }
+            [Option('o', "output", HelpText = "Path to output file", Required = true)]
+            public string OutputFile { get; set; }
+        }
+
         [Verb("create-models", HelpText = "Create models for selected database")]
-        public class CreateDatabaseModelsOptions : Options
+        public class CreateModelsOptions : Options
         {
             [Option('n', "name", HelpText = "Database name", Required = true)]
             public string Name { get; set; }
@@ -30,13 +36,6 @@ namespace DataLinq.CLI
             [Option('t', "type", HelpText = "Which database connection type to read from", Required = false)]
             public string ConnectionType { get; set; }
 
-        }
-
-        [Verb("delete", HelpText = "Delete selected database")]
-        public class DeleteDatabaseOptions : Options
-        {
-            [Option('n', "name", HelpText = "Database name", Required = true)]
-            public string Name { get; set; }
         }
 
         [Verb("list", HelpText = "List all databases in config.")]
@@ -71,19 +70,45 @@ namespace DataLinq.CLI
             return true;
         }
 
+        static private Option<(DatabaseConfig db, DatabaseConnectionConfig connection)> GetConnection(string dbName, string connectionType)
+        {
+            var db = ConfigFile.Databases.SingleOrDefault(x => x.Name.ToLower() == dbName.ToLower());
+            if (db == null)
+            {
+                return $"Couldn't find database with name '{dbName}'";
+            }
+
+            if (db.Connections.Count == 0)
+            {
+                return $"Database '{dbName}' has no connections to read from";
+            }
+
+            if (db.Connections.Count > 1 && connectionType == null)
+            {
+                return $"Database '{dbName}' has more than one connection to read from, you need to select which one";
+            }
+
+            DatabaseConnectionConfig connection = null;
+            if (connectionType != null)
+            {
+                connection = db.Connections.SingleOrDefault(x => x.Type.ToLower() == connectionType.ToLower());
+
+                if (connection == null)
+                {
+                    return $"Couldn't find connection with type '{connectionType}' in configuration file.";
+                }
+            }
+
+            if (connection == null)
+                connection = db.Connections[0];
+
+            return (db, connection);
+        }
+
         static void Main(string[] args)
         {
-            //var configPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json";
-
-           
-            //var DbName = args[0];
-            //var Namespace = args[1];
-            //var WritePath = Path.GetFullPath(args[2]);
-
-            //new ModelCreator(Console.WriteLine).Create(config);
-
             var parserResult = Parser.Default
-                .ParseArguments<Options, CreateDatabaseModelsOptions, CreateDatabaseOptions, DeleteDatabaseOptions, ListOptions>(args);
+                .ParseArguments<Options, CreateModelsOptions, CreateSqlOptions, CreateDatabaseOptions, ListOptions>(args);
 
             parserResult
                 .WithParsed<Options>(options =>
@@ -99,17 +124,6 @@ namespace DataLinq.CLI
                         ConfigPath = Path.GetFullPath(options.ConfigPath);
                         Console.WriteLine($"Reading config from {ConfigPath}");
                     }
-
-
-                    //if (!File.Exists(ConfigPath))
-                    //{
-                    //    Console.WriteLine($"Couldn't find config file 'datalinq.json'. Tried searching path:");
-                    //    Console.WriteLine(ConfigPath);
-                        
-                    //    return;
-                    //}
-
-                    //ConfigFile = ConfigReader.Read(ConfigPath);
                 })
                 .WithParsed<ListOptions>(options =>
                 {
@@ -131,58 +145,47 @@ namespace DataLinq.CLI
                         Console.WriteLine();
                     }
                 })
-                .WithParsed<CreateDatabaseModelsOptions>(options =>
+                .WithParsed<CreateModelsOptions>(options =>
                 {
                     if (ReadConfig() == false)
                         return;
 
-                    var db = ConfigFile.Databases.SingleOrDefault(x => x.Name.ToLower() == options.Name.ToLower());
-                    if (db == null)
+                    var result = GetConnection(options.Name, options.ConnectionType);
+                    if (result.HasFailed)
                     {
-                        Console.WriteLine($"Couldn't find database with name '{options.Name}'");
+                        Console.WriteLine(result.Failure);
                         return;
                     }
 
-                    if (db.Connections.Count == 0)
-                    {
-                        Console.WriteLine($"Database '{options.Name}' has no connections to read from");
-                        return;
-                    }
-
-                    if (db.Connections.Count > 1 && options.ConnectionType == null)
-                    {
-                        Console.WriteLine($"Database '{options.Name}' has more than one connection to read from, you need to select which one");
-                        return;
-                    }
-
-                    DatabaseConnectionConfig connection = null;
-                    if (options.ConnectionType != null)
-                    {
-                        connection = db.Connections.SingleOrDefault(x => x.Type.ToLower() == options.ConnectionType.ToLower());
-
-                        if (connection == null)
-                        {
-                            Console.WriteLine($"Couldn't find connection with type '{options.ConnectionType}' in configuration file.");
-                            return;
-                        }
-                    }
-
-                    if (connection == null)
-                        connection = db.Connections[0];
-
-                    var creator = new ModelCreator(Console.WriteLine, new ModelCreatorOptions
+                    var (db, connection) = result.Value;
+                    var creator = new ModelGenerator(Console.WriteLine, new ModelGeneratorOptions
                     {
                         OverwriteExistingModels = true,
                         ReadSourceModels = !options.SkipSource,
-                        CapitaliseNames = !db.CapitaliseNames.HasValue || db.CapitaliseNames == true
+                        CapitalizeNames = !db.CapitalizeNames.HasValue || db.CapitalizeNames == true
                     });
 
                     creator.Create(db, connection, ConfigBasePath);
                 })
-                //.WithParsed<DeleteDatabaseOptions>(options =>
-                //{
+                .WithParsed<CreateSqlOptions>(options =>
+                {
+                    if (ReadConfig() == false)
+                        return;
 
-                //})
+                    var result = GetConnection(options.Name, options.ConnectionType);
+                    if (result.HasFailed)
+                    {
+                        Console.WriteLine(result.Failure);
+                        return;
+                    }
+
+                    var (db, connection) = result.Value;
+                    var generator = new SqlGenerator(Console.WriteLine, new SqlGeneratorOptions
+                    {
+                    });
+
+                    generator.Create(db, connection, ConfigBasePath, options.OutputFile);
+                })
                 .WithNotParsed(options =>
                 {
                     Console.WriteLine($"Usage: datalinq [command] -n name");
@@ -191,26 +194,3 @@ namespace DataLinq.CLI
         }
     }
 }
-
-
-//var configPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json";
-
-//var config = ConfigReader.Read(configPath);
-////var DbName = args[0];
-////var Namespace = args[1];
-////var WritePath = Path.GetFullPath(args[2]);
-
-//new ModelCreator(Console.WriteLine).Create(config);
-
-//MySqlDatabase<information_schema> GetDatabase()
-//{
-//    var builder = new ConfigurationBuilder()
-//        .SetBasePath(Directory.GetCurrentDirectory())
-//        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-
-//    var configuration = builder.Build();
-
-//    var connectionString = configuration.GetConnectionString("information_schema");
-//    return new MySqlDatabase<information_schema>(connectionString);
-//}
-

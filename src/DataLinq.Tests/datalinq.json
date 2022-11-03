@@ -10,7 +10,7 @@
       "Views": [],
       "UseCache": true,
       "UseRecord": true,
-      "CapitaliseNames": false,
+      "CapitalizeNames": false,
       "SeparateTablesAndViews": true,
       "Connections": [
         {

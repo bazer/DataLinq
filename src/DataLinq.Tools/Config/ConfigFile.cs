@@ -24,7 +24,7 @@ namespace DataLinq.Tools.Config
         public List<string>? Views { get; set; }
         public bool? UseCache { get; set; }
         public bool? UseRecord { get; set; }
-        public bool? CapitaliseNames { get; set; }
+        public bool? CapitalizeNames { get; set; }
         public bool? SeparateTablesAndViews { get; set; }
         public List<DatabaseConnectionConfig> Connections { get; set; } = new();
     }
