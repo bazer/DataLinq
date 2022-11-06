@@ -1,6 +1,9 @@
 using DataLinq.Metadata;
 using DataLinq.Query;
 using Microsoft.Data.Sqlite;
+using System;
+using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 
@@ -8,13 +11,7 @@ namespace DataLinq.SQLite
 {
     public class SqlFromMetadataFactory : ISqlFromMetadataFactory, IDatabaseCreator
     {
-        public static void Register()
-        {
-            DatabaseFactory.SqlGenerators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
-            DatabaseFactory.DbCreators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
-        }
-
-        public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict)
+        public Sql GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
             var sql = new SqlGeneration(2, '"', "/* Generated %datetime% by DataLinq */\n\n");
             foreach(var table in sql.SortTablesByForeignKeys(metadata.TableModels.Select(x => x.Table).ToList()))
@@ -24,7 +21,7 @@ namespace DataLinq.SQLite
                     var longestName = table.Columns.Max(x => x.DbName.Length)+1;
                     foreach (var column in table.Columns.OrderBy(x => x.Index))
                     {
-                        var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.SQLite);
+                        var dbType = GetDbType(column);
 
                         sql.NewRow().Indent()
                             .ColumnName(column.DbName)
@@ -57,5 +54,76 @@ namespace DataLinq.SQLite
             return true;
         }
 
+        private DatabaseColumnType GetDbType(Column column)
+        {
+            if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.SQLite))
+                return column.DbTypes.First(x => x.DatabaseType == DatabaseType.SQLite);
+
+            if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
+                return GetDbTypeFromMySQL(column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL));
+
+            return GetDbTypeFromCsType(column.ValueProperty);
+
+        }
+
+        private DatabaseColumnType GetDbTypeFromMySQL(DatabaseColumnType mysqlDbType)
+        {
+            return new DatabaseColumnType
+            {
+                DatabaseType = DatabaseType.SQLite,
+                Name = ParseMySqlType(mysqlDbType.Name),
+                Length = mysqlDbType.Length,
+                Signed = mysqlDbType.Signed
+            };
+        }
+
+        private string ParseMySqlType(string mysqlType)
+        {
+            return mysqlType.ToLower() switch
+            {
+                "int" => "integer",
+                "tinyint" => "integer",
+                "mediumint" => "integer",
+                "varchar" => "text",
+                "text" => "text",
+                "mediumtext" => "text",
+                "bit" => "integer",
+                "double" => "real",
+                "datetime" => "text",
+                "timestamp" => "text",
+                "date" => "text",
+                "float" => "real",
+                "bigint" => "integer",
+                "char" => "text",
+                "binary" => "blob",
+                "enum" => "integer",
+                "longtext" => "text",
+                "decimal" => "real",
+                "blob" => "blob",
+                "smallint" => "integer",
+                _ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
+            };
+        }
+
+        private DatabaseColumnType GetDbTypeFromCsType(ValueProperty property)
+        {
+            return new DatabaseColumnType
+            {
+                DatabaseType = DatabaseType.SQLite,
+                Name = ParseCsType(property.CsTypeName)
+            };
+        }
+
+        private static string ParseCsType(string csType)
+        {
+            return csType.ToLower() switch
+            {
+                "int" => "integer",
+                "double" => "real",
+                "string" => "text",
+                "byte[]" => "blob",
+                _ => throw new NotImplementedException($"Unknown type '{csType}'"),
+            };
+        }
     }
 }

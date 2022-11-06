@@ -8,7 +8,7 @@ namespace DataLinq.Metadata
         bool CreateDatabase(Sql sql, string databaseNameOrFile, string connectionString, bool foreignKeyRestrict);
     }
 
-    public static class DatabaseFactory
+    public static class DatabaseCreator
     {
         public static Dictionary<DatabaseType, ISqlFromMetadataFactory> SqlGenerators = new();
         public static Dictionary<DatabaseType, IDatabaseCreator> DbCreators = new();
@@ -31,7 +31,7 @@ namespace DataLinq.Metadata
             if (!SqlGenerators.ContainsKey(type))
                 throw new System.Exception($"No handler for {type}");
 
-            return SqlGenerators[type].GenerateSql(metadata, foreignKeyRestrict);
+            return SqlGenerators[type].GetCreateTables(metadata, foreignKeyRestrict);
         }
     }
 }

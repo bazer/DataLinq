@@ -6,31 +6,28 @@ using System.Linq;
 
 namespace DataLinq.MySql
 {
-    public class SqlFromMetadataFactory : ISqlFromMetadataFactory, IDatabaseCreator
+    public class SqlFromMetadataFactory : ISqlFromMetadataFactory , IDatabaseCreator
     {
-        public static void Register()
-        {
-            DatabaseFactory.SqlGenerators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
-            DatabaseFactory.DbCreators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
-        }
-
-        private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext" };
+        private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum" };
 
         public bool CreateDatabase(Sql sql, string database, string connectionString, bool foreignKeyRestrict)
         {
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
             var command = connection.CreateCommand();
-            command.CommandText = $"CREATE DATABASE IF NOT EXISTS {database};\n"+
-                $"USE {database};\n"+
+
+            command.CommandText = $"CREATE DATABASE IF NOT EXISTS {database};\n" +
+                $"USE {database};\n" +
                 sql.Text;
+
             var result = command.ExecuteNonQuery();
             return true;
         }
 
-        public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict)
+        public Sql GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
             var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
+            //sql.CreateDatabase(metadata.DbName);
 
             foreach(var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
             {
@@ -58,6 +55,9 @@ namespace DataLinq.MySql
                 sql.NewRow().Indent()
                     .ColumnName(column.DbName)
                     .Type(dbType.Name.ToUpper(), column.DbName, longestName);
+
+                if (dbType.Name == "enum" && column.ValueProperty is EnumProperty enumProperty)
+                    sql.EnumValues(enumProperty.EnumValues);
 
                 if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
                     sql.TypeLength(dbType.Length);

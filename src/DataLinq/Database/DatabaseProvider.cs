@@ -9,15 +9,20 @@ using DataLinq.Cache;
 
 namespace DataLinq
 {
+    public interface IDatabaseProviderRegister
+    {
+        static bool HasBeenRegistered { get; }
+        static void RegisterProvider() => throw new NotImplementedException();
+    }
+
     public interface IDatabaseProvider : IDisposable
     {
         string DatabaseName { get; }
-
         string ConnectionString { get; }
         DatabaseMetadata Metadata { get; }
         State State { get; }
         IDbCommand ToDbCommand(IQuery query);
-
+        
         Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite);
 
         DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
@@ -31,6 +36,10 @@ namespace DataLinq
         Sql GetParameterValue(Sql sql, string key);
 
         Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string prefix);
+        
+        string GetExists(string databaseName);
+        
+        void CreateDatabase(string databaseName);
     }
 
     public abstract class DatabaseProvider<T> : DatabaseProvider
@@ -62,6 +71,7 @@ namespace DataLinq
         public string ConnectionString { get; }
         public DatabaseMetadata Metadata { get; }
         public State State { get; }
+        
         protected string[] ProviderNames { get; set; }
         protected IDbConnection activeConnection;
 
@@ -113,6 +123,8 @@ namespace DataLinq
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
 
         public abstract string GetExists(string databaseName = null);
+        public abstract void CreateDatabase(string databaseName = null);
+        //public abstract void RegisterProvider();
 
         public void Dispose()
         {

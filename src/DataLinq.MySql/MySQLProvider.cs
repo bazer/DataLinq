@@ -5,18 +5,54 @@ using DataLinq.Mutation;
 using DataLinq.Query;
 using System;
 using System.Data;
+using DataLinq.Metadata;
 
 namespace DataLinq.MySql
 {
+    public class MySQLProvider : IDatabaseProviderRegister
+    {
+        public static bool HasBeenRegistered { get; private set; }
+
+        public static void RegisterProvider()
+        {
+            if (HasBeenRegistered)
+                return;
+
+            DatabaseCreator.SqlGenerators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
+            DatabaseCreator.DbCreators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
+
+            HasBeenRegistered = true;
+        }
+    }
+
     public class MySQLProvider<T> : DatabaseProvider<T>
         where T : class, IDatabaseModel
     {
+        static MySQLProvider()
+        {
+            MySQLProvider.RegisterProvider();
+        }
+
         public MySQLProvider(string connectionString) : base(connectionString)
         {
         }
 
         public MySQLProvider(string connectionString, string databaseName) : base(connectionString, databaseName)
         {
+        }
+
+        public override void CreateDatabase(string databaseName = null)
+        {
+            if (databaseName == null && DatabaseName == null)
+                throw new ArgumentNullException("DatabaseName not defined");
+
+            using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
+
+            var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
+                $"USE {databaseName ?? DatabaseName};\n" +
+                GetCreateSql();
+
+            transaction.ExecuteNonQuery(query);
         }
 
         public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
@@ -46,7 +82,7 @@ namespace DataLinq.MySql
             return sql.AddFormat("?{0}", key);
         }
 
-        public override Sql GetParameterComparison(Sql sql, string field, Relation relation, string key)
+        public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key)
         {
             return sql.AddFormat("{0} {1} ?{2}", field, relation.ToSql(), key);
         }
@@ -70,6 +106,6 @@ namespace DataLinq.MySql
             return command;
         }
 
-        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GenerateSql(Metadata, true);
+        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
     }
 }

@@ -32,9 +32,9 @@ namespace DataLinq.Tests
         
             if (!employeesDb.Exists())
             {
-                MySql.SqlFromMetadataFactory.Register();
+                //MySql.SqlFromMetadataFactory.Register();
 
-                DatabaseFactory.CreateDatabaseFromMetadata(DatabaseType.MySQL, 
+                DatabaseCreator.CreateDatabaseFromMetadata(DatabaseType.MySQL, 
                     employeesDb.Provider.Metadata, EmployeesDbName, connDataLinq, true);
 
                 FillEmployeesWithBogusData(employeesDb);

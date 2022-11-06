@@ -7,7 +7,7 @@ namespace DataLinq.Metadata
 {
     public interface ISqlFromMetadataFactory
     {
-        public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict);
+        public Sql GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict);
     }
 
     public class SqlGeneration
@@ -87,6 +87,16 @@ namespace DataLinq.Metadata
         public string ParenthesisList(string[] columns) =>
             $"{Parenthesis(string.Join(", ", columns.Select(key => QuotedString(key))))}";
 
+        //public SqlGeneration CreateDatabase(string databaseName)
+        //{
+        //    sql.AddText($"CREATE DATABASE IF NOT EXISTS {QuoteCharacter}{databaseName}{QuoteCharacter}; \n");
+        //    NewRow();
+        //    sql.AddText($"USE {databaseName};\n");
+
+        //    sql.HasCreateDatabase = true;
+        //    return this;
+        //}
+
         public SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
         {
             sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\n");
@@ -112,6 +122,7 @@ namespace DataLinq.Metadata
         public SqlGeneration Autoincrement(bool inc) => inc ? Space().Add("AUTO_INCREMENT") : this;
         public SqlGeneration Type(string type, string columnName, int longestColumnName) => Add(Align(longestColumnName, columnName) + type);
         public SqlGeneration TypeLength(long? length) => length.HasValue ? Add($"({length})") : this;
+        public SqlGeneration EnumValues(IEnumerable<string> values) => Add($"({string.Join(",", values.Select(x => $"'{x}'"))})");
         public SqlGeneration Unsigned(bool? signed) => signed.HasValue && !signed.Value ? Space().Add("UNSIGNED") : this;
         public string Align(int longest, string text) => new string(' ', longest - text.Length);
 

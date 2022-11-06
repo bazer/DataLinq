@@ -1,5 +1,7 @@
 ﻿using DataLinq.Metadata;
+using DataLinq.MySql;
 using DataLinq.Query;
+using DataLinq.SQLite;
 using DataLinq.Tools.Config;
 using System;
 using System.IO;
@@ -26,8 +28,8 @@ namespace DataLinq.Tools
 
         static SqlGenerator()
         {
-            MySql.SqlFromMetadataFactory.Register();
-            SQLite.SqlFromMetadataFactory.Register();
+            MySQLProvider.RegisterProvider();
+            SQLiteProvider.RegisterProvider();
         }
 
         public SqlGenerator(Action<string> log, SqlGeneratorOptions options)
@@ -58,7 +60,7 @@ namespace DataLinq.Tools
             log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
             log($"Writing sql to: {path}");
 
-            var sql = DatabaseFactory.GenerateSql(connection.ParsedType.Value, dbMetadata, true);
+            var sql = DatabaseCreator.GenerateSql(connection.ParsedType.Value, dbMetadata, true);
 
             File.WriteAllText(path, sql.Text, Encoding.UTF8);
 

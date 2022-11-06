@@ -10,15 +10,50 @@ using System.IO;
 
 namespace DataLinq.SQLite
 {
+    public class SQLiteProvider : IDatabaseProviderRegister
+    {
+        public static bool HasBeenRegistered { get; private set; }
+
+        public static void RegisterProvider()
+        {
+            if (HasBeenRegistered)
+                return;
+
+            DatabaseCreator.SqlGenerators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            DatabaseCreator.DbCreators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+
+            HasBeenRegistered = true;
+        }
+    }
+
     public class SQLiteProvider<T> : DatabaseProvider<T>
         where T : class, IDatabaseModel
     {
+        static SQLiteProvider()
+        {
+            SQLiteProvider.RegisterProvider();
+        }
+
         public SQLiteProvider(string connectionString) : base(connectionString)
         {
         }
 
         public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, databaseName)
         {
+        }
+
+        public override void CreateDatabase(string databaseName = null)
+        {
+            if (databaseName == null && DatabaseName == null)
+                throw new ArgumentNullException("DatabaseName not defined");
+
+            using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
+
+            var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
+                $"USE {databaseName ?? DatabaseName};\n" +
+                GetCreateSql();
+
+            transaction.ExecuteNonQuery(query);
         }
 
         public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
@@ -46,7 +81,7 @@ namespace DataLinq.SQLite
             return sql.AddParameters(new SqliteParameter("@" + key, value ?? DBNull.Value));
         }
 
-        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GenerateSql(Metadata, true);
+        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
 
         public override IDbCommand ToDbCommand(IQuery query)
         {

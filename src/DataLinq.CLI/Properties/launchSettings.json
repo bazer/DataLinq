@@ -2,7 +2,7 @@
   "profiles": {
     "DataLinq.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "create-models -c d:\\git\\DataLinq\\src\\DataLinq.Tests\\datalinq.json -n employees"
+      "commandLineArgs": "create-sql -n employees -o C:\\Users\\sebas\\Documents\\employees-output-sqlite.sql -c d:\\git\\DataLinq\\src\\DataLinq.Tests\\datalinq.json -t sqlite"
     }
   }
 }
