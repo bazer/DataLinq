@@ -1,3 +1,4 @@
+using DataLinq.Exceptions;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using Microsoft.Data.Sqlite;
@@ -6,12 +7,13 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using ThrowAway;
 
 namespace DataLinq.SQLite
 {
     public class SqlFromMetadataFactory : ISqlFromMetadataFactory, IDatabaseCreator
     {
-        public Sql GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
+        public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
             var sql = new SqlGeneration(2, '"', "/* Generated %datetime% by DataLinq */\n\n");
             foreach(var table in sql.SortTablesByForeignKeys(metadata.TableModels.Select(x => x.Table).ToList()))
@@ -39,10 +41,10 @@ namespace DataLinq.SQLite
             return sql.sql;
         }
 
-        public bool CreateDatabase(Sql sql, string databaseFile, string connectionString, bool foreignKeyRestrict)
+        public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseFile, string connectionString, bool foreignKeyRestrict)
         {
             if (File.Exists(databaseFile))
-                return false;
+                return DataLinqOptionFailure.Fail("DatabaseFile does not exist");
 
             File.WriteAllBytes(databaseFile, new byte[] { });
 
@@ -50,8 +52,8 @@ namespace DataLinq.SQLite
             connection.Open();
             var command = connection.CreateCommand();
             command.CommandText = sql.Text;
-            var result = command.ExecuteNonQuery();
-            return true;
+
+            return command.ExecuteNonQuery();
         }
 
         private DatabaseColumnType GetDbType(Column column)

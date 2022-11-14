@@ -10,36 +10,36 @@ using ThrowAway;
 
 namespace DataLinq.Tools
 {
-    public enum SqlGeneratorError
+    public enum DatabaseCreatorError
     {
         DestDirectoryNotFound,
         UnableToParseModelFiles,
-        CouldNotGenerateSql
+        CouldNotCreateDatabase
     }
 
-    public struct SqlGeneratorOptions
+    public struct DatabaseCreatorOptions
     {
     }
 
-    public class SqlGenerator
+    public class DatabaseCreator
     {
-        private readonly SqlGeneratorOptions options;
+        private readonly DatabaseCreatorOptions options;
 
         private Action<string> log;
 
-        static SqlGenerator()
+        static DatabaseCreator()
         {
             MySQLProvider.RegisterProvider();
             SQLiteProvider.RegisterProvider();
         }
 
-        public SqlGenerator(Action<string> log, SqlGeneratorOptions options)
+        public DatabaseCreator(Action<string> log, DatabaseCreatorOptions options)
         {
             this.log = log;
             this.options = options;
         }
 
-        public Option<Sql, SqlGeneratorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath, string path)
+        public Option<int, DatabaseCreatorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath, string databaseName)
         {
             log($"Type: {connection.Type}");
             
@@ -48,28 +48,26 @@ namespace DataLinq.Tools
             if (!Directory.Exists(destDir))
             {
                 log($"Couldn't find dir: {destDir}");
-                return SqlGeneratorError.DestDirectoryNotFound;
+                return DatabaseCreatorError.DestDirectoryNotFound;
             }
 
             var dbMetadata = new MetadataFromFileFactory(log).ReadFiles(db.CsType, destDir);
             if (dbMetadata.HasFailed)
             {
                 log("Error: Unable to parse model files.");
-                return SqlGeneratorError.UnableToParseModelFiles;
+                return DatabaseCreatorError.UnableToParseModelFiles;
             }
 
             log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
-            log($"Writing sql to: {path}");
+            log($"Creating database '{connection.DatabaseName}'");
 
-            var sql = PluginHook.GenerateSql(connection.ParsedType.Value, dbMetadata, true);
+            var sql = PluginHook.CreateDatabaseFromMetadata(connection.ParsedType.Value, dbMetadata, databaseName, connection.ConnectionString, true);
 
             if (sql.HasFailed)
             {
                 log(sql.Failure.ToString());
-                return SqlGeneratorError.CouldNotGenerateSql;
+                return DatabaseCreatorError.CouldNotCreateDatabase;
             }
-
-            File.WriteAllText(path, sql.Value.Text, Encoding.UTF8);
 
             return sql.Value;
         }

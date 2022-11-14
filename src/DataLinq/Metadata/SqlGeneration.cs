@@ -5,11 +5,7 @@ using System.Linq;
 
 namespace DataLinq.Metadata
 {
-    public interface ISqlFromMetadataFactory
-    {
-        public Sql GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict);
-    }
-
+    
     public class SqlGeneration
     {
         public SqlGeneration(int indentationSpaces = 4, char quoteChar = '`', string generatedText = "")

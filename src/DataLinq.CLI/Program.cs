@@ -8,35 +8,38 @@ namespace DataLinq.CLI
     static class Program
     {
         [Verb("create-database", HelpText = "Create selected database")]
-        public class CreateDatabaseOptions : Options
+        public class CreateDatabaseOptions : CreateOptions
         {
-            [Option('n', "name", HelpText = "Database name", Required = true)]
-            public string Name { get; set; }
+            [Option('d', "database-name", HelpText = "Database name on server", Required = false)]
+            public string DatabaseName { get; set; }
         }
 
         [Verb("create-sql", HelpText = "Create SQL for selected database")]
-        public class CreateSqlOptions : Options
+        public class CreateSqlOptions : CreateOptions
         {
-            [Option('n', "name", HelpText = "Database name", Required = true)]
-            public string Name { get; set; }
-            [Option('t', "type", HelpText = "Which database connection type to create SQL for", Required = false)]
-            public string ConnectionType { get; set; }
             [Option('o', "output", HelpText = "Path to output file", Required = true)]
             public string OutputFile { get; set; }
         }
 
         [Verb("create-models", HelpText = "Create models for selected database")]
-        public class CreateModelsOptions : Options
+        public class CreateModelsOptions : CreateOptions
         {
-            [Option('n', "name", HelpText = "Database name", Required = true)]
-            public string Name { get; set; }
             [Option('s', "skip-source", HelpText = "Skip reading from source models", Required = false)]
             public bool SkipSource { get; set; }
 
             [Option('t', "type", HelpText = "Which database connection type to read from", Required = false)]
             public string ConnectionType { get; set; }
-
         }
+
+        public class CreateOptions : Options
+        {
+            [Option('n', "name", HelpText = "Schema name", Required = true)]
+            public string SchemaName { get; set; }
+
+            [Option('t', "type", HelpText = "Which database connection type to create the database for", Required = false)]
+            public string ConnectionType { get; set; }
+        }
+
 
         [Verb("list", HelpText = "List all databases in config.")]
         public class ListOptions : Options
@@ -47,6 +50,7 @@ namespace DataLinq.CLI
         {
             [Option('v', "verbose", Required = false, HelpText = "Set output to verbose messages.")]
             public bool Verbose { get; set; }
+
             [Option('c', "config", Required = false, HelpText = "Path to config file")]
             public string ConfigPath { get; set; }
         }
@@ -150,7 +154,7 @@ namespace DataLinq.CLI
                     if (ReadConfig() == false)
                         return;
 
-                    var result = GetConnection(options.Name, options.ConnectionType);
+                    var result = GetConnection(options.SchemaName, options.ConnectionType);
                     if (result.HasFailed)
                     {
                         Console.WriteLine(result.Failure);
@@ -172,7 +176,7 @@ namespace DataLinq.CLI
                     if (ReadConfig() == false)
                         return;
 
-                    var result = GetConnection(options.Name, options.ConnectionType);
+                    var result = GetConnection(options.SchemaName, options.ConnectionType);
                     if (result.HasFailed)
                     {
                         Console.WriteLine(result.Failure);
@@ -185,6 +189,25 @@ namespace DataLinq.CLI
                     });
 
                     generator.Create(db, connection, ConfigBasePath, options.OutputFile);
+                })
+                .WithParsed<CreateDatabaseOptions>(options =>
+                {
+                    if (ReadConfig() == false)
+                        return;
+
+                    var result = GetConnection(options.SchemaName, options.ConnectionType);
+                    if (result.HasFailed)
+                    {
+                        Console.WriteLine(result.Failure);
+                        return;
+                    }
+
+                    var (db, connection) = result.Value;
+                    var generator = new DatabaseCreator(Console.WriteLine, new DatabaseCreatorOptions
+                    {
+                    });
+
+                    generator.Create(db, connection, ConfigBasePath, options.DatabaseName ?? options.SchemaName);
                 })
                 .WithNotParsed(options =>
                 {

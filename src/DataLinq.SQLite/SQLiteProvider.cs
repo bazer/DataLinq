@@ -19,8 +19,8 @@ namespace DataLinq.SQLite
             if (HasBeenRegistered)
                 return;
 
-            DatabaseCreator.SqlGenerators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
-            DatabaseCreator.DbCreators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            PluginHook.SqlGenerators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            PluginHook.DatabaseCreators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
 
             HasBeenRegistered = true;
         }

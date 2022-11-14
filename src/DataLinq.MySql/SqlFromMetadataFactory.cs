@@ -1,8 +1,10 @@
+using DataLinq.Exceptions;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
 using System;
 using System.Linq;
+using ThrowAway;
 
 namespace DataLinq.MySql
 {
@@ -10,21 +12,20 @@ namespace DataLinq.MySql
     {
         private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum" };
 
-        public bool CreateDatabase(Sql sql, string database, string connectionString, bool foreignKeyRestrict)
+        public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string database, string connectionString, bool foreignKeyRestrict)
         {
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
             var command = connection.CreateCommand();
 
-            command.CommandText = $"CREATE DATABASE IF NOT EXISTS {database};\n" +
-                $"USE {database};\n" +
+            command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{database}`;\n" +
+                $"USE `{database}`;\n" +
                 sql.Text;
 
-            var result = command.ExecuteNonQuery();
-            return true;
+            return command.ExecuteNonQuery();
         }
 
-        public Sql GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
+        public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
             var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
             //sql.CreateDatabase(metadata.DbName);

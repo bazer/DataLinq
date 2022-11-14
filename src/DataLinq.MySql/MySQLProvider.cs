@@ -18,8 +18,8 @@ namespace DataLinq.MySql
             if (HasBeenRegistered)
                 return;
 
-            DatabaseCreator.SqlGenerators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
-            DatabaseCreator.DbCreators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
+            PluginHook.SqlGenerators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
+            PluginHook.DatabaseCreators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
 
             HasBeenRegistered = true;
         }
