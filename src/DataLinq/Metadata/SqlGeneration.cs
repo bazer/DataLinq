@@ -126,7 +126,7 @@ namespace DataLinq.Metadata
             => NewRow().Indent().Add($"INDEX {QuotedString(name)} {ParenthesisList(columns)}");
         public SqlGeneration PrimaryKey(params string[] columns)
             => NewRow().Indent().Add($"PRIMARY KEY {ParenthesisList(columns)}");
-        public SqlGeneration UniqueKey(string name, params string[] columns)
+        public virtual SqlGeneration UniqueKey(string name, params string[] columns)
             => NewRow().Indent().Add($"UNIQUE KEY {QuotedString(name)} {ParenthesisList(columns)}");
         public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
             => ForeignKey(relation.Relation.ConstraintName, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict);

@@ -207,7 +207,7 @@ namespace DataLinq.CLI
                     {
                     });
 
-                    generator.Create(db, connection, ConfigBasePath, options.DatabaseName ?? options.SchemaName);
+                    generator.Create(db, connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
                 })
                 .WithNotParsed(options =>
                 {

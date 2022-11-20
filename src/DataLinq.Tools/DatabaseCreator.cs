@@ -59,7 +59,11 @@ namespace DataLinq.Tools
             }
 
             log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
-            log($"Creating database '{connection.DatabaseName}'");
+
+            if (connection.ParsedType == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
+                databaseName = Path.Combine(basePath, databaseName);
+
+            log($"Creating database '{databaseName}'");
 
             var sql = PluginHook.CreateDatabaseFromMetadata(connection.ParsedType.Value, dbMetadata, databaseName, connection.ConnectionString, true);
 
