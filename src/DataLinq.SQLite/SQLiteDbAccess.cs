@@ -39,6 +39,15 @@ namespace DataLinq.SQLite
         public override int ExecuteNonQuery(string query) => 
             ExecuteNonQuery(new SqliteCommand(query));
 
+        public override object ExecuteScalar(string query) =>
+            ExecuteScalar(new SqliteCommand(query));
+
+        public override T ExecuteScalar<T>(string query) =>
+            (T)ExecuteScalar(new SqliteCommand(query));
+
+        public override T ExecuteScalar<T>(IDbCommand command) =>
+            (T)ExecuteScalar(command);
+
         public override object ExecuteScalar(IDbCommand command)
         {
             using (var connection = new SqliteConnection(ConnectionString))

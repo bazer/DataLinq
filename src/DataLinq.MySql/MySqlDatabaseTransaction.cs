@@ -35,13 +35,6 @@ namespace DataLinq.MySql
             }
         }
 
-        public override int ExecuteNonQuery(string query)
-        {
-            var command = new MySqlCommand(query);
-
-            return ExecuteNonQuery(command);
-        }
-
         public override int ExecuteNonQuery(IDbCommand command)
         {
             try
@@ -56,6 +49,18 @@ namespace DataLinq.MySql
                 throw;
             }
         }
+
+        public override int ExecuteNonQuery(string query) =>
+            ExecuteNonQuery(new MySqlCommand(query));
+
+        public override object ExecuteScalar(string query) =>
+            ExecuteScalar(new MySqlCommand(query));
+
+        public override T ExecuteScalar<T>(string query) =>
+            (T)ExecuteScalar(new MySqlCommand(query));
+
+        public override T ExecuteScalar<T>(IDbCommand command) =>
+            (T)ExecuteScalar(command);
 
         public override object ExecuteScalar(IDbCommand command)
         {

@@ -66,7 +66,7 @@ namespace DataLinq.Tools
                     DatabaseType.MySQL =>
                         new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
                     DatabaseType.SQLite =>
-                        SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, connection.ConnectionString)
+                        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, connection.ConnectionString)
                 };
 
                 Log($"Name in database: {dbMetadata.DbName}");

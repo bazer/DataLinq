@@ -6,6 +6,12 @@ using System.Linq;
 
 namespace DataLinq.Metadata
 {
+    public struct MetadataFromSqlFactoryOptions
+    {
+        public bool CapitaliseNames { get; set; }
+        public bool DeclareEnumsInClass { get; set; }
+    }
+
     public static class MetadataFactory
     {
         public static void ParseIndices(DatabaseMetadata database)

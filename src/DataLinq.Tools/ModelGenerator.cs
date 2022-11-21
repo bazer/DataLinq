@@ -36,23 +36,26 @@ namespace DataLinq.Tools
             this.options = options;
         }
 
-        public Option<DatabaseMetadata, ModelGeneratorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath)
+        public Option<DatabaseMetadata, ModelGeneratorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath, string databaseName)
         {
-            log($"Reading from database: {db.Name}");
-            log($"Type: {connection.Type}");
-
             var sqlOptions = new MetadataFromSqlFactoryOptions
             {
                 CapitaliseNames = this.options.CapitalizeNames,
                 DeclareEnumsInClass = this.options.DeclareEnumsInClass
             };
 
+            if (connection.ParsedType == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
+                databaseName = Path.Combine(basePath, databaseName);
+
+            log($"Reading from database: {databaseName}");
+            log($"Type: {connection.Type}");
+
             var dbMetadata = connection.ParsedType switch
             {
                 DatabaseType.MySQL =>
-                    new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
+                    new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
                 DatabaseType.SQLite =>
-                    SQLite.MetadataFromSqlFactory.ParseDatabase(db.Name, connection.DatabaseName, connection.ConnectionString)
+                    new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, $"Data Source={databaseName};Cache=Shared;")
             };
 
             log($"Tables in database: {dbMetadata.TableModels.Count}");

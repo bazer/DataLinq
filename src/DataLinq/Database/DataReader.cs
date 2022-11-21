@@ -11,6 +11,9 @@ namespace DataLinq
     {
         object GetValue(int ordinal);
         int GetOrdinal(string name);
+        string GetString(int ordinal);
+        bool GetBoolean(int ordinal);
+        int GetInt32(int ordinal);
         DateOnly GetDateOnly(int ordinal);
         bool Read();
     }

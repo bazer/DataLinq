@@ -55,6 +55,15 @@ namespace DataLinq.SQLite
             }
         }
 
+        public override object ExecuteScalar(string query) =>
+            ExecuteScalar(new SqliteCommand(query));
+
+        public override T ExecuteScalar<T>(string query) =>
+            (T)ExecuteScalar(new SqliteCommand(query));
+
+        public override T ExecuteScalar<T>(IDbCommand command) =>
+            (T)ExecuteScalar(command);
+
         public override object ExecuteScalar(IDbCommand command)
         {
             try
@@ -141,7 +150,7 @@ namespace DataLinq.SQLite
             dbConnection?.Dispose();
             dbTransaction?.Dispose();
         }
-
+        
         #endregion IDisposable Members
     }
 }

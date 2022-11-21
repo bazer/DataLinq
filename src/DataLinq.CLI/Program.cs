@@ -10,8 +10,6 @@ namespace DataLinq.CLI
         [Verb("create-database", HelpText = "Create selected database")]
         public class CreateDatabaseOptions : CreateOptions
         {
-            [Option('d', "database-name", HelpText = "Database name on server", Required = false)]
-            public string DatabaseName { get; set; }
         }
 
         [Verb("create-sql", HelpText = "Create SQL for selected database")]
@@ -26,13 +24,13 @@ namespace DataLinq.CLI
         {
             [Option('s', "skip-source", HelpText = "Skip reading from source models", Required = false)]
             public bool SkipSource { get; set; }
-
-            [Option('t', "type", HelpText = "Which database connection type to read from", Required = false)]
-            public string ConnectionType { get; set; }
         }
 
         public class CreateOptions : Options
         {
+            [Option('d', "database-name", HelpText = "Database name on server", Required = false)]
+            public string DatabaseName { get; set; }
+
             [Option('n', "name", HelpText = "Schema name", Required = true)]
             public string SchemaName { get; set; }
 
@@ -169,7 +167,7 @@ namespace DataLinq.CLI
                         CapitalizeNames = !db.CapitalizeNames.HasValue || db.CapitalizeNames == true
                     });
 
-                    creator.Create(db, connection, ConfigBasePath);
+                    creator.Create(db, connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
                 })
                 .WithParsed<CreateSqlOptions>(options =>
                 {

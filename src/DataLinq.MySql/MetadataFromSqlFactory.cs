@@ -7,12 +7,6 @@ using System.Linq;
 
 namespace DataLinq.MySql
 {
-    public struct MetadataFromSqlFactoryOptions
-    {
-        public bool CapitaliseNames { get; set; }
-        public bool DeclareEnumsInClass { get; set; }
-    }
-
     public class MetadataFromSqlFactory
     {
         private readonly MetadataFromSqlFactoryOptions options;
@@ -40,20 +34,6 @@ namespace DataLinq.MySql
             return database;
         }
 
-        private void ParseRelations(DatabaseMetadata database, information_schema information_Schema)
-        {
-            foreach (var key in information_Schema
-                .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
-            {
-                var foreignKeyColumn = database
-                    .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
-                    .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME);
-
-                foreignKeyColumn.ForeignKey = true;
-                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
-            }
-        }
-
         private void ParseIndices(DatabaseMetadata database, information_schema information_Schema)
         {
             foreach (var dbIndex in information_Schema
@@ -68,6 +48,20 @@ namespace DataLinq.MySql
                     column.Unique = true;
                     column.ValueProperty.Attributes.Add(new UniqueAttribute(dbIndex.First().CONSTRAINT_NAME));
                 }
+            }
+        }
+
+        private void ParseRelations(DatabaseMetadata database, information_schema information_Schema)
+        {
+            foreach (var key in information_Schema
+                .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
+            {
+                var foreignKeyColumn = database
+                    .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
+                    .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME);
+
+                foreignKeyColumn.ForeignKey = true;
+                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
             }
         }
 

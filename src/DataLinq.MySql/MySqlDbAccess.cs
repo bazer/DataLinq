@@ -42,6 +42,15 @@ namespace DataLinq.MySql
         public override int ExecuteNonQuery(string query) => 
             ExecuteNonQuery(new MySqlCommand(query));
 
+        public override object ExecuteScalar(string query) =>
+            ExecuteScalar(new MySqlCommand(query));
+
+        public override T ExecuteScalar<T>(string query) =>
+            (T)ExecuteScalar(new MySqlCommand(query));
+
+        public override T ExecuteScalar<T>(IDbCommand command) =>
+            (T)ExecuteScalar(command);
+
         public override object ExecuteScalar(IDbCommand command)
         {
             using (var connection = new MySqlConnection(ConnectionString))
