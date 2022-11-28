@@ -3,7 +3,7 @@ using System;
 
 namespace DataLinq.Attributes
 {
-    [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
     public sealed class TypeAttribute : Attribute
     {
         public TypeAttribute(string name)
@@ -55,6 +55,14 @@ namespace DataLinq.Attributes
         }
 
         public TypeAttribute(DatabaseType databaseType, string name, long length, bool signed)
+        {
+            DatabaseType = databaseType;
+            Name = name;
+            Length = length;
+            Signed = signed;
+        }
+
+        public TypeAttribute(DatabaseType databaseType, string name, long? length, bool? signed)
         {
             DatabaseType = databaseType;
             Name = name;

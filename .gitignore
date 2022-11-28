@@ -15,4 +15,4 @@ TestResults
 *.cache
 
 /src/_NCrunch_DataLinq
-/src/DataLinq.Tests/employees.db
+/src/DataLinq.Tests/*.db

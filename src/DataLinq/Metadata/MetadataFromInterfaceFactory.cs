@@ -17,7 +17,7 @@ namespace DataLinq.Metadata
 
             var database = new DatabaseMetadata(dbType?.Name ?? "Unnamed", dbType);
 
-            database.TableModels = types
+            var customModels = types
                 .Where(x =>
                     x.GetInterface("ICustomTableModel") != null ||
                     x.GetInterface("ICustomViewModel") != null)
@@ -28,21 +28,30 @@ namespace DataLinq.Metadata
             {
                 ParseAttributes(database, dbType);
 
-                var propertyModels = dbType
+                database.TableModels = dbType
                     .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                     .Select(GetTableType)
                     .Select(x => database.ParseTableModel(x.type, x.csName))
                     .ToList();
 
-                foreach (var propertyModel in propertyModels)
+                var transformer = new MetadataTransformer(new MetadataTransformerOptions(true));
+
+                foreach (var customModel in customModels)
                 {
-                    var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == propertyModel.Table.DbName);
+                    var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == customModel.Table.DbName);
 
                     if (match != null)
-                        match.CsPropertyName = propertyModel.CsPropertyName;
+                    {
+                        transformer.TransformTable(customModel, match);
+                        //match.CsPropertyName = customModel.CsPropertyName;
+                    }
                     else
-                        database.TableModels.Add(propertyModel);
+                        database.TableModels.Add(customModel);
                 }
+            }
+            else
+            {
+                database.TableModels = customModels;
             }
 
             MetadataFactory.ParseIndices(database);
@@ -127,7 +136,7 @@ namespace DataLinq.Metadata
 
         private static TableMetadata ParseTable(this ModelMetadata model)
         {
-            var table = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel")
+            var table = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel" || x.Name == "ICustomTableModel")
                 ? new TableMetadata()
                 : new ViewMetadata();
 

@@ -93,8 +93,8 @@ namespace DataLinq.Tools
 
                     log($"Tables in source model files: {srcMetadata.Value.TableModels.Count}");
 
-                    var transformer = new MetadataTransformer(log, new MetadataTransformerOptions(true));
-                    transformer.Transform(srcMetadata, dbMetadata);
+                    var transformer = new MetadataTransformer(new MetadataTransformerOptions(true));
+                    transformer.TransformDatabase(srcMetadata, dbMetadata);
                 }
             }
 
