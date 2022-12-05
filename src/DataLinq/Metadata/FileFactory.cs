@@ -47,6 +47,7 @@ namespace DataLinq.Metadata
                         .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
                         .Select(x => "System.Collections.Generic"))
                     .Distinct()
+                    .Where(name => name != options.NamespaceName)
                     .Select(name => (name.StartsWith("System"), name))
                     .OrderByDescending(x => x.Item1)
                     .ThenBy(x => x.name)
@@ -105,7 +106,7 @@ namespace DataLinq.Metadata
                 .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
                 .ThenBy(x => x.CsName);
 
-            foreach (var row in props.OfType<EnumProperty>().Where(x => !x.DeclaredInClass).SelectMany(x => WriteEnum(x, tab)))
+            foreach (var row in props.OfType<ValueProperty>().Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, tab)))
                 yield return row;
 
             if (table is ViewMetadata view)
@@ -125,7 +126,7 @@ namespace DataLinq.Metadata
             yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
             yield return tab + "{";
 
-            foreach (var row in props.OfType<EnumProperty>().Where(x => x.DeclaredInClass).SelectMany(x => WriteEnum(x, tab)))
+            foreach (var row in props.OfType<ValueProperty>().Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, tab)))
                 yield return tab + row;
 
             foreach (var property in props)
@@ -164,8 +165,8 @@ namespace DataLinq.Metadata
                             yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
                     }
 
-                    if (property is EnumProperty enumProperty)
-                        yield return $"{tab}{tab}[Enum({string.Join(',', enumProperty.EnumValues.Select(x => $"\"{x}\""))})]";
+                    if (valueProperty.EnumProperty != null)
+                        yield return $"{tab}{tab}[Enum({string.Join(',', valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x}\""))})]";
 
                     yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
                     yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
@@ -189,13 +190,17 @@ namespace DataLinq.Metadata
             yield return tab + "}";
         }
 
-        private IEnumerable<string> WriteEnum(EnumProperty property, string tab)
+        private IEnumerable<string> WriteEnum(ValueProperty property, string tab)
         {
             yield return $"{tab}public enum {property.CsTypeName}";
             yield return tab + "{";
-            yield return $"{tab}{tab}Empty,";
+            //yield return $"{tab}{tab}Empty,";
 
-            foreach (var val in property.EnumValues)
+            var values = property.EnumProperty.Value.CsEnumValues.Count != 0
+                ? property.EnumProperty.Value.CsEnumValues
+                : property.EnumProperty.Value.EnumValues;
+
+            foreach (var val in values)
                 yield return $"{tab}{tab}{val},";
 
             yield return tab + "}";

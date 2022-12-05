@@ -151,29 +151,9 @@ namespace DataLinq.Metadata
             return property;
         }
 
-        public static EnumProperty AttachEnumProperty(Column column, bool declaredInClass, bool capitaliseNames, IEnumerable<string> values)
+        public static void AttachEnumProperty(ValueProperty property, IEnumerable<string> enumValues, IEnumerable<string> csEnumValues, bool declaredInClass)
         {
-            var name = capitaliseNames
-                ? column.DbName.FirstCharToUpper()
-                : column.DbName;
-
-            var property = new EnumProperty
-            {
-                Column = column,
-                Model = column.Table.Model,
-                CsName = name,
-                CsTypeName = column.Table.Model.CsTypeName + name, //declaredInClass ? column.DbName + "Enum" : column.DbName,
-                CsSize = MetadataTypeConverter.CsTypeSize("int"),
-                CsNullable = column.Nullable,
-                EnumValues = values.ToList(),
-                DeclaredInClass = declaredInClass
-            };
-
-            property.Attributes = GetAttributes(property).ToList();
-            column.ValueProperty = property;
-            column.Table.Model.Properties.Add(column.ValueProperty);
-
-            return property;
+            property.EnumProperty = new EnumProperty(enumValues.ToList(), csEnumValues.ToList(), declaredInClass);
         }
 
         public static IEnumerable<Attribute> GetAttributes(ValueProperty property)

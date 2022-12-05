@@ -2,6 +2,7 @@
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 
@@ -124,16 +125,16 @@ namespace DataLinq.MySql
 
             var csType = ParseCsType(dbType.Name);
 
+            var valueProp = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
+
             if (csType == "enum")
-                MetadataFactory.AttachEnumProperty(column, true, options.CapitaliseNames, ParseEnumType(dbColumns.COLUMN_TYPE));
-            else
-                MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
+                MetadataFactory.AttachEnumProperty(valueProp, new List<string>(), ParseEnumType(dbColumns.COLUMN_TYPE), true);
 
             return column;
         }
 
-        private string[] ParseEnumType(string COLUMN_TYPE) =>
-            COLUMN_TYPE[5..^1].Trim('\'').Split("','");
+        private IEnumerable<string> ParseEnumType(string COLUMN_TYPE) =>
+            COLUMN_TYPE[5..^1].Trim('\'').Split("','").Prepend("Empty");
 
         private string ParseCsType(string dbType)
         {

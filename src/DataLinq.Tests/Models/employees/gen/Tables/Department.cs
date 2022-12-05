@@ -10,11 +10,13 @@ namespace DataLinq.Tests.Models
     public partial record Department : ITableModel
     {
         [PrimaryKey]
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "char", 4)]
         [Column("dept_no")]
         public virtual string DeptNo { get; set; }
 
         [Unique("dept_name")]
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "varchar", 40)]
         [Column("dept_name")]
         public virtual string Name { get; set; }

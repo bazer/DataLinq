@@ -57,8 +57,8 @@ namespace DataLinq.MySql
                     .ColumnName(column.DbName)
                     .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
-                if (dbType.Name == "enum" && column.ValueProperty is EnumProperty enumProperty)
-                    sql.EnumValues(enumProperty.EnumValues);
+                if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
+                    sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues);
 
                 if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
                     sql.TypeLength(dbType.Length);

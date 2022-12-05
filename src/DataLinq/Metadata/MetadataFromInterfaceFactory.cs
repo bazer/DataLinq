@@ -197,9 +197,7 @@ namespace DataLinq.Metadata
                     column.ForeignKey = true;
 
                 if (attribute is UniqueAttribute)
-                {
                     column.Unique = true;
-                }
 
                 if (attribute is TypeAttribute t)
                 {
@@ -223,7 +221,7 @@ namespace DataLinq.Metadata
                     .OfType<Attribute>()
                     .ToList();
 
-            var property = GetProperty(propertyInfo.PropertyType.IsEnum, attributes);
+            var property = GetProperty(attributes);
 
             property.Model = model;
             property.CsName = propertyInfo.Name;
@@ -236,14 +234,20 @@ namespace DataLinq.Metadata
             {
                 valueProp.CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
 
-                if (property is EnumProperty enumProp)
+                if (propertyInfo.PropertyType.IsEnum)
                 {
-                    enumProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
+                    valueProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
 
-                    if (attributes.Any(attribute => attribute is EnumAttribute))
-                        enumProp.EnumValues = attributes.OfType<EnumAttribute>().Single().Values.ToList();
-                    else
-                        enumProp.EnumValues = Enum.GetNames(property.CsType).ToList();
+                    var enumValueList = attributes.Any(attribute => attribute is EnumAttribute)
+                        ? attributes.OfType<EnumAttribute>().Single().Values.ToList()
+                        : new List<string>();
+
+                    valueProp.EnumProperty = new EnumProperty(enumValueList, Enum.GetNames(property.CsType).ToList(), true);
+
+                    //if (attributes.Any(attribute => attribute is EnumAttribute))
+                    //    valueProp.EnumProperty.Value.EnumValues = attributes.OfType<EnumAttribute>().Single().Values.ToList();
+                    //else
+                    //    enumProp.EnumValues = Enum.GetNames(property.CsType).ToList();
                 }
                 else
                     valueProp.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
@@ -252,16 +256,16 @@ namespace DataLinq.Metadata
             return property;
         }
 
-        private static Property GetProperty(bool isEnum, List<Attribute> attributes)
+        private static Property GetProperty(List<Attribute> attributes)
         {
-            if (isEnum)
-                return new EnumProperty();
+            //if (isEnum)
+            //    return new EnumProperty();
 
             if (attributes.Any(attribute => attribute is RelationAttribute))
                 return new RelationProperty();
 
-            if (attributes.Any(attribute => attribute is EnumAttribute))
-                return new EnumProperty();
+            //if (attributes.Any(attribute => attribute is EnumAttribute))
+            //    return new EnumProperty();
 
             return new ValueProperty();
         }

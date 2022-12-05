@@ -9,20 +9,26 @@ namespace DataLinq.Tests.Models
     [View("current_dept_emp")]
     public partial record current_dept_emp : IViewModel
     {
+        [Nullable]
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "char", 4)]
         [Column("dept_no")]
         public virtual string dept_no { get; set; }
 
+        [Nullable]
+        [Type(DatabaseType.SQLite, "integer")]
         [Type(DatabaseType.MySQL, "int")]
         [Column("emp_no")]
         public virtual int emp_no { get; set; }
 
         [Nullable]
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "date")]
         [Column("from_date")]
         public virtual DateOnly? from_date { get; set; }
 
         [Nullable]
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "date")]
         [Column("to_date")]
         public virtual DateOnly? to_date { get; set; }

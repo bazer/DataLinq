@@ -10,20 +10,24 @@ namespace DataLinq.Tests.Models
     {
         [PrimaryKey]
         [ForeignKey("departments", "dept_no", "dept_emp_ibfk_2")]
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "char", 4)]
         [Column("dept_no")]
         public virtual string dept_no { get; set; }
 
         [PrimaryKey]
         [ForeignKey("employees", "emp_no", "dept_emp_ibfk_1")]
+        [Type(DatabaseType.SQLite, "integer")]
         [Type(DatabaseType.MySQL, "int")]
         [Column("emp_no")]
         public virtual int emp_no { get; set; }
 
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "date")]
         [Column("from_date")]
         public virtual DateOnly from_date { get; set; }
 
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "date")]
         [Column("to_date")]
         public virtual DateOnly to_date { get; set; }

@@ -89,6 +89,7 @@ namespace DataLinq.Metadata
         public Column Column { get; set; }
         public bool CsNullable { get; set; }
         public int? CsSize { get; set; }
+        public EnumProperty? EnumProperty {get; set;}
 
         public ValueProperty()
         {
@@ -97,10 +98,18 @@ namespace DataLinq.Metadata
 
     }
 
-    public class EnumProperty : ValueProperty
+    public record struct EnumProperty
     {
-        public List<string> EnumValues { get; set; }
-        public bool DeclaredInClass { get; set; } = true;
+        public EnumProperty(List<string> enumValues, List<string> csEnumValues, bool declaredInClass = true)
+        {
+            EnumValues = enumValues;
+            CsEnumValues = csEnumValues;
+            DeclaredInClass = declaredInClass;
+        }
+
+        public List<string> EnumValues { get; }
+        public List<string> CsEnumValues { get; }
+        public bool DeclaredInClass { get; }
     }
 
     public class RelationProperty : Property

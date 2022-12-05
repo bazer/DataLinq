@@ -57,10 +57,10 @@ namespace DataLinq.Metadata
             {
                 destTable.Model.CsTypeName = modelCsTypeName;
 
-                foreach (var enumProp in destTable.Model.Properties.OfType<EnumProperty>())
-                {
-                    enumProp.CsTypeName = modelCsTypeName + enumProp.CsName;
-                }
+                //foreach (var enumProp in destTable.Model.Properties.OfType<EnumProperty>())
+                //{
+                //    enumProp.CsTypeName = modelCsTypeName + enumProp.CsName;
+                //}
             }
 
             destTable.Model.Interfaces = new Type[] { srcTable.Model.CsType };
@@ -73,6 +73,11 @@ namespace DataLinq.Metadata
                 {
                     //log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
                     continue;
+                }
+
+                if (srcProperty.EnumProperty != null)
+                {
+                    destProperty.EnumProperty = srcProperty.EnumProperty;
                 }
 
                 destProperty.CsName = srcProperty.CsName;
@@ -115,6 +120,7 @@ namespace DataLinq.Metadata
                 }
 
                 destProperty.CsName = srcProperty.CsName;
+                destProperty.RelationPart.Relation.ConstraintName = srcProperty.RelationPart.Relation.ConstraintName;
             }
         }
     }

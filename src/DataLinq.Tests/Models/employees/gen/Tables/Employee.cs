@@ -18,27 +18,33 @@ namespace DataLinq.Tests.Models
     
         [PrimaryKey]
         [AutoIncrement]
+        [Type(DatabaseType.SQLite, "integer")]
         [Type(DatabaseType.MySQL, "int")]
         [Column("emp_no")]
         public virtual int? emp_no { get; set; }
 
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "date")]
         [Column("birth_date")]
         public virtual DateOnly birth_date { get; set; }
 
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "varchar", 14)]
         [Column("first_name")]
         public virtual string first_name { get; set; }
 
+        [Type(DatabaseType.SQLite, "integer")]
         [Type(DatabaseType.MySQL, "enum", 1)]
         [Enum("M","F")]
         [Column("gender")]
         public virtual Employeegender gender { get; set; }
 
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "date")]
         [Column("hire_date")]
         public virtual DateOnly hire_date { get; set; }
 
+        [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "varchar", 16)]
         [Column("last_name")]
         public virtual string last_name { get; set; }
