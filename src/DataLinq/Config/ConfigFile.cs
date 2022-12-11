@@ -1,12 +1,7 @@
-﻿using DataLinq.Metadata;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Data.Common;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace DataLinq.Tools.Config
+namespace DataLinq.Config
 {
     public record ConfigFile
     {
@@ -35,12 +30,11 @@ namespace DataLinq.Tools.Config
         {
             get
             {
-                if (Type?.ToLower() == "mysql" || Type?.ToLower() == "mariadb")
-                    return DatabaseType.MySQL;
-                else if (Type?.ToLower() == "sqlite")
-                    return DatabaseType.SQLite;
-                else
-                    return null;
+                var type = ConfigReader.ParseDatabaseType(Type);
+
+                return type.HasValue
+                    ? type
+                    : null;
             }
         }
         public string? Type { get; set; }

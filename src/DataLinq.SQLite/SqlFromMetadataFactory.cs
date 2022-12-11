@@ -11,7 +11,7 @@ using ThrowAway;
 
 namespace DataLinq.SQLite
 {
-    public class SqlFromMetadataFactory : ISqlFromMetadataFactory, IDatabaseCreator
+    public class SqlFromMetadataFactory : ISqlFromMetadataFactory
     {
         public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {

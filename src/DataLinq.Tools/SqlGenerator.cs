@@ -1,8 +1,8 @@
-﻿using DataLinq.Metadata;
+﻿using DataLinq.Config;
+using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.Query;
 using DataLinq.SQLite;
-using DataLinq.Tools.Config;
 using System;
 using System.IO;
 using System.Text;

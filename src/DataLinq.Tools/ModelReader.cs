@@ -1,7 +1,5 @@
-﻿using DataLinq.Metadata;
-using DataLinq.MySql;
-using DataLinq.MySql.Models;
-using DataLinq.Tools.Config;
+﻿using DataLinq.Config;
+using DataLinq.Metadata;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -51,7 +49,7 @@ namespace DataLinq.Tools
                 Log($"Couldn't read from SourceDirectory: {srcDir}");
             }
 
-            var sqlOptions = new MetadataFromSqlFactoryOptions
+            var sqlOptions = new MetadataFromDatabaseFactoryOptions
             {
                 CapitaliseNames = true,
                 DeclareEnumsInClass = true
@@ -61,13 +59,26 @@ namespace DataLinq.Tools
             {
                 Log($"Type: {connection.ParsedType}");
 
-                var dbMetadata = connection.ParsedType switch
-                {
-                    DatabaseType.MySQL =>
-                        new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
-                    DatabaseType.SQLite =>
-                        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, connection.ConnectionString)
-                };
+                var databaseName = connection.DatabaseName;
+
+                if (connection.ParsedType == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
+                    databaseName = Path.Combine(basePath, databaseName);
+
+                var connectionString = connection.ConnectionString;
+                if (connection.ParsedType == DatabaseType.SQLite)
+                    connectionString = $"Data Source={databaseName};Cache=Shared;";
+
+                var dbMetadata = PluginHook.MetadataFromSqlFactories[connection.ParsedType.Value]
+                    .GetMetadataFromSqlFactory(sqlOptions)
+                    .ParseDatabase(db.Name, db.CsType, databaseName, connectionString);
+
+                //var dbMetadata = connection.ParsedType switch
+                //{
+                //    DatabaseType.MySQL =>
+                //        new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
+                //    DatabaseType.SQLite =>
+                //        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, connection.ConnectionString)
+                //};
 
                 Log($"Name in database: {dbMetadata.DbName}");
                 Log($"Tables in database: {dbMetadata.TableModels.Count}");

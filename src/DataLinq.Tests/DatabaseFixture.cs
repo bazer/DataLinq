@@ -8,46 +8,80 @@ using Xunit;
 using DataLinq.Metadata;
 using Bogus;
 using System.Linq;
+using System.Collections.Generic;
+using DataLinq.Config;
+using System.Reflection;
+using Xunit.Sdk;
+using DataLinq.SQLite;
 
 namespace DataLinq.Tests
 {
-    //[CollectionDefinition("Database")]
-    //public class DatabaseCollection : ICollectionFixture<DatabaseFixture>
-    //{
-    //}
-
     public class DatabaseFixture : IDisposable
     {
-        public DatabaseFixture()
+        static DatabaseFixture()
         {
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-
-            var configuration = builder.Build();
-            var connDataLinq = configuration.GetConnectionString("employees");
-            EmployeesDbName = configuration.GetSection("employeesDbName")?.Value ?? "employees";
-            employeesDb = new MySqlDatabase<Employees>(connDataLinq, EmployeesDbName);
-            information_schema = new MySqlDatabase<information_schema>(configuration.GetConnectionString("information_schema"));
-        
-            if (!employeesDb.Exists())
-            {
-                //MySql.SqlFromMetadataFactory.Register();
-
-                PluginHook.CreateDatabaseFromMetadata(DatabaseType.MySQL, 
-                    employeesDb.Provider.Metadata, EmployeesDbName, connDataLinq, true);
-
-                FillEmployeesWithBogusData(employeesDb);
-            }
+            MySQLProvider.RegisterProvider();
+            SQLiteProvider.RegisterProvider();
         }
 
-        public MySqlDatabase<Employees> employeesDb { get; set; }
+        public DatabaseFixture()
+        {
+            var config = ConfigReader.Read("datalinq.json");
+
+            var employees = config.Databases.Single(x => x.Name == "employees");
+
+            //var builder = new ConfigurationBuilder()
+            //    .SetBasePath(Directory.GetCurrentDirectory())
+            //    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
+            //var configuration = builder.Build();
+            //var connDataLinq = configuration.GetConnectionString("employees");
+            //EmployeesDbName = configuration.GetSection("employeesDbName")?.Value ?? "employees";
+
+            EmployeeConnections = employees.Connections;
+
+            foreach (var connection in employees.Connections)
+            {
+                var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.ParsedType).Value;
+
+                var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString, connection.DatabaseName);
+
+                //if (!dbEmployees.Exists())
+                //{
+                //    //MySql.SqlFromMetadataFactory.Register();
+
+                //    PluginHook.CreateDatabaseFromMetadata(connection.ParsedType.Value,
+                //        employeesDb.Provider.Metadata, connection.DatabaseName, connection.ConnectionString, true);
+
+                //    FillEmployeesWithBogusData(employeesDb);
+                //}
+
+                AllEmployeesDb.Add(dbEmployees);
+            }
+            employeesDb = AllEmployeesDb[0];
+            //employeesDb = new MySqlDatabase<Employees>(connDataLinq, EmployeesDbName);
+            //information_schema = new MySqlDatabase<information_schema>(configuration.GetConnectionString("information_schema"));
+
+            //if (!employeesDb.Exists())
+            //{
+            //    //MySql.SqlFromMetadataFactory.Register();
+
+            //    PluginHook.CreateDatabaseFromMetadata(DatabaseType.MySQL, 
+            //        employeesDb.Provider.Metadata, EmployeesDbName, connDataLinq, true);
+
+            //    FillEmployeesWithBogusData(employeesDb);
+            //}
+        }
+
+        public List<DatabaseConnectionConfig> EmployeeConnections { get; set; } = new();
+        public List<Database<Employees>> AllEmployeesDb { get; set; } = new();
+        public Database<Employees> employeesDb { get; set; }
         //public employeesDb employeesDb => employeesDb_provider.Read();
-        public MySqlDatabase<information_schema> information_schema { get; set; }
+        //public MySqlDatabase<information_schema> information_schema { get; set; }
         //public information_schema information_schema => information_schema_provider.Read();
 
         //public string ConnectionString { get; private set; }
-        public string EmployeesDbName { get; private set; }
+        //public string EmployeesDbName { get; private set; }
 
         public void FillEmployeesWithBogusData(Database<Employees> database)
         {
@@ -120,7 +154,7 @@ namespace DataLinq.Tests
         public void Dispose()
         {
             employeesDb.Dispose();
-            information_schema.Dispose();
+            //information_schema.Dispose();
         }
     }
 }

@@ -1,11 +1,12 @@
-﻿using MySqlConnector;
-using DataLinq.Extensions;
+﻿using DataLinq.Extensions;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using MySqlConnector;
 using System;
 using System.Data;
-using DataLinq.Metadata;
+using System.Runtime.CompilerServices;
 
 namespace DataLinq.MySql
 {
@@ -13,13 +14,15 @@ namespace DataLinq.MySql
     {
         public static bool HasBeenRegistered { get; private set; }
 
+        [ModuleInitializer]
         public static void RegisterProvider()
         {
             if (HasBeenRegistered)
                 return;
 
-            PluginHook.SqlGenerators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
-            PluginHook.DatabaseCreators[DatabaseType.MySQL] = new SqlFromMetadataFactory();
+            PluginHook.DatabaseProviders[DatabaseType.MySQL] = new MySqlDatabaseCreator();
+            PluginHook.SqlFromMetadataFactories[DatabaseType.MySQL] = new SqlFromMetadataFactory();
+            PluginHook.MetadataFromSqlFactories[DatabaseType.MySQL] = new MetadataFromMySqlFactoryCreator();
 
             HasBeenRegistered = true;
         }
@@ -33,11 +36,11 @@ namespace DataLinq.MySql
             MySQLProvider.RegisterProvider();
         }
 
-        public MySQLProvider(string connectionString) : base(connectionString)
+        public MySQLProvider(string connectionString) : base(connectionString, DatabaseType.MySQL)
         {
         }
 
-        public MySQLProvider(string connectionString, string databaseName) : base(connectionString, databaseName)
+        public MySQLProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.MySQL, databaseName)
         {
         }
 
@@ -69,7 +72,7 @@ namespace DataLinq.MySql
             if (databaseName == null && DatabaseName == null)
                 throw new ArgumentNullException("DatabaseName not defined");
 
-           return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
+            return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
         }
 
         public override string GetLastIdQuery()

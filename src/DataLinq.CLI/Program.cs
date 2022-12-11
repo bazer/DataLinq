@@ -1,6 +1,8 @@
 ﻿using CommandLine;
+using DataLinq.Config;
+using DataLinq.MySql;
+using DataLinq.SQLite;
 using DataLinq.Tools;
-using DataLinq.Tools.Config;
 using ThrowAway;
 
 namespace DataLinq.CLI
@@ -72,43 +74,12 @@ namespace DataLinq.CLI
             return true;
         }
 
-        static private Option<(DatabaseConfig db, DatabaseConnectionConfig connection)> GetConnection(string dbName, string connectionType)
-        {
-            var db = ConfigFile.Databases.SingleOrDefault(x => x.Name.ToLower() == dbName.ToLower());
-            if (db == null)
-            {
-                return $"Couldn't find database with name '{dbName}'";
-            }
-
-            if (db.Connections.Count == 0)
-            {
-                return $"Database '{dbName}' has no connections to read from";
-            }
-
-            if (db.Connections.Count > 1 && connectionType == null)
-            {
-                return $"Database '{dbName}' has more than one connection to read from, you need to select which one";
-            }
-
-            DatabaseConnectionConfig connection = null;
-            if (connectionType != null)
-            {
-                connection = db.Connections.SingleOrDefault(x => x.Type.ToLower() == connectionType.ToLower());
-
-                if (connection == null)
-                {
-                    return $"Couldn't find connection with type '{connectionType}' in configuration file.";
-                }
-            }
-
-            if (connection == null)
-                connection = db.Connections[0];
-
-            return (db, connection);
-        }
-
         static void Main(string[] args)
         {
+            MySQLProvider.RegisterProvider();
+            SQLiteProvider.RegisterProvider();
+
+
             var parserResult = Parser.Default
                 .ParseArguments<Options, CreateModelsOptions, CreateSqlOptions, CreateDatabaseOptions, ListOptions>(args);
 
@@ -152,7 +123,7 @@ namespace DataLinq.CLI
                     if (ReadConfig() == false)
                         return;
 
-                    var result = GetConnection(options.SchemaName, options.ConnectionType);
+                    var result = ConfigFile.GetConnection(options.SchemaName, ConfigReader.ParseDatabaseType(options.ConnectionType));
                     if (result.HasFailed)
                     {
                         Console.WriteLine(result.Failure);
@@ -174,7 +145,7 @@ namespace DataLinq.CLI
                     if (ReadConfig() == false)
                         return;
 
-                    var result = GetConnection(options.SchemaName, options.ConnectionType);
+                    var result = ConfigFile.GetConnection(options.SchemaName, ConfigReader.ParseDatabaseType(options.ConnectionType));
                     if (result.HasFailed)
                     {
                         Console.WriteLine(result.Failure);
@@ -193,7 +164,7 @@ namespace DataLinq.CLI
                     if (ReadConfig() == false)
                         return;
 
-                    var result = GetConnection(options.SchemaName, options.ConnectionType);
+                    var result = ConfigFile.GetConnection(options.SchemaName, ConfigReader.ParseDatabaseType(options.ConnectionType));
                     if (result.HasFailed)
                     {
                         Console.WriteLine(result.Failure);

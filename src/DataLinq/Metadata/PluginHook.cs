@@ -1,4 +1,5 @@
 using DataLinq.Exceptions;
+using DataLinq.Interfaces;
 using DataLinq.Query;
 using System.Collections.Generic;
 using ThrowAway;
@@ -9,27 +10,41 @@ namespace DataLinq.Metadata
     //{
     //    NoHandlerForType
     //}
-    public interface ISqlFromMetadataFactory
+
+    public interface IDatabaseProviderCreator
     {
-        public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict);
+        Database<T> GetDatabaseProvider<T>(string connectionString, string databaseName) where T : class, IDatabaseModel;
+        bool IsDatabaseType(string typeName);
     }
 
-    public interface IDatabaseCreator
+    public interface ISqlFromMetadataFactory
     {
+        Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict);
         Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseNameOrFile, string connectionString, bool foreignKeyRestrict);
+    }
+
+    public interface IMetadataFromDatabaseFactoryCreator
+    {
+        IMetadataFromSqlFactory GetMetadataFromSqlFactory(MetadataFromDatabaseFactoryOptions options);
+    }
+
+    public interface IMetadataFromSqlFactory
+    {
+        DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, string connectionString);
     }
 
     public static class PluginHook
     {
-        public static Dictionary<DatabaseType, ISqlFromMetadataFactory> SqlGenerators = new();
-        public static Dictionary<DatabaseType, IDatabaseCreator> DatabaseCreators = new();
+        public static Dictionary<DatabaseType, IDatabaseProviderCreator> DatabaseProviders = new();
+        public static Dictionary<DatabaseType, ISqlFromMetadataFactory> SqlFromMetadataFactories = new();
+        public static Dictionary<DatabaseType, IMetadataFromDatabaseFactoryCreator> MetadataFromSqlFactories = new();
 
         public static Option<int, IDataLinqOptionFailure> CreateDatabaseFromSql(this DatabaseType type, Sql sql, string databaseOrFile, string connectionString, bool foreignKeyRestrict)
         {
-            if (!DatabaseCreators.ContainsKey(type))
+            if (!MetadataFromSqlFactories.ContainsKey(type))
                 return new DataLinqOptionFailure<string>($"No creator for {type}");
 
-            return DatabaseCreators[type].CreateDatabase(sql, databaseOrFile, connectionString, foreignKeyRestrict);
+            return SqlFromMetadataFactories[type].CreateDatabase(sql, databaseOrFile, connectionString, foreignKeyRestrict);
         }
 
         public static Option<int, IDataLinqOptionFailure> CreateDatabaseFromMetadata(this DatabaseType type, DatabaseMetadata metadata, string databaseNameOrFile, string connectionString, bool foreignKeyRestrict)
@@ -40,10 +55,10 @@ namespace DataLinq.Metadata
 
         public static Option<Sql, IDataLinqOptionFailure> GenerateSql(this DatabaseType type, DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
-            if (!SqlGenerators.ContainsKey(type))
+            if (!SqlFromMetadataFactories.ContainsKey(type))
                 return new DataLinqOptionFailure<string>($"No handler for {type}");
 
-            return SqlGenerators[type].GetCreateTables(metadata, foreignKeyRestrict);
+            return SqlFromMetadataFactories[type].GetCreateTables(metadata, foreignKeyRestrict);
         }
     }
 }

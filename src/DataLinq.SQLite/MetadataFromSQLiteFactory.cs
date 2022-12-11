@@ -1,22 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using DataLinq.Attributes;
+using DataLinq.Metadata;
+using System;
 using System.Data;
 using System.Linq;
-using System.Reflection;
-using System.Reflection.PortableExecutable;
-using System.Xml.Linq;
-using DataLinq.Attributes;
-using DataLinq.Metadata;
-using Microsoft.Data.Sqlite;
 
 namespace DataLinq.SQLite
 {
-    public class MetadataFromSqlFactory
+    public class MetadataFromSQLiteFactoryCreator : IMetadataFromDatabaseFactoryCreator
     {
-        private readonly MetadataFromSqlFactoryOptions options;
+        public IMetadataFromSqlFactory GetMetadataFromSqlFactory(MetadataFromDatabaseFactoryOptions options)
+        {
+            return new MetadataFromSQLiteFactory(options);
+        }
+    }
+
+    public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
+    {
+        private readonly MetadataFromDatabaseFactoryOptions options;
         private SQLiteDbAccess dbAccess;
 
-        public MetadataFromSqlFactory(MetadataFromSqlFactoryOptions options)
+        public MetadataFromSQLiteFactory(MetadataFromDatabaseFactoryOptions options)
         {
             this.options = options;
         }

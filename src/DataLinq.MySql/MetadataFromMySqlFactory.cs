@@ -8,17 +8,26 @@ using System.Linq;
 
 namespace DataLinq.MySql
 {
-    public class MetadataFromSqlFactory
+    public class MetadataFromMySqlFactoryCreator : IMetadataFromDatabaseFactoryCreator
     {
-        private readonly MetadataFromSqlFactoryOptions options;
+        public IMetadataFromSqlFactory GetMetadataFromSqlFactory(MetadataFromDatabaseFactoryOptions options)
+        {
+            return new MetadataFromMySqlFactory(options);
+        }
+    }
 
-        public MetadataFromSqlFactory(MetadataFromSqlFactoryOptions options)
+    public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
+    {
+        private readonly MetadataFromDatabaseFactoryOptions options;
+
+        public MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options)
         {
             this.options = options;
         }
 
-        public DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, information_schema information_Schema)
+        public DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, string connectionString)
         {
+            var information_Schema = new MySqlDatabase<information_schema>(connectionString, "information_schema").Query();
             var database = new DatabaseMetadata(name, null, csTypeName, dbName);
 
             database.TableModels = information_Schema

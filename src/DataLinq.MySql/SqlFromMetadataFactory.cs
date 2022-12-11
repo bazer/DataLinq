@@ -8,7 +8,7 @@ using ThrowAway;
 
 namespace DataLinq.MySql
 {
-    public class SqlFromMetadataFactory : ISqlFromMetadataFactory , IDatabaseCreator
+    public class SqlFromMetadataFactory : ISqlFromMetadataFactory
     {
         private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum" };
 

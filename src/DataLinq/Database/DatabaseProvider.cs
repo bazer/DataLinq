@@ -55,11 +55,11 @@ namespace DataLinq
         //    return new Transaction<T>(this, transactionType);
         //}
 
-        protected DatabaseProvider(string connectionString) : base(connectionString, typeof(T))
+        protected DatabaseProvider(string connectionString, DatabaseType databaseType) : base(connectionString, typeof(T), databaseType)
         {
         }
 
-        protected DatabaseProvider(string connectionString, string databaseName) : base(connectionString, typeof(T), databaseName)
+        protected DatabaseProvider(string connectionString, DatabaseType databaseType, string databaseName) : base(connectionString, typeof(T), databaseType, databaseName)
         {
         }
     }
@@ -67,6 +67,7 @@ namespace DataLinq
     public abstract class DatabaseProvider : IDatabaseProvider
     {
         public string DatabaseName { get; }
+        public DatabaseType DatabaseType { get; }
 
         public string ConnectionString { get; }
         public DatabaseMetadata Metadata { get; }
@@ -79,21 +80,22 @@ namespace DataLinq
 
         public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches.Single(x => x.Table == table);
 
-        protected DatabaseProvider(string connectionString, Type databaseType, string databaseName = null)
+        protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, string databaseName = null)
         {
+            DatabaseType = databaseType;
             DatabaseName = databaseName;
             ConnectionString = connectionString;
 
             lock (lockObject)
             {
-                if (DatabaseMetadata.LoadedDatabases.TryGetValue(databaseType, out var metadata))
+                if (DatabaseMetadata.LoadedDatabases.TryGetValue(type, out var metadata))
                     Metadata = metadata;
                 else
                 {
-                    Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(databaseType);
+                    Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(type);
                     //Metadata.DatabaseProvider = this;
 
-                    DatabaseMetadata.LoadedDatabases.TryAdd(databaseType, Metadata);
+                    DatabaseMetadata.LoadedDatabases.TryAdd(type, Metadata);
                 }
             }
 

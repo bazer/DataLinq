@@ -10,6 +10,9 @@ namespace DataLinq
     public abstract class Database<T> : IDisposable
         where T : class, IDatabaseModel
     {
+        //public static Database<T> GetDatabase(DatabaseType)
+
+        public DatabaseType DatabaseType => Provider.DatabaseType;
         public DatabaseProvider<T> Provider { get; }
 
         public Database(DatabaseProvider<T> provider)

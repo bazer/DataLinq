@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace DataLinq.Metadata
 {
-    public struct MetadataFromSqlFactoryOptions
+    public struct MetadataFromDatabaseFactoryOptions
     {
         public bool CapitaliseNames { get; set; }
         public bool DeclareEnumsInClass { get; set; }

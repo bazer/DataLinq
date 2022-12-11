@@ -1,12 +1,12 @@
 using DataLinq.Extensions;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using Microsoft.Data.Sqlite;
 using System;
 using System.Data;
-using Microsoft.Data.Sqlite;
-using DataLinq.Metadata;
-using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace DataLinq.SQLite
 {
@@ -14,13 +14,15 @@ namespace DataLinq.SQLite
     {
         public static bool HasBeenRegistered { get; private set; }
 
+        [ModuleInitializer]
         public static void RegisterProvider()
         {
             if (HasBeenRegistered)
                 return;
 
-            PluginHook.SqlGenerators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
-            PluginHook.DatabaseCreators[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            PluginHook.DatabaseProviders[DatabaseType.SQLite] = new SQLiteDatabaseCreator();
+            PluginHook.SqlFromMetadataFactories[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            PluginHook.MetadataFromSqlFactories[DatabaseType.SQLite] = new MetadataFromSQLiteFactoryCreator();
 
             HasBeenRegistered = true;
         }
@@ -34,11 +36,11 @@ namespace DataLinq.SQLite
             SQLiteProvider.RegisterProvider();
         }
 
-        public SQLiteProvider(string connectionString) : base(connectionString)
+        public SQLiteProvider(string connectionString) : base(connectionString, DatabaseType.SQLite)
         {
         }
 
-        public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, databaseName)
+        public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.SQLite, databaseName)
         {
         }
 
@@ -94,7 +96,10 @@ namespace DataLinq.SQLite
 
         public override string GetExists(string databaseName = null)
         {
-            throw new NotImplementedException();
+            if (databaseName == null && DatabaseName == null)
+                throw new ArgumentNullException("DatabaseName not defined");
+
+            return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
         }
     }
 }

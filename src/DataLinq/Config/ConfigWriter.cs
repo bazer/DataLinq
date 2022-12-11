@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DataLinq.Tools.Config
+namespace DataLinq.Config
 {
     internal class ConfigWriter
     {

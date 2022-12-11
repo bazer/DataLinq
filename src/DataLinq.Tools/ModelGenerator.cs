@@ -1,7 +1,5 @@
-﻿using DataLinq.Metadata;
-using DataLinq.MySql;
-using DataLinq.MySql.Models;
-using DataLinq.Tools.Config;
+﻿using DataLinq.Config;
+using DataLinq.Metadata;
 using System;
 using System.IO;
 using System.Linq;
@@ -38,7 +36,7 @@ namespace DataLinq.Tools
 
         public Option<DatabaseMetadata, ModelGeneratorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath, string databaseName)
         {
-            var sqlOptions = new MetadataFromSqlFactoryOptions
+            var sqlOptions = new MetadataFromDatabaseFactoryOptions
             {
                 CapitaliseNames = this.options.CapitalizeNames,
                 DeclareEnumsInClass = this.options.DeclareEnumsInClass
@@ -47,16 +45,24 @@ namespace DataLinq.Tools
             if (connection.ParsedType == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
                 databaseName = Path.Combine(basePath, databaseName);
 
-            log($"Reading from database: {databaseName}");
-            log($"Type: {connection.Type}");
+            var connectionString = connection.ConnectionString;
+            if (connection.ParsedType == DatabaseType.SQLite)
+                connectionString = $"Data Source={databaseName};Cache=Shared;";
 
-            var dbMetadata = connection.ParsedType switch
-            {
-                DatabaseType.MySQL =>
-                    new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
-                DatabaseType.SQLite =>
-                    new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, $"Data Source={databaseName};Cache=Shared;")
-            };
+            log($"Reading from database: {databaseName}");
+            log($"Type: {connection.ParsedType}");
+
+            var dbMetadata = PluginHook.MetadataFromSqlFactories[connection.ParsedType.Value]
+                .GetMetadataFromSqlFactory(sqlOptions)
+                .ParseDatabase(db.Name, db.CsType, databaseName, connectionString);
+
+            //var dbMetadata = connection.ParsedType switch
+            //{
+            //    DatabaseType.MySQL =>
+            //        new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
+            //    DatabaseType.SQLite =>
+            //        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, $"Data Source={databaseName};Cache=Shared;")
+            //};
 
             log($"Tables in database: {dbMetadata.TableModels.Count}");
 

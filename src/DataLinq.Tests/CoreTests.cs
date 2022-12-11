@@ -1,21 +1,54 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using DataLinq.Config;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
 using Xunit;
+using Xunit.Sdk;
 
 namespace DataLinq.Tests
 {
-    public class CoreTests : IClassFixture<DatabaseFixture>
+    public abstract class BaseTests
     {
-        private DatabaseFixture fixture;
+        public static DatabaseFixture fixture;
 
-        public CoreTests(DatabaseFixture fixture)
+        static BaseTests()
         {
-            this.fixture = fixture;
+            fixture = new DatabaseFixture();
         }
+
+        public BaseTests()
+        {
+
+        }
+
+        public static IEnumerable<object[]> GetEmployees()
+        {
+            foreach (var db in fixture.AllEmployeesDb)
+                yield return new object[] { db };
+        }
+
+        public static IEnumerable<object[]> GetEmployeeConnections()
+        {
+            foreach (var db in fixture.EmployeeConnections)
+                yield return new object[] { db };
+        }
+    }
+
+
+    public class CoreTests : BaseTests //IClassFixture<DatabaseFixture>
+    {
+        //private DatabaseFixture fixture;
+
+        //public CoreTests(DatabaseFixture fixture)
+        //{
+        //    this.fixture = fixture;
+        //}
 
         [Fact]
         public void TestMetadataFromFixture()
@@ -31,10 +64,17 @@ namespace DataLinq.Tests
             TestDatabase(MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(typeof(Employees)), true);
         }
 
-        [Fact]
-        public void TestMetadataFromSqlFactory()
+        [Theory]
+        [MemberData(nameof(GetEmployeeConnections))]
+        public void TestMetadataFromSqlFactory(DatabaseConnectionConfig connection)
         {
-            TestDatabase(new MetadataFromSqlFactory(new MetadataFromSqlFactoryOptions { }).ParseDatabase("employees", "Employees", fixture.EmployeesDbName, fixture.information_schema.Query()), false);
+            var factory = PluginHook.MetadataFromSqlFactories[connection.ParsedType.Value]
+                .GetMetadataFromSqlFactory(new MetadataFromDatabaseFactoryOptions());
+
+            var metadata = factory.ParseDatabase("employees", "Employees", connection.DatabaseName, connection.ConnectionString);
+            TestDatabase(metadata, false);
+
+            //TestDatabase(new MetadataFromMySqlFactory(new MetadataFromDatabaseFactoryOptions { }).ParseDatabase("employees", "Employees", fixture.EmployeesDbName, fixture.information_schema.Query()), false);
         }
 
         private void TestDatabase(DatabaseMetadata database, bool testCsType)

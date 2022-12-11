@@ -1,10 +1,21 @@
 ﻿using DataLinq.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using DataLinq.Metadata;
 
 namespace DataLinq.SQLite
 {
+    public class SQLiteDatabaseCreator : IDatabaseProviderCreator
+    {
+        public bool IsDatabaseType(string typeName)
+        {
+            return typeName.Equals("sqlite", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        Database<T> IDatabaseProviderCreator.GetDatabaseProvider<T>(string connectionString, string databaseName)
+        {
+            return new SQLiteDatabase<T>(connectionString, databaseName);
+        }
+    }
+
     public class SQLiteDatabase<T>: Database<T>
          where T : class, IDatabaseModel
     {
