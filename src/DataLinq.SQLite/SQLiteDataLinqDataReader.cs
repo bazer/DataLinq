@@ -34,8 +34,8 @@ namespace DataLinq.SQLite
 
         public DateOnly GetDateOnly(int ordinal)
         {
-            throw new NotImplementedException();
-            //return dataReader.GetDateOnly(ordinal);
+            var date = dataReader.GetDateTime(ordinal);
+            return new DateOnly(date.Year, date.Month, date.Day);
         }
 
         public int GetOrdinal(string name)

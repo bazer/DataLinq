@@ -45,6 +45,12 @@ namespace DataLinq.Tests
                 var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.ParsedType).Value;
 
                 var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString, connection.DatabaseName);
+                
+                //if (dbEmployees.Query().Employees.Count() == 0)
+                //{
+                //    FillEmployeesWithBogusData(dbEmployees);
+                //}
+
 
                 //if (!dbEmployees.Exists())
                 //{
@@ -58,9 +64,9 @@ namespace DataLinq.Tests
 
                 AllEmployeesDb.Add(dbEmployees);
             }
-            employeesDb = AllEmployeesDb[0];
+            employeesDb = AllEmployeesDb[1];
             //employeesDb = new MySqlDatabase<Employees>(connDataLinq, EmployeesDbName);
-            //information_schema = new MySqlDatabase<information_schema>(configuration.GetConnectionString("information_schema"));
+            information_schema_provider = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.ParsedType == DatabaseType.MySQL).ConnectionString);
 
             //if (!employeesDb.Exists())
             //{
@@ -77,8 +83,8 @@ namespace DataLinq.Tests
         public List<Database<Employees>> AllEmployeesDb { get; set; } = new();
         public Database<Employees> employeesDb { get; set; }
         //public employeesDb employeesDb => employeesDb_provider.Read();
-        //public MySqlDatabase<information_schema> information_schema { get; set; }
-        //public information_schema information_schema => information_schema_provider.Read();
+        public MySqlDatabase<information_schema> information_schema_provider { get; set; }
+        public information_schema information_schema => information_schema_provider.Query();
 
         //public string ConnectionString { get; private set; }
         //public string EmployeesDbName { get; private set; }
