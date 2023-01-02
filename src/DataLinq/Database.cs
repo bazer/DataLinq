@@ -20,6 +20,11 @@ namespace DataLinq
             this.Provider = provider;
         }
 
+        public bool FileOrServerExists()
+        {
+            return Provider.FileOrServerExists();
+        }
+
         public bool Exists(string databaseName = null)
         {
             return Transaction(TransactionType.ReadOnly)

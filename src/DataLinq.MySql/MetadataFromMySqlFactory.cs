@@ -137,13 +137,17 @@ namespace DataLinq.MySql
             var valueProp = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
 
             if (csType == "enum")
-                MetadataFactory.AttachEnumProperty(valueProp, new List<string>(), ParseEnumType(dbColumns.COLUMN_TYPE), true);
+                MetadataFactory.AttachEnumProperty(valueProp, new List<(string name, int value)>(), ParseEnumType(dbColumns.COLUMN_TYPE), true);
 
             return column;
         }
 
-        private IEnumerable<string> ParseEnumType(string COLUMN_TYPE) =>
-            COLUMN_TYPE[5..^1].Trim('\'').Split("','").Prepend("Empty");
+        private IEnumerable<(string name, int value)> ParseEnumType(string COLUMN_TYPE) =>
+            COLUMN_TYPE[5..^1]
+            .Trim('\'')
+            .Split("','")
+            .Select((x, i) => (x, i + 1))
+            .Prepend(("Empty", 0));
 
         private string ParseCsType(string dbType)
         {

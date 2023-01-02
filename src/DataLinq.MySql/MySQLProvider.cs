@@ -6,6 +6,7 @@ using DataLinq.Query;
 using MySqlConnector;
 using System;
 using System.Data;
+using System.Data.Common;
 using System.Runtime.CompilerServices;
 
 namespace DataLinq.MySql
@@ -31,6 +32,8 @@ namespace DataLinq.MySql
     public class MySQLProvider<T> : DatabaseProvider<T>
         where T : class, IDatabaseModel
     {
+        private MySqlConnectionStringBuilder connectionStringBuilder;
+
         static MySQLProvider()
         {
             MySQLProvider.RegisterProvider();
@@ -38,10 +41,12 @@ namespace DataLinq.MySql
 
         public MySQLProvider(string connectionString) : base(connectionString, DatabaseType.MySQL)
         {
+            connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
         }
 
         public MySQLProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.MySQL, databaseName)
         {
+            connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
         }
 
         public override void CreateDatabase(string databaseName = null)
@@ -73,6 +78,20 @@ namespace DataLinq.MySql
                 throw new ArgumentNullException("DatabaseName not defined");
 
             return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
+        }
+
+        public override bool FileOrServerExists()
+        {
+            try
+            {
+                using var transaction = GetNewDatabaseTransaction(TransactionType.NoTransaction);
+
+                return transaction.ExecuteScalar<int>("SELECT 1") == 1;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         public override string GetLastIdQuery()

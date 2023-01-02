@@ -201,7 +201,7 @@ namespace DataLinq.Metadata
                 : property.EnumProperty.Value.EnumValues;
 
             foreach (var val in values)
-                yield return $"{tab}{tab}{val},";
+                yield return $"{tab}{tab}{val.name} = {val.value},";
 
             yield return tab + "}";
             yield return "";

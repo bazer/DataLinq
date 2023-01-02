@@ -12,14 +12,14 @@ namespace DataLinq.MySql
     {
         private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum" };
 
-        public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string database, string connectionString, bool foreignKeyRestrict)
+        public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
         {
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
             var command = connection.CreateCommand();
 
-            command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{database}`;\n" +
-                $"USE `{database}`;\n" +
+            command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{databaseName}`;\n" +
+                $"USE `{databaseName}`;\n" +
                 sql.Text;
 
             return command.ExecuteNonQuery();
@@ -58,7 +58,7 @@ namespace DataLinq.MySql
                     .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
                 if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
-                    sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues);
+                    sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
 
                 if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
                     sql.TypeLength(dbType.Length);

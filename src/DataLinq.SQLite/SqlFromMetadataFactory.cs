@@ -59,14 +59,20 @@ namespace DataLinq.SQLite
             return sql.sql;
         }
 
-        public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseFile, string connectionString, bool foreignKeyRestrict)
+        public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
         {
-            if (File.Exists(databaseFile))
-                return DataLinqOptionFailure.Fail("DatabaseFile already exists");
+            var builder = new SqliteConnectionStringBuilder(connectionString);
+            var file = builder.DataSource;
 
-            File.WriteAllBytes(databaseFile, new byte[] { });
+            if (file != "memory")
+            {
+                if (File.Exists(file))
+                    return DataLinqOptionFailure.Fail("Database file already exists");
 
-            using var connection = new SqliteConnection($"Data Source={databaseFile}");
+                File.WriteAllBytes(file, new byte[] { });
+            }
+
+            using var connection = new SqliteConnection(connectionString);
             connection.Open();
             var command = connection.CreateCommand();
             command.CommandText = sql.Text;

@@ -20,7 +20,7 @@ namespace DataLinq.Metadata
     public interface ISqlFromMetadataFactory
     {
         Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict);
-        Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseNameOrFile, string connectionString, bool foreignKeyRestrict);
+        Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict);
     }
 
     public interface IMetadataFromDatabaseFactoryCreator

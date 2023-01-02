@@ -151,7 +151,7 @@ namespace DataLinq.Metadata
             return property;
         }
 
-        public static void AttachEnumProperty(ValueProperty property, IEnumerable<string> enumValues, IEnumerable<string> csEnumValues, bool declaredInClass)
+        public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, IEnumerable<(string name, int value)> csEnumValues, bool declaredInClass)
         {
             property.EnumProperty = new EnumProperty(enumValues.ToList(), csEnumValues.ToList(), declaredInClass);
         }

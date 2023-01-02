@@ -100,15 +100,15 @@ namespace DataLinq.Metadata
 
     public record struct EnumProperty
     {
-        public EnumProperty(List<string> enumValues, List<string> csEnumValues, bool declaredInClass = true)
+        public EnumProperty(List<(string name, int value)> enumValues, List<(string name, int value)> csEnumValues, bool declaredInClass = true)
         {
             EnumValues = enumValues;
             CsEnumValues = csEnumValues;
             DeclaredInClass = declaredInClass;
         }
 
-        public List<string> EnumValues { get; }
-        public List<string> CsEnumValues { get; }
+        public List<(string name, int value)> EnumValues { get; }
+        public List<(string name, int value)> CsEnumValues { get; }
         public bool DeclaredInClass { get; }
     }
 

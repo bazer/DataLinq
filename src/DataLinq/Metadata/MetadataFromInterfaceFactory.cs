@@ -239,10 +239,11 @@ namespace DataLinq.Metadata
                     valueProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
 
                     var enumValueList = attributes.Any(attribute => attribute is EnumAttribute)
-                        ? attributes.OfType<EnumAttribute>().Single().Values.ToList()
-                        : new List<string>();
+                        ? attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i)).ToList()
+                        : new List<(string name, int value)>();
 
-                    valueProp.EnumProperty = new EnumProperty(enumValueList, Enum.GetNames(property.CsType).ToList(), true);
+                    var enumValues = Enum.GetValues(property.CsType).Cast<int>().ToList();
+                    valueProp.EnumProperty = new EnumProperty(enumValueList, Enum.GetNames(property.CsType).Select((x, i) => (x, enumValues[i])).ToList(), true);
 
                     //if (attributes.Any(attribute => attribute is EnumAttribute))
                     //    valueProp.EnumProperty.Value.EnumValues = attributes.OfType<EnumAttribute>().Single().Values.ToList();

@@ -19,9 +19,9 @@
           "ConnectionString": "Host=localhost;User=datalinq;Password=datalinq;Max Pool Size=100;Pooling=true;CharSet=utf8mb4;"
         },
         {
-          "DatabaseName": "employees.db",
+          "DatabaseName": "employees",
           "Type": "SQLite",
-          "ConnectionString": "Data Source=employees.db;Cache=Shared;"
+          "ConnectionString": "Data Source=D:\\testing\\employees2.db;Cache=Shared;"
         }
       ]
     }

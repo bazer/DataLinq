@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Data;
 using System.Data.Common;
+using System.Linq;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
 
@@ -36,6 +37,8 @@ namespace DataLinq
 
             if (value is DBNull)
                 return null;
+            else if (column.ValueProperty.CsType.IsEnum && value is string stringValue)
+                return Enum.ToObject(column.ValueProperty.CsType, column.ValueProperty.EnumProperty.Value.EnumValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
             else if (column.ValueProperty.CsType.IsEnum)
                 return Enum.ToObject(column.ValueProperty.CsType, value);
             else if (column.ValueProperty.CsNullable)

@@ -125,6 +125,7 @@ namespace DataLinq
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
 
         public abstract string GetExists(string databaseName = null);
+        public abstract bool FileOrServerExists();
         public abstract void CreateDatabase(string databaseName = null);
         //public abstract void RegisterProvider();
 

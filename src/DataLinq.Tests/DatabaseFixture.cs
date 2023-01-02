@@ -39,6 +39,7 @@ namespace DataLinq.Tests
             //EmployeesDbName = configuration.GetSection("employeesDbName")?.Value ?? "employees";
 
             EmployeeConnections = employees.Connections;
+            var lockObject = new object();
 
             foreach (var connection in employees.Connections)
             {
@@ -46,6 +47,21 @@ namespace DataLinq.Tests
 
                 var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString, connection.DatabaseName);
                 
+                lock(lockObject)
+                {
+                    if (!dbEmployees.FileOrServerExists() || !dbEmployees.Exists())
+                    {
+                        PluginHook.CreateDatabaseFromMetadata(connection.ParsedType.Value,
+                            dbEmployees.Provider.Metadata, connection.DatabaseName, connection.ConnectionString, true);
+                    }
+
+                    if (dbEmployees.Query().Employees.Count() == 0)
+                    {
+                        FillEmployeesWithBogusData(dbEmployees);
+                    }
+                }
+
+
                 //if (dbEmployees.Query().Employees.Count() == 0)
                 //{
                 //    FillEmployeesWithBogusData(dbEmployees);
