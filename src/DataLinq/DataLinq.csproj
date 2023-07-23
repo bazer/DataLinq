@@ -20,18 +20,18 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Castle.Core" Version="5.1.0" />
+		<PackageReference Include="Castle.Core" Version="5.1.1" />
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MinVer" Version="4.2.0">
+		<PackageReference Include="MinVer" Version="4.3.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Remotion.Linq" Version="2.2.0" />
 		<PackageReference Include="System.Reflection" Version="4.3.0" />
-		<PackageReference Include="System.Reflection.Metadata" Version="6.0.1" />
+		<PackageReference Include="System.Reflection.Metadata" Version="7.0.2" />
 		<PackageReference Include="ThrowAway" Version="0.1.1" />
 	</ItemGroup>
 
