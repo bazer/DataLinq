@@ -66,9 +66,9 @@ namespace DataLinq.SQLite
 
         public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
         {
-            if (type == TransactionType.NoTransaction)
-                return new SQLiteDbAccess(ConnectionString, type);
-            else
+            //if (type == TransactionType.ReadOnly)
+            //    return new SQLiteDbAccess(ConnectionString, type);
+            //else
                 return new SQLiteDatabaseTransaction(ConnectionString, type);
         }
 

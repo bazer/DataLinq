@@ -27,7 +27,7 @@ namespace DataLinq.Tests
         {
             var emp_no = 999999;
 
-            foreach (var alreadyExists in fixture.employeesDb.Query().Employees.Where(x => x.emp_no == emp_no))
+            foreach (var alreadyExists in fixture.employeesDb.Query().Employees.Where(x => x.emp_no == emp_no).ToList())
                 fixture.employeesDb.Delete(alreadyExists);
 
             var employee = helpers.NewEmployee(emp_no);
@@ -302,7 +302,7 @@ namespace DataLinq.Tests
 
             for (int i = 0; i < 10; i++)
             {
-                transactions[i] = fixture.employeesDb.Transaction(TransactionType.ReadOnly);
+                transactions[i] = fixture.employeesDb.Transaction(TransactionType.ReadAndWrite);
                 var dbEmployee = transactions[i].Query().Employees.Single(x => x.emp_no == emp_no);
                 var dbEmployee2 = transactions[i].Query().Employees.Single(x => x.emp_no == emp_no);
                 Assert.Same(dbEmployee, dbEmployee2);

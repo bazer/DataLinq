@@ -1,7 +1,7 @@
-﻿using System;
-using System.Data;
-using DataLinq.Mutation;
+﻿using DataLinq.Mutation;
 using Microsoft.Data.Sqlite;
+using System;
+using System.Data;
 
 namespace DataLinq.SQLite
 {
@@ -9,7 +9,7 @@ namespace DataLinq.SQLite
     {
         public SQLiteDbAccess(string connectionString, TransactionType type) : base(connectionString, type)
         {
-            if (type != TransactionType.NoTransaction)
+            //if (type != TransactionType.NoTransaction)
                 throw new ArgumentException("Only 'TransactionType.NoTransaction' is allowed");
         }
 
@@ -66,6 +66,11 @@ namespace DataLinq.SQLite
             var connection = new SqliteConnection(ConnectionString);
             command.Connection = connection;
             connection.Open();
+
+            using (var pragma = new SqliteCommand("PRAGMA journal_mode=WAL;", connection))
+            {
+                pragma.ExecuteNonQuery();
+            }
 
             return new SQLiteDataLinqDataReader(command.ExecuteReader(CommandBehavior.CloseConnection) as SqliteDataReader);
         }

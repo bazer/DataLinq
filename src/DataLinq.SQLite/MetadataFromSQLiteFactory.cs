@@ -17,7 +17,7 @@ namespace DataLinq.SQLite
     public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         private readonly MetadataFromDatabaseFactoryOptions options;
-        private SQLiteDbAccess dbAccess;
+        private SQLiteDatabaseTransaction dbAccess;
 
         public MetadataFromSQLiteFactory(MetadataFromDatabaseFactoryOptions options)
         {
@@ -26,7 +26,7 @@ namespace DataLinq.SQLite
 
         public DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, string connectionString)
         {
-            dbAccess = new SQLiteDbAccess(connectionString, Mutation.TransactionType.NoTransaction);
+            dbAccess = new SQLiteDatabaseTransaction(connectionString, Mutation.TransactionType.ReadOnly);
 
             var database = new DatabaseMetadata(name, null, csTypeName, dbName);
             database.TableModels = dbAccess

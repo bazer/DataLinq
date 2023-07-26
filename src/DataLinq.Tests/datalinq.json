@@ -16,7 +16,7 @@
         {
           "DatabaseName": "employees",
           "Type": "MariaDB",
-          "ConnectionString": "Host=localhost;User=datalinq;Password=datalinq;Max Pool Size=100;Pooling=true;CharSet=utf8mb4;"
+          "ConnectionString": "Host=localhost;User=datalinq;Password=datalinq;Max Pool Size=500;Pooling=true;CharSet=utf8mb4;"
         },
         {
           "DatabaseName": "employees",

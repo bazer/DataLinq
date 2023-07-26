@@ -100,7 +100,7 @@ namespace DataLinq.Query
 
         private void CheckTransaction(Transaction transaction)
         {
-            if (transaction.Type != TransactionType.NoTransaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
+            if (/*transaction.Type != TransactionType.ReadOnly && */(transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
                 throw new Exception("Can't open a new connection on a committed or rolled back transaction");
         }
 

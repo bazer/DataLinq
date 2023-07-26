@@ -40,7 +40,7 @@ namespace DataLinq
 
         public T Query()
         {
-            return Transaction(TransactionType.NoTransaction).Query();
+            return Transaction(TransactionType.ReadOnly).Query();
         }
 
         public SqlQuery From(string tableName, string alias = null)
@@ -48,7 +48,7 @@ namespace DataLinq
             if (alias == null)
                 (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
-            var transaction = Transaction(TransactionType.NoTransaction);
+            var transaction = Transaction(TransactionType.ReadOnly);
             var table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
             return new SqlQuery(table, transaction, alias);
@@ -56,12 +56,12 @@ namespace DataLinq
 
         public SqlQuery From(TableMetadata table, string alias = null)
         {
-            return new SqlQuery(table, Transaction(TransactionType.NoTransaction), alias);
+            return new SqlQuery(table, Transaction(TransactionType.ReadOnly), alias);
         }
 
         public SqlQuery<V> From<V>() where V: IModel
         {
-            return Transaction(TransactionType.NoTransaction).From<V>();
+            return Transaction(TransactionType.ReadOnly).From<V>();
         }
 
         public M Insert<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel

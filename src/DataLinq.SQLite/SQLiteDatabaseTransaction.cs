@@ -1,7 +1,7 @@
 ﻿using DataLinq.Mutation;
+using Microsoft.Data.Sqlite;
 using System;
 using System.Data;
-using Microsoft.Data.Sqlite;
 
 namespace DataLinq.SQLite
 {
@@ -26,18 +26,17 @@ namespace DataLinq.SQLite
                     Status = DatabaseTransactionStatus.Open;
                     dbConnection = new SqliteConnection(ConnectionString);
                     dbConnection.Open();
-                    dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
+
+                    using (var command = new SqliteCommand("PRAGMA journal_mode=WAL;", dbConnection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+
+                    dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadUncommitted);
                 }
 
                 return dbConnection;
             }
-        }
-
-        public override int ExecuteNonQuery(string query)
-        {
-            var command = new SqliteCommand(query);
-
-            return ExecuteNonQuery(command);
         }
 
         public override int ExecuteNonQuery(IDbCommand command)
@@ -50,10 +49,12 @@ namespace DataLinq.SQLite
             }
             catch (Exception)
             {
-                //Rollback();
                 throw;
             }
         }
+
+        public override int ExecuteNonQuery(string query) =>
+            ExecuteNonQuery(new SqliteCommand(query));
 
         public override object ExecuteScalar(string query) =>
             ExecuteScalar(new SqliteCommand(query));
@@ -74,7 +75,6 @@ namespace DataLinq.SQLite
             }
             catch (Exception)
             {
-                //Rollback();
                 throw;
             }
         }

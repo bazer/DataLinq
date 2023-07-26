@@ -65,7 +65,7 @@ namespace DataLinq.MySql
 
         public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
         {
-            if (type == TransactionType.NoTransaction)
+            if (type == TransactionType.ReadOnly)
                 return new MySqlDbAccess(ConnectionString, type);
             else
                 return new MySqlDatabaseTransaction(ConnectionString, type);
@@ -84,7 +84,7 @@ namespace DataLinq.MySql
         {
             try
             {
-                using var transaction = GetNewDatabaseTransaction(TransactionType.NoTransaction);
+                using var transaction = GetNewDatabaseTransaction(TransactionType.ReadOnly);
 
                 return transaction.ExecuteScalar<int>("SELECT 1") == 1;
             }

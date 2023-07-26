@@ -37,8 +37,8 @@ namespace DataLinq.Instances
             //if (!RelationCache.TryGetValue(info.Name, out object returnvalue))
             //{
 
-            if (Transaction.Type != TransactionType.NoTransaction && (Transaction.Status == DatabaseTransactionStatus.Committed || Transaction.Status == DatabaseTransactionStatus.RolledBack))
-                Transaction = Transaction.Provider.StartTransaction(TransactionType.NoTransaction);
+            if (Transaction.Type != TransactionType.ReadOnly && (Transaction.Status == DatabaseTransactionStatus.Committed || Transaction.Status == DatabaseTransactionStatus.RolledBack))
+                Transaction = Transaction.Provider.StartTransaction(TransactionType.ReadOnly);
 
             
             //var column = property.Column;

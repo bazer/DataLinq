@@ -287,15 +287,15 @@ namespace DataLinq.Cache
 
         public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, List<OrderBy> orderings = null)
         {
-            if (transaction.Type != TransactionType.NoTransaction && !TransactionRows.ContainsKey(transaction))
+            if (transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
                 TransactionRows.TryAdd(transaction, new ConcurrentDictionary<PrimaryKeys, object>());
 
             var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
             foreach (var key in primaryKeys)
             {
-                if (transaction.Type == TransactionType.NoTransaction && Rows.TryGetValue(key, out var row))
+                if (transaction.Type == TransactionType.ReadOnly && Rows.TryGetValue(key, out var row))
                     yield return row;
-                else if (transaction.Type != TransactionType.NoTransaction && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out object transactionRow))
+                else if (transaction.Type != TransactionType.ReadOnly && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out object transactionRow))
                     yield return transactionRow;
                 else
                     keysToLoad.Add(key);
@@ -335,8 +335,8 @@ namespace DataLinq.Cache
             var keys = rowData.GetKeys();
 
 
-            if ((transaction.Type == TransactionType.NoTransaction && (!Table.UseCache || TryAddRowAllDict(keys, rowData, row)))
-                || (transaction.Type != TransactionType.NoTransaction && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryAdd(keys, row)))
+            if ((transaction.Type == TransactionType.ReadOnly && (!Table.UseCache || TryAddRowAllDict(keys, rowData, row)))
+                || (transaction.Type != TransactionType.ReadOnly && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryAdd(keys, row)))
             {
                 return true;
             }
