@@ -14,79 +14,79 @@ namespace DataLinq.Tests
         public QueryTests(DatabaseFixture fixture)
         {
             this.fixture = fixture;
-            lastDepartmentName = $"d{fixture.employeesDb.Query().departments.Count():000}";
+            lastDepartmentName = $"d{fixture.employeesDb.Query().Departments.Count():000}";
         }
 
         [Fact]
         public void ToList()
         {
-            Assert.True(10 < fixture.employeesDb.Query().departments.ToList().Count);
+            Assert.True(10 < fixture.employeesDb.Query().Departments.ToList().Count);
         }
 
         [Fact]
         public void Count()
         {
-            Assert.True(10 < fixture.employeesDb.Query().departments.Count());
+            Assert.True(10 < fixture.employeesDb.Query().Departments.Count());
         }
 
         [Fact]
         public void SimpleWhere()
         {
-            var where = fixture.employeesDb.Query().departments.Where(x => x.dept_no == "d005").ToList();
+            var where = fixture.employeesDb.Query().Departments.Where(x => x.DeptNo == "d005").ToList();
             Assert.Single(where);
-            Assert.Equal("d005", where[0].dept_no);
+            Assert.Equal("d005", where[0].DeptNo);
         }
 
         [Fact]
         public void SimpleWhereReverse()
         {
-            var where = fixture.employeesDb.Query().departments.Where(x => "d005" == x.dept_no).ToList();
+            var where = fixture.employeesDb.Query().Departments.Where(x => "d005" == x.DeptNo).ToList();
             Assert.Single(where);
-            Assert.Equal("d005", where[0].dept_no);
+            Assert.Equal("d005", where[0].DeptNo);
         }
 
         [Fact]
         public void SimpleWhereNot()
         {
-            var where = fixture.employeesDb.Query().departments.Where(x => x.dept_no != "d005").ToList();
-            Assert.Equal(fixture.employeesDb.Query().departments.Count() - 1, where.Count);
-            Assert.DoesNotContain(where, x => x.dept_no == "d005");
+            var where = fixture.employeesDb.Query().Departments.Where(x => x.DeptNo != "d005").ToList();
+            Assert.Equal(fixture.employeesDb.Query().Departments.Count() - 1, where.Count);
+            Assert.DoesNotContain(where, x => x.DeptNo == "d005");
         }
 
         [Fact]
         public void WhereAndToList()
         {
-            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
-            Assert.NotEqual(fixture.employeesDb.Query().dept_manager.Count(x => x.dept_no == "d004"), where.Count);
+            var where = fixture.employeesDb.Query().Managers.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
+            Assert.NotEqual(fixture.employeesDb.Query().Managers.Count(x => x.dept_no == "d004"), where.Count);
         }
 
         [Fact]
         public void WhereAndCount()
         {
-            var where = fixture.employeesDb.Query().dept_manager.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("2010-01-01"));
-            Assert.NotEqual(fixture.employeesDb.Query().dept_manager.Count(x => x.dept_no == "d004"), where.Count());
+            var where = fixture.employeesDb.Query().Managers.Where(x => x.dept_no == "d004" && x.from_date > DateOnly.Parse("2010-01-01"));
+            Assert.NotEqual(fixture.employeesDb.Query().Managers.Count(x => x.dept_no == "d004"), where.Count());
         }
 
         [Fact]
         public void Single()
         {
-            var dept = fixture.employeesDb.Query().departments.Single(x => x.dept_no == "d005");
+            var dept = fixture.employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
             Assert.NotNull(dept);
-            Assert.Equal("d005", dept.dept_no);
+            Assert.Equal("d005", dept.DeptNo);
         }
 
         [Fact]
         public void SingleOrDefault()
         {
-            var dept = fixture.employeesDb.Query().departments.SingleOrDefault(x => x.dept_no == "d005");
+            var dept = fixture.employeesDb.Query().Departments.SingleOrDefault(x => x.DeptNo == "d005");
             Assert.NotNull(dept);
-            Assert.Equal("d005", dept.dept_no);
+            Assert.Equal("d005", dept.DeptNo);
         }
 
         [Fact]
         public void SingleOrDefaultNull()
         {
-            var dept = fixture.employeesDb.Query().departments.SingleOrDefault(x => x.dept_no == "1234");
+            var dept = fixture.employeesDb.Query().Departments.SingleOrDefault(x => x.DeptNo == "1234");
             Assert.Null(dept);
         }
 
@@ -164,26 +164,26 @@ namespace DataLinq.Tests
         [Fact]
         public void Any()
         {
-            Assert.True(fixture.employeesDb.Query().departments.Any(x => x.dept_no == "d005"));
-            Assert.True(fixture.employeesDb.Query().departments.Where(x => x.dept_no == "d005").Any());
-            Assert.False(fixture.employeesDb.Query().departments.Any(x => x.dept_no == "not_existing"));
-            Assert.False(fixture.employeesDb.Query().departments.Where(x => x.dept_no == "not_existing").Any());
+            Assert.True(fixture.employeesDb.Query().Departments.Any(x => x.DeptNo == "d005"));
+            Assert.True(fixture.employeesDb.Query().Departments.Where(x => x.DeptNo == "d005").Any());
+            Assert.False(fixture.employeesDb.Query().Departments.Any(x => x.DeptNo == "not_existing"));
+            Assert.False(fixture.employeesDb.Query().Departments.Where(x => x.DeptNo == "not_existing").Any());
         }
 
         [Fact]
         public void OrderBy()
         {
-            var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no);
-            Assert.Equal("d001", deptByDeptNo.First().dept_no);
-            Assert.Equal("d001", deptByDeptNo.FirstOrDefault().dept_no);
-            Assert.Equal(lastDepartmentName, deptByDeptNo.Last().dept_no);
-            Assert.Equal(lastDepartmentName, deptByDeptNo.LastOrDefault().dept_no);
+            var deptByDeptNo = fixture.employeesDb.Query().Departments.OrderBy(x => x.DeptNo);
+            Assert.Equal("d001", deptByDeptNo.First().DeptNo);
+            Assert.Equal("d001", deptByDeptNo.FirstOrDefault().DeptNo);
+            Assert.Equal(lastDepartmentName, deptByDeptNo.Last().DeptNo);
+            Assert.Equal(lastDepartmentName, deptByDeptNo.LastOrDefault().DeptNo);
         }
 
         [Fact]
         public void OrderBySelect()
         {
-            var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no).Select(x => x.dept_no);
+            var deptByDeptNo = fixture.employeesDb.Query().Departments.OrderBy(x => x.DeptNo).Select(x => x.DeptNo);
             Assert.Equal("d001", deptByDeptNo.First());
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault());
             Assert.Equal(lastDepartmentName, deptByDeptNo.Last());
@@ -193,10 +193,10 @@ namespace DataLinq.Tests
         [Fact]
         public void OrderBySelectAnonymous()
         {
-            var deptByDeptNo = fixture.employeesDb.Query().departments.OrderBy(x => x.dept_no).Select(x => new
+            var deptByDeptNo = fixture.employeesDb.Query().Departments.OrderBy(x => x.DeptNo).Select(x => new
             {
-                no = x.dept_no,
-                name = x.dept_name
+                no = x.DeptNo,
+                name = x.Name
             });
             Assert.Equal("d001", deptByDeptNo.First().no);
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault().no);

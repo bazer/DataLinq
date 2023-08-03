@@ -12,7 +12,7 @@ namespace DataLinq.Mutation
 {
     public enum TransactionType
     {
-        NoTransaction,
+        //NoTransaction,
         ReadAndWrite,
         ReadOnly,
         WriteOnly
@@ -172,7 +172,7 @@ namespace DataLinq.Mutation
 
         private void CheckIfTransactionIsValid()
         {
-            if (Type == TransactionType.NoTransaction)
+            if (Type == TransactionType.ReadOnly)
                 return;
 
             if (Status == DatabaseTransactionStatus.Committed)
@@ -234,7 +234,7 @@ namespace DataLinq.Mutation
 
         public SqlQuery From(string tableName)
         {
-            var table = Provider.Metadata.Tables.Single(x => x.DbName == tableName);
+            var table = Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
             return new SqlQuery(table, this);
         }

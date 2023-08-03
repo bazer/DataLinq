@@ -14,7 +14,17 @@ namespace DataLinq.Interfaces
 
     }
 
+    public interface ICustomDatabaseModel : IDatabaseModel
+    {
+
+    }
+
     public interface ITableModel : IModel
+    {
+
+    }
+
+    public interface ICustomTableModel : ITableModel
     {
 
     }
@@ -24,8 +34,13 @@ namespace DataLinq.Interfaces
 
     }
 
-    public interface IReadableModel : IModel
+    public interface ICustomViewModel : IViewModel
     {
 
     }
+
+    //public interface IReadableModel : IModel
+    //{
+
+    //}
 }

@@ -11,7 +11,7 @@ namespace DataLinq.Tests
     public class SqlTests : IClassFixture<DatabaseFixture>
     {
         private readonly DatabaseFixture fixture;
-        private readonly Transaction<employeesDb> transaction;
+        private readonly Transaction<Employees> transaction;
 
         public SqlTests(DatabaseFixture fixture)
         {

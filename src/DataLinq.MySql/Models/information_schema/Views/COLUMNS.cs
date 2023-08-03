@@ -5,7 +5,7 @@ using DataLinq.Attributes;
 
 namespace DataLinq.MySql.Models
 {
-    [Name("COLUMNS")]
+    [Table("COLUMNS")]
     public interface COLUMNS : IViewModel
     {
         [Nullable]

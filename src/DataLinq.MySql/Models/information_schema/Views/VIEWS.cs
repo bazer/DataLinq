@@ -5,7 +5,7 @@ using DataLinq.Attributes;
 
 namespace DataLinq.MySql.Models
 {
-    [Name("VIEWS")]
+    [Table("VIEWS")]
     public interface VIEWS : IViewModel
     {
         [Type("varchar", 10)]

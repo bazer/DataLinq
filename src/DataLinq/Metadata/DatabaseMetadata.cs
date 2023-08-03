@@ -9,20 +9,19 @@ namespace DataLinq.Metadata
     {
         public static ConcurrentDictionary<Type, DatabaseMetadata> LoadedDatabases { get; } = new();
 
-        public string NameOrAlias => string.IsNullOrEmpty(Alias) ? Name : Alias;
-
-        public DatabaseMetadata(string name, string alias = null)
+        public DatabaseMetadata(string name, Type? csType = null, string? csTypeName = null, string? dbName = null)
         {
             Name = name;
-            Alias = alias;
+            CsType = csType;
+            CsTypeName = csTypeName ?? CsType?.Name ?? name;
+            DbName = dbName ?? name;
         }
 
-        public List<Relation> Relations { get; set; }
         public string Name { get; set; }
-        public string Alias { get; set; }
+        public string DbName { get; set; }
         public Type CsType { get; set; }
-        public List<TableMetadata> Tables { get; set; }
-        public List<ModelMetadata> Models { get; set; }
+        public string CsTypeName { get; set; }
+        public List<TableModelMetadata> TableModels { get; set; } = new();
         public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
         public bool UseCache { get; set; }
     }

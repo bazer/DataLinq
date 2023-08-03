@@ -10,11 +10,19 @@ namespace DataLinq
     public abstract class Database<T> : IDisposable
         where T : class, IDatabaseModel
     {
+        //public static Database<T> GetDatabase(DatabaseType)
+
+        public DatabaseType DatabaseType => Provider.DatabaseType;
         public DatabaseProvider<T> Provider { get; }
 
         public Database(DatabaseProvider<T> provider)
         {
             this.Provider = provider;
+        }
+
+        public bool FileOrServerExists()
+        {
+            return Provider.FileOrServerExists();
         }
 
         public bool Exists(string databaseName = null)
@@ -32,7 +40,7 @@ namespace DataLinq
 
         public T Query()
         {
-            return Transaction(TransactionType.NoTransaction).Query();
+            return Transaction(TransactionType.ReadOnly).Query();
         }
 
         public SqlQuery From(string tableName, string alias = null)
@@ -40,20 +48,20 @@ namespace DataLinq
             if (alias == null)
                 (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
-            var transaction = Transaction(TransactionType.NoTransaction);
-            var table = transaction.Provider.Metadata.Tables.Single(x => x.DbName == tableName);
+            var transaction = Transaction(TransactionType.ReadOnly);
+            var table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
             return new SqlQuery(table, transaction, alias);
         }
 
         public SqlQuery From(TableMetadata table, string alias = null)
         {
-            return new SqlQuery(table, Transaction(TransactionType.NoTransaction), alias);
+            return new SqlQuery(table, Transaction(TransactionType.ReadOnly), alias);
         }
 
         public SqlQuery<V> From<V>() where V: IModel
         {
-            return Transaction(TransactionType.NoTransaction).From<V>();
+            return Transaction(TransactionType.ReadOnly).From<V>();
         }
 
         public M Insert<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel

@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Xml.Linq;
 using DataLinq.Attributes;
 using DataLinq.Cache;
 
@@ -33,6 +35,16 @@ namespace DataLinq.Metadata
         }
 
         internal bool? explicitUseCache;
+
+        public override string ToString()
+        {
+            var desc = $"Table: {DbName}";
+
+            if (Model?.CsTypeName != DbName)
+                desc += $" ({Model.CsTypeName})";
+
+            return desc;
+        }
     }
 
     public class ViewMetadata : TableMetadata

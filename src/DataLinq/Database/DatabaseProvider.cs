@@ -9,15 +9,20 @@ using DataLinq.Cache;
 
 namespace DataLinq
 {
+    public interface IDatabaseProviderRegister
+    {
+        static bool HasBeenRegistered { get; }
+        static void RegisterProvider() => throw new NotImplementedException();
+    }
+
     public interface IDatabaseProvider : IDisposable
     {
         string DatabaseName { get; }
-
         string ConnectionString { get; }
         DatabaseMetadata Metadata { get; }
         State State { get; }
         IDbCommand ToDbCommand(IQuery query);
-
+        
         Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite);
 
         DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
@@ -31,6 +36,10 @@ namespace DataLinq
         Sql GetParameterValue(Sql sql, string key);
 
         Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string prefix);
+        
+        string GetExists(string databaseName);
+        
+        void CreateDatabase(string databaseName);
     }
 
     public abstract class DatabaseProvider<T> : DatabaseProvider
@@ -46,11 +55,11 @@ namespace DataLinq
         //    return new Transaction<T>(this, transactionType);
         //}
 
-        protected DatabaseProvider(string connectionString) : base(connectionString, typeof(T))
+        protected DatabaseProvider(string connectionString, DatabaseType databaseType) : base(connectionString, typeof(T), databaseType)
         {
         }
 
-        protected DatabaseProvider(string connectionString, string databaseName) : base(connectionString, typeof(T), databaseName)
+        protected DatabaseProvider(string connectionString, DatabaseType databaseType, string databaseName) : base(connectionString, typeof(T), databaseType, databaseName)
         {
         }
     }
@@ -58,10 +67,12 @@ namespace DataLinq
     public abstract class DatabaseProvider : IDatabaseProvider
     {
         public string DatabaseName { get; }
+        public DatabaseType DatabaseType { get; }
 
         public string ConnectionString { get; }
         public DatabaseMetadata Metadata { get; }
         public State State { get; }
+        
         protected string[] ProviderNames { get; set; }
         protected IDbConnection activeConnection;
 
@@ -69,21 +80,22 @@ namespace DataLinq
 
         public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches.Single(x => x.Table == table);
 
-        protected DatabaseProvider(string connectionString, Type databaseType, string databaseName = null)
+        protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, string databaseName = null)
         {
+            DatabaseType = databaseType;
             DatabaseName = databaseName;
             ConnectionString = connectionString;
 
             lock (lockObject)
             {
-                if (DatabaseMetadata.LoadedDatabases.TryGetValue(databaseType, out var metadata))
+                if (DatabaseMetadata.LoadedDatabases.TryGetValue(type, out var metadata))
                     Metadata = metadata;
                 else
                 {
-                    Metadata = MetadataFromInterfaceFactory.ParseDatabase(databaseType);
+                    Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(type);
                     //Metadata.DatabaseProvider = this;
 
-                    DatabaseMetadata.LoadedDatabases.TryAdd(databaseType, Metadata);
+                    DatabaseMetadata.LoadedDatabases.TryAdd(type, Metadata);
                 }
             }
 
@@ -113,6 +125,9 @@ namespace DataLinq
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
 
         public abstract string GetExists(string databaseName = null);
+        public abstract bool FileOrServerExists();
+        public abstract void CreateDatabase(string databaseName = null);
+        //public abstract void RegisterProvider();
 
         public void Dispose()
         {

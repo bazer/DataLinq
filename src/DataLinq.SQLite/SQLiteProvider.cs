@@ -1,31 +1,74 @@
+using DataLinq.Config;
 using DataLinq.Extensions;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using Microsoft.Data.Sqlite;
 using System;
 using System.Data;
-using Microsoft.Data.Sqlite;
-using DataLinq.Metadata;
+using System.Data.Common;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace DataLinq.SQLite
 {
+    public class SQLiteProvider : IDatabaseProviderRegister
+    {
+        public static bool HasBeenRegistered { get; private set; }
+
+        [ModuleInitializer]
+        public static void RegisterProvider()
+        {
+            if (HasBeenRegistered)
+                return;
+
+            PluginHook.DatabaseProviders[DatabaseType.SQLite] = new SQLiteDatabaseCreator();
+            PluginHook.SqlFromMetadataFactories[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+            PluginHook.MetadataFromSqlFactories[DatabaseType.SQLite] = new MetadataFromSQLiteFactoryCreator();
+
+            HasBeenRegistered = true;
+        }
+    }
+
     public class SQLiteProvider<T> : DatabaseProvider<T>
         where T : class, IDatabaseModel
     {
-        public SQLiteProvider(string connectionString) : base(connectionString)
+        private SqliteConnectionStringBuilder connectionStringBuilder;
+        static SQLiteProvider()
         {
+            SQLiteProvider.RegisterProvider();
         }
 
-        public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, databaseName)
+        public SQLiteProvider(string connectionString) : base(connectionString, DatabaseType.SQLite)
         {
+            connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
+        }
+
+        public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.SQLite, databaseName)
+        {
+            connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
+        }
+
+        public override void CreateDatabase(string databaseName = null)
+        {
+            if (databaseName == null && DatabaseName == null)
+                throw new ArgumentNullException("DatabaseName not defined");
+
+            using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
+
+            var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
+                $"USE {databaseName ?? DatabaseName};\n" +
+                GetCreateSql();
+
+            transaction.ExecuteNonQuery(query);
         }
 
         public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
         {
-            if (type == TransactionType.NoTransaction)
-                return new SQLiteDbAccess(ConnectionString, type);
-            else
+            //if (type == TransactionType.ReadOnly)
+            //    return new SQLiteDbAccess(ConnectionString, type);
+            //else
                 return new SQLiteDatabaseTransaction(ConnectionString, type);
         }
 
@@ -46,7 +89,7 @@ namespace DataLinq.SQLite
             return sql.AddParameters(new SqliteParameter("@" + key, value ?? DBNull.Value));
         }
 
-        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GenerateSql(Metadata, true);
+        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
 
         public override IDbCommand ToDbCommand(IQuery query)
         {
@@ -59,7 +102,20 @@ namespace DataLinq.SQLite
 
         public override string GetExists(string databaseName = null)
         {
-            throw new NotImplementedException();
+            if (databaseName == null && DatabaseName == null)
+                throw new ArgumentNullException("DatabaseName not defined");
+
+            return $"SELECT name FROM pragma_database_list WHERE name = '{databaseName ?? DatabaseName}'";
+        }
+
+        public override bool FileOrServerExists()
+        {
+            var source = connectionStringBuilder.DataSource;
+
+            if (source == "memory")
+                return true;
+
+            return File.Exists(source);
         }
     }
 }

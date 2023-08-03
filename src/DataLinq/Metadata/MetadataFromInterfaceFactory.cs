@@ -1,22 +1,100 @@
-﻿using System;
+﻿using DataLinq.Attributes;
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Reflection;
-using DataLinq.Attributes;
-using DataLinq.Cache;
 
 namespace DataLinq.Metadata
 {
     public static class MetadataFromInterfaceFactory
     {
-        public static DatabaseMetadata ParseDatabase(Type type)
+        public static DatabaseMetadata ParseDatabaseFromSources(params Type[] types)
         {
-            var database = new DatabaseMetadata(type.Name);
+            var dbType =
+                    types.FirstOrDefault(x => x.GetInterface("ICustomDatabaseModel") != null) ??
+                    types.FirstOrDefault(x => x.GetInterface("IDatabaseModel") != null);
 
+            var database = new DatabaseMetadata(dbType?.Name ?? "Unnamed", dbType);
+
+            var customModels = types
+                .Where(x =>
+                    x.GetInterface("ICustomTableModel") != null ||
+                    x.GetInterface("ICustomViewModel") != null)
+                .Select(x => ParseTableModel(database, x, x.Name))
+                .ToList();
+
+            if (dbType != null)
+            {
+                ParseAttributes(database, dbType);
+
+                database.TableModels = dbType
+                    .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Select(GetTableType)
+                    .Select(x => database.ParseTableModel(x.type, x.csName))
+                    .ToList();
+
+                var transformer = new MetadataTransformer(new MetadataTransformerOptions(true));
+
+                foreach (var customModel in customModels)
+                {
+                    var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == customModel.Table.DbName);
+
+                    if (match != null)
+                    {
+                        transformer.TransformTable(customModel, match);
+                        //match.CsPropertyName = customModel.CsPropertyName;
+                    }
+                    else
+                        database.TableModels.Add(customModel);
+                }
+            }
+            else
+            {
+                database.TableModels = customModels;
+            }
+
+            MetadataFactory.ParseIndices(database);
+            MetadataFactory.ParseRelations(database);
+
+            return database;
+
+        }
+
+        public static DatabaseMetadata ParseDatabaseFromDatabaseModel(Type type)
+        {
+            var database = new DatabaseMetadata(type.Name, type);
+            database.ParseAttributes(type);
+            database.TableModels = type
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(GetTableType)
+                .Select(x => database.ParseTableModel(x.type, x.csName))
+                .ToList();
+
+            MetadataFactory.ParseIndices(database);
+            MetadataFactory.ParseRelations(database);
+
+            return database;
+        }
+
+        private static TableModelMetadata ParseTableModel(this DatabaseMetadata database, Type type, string csPropertyName)
+        {
+            var model = database.ParseModel(type);
+
+            return new TableModelMetadata
+            {
+                Model = model,
+                Table = model.ParseTable(),
+                CsPropertyName = csPropertyName
+            };
+        }
+
+        private static void ParseAttributes(this DatabaseMetadata database, Type type)
+        {
             foreach (var attribute in type.GetCustomAttributes(false))
             {
-                if (attribute is NameAttribute nameAttribute)
-                    database.Name = nameAttribute.Name;
+                if (attribute is DatabaseAttribute databaseAttribute)
+                    database.Name = databaseAttribute.Name;
 
                 if (attribute is UseCacheAttribute useCache)
                     database.UseCache = useCache.UseCache;
@@ -24,100 +102,27 @@ namespace DataLinq.Metadata
                 if (attribute is CacheLimitAttribute cacheLimit)
                     database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
             }
-
-            database.Models = type
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Select(GetTableType)
-                .Select(x => ParseModel(database, x))
-                .ToList();
-
-            database.Tables = database
-                .Models.Select(ParseTable)
-                .ToList();
-
-            database.Relations = ParseRelations(database)
-                .ToList();
-
-            return database;
         }
 
-        private static IEnumerable<Relation> ParseRelations(DatabaseMetadata database)
-        {
-            foreach (var column in database.
-                Tables.SelectMany(x => x.Columns.Where(y => y.ForeignKey)))
-            {
-                var attribute = column.ValueProperty
-                    .Attributes.Single(x => x is ForeignKeyAttribute) as ForeignKeyAttribute;
-
-                var relation = new Relation
-                {
-                    ConstraintName = attribute.Name,
-                    Type = RelationType.OneToMany
-                };
-
-                var candidateColumn = database
-                    .Tables.Single(x => x.DbName == attribute.Table)
-                    .Columns.Single(x => x.DbName == attribute.Column);
-
-                relation.ForeignKey = CreateRelationPart(relation, column, RelationPartType.ForeignKey);
-                relation.CandidateKey = CreateRelationPart(relation, candidateColumn, RelationPartType.CandidateKey);
-
-                AttachRelationProperty(relation.ForeignKey, candidateColumn);
-                AttachRelationProperty(relation.CandidateKey, column);
-
-                yield return relation;
-            }
-        }
-
-        private static RelationPart CreateRelationPart(Relation relation, Column column, RelationPartType type)
-        {
-            var relationPart = new RelationPart
-            {
-                Relation = relation,
-                Column = column,
-                Type = type
-            };
-
-            column.RelationParts.Add(relationPart);
-
-            return relationPart;
-        }
-
-        private static Property AttachRelationProperty(RelationPart relationPart, Column column)
-        {
-            var property = relationPart.Column.Table.Model
-                .Properties.SingleOrDefault(x =>
-                    x.Attributes.Any(y =>
-                        y is RelationAttribute relationAttribute
-                        && relationAttribute.Table == column.Table.DbName
-                        && relationAttribute.Column == column.DbName));
-
-            property.Column = column;
-            property.Type = PropertyType.Relation;
-            property.RelationPart = relationPart;
-            column.RelationProperties.Add(property);
-
-            return property;
-        }
-
-        private static Type GetTableType(PropertyInfo property)
+        private static (string csName, Type type) GetTableType(this PropertyInfo property)
         {
             var type = property.PropertyType;
 
             if (type.GetGenericTypeDefinition() == typeof(DbRead<>))
-                return type.GetGenericArguments()[0];
+                return (property.Name, type.GetGenericArguments()[0]);
             else
                 throw new NotImplementedException();
         }
 
-        private static ModelMetadata ParseModel(DatabaseMetadata database, Type type)
+        private static ModelMetadata ParseModel(this DatabaseMetadata database, Type type)
         {
             var model = new ModelMetadata
             {
                 Database = database,
                 CsType = type,
                 CsTypeName = type.Name,
-                Attributes = type.GetCustomAttributes(false)
+                Attributes = type.GetCustomAttributes(false),
+                Interfaces = type.GetInterfaces()
             };
 
             model.Properties = type
@@ -129,9 +134,9 @@ namespace DataLinq.Metadata
             return model;
         }
 
-        private static TableMetadata ParseTable(ModelMetadata model)
+        private static TableMetadata ParseTable(this ModelMetadata model)
         {
-            var table = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel")
+            var table = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel" || x.Name == "ICustomTableModel")
                 ? new TableMetadata()
                 : new ViewMetadata();
 
@@ -141,8 +146,8 @@ namespace DataLinq.Metadata
 
             foreach (var attribute in model.Attributes)
             {
-                if (attribute is NameAttribute nameAttribute)
-                    table.DbName = nameAttribute.Name;
+                if (attribute is TableAttribute tableAttribute)
+                    table.DbName = tableAttribute.Name;
 
                 if (attribute is UseCacheAttribute useCache)
                     table.UseCache = useCache.UseCache;
@@ -154,19 +159,16 @@ namespace DataLinq.Metadata
                     view.Definition = definitionAttribute.Sql;
             }
 
-            table.Columns = model.Properties
-                .Where(x => !x.Attributes.Any(attribute => attribute is RelationAttribute))
-                
-                .Select(x => ParseColumn(table, x))
+            table.Columns = model.ValueProperties
+                .Select(x => table.ParseColumn(x))
                 .ToList();
 
             model.Table = table;
-            //table.Cache = new TableCache(table);
 
             return table;
         }
 
-        private static Column ParseColumn(TableMetadata table, Property property)
+        private static Column ParseColumn(this TableMetadata table, ValueProperty property)
         {
             var column = new Column
             {
@@ -176,12 +178,11 @@ namespace DataLinq.Metadata
             };
 
             property.Column = column;
-            property.Type = PropertyType.Value;
 
             foreach (var attribute in property.Attributes)
             {
-                if (attribute is NameAttribute nameAttribute)
-                    column.DbName = nameAttribute.Name;
+                if (attribute is ColumnAttribute columnAttribute)
+                    column.DbName = columnAttribute.Name;
 
                 if (attribute is NullableAttribute)
                     column.Nullable = true;
@@ -195,114 +196,79 @@ namespace DataLinq.Metadata
                 if (attribute is ForeignKeyAttribute)
                     column.ForeignKey = true;
 
-                if (attribute is UniqueAttribute uniqueAttribute)
-                {
-                    if (column.Table.ColumnIndices.Any(x => x.ConstraintName == uniqueAttribute.Name))
-                    {
-                        column.Table.ColumnIndices.Single(x => x.ConstraintName == uniqueAttribute.Name).Columns.Add(column);
-                    }
-                    else
-                    {
-                        column.Table.ColumnIndices.Add(new ColumnIndex
-                        {
-                            Columns = new List<Column> { column },
-                            ConstraintName = uniqueAttribute.Name,
-                            Type = IndexType.Unique
-                        });
-                    }
-                }
+                if (attribute is UniqueAttribute)
+                    column.Unique = true;
 
                 if (attribute is TypeAttribute t)
                 {
-                    column.DbType = t.Name;
-                    column.Length = t.Length;
-                    column.Signed = t.Signed;
+                    column.DbTypes.Add(new DatabaseColumnType
+                    {
+                        DatabaseType = t.DatabaseType,
+                        Name = t.Name,
+                        Length = t.Length,
+                        Signed = t.Signed
+                    });
                 }
             }
 
             return column;
         }
 
-        private static Property ParseProperty(PropertyInfo propertyInfo, ModelMetadata model)
+        private static Property ParseProperty(this PropertyInfo propertyInfo, ModelMetadata model)
         {
-            var property = new Property
-            {
-                Model = model,
-                CsName = propertyInfo.Name,
-                CsType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType,
-                CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>),
-                PropertyInfo = propertyInfo,
-                Attributes = propertyInfo.GetCustomAttributes(false),
-            };
+            var attributes = propertyInfo
+                    .GetCustomAttributes(false)
+                    .OfType<Attribute>()
+                    .ToList();
 
-            property.CsTypeName = GetKeywordName(property.CsType);
-            property.CsSize = CsTypeSize(property.CsTypeName);
+            var property = GetProperty(attributes);
+
+            property.Model = model;
+            property.CsName = propertyInfo.Name;
+            property.CsType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
+            property.CsTypeName = MetadataTypeConverter.GetKeywordName(property.CsType);
+            property.PropertyInfo = propertyInfo;
+            property.Attributes = attributes;
+
+            if (property is ValueProperty valueProp)
+            {
+                valueProp.CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
+
+                if (propertyInfo.PropertyType.IsEnum)
+                {
+                    valueProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
+
+                    var enumValueList = attributes.Any(attribute => attribute is EnumAttribute)
+                        ? attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i)).ToList()
+                        : new List<(string name, int value)>();
+
+                    var enumValues = Enum.GetValues(property.CsType).Cast<int>().ToList();
+                    valueProp.EnumProperty = new EnumProperty(enumValueList, Enum.GetNames(property.CsType).Select((x, i) => (x, enumValues[i])).ToList(), true);
+
+                    //if (attributes.Any(attribute => attribute is EnumAttribute))
+                    //    valueProp.EnumProperty.Value.EnumValues = attributes.OfType<EnumAttribute>().Single().Values.ToList();
+                    //else
+                    //    enumProp.EnumValues = Enum.GetNames(property.CsType).ToList();
+                }
+                else
+                    valueProp.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+            }
 
             return property;
         }
 
-        private static string GetKeywordName(Type type)
+        private static Property GetProperty(List<Attribute> attributes)
         {
-            switch (type.Name)
-            {
-                case "SByte":
-                    return "sbyte";
-                case "Byte":
-                    return "byte";
-                case "Int16":
-                    return "short";
-                case "UInt16":
-                    return "ushort";
-                case "Int32":
-                    return "int";
-                case "UInt32":
-                    return "uint";
-                case "Int64":
-                    return "long";
-                case "UInt64":
-                    return "ulong";
-                case "Char":
-                    return "char";
-                case "Single":
-                    return "float";
-                case "Double":
-                    return "double";
-                case "Boolean":
-                    return "bool";
-                case "Decimal":
-                    return "decimal";
-                default:
-                    return type.Name;
-            }
-        }
+            //if (isEnum)
+            //    return new EnumProperty();
 
-        private static int? CsTypeSize(string csType)
-        {
-            //if (csType.StartsWith("IEnumerable"))
-            //    return null;
+            if (attributes.Any(attribute => attribute is RelationAttribute))
+                return new RelationProperty();
 
-            return csType switch
-            {
-                "sbyte" => sizeof(sbyte),
-                "byte" => sizeof(byte),
-                "short" => sizeof(short),
-                "ushort" => sizeof(ushort),
-                "int" => sizeof(int),
-                "uint" => sizeof(uint),
-                "long" => sizeof(long),
-                "ulong" => sizeof(ulong),
-                "char" => sizeof(char),
-                "float" => sizeof(float),
-                "double" => sizeof(double),
-                "bool" => sizeof(bool),
-                "decimal" => sizeof(decimal),
-                "DateTime" => 8,
-                "DateOnly" => sizeof(int),
-                "Guid" => 16,
-                "String" => null,
-                "byte[]" => null,
-                _ => null
-            };
+            //if (attributes.Any(attribute => attribute is EnumAttribute))
+            //    return new EnumProperty();
+
+            return new ValueProperty();
         }
     }
 }

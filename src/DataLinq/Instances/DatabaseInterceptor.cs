@@ -21,12 +21,15 @@ namespace DataLinq.Instances
 
         private IEnumerable<(string name, object value)> ReadDatabase(Transaction transaction)
         {
-            foreach (var table in transaction.Provider.Metadata.Tables)
+            foreach (var table in transaction.Provider.Metadata.TableModels)
             {
                 var dbReadType = typeof(DbRead<>).MakeGenericType(table.Model.CsType);
                 var dbRead = Activator.CreateInstance(dbReadType, transaction);
 
-                yield return (table.Model.CsTypeName, dbRead);
+                if (dbRead == null)
+                    throw new Exception($"Failed to create instance of table model type '{table.Model.CsType}'");
+
+                yield return (table.CsPropertyName, dbRead);
             }
         }
 

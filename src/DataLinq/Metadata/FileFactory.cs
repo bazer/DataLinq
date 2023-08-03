@@ -1,122 +1,187 @@
-﻿using System;
+﻿using DataLinq.Attributes;
+using DataLinq.Extensions;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
-using System.Text;
-using DataLinq.Extensions;
 
 namespace DataLinq.Metadata
 {
-    public class FileFactorySettings
+    public class FileFactoryOptions
     {
         public string NamespaceName { get; set; } = "Models";
+        public string Tab { get; set; } = "    ";
         public bool UseRecords { get; set; } = true;
         public bool UseCache { get; set; } = true;
+        public bool SeparateTablesAndViews { get; set; } = false;
+        public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes" };
     }
 
-    public static class FileFactory
+    public class FileFactory
     {
-        static readonly string tab = "    ";
+        private readonly FileFactoryOptions options;
 
-        public static IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database, FileFactorySettings settings)
+        public FileFactory(FileFactoryOptions options)
         {
-            var dbName = database.Tables.Any(x => x.DbName == database.Name)
-                ? $"{database.Name}Db"
-                : database.Name;
+            this.options = options;
+        }
 
-            yield return ($"{dbName}.cs",
-                    FileHeader(settings.NamespaceName)
-                    .Concat(DatabaseFileContents(database, dbName, settings))
+        public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database)
+        {
+            var dbCsTypeName = database.TableModels.Any(x => x.Model.CsTypeName == database.CsTypeName)
+                ? $"{database.CsTypeName}Db"
+                : database.CsTypeName;
+
+            yield return ($"{dbCsTypeName}.cs",
+                    FileHeader(options.NamespaceName, options.Usings)
+                    .Concat(DatabaseFileContents(database, dbCsTypeName, options))
                     .Concat(FileFooter())
                     .ToJoinedString("\n"));
 
-            foreach (var table in database.Tables)
+            foreach (var table in database.TableModels)
             {
+                var usings = options.Usings.Concat(table.Model.ValueProperties
+                        .Select(x => (x.CsType?.Namespace))
+                        .Where(x => x != null))
+                    .Concat(table.Model.RelationProperties
+                        .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
+                        .Select(x => "System.Collections.Generic"))
+                    .Distinct()
+                    .Where(name => name != options.NamespaceName)
+                    .Select(name => (name.StartsWith("System"), name))
+                    .OrderByDescending(x => x.Item1)
+                    .ThenBy(x => x.name)
+                    .Select(x => x.name);
+
                 var file =
-                    FileHeader(settings.NamespaceName)
-                    .Concat(ModelFileContents(table, settings))
+                    FileHeader(options.NamespaceName, usings)
+                    .Concat(ModelFileContents(table.Model, options))
                     .Concat(FileFooter())
                     .ToJoinedString("\n");
 
-                var path = table.Type == TableType.Table
-                    ? $"Tables{Path.DirectorySeparatorChar}{table.DbName}.cs"
-                    : $"Views{Path.DirectorySeparatorChar}{table.DbName}.cs";
+                var path = GetFilePath(table);
 
                 yield return (path, file);
             }
         }
 
-        private static IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName, FileFactorySettings settings)
+        private string GetFilePath(TableModelMetadata table)
         {
+            var path = $"{table.Model.CsTypeName}.cs";
+
+            if (options.SeparateTablesAndViews)
+                return table.Table.Type == TableType.Table
+                    ? $"Tables{Path.DirectorySeparatorChar}{path}"
+                    : $"Views{Path.DirectorySeparatorChar}{path}";
+
+            return path;
+        }
+
+        private IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName, FileFactoryOptions settings)
+        {
+            var tab = settings.Tab;
             if (settings.UseCache)
                 yield return $"{tab}[UseCache]";
 
-            yield return $"{tab}[Name(\"{database.Name}\")]";
+            yield return $"{tab}[Database(\"{database.Name}\")]";
             yield return $"{tab}public interface {dbName} : IDatabaseModel";
             yield return tab + "{";
 
-            foreach (var t in database.Tables.OrderBy(x => x.DbName))
+            foreach (var t in database.TableModels.OrderBy(x => x.Table.DbName))
             {
-                yield return $"{tab}{tab}DbRead<{t.DbName}> {t.DbName} {{ get; }}";
+                yield return $"{tab}{tab}DbRead<{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }}";
             }
 
             yield return tab + "}";
         }
 
-        private static IEnumerable<string> ModelFileContents(TableMetadata table, FileFactorySettings settings)
+        private IEnumerable<string> ModelFileContents(ModelMetadata model, FileFactoryOptions settings)
         {
-            if (table is ViewMetadata view)
-                yield return $"{tab}[Definition(\"{view.Definition}\")]";
+            var tab = settings.Tab;
+            var table = model.Table;
 
-            yield return $"{tab}[Name(\"{table.DbName}\")]";
-            yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.DbName} : {(table.Type == TableType.Table ? "ITableModel" : "IViewModel")}";
+            var props = model.Properties
+                .OrderBy(x => x.Type)
+                .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
+                .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
+                .ThenBy(x => x.CsName);
+
+            foreach (var row in props.OfType<ValueProperty>().Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, tab)))
+                yield return row;
+
+            if (table is ViewMetadata view)
+            {
+                yield return $"{tab}[Definition(\"{view.Definition}\")]";
+                yield return $"{tab}[View(\"{table.DbName}\")]";
+            }
+            else
+            {
+                yield return $"{tab}[Table(\"{table.DbName}\")]";
+            }
+
+            var interfaces = table.Type == TableType.Table ? "ITableModel" : "IViewModel";
+            //if (model.Interfaces?.Length > 0)
+            //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
+
+            yield return $"{tab}public partial {(settings.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
             yield return tab + "{";
 
-            foreach (var c in table.Columns.OrderByDescending(x => x.PrimaryKey).ThenBy(x => x.DbName))
+            foreach (var row in props.OfType<ValueProperty>().Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, tab)))
+                yield return tab + row;
+
+            foreach (var property in props)
             {
-                if (c.PrimaryKey)
-                    yield return $"{tab}{tab}[PrimaryKey]";
-
-                foreach (var index in table.ColumnIndices.Where(x => x.Type == IndexType.Unique && x.Columns.Contains(c)))
+                if (property is ValueProperty valueProperty)
                 {
-                    yield return $"{tab}{tab}[Unique(\"{index.ConstraintName}\")]";
+                    var c = valueProperty.Column;
+                    if (c.PrimaryKey)
+                        yield return $"{tab}{tab}[PrimaryKey]";
+
+                    foreach (var index in table.ColumnIndices.Where(x => x.Type == IndexType.Unique && x.Columns.Contains(c)))
+                    {
+                        yield return $"{tab}{tab}[Unique(\"{index.ConstraintName}\")]";
+                    }
+
+                    foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
+                    {
+                        yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
+                    }
+
+                    if (c.AutoIncrement)
+                        yield return $"{tab}{tab}[AutoIncrement]";
+
+                    if (c.Nullable)
+                        yield return $"{tab}{tab}[Nullable]";
+
+                    foreach (var dbType in c.DbTypes)
+                    {
+                        if (dbType.Signed.HasValue && dbType.Length.HasValue)
+                            yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
+                        else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
+                            yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {(dbType.Signed.Value ? "true" : "false")})]";
+                        else if (dbType.Length.HasValue)
+                            yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length})]";
+                        else
+                            yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
+                    }
+
+                    if (valueProperty.EnumProperty != null)
+                        yield return $"{tab}{tab}[Enum({string.Join(',', valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x}\""))})]";
+
+                    yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
+                    yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
+                    yield return $"";
                 }
-
-                foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
+                else if (property is RelationProperty relationProperty)
                 {
-                    yield return $"{tab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
-                }
+                    var otherPart = relationProperty.RelationPart.GetOtherSide();
 
-                if (c.AutoIncrement)
-                    yield return $"{tab}{tab}[AutoIncrement]";
+                    yield return $"{tab}{tab}[Relation(\"{otherPart.Column.Table.DbName}\", \"{otherPart.Column.DbName}\")]";
 
-                if (c.Nullable)
-                    yield return $"{tab}{tab}[Nullable]";
-
-                if(c.Signed.HasValue && c.Length.HasValue)
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length}, {(c.Signed.Value ? "true":"false")})]";
-                else if(c.Signed.HasValue && !c.Length.HasValue)
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {(c.Signed.Value ? "true" : "false")})]";
-                else if (c.Length.HasValue)
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\", {c.Length})]";
-                else
-                    yield return $"{tab}{tab}[Type(\"{c.DbType}\")]";
-
-                yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.DbName} {{ get; set; }}";
-                yield return $"";
-
-                foreach (var relationPart in c.RelationParts)
-                {
-                    var column = relationPart.Type == RelationPartType.ForeignKey
-                        ? relationPart.Relation.CandidateKey.Column
-                        : relationPart.Relation.ForeignKey.Column;
-
-                    yield return $"{tab}{tab}[Relation(\"{column.Table.DbName}\", \"{column.DbName}\")]";
-
-                    if (relationPart.Type == RelationPartType.ForeignKey)
-                        yield return $"{tab}{tab}public virtual {column.Table.Model.CsTypeName} {column.Table.Model.CsTypeName} {{ get; }}";
+                    if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
+                        yield return $"{tab}{tab}public virtual {otherPart.Column.Table.Model.CsTypeName} {relationProperty.CsName} {{ get; }}";
                     else
-                        yield return $"{tab}{tab}public virtual IEnumerable<{column.Table.Model.CsTypeName}> {column.Table.Model.CsTypeName} {{ get; }}";
+                        yield return $"{tab}{tab}public virtual IEnumerable<{otherPart.Column.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
 
                     yield return $"";
                 }
@@ -125,18 +190,33 @@ namespace DataLinq.Metadata
             yield return tab + "}";
         }
 
-        private static IEnumerable<string> FileFooter()
+        private IEnumerable<string> WriteEnum(ValueProperty property, string tab)
+        {
+            yield return $"{tab}public enum {property.CsTypeName}";
+            yield return tab + "{";
+            //yield return $"{tab}{tab}Empty,";
+
+            var values = property.EnumProperty.Value.CsEnumValues.Count != 0
+                ? property.EnumProperty.Value.CsEnumValues
+                : property.EnumProperty.Value.EnumValues;
+
+            foreach (var val in values)
+                yield return $"{tab}{tab}{val.name} = {val.value},";
+
+            yield return tab + "}";
+            yield return "";
+        }
+
+        private IEnumerable<string> FileFooter()
         {
             yield return "}";
         }
 
-        private static IEnumerable<string> FileHeader(string namespaceName)
+        private IEnumerable<string> FileHeader(string namespaceName, IEnumerable<string> usings)
         {
-            yield return "using System;";
-            yield return "using System.Collections.Generic;";
-            yield return "using DataLinq;";
-            yield return "using DataLinq.Interfaces;";
-            yield return "using DataLinq.Attributes;";
+            foreach (var row in usings)
+                yield return $"using {row};";
+
             yield return "";
             yield return $"namespace {namespaceName}";
             yield return "{";

@@ -1,37 +1,36 @@
+using DataLinq.Exceptions;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
+using System;
 using System.Linq;
+using ThrowAway;
 
 namespace DataLinq.MySql
 {
-    public class SqlFromMetadataFactory : ISqlFromMetadataFactory, IDatabaseCreator
+    public class SqlFromMetadataFactory : ISqlFromMetadataFactory
     {
-        public static void Register()
-        {
-            DatabaseFactory.SqlGenerators[DatabaseFactory.DatabaseType.MySQL] = new SqlFromMetadataFactory();
-            DatabaseFactory.DbCreators[DatabaseFactory.DatabaseType.MySQL] = new SqlFromMetadataFactory();
-        }
+        private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum" };
 
-        private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext" };
-
-        public bool CreateDatabase(Sql sql, string database, string connectionString, bool foreignKeyRestrict)
+        public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
         {
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
             var command = connection.CreateCommand();
-            command.CommandText = $"CREATE DATABASE IF NOT EXISTS {database};\n"+
-                $"USE {database};\n"+
+
+            command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{databaseName}`;\n" +
+                $"USE `{databaseName}`;\n" +
                 sql.Text;
-            var result = command.ExecuteNonQuery();
-            return true;
+
+            return command.ExecuteNonQuery();
         }
 
-        public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict)
+        public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
         {
             var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
+            //sql.CreateDatabase(metadata.DbName);
 
-            foreach(var table in sql.SortTablesByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.Table).ToList()))
+            foreach(var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
             {
                 sql.CreateTable(table.DbName, x =>
                 {
@@ -39,7 +38,7 @@ namespace DataLinq.MySql
                 });
             }
 
-            foreach (var view in sql.SortViewsByForeignKeys(metadata.Tables.Where(x => x.Type == TableType.View).Cast<ViewMetadata>().ToList()))
+            foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewMetadata>().ToList()))
             {
                 sql.CreateView(view.DbName, view.Definition);
             }
@@ -52,13 +51,18 @@ namespace DataLinq.MySql
             var longestName = table.Columns.Max(x => x.DbName.Length) + 1;
             foreach (var column in table.Columns.OrderBy(x => x.Index))
             {
+                var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL);
+
                 sql.NewRow().Indent()
                     .ColumnName(column.DbName)
-                    .Type(column.DbType.ToUpper(), column.DbName, longestName);
+                    .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
-                if (!NoLengthTypes.Contains(column.DbType.ToLower()))
-                    sql.TypeLength(column.Length);
-                sql.Unsigned(column.Signed);
+                if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
+                    sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
+
+                if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
+                    sql.TypeLength(dbType.Length);
+                sql.Unsigned(dbType.Signed);
                 sql.Nullable(column.Nullable)
                     .Autoincrement(column.AutoIncrement);
 
@@ -73,5 +77,7 @@ namespace DataLinq.MySql
                 foreach (var relation in foreignKey.RelationParts)
                     sql.ForeignKey(relation, foreignKeyRestrict);
         }
+
+        
     }
 }

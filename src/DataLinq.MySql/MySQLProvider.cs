@@ -1,27 +1,71 @@
-﻿using MySqlConnector;
-using DataLinq.Extensions;
+﻿using DataLinq.Extensions;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using MySqlConnector;
 using System;
 using System.Data;
+using System.Data.Common;
+using System.Runtime.CompilerServices;
 
 namespace DataLinq.MySql
 {
+    public class MySQLProvider : IDatabaseProviderRegister
+    {
+        public static bool HasBeenRegistered { get; private set; }
+
+        [ModuleInitializer]
+        public static void RegisterProvider()
+        {
+            if (HasBeenRegistered)
+                return;
+
+            PluginHook.DatabaseProviders[DatabaseType.MySQL] = new MySqlDatabaseCreator();
+            PluginHook.SqlFromMetadataFactories[DatabaseType.MySQL] = new SqlFromMetadataFactory();
+            PluginHook.MetadataFromSqlFactories[DatabaseType.MySQL] = new MetadataFromMySqlFactoryCreator();
+
+            HasBeenRegistered = true;
+        }
+    }
+
     public class MySQLProvider<T> : DatabaseProvider<T>
         where T : class, IDatabaseModel
     {
-        public MySQLProvider(string connectionString) : base(connectionString)
+        private MySqlConnectionStringBuilder connectionStringBuilder;
+
+        static MySQLProvider()
         {
+            MySQLProvider.RegisterProvider();
         }
 
-        public MySQLProvider(string connectionString, string databaseName) : base(connectionString, databaseName)
+        public MySQLProvider(string connectionString) : base(connectionString, DatabaseType.MySQL)
         {
+            connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+        }
+
+        public MySQLProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.MySQL, databaseName)
+        {
+            connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+        }
+
+        public override void CreateDatabase(string databaseName = null)
+        {
+            if (databaseName == null && DatabaseName == null)
+                throw new ArgumentNullException("DatabaseName not defined");
+
+            using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
+
+            var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
+                $"USE {databaseName ?? DatabaseName};\n" +
+                GetCreateSql();
+
+            transaction.ExecuteNonQuery(query);
         }
 
         public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
         {
-            if (type == TransactionType.NoTransaction)
+            if (type == TransactionType.ReadOnly)
                 return new MySqlDbAccess(ConnectionString, type);
             else
                 return new MySqlDatabaseTransaction(ConnectionString, type);
@@ -33,7 +77,21 @@ namespace DataLinq.MySql
             if (databaseName == null && DatabaseName == null)
                 throw new ArgumentNullException("DatabaseName not defined");
 
-           return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
+            return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
+        }
+
+        public override bool FileOrServerExists()
+        {
+            try
+            {
+                using var transaction = GetNewDatabaseTransaction(TransactionType.ReadOnly);
+
+                return transaction.ExecuteScalar<int>("SELECT 1") == 1;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         public override string GetLastIdQuery()
@@ -46,7 +104,7 @@ namespace DataLinq.MySql
             return sql.AddFormat("?{0}", key);
         }
 
-        public override Sql GetParameterComparison(Sql sql, string field, Relation relation, string key)
+        public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key)
         {
             return sql.AddFormat("{0} {1} ?{2}", field, relation.ToSql(), key);
         }
@@ -70,6 +128,6 @@ namespace DataLinq.MySql
             return command;
         }
 
-        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GenerateSql(Metadata, true);
+        public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
     }
 }

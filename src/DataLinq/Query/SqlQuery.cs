@@ -76,7 +76,7 @@ namespace DataLinq.Query
             CheckTransaction(transaction);
 
             this.Transaction = transaction;
-            this.Table = transaction.Provider.Metadata.Tables.Single(x => x.Model.CsType == typeof(T));
+            this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
             this.Alias = alias;
         }
 
@@ -94,13 +94,13 @@ namespace DataLinq.Query
             CheckTransaction(transaction);
 
             this.Transaction = transaction;
-            this.Table = transaction.Provider.Metadata.Tables.Single(x => x.DbName == tableName);
+            this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
             this.Alias = alias;
         }
 
         private void CheckTransaction(Transaction transaction)
         {
-            if (transaction.Type != TransactionType.NoTransaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
+            if (/*transaction.Type != TransactionType.ReadOnly && */(transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
                 throw new Exception("Can't open a new connection on a committed or rolled back transaction");
         }
 

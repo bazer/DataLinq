@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Data;
 using System.Data.Common;
+using System.Linq;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
 
@@ -11,6 +12,9 @@ namespace DataLinq
     {
         object GetValue(int ordinal);
         int GetOrdinal(string name);
+        string GetString(int ordinal);
+        bool GetBoolean(int ordinal);
+        int GetInt32(int ordinal);
         DateOnly GetDateOnly(int ordinal);
         bool Read();
     }
@@ -33,10 +37,12 @@ namespace DataLinq
 
             if (value is DBNull)
                 return null;
+            else if (column.ValueProperty.CsType.IsEnum && value is string stringValue)
+                return Enum.ToObject(column.ValueProperty.CsType, column.ValueProperty.EnumProperty.Value.EnumValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
+            else if (column.ValueProperty.CsType.IsEnum)
+                return Enum.ToObject(column.ValueProperty.CsType, value);
             else if (column.ValueProperty.CsNullable)
                 return Convert.ChangeType(value, column.ValueProperty.CsType.GetNullableConversionType());
-            else if (column.DbType == "enum")
-                return 1; //TODO: Fix enum support
             else if (value.GetType() != column.ValueProperty.CsType)
                 return Convert.ChangeType(value, column.ValueProperty.CsType);
 

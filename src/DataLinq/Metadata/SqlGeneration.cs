@@ -5,11 +5,7 @@ using System.Linq;
 
 namespace DataLinq.Metadata
 {
-    public interface ISqlFromMetadataFactory
-    {
-        public Sql GenerateSql(DatabaseMetadata metadata, bool foreignKeyRestrict);
-    }
-
+    
     public class SqlGeneration
     {
         public SqlGeneration(int indentationSpaces = 4, char quoteChar = '`', string generatedText = "")
@@ -87,6 +83,16 @@ namespace DataLinq.Metadata
         public string ParenthesisList(string[] columns) =>
             $"{Parenthesis(string.Join(", ", columns.Select(key => QuotedString(key))))}";
 
+        //public SqlGeneration CreateDatabase(string databaseName)
+        //{
+        //    sql.AddText($"CREATE DATABASE IF NOT EXISTS {QuoteCharacter}{databaseName}{QuoteCharacter}; \n");
+        //    NewRow();
+        //    sql.AddText($"USE {databaseName};\n");
+
+        //    sql.HasCreateDatabase = true;
+        //    return this;
+        //}
+
         public SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
         {
             sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\n");
@@ -112,6 +118,7 @@ namespace DataLinq.Metadata
         public SqlGeneration Autoincrement(bool inc) => inc ? Space().Add("AUTO_INCREMENT") : this;
         public SqlGeneration Type(string type, string columnName, int longestColumnName) => Add(Align(longestColumnName, columnName) + type);
         public SqlGeneration TypeLength(long? length) => length.HasValue ? Add($"({length})") : this;
+        public SqlGeneration EnumValues(IEnumerable<string> values) => Add($"({string.Join(",", values.Select(x => $"'{x}'"))})");
         public SqlGeneration Unsigned(bool? signed) => signed.HasValue && !signed.Value ? Space().Add("UNSIGNED") : this;
         public string Align(int longest, string text) => new string(' ', longest - text.Length);
 
@@ -119,7 +126,7 @@ namespace DataLinq.Metadata
             => NewRow().Indent().Add($"INDEX {QuotedString(name)} {ParenthesisList(columns)}");
         public SqlGeneration PrimaryKey(params string[] columns)
             => NewRow().Indent().Add($"PRIMARY KEY {ParenthesisList(columns)}");
-        public SqlGeneration UniqueKey(string name, params string[] columns)
+        public virtual SqlGeneration UniqueKey(string name, params string[] columns)
             => NewRow().Indent().Add($"UNIQUE KEY {QuotedString(name)} {ParenthesisList(columns)}");
         public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
             => ForeignKey(relation.Relation.ConstraintName, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict);

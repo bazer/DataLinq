@@ -17,10 +17,25 @@ namespace DataLinq.SQLite
             dataReader.Dispose();
         }
 
+        public string GetString(int ordinal)
+        {
+            return dataReader.GetString(ordinal);
+        }
+
+        public bool GetBoolean(int ordinal)
+        {
+            return dataReader.GetBoolean(ordinal);
+        }
+
+        public int GetInt32(int ordinal)
+        {
+            return dataReader.GetInt32(ordinal);
+        }
+
         public DateOnly GetDateOnly(int ordinal)
         {
-            throw new NotImplementedException();
-            //return dataReader.GetDateOnly(ordinal);
+            var date = dataReader.GetDateTime(ordinal);
+            return new DateOnly(date.Year, date.Month, date.Day);
         }
 
         public int GetOrdinal(string name)
@@ -37,5 +52,6 @@ namespace DataLinq.SQLite
         {
             return dataReader.Read();
         }
+
     }
 }

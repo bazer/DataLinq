@@ -1,0 +1,29 @@
+{
+  "Databases": [
+    {
+      "Name": "employees",
+      "Namespace": "DataLinq.Tests.Models",
+      "CsType": "Employees",
+      "SourceDirectories": [ "Models\\employees" ],
+      "DestinationDirectory": "Models\\employees\\gen",
+      "Tables": [],
+      "Views": [],
+      "UseCache": true,
+      "UseRecord": true,
+      "CapitalizeNames": false,
+      "SeparateTablesAndViews": true,
+      "Connections": [
+        {
+          "DatabaseName": "employees",
+          "Type": "MariaDB",
+          "ConnectionString": "Host=localhost;User=datalinq;Password=datalinq;Max Pool Size=500;Pooling=true;CharSet=utf8mb4;"
+        },
+        {
+          "DatabaseName": "employees",
+          "Type": "SQLite",
+          "ConnectionString": "Data Source=D:\\testing\\employees2.db;Cache=Shared;"
+        }
+      ]
+    }
+  ]
+}

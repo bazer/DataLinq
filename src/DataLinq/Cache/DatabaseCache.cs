@@ -21,8 +21,8 @@ namespace DataLinq.Cache
         {
             this.Database = database;
 
-            this.TableCaches =  this.Database.Metadata.Tables
-                .Select(x => new TableCache(x, database))
+            this.TableCaches =  this.Database.Metadata.TableModels
+                .Select(x => new TableCache(x.Table, database))
                 .ToList();
 
             this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), TimeSpan.FromMinutes(5));

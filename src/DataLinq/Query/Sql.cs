@@ -10,6 +10,7 @@ namespace DataLinq.Query
         public List<IDataParameter> Parameters = new List<IDataParameter>();
         public int Index { get; protected set; } = 0;
         public string Text { get { return builder.ToString(); } }
+        //public bool HasCreateDatabase { get; set; }
 
         public Sql()
         {

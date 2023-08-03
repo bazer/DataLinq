@@ -27,7 +27,9 @@ namespace DataLinq.Instances
 
         protected object GetRelation(InvocationInfo info)
         {
-            var property = Properties.Single(x => x.CsName == info.Name);
+            var property = Properties
+                .OfType<RelationProperty>()
+                .Single(x => x.CsName == info.Name);
 
             //if (RelationCache == null)
             //    RelationCache = new ConcurrentDictionary<string, object>();
@@ -35,15 +37,16 @@ namespace DataLinq.Instances
             //if (!RelationCache.TryGetValue(info.Name, out object returnvalue))
             //{
 
-            if (Transaction.Type != TransactionType.NoTransaction && (Transaction.Status == DatabaseTransactionStatus.Committed || Transaction.Status == DatabaseTransactionStatus.RolledBack))
-                Transaction = Transaction.Provider.StartTransaction(TransactionType.NoTransaction);
+            if (Transaction.Type != TransactionType.ReadOnly && (Transaction.Status == DatabaseTransactionStatus.Committed || Transaction.Status == DatabaseTransactionStatus.RolledBack))
+                Transaction = Transaction.Provider.StartTransaction(TransactionType.ReadOnly);
+
+            
+            //var column = property.Column;
+            var result = Transaction.Provider
+                .GetTableCache(property.RelationPart.GetOtherSide().Column.Table)
+                .GetRows(new ForeignKey(property.RelationPart.Relation.ForeignKey.Column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
 
             object returnvalue;
-            var column = property.Column;
-            var result = Transaction.Provider
-                .GetTableCache(column.Table)
-                .GetRows(new ForeignKey(column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
-
             if (property.RelationPart.Type == RelationPartType.ForeignKey)
             {
                 returnvalue = result.SingleOrDefault();

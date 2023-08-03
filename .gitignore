@@ -13,4 +13,7 @@ TestResults
 *.ncrunchproject
 *.ncrunchsolution
 *.cache
+
 /src/_NCrunch_DataLinq
+/src/DataLinq.Tests/*.db
+*nCrunchTemp_*.csproj

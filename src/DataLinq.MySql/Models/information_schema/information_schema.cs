@@ -5,83 +5,12 @@ using DataLinq.Attributes;
 
 namespace DataLinq.MySql.Models
 {
-    [Name("information_schema")]
+    [Database("information_schema")]
     public interface information_schema : IDatabaseModel
     {
-        DbRead<ALL_PLUGINS> ALL_PLUGINS { get; }
-        DbRead<APPLICABLE_ROLES> APPLICABLE_ROLES { get; }
-        DbRead<CHARACTER_SETS> CHARACTER_SETS { get; }
-        DbRead<CLIENT_STATISTICS> CLIENT_STATISTICS { get; }
-        DbRead<COLLATION_CHARACTER_SET_APPLICABILITY> COLLATION_CHARACTER_SET_APPLICABILITY { get; }
-        DbRead<COLLATIONS> COLLATIONS { get; }
-        DbRead<COLUMN_PRIVILEGES> COLUMN_PRIVILEGES { get; }
         DbRead<COLUMNS> COLUMNS { get; }
-        DbRead<ENABLED_ROLES> ENABLED_ROLES { get; }
-        DbRead<ENGINES> ENGINES { get; }
-        DbRead<EVENTS> EVENTS { get; }
-        DbRead<FILES> FILES { get; }
-        DbRead<GEOMETRY_COLUMNS> GEOMETRY_COLUMNS { get; }
-        DbRead<GLOBAL_STATUS> GLOBAL_STATUS { get; }
-        DbRead<GLOBAL_VARIABLES> GLOBAL_VARIABLES { get; }
-        DbRead<INDEX_STATISTICS> INDEX_STATISTICS { get; }
-        DbRead<INNODB_BUFFER_PAGE> INNODB_BUFFER_PAGE { get; }
-        DbRead<INNODB_BUFFER_PAGE_LRU> INNODB_BUFFER_PAGE_LRU { get; }
-        DbRead<INNODB_BUFFER_POOL_STATS> INNODB_BUFFER_POOL_STATS { get; }
-        DbRead<INNODB_CMP> INNODB_CMP { get; }
-        DbRead<INNODB_CMP_PER_INDEX> INNODB_CMP_PER_INDEX { get; }
-        DbRead<INNODB_CMP_PER_INDEX_RESET> INNODB_CMP_PER_INDEX_RESET { get; }
-        DbRead<INNODB_CMP_RESET> INNODB_CMP_RESET { get; }
-        DbRead<INNODB_CMPMEM> INNODB_CMPMEM { get; }
-        DbRead<INNODB_CMPMEM_RESET> INNODB_CMPMEM_RESET { get; }
-        DbRead<INNODB_FT_BEING_DELETED> INNODB_FT_BEING_DELETED { get; }
-        DbRead<INNODB_FT_CONFIG> INNODB_FT_CONFIG { get; }
-        DbRead<INNODB_FT_DEFAULT_STOPWORD> INNODB_FT_DEFAULT_STOPWORD { get; }
-        DbRead<INNODB_FT_DELETED> INNODB_FT_DELETED { get; }
-        DbRead<INNODB_FT_INDEX_CACHE> INNODB_FT_INDEX_CACHE { get; }
-        DbRead<INNODB_FT_INDEX_TABLE> INNODB_FT_INDEX_TABLE { get; }
-        DbRead<INNODB_LOCK_WAITS> INNODB_LOCK_WAITS { get; }
-        DbRead<INNODB_LOCKS> INNODB_LOCKS { get; }
-        DbRead<INNODB_METRICS> INNODB_METRICS { get; }
-        DbRead<INNODB_MUTEXES> INNODB_MUTEXES { get; }
-        DbRead<INNODB_SYS_COLUMNS> INNODB_SYS_COLUMNS { get; }
-        DbRead<INNODB_SYS_DATAFILES> INNODB_SYS_DATAFILES { get; }
-        DbRead<INNODB_SYS_FIELDS> INNODB_SYS_FIELDS { get; }
-        DbRead<INNODB_SYS_FOREIGN> INNODB_SYS_FOREIGN { get; }
-        DbRead<INNODB_SYS_FOREIGN_COLS> INNODB_SYS_FOREIGN_COLS { get; }
-        DbRead<INNODB_SYS_INDEXES> INNODB_SYS_INDEXES { get; }
-        DbRead<INNODB_SYS_SEMAPHORE_WAITS> INNODB_SYS_SEMAPHORE_WAITS { get; }
-        DbRead<INNODB_SYS_TABLES> INNODB_SYS_TABLES { get; }
-        DbRead<INNODB_SYS_TABLESPACES> INNODB_SYS_TABLESPACES { get; }
-        DbRead<INNODB_SYS_TABLESTATS> INNODB_SYS_TABLESTATS { get; }
-        DbRead<INNODB_SYS_VIRTUAL> INNODB_SYS_VIRTUAL { get; }
-        DbRead<INNODB_TABLESPACES_ENCRYPTION> INNODB_TABLESPACES_ENCRYPTION { get; }
-        DbRead<INNODB_TABLESPACES_SCRUBBING> INNODB_TABLESPACES_SCRUBBING { get; }
-        DbRead<INNODB_TRX> INNODB_TRX { get; }
-        DbRead<KEY_CACHES> KEY_CACHES { get; }
         DbRead<KEY_COLUMN_USAGE> KEY_COLUMN_USAGE { get; }
-        DbRead<PARAMETERS> PARAMETERS { get; }
-        DbRead<PARTITIONS> PARTITIONS { get; }
-        DbRead<PLUGINS> PLUGINS { get; }
-        DbRead<PROCESSLIST> PROCESSLIST { get; }
-        DbRead<PROFILING> PROFILING { get; }
-        DbRead<REFERENTIAL_CONSTRAINTS> REFERENTIAL_CONSTRAINTS { get; }
-        DbRead<ROUTINES> ROUTINES { get; }
-        DbRead<SCHEMA_PRIVILEGES> SCHEMA_PRIVILEGES { get; }
-        DbRead<SCHEMATA> SCHEMATA { get; }
-        DbRead<SESSION_STATUS> SESSION_STATUS { get; }
-        DbRead<SESSION_VARIABLES> SESSION_VARIABLES { get; }
-        DbRead<SPATIAL_REF_SYS> SPATIAL_REF_SYS { get; }
-        DbRead<STATISTICS> STATISTICS { get; }
-        DbRead<SYSTEM_VARIABLES> SYSTEM_VARIABLES { get; }
-        DbRead<TABLE_CONSTRAINTS> TABLE_CONSTRAINTS { get; }
-        DbRead<TABLE_PRIVILEGES> TABLE_PRIVILEGES { get; }
-        DbRead<TABLE_STATISTICS> TABLE_STATISTICS { get; }
         DbRead<TABLES> TABLES { get; }
-        DbRead<TABLESPACES> TABLESPACES { get; }
-        DbRead<TRIGGERS> TRIGGERS { get; }
-        DbRead<USER_PRIVILEGES> USER_PRIVILEGES { get; }
-        DbRead<USER_STATISTICS> USER_STATISTICS { get; }
-        DbRead<user_variables> user_variables { get; }
         DbRead<VIEWS> VIEWS { get; }
     }
 }

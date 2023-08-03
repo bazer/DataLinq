@@ -1,8 +1,7 @@
-﻿using MySqlConnector;
-using DataLinq.Mutation;
+﻿using DataLinq.Mutation;
+using MySqlConnector;
 using System;
 using System.Data;
-using System.Data.Common;
 
 namespace DataLinq.MySql
 {
@@ -19,13 +18,13 @@ namespace DataLinq.MySql
         {
             get
             {
+
                 if (Status == DatabaseTransactionStatus.Committed || Status == DatabaseTransactionStatus.RolledBack)
                     throw new Exception("Can't open a new connection on a committed or rolled back transaction");
 
-                if (Status == DatabaseTransactionStatus.Closed) //dbConnection == null || dbTransaction == null || !IsTransactionPending)
+                if (Status == DatabaseTransactionStatus.Closed)
                 {
                     Status = DatabaseTransactionStatus.Open;
-                    //IsTransactionPending = true;
                     dbConnection = new MySqlConnection(ConnectionString);
                     dbConnection.Open();
                     dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
@@ -33,13 +32,6 @@ namespace DataLinq.MySql
 
                 return dbConnection;
             }
-        }
-
-        public override int ExecuteNonQuery(string query)
-        {
-            var command = new MySqlCommand(query);
-
-            return ExecuteNonQuery(command);
         }
 
         public override int ExecuteNonQuery(IDbCommand command)
@@ -52,10 +44,21 @@ namespace DataLinq.MySql
             }
             catch (Exception)
             {
-                //Rollback();
                 throw;
             }
         }
+
+        public override int ExecuteNonQuery(string query) =>
+            ExecuteNonQuery(new MySqlCommand(query));
+
+        public override object ExecuteScalar(string query) =>
+            ExecuteScalar(new MySqlCommand(query));
+
+        public override T ExecuteScalar<T>(string query) =>
+            (T)ExecuteScalar(new MySqlCommand(query));
+
+        public override T ExecuteScalar<T>(IDbCommand command) =>
+            (T)ExecuteScalar(command);
 
         public override object ExecuteScalar(IDbCommand command)
         {
@@ -67,7 +70,6 @@ namespace DataLinq.MySql
             }
             catch (Exception)
             {
-                //Rollback();
                 throw;
             }
         }

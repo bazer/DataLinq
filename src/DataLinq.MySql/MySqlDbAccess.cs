@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Data.Common;
-using System.Text;
+﻿using DataLinq.Mutation;
 using MySqlConnector;
-using DataLinq.Mutation;
+using System;
+using System.Data;
 
 namespace DataLinq.MySql
 {
@@ -12,8 +9,8 @@ namespace DataLinq.MySql
     {
         public MySqlDbAccess(string connectionString, TransactionType type) : base(connectionString, type)
         {
-            if (type != TransactionType.NoTransaction)
-                throw new ArgumentException("Only 'TransactionType.NoTransaction' is allowed");
+            if (type != TransactionType.ReadOnly)
+                throw new ArgumentException("Only 'TransactionType.ReadOnly' is allowed");
         }
 
         public override void Commit()
@@ -41,6 +38,15 @@ namespace DataLinq.MySql
 
         public override int ExecuteNonQuery(string query) => 
             ExecuteNonQuery(new MySqlCommand(query));
+
+        public override object ExecuteScalar(string query) =>
+            ExecuteScalar(new MySqlCommand(query));
+
+        public override T ExecuteScalar<T>(string query) =>
+            (T)ExecuteScalar(new MySqlCommand(query));
+
+        public override T ExecuteScalar<T>(IDbCommand command) =>
+            (T)ExecuteScalar(command);
 
         public override object ExecuteScalar(IDbCommand command)
         {

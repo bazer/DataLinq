@@ -1,5 +1,6 @@
 ﻿using DataLinq.Interfaces;
 using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Metadata;
@@ -12,19 +13,15 @@ namespace DataLinq.Metadata
         Relation
     }
 
-    public class Property
+    public abstract class Property
     {
-        public object[] Attributes { get; set; }
-        public Column Column { get; set; }
+        public List<Attribute> Attributes { get; set; } = new List<Attribute>();
         public string CsName { get; set; }
-        public bool CsNullable { get; set; }
         public Type CsType { get; set; }
-        public int? CsSize { get; set; }
         public string CsTypeName { get; set; }
         public ModelMetadata Model { get; set; }
         public PropertyInfo PropertyInfo { get; set; }
-        public PropertyType Type { get; set; }
-        public RelationPart RelationPart { get; set; }
+        public PropertyType Type { get; protected set; }
 
 
         private Func<object, object> getAccessor = null;
@@ -79,6 +76,49 @@ namespace DataLinq.Metadata
                     instanceCast,
                     this.PropertyInfo.GetSetMethod(),
                     valueCast), new ParameterExpression[] { instance, value }).Compile();
+        }
+
+        public override string ToString()
+        {
+            return $"Property: {CsTypeName} {CsName}";
+        }
+    }
+
+    public class ValueProperty : Property
+    {
+        public Column Column { get; set; }
+        public bool CsNullable { get; set; }
+        public int? CsSize { get; set; }
+        public EnumProperty? EnumProperty {get; set;}
+
+        public ValueProperty()
+        {
+            Type = PropertyType.Value;
+        }
+
+    }
+
+    public record struct EnumProperty
+    {
+        public EnumProperty(List<(string name, int value)> enumValues, List<(string name, int value)> csEnumValues, bool declaredInClass = true)
+        {
+            EnumValues = enumValues;
+            CsEnumValues = csEnumValues;
+            DeclaredInClass = declaredInClass;
+        }
+
+        public List<(string name, int value)> EnumValues { get; }
+        public List<(string name, int value)> CsEnumValues { get; }
+        public bool DeclaredInClass { get; }
+    }
+
+    public class RelationProperty : Property
+    {
+        public RelationPart RelationPart { get; set; }
+
+        public RelationProperty()
+        {
+            Type = PropertyType.Relation;
         }
     }
 }

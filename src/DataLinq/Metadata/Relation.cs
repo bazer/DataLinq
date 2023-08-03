@@ -15,5 +15,10 @@ namespace DataLinq.Metadata
         public RelationPart CandidateKey { get; set; }
         public RelationType Type { get; set; }
         public string ConstraintName { get; set; }
+
+        public override string ToString()
+        {
+            return $"{ConstraintName}: {ForeignKey} -> {CandidateKey}";
+        }
     }
 }
