@@ -12,8 +12,8 @@ namespace DataLinq.Tests.Models
         [ForeignKey("departments", "dept_no", "dept_manager_ibfk_2")]
         [Type(DatabaseType.SQLite, "text")]
         [Type(DatabaseType.MySQL, "char", 4)]
-        [Column("dept_no")]
-        public virtual string dept_no { get; set; }
+        [Column("dept_fk")]
+        public virtual string dept_fk { get; set; }
 
         [PrimaryKey]
         [ForeignKey("employees", "emp_no", "dept_manager_ibfk_1")]

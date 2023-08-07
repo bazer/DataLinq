@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using DataLinq.Extensions;
+using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 
 namespace DataLinq.Metadata
@@ -9,6 +11,11 @@ namespace DataLinq.Metadata
         public string Name { get; set; }
         public long? Length { get; set; }
         public bool? Signed { get; set; }
+
+        public override string ToString()
+        {
+            return $"{Name} ({Length}) [{DatabaseType}]";
+        }
     }
 
     public class Column
@@ -28,7 +35,7 @@ namespace DataLinq.Metadata
 
         public override string ToString()
         {
-            return $"{Table.DbName}.{DbName} ({DbTypes})";
+            return $"{Table.DbName}.{DbName} ({DbTypes.ToJoinedString(", ")})";
         }
     }
 }

@@ -40,11 +40,10 @@ namespace DataLinq.Instances
             if (Transaction.Type != TransactionType.ReadOnly && (Transaction.Status == DatabaseTransactionStatus.Committed || Transaction.Status == DatabaseTransactionStatus.RolledBack))
                 Transaction = Transaction.Provider.StartTransaction(TransactionType.ReadOnly);
 
-            
-            //var column = property.Column;
+            var otherSide = property.RelationPart.GetOtherSide();
             var result = Transaction.Provider
-                .GetTableCache(property.RelationPart.GetOtherSide().Column.Table)
-                .GetRows(new ForeignKey(property.RelationPart.Relation.ForeignKey.Column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
+                .GetTableCache(otherSide.Column.Table)
+                .GetRows(new ForeignKey(otherSide.Column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
 
             object returnvalue;
             if (property.RelationPart.Type == RelationPartType.ForeignKey)

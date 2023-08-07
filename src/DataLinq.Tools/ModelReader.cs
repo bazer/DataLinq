@@ -30,7 +30,10 @@ namespace DataLinq.Tools
             Log($"Reading database: {db.Name}");
 
             List<string> dirs = new List<string>();
-            dirs.Add(basePath + Path.DirectorySeparatorChar + db.SourceDirectories);
+
+            if (db.SourceDirectories != null)
+                foreach (var dir in db.SourceDirectories)
+                    dirs.Add(basePath + Path.DirectorySeparatorChar + dir);
 
             if (db.DestinationDirectory != null)
                 dirs.Add(basePath + Path.DirectorySeparatorChar + db.DestinationDirectory);

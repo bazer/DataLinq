@@ -80,7 +80,7 @@ namespace DataLinq.Tests
 
                 AllEmployeesDb.Add(dbEmployees);
             }
-            employeesDb = AllEmployeesDb[1];
+            employeesDb = AllEmployeesDb[0];
             //employeesDb = new MySqlDatabase<Employees>(connDataLinq, EmployeesDbName);
             information_schema_provider = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.ParsedType == DatabaseType.MySQL).ConnectionString);
 
@@ -160,13 +160,13 @@ namespace DataLinq.Tests
                .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.emp_no, x => x.PickRandom(employees).emp_no)
-               .RuleFor(x => x.dept_no, x => x.PickRandom(departments).DeptNo);
+               .RuleFor(x => x.dept_fk, x => x.PickRandom(departments).DeptNo);
 
             var dept_managers = dept_managerFaker.Generate(numEmployees / 10);
 
             foreach (var dm in dept_managers)
             {
-                if (!transaction.Query().Managers.Any(x => x.dept_no == dm.dept_no && x.emp_no == dm.emp_no))
+                if (!transaction.Query().Managers.Any(x => x.dept_fk == dm.dept_fk && x.emp_no == dm.emp_no))
                     transaction.Insert(dm);
             }
 

@@ -7,15 +7,20 @@ namespace DataLinq.Config
 {
     public static class ConfigReader
     {
-        public static Option<DatabaseType> ParseDatabaseType(string typeName)
+        public static DatabaseType? ParseDatabaseType(string typeName)
         {
+            if (typeName == null)
+                return null;
+
             foreach (var (type, provider) in PluginHook.DatabaseProviders)
             {
                 if (provider.IsDatabaseType(typeName))
                     return type;
             }
 
-            return $"No provider matched with database type '{typeName}'";
+            return null;
+
+           // return $"No provider matched with database type '{typeName}'";
         }
 
         public static ConfigFile Read(string path)
@@ -26,7 +31,7 @@ namespace DataLinq.Config
             return config;
         }
 
-        public static Option<(DatabaseConfig db, DatabaseConnectionConfig connection)> GetConnection(this ConfigFile configFile, string dbName, DatabaseType databaseType)
+        public static Option<(DatabaseConfig db, DatabaseConnectionConfig connection)> GetConnection(this ConfigFile configFile, string dbName, DatabaseType? databaseType)
         {
             var db = configFile.Databases.SingleOrDefault(x => x.Name.ToLower() == dbName.ToLower());
             if (db == null)
