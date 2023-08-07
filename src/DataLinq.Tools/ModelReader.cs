@@ -29,6 +29,8 @@ namespace DataLinq.Tools
         {
             Log($"Reading database: {db.Name}");
 
+            var fileEncoding = db.ParseFileEncoding();
+
             List<string> dirs = new List<string>();
 
             if (db.SourceDirectories != null)
@@ -43,7 +45,9 @@ namespace DataLinq.Tools
             if (Directory.Exists(srcDir))
             {
                 Log($"Reading models from: {srcDir}");
-                DatabaseMetadata srcMetadata = new MetadataFromFileFactory(Log).ReadFiles(db.CsType, dirs.ToArray());
+
+                var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix ?? false };
+                DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, Log).ReadFiles(db.CsType, dirs.ToArray());
 
                 Log($"Tables in model files: {srcMetadata.TableModels.Count}");
             }

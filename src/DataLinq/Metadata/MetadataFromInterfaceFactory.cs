@@ -9,7 +9,7 @@ namespace DataLinq.Metadata
 {
     public static class MetadataFromInterfaceFactory
     {
-        public static DatabaseMetadata ParseDatabaseFromSources(params Type[] types)
+        public static DatabaseMetadata ParseDatabaseFromSources(bool removeInterfacePrefix, params Type[] types)
         {
             var dbType =
                     types.FirstOrDefault(x => x.GetInterface("ICustomDatabaseModel") != null) ??
@@ -34,7 +34,7 @@ namespace DataLinq.Metadata
                     .Select(x => database.ParseTableModel(x.type, x.csName))
                     .ToList();
 
-                var transformer = new MetadataTransformer(new MetadataTransformerOptions(true));
+                var transformer = new MetadataTransformer(new MetadataTransformerOptions(removeInterfacePrefix));
 
                 foreach (var customModel in customModels)
                 {

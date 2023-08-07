@@ -1,6 +1,8 @@
 ﻿using DataLinq.Metadata;
+using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 using ThrowAway;
 
 namespace DataLinq.Config
@@ -21,6 +23,17 @@ namespace DataLinq.Config
             return null;
 
            // return $"No provider matched with database type '{typeName}'";
+        }
+
+        public static Encoding ParseFileEncoding(string encoding)
+        {
+            if (encoding == null || encoding.Equals("UTF8", StringComparison.OrdinalIgnoreCase) || encoding.Equals("UTF-8", StringComparison.OrdinalIgnoreCase))
+                return new UTF8Encoding(false);
+
+            if (encoding.Equals("UTF8BOM", StringComparison.OrdinalIgnoreCase) || encoding.Equals("UTF8-BOM", StringComparison.OrdinalIgnoreCase) || encoding.Equals("UTF-8-BOM", StringComparison.OrdinalIgnoreCase))
+                return new UTF8Encoding(true);
+
+            return Encoding.GetEncoding(encoding);
         }
 
         public static ConfigFile Read(string path)

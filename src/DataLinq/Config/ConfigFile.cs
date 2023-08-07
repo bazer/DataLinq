@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Data.Common;
+using System.Text;
 
 namespace DataLinq.Config
 {
@@ -20,8 +21,11 @@ namespace DataLinq.Config
         public bool? UseCache { get; set; }
         public bool? UseRecord { get; set; }
         public bool? CapitalizeNames { get; set; }
+        public bool? RemoveInterfacePrefix { get; set; }
         public bool? SeparateTablesAndViews { get; set; }
         public List<DatabaseConnectionConfig> Connections { get; set; } = new();
+        public string FileEncoding { get; set; }
+        public Encoding ParseFileEncoding() => ConfigReader.ParseFileEncoding(FileEncoding);
     }
 
     public record DatabaseConnectionConfig

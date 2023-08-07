@@ -8,7 +8,7 @@ namespace DataLinq.Metadata
     {
         public bool RemoveInterfacePrefix { get; set; }
 
-        public MetadataTransformerOptions(bool removeInterfacePrefix = true)
+        public MetadataTransformerOptions(bool removeInterfacePrefix = false)
         {
             RemoveInterfacePrefix = removeInterfacePrefix;
         }
@@ -49,7 +49,7 @@ namespace DataLinq.Metadata
 
             if (options.RemoveInterfacePrefix)
             {
-                if (modelCsTypeName.StartsWith("I"))
+                if (modelCsTypeName.StartsWith("I") && !char.IsLower(modelCsTypeName[1]))
                     modelCsTypeName = modelCsTypeName.Substring(1);
             }
 

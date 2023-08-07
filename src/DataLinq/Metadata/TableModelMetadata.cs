@@ -8,5 +8,10 @@
         /// Name of the table's model property, in the IDatabaseModel
         /// </summary>
         public string CsPropertyName { get; set; }
+
+        public override string ToString()
+        {
+            return $"{Table}, {Model}";
+        }
     }
 }

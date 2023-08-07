@@ -1,4 +1,5 @@
-﻿using DataLinq.Interfaces;
+﻿using DataLinq.Extensions;
+using DataLinq.Interfaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -19,17 +20,20 @@ namespace DataLinq.Metadata
         TypeNotFound
     }
 
-    public class MetadataFromFileFactorySettings
+    public class MetadataFromFileFactoryOptions
     {
-
+        public Encoding FileEncoding { get; set; } = new UTF8Encoding(false);
+        public bool RemoveInterfacePrefix { get; set; } = false;
     }
 
     internal class MetadataFromFileFactory
     {
+        private readonly MetadataFromFileFactoryOptions options;
         public Action<string> Log { get; }
 
-        public MetadataFromFileFactory(Action<string> log)
+        public MetadataFromFileFactory(MetadataFromFileFactoryOptions options, Action<string> log)
         {
+            this.options = options;
             Log = log;
         }
 
@@ -45,12 +49,14 @@ namespace DataLinq.Metadata
 
             foreach (var path in paths)
             {
-                var sourceFiles = new DirectoryInfo(path)
-                    .EnumerateFiles("*.cs", SearchOption.AllDirectories)
-                    .Select(a => a.FullName);
+                var sourceFiles = Directory.Exists(path)
+                    ? new DirectoryInfo(path)
+                        .EnumerateFiles("*.cs", SearchOption.AllDirectories)
+                        .Select(a => a.FullName)
+                    : new FileInfo(path).FullName.Yield();
 
                 foreach (string file in sourceFiles)
-                    trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file)));
+                    trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file, options.FileEncoding)));
             }
 
             var references = GetReferences(
@@ -61,6 +67,9 @@ namespace DataLinq.Metadata
                 typeof(System.ComponentModel.DataAnnotations.AssociatedMetadataTypeTypeDescriptionProvider),
                 typeof(System.Xml.Serialization.CodeGenerationOptions),
                 typeof(Newtonsoft.Json.ConstructorHandling),
+                typeof(Remotion.Linq.DefaultQueryProvider),
+                typeof(System.Linq.EnumerableExecutor),
+                typeof(System.Linq.Expressions.BinaryExpression),
                 typeof(DataLinq),
                 typeof(SyntaxTree),
                 typeof(CSharpSyntaxTree))
@@ -114,7 +123,7 @@ namespace DataLinq.Metadata
                     return MetadataFromFileFactoryError.TypeNotFound;
                 }
 
-                return MetadataFromInterfaceFactory.ParseDatabaseFromSources(types);
+                return MetadataFromInterfaceFactory.ParseDatabaseFromSources(options.RemoveInterfacePrefix, types);
             }
         }
     }

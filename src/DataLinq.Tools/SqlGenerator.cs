@@ -42,7 +42,8 @@ namespace DataLinq.Tools
         public Option<Sql, SqlGeneratorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath, string path)
         {
             log($"Type: {connection.Type}");
-            
+
+            var fileEncoding = db.ParseFileEncoding();
 
             var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             if (!Directory.Exists(destDir))
@@ -51,7 +52,8 @@ namespace DataLinq.Tools
                 return SqlGeneratorError.DestDirectoryNotFound;
             }
 
-            var dbMetadata = new MetadataFromFileFactory(log).ReadFiles(db.CsType, destDir);
+            var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix ?? false };
+            var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir);
             if (dbMetadata.HasFailed)
             {
                 log("Error: Unable to parse model files.");

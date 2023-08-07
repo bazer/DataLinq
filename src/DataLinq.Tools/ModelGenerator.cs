@@ -49,6 +49,8 @@ namespace DataLinq.Tools
             if (connection.ParsedType == DatabaseType.SQLite)
                 connectionString = $"Data Source={databaseName};Cache=Shared;";
 
+            var fileEncoding = db.ParseFileEncoding();
+
             log($"Reading from database: {databaseName}");
             log($"Type: {connection.ParsedType}");
 
@@ -75,22 +77,23 @@ namespace DataLinq.Tools
                 }
                 else
                 {
-                    var srcDirs = db.SourceDirectories.Select(dir => basePath + Path.DirectorySeparatorChar + dir);
+                    var srcPaths = db.SourceDirectories.Select(path => basePath + Path.DirectorySeparatorChar + path);
 
-                    foreach (var srcDir in srcDirs.Where(x => !Directory.Exists(x)))
+                    foreach (var srcPath in srcPaths.Where(x => !Directory.Exists(x) && !File.Exists(x)))
                     {
-                        log($"Couldn't find dir: {srcDir}");
+                        log($"Couldn't find dir: {srcPath}");
                     }
 
-                    var srcDirsExists = srcDirs.Where(x => Directory.Exists(x)).ToArray();
+                    var srcPathsExists = srcPaths.Where(x => Directory.Exists(x) || File.Exists(x)).ToArray();
 
                     log($"Reading models from:");
-                    foreach (var srcDir in srcDirsExists)
+                    foreach (var srcPath in srcPathsExists)
                     {
-                        log($"{srcDir}");
+                        log($"{srcPath}");
                     }
 
-                    var srcMetadata = new MetadataFromFileFactory(log).ReadFiles(db.CsType, srcDirsExists);
+                    var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix ?? false };
+                    var srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, srcPathsExists);
                     if (srcMetadata.HasFailed)
                     {
                         log("Error: Unable to parse source files.");
@@ -99,7 +102,7 @@ namespace DataLinq.Tools
 
                     log($"Tables in source model files: {srcMetadata.Value.TableModels.Count}");
 
-                    var transformer = new MetadataTransformer(new MetadataTransformerOptions(true));
+                    var transformer = new MetadataTransformer(new MetadataTransformerOptions(db.RemoveInterfacePrefix ?? false));
                     transformer.TransformDatabase(srcMetadata, dbMetadata);
                 }
             }
@@ -111,7 +114,7 @@ namespace DataLinq.Tools
                 NamespaceName = db.Namespace ?? "Models",
                 UseRecords = db.UseRecord ?? true,
                 UseCache = db.UseCache ?? true,
-                SeparateTablesAndViews = db.SeparateTablesAndViews ?? false,
+                SeparateTablesAndViews = db.SeparateTablesAndViews ?? false
             };
 
             foreach (var file in new FileFactory(options).CreateModelFiles(dbMetadata))
@@ -122,7 +125,7 @@ namespace DataLinq.Tools
                 if (!File.Exists(filepath))
                     Directory.CreateDirectory(Path.GetDirectoryName(filepath));
 
-                File.WriteAllText(filepath, file.contents, Encoding.UTF8);
+                File.WriteAllText(filepath, file.contents, fileEncoding);
             }
 
             return dbMetadata;
