@@ -39,11 +39,12 @@ namespace DataLinq.Tools
             this.options = options;
         }
 
-        public Option<Sql, SqlGeneratorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath, string path)
+        public Option<Sql, SqlGeneratorError> Create(DataLinqDatabaseConnection connection, string basePath, string path)
         {
             log($"Type: {connection.Type}");
 
-            var fileEncoding = db.ParseFileEncoding();
+            var db = connection.DatabaseConfig;
+            var fileEncoding = db.FileEncoding;
 
             var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             if (!Directory.Exists(destDir))
@@ -63,7 +64,7 @@ namespace DataLinq.Tools
             log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
             log($"Writing sql to: {path}");
 
-            var sql = PluginHook.GenerateSql(connection.ParsedType.Value, dbMetadata, true);
+            var sql = PluginHook.GenerateSql(connection.Type, dbMetadata, true);
 
             if (sql.HasFailed)
             {

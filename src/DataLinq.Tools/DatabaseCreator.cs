@@ -37,11 +37,12 @@ namespace DataLinq.Tools
             this.options = options;
         }
 
-        public Option<int, DatabaseCreatorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath, string databaseName)
+        public Option<int, DatabaseCreatorError> Create(DataLinqDatabaseConnection connection, string basePath, string databaseName)
         {
             log($"Type: {connection.Type}");
 
-            var fileEncoding = db.ParseFileEncoding();
+            var db = connection.DatabaseConfig;
+            var fileEncoding = db.FileEncoding;
 
             var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             if (!Directory.Exists(destDir))
@@ -60,12 +61,12 @@ namespace DataLinq.Tools
 
             log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
 
-            if (connection.ParsedType == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
+            if (connection.Type == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
                 databaseName = Path.Combine(basePath, databaseName);
 
             log($"Creating database '{databaseName}'");
 
-            var sql = PluginHook.CreateDatabaseFromMetadata(connection.ParsedType.Value, dbMetadata, databaseName, connection.ConnectionString, true);
+            var sql = PluginHook.CreateDatabaseFromMetadata(connection.Type, dbMetadata, databaseName, connection.ConnectionString.Original, true);
 
             if (sql.HasFailed)
             {

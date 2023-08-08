@@ -7,6 +7,7 @@ namespace DataLinq
 {
     public enum DatabaseType
     {
+        Default,
         MySQL,
         SQLite
     }

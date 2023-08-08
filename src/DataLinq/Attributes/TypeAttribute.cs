@@ -8,27 +8,27 @@ namespace DataLinq.Attributes
     {
         public TypeAttribute(string name)
         {
-            DatabaseType = DatabaseType.MySQL;
+            DatabaseType = DatabaseType.Default;
             Name = name;
         }
 
         public TypeAttribute(string name, long length)
         {
-            DatabaseType = DatabaseType.MySQL;
+            DatabaseType = DatabaseType.Default;
             Name = name;
             Length = length;
         }
 
         public TypeAttribute(string name, bool signed)
         {
-            DatabaseType = DatabaseType.MySQL;
+            DatabaseType = DatabaseType.Default;
             Name = name;
             Signed = signed;
         }
 
         public TypeAttribute(string name, long length, bool signed)
         {
-            DatabaseType = DatabaseType.MySQL;
+            DatabaseType = DatabaseType.Default;
             Name = name;
             Length = length;
             Signed = signed;

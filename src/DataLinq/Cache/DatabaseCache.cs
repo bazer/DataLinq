@@ -1,11 +1,10 @@
 ﻿using DataLinq.Attributes;
-using DataLinq.Metadata;
+using DataLinq.Extensions;
 using DataLinq.Mutation;
 using DataLinq.Workers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace DataLinq.Cache
 {
@@ -25,9 +24,30 @@ namespace DataLinq.Cache
                 .Select(x => new TableCache(x.Table, database))
                 .ToList();
 
-            this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), TimeSpan.FromMinutes(5));
-            this.CleanCacheWorker.Start();
+            var cacheCleanupInterval = database.Metadata.CacheCleanup;
+
+            if (!cacheCleanupInterval.Any())
+                cacheCleanupInterval = (CacheCleanupType.Minutes, 5L).Yield().ToList();
+
+            foreach (var timespan in cacheCleanupInterval.Select(x => GetFromCacheCleanupType(x.limitType, x.amount)))
+            {
+                this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), timespan);
+                this.CleanCacheWorker.Start();
+            }
         }
+
+        private TimeSpan GetFromCacheCleanupType(CacheCleanupType type, long amount)
+        {
+            return type switch
+            {
+                CacheCleanupType.Seconds => TimeSpan.FromSeconds(amount),
+                CacheCleanupType.Minutes => TimeSpan.FromMinutes(amount),
+                CacheCleanupType.Hours => TimeSpan.FromHours(amount),
+                CacheCleanupType.Days => TimeSpan.FromDays(amount),
+                _ => throw new NotImplementedException(),
+            };
+        }
+
 
         public void ApplyChanges(IEnumerable<StateChange> changes, Transaction transaction = null)
         {

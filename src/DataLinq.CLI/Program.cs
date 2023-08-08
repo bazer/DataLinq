@@ -57,7 +57,7 @@ namespace DataLinq.CLI
 
         static bool Verbose;
         static string ConfigPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json";
-        static ConfigFile ConfigFile;
+        static DataLinqConfig ConfigFile;
         static string ConfigBasePath => Path.GetDirectoryName(ConfigPath);
 
         static public bool ReadConfig()
@@ -69,7 +69,7 @@ namespace DataLinq.CLI
                 return false;
             }
 
-            ConfigFile = ConfigReader.Read(ConfigPath);
+            ConfigFile = new DataLinqConfig(ConfigReader.Read(ConfigPath));
 
             return true;
         }
@@ -110,7 +110,7 @@ namespace DataLinq.CLI
                         Console.WriteLine("Connections:");
                         foreach (var connection in db.Connections)
                         {
-                            Console.WriteLine($"{connection.ParsedType} ({connection.ConnectionString})");
+                            Console.WriteLine($"{connection.Type} ({connection.ConnectionString})");
                         }
 
                         var reader = new ModelReader(Console.WriteLine);
@@ -138,7 +138,7 @@ namespace DataLinq.CLI
                         CapitalizeNames = !db.CapitalizeNames.HasValue || db.CapitalizeNames == true
                     });
 
-                    creator.Create(db, connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
+                    creator.Create(connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
                 })
                 .WithParsed<CreateSqlOptions>(options =>
                 {
@@ -157,7 +157,7 @@ namespace DataLinq.CLI
                     {
                     });
 
-                    generator.Create(db, connection, ConfigBasePath, options.OutputFile);
+                    generator.Create(connection, ConfigBasePath, options.OutputFile);
                 })
                 .WithParsed<CreateDatabaseOptions>(options =>
                 {
@@ -176,7 +176,7 @@ namespace DataLinq.CLI
                     {
                     });
 
-                    generator.Create(db, connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
+                    generator.Create(connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
                 })
                 .WithNotParsed(options =>
                 {

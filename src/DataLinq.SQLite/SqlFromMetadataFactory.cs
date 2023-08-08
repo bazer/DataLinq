@@ -53,6 +53,9 @@ namespace DataLinq.SQLite
 
             foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.View).Cast<ViewMetadata>().ToList()))
             {
+                if (string.IsNullOrWhiteSpace(view.Definition))
+                    return DataLinqOptionFailure.Fail($"View '{view.DbName}' does not have a Definition, can't create view. Add the 'DefinitionAttribute' to the view.");
+
                 sql.CreateView(view.DbName, view.Definition);
             }
 
@@ -85,25 +88,116 @@ namespace DataLinq.SQLite
             if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.SQLite))
                 return column.DbTypes.First(x => x.DatabaseType == DatabaseType.SQLite);
 
-            if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
-                return GetDbTypeFromMySQL(column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL));
+            var type = column.DbTypes
+                .Select(x => TryGetColumnType(x))
+                .Concat(GetDbTypeFromCsType(column.ValueProperty).Yield())
+                .Where(x => x != null)
+                .FirstOrDefault();
 
-            return GetDbTypeFromCsType(column.ValueProperty);
+            //string type;
+            //if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.Default))
+            //    type = ParseDefaultType(column.DbTypes.First(x => x.DatabaseType == DatabaseType.Default))
 
+            //    if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
+            //    return GetDbTypeFromMySQL(column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL));
+
+            if (!type.HasValue)
+                throw new Exception($"Could not find a SQLite database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
+
+            return type.Value;
+
+            //return GetDbTypeFromCsType(column.ValueProperty);
         }
 
-        private DatabaseColumnType GetDbTypeFromMySQL(DatabaseColumnType mysqlDbType)
+        //private DatabaseColumnType CreateDbType(string name, long? length = null, bool? signed = null)
+        //{
+        //    return new DatabaseColumnType
+        //    {
+        //        DatabaseType = DatabaseType.SQLite,
+        //        Name = name,
+        //        Length = length,
+        //        Signed = signed
+        //    };
+        //}
+
+        private DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
         {
+            string? type = null;
+            
+            if (dbType.DatabaseType == DatabaseType.Default)
+                type = ParseDefaultType(dbType.Name);
+            else if (dbType.DatabaseType == DatabaseType.MySQL)
+                type = ParseMySqlType(dbType.Name);
+
+            if (type == null)
+                return null;
+
             return new DatabaseColumnType
             {
                 DatabaseType = DatabaseType.SQLite,
-                Name = ParseMySqlType(mysqlDbType.Name),
-                Length = mysqlDbType.Length,
-                Signed = mysqlDbType.Signed
+                Name = type,
+                Length = dbType.Length,
+                Signed = dbType.Signed
             };
         }
 
-        private string ParseMySqlType(string mysqlType)
+        private DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
+        {
+            var type = ParseCsType(property.CsTypeName);
+
+            if (type == null)
+                return null;
+
+            return new DatabaseColumnType
+            {
+                DatabaseType = DatabaseType.SQLite,
+                Name = type
+            };
+        }
+
+        //private DatabaseColumnType GetDbTypeFromMySQL(DatabaseColumnType mysqlDbType)
+        //{
+        //    return new DatabaseColumnType
+        //    {
+        //        DatabaseType = DatabaseType.SQLite,
+        //        Name = ParseMySqlType(mysqlDbType.Name),
+        //        Length = mysqlDbType.Length,
+        //        Signed = mysqlDbType.Signed
+        //    };
+        //}
+
+        private string? ParseDefaultType(string defaultType)
+        {
+            return defaultType.ToLower() switch
+            {
+                "integer" => "integer",
+                "int" => "integer",
+                "tinyint" => "integer",
+                "mediumint" => "integer",
+                "bit" => "integer",
+                "bigint" => "integer",
+                "smallint" => "integer",
+                "enum" => "integer",
+                "real" => "real",
+                "double" => "real",
+                "float" => "real",
+                "decimal" => "real",
+                "varchar" => "text",
+                "text" => "text",
+                "mediumtext" => "text",
+                "datetime" => "text",
+                "timestamp" => "text",
+                "date" => "text",
+                "char" => "text",
+                "longtext" => "text",
+                "binary" => "blob",
+                "blob" => "blob",
+                _ => null
+                //_ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
+            };
+        }
+
+        private string? ParseMySqlType(string mysqlType)
         {
             return mysqlType.ToLower() switch
             {
@@ -127,20 +221,14 @@ namespace DataLinq.SQLite
                 "decimal" => "real",
                 "blob" => "blob",
                 "smallint" => "integer",
-                _ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
+                _ => null
+                //_ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
             };
         }
 
-        private DatabaseColumnType GetDbTypeFromCsType(ValueProperty property)
-        {
-            return new DatabaseColumnType
-            {
-                DatabaseType = DatabaseType.SQLite,
-                Name = ParseCsType(property.CsTypeName)
-            };
-        }
+        
 
-        private static string ParseCsType(string csType)
+        private static string? ParseCsType(string csType)
         {
             return csType.ToLower() switch
             {
@@ -148,7 +236,8 @@ namespace DataLinq.SQLite
                 "double" => "real",
                 "string" => "text",
                 "byte[]" => "blob",
-                _ => throw new NotImplementedException($"Unknown type '{csType}'"),
+                _ => null
+                //_ => throw new NotImplementedException($"Unknown type '{csType}'"),
             };
         }
     }

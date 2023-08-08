@@ -1,15 +1,17 @@
 ﻿using System.Collections.Generic;
 using System.Data.Common;
 using System.Text;
+using System.Linq;
+using System;
 
 namespace DataLinq.Config
 {
     public record ConfigFile
     {
-        public List<DatabaseConfig> Databases { get; set; } = new();
+        public List<ConfigFileDatabase> Databases { get; set; } = new();
     }
 
-    public record DatabaseConfig
+    public record ConfigFileDatabase
     {
         public string? Name { get; set; }
         public string? CsType { get; set; }
@@ -23,12 +25,12 @@ namespace DataLinq.Config
         public bool? CapitalizeNames { get; set; }
         public bool? RemoveInterfacePrefix { get; set; }
         public bool? SeparateTablesAndViews { get; set; }
-        public List<DatabaseConnectionConfig> Connections { get; set; } = new();
+        public List<ConfigFileDatabaseConnection> Connections { get; set; } = new();
         public string FileEncoding { get; set; }
         public Encoding ParseFileEncoding() => ConfigReader.ParseFileEncoding(FileEncoding);
     }
 
-    public record DatabaseConnectionConfig
+    public record ConfigFileDatabaseConnection
     {
         public DatabaseType? ParsedType
         {
@@ -44,24 +46,6 @@ namespace DataLinq.Config
         public string? Type { get; set; }
         public string? DatabaseName { get; set; }
         public string? ConnectionString { get; set; }
-        public ConnectionString? ParsedConnectionString => new ConnectionString(ConnectionString);
-    }
-
-    public record ConnectionString
-    {
-        public string Original { get; }
-        DbConnectionStringBuilder builder;
-
-        public bool HasPassword =>
-            builder.ContainsKey("Password") ||
-            builder.ContainsKey("password") ||
-            builder.ContainsKey("pwd");
-
-        public ConnectionString(string original)
-        {
-            Original = original;
-            builder = new DbConnectionStringBuilder();
-            builder.ConnectionString = Original;
-        }
+        public DataLinqConnectionString? ParsedConnectionString => new DataLinqConnectionString(ConnectionString);
     }
 }

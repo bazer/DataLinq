@@ -34,29 +34,35 @@ namespace DataLinq.Tools
             this.options = options;
         }
 
-        public Option<DatabaseMetadata, ModelGeneratorError> Create(DatabaseConfig db, DatabaseConnectionConfig connection, string basePath, string databaseName)
+        public Option<DatabaseMetadata, ModelGeneratorError> Create(DataLinqDatabaseConnection connection, string basePath, string databaseName)
         {
+            var db = connection.DatabaseConfig;
+
             var sqlOptions = new MetadataFromDatabaseFactoryOptions
             {
                 CapitaliseNames = this.options.CapitalizeNames,
                 DeclareEnumsInClass = this.options.DeclareEnumsInClass
             };
 
-            if (connection.ParsedType == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
-                databaseName = Path.Combine(basePath, databaseName);
+            if (connection.Type == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
+                databaseName = connection.GetRootedPath(basePath); // Path.Combine(basePath, databaseName);
+
+            //var connectionString = connection.ConnectionString;
+            //if (connection.Type == DatabaseType.SQLite)
+            //    connectionString = $"Data Source={databaseName};Cache=Shared;";
 
             var connectionString = connection.ConnectionString;
-            if (connection.ParsedType == DatabaseType.SQLite)
-                connectionString = $"Data Source={databaseName};Cache=Shared;";
+            if (connection.Type == DatabaseType.SQLite)
+                connectionString = connectionString.ChangeValue("Data Source", databaseName);
 
-            var fileEncoding = db.ParseFileEncoding();
+            var fileEncoding = connection.DatabaseConfig.FileEncoding;
 
             log($"Reading from database: {databaseName}");
-            log($"Type: {connection.ParsedType}");
+            log($"Type: {connection.Type}");
 
-            var dbMetadata = PluginHook.MetadataFromSqlFactories[connection.ParsedType.Value]
+            var dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
                 .GetMetadataFromSqlFactory(sqlOptions)
-                .ParseDatabase(db.Name, db.CsType, databaseName, connectionString);
+                .ParseDatabase(db.Name, db.CsType, databaseName, connectionString.Original);
 
             //var dbMetadata = connection.ParsedType switch
             //{

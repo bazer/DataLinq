@@ -66,12 +66,12 @@ namespace DataLinq.Tests
 
         [Theory]
         [MemberData(nameof(GetEmployeeConnections))]
-        public void TestMetadataFromSqlFactory(DatabaseConnectionConfig connection)
+        public void TestMetadataFromSqlFactory(DataLinqDatabaseConnection connection)
         {
-            var factory = PluginHook.MetadataFromSqlFactories[connection.ParsedType.Value]
+            var factory = PluginHook.MetadataFromSqlFactories[connection.Type]
                 .GetMetadataFromSqlFactory(new MetadataFromDatabaseFactoryOptions());
 
-            var metadata = factory.ParseDatabase("employees", "Employees", connection.DatabaseName, connection.ConnectionString);
+            var metadata = factory.ParseDatabase("employees", "Employees", connection.DatabaseName, connection.ConnectionString.Original);
             TestDatabase(metadata, false);
 
             //TestDatabase(new MetadataFromMySqlFactory(new MetadataFromDatabaseFactoryOptions { }).ParseDatabase("employees", "Employees", fixture.EmployeesDbName, fixture.information_schema.Query()), false);

@@ -26,7 +26,7 @@ namespace DataLinq.Tests
 
         public DatabaseFixture()
         {
-            var config = ConfigReader.Read("datalinq.json");
+            var config = new DataLinqConfig(ConfigReader.Read("datalinq.json"));
 
             var employees = config.Databases.Single(x => x.Name == "employees");
 
@@ -43,16 +43,16 @@ namespace DataLinq.Tests
 
             foreach (var connection in employees.Connections)
             {
-                var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.ParsedType).Value;
+                var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
 
-                var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString, connection.DatabaseName);
+                var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString.Original, connection.DatabaseName);
                 
                 lock(lockObject)
                 {
                     if (!dbEmployees.FileOrServerExists() || !dbEmployees.Exists())
                     {
-                        PluginHook.CreateDatabaseFromMetadata(connection.ParsedType.Value,
-                            dbEmployees.Provider.Metadata, connection.DatabaseName, connection.ConnectionString, true);
+                        PluginHook.CreateDatabaseFromMetadata(connection.Type,
+                            dbEmployees.Provider.Metadata, connection.DatabaseName, connection.ConnectionString.Original, true);
                     }
 
                     if (dbEmployees.Query().Employees.Count() == 0)
@@ -82,7 +82,7 @@ namespace DataLinq.Tests
             }
             employeesDb = AllEmployeesDb[0];
             //employeesDb = new MySqlDatabase<Employees>(connDataLinq, EmployeesDbName);
-            information_schema_provider = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.ParsedType == DatabaseType.MySQL).ConnectionString);
+            information_schema_provider = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
 
             //if (!employeesDb.Exists())
             //{
@@ -95,7 +95,7 @@ namespace DataLinq.Tests
             //}
         }
 
-        public List<DatabaseConnectionConfig> EmployeeConnections { get; set; } = new();
+        public List<DataLinqDatabaseConnection> EmployeeConnections { get; set; } = new();
         public List<Database<Employees>> AllEmployeesDb { get; set; } = new();
         public Database<Employees> employeesDb { get; set; }
         //public employeesDb employeesDb => employeesDb_provider.Read();

@@ -23,6 +23,7 @@ namespace DataLinq.Metadata
         public string CsTypeName { get; set; }
         public List<TableModelMetadata> TableModels { get; set; } = new();
         public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
+        public List<(CacheCleanupType limitType, long amount)> CacheCleanup { get; set; } = new();
         public bool UseCache { get; set; }
     }
 }

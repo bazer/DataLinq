@@ -101,6 +101,9 @@ namespace DataLinq.Metadata
 
                 if (attribute is CacheLimitAttribute cacheLimit)
                     database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+
+                if (attribute is CacheCleanupAttribute cacheCleanup)
+                    database.CacheCleanup.Add((cacheCleanup.LimitType, cacheCleanup.Amount));
             }
         }
 

@@ -43,7 +43,7 @@ namespace DataLinq.Metadata
             {
                 var view = views[i];
 
-                foreach (var fkView in views.Where(x => x.Definition.Contains(view.DbName)))
+                foreach (var fkView in views.Where(x => x.Definition?.Contains(view.DbName) == true))
                 {
                     var fkIndex = views.IndexOf(fkView);
                     //var fkTable = views[fkIndex];
