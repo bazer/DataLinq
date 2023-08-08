@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "DataLinq.CLI": {
-      "commandName": "Project",
-      "commandLineArgs": "create-models -n employees -t sqlite -c D:\\git\\DataLinq\\src\\DataLinq.Tests\\datalinq.json"
-    }
-  }
-}
