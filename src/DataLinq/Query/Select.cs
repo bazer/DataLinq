@@ -55,7 +55,7 @@ namespace DataLinq.Query
         public IEnumerable<RowData> ReadRows()
         {
             return query.Transaction
-                .DbTransaction
+                .DatabaseTransaction
                 .ReadReader(query.Transaction.Provider.ToDbCommand(this))
                 .Select(x => new RowData(x, query.Table));
         }
@@ -63,7 +63,7 @@ namespace DataLinq.Query
         public IEnumerable<PrimaryKeys> ReadKeys()
         {
             return query.Transaction
-                .DbTransaction
+                .DatabaseTransaction
                 .ReadReader(query.Transaction.Provider.ToDbCommand(this))
                 .Select(x => new PrimaryKeys(x, query.Table));
         }

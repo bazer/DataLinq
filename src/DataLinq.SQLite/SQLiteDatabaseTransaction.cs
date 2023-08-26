@@ -14,6 +14,10 @@ namespace DataLinq.SQLite
         {
         }
 
+        public SQLiteDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) : base(dbTransaction, type)
+        {
+        }
+
         private SqliteConnection DbConnection
         {
             get

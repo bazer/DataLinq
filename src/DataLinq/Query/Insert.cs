@@ -53,7 +53,7 @@ namespace DataLinq.Query
 
         public IDbCommand ToDbCommand()
         {
-            throw new System.NotImplementedException();
+            return query.Transaction.Provider.ToDbCommand(this);
         }
 
         public QueryResult Execute()

@@ -40,7 +40,7 @@ namespace DataLinq.Mutation
         {
             if (Type == TransactionChangeType.Insert && HasAutoIncrement && Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)).All(x => x == default))
             {
-                var newId = transaction.DbTransaction.ExecuteScalar(GetDbCommand(transaction));
+                var newId = transaction.DatabaseTransaction.ExecuteScalar(GetDbCommand(transaction));
 
                 Table.PrimaryKeyColumns
                     .FirstOrDefault(x => x.AutoIncrement)?
@@ -48,7 +48,7 @@ namespace DataLinq.Mutation
                     .SetValue(Model, newId);
             }
             else
-                transaction.DbTransaction.ExecuteNonQuery(GetDbCommand(transaction));
+                transaction.DatabaseTransaction.ExecuteNonQuery(GetDbCommand(transaction));
         }
 
         public IDbCommand GetDbCommand(Transaction transaction) =>

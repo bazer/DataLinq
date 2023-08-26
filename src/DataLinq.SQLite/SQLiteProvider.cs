@@ -72,6 +72,11 @@ namespace DataLinq.SQLite
                 return new SQLiteDatabaseTransaction(ConnectionString, type);
         }
 
+        public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
+        {
+            return new SQLiteDatabaseTransaction(dbTransaction, type);
+        }
+
         public override string GetLastIdQuery() => "SELECT last_insert_rowid()";
 
         public override Sql GetParameterValue(Sql sql, string key)

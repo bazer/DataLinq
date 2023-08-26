@@ -7,14 +7,23 @@ namespace DataLinq.MySql
 {
     public class MySqlDatabaseTransaction : DatabaseTransaction
     {
-        private MySqlConnection dbConnection;
-        private MySqlTransaction dbTransaction;
+        private IDbConnection dbConnection;
+        //private MySqlTransaction dbTransaction;
 
         public MySqlDatabaseTransaction(string connectionString, TransactionType type) : base(connectionString, type)
         {
         }
 
-        private MySqlConnection DbConnection
+        public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) : base(dbTransaction, type)
+        {
+            if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
+            if (dbTransaction.Connection.State != ConnectionState.Open) throw new Exception("The transaction connection is not open");
+
+            Status = DatabaseTransactionStatus.Open;
+            dbConnection = dbTransaction.Connection;
+        }
+
+        private IDbConnection DbConnection
         {
             get
             {
@@ -27,7 +36,7 @@ namespace DataLinq.MySql
                     Status = DatabaseTransactionStatus.Open;
                     dbConnection = new MySqlConnection(ConnectionString);
                     dbConnection.Open();
-                    dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
+                    DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
                 }
 
                 return dbConnection;
@@ -39,7 +48,7 @@ namespace DataLinq.MySql
             try
             {
                 command.Connection = DbConnection;
-                command.Transaction = dbTransaction;
+                command.Transaction = DbTransaction;
                 return command.ExecuteNonQuery();
             }
             catch (Exception)
@@ -65,7 +74,7 @@ namespace DataLinq.MySql
             try
             {
                 command.Connection = DbConnection;
-                command.Transaction = dbTransaction;
+                command.Transaction = DbTransaction;
                 return command.ExecuteScalar();
             }
             catch (Exception)
@@ -89,7 +98,7 @@ namespace DataLinq.MySql
             try
             {
                 command.Connection = DbConnection;
-                command.Transaction = dbTransaction;
+                command.Transaction = DbTransaction;
 
                 //return command.ExecuteReader() as IDataLinqDataReader;
                 return new MySqlDataLinqDataReader(command.ExecuteReader() as MySqlDataReader);
@@ -105,7 +114,7 @@ namespace DataLinq.MySql
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                dbTransaction.Commit();
+                DbTransaction.Commit();
             }
 
             Status = DatabaseTransactionStatus.Committed;
@@ -117,7 +126,7 @@ namespace DataLinq.MySql
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                dbTransaction?.Rollback();
+                DbTransaction?.Rollback();
             }
 
             Status = DatabaseTransactionStatus.RolledBack;
@@ -129,7 +138,7 @@ namespace DataLinq.MySql
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                dbTransaction?.Rollback();
+                DbTransaction?.Rollback();
                 Status = DatabaseTransactionStatus.RolledBack;
             }
 
@@ -143,7 +152,7 @@ namespace DataLinq.MySql
             Close();
 
             dbConnection?.Dispose();
-            dbTransaction?.Dispose();
+            DbTransaction?.Dispose();
         }
 
         #endregion IDisposable Members

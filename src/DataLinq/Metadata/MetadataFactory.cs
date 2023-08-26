@@ -8,8 +8,14 @@ namespace DataLinq.Metadata
 {
     public struct MetadataFromDatabaseFactoryOptions
     {
-        public bool CapitaliseNames { get; set; }
-        public bool DeclareEnumsInClass { get; set; }
+        public bool CapitaliseNames { get; set; } = false;
+        public bool DeclareEnumsInClass { get; set; } = false;
+        public List<string> Tables { get; set; } = new List<string>();
+        public List<string> Views { get; set; } = new List<string>();
+
+        public MetadataFromDatabaseFactoryOptions()
+        {
+        }
     }
 
     public static class MetadataFactory
@@ -45,29 +51,32 @@ namespace DataLinq.Metadata
             foreach (var column in database.
                 TableModels.SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
             {
-                var attribute = column.ValueProperty
-                    .Attributes
-                    .OfType<ForeignKeyAttribute>()
-                    .Single();
-
-                var relation = new Relation
+                foreach (var attribute in column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
                 {
-                    ConstraintName = attribute.Name,
-                    Type = RelationType.OneToMany
-                };
+                    //var attribute = column.ValueProperty
+                    //    .Attributes
+                    //    .OfType<ForeignKeyAttribute>()
+                    //    .Single();
 
-                var candidateColumn = database
-                    .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table)
-                    ?.Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
+                    var relation = new Relation
+                    {
+                        ConstraintName = attribute.Name,
+                        Type = RelationType.OneToMany
+                    };
 
-                if (candidateColumn == null)
-                    continue;
+                    var candidateColumn = database
+                        .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table)
+                        ?.Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
 
-                relation.ForeignKey = CreateRelationPart(relation, column, RelationPartType.ForeignKey);
-                relation.CandidateKey = CreateRelationPart(relation, candidateColumn, RelationPartType.CandidateKey);
+                    if (candidateColumn == null)
+                        continue;
 
-                AttachRelationProperty(relation.ForeignKey, candidateColumn);
-                AttachRelationProperty(relation.CandidateKey, column);
+                    relation.ForeignKey = CreateRelationPart(relation, column, RelationPartType.ForeignKey);
+                    relation.CandidateKey = CreateRelationPart(relation, candidateColumn, RelationPartType.CandidateKey);
+
+                    AttachRelationProperty(relation.ForeignKey, candidateColumn);
+                    AttachRelationProperty(relation.CandidateKey, column);
+                }
             }
         }
 

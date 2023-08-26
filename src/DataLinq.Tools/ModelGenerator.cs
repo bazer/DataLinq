@@ -1,9 +1,9 @@
 ﻿using DataLinq.Config;
 using DataLinq.Metadata;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using ThrowAway;
 
 namespace DataLinq.Tools
@@ -15,11 +15,17 @@ namespace DataLinq.Tools
 
     public struct ModelGeneratorOptions
     {
-        public bool ReadSourceModels { get; set; }
-        public bool OverwriteExistingModels { get; set; }
-        public bool CapitalizeNames { get; set; }
-        public bool DeclareEnumsInClass { get; set; }
-        public bool SeparateTablesAndViews { get; set; }
+        public bool ReadSourceModels { get; set; } = false;
+        public bool OverwriteExistingModels { get; set; } = false;
+        public bool CapitalizeNames { get; set; } = false;
+        public bool DeclareEnumsInClass { get; set; } = false;
+        public bool SeparateTablesAndViews { get; set; } = false;
+        public List<string> Tables { get; set; } = new List<string>();
+        public List<string> Views { get; set; } = new List<string>();
+
+        public ModelGeneratorOptions()
+        {
+        }
     }
 
     public class ModelGenerator
@@ -41,7 +47,9 @@ namespace DataLinq.Tools
             var sqlOptions = new MetadataFromDatabaseFactoryOptions
             {
                 CapitaliseNames = this.options.CapitalizeNames,
-                DeclareEnumsInClass = this.options.DeclareEnumsInClass
+                DeclareEnumsInClass = this.options.DeclareEnumsInClass,
+                Tables = this.options.Tables,
+                Views = this.options.Views
             };
 
             if (connection.Type == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
@@ -98,7 +106,7 @@ namespace DataLinq.Tools
                         log($"{srcPath}");
                     }
 
-                    var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix ?? false };
+                    var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
                     var srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, srcPathsExists);
                     if (srcMetadata.HasFailed)
                     {
@@ -108,7 +116,7 @@ namespace DataLinq.Tools
 
                     log($"Tables in source model files: {srcMetadata.Value.TableModels.Count}");
 
-                    var transformer = new MetadataTransformer(new MetadataTransformerOptions(db.RemoveInterfacePrefix ?? false));
+                    var transformer = new MetadataTransformer(new MetadataTransformerOptions(db.RemoveInterfacePrefix));
                     transformer.TransformDatabase(srcMetadata, dbMetadata);
                 }
             }
@@ -117,10 +125,10 @@ namespace DataLinq.Tools
 
             var options = new FileFactoryOptions
             {
-                NamespaceName = db.Namespace ?? "Models",
-                UseRecords = db.UseRecord ?? true,
-                UseCache = db.UseCache ?? true,
-                SeparateTablesAndViews = db.SeparateTablesAndViews ?? false
+                NamespaceName = db.Namespace,
+                UseRecords = db.UseRecord,
+                UseCache = db.UseCache,
+                SeparateTablesAndViews = db.SeparateTablesAndViews
             };
 
             foreach (var file in new FileFactory(options).CreateModelFiles(dbMetadata))

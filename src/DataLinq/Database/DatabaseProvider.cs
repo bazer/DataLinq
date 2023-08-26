@@ -27,6 +27,8 @@ namespace DataLinq
 
         DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
 
+        DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
+
         string GetLastIdQuery();
 
         TableCache GetTableCache(TableMetadata table);
@@ -110,6 +112,11 @@ namespace DataLinq
             return new Transaction(this, transactionType);
         }
 
+        public Transaction AttachTransaction(IDbTransaction dbTransaction, TransactionType transactionType = TransactionType.ReadAndWrite)
+        {
+            return new Transaction(this, dbTransaction, transactionType);
+        }
+
         public abstract IDbCommand ToDbCommand(IQuery query);
 
         public abstract string GetLastIdQuery();
@@ -123,6 +130,7 @@ namespace DataLinq
         public abstract Sql GetCreateSql();
 
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
+        public abstract DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
 
         public abstract string GetExists(string databaseName = null);
         public abstract bool FileOrServerExists();

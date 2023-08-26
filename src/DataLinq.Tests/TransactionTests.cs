@@ -1,12 +1,9 @@
-using System;
-using System.Linq;
-using DataLinq;
-using DataLinq.Exceptions;
-using DataLinq.Extensions;
-using DataLinq.Metadata;
 using DataLinq.Mutation;
-using DataLinq.Tests;
 using DataLinq.Tests.Models;
+using MySqlConnector;
+using System;
+using System.Data;
+using System.Linq;
 using Xunit;
 
 namespace DataLinq.Tests
@@ -20,6 +17,34 @@ namespace DataLinq.Tests
         {
             this.fixture = fixture;
             this.helpers = new Helpers(fixture);
+        }
+
+        [Fact]
+        public void AttachTransaction()
+        {
+            using var dbConnection = new MySqlConnection(fixture.employeesDb.Provider.ConnectionString);
+            dbConnection.Open();
+            using var dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
+
+            var command = fixture.employeesDb
+                .From("departments")
+                .Set("dept_no", "d099")
+                .Set("dept_name", "Transactions")
+                .InsertQuery()
+                .ToDbCommand();
+
+            command.Connection = dbConnection;
+            command.Transaction = dbTransaction;
+            command.ExecuteNonQuery();
+
+            using var transaction = fixture.employeesDb.AttachTransaction(dbTransaction);
+            Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
+
+            var dept = transaction.Query().Departments.Single(x => x.DeptNo == "d099");
+            Assert.Equal("Transactions", dept.Name);
+
+            var numDept = fixture.employeesDb.Query().Departments.Count(x => x.DeptNo == "d099");
+            Assert.Equal(0, numDept);
         }
 
         [Fact]
@@ -476,6 +501,8 @@ namespace DataLinq.Tests
             Assert.Equal(newBirthDate, dbEmployee2.birth_date);
             Assert.Equal(newHireDate, dbEmployee2.hire_date);
         }
+
+       
 
         //[Fact]
         //public void InsertUpdateTwice()

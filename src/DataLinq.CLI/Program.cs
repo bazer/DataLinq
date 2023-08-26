@@ -135,7 +135,9 @@ namespace DataLinq.CLI
                     {
                         OverwriteExistingModels = true,
                         ReadSourceModels = !options.SkipSource,
-                        CapitalizeNames = !db.CapitalizeNames.HasValue || db.CapitalizeNames == true
+                        CapitalizeNames = db.CapitalizeNames,
+                        Tables = db.Tables,
+                        Views = db.Views
                     });
 
                     creator.Create(connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);

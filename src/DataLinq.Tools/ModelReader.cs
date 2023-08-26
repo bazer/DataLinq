@@ -46,7 +46,7 @@ namespace DataLinq.Tools
             {
                 Log($"Reading models from: {srcDir}");
 
-                var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = db.FileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix ?? false };
+                var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = db.FileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
                 DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, Log).ReadFiles(db.CsType, dirs.ToArray());
 
                 Log($"Tables in model files: {srcMetadata.TableModels.Count}");
@@ -59,7 +59,9 @@ namespace DataLinq.Tools
             var sqlOptions = new MetadataFromDatabaseFactoryOptions
             {
                 CapitaliseNames = true,
-                DeclareEnumsInClass = true
+                DeclareEnumsInClass = true,
+                Tables = db.Tables,
+                Views = db.Views,
             };
 
             foreach (var connection in db.Connections)

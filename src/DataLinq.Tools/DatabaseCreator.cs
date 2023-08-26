@@ -51,7 +51,7 @@ namespace DataLinq.Tools
                 return DatabaseCreatorError.DestDirectoryNotFound;
             }
 
-            var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix ?? false };
+            var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
             var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir);
             if (dbMetadata.HasFailed)
             {

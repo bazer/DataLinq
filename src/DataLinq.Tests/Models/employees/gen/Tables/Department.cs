@@ -7,7 +7,7 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models
 {
     [Table("departments")]
-    public partial record Department : ITableModel
+    public partial record Department : ITableModel<Employees>
     {
         [PrimaryKey]
         [Type(DatabaseType.SQLite, "text")]

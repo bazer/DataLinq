@@ -56,36 +56,36 @@ namespace DataLinq.Config
     {
         public DataLinqConfig Config { get; }
 
-        public string? Name { get; set; }
-        public string? CsType { get; set; }
-        public string? Namespace { get; set; }
-        public List<string>? SourceDirectories { get; set; }
+        public string Name { get; set; }
+        public string CsType { get; set; }
+        public string Namespace { get; set; }
+        public List<string> SourceDirectories { get; set; }
         public string? DestinationDirectory { get; set; }
-        public List<string>? Tables { get; set; }
-        public List<string>? Views { get; set; }
-        public bool? UseCache { get; set; }
-        public bool? UseRecord { get; set; }
-        public bool? CapitalizeNames { get; set; }
-        public bool? RemoveInterfacePrefix { get; set; }
-        public bool? SeparateTablesAndViews { get; set; }
+        public List<string> Tables { get; set; }
+        public List<string> Views { get; set; }
+        public bool UseCache { get; set; }
+        public bool UseRecord { get; set; }
+        public bool CapitalizeNames { get; set; }
+        public bool RemoveInterfacePrefix { get; set; }
+        public bool SeparateTablesAndViews { get; set; }
         public List<DataLinqDatabaseConnection> Connections { get; set; } = new();
         public Encoding FileEncoding { get; }
 
         public DataLinqDatabaseConfig(DataLinqConfig config, ConfigFileDatabase database)
         {
             Config = config;
-            Name = database.Name;
-            CsType = database.CsType;
-            Namespace = database.Namespace;
-            SourceDirectories = database.SourceDirectories;
+            Name = database.Name ?? throw new ArgumentNullException(nameof(database.Name));
+            CsType = database.CsType ?? database.Name;
+            Namespace = database.Namespace ?? "Models";
+            SourceDirectories = database.SourceDirectories ?? new List<string>();
             DestinationDirectory = database.DestinationDirectory;
-            Tables = database.Tables;
-            Views = database.Views;
-            UseCache = database.UseCache;
-            UseRecord = database.UseRecord;
-            CapitalizeNames = database.CapitalizeNames;
-            RemoveInterfacePrefix = database.RemoveInterfacePrefix;
-            SeparateTablesAndViews = database.SeparateTablesAndViews;
+            Tables = database.Tables ?? new List<string>();
+            Views = database.Views ?? new List<string>();
+            UseCache = database.UseCache ?? false;
+            UseRecord = database.UseRecord ?? false;
+            CapitalizeNames = database.CapitalizeNames ?? false;
+            RemoveInterfacePrefix = database.RemoveInterfacePrefix ?? false;
+            SeparateTablesAndViews = database.SeparateTablesAndViews ?? false;
             Connections = database.Connections.Select(x => new DataLinqDatabaseConnection(this, x)).ToList();
             FileEncoding = ConfigReader.ParseFileEncoding(database.FileEncoding);
         }
@@ -96,7 +96,7 @@ namespace DataLinq.Config
         public DataLinqDatabaseConfig DatabaseConfig { get; }
 
         public DatabaseType Type { get; }
-        public string? DatabaseName { get; }
+        public string DatabaseName { get; }
         public DataLinqConnectionString ConnectionString { get; }
 
         public string GetRootedPath(string basePath)

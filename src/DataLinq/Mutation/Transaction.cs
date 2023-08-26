@@ -5,6 +5,7 @@ using DataLinq.Metadata;
 using DataLinq.Query;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 
@@ -32,17 +33,26 @@ namespace DataLinq.Mutation
         public uint TransactionID { get; }
         public IDatabaseProvider Provider { get; }
 
-        public DatabaseTransaction DbTransaction { get; set; }
+        public DatabaseTransaction DatabaseTransaction { get; set; }
         public List<StateChange> Changes { get; } = new List<StateChange>();
 
         public TransactionType Type { get; protected set; }
 
-        public DatabaseTransactionStatus Status => DbTransaction.Status;
+        public DatabaseTransactionStatus Status => DatabaseTransaction.Status;
 
         public Transaction(IDatabaseProvider databaseProvider, TransactionType type)
         {
             Provider = databaseProvider;
-            DbTransaction = databaseProvider.GetNewDatabaseTransaction(type);
+            DatabaseTransaction = databaseProvider.GetNewDatabaseTransaction(type);
+            Type = type;
+
+            TransactionID = Interlocked.Increment(ref transactionCount);
+        }
+
+        public Transaction(IDatabaseProvider databaseProvider, IDbTransaction dbTransaction, TransactionType type)
+        {
+            Provider = databaseProvider;
+            DatabaseTransaction = databaseProvider.AttachDatabaseTransaction(dbTransaction, type);
             Type = type;
 
             TransactionID = Interlocked.Increment(ref transactionCount);
@@ -146,7 +156,7 @@ namespace DataLinq.Mutation
         {
             CheckIfTransactionIsValid();
 
-            DbTransaction.Commit();
+            DatabaseTransaction.Commit();
 
             Provider.State.ApplyChanges(Changes);
             Provider.State.RemoveTransactionFromCache(this);
@@ -156,7 +166,7 @@ namespace DataLinq.Mutation
         {
             CheckIfTransactionIsValid();
 
-            DbTransaction.Rollback();
+            DatabaseTransaction.Rollback();
             Provider.State.RemoveTransactionFromCache(this);
         }
 
@@ -185,7 +195,7 @@ namespace DataLinq.Mutation
         public void Dispose()
         {
             Provider.State.RemoveTransactionFromCache(this);
-            DbTransaction.Dispose();
+            DatabaseTransaction.Dispose();
         }
 
         public bool Equals(Transaction? other)
@@ -226,6 +236,11 @@ namespace DataLinq.Mutation
         protected T Schema { get; }
 
         public Transaction(DatabaseProvider<T> databaseProvider, TransactionType type) : base(databaseProvider, type)
+        {
+            Schema = GetDatabaseInstance();
+        }
+
+        public Transaction(DatabaseProvider<T> databaseProvider, IDbTransaction dbTransaction, TransactionType type) : base(databaseProvider, dbTransaction, type)
         {
             Schema = GetDatabaseInstance();
         }

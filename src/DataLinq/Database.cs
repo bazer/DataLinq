@@ -3,6 +3,7 @@ using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
 using System;
+using System.Data;
 using System.Linq;
 
 namespace DataLinq
@@ -28,7 +29,7 @@ namespace DataLinq
         public bool Exists(string databaseName = null)
         {
             return Transaction(TransactionType.ReadOnly)
-                .DbTransaction
+                .DatabaseTransaction
                 .ReadReader(Provider.GetExists(databaseName))
                 .Any();
         }
@@ -36,6 +37,11 @@ namespace DataLinq
         public Transaction<T> Transaction(TransactionType transactionType = TransactionType.ReadAndWrite)
         {
             return new Transaction<T>(this.Provider, transactionType);
+        }
+
+        public Transaction<T> AttachTransaction(IDbTransaction dbTransaction, TransactionType transactionType = TransactionType.ReadAndWrite)
+        {
+            return new Transaction<T>(this.Provider, dbTransaction, transactionType);
         }
 
         public T Query()

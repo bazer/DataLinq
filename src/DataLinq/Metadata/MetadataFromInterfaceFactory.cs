@@ -139,7 +139,7 @@ namespace DataLinq.Metadata
 
         private static TableMetadata ParseTable(this ModelMetadata model)
         {
-            var table = model.CsType.GetInterfaces().Any(x => x.Name == "ITableModel" || x.Name == "ICustomTableModel")
+            var table = model.CsType.GetInterfaces().Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
                 ? new TableMetadata()
                 : new ViewMetadata();
 

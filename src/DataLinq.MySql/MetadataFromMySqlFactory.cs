@@ -41,7 +41,20 @@ namespace DataLinq.MySql
             MetadataFactory.ParseIndices(database);
             MetadataFactory.ParseRelations(database);
 
+            database.TableModels = database.TableModels.Where(IsTableOrViewInOptionsList).ToList();
+
             return database;
+        }
+
+        private bool IsTableOrViewInOptionsList(TableModelMetadata tableModel)
+        {
+            if (tableModel.Table.Type == TableType.View && options.Views.Any() && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            if (tableModel.Table.Type == TableType.Table && options.Tables.Any() && !options.Tables.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            return true;
         }
 
         private void ParseIndices(DatabaseMetadata database, information_schema information_Schema)

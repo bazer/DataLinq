@@ -17,12 +17,18 @@ namespace DataLinq
     {
         public DatabaseTransactionStatus Status { get; protected set; } = DatabaseTransactionStatus.Closed;
         public string ConnectionString { get; }
-
+        public IDbTransaction DbTransaction { get; protected set; }
         public TransactionType Type { get; protected set; }
 
         protected DatabaseTransaction(string connectionString, TransactionType type)
         {
             ConnectionString = connectionString;
+            Type = type;
+        }
+
+        protected DatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
+        {
+            DbTransaction = dbTransaction ?? throw new ArgumentNullException(nameof(dbTransaction));
             Type = type;
         }
 

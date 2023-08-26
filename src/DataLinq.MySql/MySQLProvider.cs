@@ -71,6 +71,10 @@ namespace DataLinq.MySql
                 return new MySqlDatabaseTransaction(ConnectionString, type);
         }
 
+        public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
+        {
+            return new MySqlDatabaseTransaction(dbTransaction, type);
+        }
 
         public override string GetExists(string databaseName = null)
         {

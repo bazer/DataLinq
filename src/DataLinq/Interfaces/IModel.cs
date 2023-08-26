@@ -9,7 +9,13 @@ namespace DataLinq.Interfaces
 
     }
 
-    public interface IDatabaseModel : IModel
+    public interface IModel<T> : IModel
+        where T : IDatabaseModel
+    {
+
+    }
+
+    public interface IDatabaseModel
     {
 
     }
@@ -24,7 +30,19 @@ namespace DataLinq.Interfaces
 
     }
 
+    public interface ITableModel<T> : IModel<T>
+        where T : IDatabaseModel
+    {
+
+    }
+
     public interface ICustomTableModel : ITableModel
+    {
+
+    }
+
+    public interface ICustomTableModel<T> : ITableModel<T>
+        where T : IDatabaseModel
     {
 
     }
@@ -34,13 +52,20 @@ namespace DataLinq.Interfaces
 
     }
 
+    public interface IViewModel<T> : IModel<T>
+        where T : IDatabaseModel
+    {
+
+    }
+
     public interface ICustomViewModel : IViewModel
     {
 
     }
 
-    //public interface IReadableModel : IModel
-    //{
+    public interface ICustomViewModel<T> : IViewModel<T>
+        where T : IDatabaseModel
+    {
 
-    //}
+    }
 }
