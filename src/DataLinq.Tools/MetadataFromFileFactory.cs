@@ -23,7 +23,7 @@ namespace DataLinq.Metadata
     public class MetadataFromFileFactoryOptions
     {
         public Encoding FileEncoding { get; set; } = new UTF8Encoding(false);
-        public bool RemoveInterfacePrefix { get; set; } = false;
+        public bool RemoveInterfacePrefix { get; set; } = true;
     }
 
     internal class MetadataFromFileFactory

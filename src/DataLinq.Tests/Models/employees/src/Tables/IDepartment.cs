@@ -15,7 +15,7 @@ namespace DataLinq.Tests.Models
         [Relation("dept_emp", "dept_no")]
         public IEnumerable<dept_emp> DepartmentEmployees { get; }
 
-        [Relation("dept_manager", "dept_no")]
+        [Relation("dept_manager", "dept_fk")]
         public IEnumerable<Manager> Managers { get; }
 
         [Column("dept_name")]

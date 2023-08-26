@@ -12,6 +12,7 @@
       "UseRecord": true,
       "CapitalizeNames": false,
       "SeparateTablesAndViews": true,
+      "FileEncoding": "UTF-8-BOM",
       "Connections": [
         {
           "DatabaseName": "employees",

@@ -84,7 +84,7 @@ namespace DataLinq.Config
             UseCache = database.UseCache ?? false;
             UseRecord = database.UseRecord ?? false;
             CapitalizeNames = database.CapitalizeNames ?? false;
-            RemoveInterfacePrefix = database.RemoveInterfacePrefix ?? false;
+            RemoveInterfacePrefix = database.RemoveInterfacePrefix ?? true;
             SeparateTablesAndViews = database.SeparateTablesAndViews ?? false;
             Connections = database.Connections.Select(x => new DataLinqDatabaseConnection(this, x)).ToList();
             FileEncoding = ConfigReader.ParseFileEncoding(database.FileEncoding);

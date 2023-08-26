@@ -120,6 +120,8 @@ namespace DataLinq.Metadata
             }
 
             var interfaces = table.Type == TableType.Table ? "ITableModel" : "IViewModel";
+
+            interfaces += $"<{model.Database.CsTypeName}>";
             //if (model.Interfaces?.Length > 0)
             //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
 
@@ -153,7 +155,7 @@ namespace DataLinq.Metadata
                     if (c.Nullable)
                         yield return $"{tab}{tab}[Nullable]";
 
-                    foreach (var dbType in c.DbTypes)
+                    foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
                     {
                         if (dbType.Signed.HasValue && dbType.Length.HasValue)
                             yield return $"{tab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
@@ -166,7 +168,7 @@ namespace DataLinq.Metadata
                     }
 
                     if (valueProperty.EnumProperty != null)
-                        yield return $"{tab}{tab}[Enum({string.Join(',', valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x}\""))})]";
+                        yield return $"{tab}{tab}[Enum({string.Join(',', valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
 
                     yield return $"{tab}{tab}[Column(\"{c.DbName}\")]";
                     yield return $"{tab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";

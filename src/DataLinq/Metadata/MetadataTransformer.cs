@@ -6,9 +6,9 @@ namespace DataLinq.Metadata
 {
     public struct MetadataTransformerOptions
     {
-        public bool RemoveInterfacePrefix { get; set; }
+        public bool RemoveInterfacePrefix { get; set; } = true;
 
-        public MetadataTransformerOptions(bool removeInterfacePrefix = false)
+        public MetadataTransformerOptions(bool removeInterfacePrefix = true)
         {
             RemoveInterfacePrefix = removeInterfacePrefix;
         }
@@ -47,7 +47,7 @@ namespace DataLinq.Metadata
             //log($"Transforming model '{srcTable.Table.DbName}'");
             var modelCsTypeName = srcTable.Model.CsTypeName;
 
-            if (options.RemoveInterfacePrefix)
+            if (options.RemoveInterfacePrefix && srcTable.Model.CsType.IsInterface)
             {
                 if (modelCsTypeName.StartsWith("I") && !char.IsLower(modelCsTypeName[1]))
                     modelCsTypeName = modelCsTypeName.Substring(1);
@@ -120,7 +120,9 @@ namespace DataLinq.Metadata
                 }
 
                 destProperty.CsName = srcProperty.CsName;
-                destProperty.RelationPart.Relation.ConstraintName = srcProperty.RelationPart.Relation.ConstraintName;
+
+                if (srcProperty.RelationPart != null)
+                    destProperty.RelationPart.Relation.ConstraintName = srcProperty.RelationPart.Relation.ConstraintName;
             }
         }
     }
