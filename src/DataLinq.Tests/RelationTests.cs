@@ -1,33 +1,33 @@
-using System;
-using System.Linq;
-using DataLinq.Metadata;
 using DataLinq.Tests.Models;
+using System.Linq;
 using Xunit;
 
 namespace DataLinq.Tests
 {
-    public class RelationTests : IClassFixture<DatabaseFixture>
+    public class RelationTests : BaseTests // IClassFixture<DatabaseFixture>
     {
-        private readonly DatabaseFixture fixture;
+        //private readonly DatabaseFixture fixture;
 
-        public RelationTests(DatabaseFixture fixture)
-        {
-            this.fixture = fixture;
-        }
+        //public RelationTests(DatabaseFixture fixture)
+        //{
+        //    this.fixture = fixture;
+        //}
 
-        [Fact]
-        public void LazyLoadSingleValue()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void LazyLoadSingleValue(Database<Employees> employeesDb)
         {
-            var manager = fixture.employeesDb.Query().Managers.Single(x => x.dept_fk == "d005" && x.emp_no == 4923);
+            var manager = employeesDb.Query().Managers.Single(x => x.dept_fk == "d005" && x.emp_no == 4923);
 
             Assert.NotNull(manager.Department);
             Assert.Equal("d005", manager.Department.DeptNo);
         }
 
-        [Fact]
-        public void LazyLoadList()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void LazyLoadList(Database<Employees> employeesDb)
         {
-            var department = fixture.employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
+            var department = employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
 
             Assert.NotNull(department.Managers);
             Assert.NotEmpty(department.Managers);
@@ -35,10 +35,11 @@ namespace DataLinq.Tests
             Assert.Equal("d005", department.Managers.First().Department.DeptNo);
         }
 
-        [Fact]
-        public void EmptyList()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void EmptyList(Database<Employees> employeesDb)
         {
-            var employee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == 1000);
+            var employee = employeesDb.Query().Employees.Single(x => x.emp_no == 1000);
 
             Assert.NotNull(employee.dept_manager);
             Assert.Empty(employee.dept_manager);

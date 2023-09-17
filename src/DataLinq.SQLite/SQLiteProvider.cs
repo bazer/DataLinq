@@ -31,10 +31,18 @@ namespace DataLinq.SQLite
         }
     }
 
+    public class SQLiteProviderConstants : IDatabaseProviderConstants
+    {
+        public string ParameterSign { get; } = "@";
+
+        public string LastInsertCommand { get; } = "last_insert_rowid()";
+    }
+
     public class SQLiteProvider<T> : DatabaseProvider<T>
         where T : class, IDatabaseModel
     {
         private SqliteConnectionStringBuilder connectionStringBuilder;
+        public override IDatabaseProviderConstants Constants { get; } = new SQLiteProviderConstants();
         static SQLiteProvider()
         {
             SQLiteProvider.RegisterProvider();

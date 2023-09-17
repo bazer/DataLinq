@@ -29,10 +29,18 @@ namespace DataLinq.MySql
         }
     }
 
+    public class MySQLProviderConstants : IDatabaseProviderConstants
+    {
+        public string ParameterSign { get; } = "?";
+        public string LastInsertCommand { get; } = "last_insert_id()";
+    }
+
     public class MySQLProvider<T> : DatabaseProvider<T>
         where T : class, IDatabaseModel
     {
         private MySqlConnectionStringBuilder connectionStringBuilder;
+
+        public override IDatabaseProviderConstants Constants { get; } = new MySQLProviderConstants();
 
         static MySQLProvider()
         {

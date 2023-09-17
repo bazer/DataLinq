@@ -1,26 +1,23 @@
-using System;
-using System.Linq;
-using DataLinq.Metadata;
-using DataLinq.Mutation;
-using DataLinq.Query;
 using DataLinq.Tests.Models;
+using System.Linq;
 using Xunit;
 
 namespace DataLinq.Tests
 {
-    public class SqlQueryTests : IClassFixture<DatabaseFixture>
+    public class SqlQueryTests : BaseTests //:IClassFixture<DatabaseFixture>
     {
-        private readonly DatabaseFixture fixture;
+        //private readonly DatabaseFixture fixture;
 
-        public SqlQueryTests(DatabaseFixture fixture)
-        {
-            this.fixture = fixture;
-        }
+        //public SqlQueryTests(DatabaseFixture fixture)
+        //{
+        //    this.fixture = fixture;
+        //}
 
-        [Fact]
-        public void SimpleWhere()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhere(Database<Employees> employeesDb)
         {
-            var departement = fixture.employeesDb
+            var departement = employeesDb
                 .From<Department>()
                 .Where("dept_no").EqualTo("d005")
                 .Select();

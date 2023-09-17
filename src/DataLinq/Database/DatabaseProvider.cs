@@ -21,6 +21,7 @@ namespace DataLinq
         string ConnectionString { get; }
         DatabaseMetadata Metadata { get; }
         State State { get; }
+        IDatabaseProviderConstants Constants { get; }
         IDbCommand ToDbCommand(IQuery query);
         
         Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite);
@@ -42,6 +43,12 @@ namespace DataLinq
         string GetExists(string databaseName);
         
         void CreateDatabase(string databaseName);
+    }
+
+    public interface IDatabaseProviderConstants
+    {
+        string ParameterSign { get; }
+        string LastInsertCommand { get; }
     }
 
     public abstract class DatabaseProvider<T> : DatabaseProvider
@@ -70,6 +77,7 @@ namespace DataLinq
     {
         public string DatabaseName { get; }
         public DatabaseType DatabaseType { get; }
+        public abstract IDatabaseProviderConstants Constants { get; }
 
         public string ConnectionString { get; }
         public DatabaseMetadata Metadata { get; }
