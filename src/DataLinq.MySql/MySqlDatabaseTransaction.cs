@@ -17,6 +17,7 @@ namespace DataLinq.MySql
         public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) : base(dbTransaction, type)
         {
             if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
+            if (dbTransaction.Connection is not MySqlConnection) throw new ArgumentException("The transaction connection must be an MySqlConnection", "dbTransaction.Connection");
             if (dbTransaction.Connection.State != ConnectionState.Open) throw new Exception("The transaction connection is not open");
 
             Status = DatabaseTransactionStatus.Open;
@@ -27,7 +28,6 @@ namespace DataLinq.MySql
         {
             get
             {
-
                 if (Status == DatabaseTransactionStatus.Committed || Status == DatabaseTransactionStatus.RolledBack)
                     throw new Exception("Can't open a new connection on a committed or rolled back transaction");
 

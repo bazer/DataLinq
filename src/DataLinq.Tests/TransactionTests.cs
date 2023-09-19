@@ -47,6 +47,42 @@ namespace DataLinq.Tests
 
         [Theory]
         [MemberData(nameof(GetEmployees))]
+        public void GetTransaction(Database<Employees> employeesDb)
+        {
+            using var transaction = employeesDb.Transaction();
+
+            transaction.Insert(new Department
+            {
+                DeptNo = "d099",
+                Name = "Transactions"
+            });
+
+            var command = employeesDb
+                .From("departments")
+                .Where("dept_no")
+                .EqualTo("d099")
+                .SelectQuery()
+                .ToDbCommand();
+
+            var dbTransaction = transaction.DatabaseTransaction.DbTransaction;
+
+            command.Connection = dbTransaction.Connection;
+            command.Transaction = dbTransaction;
+            using var reader = command.ExecuteReader();
+
+            var rows = 0;
+            while (reader.Read())
+            {
+                rows++;
+                Assert.Equal("d099", reader.GetString(0));
+                Assert.Equal("Transactions", reader.GetString(1));
+            }
+
+            Assert.Equal(1, rows);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
         public void Insert(Database<Employees> employeesDb)
         {
             var emp_no = 999999;

@@ -7,8 +7,8 @@ namespace DataLinq.SQLite
 {
     public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
-        private SqliteConnection dbConnection;
-        private SqliteTransaction dbTransaction;
+        private IDbConnection dbConnection;
+        //private SqliteTransaction dbTransaction;
 
         public SQLiteDatabaseTransaction(string connectionString, TransactionType type) : base(connectionString, type)
         {
@@ -16,9 +16,15 @@ namespace DataLinq.SQLite
 
         public SQLiteDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) : base(dbTransaction, type)
         {
+            if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
+            if (dbTransaction.Connection is not SqliteConnection) throw new ArgumentException("The transaction connection must be an SqliteConnection", "dbTransaction.Connection");
+            if (dbTransaction.Connection.State != ConnectionState.Open) throw new Exception("The transaction connection is not open");
+
+            Status = DatabaseTransactionStatus.Open;
+            dbConnection = dbTransaction.Connection;
         }
 
-        private SqliteConnection DbConnection
+        private IDbConnection DbConnection
         {
             get
             {
@@ -31,12 +37,12 @@ namespace DataLinq.SQLite
                     dbConnection = new SqliteConnection(ConnectionString);
                     dbConnection.Open();
 
-                    using (var command = new SqliteCommand("PRAGMA journal_mode=WAL;", dbConnection))
+                    using (var command = new SqliteCommand("PRAGMA journal_mode=WAL;", dbConnection as SqliteConnection))
                     {
                         command.ExecuteNonQuery();
                     }
 
-                    dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadUncommitted);
+                    DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadUncommitted);
                 }
 
                 return dbConnection;
@@ -48,7 +54,7 @@ namespace DataLinq.SQLite
             try
             {
                 command.Connection = DbConnection;
-                command.Transaction = dbTransaction;
+                command.Transaction = DbTransaction;
                 return command.ExecuteNonQuery();
             }
             catch (Exception)
@@ -74,7 +80,7 @@ namespace DataLinq.SQLite
             try
             {
                 command.Connection = DbConnection;
-                command.Transaction = dbTransaction;
+                command.Transaction = DbTransaction;
                 return command.ExecuteScalar();
             }
             catch (Exception)
@@ -98,7 +104,7 @@ namespace DataLinq.SQLite
             try
             {
                 command.Connection = DbConnection;
-                command.Transaction = dbTransaction;
+                command.Transaction = DbTransaction;
 
                 //return command.ExecuteReader() as IDataLinqDataReader;
                 return new SQLiteDataLinqDataReader(command.ExecuteReader() as SqliteDataReader);
@@ -114,7 +120,7 @@ namespace DataLinq.SQLite
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                dbTransaction.Commit();
+                DbTransaction.Commit();
             }
 
             Status = DatabaseTransactionStatus.Committed;
@@ -126,7 +132,7 @@ namespace DataLinq.SQLite
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                dbTransaction?.Rollback();
+                DbTransaction?.Rollback();
             }
 
             Status = DatabaseTransactionStatus.RolledBack;
@@ -138,7 +144,7 @@ namespace DataLinq.SQLite
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                dbTransaction?.Rollback();
+                DbTransaction?.Rollback();
                 Status = DatabaseTransactionStatus.RolledBack;
             }
 
@@ -152,7 +158,7 @@ namespace DataLinq.SQLite
             Close();
 
             dbConnection?.Dispose();
-            dbTransaction?.Dispose();
+            DbTransaction?.Dispose();
         }
         
         #endregion IDisposable Members
