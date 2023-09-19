@@ -1,29 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using DataLinq.Tests.Models;
+using System;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using DataLinq.Tests;
-using DataLinq.Tests.Models;
 
 namespace DataLinq.Tests
 {
     internal class Helpers
     {
         private Random rnd = new Random();
-        private DatabaseFixture fixture { get; }
+        //private DatabaseFixture fixture { get; }
 
-        public Helpers(DatabaseFixture fixture)
+        public Helpers()
         {
-            this.fixture = fixture;
+            //this.fixture = fixture;
         }
 
-        public Employee GetEmployee(int? emp_no)
+        public Employee GetEmployee(int? emp_no, Database<Employees> employeesDb)
         {
-            var employee = fixture.employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
+            var employee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
 
             if (employee.IsNewModel())
-                return fixture.employeesDb.Insert(employee);
+                return employeesDb.Insert(employee);
 
             return employee;
         }

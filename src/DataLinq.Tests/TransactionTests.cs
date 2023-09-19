@@ -1,5 +1,6 @@
 using DataLinq.Mutation;
 using DataLinq.Tests.Models;
+using Microsoft.Data.Sqlite;
 using MySqlConnector;
 using System;
 using System.Data;
@@ -8,25 +9,22 @@ using Xunit;
 
 namespace DataLinq.Tests
 {
-    public class TransactionTests : IClassFixture<DatabaseFixture>
+    public class TransactionTests : BaseTests
     {
-        private readonly DatabaseFixture fixture;
-        private Helpers helpers;
+        private Helpers helpers = new Helpers();
 
-        public TransactionTests(DatabaseFixture fixture)
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void AttachTransaction(Database<Employees> employeesDb)
         {
-            this.fixture = fixture;
-            this.helpers = new Helpers(fixture);
-        }
+            using IDbConnection dbConnection = employeesDb.DatabaseType == DatabaseType.MySQL
+                ? new MySqlConnection(employeesDb.Provider.ConnectionString)
+                : new SqliteConnection(employeesDb.Provider.ConnectionString);
 
-        [Fact]
-        public void AttachTransaction()
-        {
-            using var dbConnection = new MySqlConnection(fixture.employeesDb.Provider.ConnectionString);
             dbConnection.Open();
             using var dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
 
-            var command = fixture.employeesDb
+            var command = employeesDb
                 .From("departments")
                 .Set("dept_no", "d099")
                 .Set("dept_name", "Transactions")
@@ -37,28 +35,29 @@ namespace DataLinq.Tests
             command.Transaction = dbTransaction;
             command.ExecuteNonQuery();
 
-            using var transaction = fixture.employeesDb.AttachTransaction(dbTransaction);
+            using var transaction = employeesDb.AttachTransaction(dbTransaction);
             Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
 
             var dept = transaction.Query().Departments.Single(x => x.DeptNo == "d099");
             Assert.Equal("Transactions", dept.Name);
 
-            var numDept = fixture.employeesDb.Query().Departments.Count(x => x.DeptNo == "d099");
+            var numDept = employeesDb.Query().Departments.Count(x => x.DeptNo == "d099");
             Assert.Equal(0, numDept);
         }
 
-        [Fact]
-        public void Insert()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void Insert(Database<Employees> employeesDb)
         {
             var emp_no = 999999;
 
-            foreach (var alreadyExists in fixture.employeesDb.Query().Employees.Where(x => x.emp_no == emp_no).ToList())
-                fixture.employeesDb.Delete(alreadyExists);
+            foreach (var alreadyExists in employeesDb.Query().Employees.Where(x => x.emp_no == emp_no).ToList())
+                employeesDb.Delete(alreadyExists);
 
             var employee = helpers.NewEmployee(emp_no);
             Assert.True(employee.HasPrimaryKeysSet());
 
-            using var transaction = fixture.employeesDb.Transaction();
+            using var transaction = employeesDb.Transaction();
             Assert.Equal(DatabaseTransactionStatus.Closed, transaction.Status);
 
             transaction.Insert(employee);
@@ -67,10 +66,10 @@ namespace DataLinq.Tests
             Assert.NotSame(employee, dbTransactionEmployee);
             Assert.Equal(employee.birth_date, dbTransactionEmployee.birth_date);
 
-            var table = fixture.employeesDb.Provider.Metadata
+            var table = employeesDb.Provider.Metadata
                     .TableModels.Single(x => x.Table.DbName == "employees").Table;
 
-            var cache = fixture.employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
+            var cache = employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
             Assert.True(cache.IsTransactionInCache(transaction));
             Assert.Single(cache.GetTransactionRows(transaction));
             Assert.Same(dbTransactionEmployee, cache.GetTransactionRows(transaction).First());
@@ -80,20 +79,21 @@ namespace DataLinq.Tests
             Assert.False(cache.IsTransactionInCache(transaction));
             Assert.Equal(DatabaseTransactionStatus.Committed, transaction.Status);
 
-            var dbEmployee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == emp_no);
+            var dbEmployee = employeesDb.Query().Employees.Single(x => x.emp_no == emp_no);
 
             Assert.Equal(employee.birth_date, dbEmployee.birth_date);
             Assert.Equal(dbTransactionEmployee, dbEmployee);
             Assert.NotSame(dbTransactionEmployee, dbEmployee);
         }
 
-        [Fact]
-        public void InsertAutoIncrement()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void InsertAutoIncrement(Database<Employees> employeesDb)
         {
             var employee = helpers.NewEmployee();
             Assert.False(employee.HasPrimaryKeysSet());
 
-            using (var transaction = fixture.employeesDb.Transaction())
+            using (var transaction = employeesDb.Transaction())
             {
                 transaction.Insert(employee);
                 Assert.NotNull(employee.emp_no);
@@ -106,23 +106,24 @@ namespace DataLinq.Tests
                 transaction.Commit();
             }
 
-            var dbEmployee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == employee.emp_no);
+            var dbEmployee = employeesDb.Query().Employees.Single(x => x.emp_no == employee.emp_no);
 
             Assert.Equal(employee.birth_date.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
             Assert.True(dbEmployee.HasPrimaryKeysSet());
 
-            fixture.employeesDb.Delete(dbEmployee);
-            Assert.False(fixture.employeesDb.Query().Employees.Any(x => x.emp_no == employee.emp_no));
+            employeesDb.Delete(dbEmployee);
+            Assert.False(employeesDb.Query().Employees.Any(x => x.emp_no == employee.emp_no));
         }
 
-        [Fact]
-        public void InsertAndUpdateAutoIncrement()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void InsertAndUpdateAutoIncrement(Database<Employees> employeesDb)
         {
             var employee = helpers.NewEmployee();
             Assert.False(employee.HasPrimaryKeysSet());
 
             Employee dbEmployee;
-            using (var transaction = fixture.employeesDb.Transaction())
+            using (var transaction = employeesDb.Transaction())
             {
                 dbEmployee = transaction.Insert(employee).Mutate();
                 Assert.NotNull(employee.emp_no);
@@ -135,27 +136,28 @@ namespace DataLinq.Tests
             dbEmployee.birth_date = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
 
 
-            using (var transaction = fixture.employeesDb.Transaction())
+            using (var transaction = employeesDb.Transaction())
             {
                 transaction.Update(dbEmployee);
                 Assert.True(dbEmployee.HasPrimaryKeysSet());
                 transaction.Commit();
             }
 
-            var dbEmployee2 = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == employee.emp_no);
+            var dbEmployee2 = employeesDb.Query().Employees.Single(x => x.emp_no == employee.emp_no);
             Assert.Equal(dbEmployee.birth_date, dbEmployee2.birth_date);
             Assert.True(dbEmployee2.HasPrimaryKeysSet());
 
-            fixture.employeesDb.Delete(dbEmployee2);
-            Assert.False(fixture.employeesDb.Query().Employees.Any(x => x.emp_no == employee.emp_no));
+            employeesDb.Delete(dbEmployee2);
+            Assert.False(employeesDb.Query().Employees.Any(x => x.emp_no == employee.emp_no));
         }
 
-        [Fact]
-        public void UpdateImplicitTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void UpdateImplicitTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999998;
 
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
             Assert.False(employee.IsNewModel());
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
@@ -165,8 +167,8 @@ namespace DataLinq.Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            var dbEmployeeReturn = fixture.employeesDb.Update(employeeMut);
-            var dbEmployee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == emp_no);
+            var dbEmployeeReturn = employeesDb.Update(employeeMut);
+            var dbEmployee = employeesDb.Query().Employees.Single(x => x.emp_no == emp_no);
 
             Assert.NotSame(dbEmployeeReturn, dbEmployee);
             Assert.NotEqual(orgBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
@@ -174,12 +176,13 @@ namespace DataLinq.Tests
         }
 
 
-        [Fact]
-        public void UpdateExplicitTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void UpdateExplicitTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999997;
 
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
@@ -187,25 +190,26 @@ namespace DataLinq.Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            using var transaction = fixture.employeesDb.Transaction();
+            using var transaction = employeesDb.Transaction();
             var dbEmployeeReturn = transaction.Update(employeeMut);
             var dbEmployee = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
             Assert.Same(dbEmployeeReturn, dbEmployee);
             transaction.Commit();
 
-            var dbEmployee2 = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == emp_no);
+            var dbEmployee2 = employeesDb.Query().Employees.Single(x => x.emp_no == emp_no);
 
             Assert.NotSame(dbEmployeeReturn, dbEmployee2);
             Assert.NotEqual(orgBirthDate.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
             Assert.Equal(employeeMut.birth_date.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
         }
 
-        [Fact]
-        public void RollbackTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void RollbackTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999996;
 
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
@@ -213,12 +217,12 @@ namespace DataLinq.Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            using var transaction = fixture.employeesDb.Transaction();
+            using var transaction = employeesDb.Transaction();
             var dbEmployeeReturn = transaction.Update(employeeMut);
             var dbEmployee = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
             Assert.Same(dbEmployeeReturn, dbEmployee);
 
-            var table = fixture.employeesDb.Provider.Metadata
+            var table = employeesDb.Provider.Metadata
                     .TableModels.Single(x => x.Table.DbName == "employees").Table;
             //Assert.Equal(1, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.Open, transaction.Status);
@@ -227,19 +231,20 @@ namespace DataLinq.Tests
             //Assert.Equal(0, table.Cache.TransactionRowsCount);
             Assert.Equal(DatabaseTransactionStatus.RolledBack, transaction.Status);
 
-            var dbEmployee2 = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == emp_no);
+            var dbEmployee2 = employeesDb.Query().Employees.Single(x => x.emp_no == emp_no);
 
             Assert.NotSame(dbEmployeeReturn, dbEmployee2);
             Assert.NotEqual(employeeMut.birth_date.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
             Assert.Equal(orgBirthDate.ToShortDateString(), dbEmployee2.birth_date.ToShortDateString());
         }
 
-        [Fact]
-        public void DoubleCommitTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void DoubleCommitTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999995;
 
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
@@ -247,7 +252,7 @@ namespace DataLinq.Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            using var transaction = fixture.employeesDb.Transaction();
+            using var transaction = employeesDb.Transaction();
             var dbEmployeeReturn = transaction.Update(employeeMut);
 
             transaction.Commit();
@@ -255,12 +260,13 @@ namespace DataLinq.Tests
             Assert.Throws<Exception>(() => transaction.Rollback());
         }
 
-        [Fact]
-        public void DoubleRollbackTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void DoubleRollbackTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999994;
 
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
@@ -268,7 +274,7 @@ namespace DataLinq.Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            using var transaction = fixture.employeesDb.Transaction();
+            using var transaction = employeesDb.Transaction();
             var dbEmployeeReturn = transaction.Update(employeeMut);
 
             transaction.Rollback();
@@ -276,12 +282,13 @@ namespace DataLinq.Tests
             Assert.Throws<Exception>(() => transaction.Commit());
         }
 
-        [Fact]
-        public void CommitRollbackTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void CommitRollbackTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999993;
 
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
@@ -289,7 +296,7 @@ namespace DataLinq.Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            using var transaction = fixture.employeesDb.Transaction();
+            using var transaction = employeesDb.Transaction();
             var dbEmployeeReturn = transaction.Update(employeeMut);
 
             transaction.Commit();
@@ -297,12 +304,13 @@ namespace DataLinq.Tests
             Assert.Throws<Exception>(() => transaction.Commit());
         }
 
-        [Fact]
-        public void RollbackCommitTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void RollbackCommitTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999992;
 
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
             var orgBirthDate = employee.birth_date;
             var employeeMut = employee.Mutate();
 
@@ -310,7 +318,7 @@ namespace DataLinq.Tests
             employeeMut.birth_date = newBirthDate;
             Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-            using var transaction = fixture.employeesDb.Transaction();
+            using var transaction = employeesDb.Transaction();
             var dbEmployeeReturn = transaction.Update(employeeMut);
 
             transaction.Rollback();
@@ -318,16 +326,17 @@ namespace DataLinq.Tests
             Assert.Throws<Exception>(() => transaction.Rollback());
         }
 
-        [Fact]
-        public void TransactionCache()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void TransactionCache(Database<Employees> employeesDb)
         {
             var emp_no = 999991;
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
             Transaction<Employees>[] transactions = new Transaction<Employees>[10];
 
             for (int i = 0; i < 10; i++)
             {
-                transactions[i] = fixture.employeesDb.Transaction(TransactionType.ReadAndWrite);
+                transactions[i] = employeesDb.Transaction(TransactionType.ReadAndWrite);
                 var dbEmployee = transactions[i].Query().Employees.Single(x => x.emp_no == emp_no);
                 var dbEmployee2 = transactions[i].Query().Employees.Single(x => x.emp_no == emp_no);
                 Assert.Same(dbEmployee, dbEmployee2);
@@ -343,29 +352,31 @@ namespace DataLinq.Tests
                 transaction.Dispose();
         }
 
-        [Fact]
-        public void InsertOrUpdate()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void InsertOrUpdate(Database<Employees> employeesDb)
         {
             var emp_no = 999800;
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
 
             var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
-            var dbEmployee = fixture.employeesDb.InsertOrUpdate(employee, x => { x.birth_date = newBirthDate; });
+            var dbEmployee = employeesDb.InsertOrUpdate(employee, x => { x.birth_date = newBirthDate; });
             Assert.Equal(emp_no, dbEmployee.emp_no);
             Assert.Equal(newBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
         }
 
 
-        [Fact]
-        public void InsertRelations()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void InsertRelations(Database<Employees> employeesDb)
         {
             var emp_no = 999799;
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
 
             foreach (var salary in employee.salaries)
-                fixture.employeesDb.Delete(salary);
+                employeesDb.Delete(salary);
 
-            using (var transaction = fixture.employeesDb.Transaction())
+            using (var transaction = employeesDb.Transaction())
             {
                 Assert.Empty(employee.salaries);
 
@@ -384,20 +395,21 @@ namespace DataLinq.Tests
             }
 
             Assert.Single(employee.salaries);
-            fixture.employeesDb.Delete(employee.salaries.First());
+            employeesDb.Delete(employee.salaries.First());
             Assert.Empty(employee.salaries);
         }
 
-        [Fact]
-        public void InsertRelationsInTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void InsertRelationsInTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999798;
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
 
             foreach (var salary in employee.salaries)
-                fixture.employeesDb.Delete(salary);
+                employeesDb.Delete(salary);
 
-            using (var transaction = fixture.employeesDb.Transaction())
+            using (var transaction = employeesDb.Transaction())
             {
                 var employeeDb = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
                 Assert.Empty(employeeDb.salaries);
@@ -424,28 +436,29 @@ namespace DataLinq.Tests
             }
 
             Assert.Single(employee.salaries);
-            fixture.employeesDb.Delete(employee.salaries.First());
+            employeesDb.Delete(employee.salaries.First());
             Assert.Empty(employee.salaries);
         }
 
-        [Fact]
-        public void InsertRelationsReadAfterTransaction()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void InsertRelationsReadAfterTransaction(Database<Employees> employeesDb)
         {
             var emp_no = 999797;
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
 
             foreach (var s in employee.salaries)
-                fixture.employeesDb.Delete(s);
+                employeesDb.Delete(s);
 
             salaries salary = null;
             Employee employeeDb = null;
 
-            var table = fixture.employeesDb.Provider.Metadata
+            var table = employeesDb.Provider.Metadata
                     .TableModels.Single(x => x.Table.DbName == "salaries").Table;
 
-            var cache = fixture.employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
+            var cache = employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
 
-            using var transaction = fixture.employeesDb.Transaction();
+            using var transaction = employeesDb.Transaction();
 
             Assert.False(cache.IsTransactionInCache(transaction));
             Assert.Empty(cache.GetTransactionRows(transaction));
@@ -480,23 +493,24 @@ namespace DataLinq.Tests
             Assert.Empty(cache.GetTransactionRows(transaction));
 
             Assert.Single(employee.salaries);
-            fixture.employeesDb.Delete(employee.salaries.First());
+            employeesDb.Delete(employee.salaries.First());
             Assert.Empty(employee.salaries);
         }
 
-        [Fact]
-        public void UpdateOldModel()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void UpdateOldModel(Database<Employees> employeesDb)
         {
             var emp_no = 999796;
-            var employee = helpers.GetEmployee(emp_no);
+            var employee = helpers.GetEmployee(emp_no, employeesDb);
 
             var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
-            var dbEmployee = fixture.employeesDb.InsertOrUpdate(employee, x => { x.birth_date = newBirthDate; });
+            var dbEmployee = employeesDb.InsertOrUpdate(employee, x => { x.birth_date = newBirthDate; });
             Assert.Equal(emp_no, dbEmployee.emp_no);
             Assert.Equal(newBirthDate, dbEmployee.birth_date);
 
             var newHireDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
-            var dbEmployee2 = fixture.employeesDb.InsertOrUpdate(employee, x => { x.hire_date = newHireDate; });
+            var dbEmployee2 = employeesDb.InsertOrUpdate(employee, x => { x.hire_date = newHireDate; });
             Assert.Equal(emp_no, dbEmployee2.emp_no);
             Assert.Equal(newBirthDate, dbEmployee2.birth_date);
             Assert.Equal(newHireDate, dbEmployee2.hire_date);
@@ -509,7 +523,7 @@ namespace DataLinq.Tests
         //{
         //    var employee = NewEmployee();
 
-        //    using (var transaction = fixture.employeesDb.Transaction())
+        //    using (var transaction = employeesDb.Transaction())
         //    {
         //        transaction.Insert(employee);
         //        transaction.Commit();
@@ -517,7 +531,7 @@ namespace DataLinq.Tests
 
         //    employee.birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
 
-        //    using (var transaction = fixture.employeesDb.Transaction())
+        //    using (var transaction = employeesDb.Transaction())
         //    {
         //        Assert.Throws<InvalidMutationObjectException>(() => transaction.Insert(employee));
         //    }
@@ -531,10 +545,10 @@ namespace DataLinq.Tests
         //    var employeeMut = GetEmployee(emp_no).Mutate();
 
         //    employeeMut.birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)); ;
-        //    fixture.employeesDb.Update(employeeMut);
+        //    employeesDb.Update(employeeMut);
 
         //    employeeMut.birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)); ;
-        //    Assert.Throws<InvalidMutationObjectException>(() => fixture.employeesDb.Update(employeeMut));
+        //    Assert.Throws<InvalidMutationObjectException>(() => employeesDb.Update(employeeMut));
         //}
 
 

@@ -1,55 +1,14 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using DataLinq.Config;
 using DataLinq.Metadata;
-using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
+using System.Linq;
 using Xunit;
-using Xunit.Sdk;
 
 namespace DataLinq.Tests
 {
-    public abstract class BaseTests
+    public class CoreTests : BaseTests
     {
-        public static DatabaseFixture fixture;
-
-        static BaseTests()
-        {
-            fixture = new DatabaseFixture();
-        }
-
-        public BaseTests()
-        {
-
-        }
-
-        public static IEnumerable<object[]> GetEmployees()
-        {
-            foreach (var db in fixture.AllEmployeesDb)
-                yield return new object[] { db };
-        }
-
-        public static IEnumerable<object[]> GetEmployeeConnections()
-        {
-            foreach (var db in fixture.EmployeeConnections)
-                yield return new object[] { db };
-        }
-    }
-
-
-    public class CoreTests : BaseTests //IClassFixture<DatabaseFixture>
-    {
-        //private DatabaseFixture fixture;
-
-        //public CoreTests(DatabaseFixture fixture)
-        //{
-        //    this.fixture = fixture;
-        //}
-
         [Fact]
         public void TestMetadataFromFixture()
         {
@@ -73,8 +32,6 @@ namespace DataLinq.Tests
 
             var metadata = factory.ParseDatabase("employees", "Employees", connection.DatabaseName, connection.ConnectionString.Original);
             TestDatabase(metadata, false);
-
-            //TestDatabase(new MetadataFromMySqlFactory(new MetadataFromDatabaseFactoryOptions { }).ParseDatabase("employees", "Employees", fixture.EmployeesDbName, fixture.information_schema.Query()), false);
         }
 
         private void TestDatabase(DatabaseMetadata database, bool testCsType)

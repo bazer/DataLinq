@@ -22,7 +22,7 @@
         {
           "DatabaseName": "employees",
           "Type": "SQLite",
-          "ConnectionString": "Data Source=D:\\testing\\employees2.db;Cache=Shared;"
+          "ConnectionString": "Data Source=D:\\testing\\employees3.db;Cache=Shared;"
         }
       ]
     }

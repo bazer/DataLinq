@@ -4,17 +4,8 @@ using Xunit;
 
 namespace DataLinq.Tests
 {
-    public class SqlTests : BaseTests // : IClassFixture<DatabaseFixture>
+    public class SqlTests : BaseTests
     {
-        //private readonly DatabaseFixture fixture;
-        //private readonly Transaction<Employees> transaction;
-
-        //public SqlTests(/*DatabaseFixture fixture*/)
-        //{
-        //    //this.fixture = fixture;
-        //    this.transaction = employeesDb.Transaction(TransactionType.ReadOnly);
-        //}
-
         [Theory]
         [MemberData(nameof(GetEmployees))]
         public void SimpleWhere(Database<Employees> employeesDb)

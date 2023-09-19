@@ -4,15 +4,8 @@ using Xunit;
 
 namespace DataLinq.Tests
 {
-    public class RelationTests : BaseTests // IClassFixture<DatabaseFixture>
+    public class RelationTests : BaseTests
     {
-        //private readonly DatabaseFixture fixture;
-
-        //public RelationTests(DatabaseFixture fixture)
-        //{
-        //    this.fixture = fixture;
-        //}
-
         [Theory]
         [MemberData(nameof(GetEmployees))]
         public void LazyLoadSingleValue(Database<Employees> employeesDb)

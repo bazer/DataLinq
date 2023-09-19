@@ -1,45 +1,38 @@
+using DataLinq.Tests.Models;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using DataLinq.Metadata;
-using DataLinq.MySql;
-using DataLinq.Tests.Models;
 using Xunit;
 
 namespace DataLinq.Tests
 {
-    public class ThreadingTests : IClassFixture<DatabaseFixture>
+    public class ThreadingTests : BaseTests
     {
-        private readonly DatabaseFixture fixture;
-        private Helpers helpers;
+        private Helpers helpers = new Helpers();
 
-        public ThreadingTests(DatabaseFixture fixture)
-        {
-            this.fixture = fixture;
-            this.helpers = new Helpers(fixture);
-        }
-
-        [Fact]
-        public void ReadParallel()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void ReadParallel(Database<Employees> employeesDb)
         {
             Parallel.For(0, 10, i =>
             {
-                SetAndTest(1004);
-                SetAndTest(1005);
-                SetAndTest(1006);
-                SetAndTest(1007);
-                SetAndTest(1008);
+                SetAndTest(1004, employeesDb);
+                SetAndTest(1005, employeesDb);
+                SetAndTest(1006, employeesDb);
+                SetAndTest(1007, employeesDb);
+                SetAndTest(1008, employeesDb);
             });
         }
 
-        private void SetAndTest(int value)
+        private void SetAndTest(int value, Database<Employees> employeesDb)
         {
-            var employee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == value);
+            var employee = employeesDb.Query().Employees.Single(x => x.emp_no == value);
             Assert.Equal(value, employee.emp_no);
         }
 
-        [Fact]
-        public void CommitTransactionParallel()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void CommitTransactionParallel(Database<Employees> employeesDb)
         {
             var emp_no = 999990;
 
@@ -47,7 +40,7 @@ namespace DataLinq.Tests
             {
                 var id = emp_no - i;
 
-                var employee = helpers.GetEmployee(id);
+                var employee = helpers.GetEmployee(id, employeesDb);
                 var orgBirthDate = employee.birth_date;
                 var employeeMut = employee.Mutate();
 
@@ -55,12 +48,12 @@ namespace DataLinq.Tests
                 employeeMut.birth_date = newBirthDate;
                 Assert.Equal(newBirthDate, employeeMut.birth_date);
 
-                using var transaction = fixture.employeesDb.Transaction();
+                using var transaction = employeesDb.Transaction();
                 var dbEmployeeReturn = transaction.Update(employeeMut);
 
                 transaction.Commit();
 
-                var dbEmployee = fixture.employeesDb.Query().Employees.Single(x => x.emp_no == id);
+                var dbEmployee = employeesDb.Query().Employees.Single(x => x.emp_no == id);
                 Assert.NotEqual(orgBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
                 Assert.Equal(newBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
             });
@@ -80,12 +73,13 @@ namespace DataLinq.Tests
         //    });
         //}
 
-        [Fact]
-        public void LazyLoadList()
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void LazyLoadList(Database<Employees> employeesDb)
         {
             Parallel.For(0, 100, i =>
             {
-                var department = fixture.employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
+                var department = employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
 
                 Assert.NotNull(department.Managers);
                 Assert.NotEmpty(department.Managers);

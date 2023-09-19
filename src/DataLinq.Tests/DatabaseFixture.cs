@@ -1,18 +1,13 @@
-﻿using System;
-using System.IO;
-using Microsoft.Extensions.Configuration;
+﻿using Bogus;
+using DataLinq.Config;
+using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.MySql.Models;
-using DataLinq.Tests.Models;
-using Xunit;
-using DataLinq.Metadata;
-using Bogus;
-using System.Linq;
-using System.Collections.Generic;
-using DataLinq.Config;
-using System.Reflection;
-using Xunit.Sdk;
 using DataLinq.SQLite;
+using DataLinq.Tests.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace DataLinq.Tests
 {
@@ -27,16 +22,7 @@ namespace DataLinq.Tests
         public DatabaseFixture()
         {
             var config = new DataLinqConfig(ConfigReader.Read("datalinq.json"));
-
             var employees = config.Databases.Single(x => x.Name == "employees");
-
-            //var builder = new ConfigurationBuilder()
-            //    .SetBasePath(Directory.GetCurrentDirectory())
-            //    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-
-            //var configuration = builder.Build();
-            //var connDataLinq = configuration.GetConnectionString("employees");
-            //EmployeesDbName = configuration.GetSection("employeesDbName")?.Value ?? "employees";
 
             EmployeeConnections = employees.Connections;
             var lockObject = new object();
@@ -61,49 +47,15 @@ namespace DataLinq.Tests
                     }
                 }
 
-
-                //if (dbEmployees.Query().Employees.Count() == 0)
-                //{
-                //    FillEmployeesWithBogusData(dbEmployees);
-                //}
-
-
-                //if (!dbEmployees.Exists())
-                //{
-                //    //MySql.SqlFromMetadataFactory.Register();
-
-                //    PluginHook.CreateDatabaseFromMetadata(connection.ParsedType.Value,
-                //        employeesDb.Provider.Metadata, connection.DatabaseName, connection.ConnectionString, true);
-
-                //    FillEmployeesWithBogusData(employeesDb);
-                //}
-
                 AllEmployeesDb.Add(dbEmployees);
             }
-            employeesDb = AllEmployeesDb[0];
-            //employeesDb = new MySqlDatabase<Employees>(connDataLinq, EmployeesDbName);
-            information_schema_provider = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
 
-            //if (!employeesDb.Exists())
-            //{
-            //    //MySql.SqlFromMetadataFactory.Register();
-
-            //    PluginHook.CreateDatabaseFromMetadata(DatabaseType.MySQL, 
-            //        employeesDb.Provider.Metadata, EmployeesDbName, connDataLinq, true);
-
-            //    FillEmployeesWithBogusData(employeesDb);
-            //}
+            information_schema = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
         }
 
         public List<DataLinqDatabaseConnection> EmployeeConnections { get; set; } = new();
         public List<Database<Employees>> AllEmployeesDb { get; set; } = new();
-        public Database<Employees> employeesDb { get; set; }
-        //public employeesDb employeesDb => employeesDb_provider.Read();
-        public MySqlDatabase<information_schema> information_schema_provider { get; set; }
-        public information_schema information_schema => information_schema_provider.Query();
-
-        //public string ConnectionString { get; private set; }
-        //public string EmployeesDbName { get; private set; }
+        public MySqlDatabase<information_schema> information_schema { get; set; }
 
         public void FillEmployeesWithBogusData(Database<Employees> database)
         {
@@ -175,8 +127,10 @@ namespace DataLinq.Tests
 
         public void Dispose()
         {
-            employeesDb.Dispose();
-            //information_schema.Dispose();
+            foreach (var db in AllEmployeesDb)
+                db.Dispose();
+
+            information_schema.Dispose();
         }
     }
 }

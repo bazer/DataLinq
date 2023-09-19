@@ -5,15 +5,13 @@ using Xunit;
 
 namespace DataLinq.Tests
 {
-    public class QueryTests : BaseTests // IClassFixture<DatabaseFixture>
+    public class QueryTests : BaseTests
     {
-        //private readonly DatabaseFixture fixture;
         private string lastDepartmentName;
 
-        public QueryTests(/*DatabaseFixture fixture*/)
+        private void SharedSetup(Database<Employees> employeesDb)
         {
-            //this.fixture = fixture;
-            lastDepartmentName = $"d{fixture.employeesDb.Query().Departments.Count():000}";
+            lastDepartmentName = $"d{employeesDb.Query().Departments.Count():000}";
         }
 
         [Theory]
@@ -193,6 +191,8 @@ namespace DataLinq.Tests
         [MemberData(nameof(GetEmployees))]
         public void OrderBy(Database<Employees> employeesDb)
         {
+            SharedSetup(employeesDb);
+
             var deptByDeptNo = employeesDb.Query().Departments.OrderBy(x => x.DeptNo);
             Assert.Equal("d001", deptByDeptNo.First().DeptNo);
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault().DeptNo);
@@ -204,6 +204,8 @@ namespace DataLinq.Tests
         [MemberData(nameof(GetEmployees))]
         public void OrderBySelect(Database<Employees> employeesDb)
         {
+            SharedSetup(employeesDb);
+
             var deptByDeptNo = employeesDb.Query().Departments.OrderBy(x => x.DeptNo).Select(x => x.DeptNo);
             Assert.Equal("d001", deptByDeptNo.First());
             Assert.Equal("d001", deptByDeptNo.FirstOrDefault());
@@ -215,6 +217,8 @@ namespace DataLinq.Tests
         [MemberData(nameof(GetEmployees))]
         public void OrderBySelectAnonymous(Database<Employees> employeesDb)
         {
+            SharedSetup(employeesDb);
+
             var deptByDeptNo = employeesDb.Query().Departments.OrderBy(x => x.DeptNo).Select(x => new
             {
                 no = x.DeptNo,

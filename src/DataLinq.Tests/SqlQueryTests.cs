@@ -4,15 +4,8 @@ using Xunit;
 
 namespace DataLinq.Tests
 {
-    public class SqlQueryTests : BaseTests //:IClassFixture<DatabaseFixture>
+    public class SqlQueryTests : BaseTests
     {
-        //private readonly DatabaseFixture fixture;
-
-        //public SqlQueryTests(DatabaseFixture fixture)
-        //{
-        //    this.fixture = fixture;
-        //}
-
         [Theory]
         [MemberData(nameof(GetEmployees))]
         public void SimpleWhere(Database<Employees> employeesDb)
