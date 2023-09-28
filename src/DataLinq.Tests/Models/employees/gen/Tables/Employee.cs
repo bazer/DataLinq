@@ -37,7 +37,7 @@ namespace DataLinq.Tests.Models
         [Type(DatabaseType.SQLite, "integer")]
         [Enum("M","F")]
         [Column("gender")]
-        public virtual Employeegender gender { get; set; }
+        public virtual Employeegender? gender { get; set; }
 
         [Type(DatabaseType.MySQL, "date")]
         [Type(DatabaseType.SQLite, "text")]

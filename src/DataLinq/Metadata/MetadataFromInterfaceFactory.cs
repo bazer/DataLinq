@@ -237,7 +237,7 @@ namespace DataLinq.Metadata
             {
                 valueProp.CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
 
-                if (propertyInfo.PropertyType.IsEnum)
+                if (property.CsType.IsEnum)
                 {
                     valueProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
 
