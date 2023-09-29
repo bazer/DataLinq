@@ -131,6 +131,7 @@ namespace DataLinq.Metadata
             model.Properties = type
                 .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Select(x => ParseProperty(x, model))
+                .Where(x => x.Attributes.Any(x => x is ColumnAttribute || x is RelationAttribute))
                 .Where(x => x.CsName != "EqualityContract")
                 .ToList();
 
