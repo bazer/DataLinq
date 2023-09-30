@@ -26,6 +26,12 @@ namespace DataLinq.Mutation
         Delete
     }
 
+    public class TransactionStatusChangeEventArgs : EventArgs
+    {
+        public Transaction Transaction { get; set; }
+        public DatabaseTransactionStatus Status { get; set; }
+    }
+
     public class Transaction : IDisposable, IEquatable<Transaction>
     {
         private static uint transactionCount = 0;
@@ -40,10 +46,13 @@ namespace DataLinq.Mutation
 
         public DatabaseTransactionStatus Status => DatabaseTransaction.Status;
 
+        public event EventHandler<TransactionStatusChangeEventArgs> OnStatusChanged;
+
         public Transaction(IDatabaseProvider databaseProvider, TransactionType type)
         {
             Provider = databaseProvider;
             DatabaseTransaction = databaseProvider.GetNewDatabaseTransaction(type);
+            DatabaseTransaction.OnStatusChanged += (_, args) => OnStatusChanged?.Invoke(this, new TransactionStatusChangeEventArgs { Transaction = this, Status = args.Status });
             Type = type;
 
             TransactionID = Interlocked.Increment(ref transactionCount);
@@ -53,6 +62,7 @@ namespace DataLinq.Mutation
         {
             Provider = databaseProvider;
             DatabaseTransaction = databaseProvider.AttachDatabaseTransaction(dbTransaction, type);
+            DatabaseTransaction.OnStatusChanged += (_, args) => OnStatusChanged?.Invoke(this, new TransactionStatusChangeEventArgs { Transaction = this, Status = args.Status });
             Type = type;
 
             TransactionID = Interlocked.Increment(ref transactionCount);

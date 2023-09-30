@@ -13,9 +13,16 @@ namespace DataLinq
         RolledBack
     }
 
+    public class DatabaseTransactionStatusChangeEventArgs : EventArgs
+    {
+        public DatabaseTransactionStatus Status { get; set; }
+    }
+
     public abstract class DatabaseTransaction : IDisposable
     {
-        public DatabaseTransactionStatus Status { get; protected set; } = DatabaseTransactionStatus.Closed;
+        public DatabaseTransactionStatus Status { get; private set; } = DatabaseTransactionStatus.Closed;
+
+        public event EventHandler<DatabaseTransactionStatusChangeEventArgs> OnStatusChanged;
         public string ConnectionString { get; }
         public IDbTransaction DbTransaction { get; protected set; }
         public TransactionType Type { get; protected set; }
@@ -30,6 +37,12 @@ namespace DataLinq
         {
             DbTransaction = dbTransaction ?? throw new ArgumentNullException(nameof(dbTransaction));
             Type = type;
+        }
+
+        protected void SetStatus(DatabaseTransactionStatus status)
+        {
+            this.Status = status;
+            OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = status });
         }
 
         public abstract IDataLinqDataReader ExecuteReader(IDbCommand command);

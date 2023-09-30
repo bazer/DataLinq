@@ -47,6 +47,40 @@ namespace DataLinq.Tests
 
         [Theory]
         [MemberData(nameof(GetEmployees))]
+        public void AttachMutateTransaction(Database<Employees> employeesDb)
+        {
+            var emp_no = 999700;
+
+            foreach (var alreadyExists in employeesDb.Query().Employees.Where(x => x.emp_no == emp_no).ToList())
+                employeesDb.Delete(alreadyExists);
+
+            var employee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no) ?? helpers.NewEmployee(emp_no);
+            employee.first_name = "Bob";
+            employeesDb.InsertOrUpdate(employee);
+
+            var dbEmployee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no).Mutate();
+            Assert.Equal("Bob", dbEmployee.first_name);
+
+
+            using IDbConnection dbConnection = employeesDb.DatabaseType == DatabaseType.MySQL
+                ? new MySqlConnection(employeesDb.Provider.ConnectionString)
+                : new SqliteConnection(employeesDb.Provider.ConnectionString);
+
+            dbConnection.Open();
+            using var dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
+            using var transaction = employeesDb.AttachTransaction(dbTransaction);
+
+            dbEmployee.first_name = "Rick";
+            transaction.InsertOrUpdate(dbEmployee);
+            dbTransaction.Commit();
+            transaction.Commit();
+
+            var dbEmployee2 = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no);
+            Assert.Equal("Rick", dbEmployee2.first_name);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
         public void GetTransaction(Database<Employees> employeesDb)
         {
             using var transaction = employeesDb.Transaction();
@@ -95,6 +129,13 @@ namespace DataLinq.Tests
 
             using var transaction = employeesDb.Transaction();
             Assert.Equal(DatabaseTransactionStatus.Closed, transaction.Status);
+
+            transaction.OnStatusChanged += (x, args) =>
+            {
+                Assert.Same(transaction, x);
+                Assert.Same(transaction, args.Transaction);
+                Assert.Equal(transaction.Status, args.Status);
+            };
 
             transaction.Insert(employee);
             Assert.True(employee.HasPrimaryKeysSet());

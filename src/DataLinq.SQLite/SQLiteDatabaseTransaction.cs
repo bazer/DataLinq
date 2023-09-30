@@ -20,7 +20,7 @@ namespace DataLinq.SQLite
             if (dbTransaction.Connection is not SqliteConnection) throw new ArgumentException("The transaction connection must be an SqliteConnection", "dbTransaction.Connection");
             if (dbTransaction.Connection.State != ConnectionState.Open) throw new Exception("The transaction connection is not open");
 
-            Status = DatabaseTransactionStatus.Open;
+            SetStatus(DatabaseTransactionStatus.Open);
             dbConnection = dbTransaction.Connection;
         }
 
@@ -33,7 +33,7 @@ namespace DataLinq.SQLite
 
                 if (Status == DatabaseTransactionStatus.Closed)
                 {
-                    Status = DatabaseTransactionStatus.Open;
+                    SetStatus(DatabaseTransactionStatus.Open);
                     dbConnection = new SqliteConnection(ConnectionString);
                     dbConnection.Open();
 
@@ -120,10 +120,11 @@ namespace DataLinq.SQLite
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                DbTransaction.Commit();
+                if (DbTransaction?.Connection?.State == ConnectionState.Open)
+                    DbTransaction.Commit();
             }
 
-            Status = DatabaseTransactionStatus.Committed;
+            SetStatus(DatabaseTransactionStatus.Committed);
 
             Dispose();
         }
@@ -132,10 +133,11 @@ namespace DataLinq.SQLite
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                DbTransaction?.Rollback();
+                if (DbTransaction?.Connection?.State == ConnectionState.Open)
+                    DbTransaction?.Rollback();
             }
 
-            Status = DatabaseTransactionStatus.RolledBack;
+            SetStatus(DatabaseTransactionStatus.RolledBack);
 
             Dispose();
         }
@@ -144,8 +146,10 @@ namespace DataLinq.SQLite
         {
             if (Status == DatabaseTransactionStatus.Open)
             {
-                DbTransaction?.Rollback();
-                Status = DatabaseTransactionStatus.RolledBack;
+                if (DbTransaction?.Connection?.State == ConnectionState.Open)
+                    DbTransaction?.Rollback();
+
+                SetStatus(DatabaseTransactionStatus.RolledBack);
             }
 
             dbConnection?.Close();
