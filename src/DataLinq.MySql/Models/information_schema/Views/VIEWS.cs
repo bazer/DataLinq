@@ -1,45 +1,57 @@
-using System;
+﻿using System;
 using DataLinq;
-using DataLinq.Interfaces;
 using DataLinq.Attributes;
+using DataLinq.Interfaces;
 
 namespace DataLinq.MySql.Models
 {
-    [Table("VIEWS")]
-    public interface VIEWS : IViewModel
+    [Definition("")]
+    [View("VIEWS")]
+    public partial record VIEWS : IViewModel<information_schema>
     {
-        [Type("varchar", 10)]
-        string ALGORITHM { get; }
+        [Type(DatabaseType.MySQL, "varchar", 10)]
+        [Column("ALGORITHM")]
+        public virtual string ALGORITHM { get; set; }
 
-        [Type("varchar", 32)]
-        string CHARACTER_SET_CLIENT { get; }
+        [Type(DatabaseType.MySQL, "varchar", 32)]
+        [Column("CHARACTER_SET_CLIENT")]
+        public virtual string CHARACTER_SET_CLIENT { get; set; }
 
-        [Type("varchar", 8)]
-        string CHECK_OPTION { get; }
+        [Type(DatabaseType.MySQL, "varchar", 8)]
+        [Column("CHECK_OPTION")]
+        public virtual string CHECK_OPTION { get; set; }
 
-        [Type("varchar", 32)]
-        string COLLATION_CONNECTION { get; }
+        [Type(DatabaseType.MySQL, "varchar", 32)]
+        [Column("COLLATION_CONNECTION")]
+        public virtual string COLLATION_CONNECTION { get; set; }
 
-        [Type("varchar", 189)]
-        string DEFINER { get; }
+        [Type(DatabaseType.MySQL, "varchar", 189)]
+        [Column("DEFINER")]
+        public virtual string DEFINER { get; set; }
 
-        [Type("varchar", 3)]
-        string IS_UPDATABLE { get; }
+        [Type(DatabaseType.MySQL, "varchar", 3)]
+        [Column("IS_UPDATABLE")]
+        public virtual string IS_UPDATABLE { get; set; }
 
-        [Type("varchar", 7)]
-        string SECURITY_TYPE { get; }
+        [Type(DatabaseType.MySQL, "varchar", 7)]
+        [Column("SECURITY_TYPE")]
+        public virtual string SECURITY_TYPE { get; set; }
 
-        [Type("varchar", 512)]
-        string TABLE_CATALOG { get; }
+        [Type(DatabaseType.MySQL, "varchar", 512)]
+        [Column("TABLE_CATALOG")]
+        public virtual string TABLE_CATALOG { get; set; }
 
-        [Type("varchar", 64)]
-        string TABLE_NAME { get; }
+        [Type(DatabaseType.MySQL, "varchar", 64)]
+        [Column("TABLE_NAME")]
+        public virtual string TABLE_NAME { get; set; }
 
-        [Type("varchar", 64)]
-        string TABLE_SCHEMA { get; }
+        [Type(DatabaseType.MySQL, "varchar", 64)]
+        [Column("TABLE_SCHEMA")]
+        public virtual string TABLE_SCHEMA { get; set; }
 
-        [Type("longtext", 4294967295)]
-        string VIEW_DEFINITION { get; }
+        [Type(DatabaseType.MySQL, "longtext", 4294967295)]
+        [Column("VIEW_DEFINITION")]
+        public virtual string VIEW_DEFINITION { get; set; }
 
     }
 }

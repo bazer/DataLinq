@@ -83,6 +83,7 @@ namespace DataLinq.Metadata
                 "Guid" => true,
                 "byte[]" => false,
                 "decimal" => true,
+                "enum" => true,
                 _ => throw new NotImplementedException($"Unknown type '{csType}'"),
             };
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using DataLinq;
 using DataLinq.Interfaces;
 using DataLinq.Attributes;

@@ -85,7 +85,7 @@ namespace DataLinq.Tools
             var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             if (this.options.ReadSourceModels)
             {
-                if (db.SourceDirectories == null)
+                if (db.SourceDirectories == null || !db.SourceDirectories.Any())
                 {
                     log($"No source directory set. Skipping reading of sources.");
                 }

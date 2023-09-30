@@ -43,4 +43,10 @@
 		</None>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <None Update="datalinq.json">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+
 </Project>
