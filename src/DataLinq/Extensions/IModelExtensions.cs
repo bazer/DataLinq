@@ -57,9 +57,12 @@ namespace DataLinq
 
             var type = model.GetType();
 
+            //var method = type
+            //    .GetProperty("Mutate")
+            //    .GetGetMethod();
+
             var method = type
-                .GetProperty("Mutate")
-                .GetGetMethod();
+                .GetMethod("Mutate");
 
             var obj = method
                 .Invoke(model, new object[] { });

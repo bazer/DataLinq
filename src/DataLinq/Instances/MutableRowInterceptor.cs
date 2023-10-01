@@ -21,13 +21,13 @@ namespace DataLinq.Instances
         {
             var info = new InvocationInfo(invocation);
             
-            if (info.Name == "IsNewModel")
-            {
-                invocation.ReturnValue = false;
-                return;
-            }
+            //if (info.Name == "IsNewModel")
+            //{
+            //    invocation.ReturnValue = false;
+            //    return;
+            //}
 
-            if (info.Name == "GetChanges")
+            if (info.CallType == CallType.Method && info.Name == "GetChanges")
             {
                 invocation.ReturnValue = MutableRowData.GetChanges();
                 return;

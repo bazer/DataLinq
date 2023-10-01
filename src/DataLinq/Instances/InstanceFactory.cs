@@ -8,12 +8,12 @@ namespace DataLinq.Instances
 {
     public interface InstanceBase
     {
-        bool IsNewModel { get; }
+        //bool IsNewModel { get; }
     }
 
     public interface ImmutableInstanceBase : InstanceBase
     {
-        object Mutate { get; }
+        object Mutate();
     }
 
     public interface MutableInstanceBase : InstanceBase

@@ -21,13 +21,13 @@ namespace DataLinq.Instances
             if (info.CallType == CallType.Set)
                 throw new Exception("Call to setter not allowed on an immutable type. Call Mutate() to get mutable object.");
             
-            if (info.Name == "IsNewModel")
-            {
-                invocation.ReturnValue = false;
-                return;
-            }
+            //if (info.Name == "IsNewModel")
+            //{
+            //    invocation.ReturnValue = false;
+            //    return;
+            //}
 
-            if (info.Name == "Mutate")
+            if (info.CallType == CallType.Method && info.Name == "Mutate")
             {
                 invocation.ReturnValue = InstanceFactory.NewMutableRow(this.RowData, Transaction);
                 return;
