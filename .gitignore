@@ -18,3 +18,4 @@ TestResults
 /src/DataLinq.Tests/*.db
 *nCrunchTemp_*.csproj
 launchSettings.json
+/nupkg

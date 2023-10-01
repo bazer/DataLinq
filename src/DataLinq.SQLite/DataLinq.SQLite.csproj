@@ -17,6 +17,7 @@
 		<Deterministic>true</Deterministic>
 		<Configuration>Release</Configuration>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageOutputPath>./../../nupkg</PackageOutputPath>
 	</PropertyGroup>
 
 	<ItemGroup>
