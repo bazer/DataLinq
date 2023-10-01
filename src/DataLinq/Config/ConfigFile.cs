@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Text;
 using System.Linq;
 using System;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace DataLinq.Config
 {
@@ -22,6 +23,7 @@ namespace DataLinq.Config
         public List<string>? Views { get; set; }
         public bool? UseCache { get; set; }
         public bool? UseRecord { get; set; }
+        public bool? UseFileScopedNamespaces { get; set; }
         public bool? CapitalizeNames { get; set; }
         public bool? RemoveInterfacePrefix { get; set; }
         public bool? SeparateTablesAndViews { get; set; }

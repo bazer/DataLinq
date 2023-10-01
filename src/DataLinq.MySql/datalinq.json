@@ -10,6 +10,7 @@
       "Views": [ "COLUMNS", "KEY_COLUMN_USAGE", "TABLES", "VIEWS" ],
       "UseCache": false,
       "UseRecord": true,
+      "UseFileScopedNamespaces": true,
       "CapitalizeNames": false,
       "SeparateTablesAndViews": true,
       "FileEncoding": "UTF-8-BOM",

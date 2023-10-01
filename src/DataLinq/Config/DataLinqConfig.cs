@@ -65,6 +65,7 @@ namespace DataLinq.Config
         public List<string> Views { get; set; }
         public bool UseCache { get; set; }
         public bool UseRecord { get; set; }
+        public bool UseFileScopedNamespaces { get; set; }
         public bool CapitalizeNames { get; set; }
         public bool RemoveInterfacePrefix { get; set; }
         public bool SeparateTablesAndViews { get; set; }
@@ -83,6 +84,7 @@ namespace DataLinq.Config
             Views = database.Views ?? new List<string>();
             UseCache = database.UseCache ?? false;
             UseRecord = database.UseRecord ?? false;
+            UseFileScopedNamespaces = database.UseFileScopedNamespaces ?? false;
             CapitalizeNames = database.CapitalizeNames ?? false;
             RemoveInterfacePrefix = database.RemoveInterfacePrefix ?? true;
             SeparateTablesAndViews = database.SeparateTablesAndViews ?? false;
