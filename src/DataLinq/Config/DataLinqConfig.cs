@@ -16,9 +16,15 @@ namespace DataLinq.Config
             Databases = configFile.Databases.Select(x => new DataLinqDatabaseConfig(this, x)).ToList();
         }
 
-        public Option<(DataLinqDatabaseConfig db, DataLinqDatabaseConnection connection)> GetConnection(string dbName, DatabaseType? databaseType)
+        public Option<(DataLinqDatabaseConfig db, DataLinqDatabaseConnection connection)> GetConnection(string? dbName, DatabaseType? databaseType)
         {
-            var db = Databases.SingleOrDefault(x => x.Name.ToLower() == dbName.ToLower());
+            if (string.IsNullOrEmpty(dbName) && Databases.Count != 1)
+                return $"The config file has more than one database specified, you need to select which one to use";
+            
+            var db = string.IsNullOrEmpty(dbName)
+                ? Databases.Single()
+                : Databases.SingleOrDefault(x => x.Name.ToLower() == dbName.ToLower());
+
             if (db == null)
             {
                 return $"Couldn't find database with name '{dbName}'";

@@ -33,7 +33,7 @@ namespace DataLinq.CLI
             [Option('d', "database-name", HelpText = "Database name on server", Required = false)]
             public string DatabaseName { get; set; }
 
-            [Option('n', "name", HelpText = "Schema name", Required = true)]
+            [Option('n', "name", HelpText = "Schema name", Required = false)]
             public string SchemaName { get; set; }
 
             [Option('t', "type", HelpText = "Which database connection type to create the database for", Required = false)]
