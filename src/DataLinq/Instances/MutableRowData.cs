@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
+using DataLinq.Metadata;
 
 namespace DataLinq.Instances
 {
     public class MutableRowData
     {
         RowData ImmutableRowData { get; }
-        Dictionary<string, object> MutatedData { get; } = new Dictionary<string, object>();
+        Dictionary<Column, object> MutatedData { get; } = new Dictionary<Column, object>();
 
         public MutableRowData(RowData immutableRowData)
         {
@@ -18,20 +19,20 @@ namespace DataLinq.Instances
         public PrimaryKeys GetKey() =>
             new PrimaryKeys(this.ImmutableRowData);
 
-        public object GetValue(string columnDbName)
+        public object GetValue(Column column)
         {
-            if (MutatedData.ContainsKey(columnDbName))
-                return MutatedData[columnDbName];
+            if (MutatedData.ContainsKey(column))
+                return MutatedData[column];
 
-            return ImmutableRowData.GetValue(columnDbName);
+            return ImmutableRowData.GetValue(column.DbName);
         }
 
-        public void SetValue(string columnDbName, object value)
+        public void SetValue(Column column, object value)
         {
-            MutatedData[columnDbName] = value;
+            MutatedData[column] = value;
         }
 
-        public IEnumerable<KeyValuePair<string, object>> GetChanges()
+        public IEnumerable<KeyValuePair<Column, object>> GetChanges()
         {
             foreach (var change in MutatedData)
                 yield return change;

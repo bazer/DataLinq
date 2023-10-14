@@ -1,4 +1,5 @@
 using DataLinq.Exceptions;
+using DataLinq.Extensions;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
@@ -51,7 +52,8 @@ namespace DataLinq.MySql
             var longestName = table.Columns.Max(x => x.DbName.Length) + 1;
             foreach (var column in table.Columns.OrderBy(x => x.Index))
             {
-                var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL);
+                var dbType = GetDbType(column);
+                //var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL);
 
                 sql.NewRow().Indent()
                     .ColumnName(column.DbName)
@@ -78,6 +80,119 @@ namespace DataLinq.MySql
                     sql.ForeignKey(relation, foreignKeyRestrict);
         }
 
-        
+        public static DatabaseColumnType GetDbType(Column column)
+        {
+            if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
+                return column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL);
+
+            var type = column.DbTypes
+                .Select(x => TryGetColumnType(x))
+                .Concat(GetDbTypeFromCsType(column.ValueProperty).Yield())
+                .Where(x => x != null)
+                .FirstOrDefault();
+
+            if (!type.HasValue)
+                throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
+
+            return type.Value;
+        }
+
+        private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
+        {
+            string? type = null;
+
+            if (dbType.DatabaseType == DatabaseType.Default)
+                type = ParseDefaultType(dbType.Name);
+            else if (dbType.DatabaseType == DatabaseType.SQLite)
+                type = ParseSQLiteType(dbType.Name);
+
+            if (type == null)
+                return null;
+
+            return new DatabaseColumnType
+            {
+                DatabaseType = DatabaseType.MySQL,
+                Name = type,
+                Length = dbType.Length,
+                Signed = dbType.Signed
+            };
+        }
+
+        private static DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
+        {
+            var type = ParseCsType(property.CsTypeName);
+
+            if (type == null)
+                return null;
+
+            return new DatabaseColumnType
+            {
+                DatabaseType = DatabaseType.SQLite,
+                Name = type
+            };
+        }
+
+        private static string? ParseDefaultType(string defaultType)
+        {
+            return defaultType.ToLower() switch
+            {
+                "integer" => "integer",
+                "int" => "integer",
+                "tinyint" => "integer",
+                "mediumint" => "integer",
+                "bit" => "integer",
+                "bigint" => "integer",
+                "smallint" => "integer",
+                "enum" => "integer",
+                "real" => "real",
+                "double" => "real",
+                "float" => "real",
+                "decimal" => "real",
+                "varchar" => "text",
+                "text" => "text",
+                "mediumtext" => "text",
+                "datetime" => "text",
+                "timestamp" => "text",
+                "date" => "text",
+                "char" => "text",
+                "longtext" => "text",
+                "binary" => "blob",
+                "blob" => "blob",
+                _ => null
+                //_ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
+            };
+        }
+
+        private static string? ParseSQLiteType(string sqliteType)
+        {
+            return sqliteType.ToLower() switch
+            {
+                "integer" => "int",
+                "text" => "varchar",
+                "real" => "double",
+                "blob" => "binary",
+                _ => null
+            };
+        }
+
+        private static string? ParseCsType(string csType)
+        {
+            return csType.ToLower() switch
+            {
+                "int" => "int",
+                "string" => "varchar",
+                "bool" => "bit",
+                "double" => "double",
+                "DateTime" => "datetime",
+                "DateOnly" => "date",
+                "float" => "float",
+                "long" => "bigint",
+                "Guid" => "binary",
+                "enum" => "enum",
+                "decimal" => "decimal",
+                "byte[]" => "blob",
+                _ => null
+            };
+        }
     }
 }

@@ -102,13 +102,14 @@ namespace DataLinq.Metadata
     {
         public EnumProperty(List<(string name, int value)> enumValues, List<(string name, int value)> csEnumValues, bool declaredInClass = true)
         {
-            EnumValues = enumValues;
+            DbEnumValues = enumValues;
             CsEnumValues = csEnumValues;
             DeclaredInClass = declaredInClass;
         }
 
-        public List<(string name, int value)> EnumValues { get; }
+        public List<(string name, int value)> DbEnumValues { get; }
         public List<(string name, int value)> CsEnumValues { get; }
+        public List<(string name, int value)> EnumValues => CsEnumValues.Count != 0 ? CsEnumValues : DbEnumValues;
         public bool DeclaredInClass { get; }
     }
 

@@ -1,4 +1,3 @@
-using DataLinq.Config;
 using DataLinq.Extensions;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -7,7 +6,6 @@ using DataLinq.Query;
 using Microsoft.Data.Sqlite;
 using System;
 using System.Data;
-using System.Data.Common;
 using System.IO;
 using System.Runtime.CompilerServices;
 
@@ -42,6 +40,7 @@ namespace DataLinq.SQLite
         where T : class, IDatabaseModel
     {
         private SqliteConnectionStringBuilder connectionStringBuilder;
+        private SQLiteDataLinqDataWriter dataWriter = new SQLiteDataLinqDataWriter();
         public override IDatabaseProviderConstants Constants { get; } = new SQLiteProviderConstants();
         static SQLiteProvider()
         {
@@ -129,6 +128,11 @@ namespace DataLinq.SQLite
                 return true;
 
             return File.Exists(source);
+        }
+
+        public override IDataLinqDataWriter GetWriter()
+        {
+            return dataWriter;
         }
     }
 }

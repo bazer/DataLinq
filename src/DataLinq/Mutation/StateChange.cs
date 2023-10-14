@@ -57,11 +57,19 @@ namespace DataLinq.Mutation
         public IQuery GetQuery(Transaction transaction)
         {
             var query = new SqlQuery(Table, transaction);
+            var writer = transaction.Provider.GetWriter();
 
             if (Type == TransactionChangeType.Insert)
             {
                 foreach (var column in Table.Columns)
-                    query.Set(column.DbName, column.ValueProperty.GetValue(Model));
+                {
+                    var val = writer.WriteColumn(column, column.ValueProperty.GetValue(Model));
+
+                    //if (column.ValueProperty.CsType.BaseType == typeof(Enum) && column.ValueProperty.Column.DbTypes.Any(x => x.Name == "enum") && (int)val == 0)
+                    //    val = null;
+
+                    query.Set(column.DbName, val);
+                }
 
                 if (HasAutoIncrement)
                     query.AddLastIdQuery();
@@ -70,23 +78,25 @@ namespace DataLinq.Mutation
             }
             else if (Type == TransactionChangeType.Update)
             {
-                foreach (var key in Table.PrimaryKeyColumns)
-                    query.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(Model));
+                foreach (var column in Table.PrimaryKeyColumns)
+                    query.Where(column.DbName).EqualTo(writer.WriteColumn(column, column.ValueProperty.GetValue(Model)));
 
                 foreach (var change in (Model as MutableInstanceBase).GetChanges())
-                    query.Set(change.Key, change.Value);
+                    query.Set(change.Key.DbName, writer.WriteColumn(change.Key, change.Value));
 
                 return query.UpdateQuery();
             }
             else if (Type == TransactionChangeType.Delete)
             {
-                foreach (var key in Table.PrimaryKeyColumns)
-                    query.Where(key.DbName).EqualTo(key.ValueProperty.GetValue(Model));
+                foreach (var column in Table.PrimaryKeyColumns)
+                    query.Where(column.DbName).EqualTo(writer.WriteColumn(column, column.ValueProperty.GetValue(Model)));
 
                 return query.DeleteQuery();
             }
 
             throw new NotImplementedException();
         }
+
+        
     }
 }

@@ -2,13 +2,13 @@
 using System.Collections.Concurrent;
 using System.ComponentModel;
 
-namespace DataLinq.Extensions
+namespace DataLinq.Utils
 {
-    internal static class TypeExtensions
+    public static class TypeUtils
     {
         private static readonly ConcurrentDictionary<Type, Type> nullableTypes = new ConcurrentDictionary<Type, Type>();
 
-        internal static Type GetNullableConversionType(this Type returnType)
+        public static Type GetNullableConversionType(Type returnType)
         {
             if (returnType.IsGenericType && returnType.GetGenericTypeDefinition().Equals(typeof(Nullable<>)))
             {

@@ -38,14 +38,14 @@ namespace DataLinq.Instances
             if (info.CallType == CallType.Set && info.MethodType == MethodType.Property)
             {
                 if (property is ValueProperty valueProperty)
-                    MutableRowData.SetValue(valueProperty.Column.DbName, info.Value);
+                    MutableRowData.SetValue(valueProperty.Column, info.Value);
                 else if (property.Type == PropertyType.Relation)
                     throw new NotImplementedException();
             }
             else if (info.CallType == CallType.Get && info.MethodType == MethodType.Property)
             {
                 if (property is ValueProperty valueProperty)
-                    invocation.ReturnValue = MutableRowData.GetValue(valueProperty.Column.DbName);
+                    invocation.ReturnValue = MutableRowData.GetValue(valueProperty.Column);
                 else if (property.Type == PropertyType.Relation)
                     invocation.ReturnValue = GetRelation(info);
                 else

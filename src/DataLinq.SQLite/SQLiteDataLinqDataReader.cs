@@ -1,5 +1,8 @@
-﻿using Microsoft.Data.Sqlite;
+﻿using DataLinq.Metadata;
+using DataLinq.Utils;
+using Microsoft.Data.Sqlite;
 using System;
+using System.Linq;
 
 namespace DataLinq.SQLite
 {
@@ -53,5 +56,38 @@ namespace DataLinq.SQLite
             return dataReader.Read();
         }
 
+        public object? GetValue(Column column)
+        {
+            var ordinal = GetOrdinal(column.DbName);
+            object value;
+
+            if (column.ValueProperty.CsType == typeof(DateOnly))
+            {
+                value = GetDateOnly(ordinal);
+            }
+            else
+            {
+                value = GetValue(ordinal);
+            }
+
+            if (value is DBNull)
+                return null;
+            else if (column.ValueProperty.CsType == typeof(Guid) || column.ValueProperty.CsType == typeof(Guid?))
+            {
+                var dbType = SqlFromMetadataFactory.GetDbType(column);
+                if (value is byte[] bytes && dbType.Name == "binary" && dbType.Length == 16)
+                    return new Guid(bytes);
+            }
+            else if (column.ValueProperty.CsType.IsEnum && value is string stringValue)
+                return Enum.ToObject(column.ValueProperty.CsType, column.ValueProperty.EnumProperty.Value.EnumValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
+            else if (column.ValueProperty.CsType.IsEnum)
+                return Enum.ToObject(column.ValueProperty.CsType, value);
+            else if (column.ValueProperty.CsNullable)
+                return Convert.ChangeType(value, TypeUtils.GetNullableConversionType(column.ValueProperty.CsType));
+            else if (value.GetType() != column.ValueProperty.CsType)
+                return Convert.ChangeType(value, column.ValueProperty.CsType);
+
+            return value;
+        }
     }
 }

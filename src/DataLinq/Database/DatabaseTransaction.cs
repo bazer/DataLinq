@@ -45,6 +45,7 @@ namespace DataLinq
             OnStatusChanged?.Invoke(this, new DatabaseTransactionStatusChangeEventArgs { Status = status });
         }
 
+        
         public abstract IDataLinqDataReader ExecuteReader(IDbCommand command);
         public abstract IDataLinqDataReader ExecuteReader(string query);
         public abstract object ExecuteScalar(IDbCommand command);

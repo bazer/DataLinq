@@ -43,6 +43,7 @@ namespace DataLinq
         string GetExists(string databaseName);
         
         void CreateDatabase(string databaseName);
+        IDataLinqDataWriter GetWriter();
     }
 
     public interface IDatabaseProviderConstants
@@ -143,6 +144,8 @@ namespace DataLinq
         public abstract string GetExists(string databaseName = null);
         public abstract bool FileOrServerExists();
         public abstract void CreateDatabase(string databaseName = null);
+
+        public abstract IDataLinqDataWriter GetWriter();
         //public abstract void RegisterProvider();
 
         public void Dispose()

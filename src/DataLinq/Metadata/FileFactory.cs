@@ -201,11 +201,7 @@ namespace DataLinq.Metadata
             yield return namespaceTab + "{";
             //yield return $"{tab}{tab}Empty,";
 
-            var values = property.EnumProperty.Value.CsEnumValues.Count != 0
-                ? property.EnumProperty.Value.CsEnumValues
-                : property.EnumProperty.Value.EnumValues;
-
-            foreach (var val in values)
+            foreach (var val in property.EnumProperty.Value.EnumValues)
                 yield return $"{namespaceTab}{tab}{val.name} = {val.value},";
 
             yield return namespaceTab + "}";

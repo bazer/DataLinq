@@ -1,5 +1,6 @@
 ﻿using Castle.DynamicProxy;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using System;
 using System.Collections.Generic;
@@ -18,7 +19,7 @@ namespace DataLinq.Instances
 
     public interface MutableInstanceBase : InstanceBase
     {
-        IEnumerable<KeyValuePair<string, object>> GetChanges();
+        IEnumerable<KeyValuePair<Column, object>> GetChanges();
     }
 
     public static class InstanceFactory

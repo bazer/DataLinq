@@ -39,6 +39,7 @@ namespace DataLinq.MySql
         where T : class, IDatabaseModel
     {
         private MySqlConnectionStringBuilder connectionStringBuilder;
+        private MySqlDataLinqDataWriter dataWriter = new MySqlDataLinqDataWriter();
 
         public override IDatabaseProviderConstants Constants { get; } = new MySQLProviderConstants();
 
@@ -141,5 +142,10 @@ namespace DataLinq.MySql
         }
 
         public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
+
+        public override IDataLinqDataWriter GetWriter()
+        {
+            return dataWriter;
+        }
     }
 }

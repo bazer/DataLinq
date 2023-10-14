@@ -32,12 +32,12 @@ namespace DataLinq.Config
 
             if (db.Connections.Count == 0)
             {
-                return $"Database '{dbName}' has no connections to read from";
+                return $"Database '{db.Name}' has no connections to read from";
             }
 
             if (db.Connections.Count > 1 && databaseType == null)
             {
-                return $"Database '{dbName}' has more than one connection to read from, you need to select which one";
+                return $"Database '{db.Name}' has more than one type of connection to read from, you need to select which one (-t or --type)";
             }
 
             DataLinqDatabaseConnection connection = null;

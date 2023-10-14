@@ -247,7 +247,7 @@ namespace DataLinq.Cache
             {
                 var where = q.CreateWhereGroup(BooleanType.Or);
                 for (var i = 0; i < primaryKeyColumnsCount; i++)
-                    where.And(Table.PrimaryKeyColumns[i].DbName).EqualTo(key.Data[i]);
+                    where.And(Table.PrimaryKeyColumns[i].DbName).EqualTo(transaction.Provider.GetWriter().WriteColumn(Table.PrimaryKeyColumns[i], key.Data[i]));
             }
 
             if (orderings != null)
