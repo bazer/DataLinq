@@ -11,9 +11,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.Tests", "DataLinq.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.Tools", "DataLinq.Tools\DataLinq.Tools.csproj", "{77EBB890-6007-4BC7-9D47-67556E65B8C2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLinq.CLI", "DataLinq.CLI\DataLinq.CLI.csproj", "{8A06E186-347F-4E89-AC94-B7301B21E895}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.CLI", "DataLinq.CLI\DataLinq.CLI.csproj", "{8A06E186-347F-4E89-AC94-B7301B21E895}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.SQLite", "DataLinq.SQLite\DataLinq.SQLite.csproj", "{D30C8AEB-A178-4494-8E26-3DA42D60CF96}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLinq.Benchmark", "DataLinq.Benchmark\DataLinq.Benchmark.csproj", "{351B6D40-E43C-4F5A-AEB0-2B914D112026}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +47,10 @@ Global
 		{D30C8AEB-A178-4494-8E26-3DA42D60CF96}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D30C8AEB-A178-4494-8E26-3DA42D60CF96}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D30C8AEB-A178-4494-8E26-3DA42D60CF96}.Release|Any CPU.Build.0 = Release|Any CPU
+		{351B6D40-E43C-4F5A-AEB0-2B914D112026}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{351B6D40-E43C-4F5A-AEB0-2B914D112026}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{351B6D40-E43C-4F5A-AEB0-2B914D112026}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{351B6D40-E43C-4F5A-AEB0-2B914D112026}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

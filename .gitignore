@@ -19,3 +19,4 @@ TestResults
 *nCrunchTemp_*.csproj
 launchSettings.json
 /nupkg
+/src/DataLinq.Benchmark/BenchmarkDotNet.Artifacts
