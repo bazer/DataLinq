@@ -47,7 +47,7 @@ public partial record Order : ITableModel<AllroundBenchmark>
 
     [Type(DatabaseType.MySQL, "timestamp")]
     [Column("OrderTimestamp")]
-    public virtual DateTime OrderTimestamp { get; set; }
+    public virtual DateTime? OrderTimestamp { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "int")]

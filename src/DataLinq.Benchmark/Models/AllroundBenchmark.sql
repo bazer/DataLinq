@@ -1,4 +1,4 @@
-﻿/* Generated 2023-10-15 20:26:01 by DataLinq */
+﻿/* Generated 2023-10-15 20:51:11 by DataLinq */
 
 CREATE TABLE IF NOT EXISTS `products` (
   `ProductId`      BINARY(16) NOT NULL,
@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS `userhistory` (
 CREATE TABLE IF NOT EXISTS `usercontacts` (
   `ContactId` INT NOT NULL AUTO_INCREMENT,
   `ProfileId` BINARY(16) NULL,
-  `Phone`     CHAR(20) NULL,
+  `Phone`     CHAR(30) NULL,
   PRIMARY KEY (`ContactId`),
   CONSTRAINT `usercontacts_ibfk_1` FOREIGN KEY (`ProfileId`) REFERENCES `userprofiles` (`ProfileId`) ON UPDATE RESTRICT ON DELETE RESTRICT
 );

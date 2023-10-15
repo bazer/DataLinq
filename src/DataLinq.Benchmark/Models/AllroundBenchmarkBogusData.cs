@@ -5,7 +5,7 @@ namespace DataLinq.Benchmark.Models;
 
 internal static class AllroundBenchmarkBogusData
 {
-    public static void FillAllroundBenchmarkWithBogusData(Database<AllroundBenchmark> db, decimal numMillionRows = 0.1m)
+    public static void FillAllroundBenchmarkWithBogusData(Database<AllroundBenchmark> db, decimal numMillionRows = 0.01m)
     {
         var lockObject = new object();
         lock (lockObject)
@@ -45,7 +45,7 @@ internal static class AllroundBenchmarkBogusData
 
             // Generate data for Manufacturers table
             var manufacturerFaker = new Faker<Manufacturer>()
-                .RuleFor(m => m.ManufacturerId, f => f.IndexFaker)
+                //.RuleFor(m => m.ManufacturerId, f => f.IndexFaker)
                 .RuleFor(m => m.ManufacturerName, f => f.Company.CompanyName());
 
             var manufacturers = transaction.Insert(manufacturerFaker.Generate((int)(1000 * numMillionRows)));
@@ -62,10 +62,10 @@ internal static class AllroundBenchmarkBogusData
 
             // Generate data for ShippingCompanies table
             var shippingCompanyFaker = new Faker<Shippingcompany>()
-                .RuleFor(sc => sc.ShippingCompanyId, f => f.IndexFaker)
+                //.RuleFor(sc => sc.ShippingCompanyId, f => f.IndexFaker)
                 .RuleFor(sc => sc.CompanyName, f => f.Company.CompanyName());
 
-            var shippingCompanies = transaction.Insert(shippingCompanyFaker.Generate((int)(50 * numMillionRows)));
+            var shippingCompanies = transaction.Insert(shippingCompanyFaker.Generate((int)(100 * numMillionRows)));
             var shippingCompanyIds = shippingCompanies.Select(sc => sc.ShippingCompanyId).ToList();
 
             // Generate data for Orders table
@@ -76,13 +76,14 @@ internal static class AllroundBenchmarkBogusData
                 .RuleFor(o => o.OrderDate, f => f.Date.PastDateOnly(1))
                 .RuleFor(o => o.OrderStatus, f => f.PickRandom<Order.OrderStatusValue>())
                 .RuleFor(o => o.ShippingCompanyId, f => f.PickRandom(shippingCompanyIds));
+                //.RuleFor(o => o.OrderTimestamp, f => f.Date.Past(1));
 
             var orders = transaction.Insert(orderFaker.Generate((int)(150000 * numMillionRows)));
             var orderIds = orders.Select(o => o.OrderId).ToList();
 
             // Generate data for Payments table
             var paymentFaker = new Faker<Payment>()
-                .RuleFor(p => p.PaymentId, f => f.IndexFaker)
+                //.RuleFor(p => p.PaymentId, f => f.IndexFaker)
                 .RuleFor(p => p.OrderId, f => f.PickRandom(orderIds))
                 .RuleFor(p => p.Amount, f => f.Random.Decimal(1, 10000))
                 .RuleFor(p => p.PaymentDate, f => f.Date.PastDateOnly(1))
@@ -100,7 +101,7 @@ internal static class AllroundBenchmarkBogusData
 
             // Generate data for UserContacts table
             var userContactFaker = new Faker<Usercontact>()
-                .RuleFor(uc => uc.ContactId, f => f.IndexFaker)
+                //.RuleFor(uc => uc.ContactId, f => f.IndexFaker)
                 .RuleFor(uc => uc.ProfileId, f => f.PickRandom(userProfiles.Select(up => up.ProfileId)))
                 .RuleFor(uc => uc.Phone, f => f.Phone.PhoneNumber());
 
@@ -108,7 +109,7 @@ internal static class AllroundBenchmarkBogusData
 
             // Generate data for UserFeedbacks table
             var userFeedbackFaker = new Faker<Userfeedback>()
-                .RuleFor(uf => uf.FeedbackId, f => f.IndexFaker)
+                //.RuleFor(uf => uf.FeedbackId, f => f.IndexFaker)
                 .RuleFor(uf => uf.ProductId, f => f.PickRandom(productIds))
                 .RuleFor(uf => uf.UserId, f => f.PickRandom(userIds))
                 .RuleFor(uf => uf.Feedback, f => f.Lorem.Sentence());
@@ -117,7 +118,7 @@ internal static class AllroundBenchmarkBogusData
 
             // Generate data for UserHistories table
             var userHistoryFaker = new Faker<Userhistory>()
-                .RuleFor(uh => uh.HistoryId, f => f.IndexFaker)
+                //.RuleFor(uh => uh.HistoryId, f => f.IndexFaker)
                 .RuleFor(uh => uh.UserId, f => f.PickRandom(userIds))
                 .RuleFor(uh => uh.ActivityDate, f => f.Date.PastDateOnly(2))
                 .RuleFor(uh => uh.ActivityLog, f => f.Lorem.Sentence());
@@ -136,7 +137,7 @@ internal static class AllroundBenchmarkBogusData
 
             // Generate data for Discounts table
             var discountFaker = new Faker<Discount>()
-                .RuleFor(d => d.DiscountId, f => f.IndexFaker)
+                //.RuleFor(d => d.DiscountId, f => f.IndexFaker)
                 .RuleFor(d => d.ProductId, f => f.PickRandom(productIds))
                 .RuleFor(d => d.DiscountPercentage, f => f.Random.Decimal(0.05m, 0.5m))  // assuming a percentage discount between 5% to 50%
                 .RuleFor(d => d.StartDate, f => f.Date.PastDateOnly(1))
@@ -146,7 +147,7 @@ internal static class AllroundBenchmarkBogusData
 
             // Generate data for Inventories table
             var inventoryFaker = new Faker<Inventory>()
-                .RuleFor(i => i.InventoryId, f => f.IndexFaker)
+                //.RuleFor(i => i.InventoryId, f => f.IndexFaker)
                 .RuleFor(i => i.ProductId, f => f.PickRandom(productIds))
                 .RuleFor(i => i.LocationId, f => f.PickRandom(locationIds))
                 .RuleFor(i => i.Stock, f => f.Random.Int(1, 1000));
@@ -182,7 +183,7 @@ internal static class AllroundBenchmarkBogusData
 
             // Generate data for ProductTags table
             var productTagFaker = new Faker<Producttag>()
-                .RuleFor(pt => pt.TagId, f => f.IndexFaker)  // AutoIncremented
+                //.RuleFor(pt => pt.TagId, f => f.IndexFaker)  // AutoIncremented
                 .RuleFor(pt => pt.CategoryId, f => f.PickRandom(categoryIds))
                 .RuleFor(pt => pt.TagName, f => f.Random.Word());
 

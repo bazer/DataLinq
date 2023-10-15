@@ -17,7 +17,7 @@ public class BenchmarkSetup
         MySQLProvider.RegisterProvider();
         SQLiteProvider.RegisterProvider();
 
-        var config = new DataLinqConfig(ConfigReader.Read("datalinq.json"));
+        var config = new DataLinqConfig(ConfigReader.Read("D:\\git\\DataLinq\\src\\DataLinq.Benchmark\\datalinq.json"));
         var conn = config.Databases.Single(x => x.Name == "AllroundBenchmark").Connections.Single(x => x.Type == DatabaseType.MySQL);
 
         db = new MySqlDatabase<AllroundBenchmark>(conn.ConnectionString.Original, conn.DatabaseName);
