@@ -1,3 +1,4 @@
+using DataLinq.Attributes;
 using DataLinq.Query;
 using System;
 using System.Collections.Generic;
@@ -82,6 +83,9 @@ namespace DataLinq.Metadata
             => $"({s})";
         public string ParenthesisList(string[] columns) =>
             $"{Parenthesis(string.Join(", ", columns.Select(key => QuotedString(key))))}";
+        public string ValueWithSpace(string? s)
+            => string.IsNullOrWhiteSpace(s) ? " " : $" {s} ";
+
 
         //public SqlGeneration CreateDatabase(string databaseName)
         //{
@@ -117,21 +121,25 @@ namespace DataLinq.Metadata
         public SqlGeneration Nullable(bool nullable) => Space().Add(nullable ? "NULL" : "NOT NULL");
         public SqlGeneration Autoincrement(bool inc) => inc ? Space().Add("AUTO_INCREMENT") : this;
         public SqlGeneration Type(string type, string columnName, int longestColumnName) => Add(Align(longestColumnName, columnName) + type);
-        public SqlGeneration TypeLength(long? length) => length.HasValue ? Add($"({length})") : this;
+        public SqlGeneration TypeLength(long? length, int? decimals) => length.HasValue 
+            ? decimals.HasValue
+                ? Add($"({length},{decimals})")
+                : Add($"({length})")
+            : this;
         public SqlGeneration EnumValues(IEnumerable<string> values) => Add($"({string.Join(",", values.Select(x => $"'{x}'"))})");
         public SqlGeneration Unsigned(bool? signed) => signed.HasValue && !signed.Value ? Space().Add("UNSIGNED") : this;
         public string Align(int longest, string text) => new string(' ', longest - text.Length);
 
-        public SqlGeneration Index(string name, params string[] columns)
-            => NewRow().Indent().Add($"INDEX {QuotedString(name)} {ParenthesisList(columns)}");
+        public SqlGeneration Index(string name, string? characteristic, string type, params string[] columns)
+            => NewRow().Indent().Add($"INDEX{ValueWithSpace(characteristic)}{QuotedString(name)} {ParenthesisList(columns)} USING {type}");
         public SqlGeneration PrimaryKey(params string[] columns)
             => NewRow().Indent().Add($"PRIMARY KEY {ParenthesisList(columns)}");
         public virtual SqlGeneration UniqueKey(string name, params string[] columns)
             => NewRow().Indent().Add($"UNIQUE KEY {QuotedString(name)} {ParenthesisList(columns)}");
         public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
-            => ForeignKey(relation.Relation.ConstraintName, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict);
-        public SqlGeneration ForeignKey(string constraint, string from, string table, string to, bool restrict)
-            => NewRow().Indent().Add($"CONSTRAINT {QuotedString(constraint)} FOREIGN KEY {QuotedParenthesis(from)} REFERENCES {QuotedString(table)} {QuotedParenthesis(to)} {OnUpdateDelete(restrict)}");
+            => ForeignKey(relation.Relation.ConstraintName == relation.Column.DbName ? null : relation.Relation.ConstraintName, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict);
+        public SqlGeneration ForeignKey(string? constraintName, string from, string table, string to, bool restrict)
+            => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(constraintName) ? "" : $"CONSTRAINT {QuotedString(constraintName)} ")}FOREIGN KEY {QuotedParenthesis(from)} REFERENCES {QuotedString(table)} {QuotedParenthesis(to)} {OnUpdateDelete(restrict)}");
         public string OnUpdateDelete(bool restrict)
             => restrict ? "ON UPDATE RESTRICT ON DELETE RESTRICT" : "ON UPDATE NO ACTION ON DELETE NO ACTION";
     }

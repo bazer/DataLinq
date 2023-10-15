@@ -46,21 +46,46 @@ namespace DataLinq.SQLite
         {
             foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
             {
-                foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`partial`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l\r\nJOIN pragma_index_info(l.`name`) i WHERE\r\nl.`unique` = 1 AND\r\nl.`origin` <> 'pk'"))
+                foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`partial`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l\r\nJOIN pragma_index_info(l.`name`) i"))
                 {
                     var column = tableModel
                         .Table.Columns.Single(x => x.DbName == reader.GetString(4));
 
                     var name = reader.GetString(0);
-
                     if (name.StartsWith("sqlite_autoindex"))
                         name = column.DbName;
 
-                    column.Unique = true;
-                    column.ValueProperty.Attributes.Add(new UniqueAttribute(name));
+                    // Determine the type and characteristic of the index.
+                    var indexType = IndexType.BTREE;  // SQLite predominantly uses B-tree
+                    var indexCharacteristic = reader.GetInt32(2) == 1
+                        ? IndexCharacteristic.Unique
+                        : IndexCharacteristic.Simple;
+
+                    column.ValueProperty.Attributes.Add(new IndexAttribute(name, indexCharacteristic, indexType));
                 }
             }
         }
+
+
+        //private void ParseIndices(DatabaseMetadata database)
+        //{
+        //    foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
+        //    {
+        //        foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`partial`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l\r\nJOIN pragma_index_info(l.`name`) i WHERE\r\nl.`unique` = 1 AND\r\nl.`origin` <> 'pk'"))
+        //        {
+        //            var column = tableModel
+        //                .Table.Columns.Single(x => x.DbName == reader.GetString(4));
+
+        //            var name = reader.GetString(0);
+
+        //            if (name.StartsWith("sqlite_autoindex"))
+        //                name = column.DbName;
+
+        //            column.Unique = true;
+        //            column.ValueProperty.Attributes.Add(new IndexAttribute(name));
+        //        }
+        //    }
+        //}
 
         private void ParseRelations(DatabaseMetadata database)
         {

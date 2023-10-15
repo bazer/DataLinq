@@ -1,12 +1,13 @@
-﻿/* Generated 2023-10-14 15:30:21 by DataLinq */
+﻿/* Generated 2023-10-15 20:26:01 by DataLinq */
 
 CREATE TABLE IF NOT EXISTS `products` (
   `ProductId`      BINARY(16) NOT NULL,
   `CategoryId`     INT NULL,
   `ManufacturerId` INT NULL,
-  `Price`          DECIMAL NULL,
+  `Price`          DOUBLE NULL,
   `ProductName`    VARCHAR(255) NULL,
-  PRIMARY KEY (`ProductId`)
+  PRIMARY KEY (`ProductId`),
+  INDEX `idx_productname` (`ProductName`) USING BTREE
 );
 
 CREATE TABLE IF NOT EXISTS `locations` (
@@ -14,7 +15,10 @@ CREATE TABLE IF NOT EXISTS `locations` (
   `Address`    VARCHAR(500) NULL,
   `City`       VARCHAR(255) NULL,
   `Country`    VARCHAR(255) NULL,
-  PRIMARY KEY (`LocationId`)
+  `Latitude`   FLOAT NULL,
+  `Longitude`  FLOAT NULL,
+  PRIMARY KEY (`LocationId`),
+  INDEX `idx_address` (`Address`) USING BTREE
 );
 
 CREATE TABLE IF NOT EXISTS `inventory` (
@@ -31,24 +35,30 @@ CREATE TABLE IF NOT EXISTS `locationshistory` (
   `HistoryId`  BINARY(16) NOT NULL,
   `LocationId` BINARY(16) NULL,
   `ChangeDate` DATE NULL,
-  `ChangeLog`  TEXT NULL,
+  `ChangeLog`  LONGTEXT NULL,
   PRIMARY KEY (`HistoryId`),
-  CONSTRAINT `locationshistory_ibfk_1` FOREIGN KEY (`LocationId`) REFERENCES `locations` (`LocationId`) ON UPDATE RESTRICT ON DELETE RESTRICT
+  CONSTRAINT `locationshistory_ibfk_1` FOREIGN KEY (`LocationId`) REFERENCES `locations` (`LocationId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
+  INDEX `idx_changedate` (`ChangeDate`) USING BTREE
 );
 
 CREATE TABLE IF NOT EXISTS `manufacturers` (
   `ManufacturerId`   INT NOT NULL AUTO_INCREMENT,
+  `Logo`             LONGBLOB NULL,
   `ManufacturerName` VARCHAR(255) NULL,
   PRIMARY KEY (`ManufacturerId`)
 );
 
 CREATE TABLE IF NOT EXISTS `users` (
-  `UserId`     BINARY(16) NOT NULL,
-  `DateJoined` DATE NULL,
-  `Email`      VARCHAR(255) NULL,
-  `UserName`   VARCHAR(255) NULL,
-  `UserRole`   ENUM('Admin','User','Guest') NULL,
-  PRIMARY KEY (`UserId`)
+  `UserId`        BINARY(16) NOT NULL,
+  `DateJoined`    DATE NULL,
+  `Email`         VARCHAR(255) NULL,
+  `LastLoginTime` TIME NULL,
+  `UserAge`       TINYINT NULL,
+  `UserHeight`    FLOAT NULL,
+  `UserName`      VARCHAR(255) NULL,
+  `UserRole`      ENUM('Admin','User','Guest') NULL,
+  PRIMARY KEY (`UserId`),
+  INDEX `idx_username` (`UserName`) USING BTREE
 );
 
 CREATE TABLE IF NOT EXISTS `orders` (
@@ -57,18 +67,21 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `UserId`            BINARY(16) NULL,
   `OrderDate`         DATE NULL,
   `OrderStatus`       ENUM('Placed','Shipped','Delivered','Cancelled') NULL,
+  `OrderTimestamp`    TIMESTAMP NOT NULL,
   `ShippingCompanyId` INT NULL,
   PRIMARY KEY (`OrderId`),
   CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`ProductId`) REFERENCES `products` (`ProductId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
-  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`) ON UPDATE RESTRICT ON DELETE RESTRICT
+  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
+  INDEX `idx_orderdate` (`OrderDate`) USING BTREE
 );
 
 CREATE TABLE IF NOT EXISTS `payments` (
-  `PaymentId`     INT NOT NULL AUTO_INCREMENT,
-  `OrderId`       BINARY(16) NULL,
-  `Amount`        DECIMAL NULL,
-  `PaymentDate`   DATE NULL,
-  `PaymentMethod` ENUM('CreditCard','DebitCard','PayPal','BankTransfer') NULL,
+  `PaymentId`      INT NOT NULL AUTO_INCREMENT,
+  `OrderId`        BINARY(16) NULL,
+  `Amount`         DECIMAL(10,2) NULL,
+  `PaymentDate`    DATE NULL,
+  `PaymentDetails` LONGTEXT NULL,
+  `PaymentMethod`  ENUM('CreditCard','DebitCard','PayPal','BankTransfer') NULL,
   PRIMARY KEY (`PaymentId`),
   CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`OrderId`) REFERENCES `orders` (`OrderId`) ON UPDATE RESTRICT ON DELETE RESTRICT
 );
@@ -82,6 +95,7 @@ CREATE TABLE IF NOT EXISTS `productcategories` (
 CREATE TABLE IF NOT EXISTS `productimages` (
   `ImageId`   BINARY(16) NOT NULL,
   `ProductId` BINARY(16) NULL,
+  `ImageData` MEDIUMBLOB NULL,
   `ImageURL`  TEXT NULL,
   PRIMARY KEY (`ImageId`),
   CONSTRAINT `productimages_ibfk_1` FOREIGN KEY (`ProductId`) REFERENCES `products` (`ProductId`) ON UPDATE RESTRICT ON DELETE RESTRICT
@@ -92,16 +106,17 @@ CREATE TABLE IF NOT EXISTS `productreviews` (
   `ProductId` BINARY(16) NULL,
   `UserId`    BINARY(16) NULL,
   `Rating`    TINYINT NULL,
-  `Review`    TEXT NULL,
+  `Review`    MEDIUMTEXT NULL,
   PRIMARY KEY (`ReviewId`),
   CONSTRAINT `productreviews_ibfk_2` FOREIGN KEY (`ProductId`) REFERENCES `products` (`ProductId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
-  CONSTRAINT `productreviews_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`) ON UPDATE RESTRICT ON DELETE RESTRICT
+  CONSTRAINT `productreviews_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
+  INDEX `idx_rating` (`Rating`) USING BTREE
 );
 
 CREATE TABLE IF NOT EXISTS `discounts` (
   `DiscountId`         INT NOT NULL AUTO_INCREMENT,
   `ProductId`          BINARY(16) NULL,
-  `DiscountPercentage` DECIMAL NULL,
+  `DiscountPercentage` DECIMAL(5,2) NULL,
   `EndDate`            DATE NULL,
   `StartDate`          DATE NULL,
   PRIMARY KEY (`DiscountId`),
@@ -109,9 +124,10 @@ CREATE TABLE IF NOT EXISTS `discounts` (
 );
 
 CREATE TABLE IF NOT EXISTS `producttags` (
-  `TagId`      INT NOT NULL AUTO_INCREMENT,
-  `CategoryId` BINARY(16) NULL,
-  `TagName`    VARCHAR(255) NULL,
+  `TagId`       INT NOT NULL AUTO_INCREMENT,
+  `CategoryId`  BINARY(16) NULL,
+  `Description` TEXT NULL,
+  `TagName`     VARCHAR(255) NULL,
   PRIMARY KEY (`TagId`),
   CONSTRAINT `producttags_ibfk_1` FOREIGN KEY (`CategoryId`) REFERENCES `productcategories` (`CategoryId`) ON UPDATE RESTRICT ON DELETE RESTRICT
 );
@@ -123,9 +139,10 @@ CREATE TABLE IF NOT EXISTS `shippingcompanies` (
 );
 
 CREATE TABLE IF NOT EXISTS `userprofiles` (
-  `ProfileId` BINARY(16) NOT NULL,
-  `UserId`    BINARY(16) NULL,
-  `Bio`       TEXT NULL,
+  `ProfileId`    BINARY(16) NOT NULL,
+  `UserId`       BINARY(16) NULL,
+  `Bio`          TEXT NULL,
+  `ProfileImage` BLOB NULL,
   PRIMARY KEY (`ProfileId`),
   CONSTRAINT `userprofiles_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`) ON UPDATE RESTRICT ON DELETE RESTRICT
 );
@@ -143,6 +160,7 @@ CREATE TABLE IF NOT EXISTS `userfeedback` (
 CREATE TABLE IF NOT EXISTS `userhistory` (
   `HistoryId`    INT NOT NULL AUTO_INCREMENT,
   `UserId`       BINARY(16) NULL,
+  `ActivityBlob` TINYBLOB NULL,
   `ActivityDate` DATE NULL,
   `ActivityLog`  TEXT NULL,
   PRIMARY KEY (`HistoryId`),
@@ -152,7 +170,7 @@ CREATE TABLE IF NOT EXISTS `userhistory` (
 CREATE TABLE IF NOT EXISTS `usercontacts` (
   `ContactId` INT NOT NULL AUTO_INCREMENT,
   `ProfileId` BINARY(16) NULL,
-  `Phone`     VARCHAR(20) NULL,
+  `Phone`     CHAR(20) NULL,
   PRIMARY KEY (`ContactId`),
   CONSTRAINT `usercontacts_ibfk_1` FOREIGN KEY (`ProfileId`) REFERENCES `userprofiles` (`ProfileId`) ON UPDATE RESTRICT ON DELETE RESTRICT
 );
@@ -161,6 +179,7 @@ CREATE TABLE IF NOT EXISTS `orderdetails` (
   `DetailId`  BINARY(16) NOT NULL,
   `OrderId`   BINARY(16) NULL,
   `ProductId` BINARY(16) NULL,
+  `Discount`  DOUBLE NULL,
   `Quantity`  INT NULL,
   PRIMARY KEY (`DetailId`),
   CONSTRAINT `orderdetails_ibfk_1` FOREIGN KEY (`OrderId`) REFERENCES `orders` (`OrderId`) ON UPDATE RESTRICT ON DELETE RESTRICT,

@@ -13,6 +13,7 @@ public partial record Location : ITableModel<AllroundBenchmark>
     [Column("LocationId")]
     public virtual Guid LocationId { get; set; }
 
+    [Index("idx_address", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 500)]
     [Column("Address")]
@@ -27,6 +28,16 @@ public partial record Location : ITableModel<AllroundBenchmark>
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("Country")]
     public virtual string Country { get; set; }
+
+    [Nullable]
+    [Type(DatabaseType.MySQL, "float")]
+    [Column("Latitude")]
+    public virtual float? Latitude { get; set; }
+
+    [Nullable]
+    [Type(DatabaseType.MySQL, "float")]
+    [Column("Longitude")]
+    public virtual float? Longitude { get; set; }
 
     [Relation("inventory", "LocationId")]
     public virtual IEnumerable<Inventory> Inventory { get; }

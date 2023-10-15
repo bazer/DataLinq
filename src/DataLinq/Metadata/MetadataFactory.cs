@@ -22,29 +22,75 @@ namespace DataLinq.Metadata
     {
         public static void ParseIndices(DatabaseMetadata database)
         {
-            foreach (var column in database.
-                TableModels.SelectMany(x => x.Table.Columns.Where(y => y.Unique)))
-            {
-                var uniqueAttribute = column.ValueProperty
-                    .Attributes
-                    .OfType<UniqueAttribute>()
-                    .Single();
+            var indices = database.TableModels
+                .SelectMany(tableModel => tableModel.Table.Columns
+                    .Select(column => (column, indexAttributes: column.ValueProperty.Attributes.OfType<IndexAttribute>().ToList())))
+                .Where(t => t.indexAttributes.Any());
 
-                if (column.Table.ColumnIndices.Any(x => x.ConstraintName == uniqueAttribute.Name))
+            foreach (var (column, indexAttributes) in indices)
+            {
+                foreach (var indexAttribute in indexAttributes)
                 {
-                    column.Table.ColumnIndices.Single(x => x.ConstraintName == uniqueAttribute.Name).Columns.Add(column);
-                }
-                else
-                {
-                    column.Table.ColumnIndices.Add(new ColumnIndex
+                    var existingIndex = column.Table.ColumnIndices.FirstOrDefault(x => x.Name == indexAttribute.Name);
+
+                    if (existingIndex != null)
                     {
-                        Columns = new List<Column> { column },
-                        ConstraintName = uniqueAttribute.Name,
-                        Type = IndexType.Unique
-                    });
+                        if (!existingIndex.Columns.Contains(column))
+                            existingIndex.AddColumn(column);
+                    }
+                    else
+                    {
+                        var columnsForIndex = indexAttribute.Columns.Any()
+                            ? indexAttribute.Columns.Select(colName => column.Table.Columns.Single(c => c.DbName == colName)).ToList()
+                            : new List<Column> { column };
+
+                        column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
+                    }
                 }
             }
         }
+
+
+        //public static void ParseIndices(DatabaseMetadata database)
+        //{
+        //    foreach (var column in database
+        //        .TableModels.SelectMany(x => x.Table.Columns.Where(y => y.ValueProperty.Attributes.OfType<IndexAttribute>().Any())))
+        //    {
+        //        foreach (var indexAttribute in column.ValueProperty.Attributes.OfType<IndexAttribute>())
+        //        {
+        //            if (column.Table.ColumnIndices.Any(x => x.Name == indexAttribute.Name))
+        //            {
+        //                column.Table.ColumnIndices.Single(x => x.Name == indexAttribute.Name).Columns.Add(column);
+        //            }
+        //            else
+        //            {
+        //                column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, new List<Column> { column }));
+        //            }
+        //        }
+        //    }
+        //}
+
+
+        //public static void ParseIndices(DatabaseMetadata database)
+        //{
+        //    foreach (var column in database.
+        //        TableModels.SelectMany(x => x.Table.Columns.Where(y => y.Unique)))
+        //    {
+        //        var uniqueAttribute = column.ValueProperty
+        //            .Attributes
+        //            .OfType<IndexAttribute>()
+        //            .Single();
+
+        //        if (column.Table.ColumnIndices.Any(x => x.Name == uniqueAttribute.Name))
+        //        {
+        //            column.Table.ColumnIndices.Single(x => x.Name == uniqueAttribute.Name).Columns.Add(column);
+        //        }
+        //        else
+        //        {
+        //            column.Table.ColumnIndices.Add(new ColumnIndex(uniqueAttribute.Name, IndexCharacteristic.Unique, IndexType.BTREE, new List<Column> { column }));
+        //        }
+        //    }
+        //}
 
         public static void ParseRelations(DatabaseMetadata database)
         {
@@ -120,7 +166,7 @@ namespace DataLinq.Metadata
 
         public static ModelMetadata AttachModel(TableMetadata table, bool capitaliseNames)
         {
-            var name = capitaliseNames 
+            var name = capitaliseNames
                 ? table.DbName.FirstCharToUpper()
                 : table.DbName;
 

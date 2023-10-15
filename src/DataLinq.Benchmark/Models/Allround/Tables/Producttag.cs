@@ -20,6 +20,11 @@ public partial record Producttag : ITableModel<AllroundBenchmark>
     public virtual Guid? CategoryId { get; set; }
 
     [Nullable]
+    [Type(DatabaseType.MySQL, "text", 65535)]
+    [Column("Description")]
+    public virtual string Description { get; set; }
+
+    [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("TagName")]
     public virtual string TagName { get; set; }

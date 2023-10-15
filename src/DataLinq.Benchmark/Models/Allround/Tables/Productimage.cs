@@ -19,6 +19,11 @@ public partial record Productimage : ITableModel<AllroundBenchmark>
     public virtual Guid? ProductId { get; set; }
 
     [Nullable]
+    [Type(DatabaseType.MySQL, "mediumblob", 16777215)]
+    [Column("ImageData")]
+    public virtual Byte[] ImageData { get; set; }
+
+    [Nullable]
     [Type(DatabaseType.MySQL, "text", 65535)]
     [Column("ImageURL")]
     public virtual string ImageURL { get; set; }

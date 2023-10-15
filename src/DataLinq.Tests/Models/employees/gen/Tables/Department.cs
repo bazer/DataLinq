@@ -14,7 +14,7 @@ public partial record Department : ITableModel<Employees>
     [Column("dept_no")]
     public virtual string DeptNo { get; set; }
 
-    [Unique("dept_name")]
+    [Index("dept_name", IndexCharacteristic.Unique, IndexType.BTREE)]
     [Type(DatabaseType.MySQL, "varchar", 40)]
     [Type(DatabaseType.SQLite, "text")]
     [Column("dept_name")]

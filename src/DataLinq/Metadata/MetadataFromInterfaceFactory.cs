@@ -200,9 +200,6 @@ namespace DataLinq.Metadata
                 if (attribute is ForeignKeyAttribute)
                     column.ForeignKey = true;
 
-                if (attribute is UniqueAttribute)
-                    column.Unique = true;
-
                 if (attribute is TypeAttribute t)
                 {
                     column.DbTypes.Add(new DatabaseColumnType
@@ -210,6 +207,7 @@ namespace DataLinq.Metadata
                         DatabaseType = t.DatabaseType,
                         Name = t.Name,
                         Length = t.Length,
+                        Decimals = t.Decimals,
                         Signed = t.Signed
                     });
                 }

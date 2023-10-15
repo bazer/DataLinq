@@ -20,7 +20,7 @@ public partial record Usercontact : ITableModel<AllroundBenchmark>
     public virtual Guid? ProfileId { get; set; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "varchar", 20)]
+    [Type(DatabaseType.MySQL, "char", 20)]
     [Column("Phone")]
     public virtual string Phone { get; set; }
 

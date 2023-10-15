@@ -142,9 +142,13 @@ namespace DataLinq.Metadata
                     if (c.PrimaryKey)
                         yield return $"{namespaceTab}{tab}[PrimaryKey]";
 
-                    foreach (var index in table.ColumnIndices.Where(x => x.Type == IndexType.Unique && x.Columns.Contains(c)))
+                    foreach (var index in c.ColumnIndices)// table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique && x.Columns.Contains(c)))
                     {
-                        yield return $"{namespaceTab}{tab}[Unique(\"{index.ConstraintName}\")]";
+                        var columns = index.Columns.Count() > 1
+                            ? "," + index.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")
+                            : string.Empty;
+
+                        yield return $"{namespaceTab}{tab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}{columns})]";
                     }
 
                     foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
@@ -160,10 +164,14 @@ namespace DataLinq.Metadata
 
                     foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
                     {
-                        if (dbType.Signed.HasValue && dbType.Length.HasValue)
+                        if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
+                            yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
+                        else if (dbType.Signed.HasValue && dbType.Length.HasValue)
                             yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
                         else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
                             yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {(dbType.Signed.Value ? "true" : "false")})]";
+                        else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
+                            yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals})]";
                         else if (dbType.Length.HasValue)
                             yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length})]";
                         else
@@ -171,7 +179,7 @@ namespace DataLinq.Metadata
                     }
 
                     if (valueProperty.EnumProperty != null)
-                        yield return $"{namespaceTab}{tab}[Enum({string.Join(',', valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
+                        yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
 
                     yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
                     yield return $"{namespaceTab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";

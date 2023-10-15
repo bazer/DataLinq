@@ -24,13 +24,14 @@ public partial record Productreview : ITableModel<AllroundBenchmark>
     [Column("UserId")]
     public virtual Guid? UserId { get; set; }
 
+    [Index("idx_rating", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
     [Type(DatabaseType.MySQL, "tinyint")]
     [Column("Rating")]
     public virtual int? Rating { get; set; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "text", 65535)]
+    [Type(DatabaseType.MySQL, "mediumtext", 16777215)]
     [Column("Review")]
     public virtual string Review { get; set; }
 

@@ -78,6 +78,7 @@ namespace DataLinq.Metadata
                 "double" => true,
                 "DateTime" => true,
                 "DateOnly" => true,
+                "TimeOnly" => true,
                 "float" => true,
                 "long" => true,
                 "Guid" => true,

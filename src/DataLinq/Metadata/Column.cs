@@ -10,6 +10,7 @@ namespace DataLinq.Metadata
         public DatabaseType DatabaseType { get; set; }
         public string Name { get; set; }
         public long? Length { get; set; }
+        public int? Decimals { get; set; }
         public bool? Signed { get; set; }
 
         public override string ToString()
@@ -25,7 +26,7 @@ namespace DataLinq.Metadata
         public int Index { get; set; }
         public bool ForeignKey { get; set; }
         public bool PrimaryKey { get; set; }
-        public bool Unique { get; set; }
+        public bool Unique => ColumnIndices.Any(x => x.Characteristic == Attributes.IndexCharacteristic.Unique);
         public bool AutoIncrement { get; set; }
         public bool Nullable { get; set; }
         public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();

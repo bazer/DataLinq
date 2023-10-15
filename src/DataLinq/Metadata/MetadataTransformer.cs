@@ -7,10 +7,12 @@ namespace DataLinq.Metadata
     public struct MetadataTransformerOptions
     {
         public bool RemoveInterfacePrefix { get; set; } = true;
+        public bool UpdateConstraintNames { get; } = true;
 
-        public MetadataTransformerOptions(bool removeInterfacePrefix = true)
+        public MetadataTransformerOptions(bool removeInterfacePrefix = true, bool updateConstraintNames = true)
         {
             RemoveInterfacePrefix = removeInterfacePrefix;
+            UpdateConstraintNames = updateConstraintNames;
         }
     }
 
@@ -89,7 +91,7 @@ namespace DataLinq.Metadata
                 foreach (var srcAttribute in srcProperty.Attributes.OfType<TypeAttribute>())
                 {
                     if (!destProperty.Attributes.OfType<TypeAttribute>().Any(x => x.DatabaseType == srcAttribute.DatabaseType))
-                        destProperty.Attributes.Add(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Signed));
+                        destProperty.Attributes.Add(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Decimals, srcAttribute.Signed));
                 }
 
                 foreach (var srcDbType in srcProperty.Column.DbTypes)
@@ -101,6 +103,7 @@ namespace DataLinq.Metadata
                             DatabaseType = srcDbType.DatabaseType,
                             Name = srcDbType.Name,
                             Length = srcDbType.Length,
+                            Decimals = srcDbType.Decimals,
                             Signed = srcDbType.Signed
                         });
                     }
@@ -121,7 +124,7 @@ namespace DataLinq.Metadata
 
                 destProperty.CsName = srcProperty.CsName;
 
-                if (srcProperty.RelationPart != null)
+                if (!options.UpdateConstraintNames && srcProperty.RelationPart != null)
                     destProperty.RelationPart.Relation.ConstraintName = srcProperty.RelationPart.Relation.ConstraintName;
             }
         }

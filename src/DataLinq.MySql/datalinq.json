@@ -7,7 +7,7 @@
       "SourceDirectories": [],
       "DestinationDirectory": "Models\\information_schema",
       "Tables": [],
-      "Views": [ "COLUMNS", "KEY_COLUMN_USAGE", "TABLES", "VIEWS" ],
+      "Views": [ "COLUMNS", "KEY_COLUMN_USAGE", "TABLES", "VIEWS", "STATISTICS" ],
       "UseCache": false,
       "UseRecord": true,
       "UseFileScopedNamespaces": true,

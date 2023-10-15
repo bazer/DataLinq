@@ -28,7 +28,7 @@ public partial record Payment : ITableModel<AllroundBenchmark>
     public virtual Guid? OrderId { get; set; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "decimal")]
+    [Type(DatabaseType.MySQL, "decimal", 10, 2)]
     [Column("Amount")]
     public virtual decimal? Amount { get; set; }
 
@@ -38,8 +38,13 @@ public partial record Payment : ITableModel<AllroundBenchmark>
     public virtual DateOnly? PaymentDate { get; set; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "enum", 12)]
-    [Enum()]
+    [Type(DatabaseType.MySQL, "longtext", 4294967295)]
+    [Column("PaymentDetails")]
+    public virtual string PaymentDetails { get; set; }
+
+    [Nullable]
+    [Type(DatabaseType.MySQL, "enum")]
+    [Enum("CreditCard", "DebitCard", "PayPal", "BankTransfer")]
     [Column("PaymentMethod")]
     public virtual PaymentMethodValue? PaymentMethod { get; set; }
 

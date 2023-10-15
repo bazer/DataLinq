@@ -24,10 +24,11 @@ public partial record Product : ITableModel<AllroundBenchmark>
     public virtual int? ManufacturerId { get; set; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "decimal")]
+    [Type(DatabaseType.MySQL, "double")]
     [Column("Price")]
     public virtual decimal? Price { get; set; }
 
+    [Index("idx_productname", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("ProductName")]

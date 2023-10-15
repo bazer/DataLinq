@@ -1,3 +1,4 @@
+using DataLinq.Attributes;
 using DataLinq.Exceptions;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
@@ -42,8 +43,8 @@ namespace DataLinq.SQLite
                     //        .Add($"PRIMARY KEY ({table.PrimaryKeyColumns.Select(x => x.DbName).ToJoinedString(", ")})");
                     //}
 
-                    foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Type == IndexType.Unique))
-                        sql.UniqueKey(uniqueIndex.ConstraintName, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
+                    foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique))
+                        sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
 
                     foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
                         foreach (var relation in foreignKey.RelationParts)
@@ -117,6 +118,7 @@ namespace DataLinq.SQLite
                 DatabaseType = DatabaseType.SQLite,
                 Name = type,
                 Length = dbType.Length,
+                Decimals = dbType.Decimals,
                 Signed = dbType.Signed
             };
         }

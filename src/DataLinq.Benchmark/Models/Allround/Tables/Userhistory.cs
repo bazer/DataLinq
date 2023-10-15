@@ -20,6 +20,11 @@ public partial record Userhistory : ITableModel<AllroundBenchmark>
     public virtual Guid? UserId { get; set; }
 
     [Nullable]
+    [Type(DatabaseType.MySQL, "tinyblob", 255)]
+    [Column("ActivityBlob")]
+    public virtual Byte[] ActivityBlob { get; set; }
+
+    [Nullable]
     [Type(DatabaseType.MySQL, "date")]
     [Column("ActivityDate")]
     public virtual DateOnly? ActivityDate { get; set; }

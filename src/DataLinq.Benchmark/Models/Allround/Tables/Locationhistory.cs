@@ -18,13 +18,14 @@ public partial record Locationhistory : ITableModel<AllroundBenchmark>
     [Column("LocationId")]
     public virtual Guid? LocationId { get; set; }
 
+    [Index("idx_changedate", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
     [Type(DatabaseType.MySQL, "date")]
     [Column("ChangeDate")]
     public virtual DateOnly? ChangeDate { get; set; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "text", 65535)]
+    [Type(DatabaseType.MySQL, "longtext", 4294967295)]
     [Column("ChangeLog")]
     public virtual string ChangeLog { get; set; }
 

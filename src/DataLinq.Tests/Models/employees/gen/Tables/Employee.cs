@@ -10,7 +10,6 @@ public partial record Employee : ITableModel<Employees>
 {
     public enum Employeegender
     {
-        Empty = 0,
         M = 1,
         F = 2,
     }
@@ -32,9 +31,9 @@ public partial record Employee : ITableModel<Employees>
     [Column("first_name")]
     public virtual string first_name { get; set; }
 
-    [Type(DatabaseType.MySQL, "enum", 1)]
+    [Type(DatabaseType.MySQL, "enum")]
     [Type(DatabaseType.SQLite, "integer")]
-    [Enum("M","F")]
+    [Enum("M", "F")]
     [Column("gender")]
     public virtual Employeegender? gender { get; set; }
 

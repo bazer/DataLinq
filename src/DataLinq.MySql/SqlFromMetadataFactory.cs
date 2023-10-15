@@ -1,3 +1,4 @@
+using DataLinq.Attributes;
 using DataLinq.Exceptions;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
@@ -11,7 +12,7 @@ namespace DataLinq.MySql
 {
     public class SqlFromMetadataFactory : ISqlFromMetadataFactory
     {
-        private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum" };
+        private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob" };
 
         public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
         {
@@ -31,7 +32,7 @@ namespace DataLinq.MySql
             var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
             //sql.CreateDatabase(metadata.DbName);
 
-            foreach(var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
+            foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
             {
                 sql.CreateTable(table.DbName, x =>
                 {
@@ -63,7 +64,8 @@ namespace DataLinq.MySql
                     sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
 
                 if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
-                    sql.TypeLength(dbType.Length);
+                    sql.TypeLength(dbType.Length, dbType.Decimals);
+
                 sql.Unsigned(dbType.Signed);
                 sql.Nullable(column.Nullable)
                     .Autoincrement(column.AutoIncrement);
@@ -72,12 +74,15 @@ namespace DataLinq.MySql
 
             sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
 
-            foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Type == IndexType.Unique))
-                sql.UniqueKey(uniqueIndex.ConstraintName, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
+            //foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique))
+            //    sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
 
             foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
                 foreach (var relation in foreignKey.RelationParts)
                     sql.ForeignKey(relation, foreignKeyRestrict);
+
+            foreach (var index in table.ColumnIndices)
+                sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
         }
 
         public static DatabaseColumnType GetDbType(Column column)
@@ -114,6 +119,7 @@ namespace DataLinq.MySql
                 DatabaseType = DatabaseType.MySQL,
                 Name = type,
                 Length = dbType.Length,
+                Decimals = dbType.Decimals,
                 Signed = dbType.Signed
             };
         }

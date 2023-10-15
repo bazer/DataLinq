@@ -1,3 +1,4 @@
+using DataLinq.Attributes;
 using DataLinq.Config;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
@@ -58,8 +59,8 @@ namespace DataLinq.Tests
             Assert.False(dept_name.PrimaryKey);
             Assert.False(dept_name.AutoIncrement);
             Assert.Single(dept_name.ColumnIndices);
-            Assert.Equal(IndexType.Unique, dept_name.ColumnIndices.Single().Type);
-            Assert.Equal("dept_name", dept_name.ColumnIndices.Single().ConstraintName);
+            Assert.Equal(IndexCharacteristic.Unique, dept_name.ColumnIndices.Single().Characteristic);
+            Assert.Equal("dept_name", dept_name.ColumnIndices.Single().Name);
             Assert.Same(dept_name, dept_name.ColumnIndices.First().Columns.Single());
 
             if (testCsType)

@@ -25,6 +25,11 @@ public partial record Orderdetail : ITableModel<AllroundBenchmark>
     public virtual Guid? ProductId { get; set; }
 
     [Nullable]
+    [Type(DatabaseType.MySQL, "double")]
+    [Column("Discount")]
+    public virtual double? Discount { get; set; }
+
+    [Nullable]
     [Type(DatabaseType.MySQL, "int")]
     [Column("Quantity")]
     public virtual int? Quantity { get; set; }

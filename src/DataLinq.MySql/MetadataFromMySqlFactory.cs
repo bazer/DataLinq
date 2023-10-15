@@ -59,17 +59,44 @@ namespace DataLinq.MySql
 
         private void ParseIndices(DatabaseMetadata database, information_schema information_Schema)
         {
-            foreach (var dbIndex in information_Schema
-                .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME == null && x.CONSTRAINT_NAME != "PRIMARY").ToList().GroupBy(x => x.CONSTRAINT_NAME))
-            {
-                var columns = dbIndex.Select(key => database
-                    .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
-                    .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME));
+            // Fetch table-column pairs that are part of a foreign key relationship
+            var foreignKeyColumns = information_Schema.KEY_COLUMN_USAGE
+                .Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_TABLE_NAME != null)
+                .Select(x => new { x.TABLE_NAME, x.COLUMN_NAME })
+                .ToList();
 
-                foreach (var column in columns)
+            var indexGroups = information_Schema
+                .STATISTICS.Where(x => x.TABLE_SCHEMA == database.DbName && x.INDEX_NAME != "PRIMARY")
+                .ToList()
+                .Where(x => !foreignKeyColumns.Any(fk => fk.TABLE_NAME == x.TABLE_NAME && fk.COLUMN_NAME == x.COLUMN_NAME))
+                .GroupBy(x => x.INDEX_NAME);
+
+            foreach (var dbIndexGroup in indexGroups)
+            {
+                var indexedColumns = dbIndexGroup.OrderBy(x => x.SEQ_IN_INDEX).ToList();
+                var columnNames = indexedColumns.Select(x => x.COLUMN_NAME).ToArray();
+
+                // Determine the type and characteristic of the index.
+                var indexType = dbIndexGroup.First().INDEX_TYPE.ToUpper() switch
                 {
-                    column.Unique = true;
-                    column.ValueProperty.Attributes.Add(new UniqueAttribute(dbIndex.First().CONSTRAINT_NAME));
+                    "BTREE" => IndexType.BTREE,
+                    "FULLTEXT" => IndexType.FULLTEXT,
+                    "HASH" => IndexType.HASH,
+                    "RTREE" => IndexType.RTREE,
+                    _ => throw new NotImplementedException($"Unknown index type '{dbIndexGroup.First().INDEX_TYPE.ToUpper()}'"),
+                };
+
+                var indexCharacteristic = dbIndexGroup.First().NON_UNIQUE == 0
+                    ? IndexCharacteristic.Unique
+                    : IndexCharacteristic.Simple;
+
+                foreach (var indexColumn in indexedColumns)
+                {
+                    var column = database
+                        .TableModels.Single(x => x.Table.DbName == indexColumn.TABLE_NAME)
+                        .Table.Columns.Single(x => x.DbName == indexColumn.COLUMN_NAME);
+
+                    column.ValueProperty.Attributes.Add(new IndexAttribute(dbIndexGroup.First().INDEX_NAME, indexCharacteristic, indexType, columnNames));
                 }
             }
         }
@@ -83,10 +110,34 @@ namespace DataLinq.MySql
                     .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
                     .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME);
 
+                var indexName = key.CONSTRAINT_NAME;
+
+                //// Fetch the associated index name
+                //var indexName = information_Schema.STATISTICS
+                //    .FirstOrDefault(x => x.TABLE_SCHEMA == database.DbName &&
+                //                         x.TABLE_NAME == key.TABLE_NAME &&
+                //                         x.COLUMN_NAME == key.COLUMN_NAME)?
+                //    .INDEX_NAME ?? key.CONSTRAINT_NAME;  // Default to CONSTRAINT_NAME if not found
+
                 foreignKeyColumn.ForeignKey = true;
-                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
+                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, indexName));
             }
         }
+
+
+        //private void ParseRelations(DatabaseMetadata database, information_schema information_Schema)
+        //{
+        //    foreach (var key in information_Schema
+        //        .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
+        //    {
+        //        var foreignKeyColumn = database
+        //            .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
+        //            .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME);
+
+        //        foreignKeyColumn.ForeignKey = true;
+        //        foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
+        //    }
+        //}
 
         private TableModelMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {
@@ -130,9 +181,18 @@ namespace DataLinq.MySql
             {
                 DatabaseType = DatabaseType.MySQL,
                 Name = dbColumns.DATA_TYPE,
-                Length = dbColumns.CHARACTER_MAXIMUM_LENGTH,
                 Signed = dbColumns.COLUMN_TYPE.Contains("unsigned") ? false : null
             };
+
+            if (dbType.Name == "decimal" || dbType.Name == "bit")
+            {
+                dbType.Length = dbColumns.NUMERIC_PRECISION;
+                dbType.Decimals = (int?)dbColumns.NUMERIC_SCALE;
+            }
+            else if (dbType.Name != "enum")
+            {
+                dbType.Length = dbColumns.CHARACTER_MAXIMUM_LENGTH;
+            }
 
             var column = new Column
             {
@@ -162,7 +222,6 @@ namespace DataLinq.MySql
             .Trim('\'')
             .Split("','")
             .Select((x, i) => (x, i + 1));
-            //.Prepend(("Empty", 0));
 
         private string ParseCsType(string dbType)
         {
@@ -178,7 +237,9 @@ namespace DataLinq.MySql
                 "double" => "double",
                 "datetime" => "DateTime",
                 "timestamp" => "DateTime",
+                "year" => "int",
                 "date" => "DateOnly",
+                "time" => "TimeOnly",
                 "float" => "float",
                 "bigint" => "long",
                 "char" => "string",
@@ -187,6 +248,9 @@ namespace DataLinq.MySql
                 "longtext" => "string",
                 "decimal" => "decimal",
                 "blob" => "byte[]",
+                "tinyblob" => "byte[]",
+                "mediumblob" => "byte[]",
+                "longblob" => "byte[]",
                 "smallint" => "int",
                 _ => throw new NotImplementedException($"Unknown type '{dbType}'"),
             };

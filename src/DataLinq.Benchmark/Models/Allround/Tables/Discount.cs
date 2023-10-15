@@ -20,7 +20,7 @@ public partial record Discount : ITableModel<AllroundBenchmark>
     public virtual Guid? ProductId { get; set; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "decimal")]
+    [Type(DatabaseType.MySQL, "decimal", 5, 2)]
     [Column("DiscountPercentage")]
     public virtual decimal? DiscountPercentage { get; set; }
 

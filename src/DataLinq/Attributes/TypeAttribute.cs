@@ -34,6 +34,15 @@ namespace DataLinq.Attributes
             Signed = signed;
         }
 
+        public TypeAttribute(string name, long length, int decimals, bool signed)
+        {
+            DatabaseType = DatabaseType.Default;
+            Name = name;
+            Length = length;
+            Decimals = decimals;
+            Signed = signed;
+        }
+
         public TypeAttribute(DatabaseType databaseType, string name)
         {
             DatabaseType = databaseType;
@@ -45,6 +54,14 @@ namespace DataLinq.Attributes
             DatabaseType = databaseType;
             Name = name;
             Length = length;
+        }
+
+        public TypeAttribute(DatabaseType databaseType, string name, long length, int decimals)
+        {
+            DatabaseType = databaseType;
+            Name = name;
+            Length = length;
+            Decimals = decimals;
         }
 
         public TypeAttribute(DatabaseType databaseType, string name, bool signed)
@@ -62,11 +79,21 @@ namespace DataLinq.Attributes
             Signed = signed;
         }
 
-        public TypeAttribute(DatabaseType databaseType, string name, long? length, bool? signed)
+        public TypeAttribute(DatabaseType databaseType, string name, long length, int decimals, bool signed)
         {
             DatabaseType = databaseType;
             Name = name;
             Length = length;
+            Decimals = decimals;
+            Signed = signed;
+        }
+
+        public TypeAttribute(DatabaseType databaseType, string name, long? length, int? decimals, bool? signed)
+        {
+            DatabaseType = databaseType;
+            Name = name;
+            Length = length;
+            Decimals = decimals;
             Signed = signed;
         }
 
@@ -79,6 +106,7 @@ namespace DataLinq.Attributes
         }
 
         public long? Length { get; }
+        public int? Decimals { get; }
         public DatabaseType DatabaseType { get; }
         public string Name { get; }
         public bool? Signed { get; }

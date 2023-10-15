@@ -24,6 +24,11 @@ public partial record Userprofile : ITableModel<AllroundBenchmark>
     [Column("Bio")]
     public virtual string Bio { get; set; }
 
+    [Nullable]
+    [Type(DatabaseType.MySQL, "blob", 65535)]
+    [Column("ProfileImage")]
+    public virtual Byte[] ProfileImage { get; set; }
+
     [Relation("usercontacts", "ProfileId")]
     public virtual IEnumerable<Usercontact> Usercontacts { get; }
 
