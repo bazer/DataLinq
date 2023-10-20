@@ -21,8 +21,8 @@ namespace DataLinq.Tests
 
         public DatabaseFixture()
         {
-            var config = new DataLinqConfig(ConfigReader.Read("datalinq.json"));
-            var employees = config.Databases.Single(x => x.Name == "employees");
+            DataLinqConfig = new DataLinqConfig(ConfigReader.Read("datalinq.json"));
+            var employees = DataLinqConfig.Databases.Single(x => x.Name == "employees");
 
             EmployeeConnections = employees.Connections;
             var lockObject = new object();
@@ -53,6 +53,7 @@ namespace DataLinq.Tests
             information_schema = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
         }
 
+        public DataLinqConfig DataLinqConfig { get; set; }
         public List<DataLinqDatabaseConnection> EmployeeConnections { get; set; } = new();
         public List<Database<Employees>> AllEmployeesDb { get; set; } = new();
         public MySqlDatabase<information_schema> information_schema { get; set; }

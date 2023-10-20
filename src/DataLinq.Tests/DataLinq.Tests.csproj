@@ -29,6 +29,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
+		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
 		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
 	</ItemGroup>
 

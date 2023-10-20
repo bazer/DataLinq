@@ -26,7 +26,9 @@ namespace DataLinq.Metadata
 
             if (dbType != null)
             {
-                ParseAttributes(database, dbType);
+                database.Attributes = dbType.GetCustomAttributes(false).Cast<Attribute>().ToArray();
+
+                ParseAttributes(database);
 
                 database.TableModels = dbType
                     .GetProperties(BindingFlags.Instance | BindingFlags.Public)
@@ -64,7 +66,8 @@ namespace DataLinq.Metadata
         public static DatabaseMetadata ParseDatabaseFromDatabaseModel(Type type)
         {
             var database = new DatabaseMetadata(type.Name, type);
-            database.ParseAttributes(type);
+            database.Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray();
+            database.ParseAttributes();
             database.TableModels = type
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Select(GetTableType)
@@ -89,9 +92,9 @@ namespace DataLinq.Metadata
             };
         }
 
-        private static void ParseAttributes(this DatabaseMetadata database, Type type)
+        public static void ParseAttributes(this DatabaseMetadata database)
         {
-            foreach (var attribute in type.GetCustomAttributes(false))
+            foreach (var attribute in database.Attributes)
             {
                 if (attribute is DatabaseAttribute databaseAttribute)
                     database.Name = databaseAttribute.Name;
@@ -123,9 +126,10 @@ namespace DataLinq.Metadata
             {
                 Database = database,
                 CsType = type,
+                ModelCsType = ParseModelCsType(type),
                 CsTypeName = type.Name,
-                Attributes = type.GetCustomAttributes(false),
-                Interfaces = type.GetInterfaces()
+                Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray(),
+                Interfaces = type.GetInterfaces().Select(x => new ModelInterface { CsType = x, CsTypeName = x.Name }).ToArray()
             };
 
             model.Properties = type
@@ -136,6 +140,22 @@ namespace DataLinq.Metadata
                 .ToList();
 
             return model;
+        }
+
+        private static ModelCsType ParseModelCsType(Type type)
+        {
+            if(type.IsClass)
+            {
+                if (type.GetProperty("EqualityContract", BindingFlags.NonPublic | BindingFlags.Instance) != null)
+                    return ModelCsType.Record;
+
+                return ModelCsType.Class;
+            }
+
+            if (type.IsInterface)
+                return ModelCsType.Interface;
+
+            throw new NotImplementedException($"Unknown type '{type}'");
         }
 
         private static TableMetadata ParseTable(this ModelMetadata model)
@@ -172,12 +192,12 @@ namespace DataLinq.Metadata
             return table;
         }
 
-        private static Column ParseColumn(this TableMetadata table, ValueProperty property)
+        public static Column ParseColumn(this TableMetadata table, ValueProperty property)
         {
             var column = new Column
             {
                 Table = table,
-                DbName = property.PropertyInfo.Name,
+                DbName = property.PropertyInfo?.Name,
                 ValueProperty = property
             };
 

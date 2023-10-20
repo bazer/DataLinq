@@ -8,6 +8,28 @@ using ThrowAway;
 
 namespace DataLinq.Tools
 {
+    public class Generator
+    {
+
+        protected Action<string> log;
+
+        public Generator(Action<string> log)
+        {
+            this.log = log;
+        }
+
+        protected IEnumerable<string> ParseExistingFilesAndDirs(string basePath, List<string> paths)
+        {
+            foreach (var srcPath in paths.Select(path => basePath + Path.DirectorySeparatorChar + path))
+            {
+                if (!Directory.Exists(srcPath) && !File.Exists(srcPath))
+                    log($"Couldn't find path: {srcPath}");
+                else
+                    yield return srcPath;
+            }
+        }
+    }
+
     public enum ModelGeneratorError
     {
         UnableToParseSourceFiles
@@ -28,15 +50,12 @@ namespace DataLinq.Tools
         }
     }
 
-    public class ModelGenerator
+    public class ModelGenerator : Generator
     {
         private readonly ModelGeneratorOptions options;
 
-        private Action<string> log;
-
-        public ModelGenerator(Action<string> log, ModelGeneratorOptions options)
+        public ModelGenerator(Action<string> log, ModelGeneratorOptions options) : base(log)
         {
-            this.log = log;
             this.options = options;
         }
 
@@ -91,20 +110,18 @@ namespace DataLinq.Tools
                 }
                 else
                 {
-                    var srcPaths = db.SourceDirectories.Select(path => basePath + Path.DirectorySeparatorChar + path);
-
-                    foreach (var srcPath in srcPaths.Where(x => !Directory.Exists(x) && !File.Exists(x)))
-                    {
-                        log($"Couldn't find dir: {srcPath}");
-                    }
-
-                    var srcPathsExists = srcPaths.Where(x => Directory.Exists(x) || File.Exists(x)).ToArray();
-
+                    var srcPathsExists = ParseExistingFilesAndDirs(basePath, db.SourceDirectories).ToList();
                     log($"Reading models from:");
                     foreach (var srcPath in srcPathsExists)
-                    {
                         log($"{srcPath}");
-                    }
+
+                    //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
+                    //if (assemblyPathsExists.Any())
+                    //{ 
+                    //    log($"Reading assemblies from:");
+                    //    foreach (var path in assemblyPathsExists)
+                    //        log($"{path}");
+                    //}
 
                     var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
                     var srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, srcPathsExists);
@@ -145,5 +162,6 @@ namespace DataLinq.Tools
 
             return dbMetadata;
         }
+
     }
 }

@@ -3,6 +3,8 @@ using DataLinq.Config;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
+using System;
+using System.IO;
 using System.Linq;
 using Xunit;
 
@@ -16,6 +18,20 @@ namespace DataLinq.Tests
             Assert.Equal(2, DatabaseMetadata.LoadedDatabases.Count);
             Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(Employees));
             Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(information_schema));
+        }
+
+
+        [Fact]
+        public void TestMetadataFromFilesFactory()
+        {
+            var projectRoot = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent;
+            var srcPaths = Fixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories
+                .Select(x => Path.Combine(projectRoot.FullName, x))
+                .ToList();
+
+            //var srcPaths = Fixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories.Select(x => Path.GetFullPath(x)).ToList();
+
+            TestDatabase(new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths), false);
         }
 
         [Fact]
@@ -55,7 +71,7 @@ namespace DataLinq.Tests
             Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
 
             var dept_name = database.TableModels.Single(x => x.Table.DbName == "departments").Table.Columns.Single(x => x.DbName == "dept_name");
-            Assert.Same("string", dept_name.ValueProperty.CsTypeName);
+            Assert.Equal("string", dept_name.ValueProperty.CsTypeName);
             Assert.False(dept_name.PrimaryKey);
             Assert.False(dept_name.AutoIncrement);
             Assert.Single(dept_name.ColumnIndices);

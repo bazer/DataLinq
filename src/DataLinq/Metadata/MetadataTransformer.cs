@@ -49,7 +49,7 @@ namespace DataLinq.Metadata
             //log($"Transforming model '{srcTable.Table.DbName}'");
             var modelCsTypeName = srcTable.Model.CsTypeName;
 
-            if (options.RemoveInterfacePrefix && srcTable.Model.CsType.IsInterface)
+            if (options.RemoveInterfacePrefix && srcTable.Model.ModelCsType == ModelCsType.Interface)
             {
                 if (modelCsTypeName.StartsWith("I") && !char.IsLower(modelCsTypeName[1]))
                     modelCsTypeName = modelCsTypeName.Substring(1);
@@ -65,7 +65,7 @@ namespace DataLinq.Metadata
                 //}
             }
 
-            destTable.Model.Interfaces = new Type[] { srcTable.Model.CsType };
+            destTable.Model.Interfaces = new ModelInterface[] { new ModelInterface { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName } };
 
             foreach (var srcProperty in srcTable.Model.ValueProperties)
             {

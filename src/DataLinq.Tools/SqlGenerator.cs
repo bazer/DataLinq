@@ -1,10 +1,12 @@
 ﻿using DataLinq.Config;
+using DataLinq.Extensions;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.Query;
 using DataLinq.SQLite;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using ThrowAway;
 
@@ -21,11 +23,9 @@ namespace DataLinq.Tools
     {
     }
 
-    public class SqlGenerator
+    public class SqlGenerator : Generator
     {
         private readonly SqlGeneratorOptions options;
-
-        private Action<string> log;
 
         static SqlGenerator()
         {
@@ -33,13 +33,12 @@ namespace DataLinq.Tools
             SQLiteProvider.RegisterProvider();
         }
 
-        public SqlGenerator(Action<string> log, SqlGeneratorOptions options)
+        public SqlGenerator(Action<string> log, SqlGeneratorOptions options) : base(log)
         {
-            this.log = log;
             this.options = options;
         }
 
-        public Option<Sql, SqlGeneratorError> Create(DataLinqDatabaseConnection connection, string basePath, string path)
+        public Option<Sql, SqlGeneratorError> Create(DataLinqDatabaseConnection connection, string basePath, string writePath)
         {
             log($"Type: {connection.Type}");
 
@@ -53,8 +52,16 @@ namespace DataLinq.Tools
                 return SqlGeneratorError.DestDirectoryNotFound;
             }
 
+            //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
+            //if (assemblyPathsExists.Any())
+            //{
+            //    log($"Reading assemblies from:");
+            //    foreach (var assemblyPath in assemblyPathsExists)
+            //        log($"{assemblyPath}");
+            //}
+
             var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-            var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir);
+            var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList());
             if (dbMetadata.HasFailed)
             {
                 log("Error: Unable to parse model files.");
@@ -62,7 +69,7 @@ namespace DataLinq.Tools
             }
 
             log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
-            log($"Writing sql to: {path}");
+            log($"Writing sql to: {writePath}");
 
             var sql = PluginHook.GenerateSql(connection.Type, dbMetadata, true);
 
@@ -72,7 +79,7 @@ namespace DataLinq.Tools
                 return SqlGeneratorError.CouldNotGenerateSql;
             }
 
-            File.WriteAllText(path, sql.Value.Text, Encoding.UTF8);
+            File.WriteAllText(writePath, sql.Value.Text, Encoding.UTF8);
 
             return sql.Value;
         }

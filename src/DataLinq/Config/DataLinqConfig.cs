@@ -9,7 +9,7 @@ namespace DataLinq.Config
 {
     public record DataLinqConfig
     {
-        public List<DataLinqDatabaseConfig> Databases { get; set; }
+        public List<DataLinqDatabaseConfig> Databases { get; }
 
         public DataLinqConfig(ConfigFile configFile)
         {
@@ -62,20 +62,20 @@ namespace DataLinq.Config
     {
         public DataLinqConfig Config { get; }
 
-        public string Name { get; set; }
-        public string CsType { get; set; }
-        public string Namespace { get; set; }
-        public List<string> SourceDirectories { get; set; }
-        public string? DestinationDirectory { get; set; }
-        public List<string> Tables { get; set; }
-        public List<string> Views { get; set; }
-        public bool UseCache { get; set; }
-        public bool UseRecord { get; set; }
-        public bool UseFileScopedNamespaces { get; set; }
-        public bool CapitalizeNames { get; set; }
-        public bool RemoveInterfacePrefix { get; set; }
-        public bool SeparateTablesAndViews { get; set; }
-        public List<DataLinqDatabaseConnection> Connections { get; set; } = new();
+        public string Name { get; }
+        public string CsType { get; }
+        public string Namespace { get; }
+        public List<string> SourceDirectories { get; }
+        public string? DestinationDirectory { get; }
+        public List<string> Tables { get; }
+        public List<string> Views { get; }
+        public bool UseCache { get; }
+        public bool UseRecord { get; }
+        public bool UseFileScopedNamespaces { get; }
+        public bool CapitalizeNames { get; }
+        public bool RemoveInterfacePrefix { get; }
+        public bool SeparateTablesAndViews { get; }
+        public List<DataLinqDatabaseConnection> Connections { get; } = new();
         public Encoding FileEncoding { get; }
 
         public DataLinqDatabaseConfig(DataLinqConfig config, ConfigFileDatabase database)

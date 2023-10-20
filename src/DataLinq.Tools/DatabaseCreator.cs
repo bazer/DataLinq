@@ -1,9 +1,11 @@
 ﻿using DataLinq.Config;
+using DataLinq.Extensions;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 using System;
 using System.IO;
+using System.Linq;
 using ThrowAway;
 
 namespace DataLinq.Tools
@@ -18,12 +20,11 @@ namespace DataLinq.Tools
     public struct DatabaseCreatorOptions
     {
     }
+    
 
-    public class DatabaseCreator
+    public class DatabaseCreator : Generator
     {
         private readonly DatabaseCreatorOptions options;
-
-        private Action<string> log;
 
         static DatabaseCreator()
         {
@@ -31,9 +32,8 @@ namespace DataLinq.Tools
             SQLiteProvider.RegisterProvider();
         }
 
-        public DatabaseCreator(Action<string> log, DatabaseCreatorOptions options)
+        public DatabaseCreator(Action<string> log, DatabaseCreatorOptions options) : base(log)
         {
-            this.log = log;
             this.options = options;
         }
 
@@ -51,8 +51,16 @@ namespace DataLinq.Tools
                 return DatabaseCreatorError.DestDirectoryNotFound;
             }
 
+            //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
+            //if (assemblyPathsExists.Any())
+            //{
+            //    log($"Reading assemblies from:");
+            //    foreach (var path in assemblyPathsExists)
+            //        log($"{path}");
+            //}
+
             var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-            var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir);
+            var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList());
             if (dbMetadata.HasFailed)
             {
                 log("Error: Unable to parse model files.");

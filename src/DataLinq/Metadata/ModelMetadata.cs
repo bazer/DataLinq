@@ -8,11 +8,25 @@ using System.Text;
 
 namespace DataLinq.Metadata
 {
+    public enum ModelCsType
+    {
+        Class,
+        Record,
+        Interface
+    }
+
+    public class ModelInterface
+    {
+        public Type CsType { get; set; }
+        public string CsTypeName { get; set; }
+    }
+
     public class ModelMetadata
     {
         public Type CsType { get; set; }
         public string CsTypeName { get; set; }
-        public Type[] Interfaces { get; set; }
+        public ModelCsType ModelCsType { get; set; }
+        public ModelInterface[] Interfaces { get; set; }
         public DatabaseMetadata Database { get; set; }
         public TableMetadata Table { get; set; }
         public List<Property> Properties { get; set; } = new List<Property>();
@@ -20,7 +34,7 @@ namespace DataLinq.Metadata
             .OfType<RelationProperty>();
         public IEnumerable<ValueProperty> ValueProperties => Properties
             .OfType<ValueProperty>();
-        public object[] Attributes { get; set; }
+        public Attribute[] Attributes { get; set; }
 
         protected bool IsOfType(Type modelType) =>
                modelType == CsType || modelType.BaseType == CsType;

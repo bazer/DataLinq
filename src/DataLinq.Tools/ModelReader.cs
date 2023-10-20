@@ -3,18 +3,15 @@ using DataLinq.Metadata;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace DataLinq.Tools
 {
-    public class ModelReader
+    public class ModelReader : Generator
     {
-        public Action<string> Log { get; }
-
-        public ModelReader(Action<string> log)
+        public ModelReader(Action<string> log) : base(log)
         {
-            Log = log;
         }
-
 
         public void Read(DataLinqConfig config, string basePath)
         {
@@ -27,34 +24,47 @@ namespace DataLinq.Tools
 
         public void Read(DataLinqDatabaseConfig db, string basePath)
         {
-            Log($"Reading database: {db.Name}");
+            log($"Reading database: {db.Name}");
 
             //var fileEncoding = db.ParseFileEncoding();
 
-            List<string> dirs = new List<string>();
+            //List<string> dirs = new List<string>();
 
-            if (db.SourceDirectories != null)
-                foreach (var dir in db.SourceDirectories)
-                    dirs.Add(basePath + Path.DirectorySeparatorChar + dir);
+            //if (db.SourceDirectories != null)
+            //    foreach (var dir in db.SourceDirectories)
+            //        dirs.Add(basePath + Path.DirectorySeparatorChar + dir);
+
+            var pathsExists = ParseExistingFilesAndDirs(basePath, db.SourceDirectories).ToList();
+            log($"Reading models from:");
+            foreach (var srcPath in pathsExists)
+                log($"{srcPath}");
 
             if (db.DestinationDirectory != null)
-                dirs.Add(basePath + Path.DirectorySeparatorChar + db.DestinationDirectory);
+                pathsExists.Add(basePath + Path.DirectorySeparatorChar + db.DestinationDirectory);
 
-            var srcDir = dirs[0];
+            //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
+            //if (assemblyPathsExists.Any())
+            //{
+            //    log($"Reading assemblies from:");
+            //    foreach (var path in assemblyPathsExists)
+            //        log($"{path}");
+            //}
 
-            if (Directory.Exists(srcDir))
-            {
-                Log($"Reading models from: {srcDir}");
+            //var srcDir = dirs[0];
+
+            //if (Directory.Exists(srcDir))
+            //{
+                //log($"Reading models from: {srcDir}");
 
                 var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = db.FileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-                DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, Log).ReadFiles(db.CsType, dirs.ToArray());
+                DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, pathsExists);
 
-                Log($"Tables in model files: {srcMetadata.TableModels.Count}");
-            }
-            else
-            {
-                Log($"Couldn't read from SourceDirectory: {srcDir}");
-            }
+                log($"Tables in model files: {srcMetadata.TableModels.Count}");
+            //}
+            //else
+            //{
+            //    log($"Couldn't read from SourceDirectory: {srcDir}");
+            //}
 
             var sqlOptions = new MetadataFromDatabaseFactoryOptions
             {
@@ -66,7 +76,7 @@ namespace DataLinq.Tools
 
             foreach (var connection in db.Connections)
             {
-                Log($"Type: {connection.Type}");
+                log($"Type: {connection.Type}");
 
                 //var databaseName = connection.DatabaseName;
                 //string path = null;
@@ -95,8 +105,8 @@ namespace DataLinq.Tools
                 //        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, connection.DatabaseName, connection.ConnectionString)
                 //};
 
-                Log($"Name in database: {dbMetadata.DbName}");
-                Log($"Tables in database: {dbMetadata.TableModels.Count}");
+                log($"Name in database: {dbMetadata.DbName}");
+                log($"Tables in database: {dbMetadata.TableModels.Count}");
             }
         }
     }
