@@ -140,17 +140,15 @@ namespace DataLinq.Metadata
                 .Where(x => x.CsName != "EqualityContract")
                 .ToList();
 
-            model.Namespaces = model.ValueProperties.Select( x => x.CsType?.Namespace)
-                    .Concat(model.RelationProperties
-                        .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
-                        .Select(x => "System.Collections.Generic"))
-                    .Distinct()
-                    .Where(x => x != null)
-                    .Select(name => (name.StartsWith("System"), name))
-                    .OrderByDescending(x => x.Item1)
-                    .ThenBy(x => x.name)
-                    .Select(x => new ModelNamespace { FullNamespaceName = x.name })
-                    .ToArray();
+            model.Namespaces = model.ValueProperties
+                .Select( x => x.CsType?.Namespace)
+                .Distinct()
+                .Where(x => x != null)
+                .Select(name => (name.StartsWith("System"), name))
+                .OrderByDescending(x => x.Item1)
+                .ThenBy(x => x.name)
+                .Select(x => new ModelNamespace { FullNamespaceName = x.name })
+                .ToArray();
 
             return model;
         }
