@@ -74,10 +74,14 @@ namespace DataLinq.MySql
 
         public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
         {
-            if (type == TransactionType.ReadOnly)
-                return new MySqlDbAccess(ConnectionString, type);
-            else
-                return new MySqlDatabaseTransaction(ConnectionString, type);
+            DatabaseTransaction transaction = type == TransactionType.ReadOnly
+                ? new MySqlDbAccess(ConnectionString, type)
+                : new MySqlDatabaseTransaction(ConnectionString, type);
+
+            if (DatabaseName != null)
+                transaction.ExecuteNonQuery($"USE {DatabaseName};");
+            
+            return transaction;
         }
 
         public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)

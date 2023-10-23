@@ -4,6 +4,7 @@ using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -143,6 +144,28 @@ namespace DataLinq.Mutation
                 throw new ArgumentException("Model argument has null value");
 
             AddAndExecute(model, TransactionChangeType.Delete);
+        }
+
+        public IEnumerable<T> GetFromQuery<T>(string query) where T : IModel
+        {
+            var table = Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
+
+            return DatabaseTransaction
+                .ReadReader(query)
+                .Select(x => new RowData(x, table))
+                .Select(x => InstanceFactory.NewImmutableRow(x, this))
+                .Cast<T>();
+        }
+
+        public IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand) where T : IModel
+        {
+            var table = Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
+
+            return DatabaseTransaction
+                .ReadReader(dbCommand)
+                .Select(x => new RowData(x, table))
+                .Select(x => InstanceFactory.NewImmutableRow(x, this))
+                .Cast<T>();
         }
 
         private void AddAndExecute(IModel model, TransactionChangeType type)

@@ -19,33 +19,14 @@ namespace DataLinq.Tests
             Assert.Equal("d005", departement.Single().DeptNo);
         }
 
-        //[Fact]
-        //public void SimpleWhere2()
-        //{
-        //    var departement = fixture.employeesDb
-        //        .From<departments>()
-        //        .Where("dept_no").EqualTo("d005")
-        //        .Select();
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void GetFromQueryWhere(Database<Employees> employeesDb)
+        {
+            var departement = employeesDb.Transaction().GetFromQuery<Department>("SELECT * FROM departments WHERE dept_no = 'd005'");
 
-        //    var deleteResult = fixture.employeesDb
-        //        .From<departments>()
-        //        .Where("dept_no").EqualTo("d005")
-        //        .Delete();
-
-        //    var updateResult = fixture.employeesDb
-        //        .From<departments>()
-        //        .Where("dept_no").EqualTo("d005")
-        //        .Set("dept_no", "d005")
-        //        .Update();
-
-        //    var insertResult = fixture.employeesDb
-        //        .From<departments>()
-        //        .Set("dept_no", "d005")
-        //        .Insert();
-
-
-        //    Assert.Single(departement);
-        //    Assert.Equal("d005", departement.Single().dept_no);
-        //}
+            Assert.Single(departement);
+            Assert.Equal("d005", departement.Single().DeptNo);
+        }
     }
 }
