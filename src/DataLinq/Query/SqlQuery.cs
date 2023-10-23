@@ -56,7 +56,7 @@ namespace DataLinq.Query
 
     public class SqlQuery<T>
     {
-        protected WhereGroup<T> WhereContainer;
+        protected WhereGroup<T> WhereGroup;
         internal Dictionary<string, object> SetList = new Dictionary<string, object>();
         protected List<Join<T>> JoinList = new List<Join<T>>();
         internal List<OrderBy> OrderByList = new List<OrderBy>();
@@ -146,35 +146,59 @@ namespace DataLinq.Query
 
         public Where<T> Where(string columnName, string alias = null)
         {
-            if (WhereContainer == null)
-                WhereContainer = new WhereGroup<T>(this);
+            if (WhereGroup == null)
+                WhereGroup = new WhereGroup<T>(this);
 
-            return WhereContainer.AddWhere(columnName, alias, BooleanType.And);
+            return WhereGroup.AddWhere(columnName, alias, BooleanType.And);
         }
 
         public WhereGroup<T> Where(Func<Func<string, Where<T>>, WhereGroup<T>> func)
         {
-            if (WhereContainer == null)
-                WhereContainer = new WhereGroup<T>(this);
+            if (WhereGroup == null)
+                WhereGroup = new WhereGroup<T>(this);
 
-            return WhereContainer.And(func);
+            return WhereGroup.And(func);
         }
 
-        public WhereGroup<T> CreateWhereGroup(BooleanType type = BooleanType.And)
+        public Where<T> WhereNot(string columnName, string alias = null)
         {
-            if (WhereContainer == null)
-                WhereContainer = new WhereGroup<T>(this);
+            if (WhereGroup == null)
+                WhereGroup = new WhereGroup<T>(this);
 
-            return WhereContainer.AddWhereContainer(new WhereGroup<T>(this), type);
+            return WhereGroup.AddWhereNot(columnName, alias, BooleanType.And);
+        }
+
+        public WhereGroup<T> AddWhereGroup(BooleanType type = BooleanType.And)
+        {
+            if (WhereGroup == null)
+                WhereGroup = new WhereGroup<T>(this);
+
+            return WhereGroup.AddWhereGroup(new WhereGroup<T>(this), type);
+        }
+
+        public WhereGroup<T> AddWhereNotGroup(BooleanType type = BooleanType.And)
+        {
+            if (WhereGroup == null)
+                WhereGroup = new WhereGroup<T>(this);
+
+            return WhereGroup.AddWhereGroup(new WhereGroup<T>(this, true), type);
+        }
+
+        public WhereGroup<T> GetBaseWhereGroup(BooleanType type = BooleanType.And)
+        {
+            if (WhereGroup == null)
+                WhereGroup = new WhereGroup<T>(this);
+
+            return WhereGroup;
         }
 
         internal Sql GetWhere(Sql sql, string paramPrefix)
         {
-            if (WhereContainer == null)
+            if (WhereGroup == null)
                 return sql;
 
             sql.AddText("\nWHERE\n");
-            WhereContainer.AddCommandString(sql, paramPrefix, true);
+            WhereGroup.AddCommandString(sql, paramPrefix, true);
 
             return sql;
         }
@@ -209,7 +233,7 @@ namespace DataLinq.Query
         {
             return Table.Columns.Single(x => x.ValueProperty.CsName == expression.Member.Name);
         }
-    
+
         internal Sql GetJoins(Sql sql, string paramPrefix)
         {
             foreach (var join in JoinList)

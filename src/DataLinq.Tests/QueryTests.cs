@@ -57,6 +57,116 @@ namespace DataLinq.Tests
 
         [Theory]
         [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereStartsWith(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Departments.Where(x => x.DeptNo.StartsWith("d00")).ToList();
+            Assert.Equal(9, where.Count);
+            Assert.DoesNotContain(where, x => x.DeptNo == "d010");
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereStartsWithAndToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => x.dept_fk.StartsWith("d00") && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => x.dept_fk.StartsWith("d00") && x.from_date > DateOnly.Parse("2010-01-01")), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereNotStartsWithAndToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") && x.from_date > DateOnly.Parse("2010-01-01")), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereNotStartsWithAndStartsWithAndToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && x.dept_fk.EndsWith("2") && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") && x.dept_fk.EndsWith("2") && x.from_date > DateOnly.Parse("2010-01-01")), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereNotStartsWithAndStartsWithAndNotToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && x.dept_fk.EndsWith("2") && !(x.from_date > DateOnly.Parse("2010-01-01"))).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") && x.dept_fk.EndsWith("2") && !(x.from_date > DateOnly.Parse("2010-01-01"))), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereNotStartsWithAndGroupNotStartsWithToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") && (x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") && (x.from_date > DateOnly.Parse("2010-01-01")))), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereNotStartsWithAndGroupNotStartsWithAndNotToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") && !(x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") && !(x.from_date > DateOnly.Parse("2010-01-01")))), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereNotStartsWithOrGroupNotStartsWithToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") && (x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") && (x.from_date > DateOnly.Parse("2010-01-01")))), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereNotStartsWithAndGroupNotStartsWithOrNotToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void WhereNotStartsWithOrGroupNotStartsWithOrNotToList(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))), where.Count);
+        }
+
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereNotStartsWith(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Departments.Where(x => !x.DeptNo.StartsWith("d00")).ToList();
+            Assert.Equal(11, where.Count);
+            Assert.DoesNotContain(where, x => x.DeptNo == "d001");
+        }
+
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereEndsWith(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Departments.Where(x => x.DeptNo.EndsWith("2")).ToList();
+            Assert.Equal(2, where.Count);
+            Assert.DoesNotContain(where, x => x.DeptNo == "d010");
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereNotEndsWith(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Departments.Where(x => !x.DeptNo.EndsWith("2")).ToList();
+            Assert.Equal(18, where.Count);
+            Assert.DoesNotContain(where, x => x.DeptNo == "d002");
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
         public void WhereAndToList(Database<Employees> employeesDb)
         {
             var where = employeesDb.Query().Managers.Where(x => x.dept_fk == "d004" && x.from_date > DateOnly.Parse("2010-01-01")).ToList();

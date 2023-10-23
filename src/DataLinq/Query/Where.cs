@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Data;
-using DataLinq.Extensions;
-using Remotion.Linq.Clauses;
-using System.Linq.Expressions;
+﻿using DataLinq.Extensions;
 
 namespace DataLinq.Query
 {
@@ -39,40 +32,42 @@ namespace DataLinq.Query
 
     public class Where<T> : IWhere<T>
     {
-        private string Key;
-        private object Value;
+        private string? Key;
+        private object? Value;
         private Relation Relation;
         private bool IsValue = true;
-        protected WhereGroup<T> Container;
-        private string KeyAlias;
-        private string ValueAlias;
+        private bool IsNegated = false;
+        protected WhereGroup<T> WhereGroup;
+        private string? KeyAlias;
+        private string? ValueAlias;
 
-        private string KeyName => string.IsNullOrEmpty(KeyAlias)
+        private string? KeyName => string.IsNullOrEmpty(KeyAlias)
             ? Key
             : $"{KeyAlias}.{Key}";
 
-        private string ValueName => string.IsNullOrEmpty(ValueAlias)
+        private string? ValueName => string.IsNullOrEmpty(ValueAlias)
             ? Value as string
             : $"{ValueAlias}.{Value}";
 
-        internal Where(WhereGroup<T> container, string key, string keyAlias, bool isValue = true)
+        internal Where(WhereGroup<T> group, string key, string? keyAlias, bool isValue = true, bool isNegated = false)
         {
-            this.Container = container;
-            this.Key = key;
-            this.IsValue = isValue;
-            this.KeyAlias = keyAlias;
+            WhereGroup = group;
+            Key = key;
+            IsValue = isValue;
+            IsNegated = isNegated;
+            KeyAlias = keyAlias;
         }
 
-        internal Where(WhereGroup<T> container)
+        internal Where(WhereGroup<T> group)
         {
-            this.Container = container;
+            WhereGroup = group;
         }
 
         internal Where<T> AddKey(string key, string alias, bool isValue = true)
         {
-            this.Key = key;
-            this.IsValue = isValue;
-            this.KeyAlias = alias;
+            Key = key;
+            IsValue = isValue;
+            KeyAlias = alias;
 
             return this;
         }
@@ -149,10 +144,10 @@ namespace DataLinq.Query
 
         protected WhereGroup<T> SetAndReturn<V>(V value, Relation relation)
         {
-            this.Value = value;
-            this.Relation = relation;
+            Value = value;
+            Relation = relation;
 
-            return this.Container;
+            return this.WhereGroup;
         }
 
         protected WhereGroup<T> SetAndReturnColumn(string column, string alias, Relation relation)
@@ -160,12 +155,12 @@ namespace DataLinq.Query
             if (alias == null)
                 (column, alias) = QueryUtils.ParseColumnNameAndAlias(column);
 
-            this.Value = column;
-            this.ValueAlias = alias;
-            this.IsValue = false;
-            this.Relation = relation;
+            Value = column;
+            ValueAlias = alias;
+            IsValue = false;
+            Relation = relation;
 
-            return this.Container;
+            return this.WhereGroup;
         }
 
         public void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false)
@@ -173,22 +168,33 @@ namespace DataLinq.Query
             if (addCommandParameter)
                 GetCommandParameter(sql, prefix);
 
-            if (addParentheses)
+            if (IsNegated)
+                sql.AddText("NOT ");
+
+            if (addParentheses || IsNegated)
                 sql.AddText("(");
 
             if (IsValue)
-                Container.Query.Transaction.Provider.GetParameterComparison(sql, KeyName, Relation, prefix + "w" + sql.IndexAdd());
+                WhereGroup.Query.Transaction.Provider.GetParameterComparison(sql, KeyName, Relation, prefix + "w" + sql.IndexAdd());
             else
                 sql.AddFormat("{0} {1} {2}", KeyName, Relation.ToSql(), ValueName);
 
-            if (addParentheses)
+            if (addParentheses || IsNegated)
                 sql.AddText(")");
         }
 
         protected void GetCommandParameter(Sql sql, string prefix)
         {
             if (IsValue)
-                Container.Query.Transaction.Provider.GetParameter(sql, prefix + "w" + sql.Index, Value);
+                WhereGroup.Query.Transaction.Provider.GetParameter(sql, prefix + "w" + sql.Index, Value);
+        }
+
+        public override string ToString()
+        {
+            var sql = new Sql();
+            AddCommandString(sql, "");
+
+            return sql.ToString();
         }
     }
 }

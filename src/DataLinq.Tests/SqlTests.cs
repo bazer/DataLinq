@@ -129,6 +129,25 @@ dept_no <> {sign}w0", sql.Text);
 
         [Theory]
         [MemberData(nameof(GetEmployees))]
+        public void WhereGroupNot(Database<Employees> employeesDb)
+        {
+            var sign = employeesDb.Provider.Constants.ParameterSign;
+            var sql = employeesDb
+                .From("departments")
+                .WhereNot("dept_no").EqualTo("d005")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+WHERE
+NOT (dept_no = {sign}w0)", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005", sql.Parameters[0].Value);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
         public void SimpleWhereGreaterThan(Database<Employees> employeesDb)
         {
             var sign = employeesDb.Provider.Constants.ParameterSign;
@@ -201,6 +220,25 @@ dept_no <= {sign}w0", sql.Text);
             Assert.Single(sql.Parameters);
             Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
             Assert.Equal("d005", sql.Parameters[0].Value);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleLike(Database<Employees> employeesDb)
+        {
+            var sign = employeesDb.Provider.Constants.ParameterSign;
+            var sql = employeesDb
+                .From("departments")
+                .Where("dept_no").Like("d005%")
+                .SelectQuery()
+                .ToSql();
+
+            Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+WHERE
+dept_no LIKE {sign}w0", sql.Text);
+            Assert.Single(sql.Parameters);
+            Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
+            Assert.Equal("d005%", sql.Parameters[0].Value);
         }
 
         [Theory]

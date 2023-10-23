@@ -16,23 +16,27 @@ namespace DataLinq.Query
         public readonly SqlQuery<T> Query;
         protected List<(IWhere<T> where, BooleanType type)> whereList;
 
+        private bool IsNegated = false;
+
         public Transaction Transaction => throw new NotImplementedException();
 
-        internal WhereGroup(SqlQuery<T> query)
+        internal WhereGroup(SqlQuery<T> query, bool isNegated = false)
         {
-            this.Query = query;
+            Query = query;
+            IsNegated = isNegated;
         }
 
-        public void AddCommandString(Sql sql, string prefix, bool addCommandParameter, bool addParentheses = false)
+        public void AddCommandString(Sql sql, string prefix = "", bool addCommandParameter = true, bool addParentheses = false)
         {
             int length = whereList?.Count ?? 0;
             if (length == 0)
                 return;
 
-            if (addParentheses)
+            if (IsNegated)
+                sql.AddText("NOT ");
+
+            if (addParentheses || IsNegated)
                 sql.AddText("(");
-            //else
-            //    sql.AddText("\n");
 
             for (int i = 0; i < length; i++)
             {
@@ -49,13 +53,18 @@ namespace DataLinq.Query
                 whereList[i].where.AddCommandString(sql, prefix, addCommandParameter, whereList[i].where is WhereGroup<T>);
             }
 
-            if (addParentheses)
+            if (addParentheses || IsNegated)
                 sql.AddText(")");
         }
 
-        public Where<T> AddWhere(string columnName, string alias, BooleanType type)
+        public Where<T> AddWhere(string columnName, string? alias, BooleanType type)
         {
             return AddWhere(new Where<T>(this, columnName, alias), type);
+        }
+
+        public Where<T> AddWhereNot(string columnName, string? alias, BooleanType type)
+        {
+            return AddWhere(new Where<T>(this, columnName, alias, isNegated: true), type);
         }
 
         internal Where<T> AddWhere(Where<T> where, BooleanType type)
@@ -68,14 +77,14 @@ namespace DataLinq.Query
             return where;
         }
 
-        internal WhereGroup<T> AddWhereContainer(WhereGroup<T> where, BooleanType type)
+        internal WhereGroup<T> AddWhereGroup(WhereGroup<T> group, BooleanType type)
         {
             if (whereList == null)
                 whereList = new List<(IWhere<T> where, BooleanType type)>();
 
-            whereList.Add((where, type));
+            whereList.Add((group, type));
 
-            return where;
+            return group;
         }
 
         public Where<T> And(string columnName, string alias = null)
@@ -85,10 +94,10 @@ namespace DataLinq.Query
 
         public WhereGroup<T> And(Func<Func<string, Where<T>>, WhereGroup<T>> func)
         {
-            var container = AddWhereContainer(new WhereGroup<T>(this.Query), BooleanType.And);
+            var group = AddWhereGroup(new WhereGroup<T>(this.Query), BooleanType.And);
 
-            var where = new Where<T>(container);
-            container.AddWhere(where, BooleanType.And);
+            var where = new Where<T>(group);
+            group.AddWhere(where, BooleanType.And);
             func(columnName => where.AddKey(columnName, null));
 
             return this;
@@ -101,10 +110,10 @@ namespace DataLinq.Query
 
         public WhereGroup<T> Or(Func<Func<string, Where<T>>, WhereGroup<T>> func)
         {
-            var container = AddWhereContainer(new WhereGroup<T>(this.Query), BooleanType.Or);
+            var group = AddWhereGroup(new WhereGroup<T>(this.Query), BooleanType.Or);
 
-            var where = new Where<T>(container);
-            container.AddWhere(where, BooleanType.And);
+            var where = new Where<T>(group);
+            group.AddWhere(where, BooleanType.And);
             func(columnName => where.AddKey(columnName, null));
 
             return this;
@@ -188,6 +197,14 @@ namespace DataLinq.Query
         public Join<T> RightJoin(string tableName, string alias = null)
         {
             return Query.Join(tableName, alias);
+        }
+
+        public override string ToString()
+        {
+            var sql = new Sql();
+            AddCommandString(sql);
+
+            return sql.ToString();
         }
     }
 }

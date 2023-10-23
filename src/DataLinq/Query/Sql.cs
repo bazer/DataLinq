@@ -1,6 +1,8 @@
 ﻿using System.Data;
 using System.Text;
 using System.Collections.Generic;
+using System.Linq;
+using DataLinq.Extensions;
 
 namespace DataLinq.Query
 {
@@ -68,6 +70,11 @@ namespace DataLinq.Query
             builder.AppendFormat(format, values);
 
             return this;
+        }
+
+        public override string ToString()
+        {
+            return $"{Text}\n{Parameters.Select(x => x.Value).ToJoinedString("\n")}";
         }
     }
 }

@@ -1,18 +1,9 @@
-﻿using System;
+﻿using DataLinq.Extensions;
+using DataLinq.Instances;
+using DataLinq.Metadata;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
 using System.Linq;
-using System.Linq.Expressions;
-using Remotion.Linq.Clauses;
-using DataLinq.Cache;
-using DataLinq.Exceptions;
-using DataLinq.Extensions;
-using DataLinq.Instances;
-using DataLinq.Interfaces;
-using DataLinq.Linq.Visitors;
-using DataLinq.Metadata;
-using DataLinq.Mutation;
 
 namespace DataLinq.Query
 {
@@ -117,6 +108,11 @@ namespace DataLinq.Query
                 foreach (var row in rows)
                     yield return row;
             }
+        }
+
+        public override string ToString()
+        {
+            return ToSql().ToString();
         }
     }
 }

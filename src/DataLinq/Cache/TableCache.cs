@@ -245,7 +245,7 @@ namespace DataLinq.Cache
 
             foreach (var key in keys)
             {
-                var where = q.CreateWhereGroup(BooleanType.Or);
+                var where = q.AddWhereGroup(BooleanType.Or);
                 for (var i = 0; i < primaryKeyColumnsCount; i++)
                     where.And(Table.PrimaryKeyColumns[i].DbName).EqualTo(transaction.Provider.GetWriter().WriteColumn(Table.PrimaryKeyColumns[i], key.Data[i]));
             }
