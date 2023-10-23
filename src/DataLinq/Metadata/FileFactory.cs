@@ -12,10 +12,10 @@ namespace DataLinq.Metadata
         public string NamespaceName { get; set; } = "Models";
         public string Tab { get; set; } = "    ";
         public bool UseRecords { get; set; } = true;
-        public bool UseCache { get; set; } = true;
+        //public bool UseCache { get; set; } = true;
         public bool UseFileScopedNamespaces { get; set; }
         public bool SeparateTablesAndViews { get; set; } = false;
-        public List<string> Usings { get; set; } = new List<string> { "System", /*"DataLinq",*/ "DataLinq.Interfaces", "DataLinq.Attributes" };
+        public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes" };
     }
 
     public class FileFactory
@@ -41,13 +41,13 @@ namespace DataLinq.Metadata
 
             foreach (var table in database.TableModels)
             {
-                var usings = options.Usings.Concat(table.Model.ValueProperties
-                        .Select(x => (x.CsType?.Namespace))
-                        .Where(x => x != null))
+                var usings = options.Usings
+                    .Concat(table.Model.Namespaces?.Select(x => x.FullNamespaceName) ?? new List<string>())
                     .Concat(table.Model.RelationProperties
                         .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
                         .Select(x => "System.Collections.Generic"))
                     .Distinct()
+                    .Where(x => x != null)
                     .Where(name => name != options.NamespaceName)
                     .Select(name => (name.StartsWith("System"), name))
                     .OrderByDescending(x => x.Item1)
@@ -82,8 +82,15 @@ namespace DataLinq.Metadata
         {
             var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
             var tab = settings.Tab;
-            if (settings.UseCache)
+
+            if (database.UseCache)
                 yield return $"{namespaceTab}[UseCache]";
+
+            foreach (var limit in database.CacheLimits)
+                yield return $"{namespaceTab}[CacheLimit(CacheLimitType.{limit.limitType}, {limit.amount})]";
+
+            foreach (var cleanup in database.CacheCleanup)
+                yield return $"{namespaceTab}[CacheCleanup(CacheCleanupType.{cleanup.cleanupType}, {cleanup.amount})]";
 
             yield return $"{namespaceTab}[Database(\"{database.Name}\")]";
             yield return $"{namespaceTab}public interface {dbName} : IDatabaseModel";

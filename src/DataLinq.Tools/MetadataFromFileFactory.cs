@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 using ThrowAway;
 
 namespace DataLinq.Metadata;
@@ -182,7 +183,18 @@ public class MetadataFromFileFactory
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
                 .Any(attr => attr.Name.ToString() == "Column" || attr.Name.ToString() == "Relation"))
             .Select(prop => ParseProperty(prop, model))
-            .ToList();
+        .ToList();
+
+        model.Namespaces = classSyntax.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<UsingDirectiveSyntax>()
+            .Select(uds => uds?.Name?.ToString())
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Distinct()
+            .OrderBy(ns => ns.StartsWith("System"))
+            .ThenBy(ns => ns)
+            .Select(ns => new ModelNamespace { FullNamespaceName = ns })
+            .ToArray();
 
         return model;
     }

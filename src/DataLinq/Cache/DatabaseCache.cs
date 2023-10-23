@@ -29,7 +29,7 @@ namespace DataLinq.Cache
             if (!cacheCleanupInterval.Any())
                 cacheCleanupInterval = (CacheCleanupType.Minutes, 5L).Yield().ToList();
 
-            foreach (var timespan in cacheCleanupInterval.Select(x => GetFromCacheCleanupType(x.limitType, x.amount)))
+            foreach (var timespan in cacheCleanupInterval.Select(x => GetFromCacheCleanupType(x.cleanupType, x.amount)))
             {
                 this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), timespan);
                 this.CleanCacheWorker.Start();

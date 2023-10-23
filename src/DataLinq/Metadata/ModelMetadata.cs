@@ -1,10 +1,7 @@
-﻿using Castle.DynamicProxy;
-using DataLinq.Interfaces;
-using DataLinq.Mutation;
+﻿using DataLinq.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace DataLinq.Metadata
 {
@@ -13,6 +10,11 @@ namespace DataLinq.Metadata
         Class,
         Record,
         Interface
+    }
+
+    public class ModelNamespace
+    {
+        public string FullNamespaceName { get; set; }
     }
 
     public class ModelInterface
@@ -27,6 +29,7 @@ namespace DataLinq.Metadata
         public string CsTypeName { get; set; }
         public ModelCsType ModelCsType { get; set; }
         public ModelInterface[] Interfaces { get; set; }
+        public ModelNamespace[] Namespaces { get; set; }
         public DatabaseMetadata Database { get; set; }
         public TableMetadata Table { get; set; }
         public List<Property> Properties { get; set; } = new List<Property>();

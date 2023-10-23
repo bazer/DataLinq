@@ -29,6 +29,11 @@ namespace DataLinq.Metadata
 
         public void TransformDatabase(DatabaseMetadata srcMetadata, DatabaseMetadata destMetadata)
         {
+            destMetadata.Attributes = srcMetadata.Attributes;
+            destMetadata.UseCache = srcMetadata.UseCache;
+            destMetadata.CacheLimits = srcMetadata.CacheLimits;
+            destMetadata.CacheCleanup = srcMetadata.CacheCleanup;
+
             foreach (var srcTable in srcMetadata.TableModels)
             {
                 var destTable = destMetadata.TableModels.FirstOrDefault(x => x.Table.DbName == srcTable.Table.DbName);
@@ -66,6 +71,7 @@ namespace DataLinq.Metadata
             }
 
             destTable.Model.Interfaces = new ModelInterface[] { new ModelInterface { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName } };
+            destTable.Model.Namespaces = srcTable.Model.Namespaces;
 
             foreach (var srcProperty in srcTable.Model.ValueProperties)
             {

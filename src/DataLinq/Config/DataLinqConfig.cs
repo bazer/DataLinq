@@ -69,7 +69,7 @@ namespace DataLinq.Config
         public string? DestinationDirectory { get; }
         public List<string> Tables { get; }
         public List<string> Views { get; }
-        public bool UseCache { get; }
+        //public bool UseCache { get; }
         public bool UseRecord { get; }
         public bool UseFileScopedNamespaces { get; }
         public bool CapitalizeNames { get; }
@@ -88,7 +88,7 @@ namespace DataLinq.Config
             DestinationDirectory = database.DestinationDirectory;
             Tables = database.Tables ?? new List<string>();
             Views = database.Views ?? new List<string>();
-            UseCache = database.UseCache ?? false;
+            //UseCache = database.UseCache ?? false;
             UseRecord = database.UseRecord ?? false;
             UseFileScopedNamespaces = database.UseFileScopedNamespaces ?? false;
             CapitalizeNames = database.CapitalizeNames ?? false;

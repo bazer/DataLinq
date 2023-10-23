@@ -21,7 +21,7 @@ namespace DataLinq.Config
         public string? DestinationDirectory { get; set; }
         public List<string>? Tables { get; set; }
         public List<string>? Views { get; set; }
-        public bool? UseCache { get; set; }
+        //public bool? UseCache { get; set; }
         public bool? UseRecord { get; set; }
         public bool? UseFileScopedNamespaces { get; set; }
         public bool? CapitalizeNames { get; set; }

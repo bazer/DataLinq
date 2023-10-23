@@ -129,7 +129,8 @@ namespace DataLinq.Metadata
                 ModelCsType = ParseModelCsType(type),
                 CsTypeName = type.Name,
                 Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray(),
-                Interfaces = type.GetInterfaces().Select(x => new ModelInterface { CsType = x, CsTypeName = x.Name }).ToArray()
+                Interfaces = type.GetInterfaces().Select(x => new ModelInterface { CsType = x, CsTypeName = x.Name }).ToArray(),
+                Namespaces =   new ModelNamespace[] { new ModelNamespace { FullNamespaceName = type.Namespace } }
             };
 
             model.Properties = type
@@ -138,6 +139,18 @@ namespace DataLinq.Metadata
                 .Where(x => x.Attributes.Any(x => x is ColumnAttribute || x is RelationAttribute))
                 .Where(x => x.CsName != "EqualityContract")
                 .ToList();
+
+            model.Namespaces = model.ValueProperties.Select( x => x.CsType?.Namespace)
+                    .Concat(model.RelationProperties
+                        .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
+                        .Select(x => "System.Collections.Generic"))
+                    .Distinct()
+                    .Where(x => x != null)
+                    .Select(name => (name.StartsWith("System"), name))
+                    .OrderByDescending(x => x.Item1)
+                    .ThenBy(x => x.name)
+                    .Select(x => new ModelNamespace { FullNamespaceName = x.name })
+                    .ToArray();
 
             return model;
         }

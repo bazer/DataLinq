@@ -144,7 +144,7 @@ namespace DataLinq.Tools
             {
                 NamespaceName = db.Namespace,
                 UseRecords = db.UseRecord,
-                UseCache = db.UseCache,
+                //UseCache = db.UseCache,
                 UseFileScopedNamespaces = db.UseFileScopedNamespaces,
                 SeparateTablesAndViews = db.SeparateTablesAndViews
             };

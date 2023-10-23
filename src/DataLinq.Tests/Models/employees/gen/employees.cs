@@ -1,10 +1,13 @@
 ﻿using System;
+using DataLinq;
 using DataLinq.Interfaces;
 using DataLinq.Attributes;
 
 namespace DataLinq.Tests.Models;
 
 [UseCache]
+[CacheLimit(CacheLimitType.Gigabytes, 1)]
+[CacheCleanup(CacheCleanupType.Minutes, 5)]
 [Database("employees")]
 public interface Employees : IDatabaseModel
 {
