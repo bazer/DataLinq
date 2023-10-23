@@ -136,6 +136,21 @@ namespace DataLinq.Tests
             Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))), where.Count);
         }
 
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereHasValue(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Employees.Where(x => x.gender.HasValue).ToList();
+            Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender.HasValue).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereNotHasValue(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Employees.Where(x => !x.gender.HasValue).ToList();
+            Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !x.gender.HasValue).Count(), where.Count);
+        }
 
         [Theory]
         [MemberData(nameof(GetEmployees))]
