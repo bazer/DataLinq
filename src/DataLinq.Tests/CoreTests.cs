@@ -3,6 +3,7 @@ using DataLinq.Config;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
+using Microsoft.CodeAnalysis;
 using System;
 using System.IO;
 using System.Linq;
@@ -30,14 +31,19 @@ namespace DataLinq.Tests
                 .ToList();
 
             //var srcPaths = Fixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories.Select(x => Path.GetFullPath(x)).ToList();
+            var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths).Value;
 
-            TestDatabase(new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths), false);
+            TestDatabaseAttributes(metadata);
+            TestDatabase(metadata, false);
         }
 
         [Fact]
         public void TestMetadataFromInterfaceFactory()
         {
-            TestDatabase(MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(typeof(Employees)), true);
+            var metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(typeof(Employees));
+            
+            TestDatabaseAttributes(metadata);
+            TestDatabase(metadata, true);
         }
 
         [Theory]
@@ -49,6 +55,21 @@ namespace DataLinq.Tests
 
             var metadata = factory.ParseDatabase("employees", "Employees", connection.DatabaseName, connection.ConnectionString.Original);
             TestDatabase(metadata, false);
+        }
+
+        private void TestDatabaseAttributes(DatabaseMetadata database)
+        {
+            Assert.Equal(2, database.CacheLimits.Count);
+            Assert.Equal(CacheLimitType.Megabytes, database.CacheLimits[0].limitType);
+            Assert.Equal(200, database.CacheLimits[0].amount);
+            Assert.Equal(CacheLimitType.Minutes, database.CacheLimits[1].limitType);
+            Assert.Equal(10, database.CacheLimits[1].amount);
+
+            Assert.Single(database.CacheCleanup);
+            Assert.Equal(CacheCleanupType.Minutes, database.CacheCleanup[0].cleanupType);
+            Assert.Equal(5, database.CacheCleanup[0].amount);
+
+            Assert.Single(database.CacheCleanup);
         }
 
         private void TestDatabase(DatabaseMetadata database, bool testCsType)

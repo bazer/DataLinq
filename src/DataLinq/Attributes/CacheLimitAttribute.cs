@@ -16,7 +16,7 @@ namespace DataLinq.Attributes
         Gigabytes
     }
 
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
     public sealed class CacheLimitAttribute : Attribute
     {
         public CacheLimitAttribute(CacheLimitType limitType, long amount)
