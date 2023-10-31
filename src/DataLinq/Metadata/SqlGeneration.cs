@@ -131,7 +131,7 @@ namespace DataLinq.Metadata
         public string Align(int longest, string text) => new string(' ', longest - text.Length);
 
         public SqlGeneration Index(string name, string? characteristic, string type, params string[] columns)
-            => NewRow().Indent().Add($"INDEX{ValueWithSpace(characteristic)}{QuotedString(name)} {ParenthesisList(columns)} USING {type}");
+            => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(characteristic) ? "" : $"{characteristic} ")}INDEX {QuotedString(name)} {ParenthesisList(columns)} USING {type}");
         public SqlGeneration PrimaryKey(params string[] columns)
             => NewRow().Indent().Add($"PRIMARY KEY {ParenthesisList(columns)}");
         public virtual SqlGeneration UniqueKey(string name, params string[] columns)
