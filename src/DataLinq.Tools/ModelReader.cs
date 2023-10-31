@@ -93,7 +93,7 @@ namespace DataLinq.Tools
                 if (connection.Type == DatabaseType.SQLite)
                     connectionString = connectionString.ChangeValue("Data Source", connection.GetRootedPath(basePath)); // $"Data Source={databaseName};Cache=Shared;";
 
-                var dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
+                DatabaseMetadata dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
                     .GetMetadataFromSqlFactory(sqlOptions)
                     .ParseDatabase(db.Name, db.CsType, connection.DatabaseName, connectionString.Original);
 

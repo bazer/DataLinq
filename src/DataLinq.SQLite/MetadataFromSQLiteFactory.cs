@@ -3,6 +3,7 @@ using DataLinq.Metadata;
 using System;
 using System.Data;
 using System.Linq;
+using ThrowAway;
 
 namespace DataLinq.SQLite
 {
@@ -24,7 +25,7 @@ namespace DataLinq.SQLite
             this.options = options;
         }
 
-        public DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, string connectionString)
+        public Option<DatabaseMetadata> ParseDatabase(string name, string csTypeName, string dbName, string connectionString)
         {
             dbAccess = new SQLiteDatabaseTransaction(connectionString, Mutation.TransactionType.ReadOnly);
 

@@ -1,10 +1,12 @@
 ﻿using DataLinq.Attributes;
+using DataLinq.Extensions;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using ThrowAway;
 
 namespace DataLinq.MySql
 {
@@ -25,7 +27,7 @@ namespace DataLinq.MySql
             this.options = options;
         }
 
-        public DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, string connectionString)
+        public Option<DatabaseMetadata> ParseDatabase(string name, string csTypeName, string dbName, string connectionString)
         {
             var information_Schema = new MySqlDatabase<information_schema>(connectionString, "information_schema").Query();
             var database = new DatabaseMetadata(name, null, csTypeName, dbName);
@@ -34,16 +36,28 @@ namespace DataLinq.MySql
                 .TABLES.Where(x => x.TABLE_SCHEMA == dbName)
                 .AsEnumerable()
                 .Select(x => ParseTable(database, information_Schema, x))
+                .Where(IsTableOrViewInOptionsList)
                 .ToList();
+
+            var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
+            if (missingTables.Any())
+                return $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}";
 
             ParseIndices(database, information_Schema);
             ParseRelations(database, information_Schema);
             MetadataFactory.ParseIndices(database);
             MetadataFactory.ParseRelations(database);
 
-            database.TableModels = database.TableModels.Where(IsTableOrViewInOptionsList).ToList();
-
             return database;
+        }
+
+        private IEnumerable<string> FindMissingTablesOrViewInOptionsList(List<TableModelMetadata> tableModels)
+        {
+            foreach (var tableName in options.Tables.Concat(options.Views))
+            {
+                if (!tableModels.Any(x => tableName.Equals(x.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+                        yield return tableName;
+            }
         }
 
         private bool IsTableOrViewInOptionsList(TableModelMetadata tableModel)
@@ -93,10 +107,10 @@ namespace DataLinq.MySql
                 foreach (var indexColumn in indexedColumns)
                 {
                     var column = database
-                        .TableModels.Single(x => x.Table.DbName == indexColumn.TABLE_NAME)
-                        .Table.Columns.Single(x => x.DbName == indexColumn.COLUMN_NAME);
+                        .TableModels.SingleOrDefault(x => x.Table.DbName == indexColumn.TABLE_NAME)?
+                        .Table.Columns.SingleOrDefault(x => x.DbName == indexColumn.COLUMN_NAME);
 
-                    column.ValueProperty.Attributes.Add(new IndexAttribute(dbIndexGroup.First().INDEX_NAME, indexCharacteristic, indexType, columnNames));
+                    column?.ValueProperty.Attributes.Add(new IndexAttribute(dbIndexGroup.First().INDEX_NAME, indexCharacteristic, indexType, columnNames));
                 }
             }
         }
@@ -107,37 +121,16 @@ namespace DataLinq.MySql
                 .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
             {
                 var foreignKeyColumn = database
-                    .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
-                    .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME);
+                    .TableModels.SingleOrDefault(x => x.Table.DbName == key.TABLE_NAME)?
+                    .Table.Columns.SingleOrDefault(x => x.DbName == key.COLUMN_NAME);
 
-                var indexName = key.CONSTRAINT_NAME;
-
-                //// Fetch the associated index name
-                //var indexName = information_Schema.STATISTICS
-                //    .FirstOrDefault(x => x.TABLE_SCHEMA == database.DbName &&
-                //                         x.TABLE_NAME == key.TABLE_NAME &&
-                //                         x.COLUMN_NAME == key.COLUMN_NAME)?
-                //    .INDEX_NAME ?? key.CONSTRAINT_NAME;  // Default to CONSTRAINT_NAME if not found
+                if (foreignKeyColumn == null)
+                    continue;
 
                 foreignKeyColumn.ForeignKey = true;
-                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, indexName));
+                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
             }
         }
-
-
-        //private void ParseRelations(DatabaseMetadata database, information_schema information_Schema)
-        //{
-        //    foreach (var key in information_Schema
-        //        .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
-        //    {
-        //        var foreignKeyColumn = database
-        //            .TableModels.Single(x => x.Table.DbName == key.TABLE_NAME)
-        //            .Table.Columns.Single(x => x.DbName == key.COLUMN_NAME);
-
-        //        foreignKeyColumn.ForeignKey = true;
-        //        foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
-        //    }
-        //}
 
         private TableModelMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
         {

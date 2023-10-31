@@ -131,7 +131,7 @@ namespace DataLinq.CLI
                     }
 
                     var (db, connection) = result.Value;
-                    var creator = new ModelGenerator(Console.WriteLine, new ModelGeneratorOptions
+                    var generator = new ModelGenerator(Console.WriteLine, new ModelGeneratorOptions
                     {
                         OverwriteExistingModels = true,
                         ReadSourceModels = !options.SkipSource,
@@ -140,7 +140,13 @@ namespace DataLinq.CLI
                         Views = db.Views
                     });
 
-                    creator.Create(connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
+                    var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
+
+                    if (databaseMetadata.HasFailed)
+                    {
+                        Console.WriteLine(databaseMetadata.Failure);
+                        return;
+                    }
                 })
                 .WithParsed<CreateSqlOptions>(options =>
                 {
@@ -159,7 +165,13 @@ namespace DataLinq.CLI
                     {
                     });
 
-                    generator.Create(connection, ConfigBasePath, options.OutputFile);
+                    var sql = generator.Create(connection, ConfigBasePath, options.OutputFile);
+
+                    if (sql.HasFailed)
+                    {
+                        Console.WriteLine(sql.Failure);
+                        return;
+                    }
                 })
                 .WithParsed<CreateDatabaseOptions>(options =>
                 {

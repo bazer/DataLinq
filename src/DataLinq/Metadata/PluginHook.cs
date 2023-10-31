@@ -30,7 +30,7 @@ namespace DataLinq.Metadata
 
     public interface IMetadataFromSqlFactory
     {
-        DatabaseMetadata ParseDatabase(string name, string csTypeName, string dbName, string connectionString);
+        Option<DatabaseMetadata> ParseDatabase(string name, string csTypeName, string dbName, string connectionString);
     }
 
     public static class PluginHook

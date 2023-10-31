@@ -59,7 +59,7 @@ namespace DataLinq.Tools
             this.options = options;
         }
 
-        public Option<DatabaseMetadata, ModelGeneratorError> Create(DataLinqDatabaseConnection connection, string basePath, string databaseName)
+        public Option<DatabaseMetadata> CreateModels(DataLinqDatabaseConnection connection, string basePath, string databaseName)
         {
             var db = connection.DatabaseConfig;
 
@@ -91,6 +91,9 @@ namespace DataLinq.Tools
                 .GetMetadataFromSqlFactory(sqlOptions)
                 .ParseDatabase(db.Name, db.CsType, databaseName, connectionString.Original);
 
+            if (dbMetadata.HasFailed)
+                return dbMetadata.Failure;
+
             //var dbMetadata = connection.ParsedType switch
             //{
             //    DatabaseType.MySQL =>
@@ -99,7 +102,7 @@ namespace DataLinq.Tools
             //        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, $"Data Source={databaseName};Cache=Shared;")
             //};
 
-            log($"Tables in database: {dbMetadata.TableModels.Count}");
+            log($"Tables in database: {dbMetadata.Value.TableModels.Count}");
 
             var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
             if (this.options.ReadSourceModels)
@@ -128,7 +131,7 @@ namespace DataLinq.Tools
                     if (srcMetadata.HasFailed)
                     {
                         log("Error: Unable to parse source files.");
-                        return ModelGeneratorError.UnableToParseSourceFiles;
+                        return "Unable to parse source files";
                     }
 
                     log($"Tables in source model files: {srcMetadata.Value.TableModels.Count}");
