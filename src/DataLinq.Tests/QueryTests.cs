@@ -1,6 +1,7 @@
 using DataLinq.Tests.Models;
 using System;
 using System.Linq;
+using System.Linq.Expressions;
 using Xunit;
 
 namespace DataLinq.Tests
@@ -134,6 +135,86 @@ namespace DataLinq.Tests
         {
             var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
             Assert.Equal(employeesDb.Query().Managers.ToList().Count(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereTwoPropertiesEquals(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => x.emp_no == x.emp_no).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => x.emp_no == x.emp_no).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereTwoPropertiesNotEquals(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => x.emp_no != x.emp_no).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => x.emp_no != x.emp_no).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereIntEnumEqualsBackwards(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => Manager.ManagerType.FestiveManager == x.Type).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => Manager.ManagerType.FestiveManager == x.Type).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereIntEnumNotEqualsBackwards(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => Manager.ManagerType.AssistantManager != x.Type).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => Manager.ManagerType.AssistantManager != x.Type).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereIntEnumEquals(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => x.Type == Manager.ManagerType.FestiveManager).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => x.Type == Manager.ManagerType.FestiveManager).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereIntEnumNotEquals(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Managers.Where(x => x.Type != Manager.ManagerType.AssistantManager).ToList();
+            Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => x.Type != Manager.ManagerType.AssistantManager).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereValueEnumTypeEquals(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Employees.Where(x => x.gender.Value == Employee.Employeegender.M).ToList();
+            Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender.Value == Employee.Employeegender.M).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereValueEnumTypeNotEquals(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Employees.Where(x => x.gender.Value != Employee.Employeegender.M).ToList();
+            Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender.Value != Employee.Employeegender.M).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereValueEqualsNegated(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Employees.Where(x => !(x.gender.Value == Employee.Employeegender.F)).ToList();
+            Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !(x.gender.Value == Employee.Employeegender.F)).Count(), where.Count);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SimpleWhereValueNotEqualsNegated(Database<Employees> employeesDb)
+        {
+            var where = employeesDb.Query().Employees.Where(x => !(x.gender.Value != Employee.Employeegender.F)).ToList();
+            Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !(x.gender.Value != Employee.Employeegender.F)).Count(), where.Count);
         }
 
         [Theory]

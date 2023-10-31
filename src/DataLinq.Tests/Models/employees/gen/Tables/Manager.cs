@@ -9,6 +9,14 @@ namespace DataLinq.Tests.Models;
 [Table("dept_manager")]
 public partial record Manager : ITableModel<Employees>
 {
+    public enum ManagerType
+    {
+        Unknown,
+        Manager,
+        AssistantManager,
+        FestiveManager
+    }
+
     [PrimaryKey]
     [ForeignKey("departments", "dept_no", "dept_manager_ibfk_2")]
     [Type(DatabaseType.MySQL, "char", 4)]
@@ -33,6 +41,10 @@ public partial record Manager : ITableModel<Employees>
     [Column("to_date")]
     public virtual DateOnly to_date { get; set; }
 
+    [Type(DatabaseType.MySQL, "tinyint", false)]
+    [Column("type")]
+    public virtual ManagerType Type { get; set; }
+
     [Relation("departments", "dept_no")]
     public virtual Department Department { get; }
 
@@ -40,3 +52,4 @@ public partial record Manager : ITableModel<Employees>
     public virtual Employee employees { get; }
 
 }
+

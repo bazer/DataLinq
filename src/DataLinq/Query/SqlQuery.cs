@@ -203,15 +203,18 @@ namespace DataLinq.Query
             return sql;
         }
 
-        internal KeyValuePair<string, object> GetFields(BinaryExpression node)
+        internal KeyValuePair<string, object> GetFields(Expression left, Expression right)
         {
-            if (node.Left is ConstantExpression && node.Right is ConstantExpression)
+            if (left is ConstantExpression && right is ConstantExpression)
                 throw new InvalidQueryException("Unable to compare 2 constants.");
 
-            if (node.Left is MemberExpression)
-                return GetValues(node.Left, node.Right);
+            if (left is MemberExpression && right is MemberExpression)
+                throw new InvalidQueryException("Unable to compare 2 members.");
+
+            if (left is MemberExpression)
+                return GetValues(left, right);
             else
-                return GetValues(node.Right, node.Left);
+                return GetValues(right, left);
         }
 
         internal KeyValuePair<string, object> GetValues(Expression field, Expression value)

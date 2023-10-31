@@ -112,6 +112,7 @@ namespace DataLinq.Tests
                .StrictMode(false)
                .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
                .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+               .RuleFor(x => x.Type, x => x.PickRandom<Manager.ManagerType>())
                .RuleFor(x => x.emp_no, x => x.PickRandom(employees).emp_no)
                .RuleFor(x => x.dept_fk, x => x.PickRandom(departments).DeptNo);
 
