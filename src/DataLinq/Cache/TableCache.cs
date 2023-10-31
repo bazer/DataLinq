@@ -181,7 +181,7 @@ namespace DataLinq.Cache
             return count;
         }
 
-        private bool TryRemoveRow(PrimaryKeys primaryKeys, out int numRowsRemoved)
+        public bool TryRemoveRow(PrimaryKeys primaryKeys, out int numRowsRemoved)
         {
             numRowsRemoved = 0;
 
@@ -199,7 +199,7 @@ namespace DataLinq.Cache
             return true;
         }
 
-        private bool TryRemoveTransactionRow(PrimaryKeys primaryKeys, Transaction transaction, out int numRowsRemoved)
+        public bool TryRemoveTransactionRow(PrimaryKeys primaryKeys, Transaction transaction, out int numRowsRemoved)
         {
             numRowsRemoved = 0;
 
