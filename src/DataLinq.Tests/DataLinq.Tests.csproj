@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<TargetFramework>net6.0</TargetFramework>
 		<IsPackable>false</IsPackable>
-		<LangVersion>10.0</LangVersion>
+		<LangVersion>11.0</LangVersion>
 		<IsTestProject>true</IsTestProject>
 	</PropertyGroup>
 
@@ -13,12 +13,9 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.Extensions.Configuration" Version="7.0.0" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="7.0.0" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
-		<PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
 		<PackageReference Include="ThrowAway" Version="0.1.1" />
-		<PackageReference Include="xunit" Version="2.5.3" />
+		<PackageReference Include="xunit" Version="2.6.0" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.5.3">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
@@ -36,6 +33,9 @@
 	<ItemGroup>
 		<None Update="appsettings.json">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="datalinq.user.json">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="datalinq.json">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
