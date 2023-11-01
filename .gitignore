@@ -20,3 +20,4 @@ TestResults
 launchSettings.json
 /nupkg
 /src/DataLinq.Benchmark/BenchmarkDotNet.Artifacts
+datalinq.user.json

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ThrowAway;
 
 namespace DataLinq.Tools
 {
@@ -13,16 +14,20 @@ namespace DataLinq.Tools
         {
         }
 
-        public void Read(DataLinqConfig config, string basePath)
+        public Option<bool> Read(DataLinqConfig config, string basePath)
         {
             foreach (var database in config.Databases)
             {
-                Read(database, basePath);
-
+                var result = Read(database, basePath);
+                
+                if (result.HasFailed)
+                    return result.Failure;
             }
+
+            return true;
         }
 
-        public void Read(DataLinqDatabaseConfig db, string basePath)
+        public Option<bool> Read(DataLinqDatabaseConfig db, string basePath)
         {
             log($"Reading database: {db.Name}");
 
@@ -37,10 +42,17 @@ namespace DataLinq.Tools
             var pathsExists = ParseExistingFilesAndDirs(basePath, db.SourceDirectories).ToList();
             log($"Reading models from:");
             foreach (var srcPath in pathsExists)
+            {
+                if (srcPath.HasFailed)
+                    return $"Error: {srcPath.Failure}";
+
                 log($"{srcPath}");
+            }
+
+            var paths = pathsExists.Select(x => x.Value).ToList();
 
             if (db.DestinationDirectory != null)
-                pathsExists.Add(basePath + Path.DirectorySeparatorChar + db.DestinationDirectory);
+                paths.Add(basePath + Path.DirectorySeparatorChar + db.DestinationDirectory);
 
             //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
             //if (assemblyPathsExists.Any())
@@ -57,7 +69,7 @@ namespace DataLinq.Tools
                 //log($"Reading models from: {srcDir}");
 
                 var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = db.FileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-                DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, pathsExists);
+                DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, paths);
 
                 log($"Tables in model files: {srcMetadata.TableModels.Count}");
             //}
@@ -106,8 +118,10 @@ namespace DataLinq.Tools
                 //};
 
                 log($"Name in database: {dbMetadata.DbName}");
-                log($"Tables in database: {dbMetadata.TableModels.Count}");
+                log($"Tables read from database: {dbMetadata.TableModels.Count}");
             }
+
+            return true;
         }
     }
 }

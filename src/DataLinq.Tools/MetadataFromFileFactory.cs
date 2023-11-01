@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Xml.Linq;
 using ThrowAway;
 
 namespace DataLinq.Metadata;
@@ -38,7 +37,7 @@ public class MetadataFromFileFactory
         Log = log;
     }
 
-    public Option<DatabaseMetadata, MetadataFromFileFactoryError> ReadFiles(string csType, List<string> srcPaths)
+    public Option<DatabaseMetadata, MetadataFromFileFactoryError> ReadFiles(string csType, IEnumerable<string> srcPaths)
     {
         var trees = new List<SyntaxTree>();
 

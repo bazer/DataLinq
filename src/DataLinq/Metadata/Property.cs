@@ -1,9 +1,7 @@
-﻿using DataLinq.Interfaces;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Reflection.Metadata;
 
 namespace DataLinq.Metadata
 {

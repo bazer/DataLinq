@@ -58,18 +58,20 @@ namespace DataLinq.CLI
         static bool Verbose;
         static string ConfigPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json";
         static DataLinqConfig ConfigFile;
-        static string ConfigBasePath => Path.GetDirectoryName(ConfigPath);
+        static string ConfigBasePath => ConfigFile.BasePath;
 
         static public bool ReadConfig()
         {
-            if (!File.Exists(ConfigPath))
+            var config = DataLinqConfig.FindAndReadConfigs(ConfigPath, Console.WriteLine);
+
+            if (config.HasFailed)
             {
-                Console.WriteLine($"Couldn't find config file 'datalinq.json'. Tried searching path:");
-                Console.WriteLine(ConfigPath);
+                Console.WriteLine(config.Failure);
                 return false;
             }
 
-            ConfigFile = new DataLinqConfig(ConfigReader.Read(ConfigPath));
+            Console.WriteLine();
+            ConfigFile = config.Value;
 
             return true;
         }
@@ -95,13 +97,14 @@ namespace DataLinq.CLI
                     if (options.ConfigPath != null)
                     {
                         ConfigPath = Path.GetFullPath(options.ConfigPath);
-                        Console.WriteLine($"Reading config from {ConfigPath}");
+                        //Console.WriteLine($"Reading config from {ConfigPath}");
                     }
                 })
                 .WithParsed<ListOptions>(options =>
                 {
                     if (ReadConfig() == false)
                         return;
+
 
                     Console.WriteLine($"Databases in config:");
                     foreach (var db in ConfigFile.Databases)
@@ -110,12 +113,21 @@ namespace DataLinq.CLI
                         Console.WriteLine("Connections:");
                         foreach (var connection in db.Connections)
                         {
-                            Console.WriteLine($"{connection.Type} ({connection.ConnectionString})");
+                            Console.WriteLine($"{connection.Type} ({connection.DatabaseName})");
                         }
 
-                        var reader = new ModelReader(Console.WriteLine);
-                        reader.Read(ConfigFile, ConfigBasePath);
                         Console.WriteLine();
+
+                        var reader = new ModelReader(Console.WriteLine);
+                        var result = reader.Read(ConfigFile, ConfigBasePath);
+
+                        if (result.HasFailed)
+                        {
+                            Console.WriteLine(result.Failure);
+                            return;
+                        }
+
+                        //Console.WriteLine();
                     }
                 })
                 .WithParsed<CreateModelsOptions>(options =>

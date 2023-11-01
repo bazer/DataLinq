@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace DataLinq.Config
 {
@@ -37,9 +39,22 @@ namespace DataLinq.Config
         public static ConfigFile Read(string path)
         {
             var file = File.ReadAllText(path);
-            var config = System.Text.Json.JsonSerializer.Deserialize<ConfigFile>(file);
+            var withoutComments = RemoveComments(file);
+            var config = JsonSerializer.Deserialize<ConfigFile>(withoutComments);
 
             return config;
         }
+
+        private static string RemoveComments(string json)
+        {
+            // Remove single-line comments (//...)
+            json = Regex.Replace(json, @"//.*$", string.Empty, RegexOptions.Multiline);
+
+            // Remove multi-line comments (/*...*/)
+            json = Regex.Replace(json, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
+
+            return json;
+        }
+
     }
 }

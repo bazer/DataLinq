@@ -21,7 +21,7 @@ namespace DataLinq.Tests
 
         public DatabaseFixture()
         {
-            DataLinqConfig = new DataLinqConfig(ConfigReader.Read("datalinq.json"));
+            DataLinqConfig = DataLinqConfig.FindAndReadConfigs("datalinq.json", _ => { });
             var employees = DataLinqConfig.Databases.Single(x => x.Name == "employees");
 
             EmployeeConnections = employees.Connections;
