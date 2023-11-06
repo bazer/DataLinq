@@ -1,9 +1,8 @@
 ﻿using BenchmarkDotNet.Attributes;
-using DataLinq.Benchmark.Models;
-using DataLinq.Benchmark.Models.Allround;
 using DataLinq.Config;
 using DataLinq.MySql;
 using DataLinq.SQLite;
+using DataLinq.Tests.Models.Allround;
 using System.Linq;
 
 namespace DataLinq.Benchmark;

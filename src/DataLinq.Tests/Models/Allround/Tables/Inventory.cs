@@ -3,7 +3,7 @@ using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
-namespace DataLinq.Benchmark.Models.Allround;
+namespace DataLinq.Tests.Models.Allround;
 
 [Table("inventory")]
 public partial record Inventory : ITableModel<AllroundBenchmark>

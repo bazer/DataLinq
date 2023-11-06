@@ -3,7 +3,7 @@ using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
-namespace DataLinq.Benchmark.Models.Allround;
+namespace DataLinq.Tests.Models.Allround;
 
 [Table("locationshistory")]
 public partial record Locationhistory : ITableModel<AllroundBenchmark>

@@ -4,7 +4,7 @@ using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
-namespace DataLinq.Benchmark.Models.Allround;
+namespace DataLinq.Tests.Models.Allround;
 
 [Table("productcategories")]
 public partial record Productcategory : ITableModel<AllroundBenchmark>

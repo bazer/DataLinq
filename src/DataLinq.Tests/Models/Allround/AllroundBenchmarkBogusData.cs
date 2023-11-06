@@ -1,9 +1,11 @@
 ﻿using Bogus;
-using DataLinq.Benchmark.Models.Allround;
+using DataLinq;
+using System;
+using System.Linq;
 
-namespace DataLinq.Benchmark.Models;
+namespace DataLinq.Tests.Models.Allround;
 
-internal static class AllroundBenchmarkBogusData
+public static class AllroundBenchmarkBogusData
 {
     public static void FillAllroundBenchmarkWithBogusData(Database<AllroundBenchmark> db, decimal numMillionRows = 0.01m)
     {
