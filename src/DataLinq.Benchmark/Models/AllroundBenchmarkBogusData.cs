@@ -75,8 +75,8 @@ internal static class AllroundBenchmarkBogusData
                 .RuleFor(o => o.UserId, f => f.PickRandom(userIds))
                 .RuleFor(o => o.OrderDate, f => f.Date.PastDateOnly(1))
                 .RuleFor(o => o.OrderStatus, f => f.PickRandom<Order.OrderStatusValue>())
-                .RuleFor(o => o.ShippingCompanyId, f => f.PickRandom(shippingCompanyIds));
-                //.RuleFor(o => o.OrderTimestamp, f => f.Date.Past(1));
+                .RuleFor(o => o.ShippingCompanyId, f => f.PickRandom(shippingCompanyIds))
+                .RuleFor(o => o.OrderTimestamp, f => f.Date.Past(1));
 
             var orders = transaction.Insert(orderFaker.Generate((int)(150000 * numMillionRows)));
             var orderIds = orders.Select(o => o.OrderId).ToList();

@@ -29,11 +29,12 @@ public class Program
 {
     public static void Main(string[] args)
     {
-        //var setup = new BenchmarkSetup();
-        //setup.Setup();
+        var setup = new BenchmarkSetup();
+        setup.Setup();
+        setup.YourBenchmarkMethod();
 
 
-        var summary = BenchmarkRunner.Run<BenchmarkSetup>();
+        //var summary = BenchmarkRunner.Run<BenchmarkSetup>();
 
     }
 }

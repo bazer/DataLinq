@@ -17,7 +17,7 @@ public class BenchmarkSetup
         MySQLProvider.RegisterProvider();
         SQLiteProvider.RegisterProvider();
 
-        var config = new DataLinqConfig(ConfigReader.Read("D:\\git\\DataLinq\\src\\DataLinq.Benchmark\\datalinq.json"));
+        DataLinqConfig config = DataLinqConfig.FindAndReadConfigs("D:\\git\\DataLinq\\src\\DataLinq.Benchmark\\datalinq.json", Console.WriteLine);
         var conn = config.Databases.Single(x => x.Name == "AllroundBenchmark").Connections.Single(x => x.Type == DatabaseType.MySQL);
 
         db = new MySqlDatabase<AllroundBenchmark>(conn.ConnectionString.Original, conn.DatabaseName);
@@ -43,7 +43,12 @@ public class BenchmarkSetup
     [Benchmark]
     public void YourBenchmarkMethod()
     {
-        db.Query().Users.Where(x => x.UserName.StartsWith("John"));
+        var users = db.Query().Users.Where(x => x.UserName.StartsWith("John")).ToList();
+        var orders = db.Query().Orders.Where(x => x.OrderTimestamp < DateTime.Now).ToList();
+
+        Console.WriteLine($"{users.Count} users");
+        Console.WriteLine($"{orders.Count} orders");
+
     }
 
     // ... Your benchmarking methods ...
