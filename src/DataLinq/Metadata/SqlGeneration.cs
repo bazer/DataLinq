@@ -25,7 +25,11 @@ namespace DataLinq.Metadata
                 var table = tables[i];
                 foreach (var fk in table.Columns.Where(x => x.ForeignKey))
                 {
-                    var fkIndex = tables.IndexOf(fk.RelationParts.First().Relation.CandidateKey.Column.Table);
+                    var otherTable = fk.RelationParts.FirstOrDefault()?.Relation.CandidateKey.Column.Table;
+                    if (otherTable == null)
+                        continue;
+
+                    var fkIndex = tables.IndexOf(otherTable);
                     var fkTable = tables[fkIndex];
                     if (fkIndex > i)
                     {

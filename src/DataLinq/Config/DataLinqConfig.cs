@@ -11,6 +11,9 @@ namespace DataLinq.Config
     {
         static public Option<DataLinqConfig> FindAndReadConfigs(string configPath, Action<string> log)
         {
+            if (string.IsNullOrEmpty(configPath))
+                throw new ArgumentNullException(nameof(configPath));
+
             if (!File.Exists(configPath))
             {
                 if (Directory.Exists(configPath))

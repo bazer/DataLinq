@@ -7,6 +7,7 @@ using DataLinq.SQLite;
 using DataLinq.Tests.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DataLinq.Tests
@@ -21,7 +22,7 @@ namespace DataLinq.Tests
 
         public DatabaseFixture()
         {
-            DataLinqConfig = DataLinqConfig.FindAndReadConfigs("datalinq.json", _ => { });
+            DataLinqConfig = DataLinqConfig.FindAndReadConfigs($"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json", _ => { });
             var employees = DataLinqConfig.Databases.Single(x => x.Name == "employees");
 
             EmployeeConnections = employees.Connections;
