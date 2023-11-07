@@ -1,39 +1,81 @@
-﻿using System;
+﻿using DataLinq.Metadata;
+using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Linq;
-using DataLinq.Metadata;
 
 namespace DataLinq.Instances
 {
+    /// <summary>
+    /// Represents the primary keys of a row.
+    /// </summary>
     public class PrimaryKeys : IEquatable<PrimaryKeys>
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PrimaryKeys"/> class.
+        /// </summary>
+        /// <param name="reader">The data reader.</param>
+        /// <param name="table">The table metadata.</param>
         public PrimaryKeys(IDataLinqDataReader reader, TableMetadata table)
         {
-            Data = ReadReader(reader, table).ToArray();
+            Data = CheckData(ReadReader(reader, table).ToArray(), table);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PrimaryKeys"/> class.
+        /// </summary>
+        /// <param name="row">The row data.</param>
         public PrimaryKeys(RowData row)
         {
-            Data = ReadRow(row).ToArray();
+            Data = CheckData(ReadRow(row).ToArray(), row.Table);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PrimaryKeys"/> class.
+        /// </summary>
+        /// <param name="data">The primary key data.</param>
         public PrimaryKeys(params object[] data)
         {
-            Data = data;
+            Data = CheckData(data);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PrimaryKeys"/> class.
+        /// </summary>
+        /// <param name="data">The primary key data.</param>
         public PrimaryKeys(IEnumerable<object> data)
         {
-            Data = data.ToArray();
+            Data = CheckData(data.ToArray());
         }
 
-        public object[] Data { get; }
-        //public (Column column, object value)[] Data { get; }
-
-        public bool Equals(PrimaryKeys other)
+        private static object?[] CheckData(object?[] data, TableMetadata? table = null)
         {
-            if (ReferenceEquals(null, other))
+            ArgumentNullException.ThrowIfNull(data);
+
+            //for (int i = 0; i < data.Length; i++)
+            //{
+            //    if (data[i] is null)
+            //        throw new ArgumentNullException(nameof(data), "Data contains null values.");
+            //}
+
+            if (table != null && data.Length != table.PrimaryKeyColumns.Count)
+                throw new ArgumentException($"The number of primary key values ({data.Length}) does not match the number of primary key columns ({table.PrimaryKeyColumns.Count}).");
+
+            return data; // Cast to non-nullable array type
+        }
+
+        /// <summary>
+        /// Gets the primary key data.
+        /// </summary>
+        public object?[] Data { get; }
+
+        /// <summary>
+        /// Determines whether the specified object is equal to the current object.
+        /// </summary>
+        /// <param name="other">The object to compare with the current object.</param>
+        /// <returns>true if the specified object is equal to the current object; otherwise, false.</returns>
+        public bool Equals(PrimaryKeys? other)
+        {
+            if (other is null)
                 return false;
             if (ReferenceEquals(this, other))
                 return true;
@@ -41,19 +83,27 @@ namespace DataLinq.Instances
             return Data.SequenceEqual(other.Data);
         }
 
-        public override bool Equals(object obj)
+        /// <summary>
+        /// Determines whether the specified object is equal to the current object.
+        /// </summary>
+        /// <param name="obj">The object to compare with the current object.</param>
+        /// <returns>true if the specified object is equal to the current object; otherwise, false.</returns>
+        public override bool Equals(object? obj)
         {
-            if (ReferenceEquals(null, obj))
+            if (obj is null)
                 return false;
             if (ReferenceEquals(this, obj))
                 return true;
             if (obj.GetType() != typeof(PrimaryKeys))
                 return false;
 
-            return ArraysEqual(Data, (obj as PrimaryKeys).Data);
-            //return Data.SequenceEqual((obj as RowKey).Data);
+            return ArraysEqual(Data, ((PrimaryKeys)obj).Data);
         }
 
+        /// <summary>
+        /// Serves as the default hash function.
+        /// </summary>
+        /// <returns>A hash code for the current object.</returns>
         public override int GetHashCode()
         {
             unchecked
@@ -65,7 +115,9 @@ namespace DataLinq.Instances
                 int hash = 17;
                 for (int i = 0; i < Data.Length; i++)
                 {
-                    hash = hash * 31 + Data[i].GetHashCode();
+                    // Use a fixed hash code for null items, e.g., 0.
+                    // If item is not null, use item's hash code.
+                    hash = hash * 31 + (Data[i]?.GetHashCode() ?? 0);
                 }
                 return hash;
             }
@@ -73,27 +125,29 @@ namespace DataLinq.Instances
 
         static bool ArraysEqual<T>(T[] a1, T[] a2)
         {
-            if (a1.Length == a2.Length)
+            // If either array is null or lengths are different, return false.
+            if (a1 == null || a2 == null || a1.Length != a2.Length)
+                return false;
+
+            for (int i = 0; i < a1.Length; i++)
             {
-                for (int i = 0; i < a1.Length; i++)
-                {
-                    if (!a1[i].Equals(a2[i]))
-                    {
-                        return false;
-                    }
-                }
-                return true;
+                // Use the static Object.Equals method to compare the elements
+                // which safely handles nulls.
+                if (!Object.Equals(a1[i], a2[i]))
+                    return false;
             }
-            return false;
+
+            // All checks passed, arrays are equal.
+            return true;
         }
 
-        private IEnumerable<object> ReadReader(IDataLinqDataReader reader, TableMetadata table)
+        private static IEnumerable<object?> ReadReader(IDataLinqDataReader reader, TableMetadata table)
         {
             foreach (var column in table.PrimaryKeyColumns)
                 yield return reader.ReadColumn(column);
         }
 
-        private IEnumerable<object> ReadRow(RowData row)
+        private static IEnumerable<object> ReadRow(RowData row)
         {
             foreach (var column in row.Table.PrimaryKeyColumns)
                 yield return row.GetValue(column.DbName);

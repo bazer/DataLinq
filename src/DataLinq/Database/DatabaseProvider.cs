@@ -91,7 +91,7 @@ namespace DataLinq
 
         public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches.Single(x => x.Table == table);
 
-        protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, string databaseName = null)
+        protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, string? databaseName = null)
         {
             DatabaseType = databaseType;
             DatabaseName = databaseName;
@@ -141,9 +141,9 @@ namespace DataLinq
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
         public abstract DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
 
-        public abstract string GetExists(string databaseName = null);
+        public abstract string GetExists(string? databaseName = null);
         public abstract bool FileOrServerExists();
-        public abstract void CreateDatabase(string databaseName = null);
+        public abstract void CreateDatabase(string? databaseName = null);
 
         public abstract IDataLinqDataWriter GetWriter();
         //public abstract void RegisterProvider();

@@ -22,7 +22,7 @@ namespace DataLinq
     {
         public DatabaseTransactionStatus Status { get; private set; } = DatabaseTransactionStatus.Closed;
 
-        public event EventHandler<DatabaseTransactionStatusChangeEventArgs> OnStatusChanged;
+        public event EventHandler<DatabaseTransactionStatusChangeEventArgs>? OnStatusChanged;
         public string ConnectionString { get; }
         public IDbTransaction DbTransaction { get; protected set; }
         public TransactionType Type { get; protected set; }

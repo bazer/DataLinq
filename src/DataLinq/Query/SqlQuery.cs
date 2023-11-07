@@ -13,26 +13,20 @@ namespace DataLinq.Query
 {
     public interface IQuery
     {
-        //Transaction Transaction { get; }
-
-        //IDbCommand ToDbCommand();
-
-        Sql ToSql(string paramPrefix = null);
-
-        //int ParameterCount { get; }
+        Sql ToSql(string? paramPrefix = null);
     }
 
     public class SqlQuery : SqlQuery<object>
     {
-        public SqlQuery(Transaction transaction, string alias = null) : base(transaction, alias)
+        public SqlQuery(Transaction transaction, string? alias = null) : base(transaction, alias)
         {
         }
 
-        public SqlQuery(TableMetadata table, Transaction transaction, string alias = null) : base(table, transaction, alias)
+        public SqlQuery(TableMetadata table, Transaction transaction, string? alias = null) : base(table, transaction, alias)
         {
         }
 
-        public SqlQuery(string tableName, Transaction transaction, string alias = null) : base(tableName, transaction, alias)
+        public SqlQuery(string tableName, Transaction transaction, string? alias = null) : base(tableName, transaction, alias)
         {
         }
 
@@ -66,12 +60,12 @@ namespace DataLinq.Query
         public Transaction Transaction { get; }
 
         public TableMetadata Table { get; }
-        public string Alias { get; }
+        public string? Alias { get; }
         internal string DbName => string.IsNullOrEmpty(Alias)
             ? Table.DbName
             : $"{Table.DbName} {Alias}";
 
-        public SqlQuery(Transaction transaction, string alias = null)
+        public SqlQuery(Transaction transaction, string? alias = null)
         {
             CheckTransaction(transaction);
 
@@ -80,7 +74,7 @@ namespace DataLinq.Query
             this.Alias = alias;
         }
 
-        public SqlQuery(TableMetadata table, Transaction transaction, string alias = null)
+        public SqlQuery(TableMetadata table, Transaction transaction, string? alias = null)
         {
             CheckTransaction(transaction);
 
@@ -89,7 +83,7 @@ namespace DataLinq.Query
             this.Alias = alias;
         }
 
-        public SqlQuery(string tableName, Transaction transaction, string alias = null)
+        public SqlQuery(string tableName, Transaction transaction, string? alias = null)
         {
             CheckTransaction(transaction);
 
@@ -144,7 +138,7 @@ namespace DataLinq.Query
             return new Update<T>(this);
         }
 
-        public Where<T> Where(string columnName, string alias = null)
+        public Where<T> Where(string columnName, string? alias = null)
         {
             if (WhereGroup == null)
                 WhereGroup = new WhereGroup<T>(this);
@@ -160,7 +154,7 @@ namespace DataLinq.Query
             return WhereGroup.And(func);
         }
 
-        public Where<T> WhereNot(string columnName, string alias = null)
+        public Where<T> WhereNot(string columnName, string? alias = null)
         {
             if (WhereGroup == null)
                 WhereGroup = new WhereGroup<T>(this);
@@ -245,22 +239,22 @@ namespace DataLinq.Query
             return sql;
         }
 
-        public Join<T> Join(string tableName, string alias = null)
+        public Join<T> Join(string tableName, string? alias = null)
         {
             return Join(tableName, alias, JoinType.Inner);
         }
 
-        public Join<T> LeftJoin(string tableName, string alias = null)
+        public Join<T> LeftJoin(string tableName, string? alias = null)
         {
             return Join(tableName, alias, JoinType.LeftOuter);
         }
 
-        public Join<T> RightJoin(string tableName, string alias = null)
+        public Join<T> RightJoin(string tableName, string? alias = null)
         {
             return Join(tableName, alias, JoinType.RightOuter);
         }
 
-        private Join<T> Join(string tableName, string alias, JoinType type)
+        private Join<T> Join(string tableName, string? alias, JoinType type)
         {
             if (JoinList == null)
                 JoinList = new List<Join<T>>();
@@ -287,7 +281,7 @@ namespace DataLinq.Query
             return sql;
         }
 
-        public SqlQuery<T> OrderBy(string columnName, string alias = null, bool ascending = true)
+        public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true)
         {
             if (alias == null)
                 (columnName, alias) = QueryUtils.ParseColumnNameAndAlias(columnName);
@@ -295,7 +289,7 @@ namespace DataLinq.Query
             return OrderBy(this.Table.Columns.Single(x => x.DbName == columnName), alias, ascending);
         }
 
-        public SqlQuery<T> OrderBy(Column column, string alias = null, bool ascending = true)
+        public SqlQuery<T> OrderBy(Column column, string? alias = null, bool ascending = true)
         {
             if (!this.Table.Columns.Contains(column))
                 throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
@@ -305,7 +299,7 @@ namespace DataLinq.Query
             return this;
         }
 
-        public SqlQuery<T> OrderByDesc(string columnName, string alias = null)
+        public SqlQuery<T> OrderByDesc(string columnName, string? alias = null)
         {
             if (alias == null)
                 (columnName, alias) = QueryUtils.ParseColumnNameAndAlias(columnName);
@@ -313,7 +307,7 @@ namespace DataLinq.Query
             return OrderByDesc(this.Table.Columns.Single(x => x.DbName == columnName), alias);
         }
 
-        public SqlQuery<T> OrderByDesc(Column column, string alias = null)
+        public SqlQuery<T> OrderByDesc(Column column, string? alias = null)
         {
             if (!this.Table.Columns.Contains(column))
                 throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");

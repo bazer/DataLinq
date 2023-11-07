@@ -1,7 +1,5 @@
 ﻿using DataLinq.Metadata;
-using DataLinq.Utils;
 using System;
-using System.Linq;
 
 namespace DataLinq
 {

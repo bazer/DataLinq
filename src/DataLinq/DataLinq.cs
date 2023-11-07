@@ -1,18 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using DataLinq.Interfaces;
-
-namespace DataLinq
+﻿namespace DataLinq
 {
+    /// <summary>
+    /// Enumeration of database types.
+    /// </summary>
     public enum DatabaseType
     {
+        /// <summary>
+        /// Default database type.
+        /// </summary>
         Default,
+        /// <summary>
+        /// MySQL database type.
+        /// </summary>
         MySQL,
+        /// <summary>
+        /// SQLite database type.
+        /// </summary>
         SQLite
-    }
-
-    public static class DataLinq
-    {
     }
 }

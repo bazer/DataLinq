@@ -97,7 +97,7 @@ namespace DataLinq.Config
                 return $"Database '{db.Name}' has more than one type of connection to read from, you need to select which one (-t or --type)";
             }
 
-            DataLinqDatabaseConnection connection = null;
+            DataLinqDatabaseConnection? connection = null;
             if (databaseType != null)
             {
                 connection = db.Connections.SingleOrDefault(x => x.Type == databaseType);

@@ -22,7 +22,7 @@ namespace DataLinq.Metadata
         public ModelMetadata Model { get; set; }
 
         public List<Column> PrimaryKeyColumns =>
-            primaryKeyColumns ?? (primaryKeyColumns = Columns.Where(x => x.PrimaryKey).ToList());
+            primaryKeyColumns ??= Columns.Where(x => x.PrimaryKey).ToList();
 
         public List<ColumnIndex> ColumnIndices { get; set; } = new List<ColumnIndex>();
 

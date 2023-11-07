@@ -63,7 +63,7 @@ namespace DataLinq.Mutation
             {
                 foreach (var column in Table.Columns)
                 {
-                    var val = writer.WriteColumn(column, column.ValueProperty.GetValue(Model));
+                    var val = writer.ConvertColumnValue(column, column.ValueProperty.GetValue(Model));
 
                     //if (column.ValueProperty.CsType.BaseType == typeof(Enum) && column.ValueProperty.Column.DbTypes.Any(x => x.Name == "enum") && (int)val == 0)
                     //    val = null;
@@ -79,17 +79,17 @@ namespace DataLinq.Mutation
             else if (Type == TransactionChangeType.Update)
             {
                 foreach (var column in Table.PrimaryKeyColumns)
-                    query.Where(column.DbName).EqualTo(writer.WriteColumn(column, column.ValueProperty.GetValue(Model)));
+                    query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, column.ValueProperty.GetValue(Model)));
 
                 foreach (var change in (Model as MutableInstanceBase).GetChanges())
-                    query.Set(change.Key.DbName, writer.WriteColumn(change.Key, change.Value));
+                    query.Set(change.Key.DbName, writer.ConvertColumnValue(change.Key, change.Value));
 
                 return query.UpdateQuery();
             }
             else if (Type == TransactionChangeType.Delete)
             {
                 foreach (var column in Table.PrimaryKeyColumns)
-                    query.Where(column.DbName).EqualTo(writer.WriteColumn(column, column.ValueProperty.GetValue(Model)));
+                    query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, column.ValueProperty.GetValue(Model)));
 
                 return query.DeleteQuery();
             }

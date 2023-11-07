@@ -19,13 +19,13 @@ namespace DataLinq.Query
         readonly string TableName;
         readonly JoinType Type;
         protected WhereGroup<T> WhereContainer;
-        private readonly string Alias;
+        private readonly string? Alias;
 
         internal string DbName => string.IsNullOrEmpty(Alias)
             ? TableName
             : $"{TableName} {Alias}";
 
-        internal Join(SqlQuery<T> query, string tableName, string alias, JoinType type)
+        internal Join(SqlQuery<T> query, string tableName, string? alias, JoinType type)
         {
             this.Query = query;
             this.TableName = tableName;

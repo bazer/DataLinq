@@ -23,7 +23,7 @@ namespace DataLinq.Instances
         internal CallType CallType { get; }
         internal MethodType MethodType { get; }
         internal string Name { get; }
-        internal object Value { get; }
+        internal object? Value { get; }
 
         internal InvocationInfo(IInvocation invocation)
         {
@@ -41,7 +41,7 @@ namespace DataLinq.Instances
             if ((this.CallType == CallType.Get && invocation.Arguments.Length == 1) || (this.CallType == CallType.Set && invocation.Arguments.Length == 2))
             {
                 this.MethodType = MethodType.Indexer;
-                this.Name = invocation.Arguments[0] as string;
+                this.Name = (string)invocation.Arguments[0];
             }
             else if (this.CallType == CallType.Method)
             {
