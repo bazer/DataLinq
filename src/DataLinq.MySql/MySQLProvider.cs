@@ -57,7 +57,7 @@ namespace DataLinq.MySql
             connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
         }
 
-        public override void CreateDatabase(string databaseName = null)
+        public override void CreateDatabase(string? databaseName = null)
         {
             if (databaseName == null && DatabaseName == null)
                 throw new ArgumentNullException("DatabaseName not defined");
@@ -88,7 +88,7 @@ namespace DataLinq.MySql
             return new MySqlDatabaseTransaction(dbTransaction, type);
         }
 
-        public override string GetExists(string databaseName = null)
+        public override string GetExists(string? databaseName = null)
         {
             if (databaseName == null && DatabaseName == null)
                 throw new ArgumentNullException("DatabaseName not defined");

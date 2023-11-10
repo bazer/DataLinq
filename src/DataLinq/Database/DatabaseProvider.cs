@@ -49,10 +49,7 @@ namespace DataLinq
         public DatabaseMetadata Metadata { get; }
         public State State { get; }
 
-        protected string[] ProviderNames { get; set; }
-        protected IDbConnection activeConnection;
-
-        private static object lockObject = new object();
+        private static readonly object lockObject = new();
 
         /// <summary>
         /// Retrieves the table cache for a given table metadata.
@@ -70,26 +67,22 @@ namespace DataLinq
         /// <param name="databaseName">The name of the database (optional).</param>
         protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, string? databaseName = null)
         {
-            DatabaseType = databaseType;
-            DatabaseName = databaseName;
-            ConnectionString = connectionString;
-
             lock (lockObject)
             {
                 if (DatabaseMetadata.LoadedDatabases.TryGetValue(type, out var metadata))
+                {
                     Metadata = metadata;
+                }
                 else
                 {
                     Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(type);
-                    //Metadata.DatabaseProvider = this;
-
                     DatabaseMetadata.LoadedDatabases.TryAdd(type, Metadata);
                 }
             }
 
-            //if (Name == null)
-            //    Name = Metadata.Name;
-
+            DatabaseType = databaseType;
+            DatabaseName = databaseName ?? Metadata.DbName;
+            ConnectionString = connectionString;
             State = new State(this);
         }
 

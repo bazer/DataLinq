@@ -17,14 +17,14 @@ namespace DataLinq.Metadata
             DbName = dbName ?? name;
         }
 
-        public string Name { get; set; }
-        public string DbName { get; set; }
-        public Type CsType { get; set; }
-        public string CsTypeName { get; set; }
+        public string Name { get; internal set; }
+        public string DbName { get; }
+        public Type? CsType { get; }
+        public string CsTypeName { get; }
         public Attribute[] Attributes { get; set; }
         public List<TableModelMetadata> TableModels { get; set; } = new();
-        public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
-        public List<(CacheCleanupType cleanupType, long amount)> CacheCleanup { get; set; } = new();
-        public bool UseCache { get; set; }
+        public List<(CacheLimitType limitType, long amount)> CacheLimits { get; internal set; } = new();
+        public List<(CacheCleanupType cleanupType, long amount)> CacheCleanup { get; internal set; } = new();
+        public bool UseCache { get; internal set; }
     }
 }

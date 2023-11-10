@@ -1,9 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using DataLinq.Attributes;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Xml.Linq;
-using DataLinq.Attributes;
-using DataLinq.Cache;
 
 namespace DataLinq.Metadata
 {
