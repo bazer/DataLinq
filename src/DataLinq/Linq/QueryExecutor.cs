@@ -1,9 +1,8 @@
-﻿using Remotion.Linq;
-using Remotion.Linq.Clauses;
-using DataLinq.Instances;
-using DataLinq.Metadata;
+﻿using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using Remotion.Linq;
+using Remotion.Linq.Clauses;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,18 +11,45 @@ using System.Reflection;
 
 namespace DataLinq.Linq
 {
+    /// <summary>
+    /// The QueryExecutor class is responsible for converting a QueryModel into SQL queries and executing them
+    /// against a database using a provided Transaction context and TableMetadata.
+    /// </summary>
+    /// <remarks>
+    /// This class serves as a critical component in the LINQ to SQL translation and execution process.
+    /// It handles the parsing and execution of different query types such as collections, single entities,
+    /// and scalar values. It also applies result operators to the queries.
+    /// 
+    /// TODO: Consider implementing async versions of the Execute methods to improve performance
+    /// on I/O bound database operations and to allow for scalability in applications requiring asynchronous processing.
+    /// </remarks>
     internal class QueryExecutor : IQueryExecutor
     {
+        /// <summary>
+        /// Initializes a new instance of the QueryExecutor class with the specified transaction and table metadata.
+        /// </summary>
         internal QueryExecutor(Transaction transaction, TableMetadata table)
         {
             this.Transaction = transaction;
             this.Table = table;
         }
 
+        /// <summary>Gets the transaction associated with the query executor.</summary>
         private Transaction Transaction { get; }
 
+        /// <summary>Gets the metadata for the table that queries will be executed against.</summary>
         private TableMetadata Table { get; }
 
+        /// <summary>
+        /// Parses the provided QueryModel into a SQL query.
+        /// </summary>
+        /// <remarks>
+        /// The method parses through body clauses and result operators to construct a SQL query.
+        /// It uses the Where and OrderBy clauses to form the SQL conditions and ordering.
+        /// 
+        /// TODO: Enhance the parsing logic to support additional query expressions and body clauses
+        /// for a richer query building experience.
+        /// </remarks>
         private Select<object> ParseQueryModel(QueryModel queryModel)
         {
             var query = new SqlQuery(Table, Transaction);
@@ -90,6 +116,16 @@ namespace DataLinq.Linq
             return x => (T)x;
         }
 
+        /// <summary>
+        /// Executes the query represented by the QueryModel as a collection of objects of type T.
+        /// </summary>
+        /// <remarks>
+        /// This method performs the actual execution of the SQL query and maps the result set
+        /// to a collection of objects of the specified type using a projection function.
+        /// 
+        /// TODO: Consider implementing caching strategies for query results to minimize database hits
+        /// for frequently executed queries.
+        /// </remarks>
         public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
         {
             return ParseQueryModel(queryModel)
@@ -97,6 +133,16 @@ namespace DataLinq.Linq
                 .Select(GetSelectFunc<T>(queryModel.SelectClause));
         }
 
+        /// <summary>
+        /// Executes the query represented by the QueryModel and returns a single object of type T.
+        /// </summary>
+        /// <remarks>
+        /// This method caters to executing queries that are expected to return a single result.
+        /// It applies the correct result operator based on the QueryModel's specifications.
+        /// 
+        /// TODO: Introduce error handling to provide more informative exceptions when queries
+        /// do not behave as expected, e.g., when a Single() query returns multiple results.
+        /// </remarks>
         public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
         {
             var sequence = ParseQueryModel(queryModel)
@@ -122,6 +168,15 @@ namespace DataLinq.Linq
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Executes the query represented by the QueryModel and returns a scalar value of type T.
+        /// </summary>
+        /// <remarks>
+        /// This method is used for queries that are expected to return a single scalar value, such as counts or existence checks.
+        /// 
+        /// TODO: Investigate the possibility of extending support for more complex aggregate functions and
+        /// grouping operations to enhance the capability of scalar queries.
+        /// </remarks>
         public T ExecuteScalar<T>(QueryModel queryModel)
         {
             var keys = ParseQueryModel(queryModel)

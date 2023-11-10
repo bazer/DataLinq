@@ -1,5 +1,6 @@
 ﻿using DataLinq.Attributes;
 using DataLinq.Extensions;
+using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using DataLinq.Workers;
 using System;
@@ -49,7 +50,7 @@ namespace DataLinq.Cache
         }
 
 
-        public void ApplyChanges(IEnumerable<StateChange> changes, Transaction transaction = null)
+        public void ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
         {
             foreach (var change in changes.GroupBy(x => x.Table))
             {

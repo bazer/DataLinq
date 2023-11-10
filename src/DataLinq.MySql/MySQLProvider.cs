@@ -6,7 +6,6 @@ using DataLinq.Query;
 using MySqlConnector;
 using System;
 using System.Data;
-using System.Data.Common;
 using System.Runtime.CompilerServices;
 
 namespace DataLinq.MySql

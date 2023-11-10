@@ -1,4 +1,5 @@
-﻿using DataLinq.Metadata;
+﻿using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using System;
 using System.Collections.Generic;

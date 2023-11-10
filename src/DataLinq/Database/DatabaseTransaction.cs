@@ -48,9 +48,9 @@ namespace DataLinq
         
         public abstract IDataLinqDataReader ExecuteReader(IDbCommand command);
         public abstract IDataLinqDataReader ExecuteReader(string query);
-        public abstract object ExecuteScalar(IDbCommand command);
+        public abstract object? ExecuteScalar(IDbCommand command);
         public abstract T ExecuteScalar<T>(IDbCommand command);
-        public abstract object ExecuteScalar(string query);
+        public abstract object? ExecuteScalar(string query);
         public abstract T ExecuteScalar<T>(string query);
         public abstract int ExecuteNonQuery(IDbCommand command);
         public abstract int ExecuteNonQuery(string query);

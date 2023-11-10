@@ -10,7 +10,7 @@ namespace DataLinq.Tests
         [MemberData(nameof(GetEmployees))]
         public void LazyLoadSingleValue(Database<Employees> employeesDb)
         {
-            var manager = employeesDb.Query().Managers.Single(x => x.dept_fk == "d005" && x.emp_no == 4923);
+            var manager = employeesDb.Query().Managers.Single(x => x.dept_fk == "d005" && x.emp_no == 1251);
 
             Assert.NotNull(manager.Department);
             Assert.Equal("d005", manager.Department.DeptNo);

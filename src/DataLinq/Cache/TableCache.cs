@@ -1,6 +1,7 @@
 ﻿using DataLinq.Attributes;
 using DataLinq.Extensions;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -42,7 +43,7 @@ namespace DataLinq.Cache
             return new List<object>();
         }
 
-        public int ApplyChanges(IEnumerable<StateChange> changes, Transaction transaction = null)
+        public int ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
         {
             var numRows = 0;
 

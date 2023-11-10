@@ -7,32 +7,48 @@ using System.Linq.Expressions;
 
 namespace DataLinq.Linq.Visitors
 {
+    /// <summary>
+    /// The WhereVisitor class is responsible for traversing an expression tree 
+    /// that represents a LINQ Where clause and converting it into the corresponding 
+    /// SQL query predicates.
+    /// </summary>
     internal class WhereVisitor : ExpressionVisitor
     {
         protected SqlQuery query;
+        // Tracks the number of negations (NOT operations) encountered.
         NonNegativeInt negations = new NonNegativeInt(0);
+        // Tracks the number of OR operations encountered.
         NonNegativeInt ors = new NonNegativeInt(0);
+        // A stack to manage groups of WHERE clauses.
         Stack<WhereGroup<object>> whereGroups = new Stack<WhereGroup<object>>();
 
+        /// <summary>
+        /// Initializes a new instance of the WhereVisitor with a given SQL query.
+        /// </summary>
+        /// <param name="query">The SQL query to be built upon.</param>
         internal WhereVisitor(SqlQuery query)
         {
             this.query = query;
         }
 
+        /// <summary>
+        /// Parses a given WhereClause into SQL query predicates.
+        /// </summary>
+        /// <param name="whereClause">The LINQ WhereClause to parse.</param>
         internal void Parse(WhereClause whereClause)
         {
             Visit(whereClause.Predicate);
         }
 
+        // TODO: Consider handling other unary operators if needed.
         protected override Expression VisitUnary(UnaryExpression node)
         {
             if (node.NodeType == ExpressionType.Not)
                 negations.Increment();
 
-            // Check if the node is a conversion operation
+            // Unwraps nested Convert operations, if any, to get to the actual expression.
             if (node.NodeType == ExpressionType.Convert)
             {
-                // Recursively handle nested Convert operations
                 while (node.NodeType == ExpressionType.Convert && node.Operand is UnaryExpression expr)
                     node = expr;
 
@@ -44,7 +60,6 @@ namespace DataLinq.Linq.Visitors
 
         protected override Expression VisitExtension(Expression node)
         {
-            // If the node can be reduced, reduce it and visit the reduced form.
             if (node.CanReduce)
             {
                 return Visit(node.Reduce());
@@ -52,12 +67,9 @@ namespace DataLinq.Linq.Visitors
 
             if (node is Remotion.Linq.Clauses.Expressions.QuerySourceReferenceExpression querySourceRef)
             {
-                // Handle the query source reference expression
-                // Depending on what you need, you might simply return it as-is
                 return querySourceRef;
             }
 
-            // Otherwise, fall back to the base behavior.
             return base.VisitExtension(node);
         }
 
@@ -65,8 +77,6 @@ namespace DataLinq.Linq.Visitors
         {
             if (node.Member.Name == "Value" && Nullable.GetUnderlyingType(node.Expression.Type) != null)
             {
-                // This is an access to the Value property of a nullable type.
-                // Handle this scenario separately.
                 var nonNullableType = Nullable.GetUnderlyingType(node.Expression.Type);
                 var memberExp = Expression.Property(node.Expression, nonNullableType.GetProperty("Value"));
 
@@ -76,7 +86,8 @@ namespace DataLinq.Linq.Visitors
             return base.VisitMember(node);
         }
 
-
+        // TODO: Extend to support additional method calls as necessary.
+        // Throws exceptions for unsupported scenarios, indicating areas that require implementation.
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
             if (node.Object == null)
@@ -110,6 +121,8 @@ namespace DataLinq.Linq.Visitors
             return node;
         }
 
+        // Handles binary operations and translates them into SQL predicates.
+        // TODO: Handle additional binary expressions as needed.
         protected override Expression VisitBinary(BinaryExpression node)
         {
             var left = node.Left;
@@ -146,20 +159,31 @@ namespace DataLinq.Linq.Visitors
                 ? group.AddWhereNot(fields.Key, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
                 : group.AddWhere(fields.Key, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And);
 
-            if (node.NodeType == ExpressionType.Equal)
-                where.EqualTo(fields.Value);
-            else if (node.NodeType == ExpressionType.NotEqual)
-                where.NotEqualTo(fields.Value);
-            else if (node.NodeType == ExpressionType.GreaterThan)
-                where.GreaterThan(fields.Value);
-            else if (node.NodeType == ExpressionType.GreaterThanOrEqual)
-                where.GreaterThanOrEqual(fields.Value);
-            else if (node.NodeType == ExpressionType.LessThan)
-                where.LessThan(fields.Value);
-            else if (node.NodeType == ExpressionType.LessThanOrEqual)
-                where.LessThanOrEqual(fields.Value);
-            else
-                throw new NotImplementedException("Operation not implemented");
+            // TODO: Implement additional comparison operations as necessary.
+            // Translates the binary expression into the corresponding SQL predicate.
+            switch (node.NodeType)
+            {
+                case ExpressionType.Equal:
+                    where.EqualTo(fields.Value);
+                    break;
+                case ExpressionType.NotEqual:
+                    where.NotEqualTo(fields.Value);
+                    break;
+                case ExpressionType.GreaterThan:
+                    where.GreaterThan(fields.Value);
+                    break;
+                case ExpressionType.GreaterThanOrEqual:
+                    where.GreaterThanOrEqual(fields.Value);
+                    break;
+                case ExpressionType.LessThan:
+                    where.LessThan(fields.Value);
+                    break;
+                case ExpressionType.LessThanOrEqual:
+                    where.LessThanOrEqual(fields.Value);
+                    break;
+                default:
+                    throw new NotImplementedException("Operation not implemented");
+            }
 
             return node;
         }
