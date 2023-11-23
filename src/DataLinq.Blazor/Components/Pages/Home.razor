@@ -1,0 +1,101 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using DataLinq.Blazor.Code
+@using DataLinq.Cache
+
+<PageTitle>Employees</PageTitle>
+
+<h1>Statistics</h1>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Table</th>
+            <th>Rows</th>
+            <th>Size</th>
+            <th>Newest</th>
+            <th>Oldest</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var t in snapshot.TableCaches)
+        {
+            <tr>
+                <td>@t.TableName</td>
+                <td>@t.RowCount</td>
+                <td>@t.TotalBytesFormatted</td>
+                <td>@t.NewestDateTime</td>
+                <td>@t.OldestDateTime</td>
+            </tr>
+        }
+        <tr>
+            <td>Total</td>
+            <td>@snapshot.RowCount</td>
+            <td>@snapshot.TotalBytesFormatted</td>
+            <td>@snapshot.NewestDateTime</td>
+            <td>@snapshot.OldestDateTime</td>
+        </tr>
+    </tbody>
+</table>
+<br />
+<button class="btn btn-primary" @onclick="RandomlyLoadData">Randomly load data</button>
+<button class="btn btn-primary" @onclick="MakeSnapshot">Make snapshot</button>
+<p role="status">Loaded rows: @currentCount</p>
+<br />
+<table class="table">
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>Rows</th>
+            <th>Size</th>
+            <th>Newest</th>
+            <th>Oldest</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var snapshot in cache.History.GetHistory().OrderByDescending(x => x.Timestamp))
+        {
+            <tr>
+                <td>@snapshot.Timestamp</td>
+                <td>@snapshot.RowCount</td>
+                <td>@snapshot.TotalBytesFormatted</td>
+                <td>@snapshot.NewestDateTime</td>
+                <td>@snapshot.OldestDateTime</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<br />
+
+
+
+@code {
+    private DatabaseCache cache;
+    private DatabaseCacheSnapshot snapshot;
+    private RandomTableData randomTableData;
+
+    protected override async Task OnInitializedAsync()
+    {
+        cache = DL.Employees.Provider.State.Cache;
+        snapshot = cache.GetLatestSnapshot();
+
+        randomTableData = new RandomTableData(DL.Employees);
+    }
+
+
+    private int currentCount = 0;
+
+    private void RandomlyLoadData()
+    {
+        var rows = randomTableData.GetRandomData().ToList();
+
+        currentCount = rows.Count;
+        snapshot = cache.MakeSnapshot();
+    }
+
+    private void MakeSnapshot()
+    {
+        snapshot = cache.MakeSnapshot();
+    }
+}
