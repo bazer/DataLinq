@@ -17,6 +17,8 @@ namespace DataLinq.Cache
 
         public CleanCacheWorker CleanCacheWorker { get; }
 
+        public CacheHistory History { get; } = new();
+
         public DatabaseCache(IDatabaseProvider database)
         {
             this.Database = database;
@@ -24,6 +26,8 @@ namespace DataLinq.Cache
             this.TableCaches =  this.Database.Metadata.TableModels
                 .Select(x => new TableCache(x.Table, database))
                 .ToList();
+
+            this.MakeSnapshot();
 
             var cacheCleanupInterval = database.Metadata.CacheCleanup;
 
@@ -35,6 +39,19 @@ namespace DataLinq.Cache
                 this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), timespan);
                 this.CleanCacheWorker.Start();
             }
+        }
+
+        public DatabaseCacheSnapshot GetLatestSnapshot()
+        {
+            return History.GetLatest() ?? MakeSnapshot();
+        }
+
+        public DatabaseCacheSnapshot MakeSnapshot()
+        {
+            var snapshot = new DatabaseCacheSnapshot(DateTime.UtcNow, TableCaches.Select(x => x.MakeSnapshot()).ToArray());
+            History.Add(snapshot);
+
+            return snapshot;
         }
 
         private TimeSpan GetFromCacheCleanupType(CacheCleanupType type, long amount)

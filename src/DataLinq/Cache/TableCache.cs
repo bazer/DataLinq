@@ -5,11 +5,11 @@ using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using DataLinq.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace DataLinq.Cache
 {
@@ -27,10 +27,13 @@ namespace DataLinq.Cache
             this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Count;
         }
 
+        public long NewestTick => KeysTicks.TryPeek(out var row) ? row.ticks : 0;
+        public long OldestTick => KeysTicks.IsEmpty ? 0 : KeysTicks.LastOrDefault().ticks;
         public int RowCount => Rows.Count;
         public int KeysTicksCount => KeysTicks.Count;
         public int TransactionRowsCount => TransactionRows.Count;
         public long TotalBytes => KeysTicks.Sum(x => x.size);
+        public string TotalBytesFormatted => TotalBytes.ToFileSize();
         public TableMetadata Table { get; }
         public IDatabaseProvider Database { get; }
 
@@ -357,6 +360,9 @@ namespace DataLinq.Cache
             }
         }
 
-
+        public TableCacheSnapshot MakeSnapshot()
+        {
+            return new(Table.DbName, RowCount, TotalBytes, NewestTick, OldestTick);
+        }
     }
 }

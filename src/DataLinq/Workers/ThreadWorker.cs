@@ -1,10 +1,6 @@
 ﻿using DataLinq.Interfaces;
-using DataLinq.Metadata;
-using DataLinq.Mutation;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -152,7 +148,7 @@ namespace DataLinq.Workers
 
         protected override void DoWork(int value)
         {
-            var rows = DatabaseProvider.State?.Cache.RemoveRowsBySettings();
+            var rows = DatabaseProvider.State?.Cache.RemoveRowsBySettings().ToList();
             //TODO: Logging
 
             if (WorkQueue.Count == 0)
