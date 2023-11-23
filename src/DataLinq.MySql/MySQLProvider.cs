@@ -50,6 +50,9 @@ namespace DataLinq.MySql
         public MySQLProvider(string connectionString) : base(connectionString, DatabaseType.MySQL)
         {
             connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+            
+            if (!string.IsNullOrWhiteSpace(connectionStringBuilder.Database))
+                DatabaseName = connectionStringBuilder.Database;
         }
 
         public MySQLProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.MySQL, databaseName)

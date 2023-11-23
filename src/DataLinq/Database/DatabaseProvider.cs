@@ -41,7 +41,7 @@ namespace DataLinq
     /// </summary>
     public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     {
-        public string DatabaseName { get; }
+        public string DatabaseName { get; protected set; }
         public DatabaseType DatabaseType { get; }
         public abstract IDatabaseProviderConstants Constants { get; }
 
