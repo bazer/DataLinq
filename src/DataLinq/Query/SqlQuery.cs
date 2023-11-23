@@ -55,7 +55,8 @@ namespace DataLinq.Query
         protected List<Join<T>> JoinList = new List<Join<T>>();
         internal List<OrderBy> OrderByList = new List<OrderBy>();
         internal List<Column> WhatList;
-        protected (int offset, int rowCount)? limit;
+        protected int? limit;
+        protected int? offset;
         public bool LastIdQuery { get; protected set; }
         public Transaction Transaction { get; }
 
@@ -226,9 +227,9 @@ namespace DataLinq.Query
                 throw new InvalidQueryException("Value is not a member or constant.");
         }
 
-        internal Column GetColumn(MemberExpression expression)
+        internal Column? GetColumn(MemberExpression expression)
         {
-            return Table.Columns.Single(x => x.ValueProperty.CsName == expression.Member.Name);
+            return Table.Columns.SingleOrDefault(x => x.ValueProperty.CsName == expression.Member.Name);
         }
 
         internal Sql GetJoins(Sql sql, string paramPrefix)
@@ -317,34 +318,40 @@ namespace DataLinq.Query
             return this;
         }
 
-        public SqlQuery<T> Limit(int rowCount)
+        public SqlQuery<T> Limit(int limit)
         {
-            if (rowCount < 0)
+            if (limit < 0)
                 throw new ArgumentException($"Argument 'rows' must be positive");
 
-            this.limit = (0, rowCount);
+            this.limit = limit;
 
             return this;
         }
 
-        public SqlQuery<T> Limit(int offset, int rowCount)
+        public SqlQuery<T> Limit(int limit, int offset)
         {
-            if (rowCount < 0)
+            if (limit < 0)
                 throw new ArgumentException($"Argument 'rows' must be positive");
 
-            this.limit = (offset, rowCount);
+            this.limit = limit;
+            this.offset = offset;
+
+            return this;
+        }
+
+        public SqlQuery<T> Offset(int offset)
+        {
+            if (offset < 0)
+                throw new ArgumentException($"Argument 'rows' must be positive");
+
+            this.offset = offset;
 
             return this;
         }
 
         internal Sql GetLimit(Sql sql)
         {
-            if (!this.limit.HasValue)
-                return sql;
-
-            sql.AddText($"\nLIMIT {limit?.offset}, {limit?.rowCount}");
-
-            return sql;
+            return Transaction.Provider.GetLimitOffset(sql, limit, offset);
         }
 
         internal Sql GetSet(Sql sql, string paramPrefix)

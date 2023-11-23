@@ -32,6 +32,8 @@ namespace DataLinq.Interfaces
 
         Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string prefix);
 
+        Sql GetLimitOffset(Sql sql, int? limit, int? offset);
+
         string GetExists(string databaseName);
 
         void CreateDatabase(string databaseName);

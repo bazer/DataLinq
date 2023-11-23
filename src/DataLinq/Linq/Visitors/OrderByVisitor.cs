@@ -32,6 +32,9 @@ namespace DataLinq.Linq.Visitors
             {
                 var column = select.GetColumn(node);
 
+                if (column == null)
+                    throw new Exception($"Database column for property '{node.Member.Name}' not found");
+
                 select.OrderBy(column, null, direction == OrderingDirection.Asc);
             }
             else

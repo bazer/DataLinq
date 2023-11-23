@@ -101,6 +101,21 @@ namespace DataLinq.SQLite
             return sql.AddParameters(new SqliteParameter("@" + key, value ?? DBNull.Value));
         }
 
+        public override Sql GetLimitOffset(Sql sql, int? limit, int? offset)
+        {
+            if (!limit.HasValue && !offset.HasValue)
+                return sql;
+
+            if (limit.HasValue && !offset.HasValue)
+                sql.AddText($"\nLIMIT {limit}");
+            else if (!limit.HasValue && offset.HasValue)
+                sql.AddText($"\nLIMIT -1 OFFSET {offset}");
+            else
+                sql.AddText($"\nLIMIT {limit} OFFSET {offset}");
+
+            return sql;
+        }
+
         public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
 
         public override IDbCommand ToDbCommand(IQuery query)

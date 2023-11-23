@@ -3,6 +3,7 @@ using DataLinq.Mutation;
 using DataLinq.Query;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
+using Remotion.Linq.Clauses.ResultOperators;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,6 +70,15 @@ namespace DataLinq.Linq
 
             foreach (var op in queryModel.ResultOperators)
             {
+                if (op is TakeResultOperator takeOperator && takeOperator.Count is ConstantExpression takeExpression)
+                {
+                    query.Limit((int)takeExpression.Value!);
+                }
+                else if (op is SkipResultOperator skipOperator && skipOperator.Count is ConstantExpression skipExpression)
+                {
+                    query.Offset((int)skipExpression.Value!);
+                }
+
                 var opString = op.ToString();
 
                 if (opString == "Single()")
@@ -103,7 +113,7 @@ namespace DataLinq.Linq
                 var arguments = memberExpression.Arguments.Select(x =>
                 {
                     var memberExp = x as MemberExpression;
-                   
+
                     return Expression.MakeMemberAccess(convert, memberExp.Member);
                 });
 

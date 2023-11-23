@@ -133,6 +133,21 @@ namespace DataLinq.MySql
             return sql.AddParameters(new MySqlParameter("?" + key, value ?? DBNull.Value));
         }
 
+        public override Sql GetLimitOffset(Sql sql, int? limit, int? offset)
+        {
+            if (!limit.HasValue && !offset.HasValue)
+                return sql;
+
+            if (limit.HasValue && !offset.HasValue)
+                sql.AddText($"\nLIMIT {limit}");
+            else if (!limit.HasValue && offset.HasValue)
+                sql.AddText($"\nLIMIT 18446744073709551615 OFFSET {offset}");
+            else
+                sql.AddText($"\nLIMIT {limit} OFFSET {offset}");
+
+            return sql;
+        }
+
         public override IDbCommand ToDbCommand(IQuery query)
         {
             var sql = query.ToSql("");

@@ -436,15 +436,111 @@ namespace DataLinq.Tests
             Assert.Equal(lastDepartmentName, deptByDeptNo.LastOrDefault().no);
         }
 
-        //[Fact]
-        //public void Any()
-        //{
-        //    employeesDb.Query().departments.Select(x => x.dept_no)
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void TakeAndSkip(Database<Employees> employeesDb)
+        {
+            var tenEmployees = employeesDb.Query().Employees.Take(10).ToList();
+            Assert.Equal(10, tenEmployees.Count);
 
-        //    Assert.True();
-        //    Assert.True(employeesDb.Query().departments.Where(x => x.dept_no == "d005").Any());
-        //    Assert.False(employeesDb.Query().departments.Any(x => x.dept_no == "not_existing"));
-        //    Assert.False(employeesDb.Query().departments.Where(x => x.dept_no == "not_existing").Any());
-        //}
+            var tenEmployeesSkip1 = employeesDb.Query().Employees.Skip(1).Take(10).ToList();
+            Assert.Equal(10, tenEmployeesSkip1.Count);
+            Assert.Equal(tenEmployees[1], tenEmployeesSkip1[0]);
+            Assert.Same(tenEmployees[1], tenEmployeesSkip1[0]);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SkipAndTakeWithOrderBy(Database<Employees> employeesDb)
+        {
+            var employeesOrderedOrm = employeesDb.Query().Employees.OrderBy(e => e.first_name).Skip(5).Take(10).ToList();
+            var employeesOrderedList = employeesDb.Query().Employees.ToList().OrderBy(e => e.first_name).Skip(5).Take(10).ToList();
+
+            Assert.Equal(employeesOrderedList, employeesOrderedOrm);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SkipAndTakeWithOrderByDescending(Database<Employees> employeesDb)
+        {
+            var employeesOrderedDescOrm = employeesDb.Query().Employees.OrderByDescending(e => e.first_name).Skip(5).Take(10).ToList();
+            var employeesOrderedDescList = employeesDb.Query().Employees.ToList().OrderByDescending(e => e.first_name).Skip(5).Take(10).ToList();
+
+            Assert.Equal(employeesOrderedDescList, employeesOrderedDescOrm);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SkipWithOrderBy(Database<Employees> employeesDb)
+        {
+            var employeesSkippedOrm = employeesDb.Query().Employees.OrderBy(e => e.birth_date).Skip(10).ToList();
+            var employeesSkippedList = employeesDb.Query().Employees.ToList().OrderBy(e => e.birth_date).Skip(10).ToList();
+
+            Assert.Equal(employeesSkippedList, employeesSkippedOrm);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void TakeWithOrderByDescending(Database<Employees> employeesDb)
+        {
+            var topEmployeesOrm = employeesDb.Query().Employees.OrderByDescending(e => e.hire_date).Take(5).ToList();
+            var topEmployeesList = employeesDb.Query().Employees.ToList().OrderByDescending(e => e.hire_date).Take(5).ToList();
+
+            Assert.Equal(topEmployeesList, topEmployeesOrm);
+        }
+
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void ComplexQueryWithTakeSkipAndMultipleOrderings(Database<Employees> employeesDb)
+        {
+            var complexQueryResultOrm = employeesDb.Query().Employees
+                .OrderBy(e => e.first_name)
+                .ThenByDescending(e => e.birth_date)
+                .Skip(5)
+                .Take(10)
+                .ToList();
+
+            var complexQueryResultList = employeesDb.Query().Employees.ToList()
+                .OrderBy(e => e.first_name)
+                .ThenByDescending(e => e.birth_date)
+                .Skip(5)
+                .Take(10)
+                .ToList();
+
+            Assert.Equal(complexQueryResultList, complexQueryResultOrm);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void TakeLastThrowsNotImplementedException(Database<Employees> employeesDb)
+        {
+            Assert.Throws<NotSupportedException>(() =>
+                employeesDb.Query().Employees.TakeLast(5).ToList());
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SkipLastThrowsNotImplementedException(Database<Employees> employeesDb)
+        {
+            Assert.Throws<NotSupportedException>(() =>
+                employeesDb.Query().Employees.SkipLast(5).ToList());
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void TakeWhileThrowsNotImplementedException(Database<Employees> employeesDb)
+        {
+            Assert.Throws<NotSupportedException>(() =>
+                employeesDb.Query().Employees.TakeWhile(e => e.first_name.StartsWith("A")).ToList());
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void SkipWhileThrowsNotImplementedException(Database<Employees> employeesDb)
+        {
+            Assert.Throws<NotSupportedException>(() =>
+                employeesDb.Query().Employees.SkipWhile(e => e.first_name.StartsWith("A")).ToList());
+        }
     }
 }

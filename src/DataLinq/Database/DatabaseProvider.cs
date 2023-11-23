@@ -113,6 +113,7 @@ namespace DataLinq
         public abstract Sql GetParameter(Sql sql, string key, object value);
         public abstract Sql GetParameterValue(Sql sql, string key);
         public abstract Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key);
+        public abstract Sql GetLimitOffset(Sql sql, int? limit, int? offset);
         public abstract Sql GetCreateSql();
         public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
         public abstract DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);

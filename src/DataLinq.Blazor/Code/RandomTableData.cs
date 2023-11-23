@@ -16,14 +16,14 @@ public class RandomTableData
     {
         var tables = new List<Func<IEnumerable<object>>>
         {
-            () => _db.Query().current_dept_emp.Take(RandomNumber(1, 10)).ToList().Cast<object>(),
-            () => _db.Query().Departments.Take(RandomNumber(1, 10)).ToList().Cast<object>(),
-            () => _db.Query().DepartmentEmployees.Take(RandomNumber(1, 10)).ToList().Cast<object>(),
-            () => _db.Query().dept_emp_latest_date.Take(RandomNumber(1, 10)).ToList().Cast<object>(),
-            () => _db.Query().Managers.Take(RandomNumber(1, 10)).ToList().Cast<object>(),
-            () => _db.Query().Employees.Take(RandomNumber(1, 10)).ToList().Cast<object>(),
-            () => _db.Query().salaries.Take(RandomNumber(1, 10)).ToList().Cast<object>(),
-            () => _db.Query().titles.Take(RandomNumber(1, 10)).ToList().Cast<object>(),
+            () => _db.Query().current_dept_emp.Skip(RandomNumber(0,10000)).Take(RandomNumber(1, 10000)).ToList().Cast<object>(),
+            () => _db.Query().Departments.Skip(RandomNumber(0,10000)).Take(RandomNumber(1, 10000)).ToList().Cast<object>(),
+            () => _db.Query().DepartmentEmployees.Skip(RandomNumber(0, 10000)).Take(RandomNumber(1, 10000)).ToList().Cast<object>(),
+            () => _db.Query().dept_emp_latest_date.Skip(RandomNumber(0, 10000)).Take(RandomNumber(1, 10000)).ToList().Cast<object>(),
+            () => _db.Query().Managers.Skip(RandomNumber(0, 10000)).Take(RandomNumber(1, 10000)).ToList().Cast<object>(),
+            () => _db.Query().Employees.Skip(RandomNumber(0, 10000)).Take(RandomNumber(1, 10000)).ToList().Cast<object>(),
+            () => _db.Query().salaries.Skip(RandomNumber(0, 10000)).Take(RandomNumber(1, 10000)).ToList().Cast<object>(),
+            () => _db.Query().titles.Skip(RandomNumber(0, 10000)).Take(RandomNumber(1, 10000)).ToList().Cast<object>(),
         };
 
         var selectedTableIndex = _random.Next(tables.Count);

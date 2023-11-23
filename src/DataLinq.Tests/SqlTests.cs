@@ -396,7 +396,7 @@ ORDER BY dept_no DESC", sql.Text);
                 .ToSql();
 
             Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-LIMIT 0, 1", sql.Text);
+LIMIT 1", sql.Text);
         }
 
         [Theory]
@@ -411,7 +411,7 @@ LIMIT 0, 1", sql.Text);
                 .ToSql();
 
             Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-LIMIT 0, 2", sql.Text);
+LIMIT 2", sql.Text);
         }
 
         [Theory]
@@ -421,12 +421,12 @@ LIMIT 0, 2", sql.Text);
             var sign = employeesDb.Provider.Constants.ParameterSign;
             var sql = employeesDb
                 .From("departments")
-                .Limit(5, 2)
+                .Limit(2, 5)
                 .SelectQuery()
                 .ToSql();
 
             Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-LIMIT 5, 2", sql.Text);
+LIMIT 2 OFFSET 5", sql.Text);
         }
 
         [Theory]
@@ -446,7 +446,7 @@ LIMIT 5, 2", sql.Text);
 WHERE
 dept_no = {sign}w0
 ORDER BY dept_no DESC
-LIMIT 0, 1", sql.Text);
+LIMIT 1", sql.Text);
             Assert.Single(sql.Parameters);
             Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
             Assert.Equal("d005", sql.Parameters[0].Value);
@@ -469,7 +469,7 @@ LIMIT 0, 1", sql.Text);
 WHERE
 dept_no = {sign}w0
 ORDER BY dept_no DESC
-LIMIT 0, 1", sql.Text);
+LIMIT 1", sql.Text);
             Assert.Single(sql.Parameters);
             Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
             Assert.Equal("d005", sql.Parameters[0].Value);
@@ -541,7 +541,7 @@ JOIN dept_manager m ON d.dept_no = m.dept_no
 WHERE
 m.dept_no = {sign}w0
 ORDER BY d.dept_no DESC
-LIMIT 0, 1", sql.Text);
+LIMIT 1", sql.Text);
             Assert.NotEmpty(sql.Parameters);
         }
 
@@ -562,7 +562,7 @@ LIMIT 0, 1", sql.Text);
             Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
 JOIN dept_manager m ON d.dept_no = m.dept_no
 ORDER BY d.dept_no DESC
-LIMIT 0, 1", sql.Text);
+LIMIT 1", sql.Text);
             Assert.Empty(sql.Parameters);
         }
 
