@@ -33,7 +33,7 @@
 		<PackageReference Include="Remotion.Linq" Version="2.2.0" />
 		<PackageReference Include="System.Reflection" Version="4.3.0" />
 		<PackageReference Include="System.Reflection.Metadata" Version="8.0.0" />
-		<PackageReference Include="ThrowAway" Version="0.2.1" />
+		<PackageReference Include="ThrowAway" Version="0.1.1" />
 	</ItemGroup>
 
 	<ItemGroup>
