@@ -26,7 +26,7 @@ namespace DataLinq.Tests
         public void TestMetadataFromFilesFactory()
         {
             var projectRoot = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent;
-            var srcPaths = Fixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories
+            var srcPaths = DatabaseFixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories
                 .Select(x => Path.Combine(projectRoot.FullName, x))
                 .ToList();
 

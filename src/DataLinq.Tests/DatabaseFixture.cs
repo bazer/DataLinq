@@ -18,11 +18,12 @@ namespace DataLinq.Tests
         {
             MySQLProvider.RegisterProvider();
             SQLiteProvider.RegisterProvider();
+
+            DataLinqConfig = DataLinqConfig.FindAndReadConfigs($"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json", _ => { });
         }
 
         public DatabaseFixture()
         {
-            DataLinqConfig = DataLinqConfig.FindAndReadConfigs($"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json", _ => { });
             var employees = DataLinqConfig.Databases.Single(x => x.Name == "employees");
 
             EmployeeConnections = employees.Connections;
@@ -54,7 +55,7 @@ namespace DataLinq.Tests
             information_schema = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
         }
 
-        public DataLinqConfig DataLinqConfig { get; set; }
+        public static DataLinqConfig DataLinqConfig { get; set; }
         public List<DataLinqDatabaseConnection> EmployeeConnections { get; set; } = new();
         public List<Database<Employees>> AllEmployeesDb { get; set; } = new();
         public MySqlDatabase<information_schema> information_schema { get; set; }

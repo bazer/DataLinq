@@ -467,8 +467,8 @@ namespace DataLinq.Tests
         [MemberData(nameof(GetEmployees))]
         public void SkipAndTakeWithOrderBy(Database<Employees> employeesDb)
         {
-            var employeesOrderedOrm = employeesDb.Query().Employees.OrderBy(e => e.first_name).Skip(5).Take(10).ToList();
-            var employeesOrderedList = employeesDb.Query().Employees.ToList().OrderBy(e => e.first_name).Skip(5).Take(10).ToList();
+            var employeesOrderedOrm = employeesDb.Query().Employees.OrderBy(e => e.birth_date).Skip(5).Take(10).ToList();
+            var employeesOrderedList = employeesDb.Query().Employees.ToList().OrderBy(e => e.birth_date).Skip(5).Take(10).ToList();
 
             Assert.Equal(employeesOrderedList, employeesOrderedOrm);
         }
@@ -477,8 +477,8 @@ namespace DataLinq.Tests
         [MemberData(nameof(GetEmployees))]
         public void SkipAndTakeWithOrderByDescending(Database<Employees> employeesDb)
         {
-            var employeesOrderedDescOrm = employeesDb.Query().Employees.OrderByDescending(e => e.first_name).Skip(5).Take(10).ToList();
-            var employeesOrderedDescList = employeesDb.Query().Employees.ToList().OrderByDescending(e => e.first_name).Skip(5).Take(10).ToList();
+            var employeesOrderedDescOrm = employeesDb.Query().Employees.OrderByDescending(e => e.birth_date).Skip(5).Take(10).ToList();
+            var employeesOrderedDescList = employeesDb.Query().Employees.ToList().OrderByDescending(e => e.birth_date).Skip(5).Take(10).ToList();
 
             Assert.Equal(employeesOrderedDescList, employeesOrderedDescOrm);
         }

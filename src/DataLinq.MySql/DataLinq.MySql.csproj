@@ -44,7 +44,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Update="datalinq.json">
+	  <None Update="datalinq_mysql.user.json">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="datalinq_mysql.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
 	</ItemGroup>

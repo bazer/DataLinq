@@ -13,14 +13,7 @@
       "UseFileScopedNamespaces": true,
       "CapitalizeNames": false,
       "SeparateTablesAndViews": true,
-      "FileEncoding": "UTF-8-BOM",
-      "Connections": [
-        {
-          "DatabaseName": "information_schema",
-          "Type": "MariaDB",
-          "ConnectionString": "Host=localhost;User=datalinq;Password=datalinq;Max Pool Size=500;Pooling=true;CharSet=utf8mb4;"
-        }
-      ]
+      "FileEncoding": "UTF-8-BOM"
     }
   ]
 }
