@@ -24,9 +24,23 @@ namespace DataLinq.Tests
 
         [Theory]
         [MemberData(nameof(GetEmployees))]
+        public void ToListView(Database<Employees> employeesDb)
+        {
+            Assert.NotEmpty(employeesDb.Query().current_dept_emp.ToList());
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
         public void Count(Database<Employees> employeesDb)
         {
             Assert.True(10 < employeesDb.Query().Departments.Count());
+        }
+
+        [Theory]
+        [MemberData(nameof(GetEmployees))]
+        public void CountView(Database<Employees> employeesDb)
+        {
+            Assert.NotEqual(0, employeesDb.Query().dept_emp_latest_date.Count());
         }
 
         [Theory]

@@ -27,8 +27,8 @@ namespace DataLinq.Cache
             this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Count;
         }
 
-        public long NewestTick => KeysTicks.TryPeek(out var row) ? row.ticks : 0;
-        public long OldestTick => KeysTicks.IsEmpty ? 0 : KeysTicks.LastOrDefault().ticks;
+        public long? OldestTick => KeysTicks.TryPeek(out var row) ? row.ticks : null;
+        public long? NewestTick => KeysTicks.IsEmpty ? null : KeysTicks.Last().ticks;
         public int RowCount => Rows.Count;
         public int KeysTicksCount => KeysTicks.Count;
         public int TransactionRowsCount => TransactionRows.Count;

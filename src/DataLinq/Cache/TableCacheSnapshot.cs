@@ -3,7 +3,7 @@ using System;
 
 namespace DataLinq.Cache
 {
-    public class TableCacheSnapshot(string tableName, int rowCount, long totalBytes, long newestTick, long oldestTick)
+    public class TableCacheSnapshot(string tableName, int rowCount, long totalBytes, long? newestTick, long? oldestTick)
     {
         public string TableName { get; } = tableName;
         public long? NewestTick { get; } = newestTick > 0 ? newestTick : null;
