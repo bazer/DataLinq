@@ -1,4 +1,5 @@
 ﻿using Castle.DynamicProxy;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using System;
@@ -12,7 +13,7 @@ namespace DataLinq.Instances
     {
         MutableRowData MutableRowData { get; }
 
-        public MutableRowInterceptor(RowData rowData, Transaction transaction) : base(rowData, transaction)
+        public MutableRowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction) : base(rowData, databaseProvider, transaction)
         {
             this.MutableRowData = new MutableRowData(rowData);
         }

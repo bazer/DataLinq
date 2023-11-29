@@ -1,4 +1,5 @@
 ﻿using Castle.DynamicProxy;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using System.Collections.Concurrent;
@@ -10,10 +11,11 @@ namespace DataLinq.Instances
 {
     internal abstract class RowInterceptor : IInterceptor
     {
-        protected RowInterceptor(RowData rowData, Transaction transaction)
+        protected RowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
         {
             RowData = rowData;
-            Transaction = transaction;
+            this.databaseProvider = databaseProvider;
+            this.writeTransaction = transaction == null || transaction.Type == TransactionType.ReadOnly ? null : transaction;
         }
 
         protected List<Property> Properties =>
@@ -21,9 +23,18 @@ namespace DataLinq.Instances
 
         protected RowData RowData { get; }
         //protected ConcurrentDictionary<string, object> RelationCache;
-        protected Transaction Transaction;
+        protected Transaction? writeTransaction;
+        protected IDatabaseProvider databaseProvider;
 
         public abstract void Intercept(IInvocation invocation);
+
+        protected Transaction GetTransaction()
+        {
+            if (writeTransaction != null && (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
+                writeTransaction = null;
+
+            return writeTransaction ?? databaseProvider.StartTransaction(TransactionType.ReadOnly);
+        }
 
         protected object GetRelation(InvocationInfo info)
         {
@@ -37,13 +48,20 @@ namespace DataLinq.Instances
             //if (!RelationCache.TryGetValue(info.Name, out object returnvalue))
             //{
 
-            if (Transaction.Type != TransactionType.ReadOnly && (Transaction.Status == DatabaseTransactionStatus.Committed || Transaction.Status == DatabaseTransactionStatus.RolledBack))
-                Transaction = Transaction.Provider.StartTransaction(TransactionType.ReadOnly);
+            //if (writeTransaction != null && (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
+            //    writeTransaction = null;
+
+            //var transaction = writeTransaction ?? databaseProvider.StartTransaction(TransactionType.ReadOnly);
+
+            //if (writeTransaction == null || (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
+            //    writeTransaction = databaseProvider.StartTransaction(TransactionType.ReadOnly);
+
+            var transaction = GetTransaction();
 
             var otherSide = property.RelationPart.GetOtherSide();
-            var result = Transaction.Provider
+            var result = databaseProvider
                 .GetTableCache(otherSide.Column.Table)
-                .GetRows(new ForeignKey(otherSide.Column, RowData.GetValue(property.RelationPart.Column.DbName)), Transaction);
+                .GetRows(new ForeignKey(otherSide.Column, RowData.GetValue(property.RelationPart.Column.DbName)), transaction);
 
             object returnvalue;
             if (property.RelationPart.Type == RelationPartType.ForeignKey)

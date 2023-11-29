@@ -335,7 +335,7 @@ namespace DataLinq.Cache
 
         private bool TryAddRow(RowData rowData, Transaction transaction, out object row)
         {
-            row = InstanceFactory.NewImmutableRow(rowData, transaction);
+            row = InstanceFactory.NewImmutableRow(rowData, transaction.Provider, transaction);
             var keys = rowData.GetKeys();
 
 

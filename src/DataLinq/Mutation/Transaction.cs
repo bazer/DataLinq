@@ -280,7 +280,7 @@ namespace DataLinq.Mutation
             return DatabaseTransaction
                 .ReadReader(query)
                 .Select(x => new RowData(x, table))
-                .Select(x => InstanceFactory.NewImmutableRow(x, this))
+                .Select(x => InstanceFactory.NewImmutableRow(x, Provider, this))
                 .Cast<T>();
         }
 
@@ -297,7 +297,7 @@ namespace DataLinq.Mutation
             return DatabaseTransaction
                 .ReadReader(dbCommand)
                 .Select(x => new RowData(x, table))
-                .Select(x => InstanceFactory.NewImmutableRow(x, this))
+                .Select(x => InstanceFactory.NewImmutableRow(x, Provider, this))
                 .Cast<T>();
         }
 
