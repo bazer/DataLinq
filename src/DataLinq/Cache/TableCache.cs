@@ -15,10 +15,15 @@ namespace DataLinq.Cache
 {
     public class TableCache
     {
-        protected ConcurrentQueue<(PrimaryKeys keys, long ticks, int size)> KeysTicks = new();
+        private readonly object keyTicksQueueLock = new();
+        private (PrimaryKeys keys, long ticks, int size)? oldestKeyTick;
+        private readonly Queue<(PrimaryKeys keys, long ticks, int size)> keysTicks = new();
+
         protected ConcurrentDictionary<PrimaryKeys, object> Rows = new();
+
         protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>> TransactionRows = new();
         protected int primaryKeyColumnsCount;
+
 
         public TableCache(TableMetadata table, IDatabaseProvider database)
         {
@@ -27,12 +32,12 @@ namespace DataLinq.Cache
             this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Count;
         }
 
-        public long? OldestTick => KeysTicks.TryPeek(out var row) ? row.ticks : null;
-        public long? NewestTick => KeysTicks.IsEmpty ? null : KeysTicks.Last().ticks;
+        public long? OldestTick => oldestKeyTick?.ticks;
+        public long? NewestTick => !oldestKeyTick.HasValue ? null : keysTicks.Last().ticks;
         public int RowCount => Rows.Count;
-        public int KeysTicksCount => KeysTicks.Count;
+        //public int KeysTicksCount => KeysTicks.Count;
         public int TransactionRowsCount => TransactionRows.Count;
-        public long TotalBytes => KeysTicks.Sum(x => x.size);
+        public long TotalBytes => keysTicks.Sum(x => x.size);
         public string TotalBytesFormatted => TotalBytes.ToFileSize();
         public TableMetadata Table { get; }
         public IDatabaseProvider Database { get; }
@@ -76,7 +81,8 @@ namespace DataLinq.Cache
         public void ClearRows()
         {
             Rows.Clear();
-            KeysTicks.Clear();
+            keysTicks.Clear();
+            oldestKeyTick = null;
         }
 
         public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
@@ -119,19 +125,34 @@ namespace DataLinq.Cache
             var count = 0;
             var rowCount = RowCount;
 
-            KeysTicks.TryPeek(out var row);
+            if (rowCount <= maxRows)
+                return 0;
 
-            while (rowCount > maxRows)
+            lock (keyTicksQueueLock)
             {
-                if (TryRemoveRow(row.keys, out var numRowsRemoved))
-                {
-                    rowCount -= numRowsRemoved;
-                    count += numRowsRemoved;
+                if (!oldestKeyTick.HasValue)
+                    return 0;
 
-                    KeysTicks.TryDequeue(out row);
+                while (rowCount > maxRows)
+                {
+                    if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
+                    {
+                        rowCount -= numRowsRemoved;
+                        count += numRowsRemoved;
+
+                        keysTicks.TryDequeue(out _);
+
+                        if (keysTicks.TryPeek(out var nextTick))
+                            oldestKeyTick = nextTick;
+                        else
+                        {
+                            oldestKeyTick = null;
+                            break;
+                        }
+                    }
+                    else
+                        break;
                 }
-                else
-                    break;
             }
 
             return count;
@@ -142,19 +163,34 @@ namespace DataLinq.Cache
             var count = 0;
             var totalSize = TotalBytes;
 
-            KeysTicks.TryPeek(out var row);
+            if (totalSize <= maxSize)
+                return 0;
 
-            while (totalSize > maxSize)
+            lock (keyTicksQueueLock)
             {
-                if (TryRemoveRow(row.keys, out var numRowsRemoved))
-                {
-                    totalSize -= row.size;
-                    count += numRowsRemoved;
+                if (!oldestKeyTick.HasValue)
+                    return 0;
 
-                    KeysTicks.TryDequeue(out row);
+                while (totalSize > maxSize)
+                {
+                    if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
+                    {
+                        totalSize -= oldestKeyTick.Value.size;
+                        count += numRowsRemoved;
+
+                        keysTicks.TryDequeue(out _);
+
+                        if (keysTicks.TryPeek(out var nextTick))
+                            oldestKeyTick = nextTick;
+                        else
+                        {
+                            oldestKeyTick = null;
+                            break;
+                        }
+                    }
+                    else
+                        break;
                 }
-                else
-                    break;
             }
 
             return count;
@@ -162,24 +198,31 @@ namespace DataLinq.Cache
 
         public int RemoveRowsInsertedBeforeTick(long tick)
         {
-            if (!KeysTicks.TryPeek(out var row))
+            if (!oldestKeyTick.HasValue)
                 return 0;
 
             var count = 0;
-
-            while (row.ticks < tick)
+            lock (keyTicksQueueLock)
             {
-                if (TryRemoveRow(row.keys, out var numRowsRemoved))
+                while (oldestKeyTick?.ticks < tick)
                 {
-                    count += numRowsRemoved;
+                    if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
+                    {
+                        count += numRowsRemoved;
 
-                    KeysTicks.TryDequeue(out var _);
+                        keysTicks.TryDequeue(out var _);
+                    }
+                    else
+                        break;
+
+                    if (keysTicks.TryPeek(out var nextTick))
+                        oldestKeyTick = nextTick;
+                    else
+                    {
+                        oldestKeyTick = null;
+                        break;
+                    }
                 }
-                else
-                    break;
-
-                if (!KeysTicks.TryPeek(out row))
-                    break;
             }
 
             return count;
@@ -354,7 +397,14 @@ namespace DataLinq.Cache
                 if (!Rows.TryAdd(keys, instance))
                     return false;
 
-                KeysTicks.Enqueue((keys, ticks, data.Size));
+                lock (keyTicksQueueLock)
+                {
+                    keysTicks.Enqueue((keys, ticks, data.Size));
+                    
+                    if (!oldestKeyTick.HasValue)
+                        oldestKeyTick = (keys, ticks, data.Size);
+                }
+
 
                 return true;
             }
