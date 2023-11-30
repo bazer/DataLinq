@@ -1,30 +1,29 @@
 ﻿using System;
 
-namespace DataLinq.Exceptions
+namespace DataLinq.Exceptions;
+
+public class InvalidMutationObjectException : System.Exception
 {
-    public class InvalidMutationObjectException : System.Exception
+    private readonly string message;
+
+    public InvalidMutationObjectException(string message)
     {
-        private readonly string message;
+        this.message = message + " ";
+    }
 
-        public InvalidMutationObjectException(string message)
-        {
-            this.message = message + " ";
-        }
+    public InvalidMutationObjectException() : base()
+    {
+    }
 
-        public InvalidMutationObjectException() : base()
-        {
-        }
+    public InvalidMutationObjectException(string message, Exception innerException) : base(message, innerException)
+    {
+    }
 
-        public InvalidMutationObjectException(string message, Exception innerException) : base(message, innerException)
+    public override string Message
+    {
+        get
         {
-        }
-
-        public override string Message
-        {
-            get
-            {
-                return "The client query is invalid: " + message;
-            }
+            return "The client query is invalid: " + message;
         }
     }
 }

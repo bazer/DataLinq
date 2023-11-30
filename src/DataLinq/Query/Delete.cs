@@ -1,32 +1,31 @@
 ﻿using System;
 using System.Data;
 
-namespace DataLinq.Query
+namespace DataLinq.Query;
+
+public class Delete<T> : IQuery
 {
-    public class Delete<T> : IQuery
+    private readonly SqlQuery<T> query;
+
+    public Delete(SqlQuery<T> query)
     {
-        private readonly SqlQuery<T> query;
+        this.query = query;
+    }
 
-        public Delete(SqlQuery<T> query)
-        {
-            this.query = query;
-        }
+    public IDbCommand ToDbCommand()
+    {
+        throw new System.NotImplementedException();
+    }
 
-        public IDbCommand ToDbCommand()
-        {
-            throw new System.NotImplementedException();
-        }
+    public Sql ToSql(string paramPrefix = null)
+    {
+        return query.GetWhere(
+            new Sql().AddFormat("DELETE FROM {0} \n", query.Table.DbName),
+            paramPrefix);
+    }
 
-        public Sql ToSql(string paramPrefix = null)
-        {
-            return query.GetWhere(
-                new Sql().AddFormat("DELETE FROM {0} \n", query.Table.DbName),
-                paramPrefix);
-        }
-
-        public QueryResult Execute()
-        {
-            throw new NotImplementedException();
-        }
+    public QueryResult Execute()
+    {
+        throw new NotImplementedException();
     }
 }

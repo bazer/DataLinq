@@ -1,10 +1,9 @@
 ﻿using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
-namespace DataLinq.Tests.Models
+namespace DataLinq.Tests.Models;
+
+[Table("employees")]
+public interface IEmployee : ICustomTableModel
 {
-    [Table("employees")]
-    public interface IEmployee : ICustomTableModel
-    {
-    }
 }

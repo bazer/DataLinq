@@ -1,21 +1,20 @@
-﻿namespace DataLinq
+﻿namespace DataLinq;
+
+/// <summary>
+/// Enumeration of database types.
+/// </summary>
+public enum DatabaseType
 {
     /// <summary>
-    /// Enumeration of database types.
+    /// Default database type.
     /// </summary>
-    public enum DatabaseType
-    {
-        /// <summary>
-        /// Default database type.
-        /// </summary>
-        Default,
-        /// <summary>
-        /// MySQL database type.
-        /// </summary>
-        MySQL,
-        /// <summary>
-        /// SQLite database type.
-        /// </summary>
-        SQLite
-    }
+    Default,
+    /// <summary>
+    /// MySQL database type.
+    /// </summary>
+    MySQL,
+    /// <summary>
+    /// SQLite database type.
+    /// </summary>
+    SQLite
 }

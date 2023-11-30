@@ -1,8 +1,7 @@
-﻿namespace DataLinq.Interfaces
+﻿namespace DataLinq.Interfaces;
+
+public interface IDatabaseProviderConstants
 {
-    public interface IDatabaseProviderConstants
-    {
-        string ParameterSign { get; }
-        string LastInsertCommand { get; }
-    }
+    string ParameterSign { get; }
+    string LastInsertCommand { get; }
 }

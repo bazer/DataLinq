@@ -1,6 +1,5 @@
-﻿namespace DataLinq.Config
+﻿namespace DataLinq.Config;
+
+internal class ConfigWriter
 {
-    internal class ConfigWriter
-    {
-    }
 }

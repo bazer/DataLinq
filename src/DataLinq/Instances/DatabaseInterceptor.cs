@@ -4,46 +4,45 @@ using System.Linq;
 using Castle.DynamicProxy;
 using DataLinq.Mutation;
 
-namespace DataLinq.Instances
+namespace DataLinq.Instances;
+
+internal class DatabaseInterceptor : IInterceptor
 {
-    internal class DatabaseInterceptor : IInterceptor
+    public Dictionary<string, object> Data { get; }
+    public Transaction Transaction { get; }
+
+    public DatabaseInterceptor(Transaction transaction)
     {
-        public Dictionary<string, object> Data { get; }
-        public Transaction Transaction { get; }
+        Transaction = transaction;
+        Data = ReadDatabase(transaction).ToDictionary(x => x.name, x => x.value);
+    }
 
-        public DatabaseInterceptor(Transaction transaction)
+    private IEnumerable<(string name, object value)> ReadDatabase(Transaction transaction)
+    {
+        foreach (var table in transaction.Provider.Metadata.TableModels)
         {
-            Transaction = transaction;
-            Data = ReadDatabase(transaction).ToDictionary(x => x.name, x => x.value);
+            var dbReadType = typeof(DbRead<>).MakeGenericType(table.Model.CsType);
+            var dbRead = Activator.CreateInstance(dbReadType, transaction);
+
+            if (dbRead == null)
+                throw new Exception($"Failed to create instance of table model type '{table.Model.CsType}'");
+
+            yield return (table.CsPropertyName, dbRead);
         }
+    }
 
-        private IEnumerable<(string name, object value)> ReadDatabase(Transaction transaction)
-        {
-            foreach (var table in transaction.Provider.Metadata.TableModels)
-            {
-                var dbReadType = typeof(DbRead<>).MakeGenericType(table.Model.CsType);
-                var dbRead = Activator.CreateInstance(dbReadType, transaction);
+    public void Intercept(IInvocation invocation)
+    {
+        var name = invocation.Method.Name;
 
-                if (dbRead == null)
-                    throw new Exception($"Failed to create instance of table model type '{table.Model.CsType}'");
+        if (name.StartsWith("set_", StringComparison.Ordinal))
+            throw new Exception("Call to setter not allowed on an immutable type");
 
-                yield return (table.CsPropertyName, dbRead);
-            }
-        }
+        if (!name.StartsWith("get_", StringComparison.Ordinal))
+            throw new NotImplementedException();
 
-        public void Intercept(IInvocation invocation)
-        {
-            var name = invocation.Method.Name;
+        name = name.Substring(4);
 
-            if (name.StartsWith("set_", StringComparison.Ordinal))
-                throw new Exception("Call to setter not allowed on an immutable type");
-
-            if (!name.StartsWith("get_", StringComparison.Ordinal))
-                throw new NotImplementedException();
-
-            name = name.Substring(4);
-
-            invocation.ReturnValue = Data[name];
-        }
+        invocation.ReturnValue = Data[name];
     }
 }

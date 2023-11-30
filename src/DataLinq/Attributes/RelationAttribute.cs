@@ -1,17 +1,16 @@
 ﻿using System;
 
-namespace DataLinq.Attributes
-{
-    [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
-    public sealed class RelationAttribute : Attribute
-    {
-        public RelationAttribute(string table, string column)
-        {
-            Column = column;
-            Table = table;
-        }
+namespace DataLinq.Attributes;
 
-        public string Column { get; }
-        public string Table { get; }
+[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
+public sealed class RelationAttribute : Attribute
+{
+    public RelationAttribute(string table, string column)
+    {
+        Column = column;
+        Table = table;
     }
+
+    public string Column { get; }
+    public string Table { get; }
 }

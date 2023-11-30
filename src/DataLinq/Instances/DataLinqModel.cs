@@ -1,17 +1,16 @@
-﻿namespace DataLinq.Instances
+﻿namespace DataLinq.Instances;
+
+public class DataLinqModel<T>
 {
-    public class DataLinqModel<T>
+    public DataLinqModel(T model)
     {
-        public DataLinqModel(T model)
-        {
-            Model = model;
-        }
-
-        //public bool IsNew()
-        //{
-        //    return true;
-        //}
-
-        public T Model { get; }
+        Model = model;
     }
+
+    //public bool IsNew()
+    //{
+    //    return true;
+    //}
+
+    public T Model { get; }
 }

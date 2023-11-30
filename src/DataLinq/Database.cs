@@ -6,232 +6,231 @@ using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
 
-namespace DataLinq
+namespace DataLinq;
+
+
+/// <summary>
+/// The main interface for working with the database.
+/// </summary>
+/// <typeparam name="T">The type of the database model.</typeparam>
+public abstract class Database<T> : IDisposable
+    where T : class, IDatabaseModel
 {
+    /// <summary>
+    /// Gets the type of the database.
+    /// </summary>
+    public DatabaseType DatabaseType => Provider.DatabaseType;
 
     /// <summary>
-    /// The main interface for working with the database.
+    /// Gets the database provider.
     /// </summary>
-    /// <typeparam name="T">The type of the database model.</typeparam>
-    public abstract class Database<T> : IDisposable
-        where T : class, IDatabaseModel
+    public DatabaseProvider<T> Provider { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Database{T}"/> class.
+    /// </summary>
+    /// <param name="provider">The database provider.</param>
+    public Database(DatabaseProvider<T> provider)
     {
-        /// <summary>
-        /// Gets the type of the database.
-        /// </summary>
-        public DatabaseType DatabaseType => Provider.DatabaseType;
+        this.Provider = provider;
+    }
 
-        /// <summary>
-        /// Gets the database provider.
-        /// </summary>
-        public DatabaseProvider<T> Provider { get; }
+    /// <summary>
+    /// Checks if the file or server exists.
+    /// </summary>
+    /// <returns><c>true</c> if the file or server exists; otherwise, <c>false</c>.</returns>
+    public bool FileOrServerExists()
+    {
+        return Provider.FileOrServerExists();
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Database{T}"/> class.
-        /// </summary>
-        /// <param name="provider">The database provider.</param>
-        public Database(DatabaseProvider<T> provider)
-        {
-            this.Provider = provider;
-        }
+    /// <summary>
+    /// Checks if the database exists.
+    /// </summary>
+    /// <param name="databaseName">The name of the database.</param>
+    /// <returns><c>true</c> if the database exists; otherwise, <c>false</c>.</returns>
+    public bool Exists(string? databaseName = null)
+    {
+        return Transaction(TransactionType.ReadOnly)
+            .DatabaseTransaction
+            .ReadReader(Provider.GetExists(databaseName))
+            .Any();
+    }
 
-        /// <summary>
-        /// Checks if the file or server exists.
-        /// </summary>
-        /// <returns><c>true</c> if the file or server exists; otherwise, <c>false</c>.</returns>
-        public bool FileOrServerExists()
-        {
-            return Provider.FileOrServerExists();
-        }
+    /// <summary>
+    /// Starts a new transaction.
+    /// </summary>
+    /// <param name="transactionType">The type of the transaction.</param>
+    /// <returns>The new transaction.</returns>
+    public Transaction<T> Transaction(TransactionType transactionType = TransactionType.ReadAndWrite)
+    {
+        return new Transaction<T>(this.Provider, transactionType);
+    }
 
-        /// <summary>
-        /// Checks if the database exists.
-        /// </summary>
-        /// <param name="databaseName">The name of the database.</param>
-        /// <returns><c>true</c> if the database exists; otherwise, <c>false</c>.</returns>
-        public bool Exists(string? databaseName = null)
-        {
-            return Transaction(TransactionType.ReadOnly)
-                .DatabaseTransaction
-                .ReadReader(Provider.GetExists(databaseName))
-                .Any();
-        }
+    /// <summary>
+    /// Attaches a transaction to the database.
+    /// </summary>
+    /// <param name="dbTransaction">The database transaction.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    /// <returns>The attached transaction.</returns>
+    public Transaction<T> AttachTransaction(IDbTransaction dbTransaction, TransactionType transactionType = TransactionType.ReadAndWrite)
+    {
+        return new Transaction<T>(this.Provider, dbTransaction, transactionType);
+    }
 
-        /// <summary>
-        /// Starts a new transaction.
-        /// </summary>
-        /// <param name="transactionType">The type of the transaction.</param>
-        /// <returns>The new transaction.</returns>
-        public Transaction<T> Transaction(TransactionType transactionType = TransactionType.ReadAndWrite)
-        {
-            return new Transaction<T>(this.Provider, transactionType);
-        }
+    /// <summary>
+    /// Queries the database.
+    /// </summary>
+    /// <returns>The query result.</returns>
+    public T Query()
+    {
+        return Transaction(TransactionType.ReadOnly).Query();
+    }
 
-        /// <summary>
-        /// Attaches a transaction to the database.
-        /// </summary>
-        /// <param name="dbTransaction">The database transaction.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        /// <returns>The attached transaction.</returns>
-        public Transaction<T> AttachTransaction(IDbTransaction dbTransaction, TransactionType transactionType = TransactionType.ReadAndWrite)
-        {
-            return new Transaction<T>(this.Provider, dbTransaction, transactionType);
-        }
+    /// <summary>
+    /// Creates a new SQL query from the specified table name and alias.
+    /// </summary>
+    /// <param name="tableName">The name of the table.</param>
+    /// <param name="alias">The alias of the table.</param>
+    /// <returns>The new SQL query.</returns>
+    public SqlQuery From(string tableName, string? alias = null)
+    {
+        if (alias == null)
+            (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
-        /// <summary>
-        /// Queries the database.
-        /// </summary>
-        /// <returns>The query result.</returns>
-        public T Query()
-        {
-            return Transaction(TransactionType.ReadOnly).Query();
-        }
+        var transaction = Transaction(TransactionType.ReadOnly);
+        var table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
-        /// <summary>
-        /// Creates a new SQL query from the specified table name and alias.
-        /// </summary>
-        /// <param name="tableName">The name of the table.</param>
-        /// <param name="alias">The alias of the table.</param>
-        /// <returns>The new SQL query.</returns>
-        public SqlQuery From(string tableName, string? alias = null)
-        {
-            if (alias == null)
-                (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
+        return new SqlQuery(table, transaction, alias);
+    }
 
-            var transaction = Transaction(TransactionType.ReadOnly);
-            var table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
+    /// <summary>
+    /// Creates a new SQL query from the specified table and alias.
+    /// </summary>
+    /// <param name="table">The table.</param>
+    /// <param name="alias">The alias of the table.</param>
+    /// <returns>The new SQL query.</returns>
+    public SqlQuery From(TableMetadata table, string? alias = null)
+    {
+        return new SqlQuery(table, Transaction(TransactionType.ReadOnly), alias);
+    }
 
-            return new SqlQuery(table, transaction, alias);
-        }
+    /// <summary>
+    /// Creates a new SQL query from the specified model type.
+    /// </summary>
+    /// <typeparam name="V">The type of the model.</typeparam>
+    /// <returns>The new SQL query.</returns>
+    public SqlQuery<V> From<V>() where V : IModel
+    {
+        return Transaction(TransactionType.ReadOnly).From<V>();
+    }
 
-        /// <summary>
-        /// Creates a new SQL query from the specified table and alias.
-        /// </summary>
-        /// <param name="table">The table.</param>
-        /// <param name="alias">The alias of the table.</param>
-        /// <returns>The new SQL query.</returns>
-        public SqlQuery From(TableMetadata table, string? alias = null)
-        {
-            return new SqlQuery(table, Transaction(TransactionType.ReadOnly), alias);
-        }
+    /// <summary>
+    /// Inserts a new model into the database.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <param name="model">The model to insert.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    /// <returns>The inserted model.</returns>
+    public M Insert<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
+    {
+        return Commit(transaction => transaction.Insert(model), transactionType);
+    }
 
-        /// <summary>
-        /// Creates a new SQL query from the specified model type.
-        /// </summary>
-        /// <typeparam name="V">The type of the model.</typeparam>
-        /// <returns>The new SQL query.</returns>
-        public SqlQuery<V> From<V>() where V : IModel
-        {
-            return Transaction(TransactionType.ReadOnly).From<V>();
-        }
+    /// <summary>
+    /// Updates an existing model in the database.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <param name="model">The model to update.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    /// <returns>The updated model.</returns>
+    public M Update<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
+    {
+        return Commit(transaction => transaction.Update(model), transactionType);
+    }
 
-        /// <summary>
-        /// Inserts a new model into the database.
-        /// </summary>
-        /// <typeparam name="M">The type of the model.</typeparam>
-        /// <param name="model">The model to insert.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        /// <returns>The inserted model.</returns>
-        public M Insert<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
-        {
-            return Commit(transaction => transaction.Insert(model), transactionType);
-        }
+    /// <summary>
+    /// Updates an existing model in the database with the specified changes.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <param name="model">The model to update.</param>
+    /// <param name="changes">The changes to apply to the model.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    /// <returns>The updated model.</returns>
+    public M Update<M>(M model, Action<M> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
+    {
+        return Commit(transaction => transaction.Update(model, changes), transactionType);
+    }
 
-        /// <summary>
-        /// Updates an existing model in the database.
-        /// </summary>
-        /// <typeparam name="M">The type of the model.</typeparam>
-        /// <param name="model">The model to update.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        /// <returns>The updated model.</returns>
-        public M Update<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
-        {
-            return Commit(transaction => transaction.Update(model), transactionType);
-        }
+    /// <summary>
+    /// Inserts or updates a model in the database.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <param name="model">The model to insert or update.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    /// <returns>The inserted or updated model.</returns>
+    public M InsertOrUpdate<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
+    {
+        return Commit(transaction => transaction.InsertOrUpdate(model), transactionType);
+    }
 
-        /// <summary>
-        /// Updates an existing model in the database with the specified changes.
-        /// </summary>
-        /// <typeparam name="M">The type of the model.</typeparam>
-        /// <param name="model">The model to update.</param>
-        /// <param name="changes">The changes to apply to the model.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        /// <returns>The updated model.</returns>
-        public M Update<M>(M model, Action<M> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
-        {
-            return Commit(transaction => transaction.Update(model, changes), transactionType);
-        }
+    /// <summary>
+    /// Inserts or updates a model in the database with the specified changes.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <param name="model">The model to insert or update.</param>
+    /// <param name="changes">The changes to apply to the model.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    /// <returns>The inserted or updated model.</returns>
+    public M InsertOrUpdate<M>(M model, Action<M> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel, new()
+    {
+        return Commit(transaction => transaction.InsertOrUpdate(model, changes), transactionType);
+    }
 
-        /// <summary>
-        /// Inserts or updates a model in the database.
-        /// </summary>
-        /// <typeparam name="M">The type of the model.</typeparam>
-        /// <param name="model">The model to insert or update.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        /// <returns>The inserted or updated model.</returns>
-        public M InsertOrUpdate<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
-        {
-            return Commit(transaction => transaction.InsertOrUpdate(model), transactionType);
-        }
+    /// <summary>
+    /// Deletes a model from the database.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <param name="model">The model to delete.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    public void Delete<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
+    {
+        Commit(transaction => transaction.Delete(model), transactionType);
+    }
 
-        /// <summary>
-        /// Inserts or updates a model in the database with the specified changes.
-        /// </summary>
-        /// <typeparam name="M">The type of the model.</typeparam>
-        /// <param name="model">The model to insert or update.</param>
-        /// <param name="changes">The changes to apply to the model.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        /// <returns>The inserted or updated model.</returns>
-        public M InsertOrUpdate<M>(M model, Action<M> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel, new()
-        {
-            return Commit(transaction => transaction.InsertOrUpdate(model, changes), transactionType);
-        }
+    /// <summary>
+    /// Commits a transaction with the specified action.
+    /// </summary>
+    /// <param name="func">The action to perform in the transaction.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    public void Commit(Action<Transaction> func, TransactionType transactionType = TransactionType.ReadAndWrite)
+    {
+        using var transaction = Transaction(transactionType);
+        func(transaction);
+        transaction.Commit();
+    }
 
-        /// <summary>
-        /// Deletes a model from the database.
-        /// </summary>
-        /// <typeparam name="M">The type of the model.</typeparam>
-        /// <param name="model">The model to delete.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        public void Delete<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
-        {
-            Commit(transaction => transaction.Delete(model), transactionType);
-        }
+    /// <summary>
+    /// Commits a transaction with the specified function.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <param name="func">The function to perform in the transaction.</param>
+    /// <param name="transactionType">The type of the transaction.</param>
+    /// <returns>The result of the function.</returns>
+    public M Commit<M>(Func<Transaction, M> func, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
+    {
+        using var transaction = Transaction(transactionType);
+        var result = func(transaction);
+        transaction.Commit();
 
-        /// <summary>
-        /// Commits a transaction with the specified action.
-        /// </summary>
-        /// <param name="func">The action to perform in the transaction.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        public void Commit(Action<Transaction> func, TransactionType transactionType = TransactionType.ReadAndWrite)
-        {
-            using var transaction = Transaction(transactionType);
-            func(transaction);
-            transaction.Commit();
-        }
+        return result;
+    }
 
-        /// <summary>
-        /// Commits a transaction with the specified function.
-        /// </summary>
-        /// <typeparam name="M">The type of the model.</typeparam>
-        /// <param name="func">The function to perform in the transaction.</param>
-        /// <param name="transactionType">The type of the transaction.</param>
-        /// <returns>The result of the function.</returns>
-        public M Commit<M>(Func<Transaction, M> func, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModel
-        {
-            using var transaction = Transaction(transactionType);
-            var result = func(transaction);
-            transaction.Commit();
-
-            return result;
-        }
-
-        /// <summary>
-        /// Disposes the database provider.
-        /// </summary>
-        public void Dispose()
-        {
-            Provider.Dispose();
-        }
+    /// <summary>
+    /// Disposes the database provider.
+    /// </summary>
+    public void Dispose()
+    {
+        Provider.Dispose();
     }
 }

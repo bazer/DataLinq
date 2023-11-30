@@ -1,7 +1,6 @@
-﻿namespace DataLinq.Query
-{
-    public class QueryResult
-    {
+﻿namespace DataLinq.Query;
 
-    }
+public class QueryResult
+{
+
 }

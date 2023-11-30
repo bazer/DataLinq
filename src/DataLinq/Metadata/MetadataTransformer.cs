@@ -1,137 +1,136 @@
 ﻿using System.Linq;
 using DataLinq.Attributes;
 
-namespace DataLinq.Metadata
-{
-    public struct MetadataTransformerOptions
-    {
-        public bool RemoveInterfacePrefix { get; set; } = true;
-        public bool UpdateConstraintNames { get; } = true;
+namespace DataLinq.Metadata;
 
-        public MetadataTransformerOptions(bool removeInterfacePrefix = true, bool updateConstraintNames = true)
+public struct MetadataTransformerOptions
+{
+    public bool RemoveInterfacePrefix { get; set; } = true;
+    public bool UpdateConstraintNames { get; } = true;
+
+    public MetadataTransformerOptions(bool removeInterfacePrefix = true, bool updateConstraintNames = true)
+    {
+        RemoveInterfacePrefix = removeInterfacePrefix;
+        UpdateConstraintNames = updateConstraintNames;
+    }
+}
+
+public class MetadataTransformer
+{
+    //private readonly Action<string> log;
+    private readonly MetadataTransformerOptions options;
+
+    public MetadataTransformer(MetadataTransformerOptions options)
+    {
+        //this.log = log;
+        this.options = options;
+    }
+
+    public void TransformDatabase(DatabaseMetadata srcMetadata, DatabaseMetadata destMetadata)
+    {
+        destMetadata.Attributes = srcMetadata.Attributes;
+        destMetadata.UseCache = srcMetadata.UseCache;
+        destMetadata.CacheLimits = srcMetadata.CacheLimits;
+        destMetadata.CacheCleanup = srcMetadata.CacheCleanup;
+
+        foreach (var srcTable in srcMetadata.TableModels)
         {
-            RemoveInterfacePrefix = removeInterfacePrefix;
-            UpdateConstraintNames = updateConstraintNames;
+            var destTable = destMetadata.TableModels.FirstOrDefault(x => x.Table.DbName == srcTable.Table.DbName);
+
+            if (destTable == null)
+            {
+                //log($"Couldn't find table with name '{srcTable.Table.DbName}' in {nameof(destMetadata)}");
+                continue;
+            }
+
+            TransformTable(srcTable, destTable);
+            destTable.CsPropertyName = srcTable.CsPropertyName;
         }
     }
 
-    public class MetadataTransformer
+    public void TransformTable(TableModelMetadata srcTable, TableModelMetadata destTable)
     {
-        //private readonly Action<string> log;
-        private readonly MetadataTransformerOptions options;
+        //log($"Transforming model '{srcTable.Table.DbName}'");
+        var modelCsTypeName = srcTable.Model.CsTypeName;
 
-        public MetadataTransformer(MetadataTransformerOptions options)
+        if (options.RemoveInterfacePrefix && srcTable.Model.ModelCsType == ModelCsType.Interface)
         {
-            //this.log = log;
-            this.options = options;
+            if (modelCsTypeName.StartsWith("I") && !char.IsLower(modelCsTypeName[1]))
+                modelCsTypeName = modelCsTypeName.Substring(1);
         }
 
-        public void TransformDatabase(DatabaseMetadata srcMetadata, DatabaseMetadata destMetadata)
+        if (destTable.Model.CsTypeName != modelCsTypeName)
         {
-            destMetadata.Attributes = srcMetadata.Attributes;
-            destMetadata.UseCache = srcMetadata.UseCache;
-            destMetadata.CacheLimits = srcMetadata.CacheLimits;
-            destMetadata.CacheCleanup = srcMetadata.CacheCleanup;
+            destTable.Model.CsTypeName = modelCsTypeName;
 
-            foreach (var srcTable in srcMetadata.TableModels)
-            {
-                var destTable = destMetadata.TableModels.FirstOrDefault(x => x.Table.DbName == srcTable.Table.DbName);
-
-                if (destTable == null)
-                {
-                    //log($"Couldn't find table with name '{srcTable.Table.DbName}' in {nameof(destMetadata)}");
-                    continue;
-                }
-
-                TransformTable(srcTable, destTable);
-                destTable.CsPropertyName = srcTable.CsPropertyName;
-            }
+            //foreach (var enumProp in destTable.Model.Properties.OfType<EnumProperty>())
+            //{
+            //    enumProp.CsTypeName = modelCsTypeName + enumProp.CsName;
+            //}
         }
 
-        public void TransformTable(TableModelMetadata srcTable, TableModelMetadata destTable)
+        destTable.Model.Interfaces = new ModelInterface[] { new ModelInterface { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName } };
+        destTable.Model.Namespaces = srcTable.Model.Namespaces;
+
+        foreach (var srcProperty in srcTable.Model.ValueProperties)
         {
-            //log($"Transforming model '{srcTable.Table.DbName}'");
-            var modelCsTypeName = srcTable.Model.CsTypeName;
+            var destProperty = destTable.Model.ValueProperties.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
 
-            if (options.RemoveInterfacePrefix && srcTable.Model.ModelCsType == ModelCsType.Interface)
+            if (destProperty == null)
             {
-                if (modelCsTypeName.StartsWith("I") && !char.IsLower(modelCsTypeName[1]))
-                    modelCsTypeName = modelCsTypeName.Substring(1);
+                //log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
+                continue;
             }
 
-            if (destTable.Model.CsTypeName != modelCsTypeName)
+            if (srcProperty.EnumProperty != null)
             {
-                destTable.Model.CsTypeName = modelCsTypeName;
-
-                //foreach (var enumProp in destTable.Model.Properties.OfType<EnumProperty>())
-                //{
-                //    enumProp.CsTypeName = modelCsTypeName + enumProp.CsName;
-                //}
+                destProperty.EnumProperty = srcProperty.EnumProperty;
             }
 
-            destTable.Model.Interfaces = new ModelInterface[] { new ModelInterface { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName } };
-            destTable.Model.Namespaces = srcTable.Model.Namespaces;
+            destProperty.CsName = srcProperty.CsName;
+            destProperty.CsType = srcProperty.CsType;
+            destProperty.CsTypeName = srcProperty.CsTypeName;
+            destProperty.CsNullable = srcProperty.CsNullable;
+            destProperty.CsSize = srcProperty.CsSize;
 
-            foreach (var srcProperty in srcTable.Model.ValueProperties)
+            foreach (var srcAttribute in srcProperty.Attributes.OfType<TypeAttribute>())
             {
-                var destProperty = destTable.Model.ValueProperties.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
+                if (!destProperty.Attributes.OfType<TypeAttribute>().Any(x => x.DatabaseType == srcAttribute.DatabaseType))
+                    destProperty.Attributes.Add(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Decimals, srcAttribute.Signed));
+            }
 
-                if (destProperty == null)
+            foreach (var srcDbType in srcProperty.Column.DbTypes)
+            {
+                if (!destProperty.Column.DbTypes.Any(x => x.DatabaseType == srcDbType.DatabaseType))
                 {
-                    //log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
-                    continue;
-                }
-
-                if (srcProperty.EnumProperty != null)
-                {
-                    destProperty.EnumProperty = srcProperty.EnumProperty;
-                }
-
-                destProperty.CsName = srcProperty.CsName;
-                destProperty.CsType = srcProperty.CsType;
-                destProperty.CsTypeName = srcProperty.CsTypeName;
-                destProperty.CsNullable = srcProperty.CsNullable;
-                destProperty.CsSize = srcProperty.CsSize;
-
-                foreach (var srcAttribute in srcProperty.Attributes.OfType<TypeAttribute>())
-                {
-                    if (!destProperty.Attributes.OfType<TypeAttribute>().Any(x => x.DatabaseType == srcAttribute.DatabaseType))
-                        destProperty.Attributes.Add(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Decimals, srcAttribute.Signed));
-                }
-
-                foreach (var srcDbType in srcProperty.Column.DbTypes)
-                {
-                    if (!destProperty.Column.DbTypes.Any(x => x.DatabaseType == srcDbType.DatabaseType))
+                    destProperty.Column.DbTypes.Add(new DatabaseColumnType
                     {
-                        destProperty.Column.DbTypes.Add(new DatabaseColumnType
-                        {
-                            DatabaseType = srcDbType.DatabaseType,
-                            Name = srcDbType.Name,
-                            Length = srcDbType.Length,
-                            Decimals = srcDbType.Decimals,
-                            Signed = srcDbType.Signed
-                        });
-                    }
+                        DatabaseType = srcDbType.DatabaseType,
+                        Name = srcDbType.Name,
+                        Length = srcDbType.Length,
+                        Decimals = srcDbType.Decimals,
+                        Signed = srcDbType.Signed
+                    });
                 }
             }
+        }
 
-            foreach (var srcProperty in srcTable.Model.RelationProperties)
+        foreach (var srcProperty in srcTable.Model.RelationProperties)
+        {
+            var destProperty = destTable.Model.RelationProperties.FirstOrDefault(x =>
+                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().Column.Table.DbName == y.Table) &&
+                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().Column.DbName == y.Column));
+
+            if (destProperty == null)
             {
-                var destProperty = destTable.Model.RelationProperties.FirstOrDefault(x =>
-                    srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().Column.Table.DbName == y.Table) &&
-                    srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().Column.DbName == y.Column));
-
-                if (destProperty == null)
-                {
-                    //log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
-                    continue;
-                }
-
-                destProperty.CsName = srcProperty.CsName;
-
-                if (!options.UpdateConstraintNames && srcProperty.RelationPart != null)
-                    destProperty.RelationPart.Relation.ConstraintName = srcProperty.RelationPart.Relation.ConstraintName;
+                //log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
+                continue;
             }
+
+            destProperty.CsName = srcProperty.CsName;
+
+            if (!options.UpdateConstraintNames && srcProperty.RelationPart != null)
+                destProperty.RelationPart.Relation.ConstraintName = srcProperty.RelationPart.Relation.ConstraintName;
         }
     }
 }

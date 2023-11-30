@@ -2,33 +2,32 @@
 using System.Reflection;
 using Castle.DynamicProxy;
 
-namespace DataLinq.Instances
+namespace DataLinq.Instances;
+
+internal class RowInterceptorGenerationHook : IProxyGenerationHook
 {
-    internal class RowInterceptorGenerationHook : IProxyGenerationHook
+    static string[] methodsNotToIntercept = { "ToString", "Equals", "get_EqualityContract", "PrintMembers" };
+
+    public void MethodsInspected()
     {
-        static string[] methodsNotToIntercept = { "ToString", "Equals", "get_EqualityContract", "PrintMembers" };
+    }
 
-        public void MethodsInspected()
-        {
-        }
+    public void NonProxyableMemberNotification(Type type, MemberInfo memberInfo)
+    {
+    }
 
-        public void NonProxyableMemberNotification(Type type, MemberInfo memberInfo)
-        {
-        }
+    public bool ShouldInterceptMethod(Type type, MethodInfo methodInfo)
+    {
+        return Array.IndexOf(methodsNotToIntercept, methodInfo.Name) == -1;
+    }
 
-        public bool ShouldInterceptMethod(Type type, MethodInfo methodInfo)
-        {
-            return Array.IndexOf(methodsNotToIntercept, methodInfo.Name) == -1;
-        }
+    public override bool Equals(object? obj)
+    {
+        return base.Equals(obj);
+    }
 
-        public override bool Equals(object? obj)
-        {
-            return base.Equals(obj);
-        }
-
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
     }
 }

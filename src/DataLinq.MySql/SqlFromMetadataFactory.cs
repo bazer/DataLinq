@@ -8,197 +8,196 @@ using DataLinq.Query;
 using MySqlConnector;
 using ThrowAway;
 
-namespace DataLinq.MySql
+namespace DataLinq.MySql;
+
+public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
-    public class SqlFromMetadataFactory : ISqlFromMetadataFactory
+    private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob" };
+
+    public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
     {
-        private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob" };
+        using var connection = new MySqlConnection(connectionString);
+        connection.Open();
+        var command = connection.CreateCommand();
 
-        public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
+        command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{databaseName}`;\n" +
+            $"USE `{databaseName}`;\n" +
+            sql.Text;
+
+        return command.ExecuteNonQuery();
+    }
+
+    public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
+    {
+        var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
+        //sql.CreateDatabase(metadata.DbName);
+
+        foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
         {
-            using var connection = new MySqlConnection(connectionString);
-            connection.Open();
-            var command = connection.CreateCommand();
-
-            command.CommandText = $"CREATE DATABASE IF NOT EXISTS `{databaseName}`;\n" +
-                $"USE `{databaseName}`;\n" +
-                sql.Text;
-
-            return command.ExecuteNonQuery();
-        }
-
-        public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
-        {
-            var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
-            //sql.CreateDatabase(metadata.DbName);
-
-            foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
+            sql.CreateTable(table.DbName, x =>
             {
-                sql.CreateTable(table.DbName, x =>
-                {
-                    CreateColumns(foreignKeyRestrict, x, table);
-                });
-            }
-
-            foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewMetadata>().ToList()))
-            {
-                sql.CreateView(view.DbName, view.Definition);
-            }
-
-            return sql.sql;
+                CreateColumns(foreignKeyRestrict, x, table);
+            });
         }
 
-        private static void CreateColumns(bool foreignKeyRestrict, SqlGeneration sql, TableMetadata table)
+        foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewMetadata>().ToList()))
         {
-            var longestName = table.Columns.Max(x => x.DbName.Length) + 1;
-            foreach (var column in table.Columns.OrderBy(x => x.Index))
-            {
-                var dbType = GetDbType(column);
-                //var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL);
-
-                sql.NewRow().Indent()
-                    .ColumnName(column.DbName)
-                    .Type(dbType.Name.ToUpper(), column.DbName, longestName);
-
-                if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
-                    sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
-
-                if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
-                    sql.TypeLength(dbType.Length, dbType.Decimals);
-
-                sql.Unsigned(dbType.Signed);
-                sql.Nullable(column.Nullable)
-                    .Autoincrement(column.AutoIncrement);
-
-            }
-
-            sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
-
-            //foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique))
-            //    sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
-
-            foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
-                foreach (var relation in foreignKey.RelationParts)
-                    sql.ForeignKey(relation, foreignKeyRestrict);
-
-            foreach (var index in table.ColumnIndices)
-                sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
+            sql.CreateView(view.DbName, view.Definition);
         }
 
-        public static DatabaseColumnType GetDbType(Column column)
+        return sql.sql;
+    }
+
+    private static void CreateColumns(bool foreignKeyRestrict, SqlGeneration sql, TableMetadata table)
+    {
+        var longestName = table.Columns.Max(x => x.DbName.Length) + 1;
+        foreach (var column in table.Columns.OrderBy(x => x.Index))
         {
-            if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
-                return column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL);
+            var dbType = GetDbType(column);
+            //var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL);
 
-            var type = column.DbTypes
-                .Select(x => TryGetColumnType(x))
-                .Concat(GetDbTypeFromCsType(column.ValueProperty).Yield())
-                .Where(x => x != null)
-                .FirstOrDefault();
+            sql.NewRow().Indent()
+                .ColumnName(column.DbName)
+                .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
-            if (!type.HasValue)
-                throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
+            if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
+                sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
 
-            return type.Value;
+            if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
+                sql.TypeLength(dbType.Length, dbType.Decimals);
+
+            sql.Unsigned(dbType.Signed);
+            sql.Nullable(column.Nullable)
+                .Autoincrement(column.AutoIncrement);
+
         }
 
-        private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
+        sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
+
+        //foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique))
+        //    sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
+
+        foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
+            foreach (var relation in foreignKey.RelationParts)
+                sql.ForeignKey(relation, foreignKeyRestrict);
+
+        foreach (var index in table.ColumnIndices)
+            sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
+    }
+
+    public static DatabaseColumnType GetDbType(Column column)
+    {
+        if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
+            return column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL);
+
+        var type = column.DbTypes
+            .Select(x => TryGetColumnType(x))
+            .Concat(GetDbTypeFromCsType(column.ValueProperty).Yield())
+            .Where(x => x != null)
+            .FirstOrDefault();
+
+        if (!type.HasValue)
+            throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
+
+        return type.Value;
+    }
+
+    private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
+    {
+        string? type = null;
+
+        if (dbType.DatabaseType == DatabaseType.Default)
+            type = ParseDefaultType(dbType.Name);
+        else if (dbType.DatabaseType == DatabaseType.SQLite)
+            type = ParseSQLiteType(dbType.Name);
+
+        if (type == null)
+            return null;
+
+        return new DatabaseColumnType
         {
-            string? type = null;
+            DatabaseType = DatabaseType.MySQL,
+            Name = type,
+            Length = dbType.Length,
+            Decimals = dbType.Decimals,
+            Signed = dbType.Signed
+        };
+    }
 
-            if (dbType.DatabaseType == DatabaseType.Default)
-                type = ParseDefaultType(dbType.Name);
-            else if (dbType.DatabaseType == DatabaseType.SQLite)
-                type = ParseSQLiteType(dbType.Name);
+    private static DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
+    {
+        var type = ParseCsType(property.CsTypeName);
 
-            if (type == null)
-                return null;
+        if (type == null)
+            return null;
 
-            return new DatabaseColumnType
-            {
-                DatabaseType = DatabaseType.MySQL,
-                Name = type,
-                Length = dbType.Length,
-                Decimals = dbType.Decimals,
-                Signed = dbType.Signed
-            };
-        }
-
-        private static DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
+        return new DatabaseColumnType
         {
-            var type = ParseCsType(property.CsTypeName);
+            DatabaseType = DatabaseType.SQLite,
+            Name = type
+        };
+    }
 
-            if (type == null)
-                return null;
-
-            return new DatabaseColumnType
-            {
-                DatabaseType = DatabaseType.SQLite,
-                Name = type
-            };
-        }
-
-        private static string? ParseDefaultType(string defaultType)
+    private static string? ParseDefaultType(string defaultType)
+    {
+        return defaultType.ToLower() switch
         {
-            return defaultType.ToLower() switch
-            {
-                "integer" => "integer",
-                "int" => "integer",
-                "tinyint" => "integer",
-                "mediumint" => "integer",
-                "bit" => "integer",
-                "bigint" => "integer",
-                "smallint" => "integer",
-                "enum" => "integer",
-                "real" => "real",
-                "double" => "real",
-                "float" => "real",
-                "decimal" => "real",
-                "varchar" => "text",
-                "text" => "text",
-                "mediumtext" => "text",
-                "datetime" => "text",
-                "timestamp" => "text",
-                "date" => "text",
-                "char" => "text",
-                "longtext" => "text",
-                "binary" => "blob",
-                "blob" => "blob",
-                _ => null
-                //_ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
-            };
-        }
+            "integer" => "integer",
+            "int" => "integer",
+            "tinyint" => "integer",
+            "mediumint" => "integer",
+            "bit" => "integer",
+            "bigint" => "integer",
+            "smallint" => "integer",
+            "enum" => "integer",
+            "real" => "real",
+            "double" => "real",
+            "float" => "real",
+            "decimal" => "real",
+            "varchar" => "text",
+            "text" => "text",
+            "mediumtext" => "text",
+            "datetime" => "text",
+            "timestamp" => "text",
+            "date" => "text",
+            "char" => "text",
+            "longtext" => "text",
+            "binary" => "blob",
+            "blob" => "blob",
+            _ => null
+            //_ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
+        };
+    }
 
-        private static string? ParseSQLiteType(string sqliteType)
+    private static string? ParseSQLiteType(string sqliteType)
+    {
+        return sqliteType.ToLower() switch
         {
-            return sqliteType.ToLower() switch
-            {
-                "integer" => "int",
-                "text" => "varchar",
-                "real" => "double",
-                "blob" => "binary",
-                _ => null
-            };
-        }
+            "integer" => "int",
+            "text" => "varchar",
+            "real" => "double",
+            "blob" => "binary",
+            _ => null
+        };
+    }
 
-        private static string? ParseCsType(string csType)
+    private static string? ParseCsType(string csType)
+    {
+        return csType.ToLower() switch
         {
-            return csType.ToLower() switch
-            {
-                "int" => "int",
-                "string" => "varchar",
-                "bool" => "bit",
-                "double" => "double",
-                "DateTime" => "datetime",
-                "DateOnly" => "date",
-                "float" => "float",
-                "long" => "bigint",
-                "Guid" => "binary",
-                "enum" => "enum",
-                "decimal" => "decimal",
-                "byte[]" => "blob",
-                _ => null
-            };
-        }
+            "int" => "int",
+            "string" => "varchar",
+            "bool" => "bit",
+            "double" => "double",
+            "DateTime" => "datetime",
+            "DateOnly" => "date",
+            "float" => "float",
+            "long" => "bigint",
+            "Guid" => "binary",
+            "enum" => "enum",
+            "decimal" => "decimal",
+            "byte[]" => "blob",
+            _ => null
+        };
     }
 }

@@ -2,122 +2,121 @@
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
-namespace DataLinq.Linq
+namespace DataLinq.Linq;
+
+internal static class Evaluator
 {
-    internal static class Evaluator
+    /// <summary>
+    /// Performs evaluation and replacement of independent sub-trees
+    /// </summary>
+    /// <param name="expression">The root of the expression tree.</param>
+    /// <param name="fnCanBeEvaluated">A function that decides whether a given expression node can be part of the local function.</param>
+    /// <returns>A new tree with sub-trees evaluated and replaced.</returns>
+    public static Expression PartialEval(Expression expression, Func<Expression, bool> fnCanBeEvaluated)
     {
-        /// <summary>
-        /// Performs evaluation and replacement of independent sub-trees
-        /// </summary>
-        /// <param name="expression">The root of the expression tree.</param>
-        /// <param name="fnCanBeEvaluated">A function that decides whether a given expression node can be part of the local function.</param>
-        /// <returns>A new tree with sub-trees evaluated and replaced.</returns>
-        public static Expression PartialEval(Expression expression, Func<Expression, bool> fnCanBeEvaluated)
+        return new SubtreeEvaluator(new Nominator(fnCanBeEvaluated).Nominate(expression)).Eval(expression);
+    }
+
+    /// <summary>
+    /// Performs evaluation and replacement of independent sub-trees
+    /// </summary>
+    /// <param name="expression">The root of the expression tree.</param>
+    /// <returns>A new tree with sub-trees evaluated and replaced.</returns>
+    public static Expression PartialEval(Expression expression)
+    {
+        return PartialEval(expression, Evaluator.CanBeEvaluatedLocally);
+    }
+
+    private static bool CanBeEvaluatedLocally(Expression expression)
+    {
+        return expression.NodeType != ExpressionType.Parameter;
+    }
+
+    /// <summary>
+    /// Evaluates and replaces sub-trees when first candidate is reached (top-down)
+    /// </summary>
+    private class SubtreeEvaluator : ExpressionVisitor
+    {
+        private readonly HashSet<Expression> candidates;
+
+        internal SubtreeEvaluator(HashSet<Expression> candidates)
         {
-            return new SubtreeEvaluator(new Nominator(fnCanBeEvaluated).Nominate(expression)).Eval(expression);
+            this.candidates = candidates;
         }
 
-        /// <summary>
-        /// Performs evaluation and replacement of independent sub-trees
-        /// </summary>
-        /// <param name="expression">The root of the expression tree.</param>
-        /// <returns>A new tree with sub-trees evaluated and replaced.</returns>
-        public static Expression PartialEval(Expression expression)
+        internal Expression? Eval(Expression exp)
         {
-            return PartialEval(expression, Evaluator.CanBeEvaluatedLocally);
+            return this.Visit(exp);
         }
 
-        private static bool CanBeEvaluatedLocally(Expression expression)
+        public override Expression? Visit(Expression? node)
         {
-            return expression.NodeType != ExpressionType.Parameter;
+            if (node == null)
+            {
+                return null;
+            }
+            if (this.candidates.Contains(node))
+            {
+                return this.Evaluate(node);
+            }
+            return base.Visit(node);
         }
 
-        /// <summary>
-        /// Evaluates and replaces sub-trees when first candidate is reached (top-down)
-        /// </summary>
-        private class SubtreeEvaluator : ExpressionVisitor
+        private Expression Evaluate(Expression e)
         {
-            private readonly HashSet<Expression> candidates;
-
-            internal SubtreeEvaluator(HashSet<Expression> candidates)
+            if (e.NodeType == ExpressionType.Constant)
             {
-                this.candidates = candidates;
+                return e;
             }
+            LambdaExpression lambda = Expression.Lambda(e);
+            Delegate fn = lambda.Compile();
+            return Expression.Constant(fn.DynamicInvoke(null), e.Type);
+        }
+    }
 
-            internal Expression? Eval(Expression exp)
-            {
-                return this.Visit(exp);
-            }
+    /// <summary>
+    /// Performs bottom-up analysis to determine which nodes can possibly
+    /// be part of an evaluated sub-tree.
+    /// </summary>
+    private class Nominator : ExpressionVisitor
+    {
+        private readonly Func<Expression, bool> fnCanBeEvaluated;
+        private HashSet<Expression> candidates = new HashSet<Expression>();
+        private bool cannotBeEvaluated;
 
-            public override Expression? Visit(Expression? node)
-            {
-                if (node == null)
-                {
-                    return null;
-                }
-                if (this.candidates.Contains(node))
-                {
-                    return this.Evaluate(node);
-                }
-                return base.Visit(node);
-            }
-
-            private Expression Evaluate(Expression e)
-            {
-                if (e.NodeType == ExpressionType.Constant)
-                {
-                    return e;
-                }
-                LambdaExpression lambda = Expression.Lambda(e);
-                Delegate fn = lambda.Compile();
-                return Expression.Constant(fn.DynamicInvoke(null), e.Type);
-            }
+        internal Nominator(Func<Expression, bool> fnCanBeEvaluated)
+        {
+            this.fnCanBeEvaluated = fnCanBeEvaluated;
         }
 
-        /// <summary>
-        /// Performs bottom-up analysis to determine which nodes can possibly
-        /// be part of an evaluated sub-tree.
-        /// </summary>
-        private class Nominator : ExpressionVisitor
+        internal HashSet<Expression> Nominate(Expression expression)
         {
-            private readonly Func<Expression, bool> fnCanBeEvaluated;
-            private HashSet<Expression> candidates = new HashSet<Expression>();
-            private bool cannotBeEvaluated;
+            //this.candidates = new HashSet<Expression>();
+            this.Visit(expression);
+            return this.candidates;
+        }
 
-            internal Nominator(Func<Expression, bool> fnCanBeEvaluated)
+        public override Expression? Visit(Expression? node)
+        {
+            if (node != null)
             {
-                this.fnCanBeEvaluated = fnCanBeEvaluated;
-            }
-
-            internal HashSet<Expression> Nominate(Expression expression)
-            {
-                //this.candidates = new HashSet<Expression>();
-                this.Visit(expression);
-                return this.candidates;
-            }
-
-            public override Expression? Visit(Expression? node)
-            {
-                if (node != null)
+                bool saveCannotBeEvaluated = this.cannotBeEvaluated;
+                this.cannotBeEvaluated = false;
+                base.Visit(node);
+                if (!this.cannotBeEvaluated)
                 {
-                    bool saveCannotBeEvaluated = this.cannotBeEvaluated;
-                    this.cannotBeEvaluated = false;
-                    base.Visit(node);
-                    if (!this.cannotBeEvaluated)
+                    if (this.fnCanBeEvaluated(node))
                     {
-                        if (this.fnCanBeEvaluated(node))
-                        {
-                            this.candidates.Add(node);
-                        }
-                        else
-                        {
-                            this.cannotBeEvaluated = true;
-                        }
+                        this.candidates.Add(node);
                     }
-                    this.cannotBeEvaluated |= saveCannotBeEvaluated;
+                    else
+                    {
+                        this.cannotBeEvaluated = true;
+                    }
                 }
-                return node;
+                this.cannotBeEvaluated |= saveCannotBeEvaluated;
             }
+            return node;
         }
     }
 }

@@ -10,78 +10,77 @@ using DataLinq.Query;
 using DataLinq.SQLite;
 using ThrowAway;
 
-namespace DataLinq.Tools
+namespace DataLinq.Tools;
+
+public enum SqlGeneratorError
 {
-    public enum SqlGeneratorError
+    DestDirectoryNotFound,
+    UnableToParseModelFiles,
+    CouldNotGenerateSql
+}
+
+public struct SqlGeneratorOptions
+{
+}
+
+public class SqlGenerator : Generator
+{
+    private readonly SqlGeneratorOptions options;
+
+    static SqlGenerator()
     {
-        DestDirectoryNotFound,
-        UnableToParseModelFiles,
-        CouldNotGenerateSql
+        MySQLProvider.RegisterProvider();
+        SQLiteProvider.RegisterProvider();
     }
 
-    public struct SqlGeneratorOptions
+    public SqlGenerator(Action<string> log, SqlGeneratorOptions options) : base(log)
     {
+        this.options = options;
     }
 
-    public class SqlGenerator : Generator
+    public Option<Sql, SqlGeneratorError> Create(DataLinqDatabaseConnection connection, string basePath, string writePath)
     {
-        private readonly SqlGeneratorOptions options;
+        log($"Type: {connection.Type}");
 
-        static SqlGenerator()
+        var db = connection.DatabaseConfig;
+        var fileEncoding = db.FileEncoding;
+
+        var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
+        if (!Directory.Exists(destDir))
         {
-            MySQLProvider.RegisterProvider();
-            SQLiteProvider.RegisterProvider();
+            log($"Couldn't find dir: {destDir}");
+            return SqlGeneratorError.DestDirectoryNotFound;
         }
 
-        public SqlGenerator(Action<string> log, SqlGeneratorOptions options) : base(log)
+        //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
+        //if (assemblyPathsExists.Any())
+        //{
+        //    log($"Reading assemblies from:");
+        //    foreach (var assemblyPath in assemblyPathsExists)
+        //        log($"{assemblyPath}");
+        //}
+
+        var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
+        var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList());
+        if (dbMetadata.HasFailed)
         {
-            this.options = options;
+            log("Error: Unable to parse model files.");
+            return SqlGeneratorError.UnableToParseModelFiles;
         }
 
-        public Option<Sql, SqlGeneratorError> Create(DataLinqDatabaseConnection connection, string basePath, string writePath)
+        log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
+        log($"Writing sql to: {writePath}");
+
+        var sql = PluginHook.GenerateSql(connection.Type, dbMetadata, true);
+
+        if (sql.HasFailed)
         {
-            log($"Type: {connection.Type}");
-
-            var db = connection.DatabaseConfig;
-            var fileEncoding = db.FileEncoding;
-
-            var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
-            if (!Directory.Exists(destDir))
-            {
-                log($"Couldn't find dir: {destDir}");
-                return SqlGeneratorError.DestDirectoryNotFound;
-            }
-
-            //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
-            //if (assemblyPathsExists.Any())
-            //{
-            //    log($"Reading assemblies from:");
-            //    foreach (var assemblyPath in assemblyPathsExists)
-            //        log($"{assemblyPath}");
-            //}
-
-            var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-            var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList());
-            if (dbMetadata.HasFailed)
-            {
-                log("Error: Unable to parse model files.");
-                return SqlGeneratorError.UnableToParseModelFiles;
-            }
-
-            log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
-            log($"Writing sql to: {writePath}");
-
-            var sql = PluginHook.GenerateSql(connection.Type, dbMetadata, true);
-
-            if (sql.HasFailed)
-            {
-                log(sql.Failure.ToString());
-                return SqlGeneratorError.CouldNotGenerateSql;
-            }
-
-            File.WriteAllText(writePath, sql.Value.Text, Encoding.UTF8);
-
-            return sql.Value;
+            log(sql.Failure.ToString());
+            return SqlGeneratorError.CouldNotGenerateSql;
         }
+
+        File.WriteAllText(writePath, sql.Value.Text, Encoding.UTF8);
+
+        return sql.Value;
     }
 }

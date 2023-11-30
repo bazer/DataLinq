@@ -2,51 +2,50 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DataLinq.Cache
+namespace DataLinq.Cache;
+
+public class CacheHistory(uint maxCapacity = 10000)
 {
-    public class CacheHistory(uint maxCapacity = 10000)
+    public uint Count { get; private set; }
+    public uint MaxCapacity { get; set; } = maxCapacity;
+
+    public event Action<DatabaseCacheSnapshot>? OnAdd;
+
+    private LinkedList<DatabaseCacheSnapshot> history = new();
+    private readonly object lockObject = new();
+
+    public void Add(DatabaseCacheSnapshot snapshot)
     {
-        public uint Count { get; private set; }
-        public uint MaxCapacity { get; set; } = maxCapacity;
+        ArgumentNullException.ThrowIfNull(snapshot);
 
-        public event Action<DatabaseCacheSnapshot>? OnAdd;
-
-        private LinkedList<DatabaseCacheSnapshot> history = new();
-        private readonly object lockObject = new();
-
-        public void Add(DatabaseCacheSnapshot snapshot)
+        lock (lockObject)
         {
-            ArgumentNullException.ThrowIfNull(snapshot);
+            history.AddLast(snapshot);
+            Count++;
 
-            lock (lockObject)
+            while (Count > MaxCapacity)
             {
-                history.AddLast(snapshot);
-                Count++;
-
-                while (Count > MaxCapacity)
-                {
-                    Count--;
-                    history.RemoveFirst();
-                }
+                Count--;
+                history.RemoveFirst();
             }
-
-            OnAdd?.Invoke(snapshot);
         }
 
-        public DatabaseCacheSnapshot[] GetHistory()
-        {
-            return history.ToArray();
-        }
+        OnAdd?.Invoke(snapshot);
+    }
 
-        public DatabaseCacheSnapshot? GetLatest()
-        {
-            return history.Last?.Value;
-        }
+    public DatabaseCacheSnapshot[] GetHistory()
+    {
+        return history.ToArray();
+    }
 
-        public void Clear()
-        {
-            history.Clear();
-            Count = 0;
-        }
+    public DatabaseCacheSnapshot? GetLatest()
+    {
+        return history.Last?.Value;
+    }
+
+    public void Clear()
+    {
+        history.Clear();
+        Count = 0;
     }
 }

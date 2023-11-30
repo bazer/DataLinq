@@ -1,42 +1,41 @@
 ﻿using DataLinq.Query;
 
-namespace DataLinq.Extensions
+namespace DataLinq.Extensions;
+
+public static class QueryExtensions
 {
-    public static class QueryExtensions
+    public static string ToSql(this Relation relation)
     {
-        public static string ToSql(this Relation relation)
+        switch (relation)
         {
-            switch (relation)
-            {
-                case Relation.Equal:
-                    return "=";
+            case Relation.Equal:
+                return "=";
 
-                case Relation.EqualNull:
-                    return "IS";
+            case Relation.EqualNull:
+                return "IS";
 
-                case Relation.NotEqual:
-                    return "<>";
+            case Relation.NotEqual:
+                return "<>";
 
-                case Relation.NotEqualNull:
-                    return "IS NOT";
+            case Relation.NotEqualNull:
+                return "IS NOT";
 
-                case Relation.Like:
-                    return "LIKE";
+            case Relation.Like:
+                return "LIKE";
 
-                case Relation.GreaterThan:
-                    return ">";
+            case Relation.GreaterThan:
+                return ">";
 
-                case Relation.GreaterThanOrEqual:
-                    return ">=";
+            case Relation.GreaterThanOrEqual:
+                return ">=";
 
-                case Relation.LessThan:
-                    return "<";
+            case Relation.LessThan:
+                return "<";
 
-                case Relation.LessThanOrEqual:
-                    return "<=";
-            }
-
-            return null;
+            case Relation.LessThanOrEqual:
+                return "<=";
         }
+
+        return null;
     }
 }
