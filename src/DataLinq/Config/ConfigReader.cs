@@ -1,9 +1,9 @@
-﻿using DataLinq.Metadata;
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using DataLinq.Metadata;
 
 namespace DataLinq.Config
 {
@@ -22,7 +22,7 @@ namespace DataLinq.Config
 
             return null;
 
-           // return $"No provider matched with database type '{typeName}'";
+            // return $"No provider matched with database type '{typeName}'";
         }
 
         public static Encoding ParseFileEncoding(string encoding)

@@ -1,7 +1,7 @@
-﻿using DataLinq.Attributes;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using DataLinq.Attributes;
 
 namespace DataLinq.Metadata
 {

@@ -1,7 +1,7 @@
+using System.Collections.Generic;
 using DataLinq.Exceptions;
 using DataLinq.Interfaces;
 using DataLinq.Query;
-using System.Collections.Generic;
 using ThrowAway;
 
 namespace DataLinq.Metadata

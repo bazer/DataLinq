@@ -1,7 +1,7 @@
-﻿using DataLinq.Attributes;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using DataLinq.Attributes;
 
 namespace DataLinq.Metadata
 {
@@ -26,10 +26,10 @@ namespace DataLinq.Metadata
 
         public TableType Type { get; protected set; } = TableType.Table;
         public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
-        public bool UseCache 
-        { 
-            get => explicitUseCache.HasValue ? explicitUseCache.Value : Database.UseCache; 
-            set => explicitUseCache = value; 
+        public bool UseCache
+        {
+            get => explicitUseCache.HasValue ? explicitUseCache.Value : Database.UseCache;
+            set => explicitUseCache = value;
         }
 
         internal bool? explicitUseCache;

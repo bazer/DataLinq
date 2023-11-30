@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Data;
-using System.Linq.Expressions;
-using DataLinq.Metadata;
-using DataLinq.Mutation;
 
 namespace DataLinq.Query
 {

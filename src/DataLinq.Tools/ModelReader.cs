@@ -1,9 +1,8 @@
-﻿using DataLinq.Config;
-using DataLinq.Metadata;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
 using System.Linq;
+using DataLinq.Config;
+using DataLinq.Metadata;
 using ThrowAway;
 
 namespace DataLinq.Tools
@@ -19,7 +18,7 @@ namespace DataLinq.Tools
             foreach (var database in config.Databases)
             {
                 var result = Read(database, basePath);
-                
+
                 if (result.HasFailed)
                     return result.Failure;
             }
@@ -66,12 +65,12 @@ namespace DataLinq.Tools
 
             //if (Directory.Exists(srcDir))
             //{
-                //log($"Reading models from: {srcDir}");
+            //log($"Reading models from: {srcDir}");
 
-                var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = db.FileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-                DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, paths);
+            var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = db.FileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
+            DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, paths);
 
-                log($"Tables in model files: {srcMetadata.TableModels.Count}");
+            log($"Tables in model files: {srcMetadata.TableModels.Count}");
             //}
             //else
             //{

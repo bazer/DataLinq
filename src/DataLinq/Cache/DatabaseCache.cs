@@ -1,11 +1,11 @@
-﻿using DataLinq.Attributes;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Extensions;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 using DataLinq.Workers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace DataLinq.Cache
 {
@@ -23,7 +23,7 @@ namespace DataLinq.Cache
         {
             this.Database = database;
 
-            this.TableCaches =  this.Database.Metadata.TableModels
+            this.TableCaches = this.Database.Metadata.TableModels
                 .Select(x => new TableCache(x.Table, database))
                 .ToList();
 

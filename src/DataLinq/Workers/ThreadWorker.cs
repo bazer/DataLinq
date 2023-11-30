@@ -1,8 +1,8 @@
-﻿using DataLinq.Interfaces;
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DataLinq.Interfaces;
 
 namespace DataLinq.Workers
 {

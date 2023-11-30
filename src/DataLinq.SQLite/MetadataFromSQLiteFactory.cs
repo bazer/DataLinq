@@ -1,8 +1,8 @@
-﻿using DataLinq.Attributes;
-using DataLinq.Metadata;
-using System;
+﻿using System;
 using System.Data;
 using System.Linq;
+using DataLinq.Attributes;
+using DataLinq.Metadata;
 using ThrowAway;
 
 namespace DataLinq.SQLite

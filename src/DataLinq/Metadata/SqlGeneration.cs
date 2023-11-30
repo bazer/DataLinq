@@ -1,12 +1,11 @@
-using DataLinq.Attributes;
-using DataLinq.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Query;
 
 namespace DataLinq.Metadata
 {
-    
+
     public class SqlGeneration
     {
         public SqlGeneration(int indentationSpaces = 4, char quoteChar = '`', string generatedText = "")
@@ -125,7 +124,7 @@ namespace DataLinq.Metadata
         public SqlGeneration Nullable(bool nullable) => Space().Add(nullable ? "NULL" : "NOT NULL");
         public SqlGeneration Autoincrement(bool inc) => inc ? Space().Add("AUTO_INCREMENT") : this;
         public SqlGeneration Type(string type, string columnName, int longestColumnName) => Add(Align(longestColumnName, columnName) + type);
-        public SqlGeneration TypeLength(long? length, int? decimals) => length.HasValue 
+        public SqlGeneration TypeLength(long? length, int? decimals) => length.HasValue
             ? decimals.HasValue
                 ? Add($"({length},{decimals})")
                 : Add($"({length})")

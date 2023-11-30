@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 

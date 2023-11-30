@@ -1,7 +1,6 @@
-using DataLinq.Tests.Models;
 using System;
 using System.Linq;
-using System.Linq.Expressions;
+using DataLinq.Tests.Models;
 using Xunit;
 
 namespace DataLinq.Tests

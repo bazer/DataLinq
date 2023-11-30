@@ -1,7 +1,7 @@
-﻿using DataLinq.Mutation;
-using MySqlConnector;
-using System;
+﻿using System;
 using System.Data;
+using DataLinq.Mutation;
+using MySqlConnector;
 
 namespace DataLinq.MySql
 {

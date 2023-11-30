@@ -1,13 +1,13 @@
+using System;
+using System.Data;
+using System.IO;
+using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Exceptions;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using Microsoft.Data.Sqlite;
-using System;
-using System.Data;
-using System.IO;
-using System.Linq;
 using ThrowAway;
 
 namespace DataLinq.SQLite
@@ -104,7 +104,7 @@ namespace DataLinq.SQLite
         private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
         {
             string? type = null;
-            
+
             if (dbType.DatabaseType == DatabaseType.Default)
                 type = ParseDefaultType(dbType.Name);
             else if (dbType.DatabaseType == DatabaseType.MySQL)
@@ -213,7 +213,7 @@ namespace DataLinq.SQLite
 
     public class SQLiteGeneration : SqlGeneration
     {
-        public SQLiteGeneration(int indentationSpaces = 4, char quoteChar = '`', string generatedText = "") : base (indentationSpaces, quoteChar, generatedText)
+        public SQLiteGeneration(int indentationSpaces = 4, char quoteChar = '`', string generatedText = "") : base(indentationSpaces, quoteChar, generatedText)
         {
         }
 

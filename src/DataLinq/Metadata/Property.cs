@@ -87,7 +87,7 @@ namespace DataLinq.Metadata
         public Column Column { get; set; }
         public bool CsNullable { get; set; }
         public int? CsSize { get; set; }
-        public EnumProperty? EnumProperty {get; set;}
+        public EnumProperty? EnumProperty { get; set; }
 
         public ValueProperty()
         {

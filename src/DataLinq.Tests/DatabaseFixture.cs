@@ -1,14 +1,14 @@
-﻿using Bogus;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Bogus;
 using DataLinq.Config;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
 namespace DataLinq.Tests
 {
@@ -34,8 +34,8 @@ namespace DataLinq.Tests
                 var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
 
                 var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString.Original, connection.DatabaseName);
-                
-                lock(lockObject)
+
+                lock (lockObject)
                 {
                     if (!dbEmployees.FileOrServerExists() || !dbEmployees.Exists())
                     {

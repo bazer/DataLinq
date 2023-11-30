@@ -1,7 +1,7 @@
-using DataLinq.Tests.Models;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Tests.Models;
 using Xunit;
 
 namespace DataLinq.Tests

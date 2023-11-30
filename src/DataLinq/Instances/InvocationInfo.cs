@@ -1,6 +1,6 @@
-﻿using Castle.DynamicProxy;
-using System;
+﻿using System;
 using System.Reflection;
+using Castle.DynamicProxy;
 
 namespace DataLinq.Instances
 {

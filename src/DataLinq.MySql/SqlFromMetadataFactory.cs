@@ -1,11 +1,11 @@
+using System;
+using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Exceptions;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
-using System;
-using System.Linq;
 using ThrowAway;
 
 namespace DataLinq.MySql

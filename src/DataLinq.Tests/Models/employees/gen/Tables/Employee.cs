@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -14,7 +13,7 @@ public partial record Employee : ITableModel<Employees>
         M = 1,
         F = 2,
     }
-    
+
     [PrimaryKey]
     [AutoIncrement]
     [Type(DatabaseType.MySQL, "int")]

@@ -1,8 +1,8 @@
-﻿using DataLinq.Metadata;
+﻿using System;
+using System.Linq;
+using DataLinq.Metadata;
 using DataLinq.Utils;
 using Microsoft.Data.Sqlite;
-using System;
-using System.Linq;
 
 namespace DataLinq.SQLite
 {

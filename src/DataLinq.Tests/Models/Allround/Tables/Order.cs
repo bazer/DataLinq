@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -16,7 +15,7 @@ public partial record Order : ITableModel<AllroundBenchmark>
         Delivered = 3,
         Cancelled = 4,
     }
-    
+
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("OrderId")]

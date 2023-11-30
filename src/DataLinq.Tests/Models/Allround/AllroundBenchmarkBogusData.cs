@@ -1,7 +1,6 @@
-﻿using Bogus;
-using DataLinq;
-using System;
+﻿using System;
 using System.Linq;
+using Bogus;
 
 namespace DataLinq.Tests.Models.Allround;
 

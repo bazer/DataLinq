@@ -17,7 +17,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.SQLite", "DataLinq
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.Benchmark", "DataLinq.Benchmark\DataLinq.Benchmark.csproj", "{351B6D40-E43C-4F5A-AEB0-2B914D112026}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLinq.Blazor", "DataLinq.Blazor\DataLinq.Blazor.csproj", "{02525BC2-4599-4E9C-9964-3BA7F0B6A1B8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.Blazor", "DataLinq.Blazor\DataLinq.Blazor.csproj", "{02525BC2-4599-4E9C-9964-3BA7F0B6A1B8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B559F6D8-E3FA-44D3-A5AC-D8D4A64A0DAB}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

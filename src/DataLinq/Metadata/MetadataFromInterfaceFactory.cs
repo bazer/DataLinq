@@ -1,9 +1,9 @@
-﻿using DataLinq.Attributes;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Reflection;
+using DataLinq.Attributes;
 
 namespace DataLinq.Metadata
 {
@@ -130,7 +130,7 @@ namespace DataLinq.Metadata
                 CsTypeName = type.Name,
                 Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray(),
                 Interfaces = type.GetInterfaces().Select(x => new ModelInterface { CsType = x, CsTypeName = x.Name }).ToArray(),
-                Namespaces =   new ModelNamespace[] { new ModelNamespace { FullNamespaceName = type.Namespace } }
+                Namespaces = new ModelNamespace[] { new ModelNamespace { FullNamespaceName = type.Namespace } }
             };
 
             model.Properties = type
@@ -141,7 +141,7 @@ namespace DataLinq.Metadata
                 .ToList();
 
             model.Namespaces = model.ValueProperties
-                .Select( x => x.CsType?.Namespace)
+                .Select(x => x.CsType?.Namespace)
                 .Distinct()
                 .Where(x => x != null)
                 .Select(name => (name.StartsWith("System"), name))
@@ -155,7 +155,7 @@ namespace DataLinq.Metadata
 
         private static ModelCsType ParseModelCsType(Type type)
         {
-            if(type.IsClass)
+            if (type.IsClass)
             {
                 if (type.GetProperty("EqualityContract", BindingFlags.NonPublic | BindingFlags.Instance) != null)
                     return ModelCsType.Record;

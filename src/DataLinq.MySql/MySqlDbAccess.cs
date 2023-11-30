@@ -1,7 +1,7 @@
-﻿using DataLinq.Mutation;
-using MySqlConnector;
-using System;
+﻿using System;
 using System.Data;
+using DataLinq.Mutation;
+using MySqlConnector;
 
 namespace DataLinq.MySql
 {
@@ -15,12 +15,12 @@ namespace DataLinq.MySql
 
         public override void Commit()
         {
-            
+
         }
 
         public override void Dispose()
         {
-            
+
         }
 
         public override int ExecuteNonQuery(IDbCommand command)
@@ -36,7 +36,7 @@ namespace DataLinq.MySql
             }
         }
 
-        public override int ExecuteNonQuery(string query) => 
+        public override int ExecuteNonQuery(string query) =>
             ExecuteNonQuery(new MySqlCommand(query));
 
         public override object ExecuteScalar(string query) =>
@@ -70,12 +70,12 @@ namespace DataLinq.MySql
             return new MySqlDataLinqDataReader(command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
         }
 
-        public override IDataLinqDataReader ExecuteReader(string query) => 
+        public override IDataLinqDataReader ExecuteReader(string query) =>
             ExecuteReader(new MySqlCommand(query));
 
         public override void Rollback()
         {
-            
+
         }
     }
 }

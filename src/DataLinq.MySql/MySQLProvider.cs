@@ -1,12 +1,12 @@
-﻿using DataLinq.Extensions;
+﻿using System;
+using System.Data;
+using System.Runtime.CompilerServices;
+using DataLinq.Extensions;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
 using MySqlConnector;
-using System;
-using System.Data;
-using System.Runtime.CompilerServices;
 
 namespace DataLinq.MySql
 {
@@ -50,7 +50,7 @@ namespace DataLinq.MySql
         public MySQLProvider(string connectionString) : base(connectionString, DatabaseType.MySQL)
         {
             connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
-            
+
             if (!string.IsNullOrWhiteSpace(connectionStringBuilder.Database))
                 DatabaseName = connectionStringBuilder.Database;
         }
@@ -82,7 +82,7 @@ namespace DataLinq.MySql
 
             if (DatabaseName != null)
                 transaction.ExecuteNonQuery($"USE {DatabaseName};");
-            
+
             return transaction;
         }
 

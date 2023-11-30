@@ -1,11 +1,11 @@
-﻿using DataLinq.Attributes;
-using DataLinq.Extensions;
-using DataLinq.Metadata;
-using DataLinq.MySql.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using DataLinq.Attributes;
+using DataLinq.Extensions;
+using DataLinq.Metadata;
+using DataLinq.MySql.Models;
 using ThrowAway;
 
 namespace DataLinq.MySql
@@ -56,7 +56,7 @@ namespace DataLinq.MySql
             foreach (var tableName in options.Tables.Concat(options.Views))
             {
                 if (!tableModels.Any(x => tableName.Equals(x.Table.DbName, StringComparison.OrdinalIgnoreCase)))
-                        yield return tableName;
+                    yield return tableName;
             }
         }
 

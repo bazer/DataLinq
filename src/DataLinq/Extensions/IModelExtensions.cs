@@ -1,9 +1,9 @@
-﻿using DataLinq.Instances;
+﻿using System;
+using System.Linq;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using System;
-using System.Linq;
 
 namespace DataLinq
 {
@@ -47,7 +47,7 @@ namespace DataLinq
         public static bool IsImmutable(this IModel model) =>
             typeof(ImmutableInstanceBase).IsAssignableFrom(model.GetType());
 
-        public static bool IsMutable (this IModel model) =>
+        public static bool IsMutable(this IModel model) =>
             typeof(MutableInstanceBase).IsAssignableFrom(model.GetType());
 
         public static T Mutate<T>(this T model) where T : IModel

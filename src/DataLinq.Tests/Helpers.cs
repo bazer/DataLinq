@@ -1,6 +1,6 @@
-﻿using DataLinq.Tests.Models;
-using System;
+﻿using System;
 using System.Linq;
+using DataLinq.Tests.Models;
 
 namespace DataLinq.Tests
 {

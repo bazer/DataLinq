@@ -1,9 +1,9 @@
-﻿using DataLinq.Config;
-using DataLinq.Metadata;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using DataLinq.Config;
+using DataLinq.Metadata;
 using ThrowAway;
 
 namespace DataLinq.Tools

@@ -1,5 +1,5 @@
-﻿using DataLinq.Utils;
-using System;
+﻿using System;
+using DataLinq.Utils;
 
 namespace DataLinq.Cache
 {

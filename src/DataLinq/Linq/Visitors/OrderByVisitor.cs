@@ -1,7 +1,7 @@
-﻿using Remotion.Linq.Clauses;
-using DataLinq.Query;
-using System;
+﻿using System;
 using System.Linq.Expressions;
+using DataLinq.Query;
+using Remotion.Linq.Clauses;
 
 namespace DataLinq.Linq.Visitors
 {

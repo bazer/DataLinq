@@ -3,7 +3,6 @@ using DataLinq.Config;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models.Allround;
-using System.Linq;
 
 namespace DataLinq.Benchmark;
 

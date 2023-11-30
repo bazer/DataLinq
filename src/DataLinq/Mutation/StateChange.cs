@@ -1,10 +1,10 @@
-﻿using DataLinq.Instances;
+﻿using System;
+using System.Data;
+using System.Linq;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Query;
-using System;
-using System.Data;
-using System.Linq;
 
 namespace DataLinq.Mutation
 {

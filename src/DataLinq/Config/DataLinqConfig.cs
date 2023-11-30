@@ -77,7 +77,7 @@ namespace DataLinq.Config
         {
             if (string.IsNullOrEmpty(dbName) && Databases.Count != 1)
                 return $"The config file has more than one database specified, you need to select which one to use";
-            
+
             var db = string.IsNullOrEmpty(dbName)
                 ? Databases.Single()
                 : Databases.SingleOrDefault(x => x.Name.ToLower() == dbName.ToLower());

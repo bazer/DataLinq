@@ -1,7 +1,7 @@
-﻿using DataLinq.Mutation;
-using Microsoft.Data.Sqlite;
-using System;
+﻿using System;
 using System.Data;
+using DataLinq.Mutation;
+using Microsoft.Data.Sqlite;
 
 namespace DataLinq.SQLite
 {
@@ -10,17 +10,17 @@ namespace DataLinq.SQLite
         public SQLiteDbAccess(string connectionString, TransactionType type) : base(connectionString, type)
         {
             //if (type != TransactionType.NoTransaction)
-                throw new ArgumentException("Only 'TransactionType.NoTransaction' is allowed");
+            throw new ArgumentException("Only 'TransactionType.NoTransaction' is allowed");
         }
 
         public override void Commit()
         {
-            
+
         }
 
         public override void Dispose()
         {
-            
+
         }
 
         public override int ExecuteNonQuery(IDbCommand command)
@@ -36,7 +36,7 @@ namespace DataLinq.SQLite
             }
         }
 
-        public override int ExecuteNonQuery(string query) => 
+        public override int ExecuteNonQuery(string query) =>
             ExecuteNonQuery(new SqliteCommand(query));
 
         public override object ExecuteScalar(string query) =>
@@ -75,12 +75,12 @@ namespace DataLinq.SQLite
             return new SQLiteDataLinqDataReader(command.ExecuteReader(CommandBehavior.CloseConnection) as SqliteDataReader);
         }
 
-        public override IDataLinqDataReader ExecuteReader(string query) => 
+        public override IDataLinqDataReader ExecuteReader(string query) =>
             ExecuteReader(new SqliteCommand(query));
 
         public override void Rollback()
         {
-            
+
         }
     }
 }

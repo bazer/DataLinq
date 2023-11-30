@@ -1,9 +1,9 @@
-﻿using DataLinq.Query;
-using DataLinq.Utils;
-using Remotion.Linq.Clauses;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using DataLinq.Query;
+using DataLinq.Utils;
+using Remotion.Linq.Clauses;
 
 namespace DataLinq.Linq.Visitors
 {

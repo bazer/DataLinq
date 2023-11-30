@@ -16,7 +16,7 @@ namespace DataLinq.SQLite
         }
     }
 
-    public class SQLiteDatabase<T>: Database<T>
+    public class SQLiteDatabase<T> : Database<T>
          where T : class, IDatabaseModel
     {
         public SQLiteDatabase(string connectionString) : base(new SQLiteProvider<T>(connectionString))

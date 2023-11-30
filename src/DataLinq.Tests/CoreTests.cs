@@ -1,12 +1,12 @@
+using System;
+using System.IO;
+using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Config;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
 using Microsoft.CodeAnalysis;
-using System;
-using System.IO;
-using System.Linq;
 using Xunit;
 
 namespace DataLinq.Tests
@@ -41,7 +41,7 @@ namespace DataLinq.Tests
         public void TestMetadataFromInterfaceFactory()
         {
             var metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(typeof(Employees));
-            
+
             TestDatabaseAttributes(metadata);
             TestDatabase(metadata, true);
         }

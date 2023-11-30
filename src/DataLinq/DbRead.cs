@@ -1,6 +1,6 @@
-﻿using DataLinq.Mutation;
-using System.Linq;
+﻿using System.Linq;
 using System.Linq.Expressions;
+using DataLinq.Mutation;
 
 namespace DataLinq
 {

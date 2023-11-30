@@ -1,13 +1,13 @@
-﻿using Remotion.Linq.Clauses;
-using DataLinq.Exceptions;
-using DataLinq.Linq.Visitors;
-using DataLinq.Metadata;
-using DataLinq.Mutation;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
+using DataLinq.Exceptions;
+using DataLinq.Linq.Visitors;
+using DataLinq.Metadata;
+using DataLinq.Mutation;
+using Remotion.Linq.Clauses;
 
 namespace DataLinq.Query
 {

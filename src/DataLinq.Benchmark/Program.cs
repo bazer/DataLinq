@@ -1,6 +1,5 @@
-﻿using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Running;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
+using BenchmarkDotNet.Attributes;
 
 namespace DataLinq.Benchmark;
 

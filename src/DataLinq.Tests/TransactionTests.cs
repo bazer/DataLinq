@@ -1,10 +1,10 @@
+using System;
+using System.Data;
+using System.Linq;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
-using System;
-using System.Data;
-using System.Linq;
 using Xunit;
 
 namespace DataLinq.Tests
@@ -593,7 +593,7 @@ namespace DataLinq.Tests
             Assert.Equal(newHireDate, dbEmployee2.hire_date);
         }
 
-       
+
 
         //[Fact]
         //public void InsertUpdateTwice()

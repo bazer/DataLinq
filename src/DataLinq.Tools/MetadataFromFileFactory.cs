@@ -1,13 +1,13 @@
-﻿using DataLinq.Attributes;
-using DataLinq.Extensions;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DataLinq.Attributes;
+using DataLinq.Extensions;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ThrowAway;
 
 namespace DataLinq.Metadata;
@@ -453,7 +453,7 @@ public class MetadataFromFileFactory
             {
                 valueProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
 
-                var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i+1)).ToList();
+                var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1)).ToList();
                 valueProp.EnumProperty = new EnumProperty(enumValueList, null, true);
             }
             else

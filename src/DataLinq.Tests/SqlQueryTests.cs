@@ -1,5 +1,5 @@
-using DataLinq.Tests.Models;
 using System.Linq;
+using DataLinq.Tests.Models;
 using Xunit;
 
 namespace DataLinq.Tests

@@ -1,9 +1,9 @@
-﻿using DataLinq.Extensions;
-using DataLinq.Instances;
-using DataLinq.Metadata;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using DataLinq.Extensions;
+using DataLinq.Instances;
+using DataLinq.Metadata;
 
 namespace DataLinq.Query
 {

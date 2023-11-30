@@ -1,12 +1,8 @@
-﻿using DataLinq.Metadata;
+﻿using System;
+using System.Linq;
+using DataLinq.Metadata;
 using DataLinq.Utils;
 using MySqlConnector;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.PortableExecutable;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DataLinq.MySql
 {

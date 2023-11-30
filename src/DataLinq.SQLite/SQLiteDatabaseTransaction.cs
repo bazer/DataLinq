@@ -1,7 +1,7 @@
-﻿using DataLinq.Mutation;
-using Microsoft.Data.Sqlite;
-using System;
+﻿using System;
 using System.Data;
+using DataLinq.Mutation;
+using Microsoft.Data.Sqlite;
 
 namespace DataLinq.SQLite
 {
@@ -164,7 +164,7 @@ namespace DataLinq.SQLite
             dbConnection?.Dispose();
             DbTransaction?.Dispose();
         }
-        
+
         #endregion IDisposable Members
     }
 }

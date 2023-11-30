@@ -1,7 +1,7 @@
-﻿using DataLinq.Metadata;
-using DataLinq.Mutation;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using DataLinq.Metadata;
+using DataLinq.Mutation;
 
 namespace DataLinq.Query
 {

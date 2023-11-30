@@ -1,11 +1,11 @@
-﻿using DataLinq.Config;
+﻿using System;
+using System.IO;
+using System.Linq;
+using DataLinq.Config;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.SQLite;
-using System;
-using System.IO;
-using System.Linq;
 using ThrowAway;
 
 namespace DataLinq.Tools
@@ -20,7 +20,7 @@ namespace DataLinq.Tools
     public struct DatabaseCreatorOptions
     {
     }
-    
+
 
     public class DatabaseCreator : Generator
     {

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -15,7 +14,7 @@ public partial record User : ITableModel<AllroundBenchmark>
         User = 2,
         Guest = 3,
     }
-    
+
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("UserId")]

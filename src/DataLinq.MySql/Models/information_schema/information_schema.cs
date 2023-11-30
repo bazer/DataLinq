@@ -1,6 +1,5 @@
-﻿using System;
+﻿using DataLinq.Attributes;
 using DataLinq.Interfaces;
-using DataLinq.Attributes;
 
 namespace DataLinq.MySql.Models;
 

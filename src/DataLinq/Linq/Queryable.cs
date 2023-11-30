@@ -1,10 +1,10 @@
-﻿using Remotion.Linq;
-using Remotion.Linq.Parsing.Structure;
+﻿using System.Linq;
+using System.Linq.Expressions;
 using DataLinq.Linq;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using System.Linq;
-using System.Linq.Expressions;
+using Remotion.Linq;
+using Remotion.Linq.Parsing.Structure;
 
 namespace DataLinq
 {

@@ -1,6 +1,6 @@
-﻿using DataLinq.Cache;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using DataLinq.Cache;
 
 namespace DataLinq.Mutation
 {

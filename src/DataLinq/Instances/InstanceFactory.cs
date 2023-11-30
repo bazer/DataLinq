@@ -1,9 +1,9 @@
-﻿using Castle.DynamicProxy;
+﻿using System;
+using System.Collections.Generic;
+using Castle.DynamicProxy;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using System;
-using System.Collections.Generic;
 
 namespace DataLinq.Instances
 {
@@ -48,12 +48,12 @@ namespace DataLinq.Instances
         {
             object row;
             if (rowData.Table.Model.CsType.IsInterface)
-                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, 
-                    new Type[] { typeof(MutableInstanceBase) }, options, 
+                row = generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType,
+                    new Type[] { typeof(MutableInstanceBase) }, options,
                     new MutableRowInterceptor(rowData, databaseProvider, transaction));
             else
-                row = generator.CreateClassProxy(rowData.Table.Model.CsType, 
-                    new Type[] { typeof(MutableInstanceBase) }, options, 
+                row = generator.CreateClassProxy(rowData.Table.Model.CsType,
+                    new Type[] { typeof(MutableInstanceBase) }, options,
                     new MutableRowInterceptor(rowData, databaseProvider, transaction));
 
             //if (rowData.Table.Model.MutableProxyType == null)

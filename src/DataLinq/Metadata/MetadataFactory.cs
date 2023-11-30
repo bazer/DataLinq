@@ -1,8 +1,8 @@
-﻿using DataLinq.Attributes;
-using DataLinq.Extensions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Attributes;
+using DataLinq.Extensions;
 
 namespace DataLinq.Metadata
 {

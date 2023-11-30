@@ -1,4 +1,8 @@
-﻿using DataLinq.Attributes;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Extensions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -6,10 +10,6 @@ using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
 using DataLinq.Utils;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace DataLinq.Cache
 {
@@ -400,7 +400,7 @@ namespace DataLinq.Cache
                 lock (keyTicksQueueLock)
                 {
                     keysTicks.Enqueue((keys, ticks, data.Size));
-                    
+
                     if (!oldestKeyTick.HasValue)
                         oldestKeyTick = (keys, ticks, data.Size);
                 }

@@ -1,5 +1,5 @@
-﻿using DataLinq.Metadata;
-using System;
+﻿using System;
+using DataLinq.Metadata;
 
 namespace DataLinq.SQLite
 {

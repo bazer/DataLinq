@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.Common;
-using System.Linq;
-using DataLinq.Extensions;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances
@@ -25,7 +22,7 @@ namespace DataLinq.Instances
 
         public TableMetadata Table { get; }
 
-        public PrimaryKeys GetKeys() => 
+        public PrimaryKeys GetKeys() =>
             new PrimaryKeys(this);
 
         public int Size { get; }

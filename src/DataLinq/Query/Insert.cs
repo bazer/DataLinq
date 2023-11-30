@@ -1,6 +1,4 @@
-﻿using DataLinq.Metadata;
-using DataLinq.Mutation;
-using System;
+﻿using System;
 using System.Data;
 
 namespace DataLinq.Query

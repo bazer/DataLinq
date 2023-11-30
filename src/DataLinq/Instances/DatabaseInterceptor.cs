@@ -1,10 +1,8 @@
-﻿using Castle.DynamicProxy;
-using DataLinq.Interfaces;
-using DataLinq.Metadata;
-using DataLinq.Mutation;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Castle.DynamicProxy;
+using DataLinq.Mutation;
 
 namespace DataLinq.Instances
 {

@@ -1,14 +1,14 @@
-﻿using DataLinq.Metadata;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.ResultOperators;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
 
 namespace DataLinq.Linq
 {

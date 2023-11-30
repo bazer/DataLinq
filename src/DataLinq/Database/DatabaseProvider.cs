@@ -1,11 +1,11 @@
-﻿using DataLinq.Interfaces;
-using DataLinq.Metadata;
-using DataLinq.Query;
-using DataLinq.Mutation;
-using System;
+﻿using System;
 using System.Data;
 using System.Linq;
 using DataLinq.Cache;
+using DataLinq.Interfaces;
+using DataLinq.Metadata;
+using DataLinq.Mutation;
+using DataLinq.Query;
 
 namespace DataLinq
 {

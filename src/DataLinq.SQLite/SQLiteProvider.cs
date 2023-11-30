@@ -1,13 +1,13 @@
+using System;
+using System.Data;
+using System.IO;
+using System.Runtime.CompilerServices;
 using DataLinq.Extensions;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
 using Microsoft.Data.Sqlite;
-using System;
-using System.Data;
-using System.IO;
-using System.Runtime.CompilerServices;
 
 namespace DataLinq.SQLite
 {
@@ -76,7 +76,7 @@ namespace DataLinq.SQLite
             //if (type == TransactionType.ReadOnly)
             //    return new SQLiteDbAccess(ConnectionString, type);
             //else
-                return new SQLiteDatabaseTransaction(ConnectionString, type);
+            return new SQLiteDatabaseTransaction(ConnectionString, type);
         }
 
         public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)

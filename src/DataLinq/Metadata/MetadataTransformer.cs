@@ -1,6 +1,5 @@
-﻿using DataLinq.Attributes;
-using System;
-using System.Linq;
+﻿using System.Linq;
+using DataLinq.Attributes;
 
 namespace DataLinq.Metadata
 {

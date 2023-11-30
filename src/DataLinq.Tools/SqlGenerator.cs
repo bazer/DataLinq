@@ -1,13 +1,13 @@
-﻿using DataLinq.Config;
+﻿using System;
+using System.IO;
+using System.Linq;
+using System.Text;
+using DataLinq.Config;
 using DataLinq.Extensions;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.Query;
 using DataLinq.SQLite;
-using System;
-using System.IO;
-using System.Linq;
-using System.Text;
 using ThrowAway;
 
 namespace DataLinq.Tools

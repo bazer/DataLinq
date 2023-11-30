@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
-using DataLinq;
-using DataLinq.Interfaces;
 using DataLinq.Attributes;
+using DataLinq.Interfaces;
 
 namespace DataLinq.Tests.Models
 {

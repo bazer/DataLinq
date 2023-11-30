@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace DataLinq.Instances
+﻿namespace DataLinq.Instances
 {
     public class DataLinqModel<T>
     {

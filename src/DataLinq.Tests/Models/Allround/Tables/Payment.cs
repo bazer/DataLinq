@@ -1,5 +1,4 @@
 ﻿using System;
-using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -15,7 +14,7 @@ public partial record Payment : ITableModel<AllroundBenchmark>
         PayPal = 3,
         BankTransfer = 4,
     }
-    
+
     [PrimaryKey]
     [AutoIncrement]
     [Type(DatabaseType.MySQL, "int")]
