@@ -19,7 +19,7 @@ namespace DataLinq.Instances
         public override void Intercept(IInvocation invocation)
         {
             var info = new InvocationInfo(invocation);
-            
+
             //if (info.Name == "IsNewModel")
             //{
             //    invocation.ReturnValue = false;
