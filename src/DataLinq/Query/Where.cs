@@ -1,4 +1,4 @@
-﻿using DataLinq.Extensions;
+﻿using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Query;
 
@@ -77,6 +77,11 @@ public class Where<T> : IWhere<T>
         return SetAndReturn(value, value == null ? Relation.EqualNull : Relation.Equal);
     }
 
+    public WhereGroup<T> EqualToNull()
+    {
+        return SetAndReturn<object>(null, Relation.EqualNull);
+    }
+
     public WhereGroup<T> EqualToColumn(string column, string alias = null)
     {
         return SetAndReturnColumn(column, alias, Relation.Equal);
@@ -85,6 +90,11 @@ public class Where<T> : IWhere<T>
     public WhereGroup<T> NotEqualTo<V>(V value)
     {
         return SetAndReturn(value, value == null ? Relation.NotEqualNull : Relation.NotEqual);
+    }
+
+    public WhereGroup<T> NotEqualToNull()
+    {
+        return SetAndReturn<object>(null, Relation.NotEqualNull);
     }
 
     public WhereGroup<T> NotEqualToColumn(string column, string alias = null)
@@ -142,7 +152,7 @@ public class Where<T> : IWhere<T>
         return SetAndReturnColumn(column, alias, Relation.LessThanOrEqual);
     }
 
-    protected WhereGroup<T> SetAndReturn<V>(V value, Relation relation)
+    protected WhereGroup<T> SetAndReturn<V>(V? value, Relation relation)
     {
         Value = value;
         Relation = relation;

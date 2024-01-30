@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Exceptions;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
@@ -78,8 +78,9 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         //    sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
 
         foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
-            foreach (var relation in foreignKey.RelationParts)
-                sql.ForeignKey(relation, foreignKeyRestrict);
+            foreach (var index in foreignKey.ColumnIndices)
+                foreach (var relation in index.RelationParts)
+                    sql.ForeignKey(relation, foreignKeyRestrict);
 
         foreach (var index in table.ColumnIndices)
             sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());

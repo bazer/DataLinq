@@ -78,7 +78,7 @@ public class CoreTests : BaseTests
         Assert.Equal(8, database.TableModels.Count);
         Assert.Equal(2, database.TableModels.Count(x => x.Table.Type == TableType.View));
         Assert.Equal(12, database.TableModels.Sum(x => x.Model.RelationProperties.Count()));
-        Assert.Contains(database.TableModels, x => x.Table.Columns.Any(y => y.RelationParts.Any()));
+        Assert.Contains(database.TableModels, x => x.Table.Columns.Any(y => y.ColumnIndices.Any(z => z.RelationParts.Any())));
 
         var employees = database.TableModels.Single(x => x.Table.DbName == "employees").Table;
         Assert.Same(employees, employees.Model.Table);

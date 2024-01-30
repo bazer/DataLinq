@@ -1,4 +1,7 @@
-﻿using DataLinq.Metadata;
+﻿using System.Collections.Generic;
+using System.Linq;
+using DataLinq.Extensions.Helpers;
+using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
 
@@ -10,23 +13,35 @@ public class ForeignKey
     /// <summary>
     /// Initializes a new instance of the <see cref="ForeignKey"/> class.
     /// </summary>
-    /// <param name="column">The column that the foreign key references.</param>
+    /// <param name="index">The column that the foreign key references.</param>
     /// <param name="data">The data that the foreign key references.</param>
-    public ForeignKey(Column column, object data)
+    public ForeignKey(ColumnIndex index, object[] data)
     {
-        Column = column;
+        Index = index;
         Data = data;
     }
 
     /// <summary>
     /// Gets the column that the foreign key references.
     /// </summary>
-    public Column Column { get; }
+    public ColumnIndex Index { get; }
 
     /// <summary>
     /// Gets the data that the foreign key references.
     /// </summary>
-    public object Data { get; }
+    public object[] Data { get; }
+
+    public IEnumerable<(Column column, object data)> GetColumns()
+    {
+        for (int i = 0; i < Index.Columns.Count; i++)
+            yield return (Index.Columns[i], Data[i]);
+    }
+
+    public IEnumerable<(string columnDbName, object data)> GetData()
+    {
+        for (int i = 0; i < Index.Columns.Count; i++)
+            yield return (Index.Columns[i].DbName, Data[i]);
+    }
 
     /// <summary>
     /// Determines whether the specified object is equal to the current object.
@@ -40,7 +55,7 @@ public class ForeignKey
         if (ReferenceEquals(this, other))
             return true;
 
-        return Column == other.Column && Data == other.Data;
+        return Index == other.Index && Data.SequenceEqual(other.Data);
     }
 
     /// <summary>
@@ -57,23 +72,47 @@ public class ForeignKey
         if (obj.GetType() != typeof(ForeignKey))
             return false;
 
-        return Column == ((ForeignKey)obj).Column && Data == ((ForeignKey)obj).Data;
+        return Equals((ForeignKey)obj);
     }
 
     /// <summary>
     /// Serves as the default hash function.
     /// </summary>
     /// <returns>A hash code for the current object.</returns>
+    //public override int GetHashCode()
+    //{
+    //    unchecked
+    //    {
+    //        int hash = 17;
+
+    //        hash = hash * 31 + Index.GetHashCode();
+    //        hash = hash * 31 + Data.GetHashCode();
+
+    //        return hash;
+    //    }
+    //}
+
     public override int GetHashCode()
     {
         unchecked
         {
+            if (Data == null)
+            {
+                return 0;
+            }
             int hash = 17;
-
-            hash = hash * 31 + Column.GetHashCode();
-            hash = hash * 31 + Data.GetHashCode();
-
+            for (int i = 0; i < Data.Length; i++)
+            {
+                // Use a fixed hash code for null items, e.g., 0.
+                // If item is not null, use item's hash code.
+                hash = hash * 31 + (Data[i]?.GetHashCode() ?? 0);
+            }
             return hash;
         }
+    }
+
+    public override string ToString()
+    {
+        return $"{Index} = {Data.ToJoinedString(", ")}";
     }
 }

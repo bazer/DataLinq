@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Workers;
 
@@ -24,7 +25,7 @@ public class DatabaseCache : IDisposable
         this.Database = database;
 
         this.TableCaches = this.Database.Metadata.TableModels
-            .Select(x => new TableCache(x.Table, database))
+            .Select(x => new TableCache(x.Table, this))
             .ToList();
 
         this.MakeSnapshot();
@@ -39,6 +40,16 @@ public class DatabaseCache : IDisposable
             this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), timespan);
             this.CleanCacheWorker.Start();
         }
+    }
+
+    public TableCache GetTableCache(string tableName)
+    {
+        return TableCaches.Single(x => x.Table.DbName == tableName);
+    }
+
+    public TableCache GetTableCache(TableMetadata table)
+    {
+        return TableCaches.Single(x => x.Table == table);
     }
 
     public DatabaseCacheSnapshot GetLatestSnapshot()
@@ -64,6 +75,20 @@ public class DatabaseCache : IDisposable
             CacheCleanupType.Days => TimeSpan.FromDays(amount),
             _ => throw new NotImplementedException(),
         };
+    }
+
+    public (IndexCacheType, int? amount) GetIndexCachePolicy()
+    {
+        if (!Database.Metadata.IndexCache.Any() || Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.None))
+            return (IndexCacheType.None, 0);
+
+        if (Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
+            return (IndexCacheType.MaxAmountRows, Database.Metadata.IndexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
+
+        if (Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.All))
+            return (IndexCacheType.All, null);
+
+        throw new NotImplementedException();
     }
 
 
@@ -127,7 +152,7 @@ public class DatabaseCache : IDisposable
     {
         foreach (var table in TableCaches)
         {
-            table.ClearRows();
+            table.ClearCache();
         }
     }
 

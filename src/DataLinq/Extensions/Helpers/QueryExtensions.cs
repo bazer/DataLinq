@@ -1,6 +1,6 @@
 ﻿using DataLinq.Query;
 
-namespace DataLinq.Extensions;
+namespace DataLinq.Extensions.Helpers;
 
 public static class QueryExtensions
 {

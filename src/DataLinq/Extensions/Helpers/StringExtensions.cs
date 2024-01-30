@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace DataLinq.Extensions;
+namespace DataLinq.Extensions.Helpers;
 
 public static class StringExtensions
 {

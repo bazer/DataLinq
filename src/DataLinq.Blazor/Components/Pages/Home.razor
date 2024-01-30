@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using DataLinq.Blazor.Code
 @using DataLinq.Cache
+@using DataLinq.Extensions.Helpers
 
 <PageTitle>Employees</PageTitle>
 
@@ -15,6 +16,7 @@
             <th>Size</th>
             <th>Newest</th>
             <th>Oldest</th>
+            <th>Indices</th>
         </tr>
     </thead>
     <tbody>
@@ -26,6 +28,7 @@
                 <td>@t.TotalBytesFormatted</td>
                 <td>@t.NewestDateTime</td>
                 <td>@t.OldestDateTime</td>
+                <td>@t.IndicesFormatted</td>
             </tr>
         }
         <tr>
@@ -34,6 +37,7 @@
             <td>@snapshot.TotalBytesFormatted</td>
             <td>@snapshot.NewestDateTime</td>
             <td>@snapshot.OldestDateTime</td>
+            <td></td>
         </tr>
     </tbody>
 </table>

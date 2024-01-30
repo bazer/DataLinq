@@ -154,29 +154,39 @@ public class WhereGroup<T> : IWhere<T>
         return new Insert<T>(Query);
     }
 
-    public Where<T> Where(string columnName, string alias = null)
+    public Where<T> Where(string columnName, string? alias = null)
     {
         return Query.Where(columnName, alias);
     }
 
-    public SqlQuery<T> OrderBy(string columnName, string alias = null, bool ascending = true)
+    public WhereGroup<T> Where(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        return Query.Where(wheres, type, alias);
+    }
+
+    public WhereGroup<T> WhereNot(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        return Query.WhereNot(wheres, type, alias);
+    }
+
+    public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true)
     {
         return Query.OrderBy(columnName, alias, ascending);
     }
 
-    public SqlQuery<T> OrderBy(Column column, string alias = null, bool ascending = true)
+    public SqlQuery<T> OrderBy(Column column, string? alias = null, bool ascending = true)
     {
         return Query.OrderBy(column, alias, ascending);
     }
 
-    public SqlQuery<T> OrderByDesc(string columnName)
+    public SqlQuery<T> OrderByDesc(string columnName, string? alias = null)
     {
-        return Query.OrderByDesc(columnName);
+        return Query.OrderByDesc(columnName, alias);
     }
 
-    public SqlQuery<T> OrderByDesc(Column column)
+    public SqlQuery<T> OrderByDesc(Column column, string? alias = null)
     {
-        return Query.OrderByDesc(column);
+        return Query.OrderByDesc(column, alias);
     }
 
     public SqlQuery<T> Limit(int rows)
@@ -184,17 +194,17 @@ public class WhereGroup<T> : IWhere<T>
         return Query.Limit(rows);
     }
 
-    public Join<T> Join(string tableName, string alias = null)
+    public Join<T> Join(string tableName, string? alias = null)
     {
         return Query.Join(tableName, alias);
     }
 
-    public Join<T> LeftJoin(string tableName, string alias = null)
+    public Join<T> LeftJoin(string tableName, string? alias = null)
     {
         return Query.Join(tableName, alias);
     }
 
-    public Join<T> RightJoin(string tableName, string alias = null)
+    public Join<T> RightJoin(string tableName, string? alias = null)
     {
         return Query.Join(tableName, alias);
     }

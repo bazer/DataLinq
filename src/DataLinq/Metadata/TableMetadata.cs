@@ -25,7 +25,8 @@ public class TableMetadata
     public List<ColumnIndex> ColumnIndices { get; set; } = new List<ColumnIndex>();
 
     public TableType Type { get; protected set; } = TableType.Table;
-    public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = new();
+    public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = [];
+    public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; set; } = [];
     public bool UseCache
     {
         get => explicitUseCache.HasValue ? explicitUseCache.Value : Database.UseCache;

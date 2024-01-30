@@ -8,7 +8,7 @@ public enum RelationPartType
 
 public class RelationPart
 {
-    public Column Column { get; set; }
+    public ColumnIndex ColumnIndex { get; set; }
     public Relation Relation { get; set; }
     public RelationPartType Type { get; set; }
     public string CsName { get; set; }
@@ -19,6 +19,6 @@ public class RelationPart
 
     public override string ToString()
     {
-        return $"{Type}: {Column}";
+        return $"{Type}: {ColumnIndex}";
     }
 }

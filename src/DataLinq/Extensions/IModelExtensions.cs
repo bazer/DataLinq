@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -9,9 +10,16 @@ namespace DataLinq;
 
 public static class IModelExtensions
 {
-    public static RowData RowData(this IModel model)
+    public static IEnumerable<KeyValuePair<Column, object>> GetValues(this IModel model)
     {
-        throw new NotImplementedException();
+        return model.Metadata().Table.Columns
+            .Select(x => new KeyValuePair<Column, object>(x, x.ValueProperty.GetValue(model)));
+    }
+
+    public static IEnumerable<KeyValuePair<Column, object>> GetValues(this IModel model, IEnumerable<Column> columns)
+    {
+        return columns
+            .Select(x => new KeyValuePair<Column, object>(x, x.ValueProperty.GetValue(model)));
     }
 
     public static PrimaryKeys PrimaryKeys(this IModel model)

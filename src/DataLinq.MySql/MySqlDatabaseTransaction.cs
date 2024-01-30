@@ -11,14 +11,16 @@ namespace DataLinq.MySql;
 public class MySqlDatabaseTransaction : DatabaseTransaction
 {
     private IDbConnection? dbConnection;
+    private readonly string databaseName;
 
     /// <summary>
     /// Initializes a new instance of the MySqlDatabaseTransaction class with the specified connection string and transaction type.
     /// </summary>
     /// <param name="connectionString">The connection string to the MySQL database.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(string connectionString, TransactionType type) : base(connectionString, type)
+    public MySqlDatabaseTransaction(string connectionString, TransactionType type, string databaseName) : base(connectionString, type)
     {
+        this.databaseName = databaseName;
     }
 
     /// <summary>
@@ -27,7 +29,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// </summary>
     /// <param name="dbTransaction">The existing database transaction.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) : base(dbTransaction, type)
+    public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName) : base(dbTransaction, type)
     {
         if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
         if (dbTransaction.Connection is not MySqlConnection) throw new ArgumentException("The transaction connection must be an MySqlConnection", "dbTransaction.Connection");
@@ -35,6 +37,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
 
         SetStatus(DatabaseTransactionStatus.Open);
         dbConnection = dbTransaction.Connection;
+        this.databaseName = databaseName;
     }
 
     /// <summary>
@@ -53,6 +56,9 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
                 dbConnection = new MySqlConnection(ConnectionString);
                 dbConnection.Open();
                 DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
+
+                if (databaseName != null)
+                    ExecuteNonQuery($"USE {databaseName};");
             }
 
             if (dbConnection == null)

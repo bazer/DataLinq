@@ -59,8 +59,8 @@ internal abstract class RowInterceptor : IInterceptor
 
         var otherSide = property.RelationPart.GetOtherSide();
         var result = databaseProvider
-            .GetTableCache(otherSide.Column.Table)
-            .GetRows(new ForeignKey(otherSide.Column, RowData.GetValue(property.RelationPart.Column.DbName)), transaction);
+            .GetTableCache(otherSide.ColumnIndex.Table)
+            .GetRows(new ForeignKey(otherSide.ColumnIndex, RowData.GetValues(property.RelationPart.ColumnIndex.Columns).ToArray()), property, transaction);
 
         object returnvalue;
         if (property.RelationPart.Type == RelationPartType.ForeignKey)

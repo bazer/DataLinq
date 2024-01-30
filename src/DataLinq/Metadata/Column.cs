@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
 
@@ -29,7 +29,7 @@ public class Column
     public bool Unique => ColumnIndices.Any(x => x.Characteristic == Attributes.IndexCharacteristic.Unique);
     public bool AutoIncrement { get; set; }
     public bool Nullable { get; set; }
-    public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
+    //public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
     public TableMetadata Table { get; set; }
     public ValueProperty ValueProperty { get; set; }

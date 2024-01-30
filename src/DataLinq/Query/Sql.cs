@@ -2,7 +2,7 @@
 using System.Data;
 using System.Linq;
 using System.Text;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Query;
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Castle.DynamicProxy;
 using DataLinq.Interfaces;
@@ -25,6 +26,22 @@ internal class ImmutableRowInterceptor : RowInterceptor
         //    invocation.ReturnValue = false;
         //    return;
         //}
+
+        if (info.CallType == CallType.Method && info.Name == "GetValues")
+        {
+            if (info.Arguments?.Length == 1 && info.Arguments[0] is IEnumerable<Column> columns)
+                invocation.ReturnValue = columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+            else
+                invocation.ReturnValue = RowData.Columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+
+            return;
+        }
+
+        if (info.CallType == CallType.Method && info.Name == "GetValues")
+        {
+            invocation.ReturnValue = RowData.Columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+            return;
+        }
 
         if (info.CallType == CallType.Method && info.Name == "Mutate")
         {

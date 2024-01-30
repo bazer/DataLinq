@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 
@@ -20,9 +20,11 @@ public class Select<T> : IQuery
 
     public Sql ToSql(string paramPrefix = null)
     {
-        var columns = (query.WhatList ?? query.Table.Columns).Select(x => x.DbName).ToJoinedString(", ");
+        var columns = (query.WhatList ?? query.Table.Columns)
+            .Select(x => $"{(!string.IsNullOrWhiteSpace(query.Alias) ? $"{query.Alias}." : "")}{x.DbName}")
+            .ToJoinedString(", ");
 
-        var sql = new Sql().AddFormat("SELECT {0} FROM {1}", columns, query.DbName);
+        var sql = new Sql().AddFormat($"SELECT {columns} FROM {query.DbName}");
         query.GetJoins(sql, paramPrefix);
         query.GetWhere(sql, paramPrefix);
         query.GetOrderBy(sql);
@@ -48,7 +50,7 @@ public class Select<T> : IQuery
         return query.Transaction
             .DatabaseTransaction
             .ReadReader(query.Transaction.Provider.ToDbCommand(this))
-            .Select(x => new RowData(x, query.Table));
+            .Select(x => new RowData(x, query.Table, query.Table.Columns));
     }
 
     public IEnumerable<PrimaryKeys> ReadKeys()
@@ -57,6 +59,26 @@ public class Select<T> : IQuery
             .DatabaseTransaction
             .ReadReader(query.Transaction.Provider.ToDbCommand(this))
             .Select(x => new PrimaryKeys(x, query.Table));
+    }
+
+    public IEnumerable<ForeignKey> ReadForeignKeys(ColumnIndex foreignKeyIndex)
+    {
+        return query.Transaction
+            .DatabaseTransaction
+            .ReadReader(query.Transaction.Provider.ToDbCommand(this))
+            .Select(x => new RowData(x, query.Table, foreignKeyIndex.Columns))
+            .Select(x => new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()));
+    }
+
+    public IEnumerable<(ForeignKey, PrimaryKeys[])> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
+    {
+        return query.Transaction
+            .DatabaseTransaction
+            .ReadReader(query.Transaction.Provider.ToDbCommand(this))
+            .Select(x => new RowData(x, query.Table, query.Table.PrimaryKeyColumns.Concat(foreignKeyIndex.Columns).Distinct().ToList()))
+            .Select(x => (fk: new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()), pk: new PrimaryKeys(x)))
+            .GroupBy(x => x.fk)
+            .Select(x => (x.Key, x.Select(y => y.pk).ToArray()));
     }
 
     //public IEnumerable<T> Execute()

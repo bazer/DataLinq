@@ -3,7 +3,7 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
 
@@ -158,9 +158,12 @@ public class FileFactory
                     yield return $"{namespaceTab}{tab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}{columns})]";
                 }
 
-                foreach (var relationPart in c.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
+                foreach (var index in c.ColumnIndices)
                 {
-                    yield return $"{namespaceTab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.Column.Table.DbName}\", \"{relationPart.Relation.CandidateKey.Column.DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
+                    foreach (var relationPart in index.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
+                    {
+                        yield return $"{namespaceTab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName}\", \"{relationPart.Relation.CandidateKey.ColumnIndex.Columns[0].DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
+                    }
                 }
 
                 if (c.AutoIncrement)
@@ -196,12 +199,12 @@ public class FileFactory
             {
                 var otherPart = relationProperty.RelationPart.GetOtherSide();
 
-                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.Column.Table.DbName}\", \"{otherPart.Column.DbName}\")]";
+                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", {otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")})]";
 
                 if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
-                    yield return $"{namespaceTab}{tab}public virtual {otherPart.Column.Table.Model.CsTypeName} {relationProperty.CsName} {{ get; }}";
+                    yield return $"{namespaceTab}{tab}public virtual {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} {{ get; }}";
                 else
-                    yield return $"{namespaceTab}{tab}public virtual IEnumerable<{otherPart.Column.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
+                    yield return $"{namespaceTab}{tab}public virtual IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
 
                 yield return $"";
             }

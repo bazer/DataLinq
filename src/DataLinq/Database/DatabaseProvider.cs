@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Cache;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -77,6 +78,25 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
             {
                 Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(type);
                 DatabaseMetadata.LoadedDatabases.TryAdd(type, Metadata);
+
+                if (Metadata.UseCache)
+                {
+                    if (!Metadata.CacheLimits.Any())
+                    {
+                        Metadata.CacheLimits.Add((CacheLimitType.Megabytes, 256));
+                        Metadata.CacheLimits.Add((CacheLimitType.Minutes, 30));
+                    }
+
+                    if (!Metadata.CacheCleanup.Any())
+                    {
+                        Metadata.CacheCleanup.Add((CacheCleanupType.Minutes, 10));
+                    }
+
+                    if (!Metadata.IndexCache.Any())
+                    {
+                        Metadata.IndexCache.Add((IndexCacheType.MaxAmountRows, 1000000));
+                    }
+                }
             }
         }
 

@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Reflection;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -61,6 +63,25 @@ public class StateChange
         Type = type;
 
         PrimaryKeys = new PrimaryKeys(Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)));
+    }
+
+    public IEnumerable<KeyValuePair<Column, object>> GetValues() =>
+        GetValues(Table.Columns);
+
+    public IEnumerable<KeyValuePair<Column, object>> GetValues(IEnumerable<Column> columns)
+    {
+        if (Model is InstanceBase instance)
+            return instance.GetValues(columns);
+        else
+            return Model.GetValues(columns);
+    }
+
+    public IEnumerable<KeyValuePair<Column, object>> GetChanges()
+    {
+        if (Model is MutableInstanceBase instance)
+            return instance.GetChanges();
+        else
+            return GetValues();
     }
 
     /// <summary>

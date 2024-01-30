@@ -279,7 +279,7 @@ public class Transaction : IDisposable, IEquatable<Transaction>
 
         return DatabaseTransaction
             .ReadReader(query)
-            .Select(x => new RowData(x, table))
+            .Select(x => new RowData(x, table, table.Columns))
             .Select(x => InstanceFactory.NewImmutableRow(x, Provider, this))
             .Cast<T>();
     }
@@ -296,7 +296,7 @@ public class Transaction : IDisposable, IEquatable<Transaction>
 
         return DatabaseTransaction
             .ReadReader(dbCommand)
-            .Select(x => new RowData(x, table))
+            .Select(x => new RowData(x, table, table.Columns))
             .Select(x => InstanceFactory.NewImmutableRow(x, Provider, this))
             .Cast<T>();
     }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using DataLinq.Attributes;
 using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;

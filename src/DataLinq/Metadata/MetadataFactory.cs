@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
 
@@ -117,8 +117,17 @@ public static class MetadataFactory
                 if (candidateColumn == null)
                     continue;
 
-                relation.ForeignKey = CreateRelationPart(relation, column, RelationPartType.ForeignKey);
-                relation.CandidateKey = CreateRelationPart(relation, candidateColumn, RelationPartType.CandidateKey);
+                if (!column.ColumnIndices.Any())
+                    column.Table.ColumnIndices.Add(
+                        new ColumnIndex(column.DbName, IndexCharacteristic.Unique, IndexType.BTREE, [column]));
+
+                if (!candidateColumn.ColumnIndices.Any())
+                    candidateColumn.Table.ColumnIndices.Add(
+                        new ColumnIndex(candidateColumn.DbName, IndexCharacteristic.Unique, IndexType.BTREE, [candidateColumn]));
+
+
+                relation.ForeignKey = CreateRelationPart(relation, column.ColumnIndices.First(), RelationPartType.ForeignKey);
+                relation.CandidateKey = CreateRelationPart(relation, candidateColumn.ColumnIndices.First(), RelationPartType.CandidateKey);
 
                 AttachRelationProperty(relation.ForeignKey, candidateColumn);
                 AttachRelationProperty(relation.CandidateKey, column);
@@ -126,12 +135,12 @@ public static class MetadataFactory
         }
     }
 
-    private static RelationPart CreateRelationPart(Relation relation, Column column, RelationPartType type)
+    private static RelationPart CreateRelationPart(Relation relation, ColumnIndex column, RelationPartType type)
     {
         var relationPart = new RelationPart
         {
             Relation = relation,
-            Column = column,
+            ColumnIndex = column,
             Type = type,
             CsName = column.Table.Model.CsTypeName
         };
@@ -143,7 +152,7 @@ public static class MetadataFactory
 
     private static RelationProperty AttachRelationProperty(RelationPart relationPart, Column column)
     {
-        var property = relationPart.Column.Table.Model
+        var property = relationPart.ColumnIndex.Table.Model
             .RelationProperties.SingleOrDefault(x =>
                 x.Attributes.Any(y =>
                     y is RelationAttribute relationAttribute
@@ -155,8 +164,8 @@ public static class MetadataFactory
             property = new RelationProperty();
             property.Attributes.Add(new RelationAttribute(column.Table.DbName, column.DbName));
             property.CsName = column.Table.Database.TableModels.Single(x => x.Table == column.Table).CsPropertyName;
-            property.Model = relationPart.Column.Table.Model;
-            relationPart.Column.Table.Model.Properties.Add(property);
+            property.Model = relationPart.ColumnIndex.Table.Model;
+            relationPart.ColumnIndex.Table.Model.Properties.Add(property);
         }
 
         property.RelationPart = relationPart;

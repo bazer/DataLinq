@@ -7,10 +7,14 @@ namespace DataLinq.MySql;
 
 public class MySqlDbAccess : DatabaseTransaction
 {
-    public MySqlDbAccess(string connectionString, TransactionType type) : base(connectionString, type)
+    private readonly string databaseName;
+
+    public MySqlDbAccess(string connectionString, TransactionType type, string databaseName) : base(connectionString, type)
     {
         if (type != TransactionType.ReadOnly)
             throw new ArgumentException("Only 'TransactionType.ReadOnly' is allowed");
+
+        this.databaseName = databaseName;
     }
 
     public override void Commit()
@@ -29,6 +33,10 @@ public class MySqlDbAccess : DatabaseTransaction
         {
             connection.Open();
             command.Connection = connection;
+            
+            if (databaseName != null)
+                command.CommandText = $"USE {databaseName};{command.CommandText}";
+
             int result = command.ExecuteNonQuery();
             connection.Close();
 
@@ -54,6 +62,10 @@ public class MySqlDbAccess : DatabaseTransaction
         {
             connection.Open();
             command.Connection = connection;
+
+            if (databaseName != null)
+                command.CommandText = $"USE {databaseName};{command.CommandText}";
+
             object result = command.ExecuteScalar();
             connection.Close();
 
@@ -66,6 +78,9 @@ public class MySqlDbAccess : DatabaseTransaction
         var connection = new MySqlConnection(ConnectionString);
         command.Connection = connection;
         connection.Open();
+
+        if (databaseName != null)
+            command.CommandText = $"USE {databaseName};{command.CommandText}";
 
         return new MySqlDataLinqDataReader(command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
     }

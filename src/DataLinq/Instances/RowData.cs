@@ -12,32 +12,56 @@ public class RowData
     //    Table = table;
     //}
 
-    public RowData(IDataLinqDataReader reader, TableMetadata table)
+    public RowData(IDataLinqDataReader reader, TableMetadata table, List<Column> columns)
     {
         Table = table;
-        (Data, Size) = ReadReader(reader, table);
+        Columns = columns;
+        (Data, Size) = ReadReader(reader);
     }
 
     protected Dictionary<string, object> Data { get; }
 
     public TableMetadata Table { get; }
+    public List<Column> Columns { get; }
 
     public PrimaryKeys GetKeys() =>
         new PrimaryKeys(this);
 
+    
+
     public int Size { get; }
+
+    public object this[string columnDbName] => GetValue(columnDbName);
+    public object this[Column column] => GetValue(column.DbName);
 
     public object GetValue(string columnDbName)
     {
         return Data[columnDbName];
     }
 
-    private (Dictionary<string, object> data, int size) ReadReader(IDataLinqDataReader reader, TableMetadata table)
+    public object GetValue(Column column)
+    {
+        return GetValue(column.DbName);
+    }
+
+    public IEnumerable<object> GetValues(IEnumerable<string> columnDbName)
+    {
+        foreach (var name in columnDbName)
+            yield return Data[name];
+    }
+
+    public IEnumerable<object> GetValues(IEnumerable<Column> columns)
+    {
+        foreach (var column in columns)
+            yield return Data[column.DbName];
+    }
+
+    private (Dictionary<string, object> data, int size) ReadReader(IDataLinqDataReader reader)
     {
         var data = new Dictionary<string, object>();
         var size = 0;
 
-        foreach (var column in table.Columns)
+        foreach (var column in Columns)
         {
             var value = reader.ReadColumn(column);
             size += GetSize(column, value);

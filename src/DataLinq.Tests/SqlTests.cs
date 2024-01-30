@@ -501,7 +501,7 @@ LIMIT 1", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
+        Assert.Equal($@"SELECT d.dept_no, d.dept_name FROM departments d
 JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
         Assert.Empty(sql.Parameters);
     }
@@ -517,7 +517,7 @@ JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
+        Assert.Equal($@"SELECT d.dept_no, d.dept_name FROM departments d
 JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
         Assert.Empty(sql.Parameters);
     }
@@ -536,7 +536,7 @@ JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
+        Assert.Equal($@"SELECT d.dept_no, d.dept_name FROM departments d
 JOIN dept_manager m ON d.dept_no = m.dept_no
 WHERE
 m.dept_no = {sign}w0
@@ -559,7 +559,7 @@ LIMIT 1", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
+        Assert.Equal($@"SELECT d.dept_no, d.dept_name FROM departments d
 JOIN dept_manager m ON d.dept_no = m.dept_no
 ORDER BY d.dept_no DESC
 LIMIT 1", sql.Text);
@@ -579,7 +579,7 @@ LIMIT 1", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
+        Assert.Equal($@"SELECT d.dept_no, d.dept_name FROM departments d
 JOIN dept_manager m ON d.dept_no = m.dept_no
 ORDER BY d.dept_no DESC", sql.Text);
         Assert.Empty(sql.Parameters);
@@ -598,7 +598,7 @@ ORDER BY d.dept_no DESC", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
+        Assert.Equal($@"SELECT d.dept_no, d.dept_name FROM departments d
 JOIN dept_manager m ON d.dept_no = m.dept_no
 JOIN dept_emp e ON e.dept_no = m.dept_no
 ORDER BY d.dept_no DESC", sql.Text);

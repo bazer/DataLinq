@@ -9,7 +9,8 @@ namespace DataLinq.Instances;
 
 public interface InstanceBase
 {
-    //bool IsNewModel { get; }
+    IEnumerable<KeyValuePair<Column, object>> GetValues();
+    IEnumerable<KeyValuePair<Column, object>> GetValues(IEnumerable<Column> columns);
 }
 
 public interface ImmutableInstanceBase : InstanceBase

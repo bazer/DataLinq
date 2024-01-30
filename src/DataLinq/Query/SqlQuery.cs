@@ -147,6 +147,17 @@ public class SqlQuery<T>
         return WhereGroup.AddWhere(columnName, alias, BooleanType.And);
     }
 
+    public WhereGroup<T> Where(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        if (WhereGroup == null)
+            WhereGroup = new WhereGroup<T>(this);
+
+        foreach (var (columnName, value) in wheres)
+            WhereGroup.AddWhere(columnName, alias, type).EqualTo(value);
+
+        return WhereGroup;
+    }
+
     public WhereGroup<T> Where(Func<Func<string, Where<T>>, WhereGroup<T>> func)
     {
         if (WhereGroup == null)
@@ -161,6 +172,17 @@ public class SqlQuery<T>
             WhereGroup = new WhereGroup<T>(this);
 
         return WhereGroup.AddWhereNot(columnName, alias, BooleanType.And);
+    }
+
+    public WhereGroup<T> WhereNot(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        if (WhereGroup == null)
+            WhereGroup = new WhereGroup<T>(this);
+
+        foreach (var (columnName, value) in wheres)
+            WhereGroup.AddWhereNot(columnName, alias, type).EqualTo(value);
+
+        return WhereGroup;
     }
 
     public WhereGroup<T> AddWhereGroup(BooleanType type = BooleanType.And)

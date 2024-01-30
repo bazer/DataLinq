@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Runtime.CompilerServices;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -77,18 +77,18 @@ public class MySQLProvider<T> : DatabaseProvider<T>
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
         DatabaseTransaction transaction = type == TransactionType.ReadOnly
-            ? new MySqlDbAccess(ConnectionString, type)
-            : new MySqlDatabaseTransaction(ConnectionString, type);
+            ? new MySqlDbAccess(ConnectionString, type, DatabaseName)
+            : new MySqlDatabaseTransaction(ConnectionString, type, DatabaseName);
 
-        if (DatabaseName != null)
-            transaction.ExecuteNonQuery($"USE {DatabaseName};");
+        //if (DatabaseName != null)
+        //    transaction.ExecuteNonQuery($"USE {DatabaseName};");
 
         return transaction;
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
-        return new MySqlDatabaseTransaction(dbTransaction, type);
+        return new MySqlDatabaseTransaction(dbTransaction, type, DatabaseName);
     }
 
     public override string GetExists(string? databaseName = null)

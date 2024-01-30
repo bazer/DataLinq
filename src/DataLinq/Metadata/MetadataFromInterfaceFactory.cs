@@ -9,59 +9,59 @@ namespace DataLinq.Metadata;
 
 public static class MetadataFromInterfaceFactory
 {
-    public static DatabaseMetadata ParseDatabaseFromSources(bool removeInterfacePrefix, params Type[] types)
-    {
-        var dbType =
-                types.FirstOrDefault(x => x.GetInterface("ICustomDatabaseModel") != null) ??
-                types.FirstOrDefault(x => x.GetInterface("IDatabaseModel") != null);
+    //public static DatabaseMetadata ParseDatabaseFromSources(bool removeInterfacePrefix, params Type[] types)
+    //{
+    //    var dbType =
+    //            types.FirstOrDefault(x => x.GetInterface("ICustomDatabaseModel") != null) ??
+    //            types.FirstOrDefault(x => x.GetInterface("IDatabaseModel") != null);
 
-        var database = new DatabaseMetadata(dbType?.Name ?? "Unnamed", dbType);
+    //    var database = new DatabaseMetadata(dbType?.Name ?? "Unnamed", dbType);
 
-        var customModels = types
-            .Where(x =>
-                x.GetInterface("ICustomTableModel") != null ||
-                x.GetInterface("ICustomViewModel") != null)
-            .Select(x => ParseTableModel(database, x, x.Name))
-            .ToList();
+    //    var customModels = types
+    //        .Where(x =>
+    //            x.GetInterface("ICustomTableModel") != null ||
+    //            x.GetInterface("ICustomViewModel") != null)
+    //        .Select(x => ParseTableModel(database, x, x.Name))
+    //        .ToList();
 
-        if (dbType != null)
-        {
-            database.Attributes = dbType.GetCustomAttributes(false).Cast<Attribute>().ToArray();
+    //    if (dbType != null)
+    //    {
+    //        database.Attributes = dbType.GetCustomAttributes(false).Cast<Attribute>().ToArray();
 
-            ParseAttributes(database);
+    //        ParseAttributes(database);
 
-            database.TableModels = dbType
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Select(GetTableType)
-                .Select(x => database.ParseTableModel(x.type, x.csName))
-                .ToList();
+    //        database.TableModels = dbType
+    //            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+    //            .Select(GetTableType)
+    //            .Select(x => database.ParseTableModel(x.type, x.csName))
+    //            .ToList();
 
-            var transformer = new MetadataTransformer(new MetadataTransformerOptions(removeInterfacePrefix));
+    //        var transformer = new MetadataTransformer(new MetadataTransformerOptions(removeInterfacePrefix));
 
-            foreach (var customModel in customModels)
-            {
-                var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == customModel.Table.DbName);
+    //        foreach (var customModel in customModels)
+    //        {
+    //            var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == customModel.Table.DbName);
 
-                if (match != null)
-                {
-                    transformer.TransformTable(customModel, match);
-                    //match.CsPropertyName = customModel.CsPropertyName;
-                }
-                else
-                    database.TableModels.Add(customModel);
-            }
-        }
-        else
-        {
-            database.TableModels = customModels;
-        }
+    //            if (match != null)
+    //            {
+    //                transformer.TransformTable(customModel, match);
+    //                //match.CsPropertyName = customModel.CsPropertyName;
+    //            }
+    //            else
+    //                database.TableModels.Add(customModel);
+    //        }
+    //    }
+    //    else
+    //    {
+    //        database.TableModels = customModels;
+    //    }
 
-        MetadataFactory.ParseIndices(database);
-        MetadataFactory.ParseRelations(database);
+    //    MetadataFactory.ParseIndices(database);
+    //    MetadataFactory.ParseRelations(database);
 
-        return database;
+    //    return database;
 
-    }
+    //}
 
     public static DatabaseMetadata ParseDatabaseFromDatabaseModel(Type type)
     {
@@ -104,6 +104,9 @@ public static class MetadataFromInterfaceFactory
 
             if (attribute is CacheLimitAttribute cacheLimit)
                 database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+
+            if (attribute is IndexCacheAttribute indexCache)
+                database.IndexCache.Add((indexCache.Type, indexCache.Amount));
 
             if (attribute is CacheCleanupAttribute cacheCleanup)
                 database.CacheCleanup.Add((cacheCleanup.LimitType, cacheCleanup.Amount));
@@ -189,6 +192,9 @@ public static class MetadataFromInterfaceFactory
 
             if (attribute is CacheLimitAttribute cacheLimit)
                 table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+
+            if (attribute is IndexCacheAttribute indexCache)
+                table.IndexCache.Add((indexCache.Type, indexCache.Amount));
 
             if (table is ViewMetadata view && attribute is DefinitionAttribute definitionAttribute)
                 view.Definition = definitionAttribute.Sql;

@@ -2,7 +2,7 @@ using System;
 using System.Data;
 using System.IO;
 using System.Runtime.CompilerServices;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;

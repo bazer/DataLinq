@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -19,28 +19,36 @@ public class TableCache
     private (PrimaryKeys keys, long ticks, int size)? oldestKeyTick;
     private readonly Queue<(PrimaryKeys keys, long ticks, int size)> keysTicks = new();
 
-    protected ConcurrentDictionary<PrimaryKeys, object> Rows = new();
+    protected Dictionary<ColumnIndex, IndexCache> IndexCaches;
 
+    protected ConcurrentDictionary<PrimaryKeys, object> RowCache = new();
     protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>> TransactionRows = new();
     protected int primaryKeyColumnsCount;
 
+    protected int numRowsInTable;
+    protected List<ColumnIndex> indices;
+    protected (IndexCacheType type, int? amount) indexCachePolicy;
 
-    public TableCache(TableMetadata table, IDatabaseProvider database)
+    public TableCache(TableMetadata table, DatabaseCache databaseCache)
     {
         this.Table = table;
-        this.Database = database;
+        this.DatabaseCache = databaseCache;
         this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Count;
+        this.indices = Table.ColumnIndices;
+        this.indexCachePolicy = GetIndexCachePolicy();
+
+        IndexCaches = indices.ToDictionary(x => x, _ => new IndexCache());
     }
 
     public long? OldestTick => oldestKeyTick?.ticks;
     public long? NewestTick => !oldestKeyTick.HasValue ? null : keysTicks.Last().ticks;
-    public int RowCount => Rows.Count;
-    //public int KeysTicksCount => KeysTicks.Count;
+    public int RowCount => RowCache.Count;
+    public IEnumerable<(string index, int count)> IndicesCount => indices.Select(x => (x.Name, IndexCaches[x].Count));
     public int TransactionRowsCount => TransactionRows.Count;
     public long TotalBytes => keysTicks.Sum(x => x.size);
     public string TotalBytesFormatted => TotalBytes.ToFileSize();
     public TableMetadata Table { get; }
-    public IDatabaseProvider Database { get; }
+    public DatabaseCache DatabaseCache { get; }
 
     public bool IsTransactionInCache(Transaction transaction) => TransactionRows.ContainsKey(transaction);
     public IEnumerable<object> GetTransactionRows(Transaction transaction)
@@ -64,23 +72,110 @@ public class TableCache
             {
                 if (transaction != null)
                 {
-                    if (TryRemoveTransactionRow(change.PrimaryKeys, transaction, out var rows))
-                        numRows += rows;
+                    if (TryRemoveTransactionRow(change.PrimaryKeys, transaction, out var transRows))
+                        numRows += transRows;
                 }
-                else
+
+                TryRemoveRow(change.PrimaryKeys, out var rows);
+                numRows += rows;
+            }
+
+            
+            TryRemoveRowFromAllIndices(change.PrimaryKeys, out var indexRows);
+            numRows += indexRows;
+
+            if (change.Type == TransactionChangeType.Update)
+            {
+                var changedValues = change.GetChanges().ToList();
+                foreach (var columnIndex in change.Table.ColumnIndices.Where(x => changedValues.Any(y => x.Columns.Contains(y.Key))))
+                    RemoveIndexOnBothSides(columnIndex, change.Model);
+            }
+            else
+            {
+                foreach (var columnIndex in change.Table.ColumnIndices)
                 {
-                    if (TryRemoveRow(change.PrimaryKeys, out var rows))
-                        numRows += rows;
+                    RemoveIndexOnBothSides(columnIndex, change.Model);
                 }
             }
         }
 
         return numRows;
+
+        int RemoveIndexOnBothSides(ColumnIndex columnIndex, IModel model)
+        {
+            var data = model.GetValues(columnIndex.Columns).Select(x => x.Value).ToArray();
+
+            if (TryRemoveIndex(columnIndex, new ForeignKey(columnIndex, data), out var indexRowsThisSide))
+                numRows += indexRowsThisSide;
+
+            foreach (var index in columnIndex.RelationParts.Select(x => x.GetOtherSide().ColumnIndex))
+                if (DatabaseCache.GetTableCache(index.Table).TryRemoveIndex(index, new ForeignKey(index, data), out var indexRowsOtherSide))
+                    numRows += indexRowsOtherSide;
+
+            return numRows;
+        }
+
+        IEnumerable<object> GetValues(IModel model, IEnumerable<Column> columns) 
+        {
+            if (model is InstanceBase instance)
+                return instance.GetValues(columns).Select(x => x.Value);
+            else
+                return model.GetValues(columns).Select(x => x.Value);
+        }
     }
+
+    public (IndexCacheType, int? amount) GetIndexCachePolicy()
+    {
+        if (!Table.IndexCache.Any())
+            return DatabaseCache.GetIndexCachePolicy();
+
+        if (Table.IndexCache.Any(x => x.indexCacheType == IndexCacheType.None))
+            return (IndexCacheType.None, 0);
+
+        if (Table.IndexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
+            return (IndexCacheType.MaxAmountRows, Table.IndexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
+
+        if (Table.IndexCache.Any(x => x.indexCacheType == IndexCacheType.All))
+            return (IndexCacheType.All, null);
+
+        throw new NotImplementedException();
+    }
+
+    public void ClearCache()
+    {
+        ClearRows();
+        ClearIndex();
+    }
+
+    public void ClearIndex()
+    {
+        for (var i = 0; i < indices.Count; i++)
+            IndexCaches[indices[i]].Clear();
+    }
+
+    public void TryRemoveRowFromAllIndices(PrimaryKeys primaryKeys, out int numRowsRemoved)
+    {
+        numRowsRemoved = 0;
+
+        for (var i = 0; i < indices.Count; i++)
+        {
+            if (IndexCaches[indices[i]].TryRemove(primaryKeys, out var rowsRemoved))
+                numRowsRemoved += rowsRemoved;
+        }
+    }
+
+    public bool TryRemoveIndex(ColumnIndex columnIndex, ForeignKey foreignKey, out int numRowsRemoved) =>
+        IndexCaches[columnIndex].TryRemove(foreignKey, out numRowsRemoved);
+
+    public bool TryRemoveIndex(ColumnIndex columnIndex, PrimaryKeys primaryKeys, out int numRowsRemoved) =>
+        IndexCaches[columnIndex].TryRemove(primaryKeys, out numRowsRemoved);
+
+    public int RemoveAllIndicesInsertedBeforeTick(long tick) =>
+        IndexCaches.Select(x => x.Value.RemoveInsertedBeforeTick(tick)).Sum();
 
     public void ClearRows()
     {
-        Rows.Clear();
+        RowCache.Clear();
         keysTicks.Clear();
         oldestKeyTick = null;
     }
@@ -198,6 +293,8 @@ public class TableCache
 
     public int RemoveRowsInsertedBeforeTick(long tick)
     {
+        RemoveAllIndicesInsertedBeforeTick(tick);
+
         if (!oldestKeyTick.HasValue)
             return 0;
 
@@ -232,9 +329,9 @@ public class TableCache
     {
         numRowsRemoved = 0;
 
-        if (Rows.ContainsKey(primaryKeys))
+        if (RowCache.ContainsKey(primaryKeys))
         {
-            if (Rows.TryRemove(primaryKeys, out var _))
+            if (RowCache.TryRemove(primaryKeys, out var _))
             {
                 numRowsRemoved = 1;
                 return true;
@@ -275,15 +372,79 @@ public class TableCache
         return true;
     }
 
-    public IEnumerable<PrimaryKeys> GetKeys(ForeignKey foreignKey, Transaction transaction)
+    public void PreloadIndex(ForeignKey foreignKey, RelationProperty otherSide, Transaction transaction, int? limitRows = null)
     {
         var select = new SqlQuery(Table, transaction)
+            .What(Table.PrimaryKeyColumns.Concat(foreignKey.Index.Columns).Distinct())
+            .WhereNot(foreignKey.Index.Columns.Select(y => (y.DbName, null as object)));
+
+        var query = select
+            .OrderByDesc(foreignKey.Index.Columns[0].DbName);
+
+        if (limitRows.HasValue)
+            query.Limit(limitRows.Value);
+
+        foreach (var (fk, pk) in query.SelectQuery().ReadPrimaryAndForeignKeys(foreignKey.Index))
+            IndexCaches[foreignKey.Index].TryAdd(fk, pk);
+
+
+        var otherColumns = otherSide.RelationPart.ColumnIndex.Columns;
+        select = new SqlQuery(otherSide.Model.Table, transaction, "other")
+            .What(otherSide.Model.Table.PrimaryKeyColumns)
+            .LeftJoin(Table.DbName, "this")
+                .On(foreignKey.Index.Columns[0].DbName, "this")
+                .EqualToColumn(otherColumns[0].DbName, "other");
+
+        if (foreignKey.Index.Columns.Count > 1)
+        {
+            for (var i = 1; i < foreignKey.Index.Columns.Count; i++)
+                select.And(foreignKey.Index.Columns[i].DbName, "this").EqualToColumn(otherColumns[i].DbName, "other");
+        }
+
+        query = select
+            .Where(foreignKey.Index.Columns.Select(y => (y.DbName, null as object)), BooleanType.And, "this")
+            .OrderByDesc(otherColumns[0].DbName, "other");
+
+        if (limitRows.HasValue)
+            query.Limit(limitRows.Value);
+
+        foreach (var pk in query.SelectQuery().ReadKeys()) // .ReadForeignKeys(otherSide.RelationPart.ColumnIndex))
+            IndexCaches[foreignKey.Index].TryAdd(new ForeignKey(foreignKey.Index, pk.Data), []);
+    }
+
+    public PrimaryKeys[] GetKeys(ForeignKey foreignKey, RelationProperty otherSide, Transaction transaction)
+    {
+        if (Table.PrimaryKeyColumns.Count == foreignKey.Index.Columns.Count() && Table.PrimaryKeyColumns.All(x => foreignKey.Index.Columns.Contains(x)))
+            return [new PrimaryKeys(foreignKey.Data)];
+
+        if (transaction.Type == TransactionType.ReadOnly && indexCachePolicy.type != IndexCacheType.None)
+        {
+            if (IndexCaches[foreignKey.Index].TryGetValue(foreignKey, out var keys))
+                return keys;
+
+            if (IndexCaches[foreignKey.Index].Count == 0)
+            {
+                PreloadIndex(foreignKey, otherSide, transaction, indexCachePolicy.type == IndexCacheType.MaxAmountRows ? indexCachePolicy.amount : null);
+                GetRows(IndexCaches[foreignKey.Index].Values.SelectMany(x => x).Take(1000).ToArray(), transaction).ToList();
+
+                if (IndexCaches[foreignKey.Index].TryGetValue(foreignKey, out var retryKeys))
+                    return retryKeys;
+            }
+        }
+
+        var select = new SqlQuery(Table, transaction)
             .What(Table.PrimaryKeyColumns)
-            .Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data)
+            .Where(foreignKey.GetData())
             .SelectQuery();
 
-        return select
-            .ReadKeys();
+        var newKeys = select
+            .ReadKeys()
+            .ToArray();
+
+        if (indexCachePolicy.type != IndexCacheType.None)
+            IndexCaches[foreignKey.Index].TryAdd(foreignKey, newKeys);
+
+        return newKeys;
     }
 
     public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction, List<OrderBy> orderings = null)
@@ -311,20 +472,26 @@ public class TableCache
     public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey, Transaction transaction)
     {
         var select = new SqlQuery(Table, transaction)
-            .Where(foreignKey.Column.DbName).EqualTo(foreignKey.Data)
+            .Where(foreignKey.GetData())
+            //.Where(foreignKey.Index.DbName).EqualTo(foreignKey.Data)
             .SelectQuery();
 
         return select.ReadRows();
     }
 
-    public IEnumerable<object> GetRows(ForeignKey foreignKey, Transaction transaction, List<OrderBy> orderings = null)
+    public IEnumerable<object> GetRows(ForeignKey foreignKey, RelationProperty otherSide, Transaction transaction, List<OrderBy> orderings = null)
     {
         if (foreignKey.Data == null)
             return new List<object>();
 
         //var keys = foreignKey.Column.Index.GetOrAdd(foreignKey.Data, _ => GetKeys(foreignKey, transaction).ToArray());
 
-        var keys = GetKeys(foreignKey, transaction).ToArray();
+        //if (transaction.Type == TransactionType.ReadOnly)
+        //{
+
+        //}
+        //else
+        var keys = GetKeys(foreignKey, otherSide, transaction).ToArray();
 
         return GetRows(keys, transaction, orderings);
     }
@@ -340,7 +507,7 @@ public class TableCache
         var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
         foreach (var key in primaryKeys)
         {
-            if (transaction.Type == TransactionType.ReadOnly && Rows.TryGetValue(key, out var row))
+            if (transaction.Type == TransactionType.ReadOnly && RowCache.TryGetValue(key, out var row))
                 yield return row;
             else if (transaction.Type != TransactionType.ReadOnly && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out object transactionRow))
                 yield return transactionRow;
@@ -360,7 +527,7 @@ public class TableCache
         //}
         if (keysToLoad.Count != 0)
         {
-            foreach (var split in keysToLoad.SplitList(100))
+            foreach (var split in keysToLoad.SplitList(1000))
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction, orderings))
                 {
@@ -394,7 +561,7 @@ public class TableCache
         {
             var ticks = DateTime.Now.Ticks;
 
-            if (!Rows.TryAdd(keys, instance))
+            if (!RowCache.TryAdd(keys, instance))
                 return false;
 
             lock (keyTicksQueueLock)
@@ -412,6 +579,6 @@ public class TableCache
 
     public TableCacheSnapshot MakeSnapshot()
     {
-        return new(Table.DbName, RowCount, TotalBytes, NewestTick, OldestTick);
+        return new(Table.DbName, RowCount, TotalBytes, NewestTick, OldestTick, IndicesCount.ToArray());
     }
 }

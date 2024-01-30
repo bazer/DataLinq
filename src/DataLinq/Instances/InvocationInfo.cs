@@ -24,6 +24,7 @@ internal struct InvocationInfo
     internal MethodType MethodType { get; }
     internal string Name { get; }
     internal object? Value { get; }
+    internal object[]? Arguments { get; }
 
     internal InvocationInfo(IInvocation invocation)
     {
@@ -59,7 +60,7 @@ internal struct InvocationInfo
         else if (this.CallType == CallType.Set && this.MethodType == MethodType.Indexer)
             this.Value = invocation.Arguments[1];
         else if (this.CallType == CallType.Method && invocation.Arguments.Length > 0)
-            this.Value = invocation.Arguments[0];
+            this.Arguments = invocation.Arguments;
         else
             this.Value = null;
     }

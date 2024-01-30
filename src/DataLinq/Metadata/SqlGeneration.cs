@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Query;
 
 namespace DataLinq.Metadata;
@@ -24,7 +25,7 @@ public class SqlGeneration
             var table = tables[i];
             foreach (var fk in table.Columns.Where(x => x.ForeignKey))
             {
-                var otherTable = fk.RelationParts.FirstOrDefault()?.Relation.CandidateKey.Column.Table;
+                var otherTable = fk.ColumnIndices.FirstOrDefault()?.RelationParts.FirstOrDefault()?.Relation.CandidateKey.ColumnIndex.Table;
                 if (otherTable == null)
                     continue;
 
@@ -140,7 +141,12 @@ public class SqlGeneration
     public virtual SqlGeneration UniqueKey(string name, params string[] columns)
         => NewRow().Indent().Add($"UNIQUE KEY {QuotedString(name)} {ParenthesisList(columns)}");
     public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
-        => ForeignKey(relation.Relation.ConstraintName == relation.Column.DbName ? null : relation.Relation.ConstraintName, relation.Column.DbName, relation.Relation.CandidateKey.Column.Table.DbName, relation.Relation.CandidateKey.Column.DbName, restrict);
+        => ForeignKey(
+            relation.Relation.ConstraintName == relation.ColumnIndex.Columns.First().DbName ? null : relation.Relation.ConstraintName, 
+            relation.ColumnIndex.Columns.Select(x=> x.DbName).ToJoinedString(", "), 
+            relation.Relation.CandidateKey.ColumnIndex.Table.DbName, 
+            relation.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).ToJoinedString(", "), 
+            restrict);
     public SqlGeneration ForeignKey(string? constraintName, string from, string table, string to, bool restrict)
         => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(constraintName) ? "" : $"CONSTRAINT {QuotedString(constraintName)} ")}FOREIGN KEY {QuotedParenthesis(from)} REFERENCES {QuotedString(table)} {QuotedParenthesis(to)} {OnUpdateDelete(restrict)}");
     public string OnUpdateDelete(bool restrict)

@@ -17,6 +17,11 @@ public interface IDataLinqDataReader : IDisposable
 
 public static class DataReader
 {
+    //public static bool HasColumn(this IDataLinqDataReader reader, Column column)
+    //{
+    //    return reader.HasColumn(column.DbName);
+    //}
+
     public static object? ReadColumn(this IDataLinqDataReader reader, Column column)
     {
         return reader.GetValue(column);
