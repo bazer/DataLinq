@@ -69,6 +69,11 @@ public enum IndexCharacteristic
     PrimaryKey,
 
     /// <summary>
+    /// Represents a foreign key constraint ensuring uniqueness and referencing another table.
+    /// </summary>
+    ForeignKey,
+
+    /// <summary>
     /// Represents unique constraint ensuring all values in the index are distinct.
     /// </summary>
     Unique,
@@ -86,7 +91,12 @@ public enum IndexCharacteristic
     /// <summary>
     /// Represents PostgreSQL's exclusion constraint, ensuring specific non-overlapping properties.
     /// </summary>
-    EXCLUSION
+    EXCLUSION,
+
+    /// <summary>
+    /// Represents an index that only exists internally in Datalinq.
+    /// </summary>
+    VirtualDataLinq
 }
 
 /// <summary>

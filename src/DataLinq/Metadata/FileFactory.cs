@@ -149,7 +149,7 @@ public class FileFactory
                 if (c.PrimaryKey)
                     yield return $"{namespaceTab}{tab}[PrimaryKey]";
 
-                foreach (var index in c.ColumnIndices)// table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique && x.Columns.Contains(c)))
+                foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
                 {
                     var columns = index.Columns.Count() > 1
                         ? "," + index.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")

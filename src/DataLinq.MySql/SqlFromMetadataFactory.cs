@@ -82,7 +82,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
                 foreach (var relation in index.RelationParts)
                     sql.ForeignKey(relation, foreignKeyRestrict);
 
-        foreach (var index in table.ColumnIndices)
+        foreach (var index in table.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
             sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
     }
 

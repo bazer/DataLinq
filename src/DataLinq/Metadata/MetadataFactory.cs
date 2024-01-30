@@ -94,8 +94,17 @@ public static class MetadataFactory
 
     public static void ParseRelations(DatabaseMetadata database)
     {
-        foreach (var column in database.
-            TableModels.SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
+        foreach (var table in database.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table))
+        {
+            var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
+
+            if (!columns.Any())
+                throw new Exception($"Table {table.DbName} is missing a primary key. Having a primary key for every table is a requirement for DataLinq.");
+
+            table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
+        }
+
+        foreach (var column in database.TableModels.Where(x => x.Table.Type == TableType.Table).SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
         {
             foreach (var attribute in column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
             {
@@ -117,16 +126,16 @@ public static class MetadataFactory
                 if (candidateColumn == null)
                     continue;
 
-                if (!column.ColumnIndices.Any())
+                if (!column.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.ForeignKey))
                     column.Table.ColumnIndices.Add(
-                        new ColumnIndex(column.DbName, IndexCharacteristic.Unique, IndexType.BTREE, [column]));
+                        new ColumnIndex(column.DbName, IndexCharacteristic.ForeignKey, IndexType.BTREE, [column]));
 
                 if (!candidateColumn.ColumnIndices.Any())
                     candidateColumn.Table.ColumnIndices.Add(
-                        new ColumnIndex(candidateColumn.DbName, IndexCharacteristic.Unique, IndexType.BTREE, [candidateColumn]));
+                        new ColumnIndex(candidateColumn.DbName, IndexCharacteristic.VirtualDataLinq, IndexType.BTREE, [candidateColumn]));
 
 
-                relation.ForeignKey = CreateRelationPart(relation, column.ColumnIndices.First(), RelationPartType.ForeignKey);
+                relation.ForeignKey = CreateRelationPart(relation, column.ColumnIndices.Last(), RelationPartType.ForeignKey);
                 relation.CandidateKey = CreateRelationPart(relation, candidateColumn.ColumnIndices.First(), RelationPartType.CandidateKey);
 
                 AttachRelationProperty(relation.ForeignKey, candidateColumn);

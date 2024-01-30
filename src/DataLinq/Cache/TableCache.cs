@@ -527,7 +527,7 @@ public class TableCache
         //}
         if (keysToLoad.Count != 0)
         {
-            foreach (var split in keysToLoad.SplitList(1000))
+            foreach (var split in keysToLoad.SplitList(500))
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction, orderings))
                 {
