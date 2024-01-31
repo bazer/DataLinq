@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Castle.DynamicProxy;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -43,23 +42,23 @@ internal class MutableRowInterceptor : RowInterceptor
             return;
         }
 
-        var property = Properties.Single(x => x.CsName == info.Name);
+        //var property = ValueProperties[info.Name];
 
         if (info.CallType == CallType.Set && info.MethodType == MethodType.Property)
         {
-            if (property is ValueProperty valueProperty)
-                MutableRowData.SetValue(valueProperty.Column, info.Value);
-            else if (property.Type == PropertyType.Relation)
+            if (ValueProperties.TryGetValue(info.Name, out var property))
+                MutableRowData.SetValue(property.Column, info.Value);
+            else
                 throw new NotImplementedException();
         }
         else if (info.CallType == CallType.Get && info.MethodType == MethodType.Property)
         {
-            if (property is ValueProperty valueProperty)
-                invocation.ReturnValue = MutableRowData.GetValue(valueProperty.Column);
-            else if (property.Type == PropertyType.Relation)
+            if (ValueProperties.TryGetValue(info.Name, out var property))
+                invocation.ReturnValue = MutableRowData.GetValue(property.Column);
+            else //if (property.Type == PropertyType.Relation)
                 invocation.ReturnValue = GetRelation(info);
-            else
-                throw new NotImplementedException();
+            //else
+            //    throw new NotImplementedException();
         }
         else
             throw new NotImplementedException();

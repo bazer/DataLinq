@@ -51,12 +51,9 @@ internal class ImmutableRowInterceptor : RowInterceptor
 
         if (info.MethodType == MethodType.Property)
         {
-            var name = info.Name;
-            var property = Properties.Single(x => x.CsName == name);
-
-            if (property is ValueProperty valueProperty)
+            if (ValueProperties.ContainsKey(info.Name))
             {
-                invocation.ReturnValue = RowData.GetValue(valueProperty.Column.DbName);
+                invocation.ReturnValue = RowData.GetValue(ValueProperties[info.Name].Column.DbName);
             }
             else
             {

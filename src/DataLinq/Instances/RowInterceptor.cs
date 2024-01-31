@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Castle.DynamicProxy;
@@ -13,13 +14,14 @@ internal abstract class RowInterceptor : IInterceptor
     protected RowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
     {
         RowData = rowData;
+        RelationProperties = RowData.Table.Model.Properties.DistinctBy(x => x.CsName).OfType<RelationProperty>().ToDictionary(x => x.CsName);
+        ValueProperties = RowData.Table.Model.Properties.DistinctBy(x => x.CsName).OfType<ValueProperty>().ToDictionary(x => x.CsName);
         this.databaseProvider = databaseProvider;
         this.writeTransaction = transaction == null || transaction.Type == TransactionType.ReadOnly ? null : transaction;
     }
 
-    protected List<Property> Properties =>
-        RowData.Table.Model.Properties;
-
+    protected Dictionary<string, RelationProperty> RelationProperties { get; }
+    protected Dictionary<string, ValueProperty> ValueProperties { get; }
     protected RowData RowData { get; }
     //protected ConcurrentDictionary<string, object> RelationCache;
     protected Transaction? writeTransaction;
@@ -37,9 +39,13 @@ internal abstract class RowInterceptor : IInterceptor
 
     protected object GetRelation(InvocationInfo info)
     {
-        var property = Properties
-            .OfType<RelationProperty>()
-            .Single(x => x.CsName == info.Name);
+        //var property = Properties[info.Name];
+
+        //if (Properties[info.Name] is not RelationProperty property)
+        //    throw new Exception($"Property {info.Name} is not a relation property");
+
+            //.OfType<RelationProperty>()
+            //.Single(x => x.CsName == info.Name);
 
         //if (RelationCache == null)
         //    RelationCache = new ConcurrentDictionary<string, object>();
@@ -57,6 +63,7 @@ internal abstract class RowInterceptor : IInterceptor
 
         var transaction = GetTransaction();
 
+        var property = RelationProperties[info.Name];
         var otherSide = property.RelationPart.GetOtherSide();
         var result = databaseProvider
             .GetTableCache(otherSide.ColumnIndex.Table)

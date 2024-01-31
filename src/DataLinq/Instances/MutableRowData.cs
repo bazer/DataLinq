@@ -6,7 +6,7 @@ namespace DataLinq.Instances;
 public class MutableRowData
 {
     RowData ImmutableRowData { get; }
-    Dictionary<Column, object> MutatedData { get; } = new Dictionary<Column, object>();
+    Dictionary<Column, object?> MutatedData { get; } = new Dictionary<Column, object?>();
 
     public MutableRowData(RowData immutableRowData)
     {
@@ -16,7 +16,7 @@ public class MutableRowData
     public PrimaryKeys GetKey() =>
         new PrimaryKeys(this.ImmutableRowData);
 
-    public object GetValue(Column column)
+    public object? GetValue(Column column)
     {
         if (MutatedData.ContainsKey(column))
             return MutatedData[column];
@@ -24,7 +24,7 @@ public class MutableRowData
         return ImmutableRowData.GetValue(column.DbName);
     }
 
-    public void SetValue(Column column, object value)
+    public void SetValue(Column column, object? value)
     {
         MutatedData[column] = value;
     }
