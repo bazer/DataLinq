@@ -386,7 +386,7 @@ public class SqlQuery<T>
         foreach (var with in SetList)
         {
             Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-            Transaction.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
+            Transaction.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, [paramPrefix + "v" + i]);
 
             if (i + 1 < length)
                 sql.AddText(",");

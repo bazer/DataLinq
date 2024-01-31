@@ -26,11 +26,11 @@ public interface IDatabaseProvider : IDisposable
 
     TableCache GetTableCache(TableMetadata table);
 
-    Sql GetParameter(Sql sql, string key, object value);
+    Sql GetParameter(Sql sql, string key, object? value);
 
     Sql GetParameterValue(Sql sql, string key);
 
-    Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string prefix);
+    Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] prefix);
 
     Sql GetLimitOffset(Sql sql, int? limit, int? offset);
 

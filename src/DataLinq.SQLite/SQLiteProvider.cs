@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -91,12 +92,38 @@ public class SQLiteProvider<T> : DatabaseProvider<T>
         return sql.AddFormat("@{0}", key);
     }
 
-    public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key)
+    public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] key)
     {
-        return sql.AddFormat("{0} {1} @{2}", field, relation.ToSql(), key);
+        return sql.AddFormat("{0} {1} {2}", field, relation.ToSql(), GetParameterName(key));
     }
 
-    public override Sql GetParameter(Sql sql, string key, object value)
+    private string GetParameterName(string[] key)
+    {
+        var builder = new StringBuilder();
+        if (key.Length > 1)
+        {
+            builder.Append('(');
+        }
+
+        for (int i = 0; i < key.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+            builder.Append('@');
+            builder.Append(key[i]);
+        }
+
+        if (key.Length > 1)
+        {
+            builder.Append(')');
+        }
+
+        return builder.ToString();
+    }
+
+    public override Sql GetParameter(Sql sql, string key, object? value)
     {
         return sql.AddParameters(new SqliteParameter("@" + key, value ?? DBNull.Value));
     }

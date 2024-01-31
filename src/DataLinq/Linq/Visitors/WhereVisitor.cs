@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using DataLinq.Query;
 using DataLinq.Utils;
 using Remotion.Linq.Clauses;
+using Remotion.Linq.Clauses.ResultOperators;
 
 namespace DataLinq.Linq.Visitors;
 
@@ -40,6 +43,16 @@ internal class WhereVisitor : ExpressionVisitor
         Visit(whereClause.Predicate);
     }
 
+    protected override Expression VisitConstant(ConstantExpression node)
+    {
+        return base.VisitConstant(node);
+    }
+
+    protected override Expression VisitConditional(ConditionalExpression node)
+    {
+        return base.VisitConditional(node);
+    }
+
     // TODO: Consider handling other unary operators if needed.
     protected override Expression VisitUnary(UnaryExpression node)
     {
@@ -68,6 +81,24 @@ internal class WhereVisitor : ExpressionVisitor
         if (node is Remotion.Linq.Clauses.Expressions.QuerySourceReferenceExpression querySourceRef)
         {
             return querySourceRef;
+        }
+
+        if (node is Remotion.Linq.Clauses.Expressions.SubQueryExpression subQuery)
+        {
+            foreach (var resultOperator in subQuery.QueryModel.ResultOperators)
+            {
+                if (resultOperator is ContainsResultOperator containsResultOperator)
+                {
+                    var field = (string)query.GetValue(containsResultOperator.Item);
+                    var array = ConvertToList(query.GetValue(subQuery.QueryModel.MainFromClause.FromExpression));
+
+                    AddWhere("Contains", field, array);
+                }
+                else
+                    throw new NotImplementedException($"Operation '{resultOperator}' not implemented");
+            }
+
+            return node;
         }
 
         return base.VisitExtension(node);
@@ -99,24 +130,7 @@ internal class WhereVisitor : ExpressionVisitor
         var field = (string)query.GetValue(node.Object);
         var value = query.GetValue(node.Arguments[0]);
 
-        var group = whereGroups.Count > 0
-            ? whereGroups.Peek()
-            : query.GetBaseWhereGroup();
-
-        var where = negations.Decrement() > 0
-            ? group.AddWhereNot(field, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
-            : group.AddWhere(field, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And);
-
-        switch (node.Method.Name)
-        {
-            case "StartsWith":
-                where.Like(value + "%");
-                break;
-            case "EndsWith":
-                where.Like("%" + value);
-                break;
-            default: throw new NotImplementedException($"Operation '{node.Method.Name}' with {node.Arguments.Count} arguments not implemented");
-        }
+        AddWhere(node.Method.Name, field, [value]);
 
         return node;
     }
@@ -186,5 +200,41 @@ internal class WhereVisitor : ExpressionVisitor
         }
 
         return node;
+    }
+
+    private void AddWhere(string methodName, string field, object[] values)
+    {
+        var group = whereGroups.Count > 0
+                    ? whereGroups.Peek()
+                    : query.GetBaseWhereGroup();
+
+        var where = negations.Decrement() > 0
+            ? group.AddWhereNot(field, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
+            : group.AddWhere(field, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And);
+
+        switch (methodName)
+        {
+            case "StartsWith":
+                where.Like(values[0] + "%");
+                break;
+            case "EndsWith":
+                where.Like("%" + values[0]);
+                break;
+            case "Contains":
+                where.In(values);
+                break;
+            default: throw new NotImplementedException($"Operation '{methodName}' not implemented");
+        }
+    }
+
+    private static object[] ConvertToList(object obj)
+    {
+        return obj switch
+        {
+            object[] arr => arr,
+            IEnumerable<object> enumerable => enumerable.ToArray(),
+            IEnumerable enumerable => enumerable.Cast<object>().ToArray(),
+            _ => throw new ArgumentException("Object is not a list"),
+        };
     }
 }

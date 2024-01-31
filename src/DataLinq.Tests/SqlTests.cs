@@ -641,4 +641,53 @@ SELECT {lastInsert}", sql.Text);
         Assert.Equal($"{sign}v0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
     }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereIn(Database<Employees> employeesDb)
+    {
+        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var ids = new[] { 1, 2, 3 };
+        var sql = employeesDb
+            .From("departments d")
+            .Where("Id").In(ids)
+            .SelectQuery()
+            .ToSql();
+
+        Assert.Equal($@"SELECT d.dept_no, d.dept_name FROM departments d
+WHERE
+Id IN ({sign}w0, {sign}w1, {sign}w2)", sql.Text);
+        Assert.Equal(3, sql.Parameters.Count);
+        Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
+        Assert.Equal(ids[0], sql.Parameters[0].Value);
+        Assert.Equal($"{sign}w1", sql.Parameters[1].ParameterName);
+        Assert.Equal(ids[1], sql.Parameters[1].Value);
+        Assert.Equal($"{sign}w2", sql.Parameters[2].ParameterName);
+        Assert.Equal(ids[2], sql.Parameters[2].Value);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereNotIn(Database<Employees> employeesDb)
+    {
+        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var ids = new[] { 1, 2, 3 };
+        var sql = employeesDb
+            .From("departments")
+            .Where("Id").NotIn(ids)
+            .SelectQuery()
+            .ToSql();
+
+        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+WHERE
+Id NOT IN ({sign}w0, {sign}w1, {sign}w2)", sql.Text);
+        Assert.Equal(3, sql.Parameters.Count);
+        Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
+        Assert.Equal(ids[0], sql.Parameters[0].Value);
+        Assert.Equal($"{sign}w1", sql.Parameters[1].ParameterName);
+        Assert.Equal(ids[1], sql.Parameters[1].Value);
+        Assert.Equal($"{sign}w2", sql.Parameters[2].ParameterName);
+        Assert.Equal(ids[2], sql.Parameters[2].Value);
+    }
+
 }

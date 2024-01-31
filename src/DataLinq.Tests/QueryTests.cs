@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Tests.Models;
 using Xunit;
@@ -273,6 +274,136 @@ public class QueryTests : BaseTests
         Assert.Equal(18, where.Count);
         Assert.DoesNotContain(where, x => x.DeptNo == "d002");
     }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereContains(Database<Employees> employeesDb)
+    {
+        var ids = new[] { "d001", "d002", "d003" };
+        var where = employeesDb.Query().Departments.Where(x => ids.Contains(x.DeptNo)).ToList();
+
+        Assert.Equal(ids.Length, where.Count);
+        foreach (var id in ids)
+        {
+            Assert.Contains(where, x => x.DeptNo == id);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereNotContains(Database<Employees> employeesDb)
+    {
+        var ids = new[] { "d001", "d002", "d003" };
+        var where = employeesDb.Query().Departments.Where(x => !ids.Contains(x.DeptNo)).ToList();
+
+        Assert.True(where.Count > ids.Length);
+        foreach (var id in ids)
+        {
+            Assert.DoesNotContain(where, x => x.DeptNo == id);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void WhereContainsWithList(Database<Employees> employeesDb)
+    {
+        var ids = new List<string> { "d001", "d002", "d003" };
+        var where = employeesDb.Query().Departments.Where(x => ids.Contains(x.DeptNo)).ToList();
+
+        Assert.Equal(ids.Count, where.Count);
+        foreach (var id in ids)
+        {
+            Assert.Contains(where, x => x.DeptNo == id);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void WhereContainsWithHashSet(Database<Employees> employeesDb)
+    {
+        var ids = new HashSet<string> { "d001", "d002", "d003" };
+        var where = employeesDb.Query().Departments.Where(x => ids.Contains(x.DeptNo)).ToList();
+
+        Assert.Equal(ids.Count, where.Count);
+        foreach (var id in ids)
+        {
+            Assert.Contains(where, x => x.DeptNo == id);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void WhereMultipleContains(Database<Employees> employeesDb)
+    {
+        var deptIds = new[] { "d001", "d002", "d003" };
+        var empIds = new[] { 5, 2668, 100 };
+        var where = employeesDb.Query().DepartmentEmployees
+            .Where(x => deptIds.Contains(x.dept_no) && empIds.Contains(x.emp_no))
+            .ToList();
+
+        Assert.Equal(deptIds.Length, where.Count);
+        foreach (var id in deptIds)
+        {
+            Assert.Contains(where, x => x.dept_no == id);
+        }
+        foreach (var id in empIds)
+        {
+            Assert.Contains(where, x => x.emp_no == id);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void WhereContainsAndStartsWith(Database<Employees> employeesDb)
+    {
+        var deptIds = new[] { "d001", "d002", "d003" };
+        var where = employeesDb.Query().DepartmentEmployees
+            .Where(x => deptIds.Contains(x.dept_no) && x.dept_no.EndsWith("02"))
+            .ToList();
+
+        Assert.Contains(where, x => x.dept_no == "d002");
+        Assert.DoesNotContain(where, x => x.dept_no == "d001");
+        Assert.DoesNotContain(where, x => x.dept_no == "d003");
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void WhereContainsAndGreaterThan(Database<Employees> employeesDb)
+    {
+        var deptIds = new[] { "d001", "d002", "d003" };
+        var where = employeesDb.Query().DepartmentEmployees
+            .Where(x => deptIds.Contains(x.dept_no) && x.emp_no >= 1000 && x.emp_no <= 2000)
+            .ToList();
+
+        Assert.True(where.Count >= deptIds.Length);
+        foreach (var id in deptIds)
+        {
+            Assert.Contains(where, x => x.dept_no == id);
+            Assert.DoesNotContain(where, x => x.emp_no < 1000 || x.emp_no > 2000);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void WhereMultipleContainsAndStartsWith(Database<Employees> employeesDb)
+    {
+        var deptIds = new[] { "d001", "d002", "d003" };
+        var empIds = new[] { 5, 2668, 100 };
+        var where = employeesDb.Query().DepartmentEmployees
+            .Where(x => deptIds.Contains(x.dept_no) && empIds.Contains(x.emp_no) && x.dept_no.StartsWith("d"))
+            .ToList();
+
+        Assert.Equal(deptIds.Length, where.Count);
+        foreach (var id in deptIds)
+        {
+            Assert.Contains(where, x => x.dept_no == id);
+        }
+        foreach (var id in empIds)
+        {
+            Assert.Contains(where, x => x.emp_no == id);
+        }
+    }
+
 
     [Theory]
     [MemberData(nameof(GetEmployees))]

@@ -34,6 +34,12 @@ public static class QueryExtensions
 
             case Relation.LessThanOrEqual:
                 return "<=";
+
+            case Relation.In:
+                return "IN";
+
+            case Relation.NotIn:
+                return "NOT IN";
         }
 
         return null;
