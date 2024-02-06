@@ -58,16 +58,7 @@ public class MySqlDataLinqDataReader : IDataLinqDataReader
     public object? GetValue(Column column)
     {
         var ordinal = GetOrdinal(column.DbName);
-        object value;
-
-        if (column.ValueProperty.CsType == typeof(DateOnly))
-        {
-            value = GetDateOnly(ordinal);
-        }
-        else
-        {
-            value = GetValue(ordinal);
-        }
+        var value = GetValue(ordinal);
 
         if (value is DBNull)
             return null;
@@ -77,6 +68,8 @@ public class MySqlDataLinqDataReader : IDataLinqDataReader
             if (value is byte[] bytes && dbType.Name == "binary" && dbType.Length == 16)
                 return new Guid(bytes);
         }
+        else if (column.ValueProperty.CsType == typeof(DateOnly))
+            return GetDateOnly(ordinal);
         else if (column.ValueProperty.CsType.IsEnum && value is string stringValue)
             return Enum.ToObject(column.ValueProperty.CsType, column.ValueProperty.EnumProperty.Value.EnumValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
         else if (column.ValueProperty.CsType.IsEnum)

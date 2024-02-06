@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Castle.DynamicProxy;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -7,58 +8,49 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-internal class MutableRowInterceptor : RowInterceptor
+internal class MutableRowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
+    : RowInterceptor(rowData, databaseProvider, transaction)
 {
-    MutableRowData MutableRowData { get; }
-
-    public MutableRowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction) : base(rowData, databaseProvider, transaction)
-    {
-        this.MutableRowData = new MutableRowData(rowData);
-    }
+    MutableRowData MutableRowData { get; } = new MutableRowData(rowData);
 
     public override void Intercept(IInvocation invocation)
     {
         var info = new InvocationInfo(invocation);
 
-        //if (info.Name == "IsNewModel")
-        //{
-        //    invocation.ReturnValue = false;
-        //    return;
-        //}
-
-        if (info.CallType == CallType.Method && info.Name == "GetValues")
+        if (info.CallType == CallType.Method)
         {
-            if (info.Arguments?.Length == 1 && info.Arguments[0] is IEnumerable<Column> columns)
-                invocation.ReturnValue = MutableRowData.GetValues(columns);
+            if (info.Name.Span.SequenceEqual("GetValues".AsSpan()))
+            {
+                if (info.Arguments?.Length == 1 && info.Arguments[0] is IEnumerable<Column> columns)
+                    invocation.ReturnValue = MutableRowData.GetValues(columns);
+                else
+                    invocation.ReturnValue = MutableRowData.GetValues();
+            }
+            else if (info.Name.Span.SequenceEqual("GetChanges".AsSpan()))
+            {
+                invocation.ReturnValue = MutableRowData.GetChanges();
+            }
             else
-                invocation.ReturnValue = MutableRowData.GetValues();
+            {
+                throw new NotImplementedException($"No handler for '{info.Name}' implemented");
+            }
 
             return;
         }
-
-        if (info.CallType == CallType.Method && info.Name == "GetChanges")
-        {
-            invocation.ReturnValue = MutableRowData.GetChanges();
-            return;
-        }
-
-        //var property = ValueProperties[info.Name];
 
         if (info.CallType == CallType.Set && info.MethodType == MethodType.Property)
         {
-            if (ValueProperties.TryGetValue(info.Name, out var property))
+            if (ValueProperties.TryGetValue(info.Name.ToString(), out var property))
                 MutableRowData.SetValue(property.Column, info.Value);
             else
                 throw new NotImplementedException();
         }
         else if (info.CallType == CallType.Get && info.MethodType == MethodType.Property)
         {
-            if (ValueProperties.TryGetValue(info.Name, out var property))
+            if (ValueProperties.TryGetValue(info.Name.ToString(), out var property))
                 invocation.ReturnValue = MutableRowData.GetValue(property.Column);
-            else //if (property.Type == PropertyType.Relation)
-                invocation.ReturnValue = GetRelation(info);
-            //else
-            //    throw new NotImplementedException();
+            else
+                invocation.ReturnValue = GetRelation(RelationProperties[info.Name.ToString()]);
         }
         else
             throw new NotImplementedException();

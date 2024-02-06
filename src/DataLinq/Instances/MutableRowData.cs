@@ -21,7 +21,7 @@ public class MutableRowData
         if (MutatedData.ContainsKey(column))
             return MutatedData[column];
 
-        return ImmutableRowData.GetValue(column.DbName);
+        return ImmutableRowData.GetValue(column);
     }
 
     public void SetValue(Column column, object? value)

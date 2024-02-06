@@ -14,7 +14,7 @@ public class DatabaseCache : IDisposable
 {
     public IDatabaseProvider Database { get; set; }
 
-    public List<TableCache> TableCaches { get; }
+    public Dictionary<TableMetadata, TableCache> TableCaches { get; }
 
     public CleanCacheWorker CleanCacheWorker { get; }
 
@@ -25,8 +25,9 @@ public class DatabaseCache : IDisposable
         this.Database = database;
 
         this.TableCaches = this.Database.Metadata.TableModels
-            .Select(x => new TableCache(x.Table, this))
-            .ToList();
+            .ToDictionary(x => x.Table, x => new TableCache(x.Table, this));
+            //.Select(x => new TableCache(x.Table, this))
+            //.ToList();
 
         this.MakeSnapshot();
 
@@ -42,14 +43,14 @@ public class DatabaseCache : IDisposable
         }
     }
 
-    public TableCache GetTableCache(string tableName)
-    {
-        return TableCaches.Single(x => x.Table.DbName == tableName);
-    }
+    //public TableCache GetTableCache(string tableName)
+    //{
+    //    return TableCaches.Single(x => x.Table.DbName == tableName);
+    //}
 
     public TableCache GetTableCache(TableMetadata table)
     {
-        return TableCaches.Single(x => x.Table == table);
+        return TableCaches[table];
     }
 
     public DatabaseCacheSnapshot GetLatestSnapshot()
@@ -59,7 +60,7 @@ public class DatabaseCache : IDisposable
 
     public DatabaseCacheSnapshot MakeSnapshot()
     {
-        var snapshot = new DatabaseCacheSnapshot(DateTime.UtcNow, TableCaches.Select(x => x.MakeSnapshot()).ToArray());
+        var snapshot = new DatabaseCacheSnapshot(DateTime.UtcNow, TableCaches.Values.Select(x => x.MakeSnapshot()).ToArray());
         History.Add(snapshot);
 
         return snapshot;
@@ -96,13 +97,13 @@ public class DatabaseCache : IDisposable
     {
         foreach (var change in changes.GroupBy(x => x.Table))
         {
-            TableCaches.Single(x => x.Table == change.Key).ApplyChanges(change, transaction);
+            TableCaches[change.Key].ApplyChanges(change, transaction);
         }
     }
 
     public void RemoveTransaction(Transaction transaction)
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             table.TryRemoveTransaction(transaction);
         }
@@ -110,7 +111,7 @@ public class DatabaseCache : IDisposable
 
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsBySettings()
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             foreach (var (limitType, amount) in table.Table.CacheLimits)
             {
@@ -128,7 +129,7 @@ public class DatabaseCache : IDisposable
 
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsByLimit(CacheLimitType limitType, long amount)
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             var numRows = table.RemoveRowsByLimit(limitType, amount);
 
@@ -139,7 +140,7 @@ public class DatabaseCache : IDisposable
 
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsInsertedBeforeTick(long tick)
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             var numRows = table.RemoveRowsInsertedBeforeTick(tick);
 
@@ -150,7 +151,7 @@ public class DatabaseCache : IDisposable
 
     public void ClearCache()
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             table.ClearCache();
         }

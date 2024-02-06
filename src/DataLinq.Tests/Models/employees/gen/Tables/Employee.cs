@@ -47,6 +47,11 @@ public partial record Employee : ITableModel<Employees>
     [Column("last_name")]
     public virtual string last_name { get; set; }
 
+    [Type(DatabaseType.MySQL, "bit", 1)]
+    [Type(DatabaseType.SQLite, "integer")]
+    [Column("IsDeleted")]
+    public virtual bool? IsDeleted { get; set; }
+
     [Relation("dept_emp", "emp_no")]
     public virtual IEnumerable<dept_emp> dept_emp { get; }
 

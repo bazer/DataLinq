@@ -150,6 +150,6 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
     private static IEnumerable<object> ReadRow(RowData row)
     {
         foreach (var column in row.Table.PrimaryKeyColumns)
-            yield return row.GetValue(column.DbName);
+            yield return row.GetValue(column);
     }
 }

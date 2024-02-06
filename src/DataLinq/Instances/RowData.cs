@@ -19,7 +19,7 @@ public class RowData
         (Data, Size) = ReadReader(reader);
     }
 
-    protected Dictionary<string, object> Data { get; }
+    protected Dictionary<Column, object> Data { get; }
 
     public TableMetadata Table { get; }
     public List<Column> Columns { get; }
@@ -31,34 +31,34 @@ public class RowData
 
     public int Size { get; }
 
-    public object this[string columnDbName] => GetValue(columnDbName);
-    public object this[Column column] => GetValue(column.DbName);
+    //public object this[string columnDbName] => GetValue(columnDbName);
+    public object this[Column column] => Data[column];
 
-    public object GetValue(string columnDbName)
-    {
-        return Data[columnDbName];
-    }
+    //public object GetValue(string columnDbName)
+    //{
+    //    return Data[columnDbName];
+    //}
 
     public object GetValue(Column column)
     {
-        return GetValue(column.DbName);
+        return Data[column];
     }
 
-    public IEnumerable<object> GetValues(IEnumerable<string> columnDbName)
-    {
-        foreach (var name in columnDbName)
-            yield return Data[name];
-    }
+    //public IEnumerable<object> GetValues(IEnumerable<string> columnDbName)
+    //{
+    //    foreach (var name in columnDbName)
+    //        yield return Data[name];
+    //}
 
     public IEnumerable<object> GetValues(IEnumerable<Column> columns)
     {
         foreach (var column in columns)
-            yield return Data[column.DbName];
+            yield return Data[column];
     }
 
-    private (Dictionary<string, object> data, int size) ReadReader(IDataLinqDataReader reader)
+    private (Dictionary<Column, object> data, int size) ReadReader(IDataLinqDataReader reader)
     {
-        var data = new Dictionary<string, object>();
+        var data = new Dictionary<Column, object>();
         var size = 0;
 
         foreach (var column in Columns)
@@ -66,7 +66,7 @@ public class RowData
             var value = reader.ReadColumn(column);
             size += GetSize(column, value);
 
-            data.Add(column.DbName, value);
+            data.Add(column, value);
         }
 
         return (data, size);

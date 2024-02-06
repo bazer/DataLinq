@@ -94,13 +94,13 @@ public class SQLiteProvider<T> : DatabaseProvider<T>
 
     public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] key)
     {
-        return sql.AddFormat("{0} {1} {2}", field, relation.ToSql(), GetParameterName(key));
+        return sql.AddFormat("{0} {1} {2}", field, relation.ToSql(), GetParameterName(relation, key));
     }
 
-    private string GetParameterName(string[] key)
+    private string GetParameterName(Query.Relation relation, string[] key)
     {
         var builder = new StringBuilder();
-        if (key.Length > 1)
+        if (key.Length > 1 || relation == Query.Relation.In || relation == Query.Relation.NotIn)
         {
             builder.Append('(');
         }
@@ -115,7 +115,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>
             builder.Append(key[i]);
         }
 
-        if (key.Length > 1)
+        if (key.Length > 1 || relation == Query.Relation.In || relation == Query.Relation.NotIn)
         {
             builder.Append(')');
         }

@@ -146,7 +146,7 @@ public class TransactionTests : BaseTests
         var table = employeesDb.Provider.Metadata
                 .TableModels.Single(x => x.Table.DbName == "employees").Table;
 
-        var cache = employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
+        var cache = employeesDb.Provider.State.Cache.TableCaches[table];
         Assert.True(cache.IsTransactionInCache(transaction));
         Assert.Single(cache.GetTransactionRows(transaction));
         Assert.Same(dbTransactionEmployee, cache.GetTransactionRows(transaction).First());
@@ -533,7 +533,7 @@ public class TransactionTests : BaseTests
         var table = employeesDb.Provider.Metadata
                 .TableModels.Single(x => x.Table.DbName == "salaries").Table;
 
-        var cache = employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
+        var cache = employeesDb.Provider.State.Cache.TableCaches[table];
 
         using var transaction = employeesDb.Transaction();
 

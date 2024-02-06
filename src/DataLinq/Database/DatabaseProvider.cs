@@ -57,7 +57,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// </summary>
     /// <param name="table">The metadata of the table to retrieve the cache for.</param>
     /// <returns>The table cache for the specified table.</returns>
-    public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches.Single(x => x.Table == table);
+    public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches[table];
 
     /// <summary>
     /// Initializes a new instance of the DatabaseProvider class with the specified connection string, type of the model, database type, and optional database name.

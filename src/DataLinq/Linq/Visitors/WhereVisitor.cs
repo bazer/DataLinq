@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Xml.Linq;
 using DataLinq.Query;
 using DataLinq.Utils;
 using Remotion.Linq.Clauses;
@@ -89,10 +90,10 @@ internal class WhereVisitor : ExpressionVisitor
             {
                 if (resultOperator is ContainsResultOperator containsResultOperator)
                 {
-                    var field = (string)query.GetValue(containsResultOperator.Item);
-                    var array = ConvertToList(query.GetValue(subQuery.QueryModel.MainFromClause.FromExpression));
+                    var field = (string)query.GetValue(Visit(containsResultOperator.Item));
+                    var array = ConvertToList(query.GetValue(Visit(subQuery.QueryModel.MainFromClause.FromExpression)));
 
-                    AddWhere("Contains", field, array);
+                    AddWhere(Operation.Contains, field, array);
                 }
                 else
                     throw new NotImplementedException($"Operation '{resultOperator}' not implemented");
@@ -130,7 +131,7 @@ internal class WhereVisitor : ExpressionVisitor
         var field = (string)query.GetValue(node.Object);
         var value = query.GetValue(node.Arguments[0]);
 
-        AddWhere(node.Method.Name, field, [value]);
+        AddWhere(GetOperation(node.Method.Name), field, [value]);
 
         return node;
     }
@@ -165,44 +166,61 @@ internal class WhereVisitor : ExpressionVisitor
 
         var fields = query.GetFields(left, right);
 
-        var group = whereGroups.Count > 0
-            ? whereGroups.Peek()
-            : query.GetBaseWhereGroup();
-
-        var where = negations.Decrement() > 0
-            ? group.AddWhereNot(fields.Key, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
-            : group.AddWhere(fields.Key, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And);
-
-        // TODO: Implement additional comparison operations as necessary.
-        // Translates the binary expression into the corresponding SQL predicate.
-        switch (node.NodeType)
+        if (node.NodeType == ExpressionType.NotEqual && fields.Value is bool bValue && bValue == true)
         {
-            case ExpressionType.Equal:
-                where.EqualTo(fields.Value);
-                break;
-            case ExpressionType.NotEqual:
-                where.NotEqualTo(fields.Value);
-                break;
-            case ExpressionType.GreaterThan:
-                where.GreaterThan(fields.Value);
-                break;
-            case ExpressionType.GreaterThanOrEqual:
-                where.GreaterThanOrEqual(fields.Value);
-                break;
-            case ExpressionType.LessThan:
-                where.LessThan(fields.Value);
-                break;
-            case ExpressionType.LessThanOrEqual:
-                where.LessThanOrEqual(fields.Value);
-                break;
-            default:
-                throw new NotImplementedException("Operation not implemented");
+            whereGroups.Push(query.AddWhereGroup(BooleanType.And));
+            AddWhere(Operation.EqualNull, fields.Key);
+            ors.Increment();
+            AddWhere(GetOperation(node.NodeType), fields.Key, fields.Value);
+            whereGroups.Pop();
         }
+        else       
+            AddWhere(GetOperation(node.NodeType), fields.Key, fields.Value);
+
+        //var group = whereGroups.Count > 0
+        //    ? whereGroups.Peek()
+        //    : query.GetBaseWhereGroup();
+
+        //var where = negations.Decrement() > 0
+        //    ? group.AddWhereNot(fields.Key, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
+        //    : group.AddWhere(fields.Key, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And);
+
+        //List<(ExpressionType type, object value)> nodeTypes = [(node.NodeType, fields.Value)];
+
+        //if (node.NodeType == ExpressionType.NotEqual && fields.Value is bool bValue && bValue == true)
+        //    nodeTypes.Add((ExpressionType.Equal, );
+
+        //foreach (var (nodeType, value) in nodeTypes)
+        //{
+        //    switch (nodeType)
+        //    {
+        //        case ExpressionType.Equal:
+        //            where.EqualTo(fields.Value);
+        //            break;
+        //        case ExpressionType.NotEqual:
+        //            where.NotEqualTo(fields.Value);
+        //            break;
+        //        case ExpressionType.GreaterThan:
+        //            where.GreaterThan(fields.Value);
+        //            break;
+        //        case ExpressionType.GreaterThanOrEqual:
+        //            where.GreaterThanOrEqual(fields.Value);
+        //            break;
+        //        case ExpressionType.LessThan:
+        //            where.LessThan(fields.Value);
+        //            break;
+        //        case ExpressionType.LessThanOrEqual:
+        //            where.LessThanOrEqual(fields.Value);
+        //            break;
+        //        default:
+        //            throw new NotImplementedException("Operation not implemented");
+        //    }
+        //}
 
         return node;
     }
 
-    private void AddWhere(string methodName, string field, object[] values)
+    private void AddWhere(Operation operation, string field, params object[] values)
     {
         var group = whereGroups.Count > 0
                     ? whereGroups.Peek()
@@ -212,19 +230,77 @@ internal class WhereVisitor : ExpressionVisitor
             ? group.AddWhereNot(field, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
             : group.AddWhere(field, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And);
 
-        switch (methodName)
+        switch (operation)
         {
-            case "StartsWith":
+            case Operation.Equal:
+                where.EqualTo(values[0]);
+                break;
+            case Operation.EqualNull:
+                where.EqualToNull();
+                break;
+            case Operation.NotEqual:
+                where.NotEqualTo(values[0]);
+                break;
+            case Operation.NotEqualNull:
+                where.NotEqualToNull();
+                break;
+            case Operation.GreaterThan:
+                where.GreaterThan(values[0]);
+                break;
+            case Operation.GreaterThanOrEqual:
+                where.GreaterThanOrEqual(values[0]);
+                break;
+            case Operation.LessThan:
+                where.LessThan(values[0]);
+                break;
+            case Operation.LessThanOrEqual:
+                where.LessThanOrEqual(values[0]);
+                break;
+            case Operation.StartsWith:
                 where.Like(values[0] + "%");
                 break;
-            case "EndsWith":
+            case Operation.EndsWith:
                 where.Like("%" + values[0]);
                 break;
-            case "Contains":
+            case Operation.Contains:
                 where.In(values);
                 break;
-            default: throw new NotImplementedException($"Operation '{methodName}' not implemented");
+            default: throw new NotImplementedException($"Operation '{operation}' not implemented");
         }
+    }
+
+    private static Operation GetOperation(ExpressionType expressionType) => expressionType switch
+    {
+        ExpressionType.Equal => Operation.Equal,
+        ExpressionType.NotEqual => Operation.NotEqual,
+        ExpressionType.GreaterThan => Operation.GreaterThan,
+        ExpressionType.GreaterThanOrEqual => Operation.GreaterThanOrEqual,
+        ExpressionType.LessThan => Operation.LessThan,
+        ExpressionType.LessThanOrEqual => Operation.LessThanOrEqual,
+        _ => throw new NotImplementedException($"Operation '{expressionType}' not implemented"),
+    };
+
+    private static Operation GetOperation(string operationName) => operationName switch
+    {
+        "Contains" => Operation.Contains,
+        "StartsWith" => Operation.StartsWith,
+        "EndsWith" => Operation.EndsWith,
+        _ => throw new NotImplementedException($"Operation '{operationName}' not implemented"),
+    };
+
+    private enum Operation
+    {
+        Equal,
+        EqualNull,
+        NotEqual,
+        NotEqualNull,
+        GreaterThan,
+        GreaterThanOrEqual,
+        LessThan,
+        LessThanOrEqual,
+        StartsWith,
+        EndsWith,
+        Contains
     }
 
     private static object[] ConvertToList(object obj)

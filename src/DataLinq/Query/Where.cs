@@ -83,7 +83,7 @@ public class Where<T> : IWhere<T>
 
     public WhereGroup<T> EqualToNull()
     {
-        return SetAndReturn<object>(null, Relation.EqualNull);
+        return SetAndReturnNull(Relation.EqualNull);
     }
 
     public WhereGroup<T> EqualToColumn(string column, string alias = null)
@@ -98,7 +98,7 @@ public class Where<T> : IWhere<T>
 
     public WhereGroup<T> NotEqualToNull()
     {
-        return SetAndReturn<object>(null, Relation.NotEqualNull);
+        return SetAndReturnNull(Relation.NotEqualNull);
     }
 
     public WhereGroup<T> NotEqualToColumn(string column, string alias = null)
@@ -183,6 +183,14 @@ public class Where<T> : IWhere<T>
     protected WhereGroup<T> SetAndReturn<V>(V? value, Relation relation)
     {
         Value = [value];
+        Relation = relation;
+
+        return this.WhereGroup;
+    }
+
+    protected WhereGroup<T> SetAndReturnNull(Relation relation)
+    {
+        Value = null;
         Relation = relation;
 
         return this.WhereGroup;

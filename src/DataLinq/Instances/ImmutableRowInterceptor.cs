@@ -8,12 +8,9 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-internal class ImmutableRowInterceptor : RowInterceptor
+internal class ImmutableRowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
+    : RowInterceptor(rowData, databaseProvider, transaction)
 {
-    public ImmutableRowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction) : base(rowData, databaseProvider, transaction)
-    {
-    }
-
     public override void Intercept(IInvocation invocation)
     {
         var info = new InvocationInfo(invocation);
@@ -21,43 +18,36 @@ internal class ImmutableRowInterceptor : RowInterceptor
         if (info.CallType == CallType.Set)
             throw new Exception("Call to setter not allowed on an immutable type. Call Mutate() to get mutable object.");
 
-        //if (info.Name == "IsNewModel")
-        //{
-        //    invocation.ReturnValue = false;
-        //    return;
-        //}
-
-        if (info.CallType == CallType.Method && info.Name == "GetValues")
+        if (info.CallType == CallType.Method)
         {
-            if (info.Arguments?.Length == 1 && info.Arguments[0] is IEnumerable<Column> columns)
-                invocation.ReturnValue = columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+            if (info.Name.Span.SequenceEqual("GetValues".AsSpan()))
+            {
+                if (info.Arguments?.Length == 1 && info.Arguments[0] is IEnumerable<Column> columns)
+                    invocation.ReturnValue = columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+                else
+                    invocation.ReturnValue = RowData.Columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+            }
+            else if (info.Name.Span.SequenceEqual("Mutate".AsSpan()))
+            {
+                invocation.ReturnValue = InstanceFactory.NewMutableRow(this.RowData, databaseProvider, writeTransaction);
+            }
             else
-                invocation.ReturnValue = RowData.Columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+            {
+                throw new NotImplementedException($"No handler for '{info.Name}' implemented");
+            }
 
-            return;
-        }
-
-        if (info.CallType == CallType.Method && info.Name == "GetValues")
-        {
-            invocation.ReturnValue = RowData.Columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
-            return;
-        }
-
-        if (info.CallType == CallType.Method && info.Name == "Mutate")
-        {
-            invocation.ReturnValue = InstanceFactory.NewMutableRow(this.RowData, databaseProvider, writeTransaction);
             return;
         }
 
         if (info.MethodType == MethodType.Property)
         {
-            if (ValueProperties.ContainsKey(info.Name))
+            if (ValueProperties.ContainsKey(info.Name.ToString()))
             {
-                invocation.ReturnValue = RowData.GetValue(ValueProperties[info.Name].Column.DbName);
+                invocation.ReturnValue = RowData.GetValue(ValueProperties[info.Name.ToString()].Column);
             }
             else
             {
-                invocation.ReturnValue = GetRelation(info);
+                invocation.ReturnValue = GetRelation(RelationProperties[info.Name.ToString()]);
             }
 
             return;

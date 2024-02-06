@@ -10,6 +10,7 @@ using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
 using DataLinq.Utils;
+using Remotion.Linq.Clauses;
 
 namespace DataLinq.Cache;
 
@@ -21,8 +22,8 @@ public class TableCache
 
     protected Dictionary<ColumnIndex, IndexCache> IndexCaches;
 
-    protected ConcurrentDictionary<PrimaryKeys, object> RowCache = new();
-    protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, object>> TransactionRows = new();
+    protected ConcurrentDictionary<PrimaryKeys, ImmutableInstanceBase> RowCache = new();
+    protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, ImmutableInstanceBase>> TransactionRows = new();
     protected int primaryKeyColumnsCount;
 
     protected int numRowsInTable;
@@ -447,7 +448,111 @@ public class TableCache
         return newKeys;
     }
 
-    public IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction, List<OrderBy> orderings = null)
+    //public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey, Transaction transaction)
+    //{
+    //    var select = new SqlQuery(Table, transaction)
+    //        .Where(foreignKey.GetData())
+    //        //.Where(foreignKey.Index.DbName).EqualTo(foreignKey.Data)
+    //        .SelectQuery();
+
+    //    return select.ReadRows();
+    //}
+
+    public IEnumerable<object> GetRows(ForeignKey foreignKey, RelationProperty otherSide, Transaction transaction)
+    {
+        if (foreignKey.Data == null)
+            return [];
+
+        return GetRows(GetKeys(foreignKey, otherSide, transaction), transaction);
+    }
+
+    public object? GetRow(PrimaryKeys primaryKeys, Transaction transaction) =>
+        GetRows([primaryKeys], transaction).SingleOrDefault();
+
+    public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, List<OrderBy> orderings = null)
+    {
+        if (transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
+            TransactionRows.TryAdd(transaction, new ConcurrentDictionary<PrimaryKeys, ImmutableInstanceBase>());
+
+        if (orderings == null)
+            return LoadRowsFromDatabaseAndCache(transaction, primaryKeys);
+        else
+            return LoadOrderedRowsFromDatabaseAndCache(transaction, primaryKeys, orderings);
+    }
+
+    private IEnumerable<object> LoadRowsFromDatabaseAndCache(Transaction transaction, PrimaryKeys[] primaryKeys)
+    {
+        var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
+        foreach (var key in primaryKeys)
+        {
+            if (GetRowFromCache(key, transaction, out var row))
+                yield return row;
+            else
+                keysToLoad.Add(key);
+        }
+
+        if (keysToLoad.Count != 0)
+        {
+            foreach (var split in keysToLoad.SplitList(500))
+            {
+                foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction))
+                {
+                    yield return AddRow(rowData, transaction);
+                }
+            }
+        }
+    }
+
+    private IEnumerable<ImmutableInstanceBase> LoadOrderedRowsFromDatabaseAndCache(Transaction transaction, PrimaryKeys[] primaryKeys, List<OrderBy> orderings)
+    {
+        var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
+        var loadedRows = new List<ImmutableInstanceBase>(primaryKeys.Length);
+
+        foreach (var key in primaryKeys)
+        {
+            if (GetRowFromCache(key, transaction, out var row))
+                loadedRows.Add(row!);
+            else
+                keysToLoad.Add(key);
+        }
+
+        if (keysToLoad.Count != 0)
+        {
+            foreach (var split in keysToLoad.SplitList(500))
+            {
+                foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction, orderings))
+                {
+                    loadedRows.Add(AddRow(rowData, transaction));
+                }
+            }
+        }
+
+        IOrderedEnumerable<ImmutableInstanceBase>? orderedRows = null;
+
+        foreach (var ordering in orderings)
+        {
+            Func<ImmutableInstanceBase, IComparable> keySelector = x => (IComparable)x.GetValues([ordering.Column]).First().Value;
+
+            if (orderedRows == null)
+            {
+                orderedRows = ordering.Ascending
+                    ? loadedRows.OrderBy(keySelector)
+                    : loadedRows.OrderByDescending(keySelector);
+            }
+            else
+            {
+                orderedRows = ordering.Ascending
+                    ? orderedRows.ThenBy(keySelector)
+                    : orderedRows.ThenByDescending(keySelector);
+            }
+        }
+
+        return orderedRows == null
+            ? loadedRows
+            : orderedRows;
+    }
+
+    private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction, List<OrderBy> orderings = null)
     {
         var q = new SqlQuery(Table.DbName, transaction);
 
@@ -469,81 +574,24 @@ public class TableCache
             .ReadRows();
     }
 
-    public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey, Transaction transaction)
+    private bool GetRowFromCache(PrimaryKeys key, Transaction transaction, out ImmutableInstanceBase? row)
     {
-        var select = new SqlQuery(Table, transaction)
-            .Where(foreignKey.GetData())
-            //.Where(foreignKey.Index.DbName).EqualTo(foreignKey.Data)
-            .SelectQuery();
-
-        return select.ReadRows();
+        if (transaction.Type == TransactionType.ReadOnly && RowCache.TryGetValue(key, out row))
+            return true;
+        else if (transaction.Type != TransactionType.ReadOnly && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out row))
+            return true;
+        
+        row = null;
+        return false;
     }
 
-    public IEnumerable<object> GetRows(ForeignKey foreignKey, RelationProperty otherSide, Transaction transaction, List<OrderBy> orderings = null)
-    {
-        if (foreignKey.Data == null)
-            return new List<object>();
-
-        //var keys = foreignKey.Column.Index.GetOrAdd(foreignKey.Data, _ => GetKeys(foreignKey, transaction).ToArray());
-
-        //if (transaction.Type == TransactionType.ReadOnly)
-        //{
-
-        //}
-        //else
-        var keys = GetKeys(foreignKey, otherSide, transaction).ToArray();
-
-        return GetRows(keys, transaction, orderings);
-    }
-
-    public object GetRow(PrimaryKeys primaryKeys, Transaction transaction) =>
-        GetRows(primaryKeys.Yield().ToArray(), transaction).FirstOrDefault();
-
-    public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction transaction, List<OrderBy> orderings = null)
-    {
-        if (transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
-            TransactionRows.TryAdd(transaction, new ConcurrentDictionary<PrimaryKeys, object>());
-
-        var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
-        foreach (var key in primaryKeys)
-        {
-            if (transaction.Type == TransactionType.ReadOnly && RowCache.TryGetValue(key, out var row))
-                yield return row;
-            else if (transaction.Type != TransactionType.ReadOnly && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out object transactionRow))
-                yield return transactionRow;
-            else
-                keysToLoad.Add(key);
-        }
-
-        //if (foreignKey != null)// && keysToLoad.Count > primaryKeys.Length / 2)
-        //{
-        //    foreach (var rowData in GetRowDataFromForeignKey(foreignKey, transaction))
-        //    {
-        //        yield return AddRow(rowData, transaction);
-
-        //        //if (TryAddRow(rowData, transaction, out var row))
-        //        //    yield return row;
-        //    }
-        //}
-        if (keysToLoad.Count != 0)
-        {
-            foreach (var split in keysToLoad.SplitList(500))
-            {
-                foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction, orderings))
-                {
-                    yield return AddRow(rowData, transaction);
-                }
-            }
-        }
-    }
-
-    private object AddRow(RowData rowData, Transaction transaction)
+    private ImmutableInstanceBase AddRow(RowData rowData, Transaction transaction)
     {
         TryAddRow(rowData, transaction, out var row);
         return row;
     }
 
-    private bool TryAddRow(RowData rowData, Transaction transaction, out object row)
+    private bool TryAddRow(RowData rowData, Transaction transaction, out ImmutableInstanceBase row)
     {
         row = InstanceFactory.NewImmutableRow(rowData, transaction.Provider, transaction);
         var keys = rowData.GetKeys();
@@ -557,7 +605,7 @@ public class TableCache
 
         return false;
 
-        bool TryAddRowAllDict(PrimaryKeys keys, RowData data, object instance)
+        bool TryAddRowAllDict(PrimaryKeys keys, RowData data, ImmutableInstanceBase instance)
         {
             var ticks = DateTime.Now.Ticks;
 

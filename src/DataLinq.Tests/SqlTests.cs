@@ -644,6 +644,26 @@ SELECT {lastInsert}", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereInOne(Database<Employees> employeesDb)
+    {
+        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var ids = new[] { 3 };
+        var sql = employeesDb
+            .From("departments d")
+            .Where("Id").In(ids)
+            .SelectQuery()
+            .ToSql();
+
+        Assert.Equal($@"SELECT d.dept_no, d.dept_name FROM departments d
+WHERE
+Id IN ({sign}w0)", sql.Text);
+        Assert.Single(sql.Parameters);
+        Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
+        Assert.Equal(ids[0], sql.Parameters[0].Value);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
     public void SimpleWhereIn(Database<Employees> employeesDb)
     {
         var sign = employeesDb.Provider.Constants.ParameterSign;

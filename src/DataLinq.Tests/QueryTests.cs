@@ -404,6 +404,31 @@ public class QueryTests : BaseTests
         }
     }
 
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void TestContainsAndNullableBool(Database<Employees> employeesDb)
+    {
+        int?[] empIds = [5, 2668, 10, 100];
+
+        foreach (var title in employeesDb.Query().Employees.Where(x => empIds.Contains(x.emp_no)))
+            employeesDb.Update(title, x => x.IsDeleted = null);
+
+        foreach (var title in employeesDb.Query().Employees.Where(x => x.emp_no == 100))
+            employeesDb.Update(title, x => x.IsDeleted = true);
+
+        //Should return all rows except the one with emp_no == 100
+        var result = employeesDb.Query().Employees
+            .Where(x => empIds.Contains(x.emp_no) && x.IsDeleted != true)
+            .ToList();
+
+        var resultList = employeesDb.Query().Employees.ToList()
+            .Where(x => empIds.Contains(x.emp_no) && x.IsDeleted != true)
+            .ToList();
+
+        Assert.NotEmpty(result);
+        Assert.DoesNotContain(result, x => x.emp_no == 100);
+        Assert.Equal(resultList, result);
+    }
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
