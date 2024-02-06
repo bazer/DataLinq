@@ -43,7 +43,7 @@ public class FileFactory
         {
             var usings = options.Usings
                 .Concat(table.Model.Namespaces?.Select(x => x.FullNamespaceName) ?? new List<string>())
-                .Concat(table.Model.RelationProperties
+                .Concat(table.Model.RelationProperties.Values
                     .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
                     .Select(x => "System.Collections.Generic"))
                 .Distinct()
@@ -110,13 +110,21 @@ public class FileFactory
         var tab = options.Tab;
         var table = model.Table;
 
-        var props = model.Properties
+        var valueProps = model.ValueProperties.Values
             .OrderBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.CsName);
+            .ThenBy(x => x.CsName)
+            .ToList();
 
-        foreach (var row in props.OfType<ValueProperty>().Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
+        var relationProps = model.RelationProperties.Values
+            .OrderBy(x => x.Type)
+            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
+            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
+            .ThenBy(x => x.CsName)
+            .ToList();
+
+        foreach (var row in valueProps.Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
             yield return row;
 
         if (table is ViewMetadata view)
@@ -138,77 +146,79 @@ public class FileFactory
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
         yield return namespaceTab + "{";
 
-        foreach (var row in props.OfType<ValueProperty>().Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
+        foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
             yield return tab + row;
 
-        foreach (var property in props)
+        foreach (var valueProperty in valueProps)
         {
-            if (property is ValueProperty valueProperty)
+            var c = valueProperty.Column;
+            if (c.PrimaryKey)
+                yield return $"{namespaceTab}{tab}[PrimaryKey]";
+
+            foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
             {
-                var c = valueProperty.Column;
-                if (c.PrimaryKey)
-                    yield return $"{namespaceTab}{tab}[PrimaryKey]";
+                var columns = index.Columns.Count() > 1
+                    ? "," + index.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")
+                    : string.Empty;
 
-                foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
-                {
-                    var columns = index.Columns.Count() > 1
-                        ? "," + index.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")
-                        : string.Empty;
-
-                    yield return $"{namespaceTab}{tab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}{columns})]";
-                }
-
-                foreach (var index in c.ColumnIndices)
-                {
-                    foreach (var relationPart in index.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
-                    {
-                        yield return $"{namespaceTab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName}\", \"{relationPart.Relation.CandidateKey.ColumnIndex.Columns[0].DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
-                    }
-                }
-
-                if (c.AutoIncrement)
-                    yield return $"{namespaceTab}{tab}[AutoIncrement]";
-
-                if (c.Nullable)
-                    yield return $"{namespaceTab}{tab}[Nullable]";
-
-                foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
-                {
-                    if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
-                        yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
-                    else if (dbType.Signed.HasValue && dbType.Length.HasValue)
-                        yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
-                    else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
-                        yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {(dbType.Signed.Value ? "true" : "false")})]";
-                    else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
-                        yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals})]";
-                    else if (dbType.Length.HasValue)
-                        yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length})]";
-                    else
-                        yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
-                }
-
-                if (valueProperty.EnumProperty != null)
-                    yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
-
-                yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
-                yield return $"{namespaceTab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
-                yield return $"";
+                yield return $"{namespaceTab}{tab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}{columns})]";
             }
-            else if (property is RelationProperty relationProperty)
+
+            foreach (var index in c.ColumnIndices)
             {
-                var otherPart = relationProperty.RelationPart.GetOtherSide();
+                foreach (var relationPart in index.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
+                {
+                    yield return $"{namespaceTab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName}\", \"{relationPart.Relation.CandidateKey.ColumnIndex.Columns[0].DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
+                }
+            }
 
-                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", {otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")})]";
+            if (c.AutoIncrement)
+                yield return $"{namespaceTab}{tab}[AutoIncrement]";
 
-                if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
-                    yield return $"{namespaceTab}{tab}public virtual {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} {{ get; }}";
+            if (c.Nullable)
+                yield return $"{namespaceTab}{tab}[Nullable]";
+
+            foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
+            {
+                if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
+                else if (dbType.Signed.HasValue && dbType.Length.HasValue)
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
+                else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {(dbType.Signed.Value ? "true" : "false")})]";
+                else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals})]";
+                else if (dbType.Length.HasValue)
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length})]";
                 else
-                    yield return $"{namespaceTab}{tab}public virtual IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
-
-                yield return $"";
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
             }
+
+            if (valueProperty.EnumProperty != null)
+                yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
+
+            yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
+            yield return $"{namespaceTab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
+            yield return $"";
         }
+
+        foreach (var relationProperty in relationProps)
+        {
+            var otherPart = relationProperty.RelationPart.GetOtherSide();
+
+            if (otherPart.ColumnIndex.Columns.Count == 1)
+                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", \"{otherPart.ColumnIndex.Columns[0].DbName}\", \"{relationProperty.RelationName}\")]";
+            else
+                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", [{otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")}], \"{relationProperty.RelationName}\")]";
+
+            if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
+                yield return $"{namespaceTab}{tab}public virtual {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} {{ get; }}";
+            else
+                yield return $"{namespaceTab}{tab}public virtual IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
+
+            yield return $"";
+        }
+
 
         yield return namespaceTab + "}";
     }

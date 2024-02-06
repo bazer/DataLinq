@@ -1,4 +1,5 @@
 ﻿using System;
+using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -8,7 +9,6 @@ namespace DataLinq.Tests.Models;
 [View("dept_emp_latest_date")]
 public partial record dept_emp_latest_date : IViewModel<Employees>
 {
-    [PrimaryKey]
     [Type(DatabaseType.MySQL, "int")]
     [Type(DatabaseType.SQLite, "integer")]
     [Column("emp_no")]

@@ -1,4 +1,5 @@
 ﻿using System;
+using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -43,11 +44,10 @@ public partial record Manager : ITableModel<Employees>
     [Column("type")]
     public virtual ManagerType Type { get; set; }
 
-    [Relation("departments", "dept_no")]
+    [Relation("departments", "dept_no", "dept_manager_ibfk_2")]
     public virtual Department Department { get; }
 
-    [Relation("employees", "emp_no")]
+    [Relation("employees", "emp_no", "dept_manager_ibfk_1")]
     public virtual Employee employees { get; }
 
 }
-

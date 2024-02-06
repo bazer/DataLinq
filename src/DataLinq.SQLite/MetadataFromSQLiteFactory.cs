@@ -94,11 +94,26 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         {
             foreach (var reader in dbAccess.ReadReader($"SELECT `id`, `table`, `from`, `to` FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
             {
+                var keyName = reader.GetString(0);
+                var tableName = reader.GetString(1);
+                var fromColumn = reader.GetString(2);
+                var toColumn = reader.GetString(3);
+
                 var foreignKeyColumn = tableModel
-                    .Table.Columns.Single(x => x.DbName == reader.GetString(2));
+                    .Table.Columns.Single(x => x.DbName == fromColumn);
 
                 foreignKeyColumn.ForeignKey = true;
-                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(reader.GetString(1), reader.GetString(3), reader.GetString(0)));
+                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(tableName, toColumn, keyName));
+
+                var referencedColumn = database
+                   .TableModels.SingleOrDefault(x => x.Table.DbName == tableName)?
+                   .Table.Columns.SingleOrDefault(x => x.DbName == toColumn);
+
+                if (referencedColumn != null)
+                {
+                    MetadataFactory.AddRelationProperty(referencedColumn, foreignKeyColumn, keyName);
+                    MetadataFactory.AddRelationProperty(foreignKeyColumn, referencedColumn, keyName);
+                }
             }
         }
     }

@@ -23,19 +23,23 @@ public class SqlGeneration
         for (var i = 0; i < tables.Count; i++)
         {
             var table = tables[i];
-            foreach (var fk in table.Columns.Where(x => x.ForeignKey))
+            foreach (var column in table.Columns.Where(x => x.ForeignKey))
             {
-                var otherTable = fk.ColumnIndices.FirstOrDefault()?.RelationParts.FirstOrDefault()?.Relation.CandidateKey.ColumnIndex.Table;
-                if (otherTable == null)
-                    continue;
-
-                var fkIndex = tables.IndexOf(otherTable);
-                var fkTable = tables[fkIndex];
-                if (fkIndex > i)
+                foreach (var fk in column.ColumnIndices.Where(x => x.Characteristic == Attributes.IndexCharacteristic.ForeignKey).SelectMany(x => x.RelationParts))
                 {
-                    tables[i] = fkTable;
-                    tables[fkIndex] = table;
-                    return SortTablesByForeignKeys(tables);
+                    var otherTable = fk.GetOtherSide().ColumnIndex.Table;
+
+                    if (otherTable == null)
+                        continue;
+
+                    var fkIndex = tables.IndexOf(otherTable);
+                    var fkTable = tables[fkIndex];
+                    if (fkIndex > i)
+                    {
+                        tables[i] = fkTable;
+                        tables[fkIndex] = table;
+                        return SortTablesByForeignKeys(tables);
+                    }
                 }
             }
         }

@@ -179,11 +179,12 @@ public class MetadataFromFileFactory
             Interfaces = classSyntax.BaseList.Types.Select(baseType => new ModelInterface { CsTypeName = baseType.ToString() }).ToArray()
         };
 
-        model.Properties = classSyntax.Members.OfType<PropertyDeclarationSyntax>()
+        classSyntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
                 .Any(attr => attr.Name.ToString() == "Column" || attr.Name.ToString() == "Relation"))
             .Select(prop => ParseProperty(prop, model))
-        .ToList();
+        .ToList()
+        .ForEach(model.AddProperty);
 
         model.Namespaces = classSyntax.SyntaxTree.GetRoot()
             .DescendantNodes()
@@ -297,10 +298,12 @@ public class MetadataFromFileFactory
 
         if (name == "Relation")
         {
-            if (arguments.Count != 2)
-                throw new ArgumentException($"Attribute '{name}' doesn't have 2 arguments");
-
-            return new RelationAttribute(arguments[0], arguments[1]);
+            if (arguments.Count == 2)
+                return new RelationAttribute(arguments[0], arguments[1]);
+            else if (arguments.Count == 3)
+                return new RelationAttribute(arguments[0], arguments[1], arguments[2]);
+            else
+                throw new ArgumentException($"Attribute '{name}' doesn't have 2 or 3 arguments");
         }
 
         if (name == "PrimaryKey")
@@ -423,7 +426,7 @@ public class MetadataFromFileFactory
                 view.Definition = definitionAttribute.Sql;
         }
 
-        table.Columns = model.ValueProperties
+        table.Columns = model.ValueProperties.Values
             .Select(x => table.ParseColumn(x))
             .ToList();
 

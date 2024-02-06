@@ -136,14 +136,15 @@ public static class MetadataFromInterfaceFactory
             Namespaces = new ModelNamespace[] { new ModelNamespace { FullNamespaceName = type.Namespace } }
         };
 
-        model.Properties = type
+        type
             .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             .Select(x => ParseProperty(x, model))
             .Where(x => x.Attributes.Any(x => x is ColumnAttribute || x is RelationAttribute))
             .Where(x => x.CsName != "EqualityContract")
-            .ToList();
+            .ToList()
+            .ForEach(model.AddProperty);
 
-        model.Namespaces = model.ValueProperties
+        model.Namespaces = model.ValueProperties.Values
             .Select(x => x.CsType?.Namespace)
             .Distinct()
             .Where(x => x != null)
@@ -200,7 +201,7 @@ public static class MetadataFromInterfaceFactory
                 view.Definition = definitionAttribute.Sql;
         }
 
-        table.Columns = model.ValueProperties
+        table.Columns = model.ValueProperties.Values
             .Select(x => table.ParseColumn(x))
             .ToList();
 
