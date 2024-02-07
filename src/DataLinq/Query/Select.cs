@@ -110,7 +110,7 @@ public class Select<T> : IQuery
 
     public IEnumerable<object> Execute()
     {
-        if (query.Table.PrimaryKeyColumns.Count != 0)
+        if (query.Table.PrimaryKeyColumns.Length != 0)
         {
             this.What(query.Table.PrimaryKeyColumns);
 

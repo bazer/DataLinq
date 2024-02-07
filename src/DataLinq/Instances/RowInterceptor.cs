@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Castle.DynamicProxy;
@@ -25,24 +27,25 @@ internal abstract class RowInterceptor : IInterceptor
     protected Transaction? writeTransaction;
     protected IDatabaseProvider databaseProvider;
 
+    private static readonly ConcurrentDictionary<Type, MethodInfo> castMethodCache = new();
+
+
     public abstract void Intercept(IInvocation invocation);
 
-    protected Transaction GetTransaction()
+    protected Transaction? GetTransaction()
     {
         if (writeTransaction != null && (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
             writeTransaction = null;
 
-        return writeTransaction ?? databaseProvider.StartTransaction(TransactionType.ReadOnly);
+        return writeTransaction; //databaseProvider.StartTransaction(TransactionType.ReadOnly);
     }
 
     protected object? GetRelation(RelationProperty property)
     {
-        var transaction = GetTransaction();
-
         var otherSide = property.RelationPart.GetOtherSide();
         var result = databaseProvider
             .GetTableCache(otherSide.ColumnIndex.Table)
-            .GetRows(new ForeignKey(otherSide.ColumnIndex, RowData.GetValues(property.RelationPart.ColumnIndex.Columns).ToArray()), property, transaction);
+            .GetRows(new ForeignKey(otherSide.ColumnIndex, RowData.GetValues(property.RelationPart.ColumnIndex.Columns).ToArray()), property, GetTransaction());
 
         object? returnvalue;
         if (property.RelationPart.Type == RelationPartType.ForeignKey)
@@ -53,10 +56,22 @@ internal abstract class RowInterceptor : IInterceptor
         {
             var listType = property.CsType.GetTypeInfo().GenericTypeArguments[0];
 
-            returnvalue = typeof(Enumerable)
-                .GetMethod("Cast")
-                .MakeGenericMethod(listType)
-                .Invoke(null, new object[] { result });
+            // Use the cache
+            var castMethod = castMethodCache.GetOrAdd(listType, (Type lt) =>
+            {
+                return typeof(Enumerable)
+                    .GetMethod("Cast", BindingFlags.Static | BindingFlags.Public)
+                    .MakeGenericMethod(lt);
+            });
+
+            returnvalue = castMethod.Invoke(null, new object[] { result });
+
+            //var listType = property.CsType.GetTypeInfo().GenericTypeArguments[0];
+
+            //returnvalue = typeof(Enumerable)
+            //    .GetMethod("Cast")
+            //    .MakeGenericMethod(listType)
+            //    .Invoke(null, new object[] { result });
         }
 
         return returnvalue;

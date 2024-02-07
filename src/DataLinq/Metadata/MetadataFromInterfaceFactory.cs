@@ -233,7 +233,7 @@ public static class MetadataFromInterfaceFactory
                 column.AutoIncrement = true;
 
             if (attribute is PrimaryKeyAttribute)
-                column.PrimaryKey = true;
+                column.SetPrimaryKey(true);
 
             if (attribute is ForeignKeyAttribute)
                 column.ForeignKey = true;

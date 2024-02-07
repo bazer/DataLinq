@@ -204,9 +204,11 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             Table = table,
             DbName = dbColumns.COLUMN_NAME,
             Nullable = dbColumns.IS_NULLABLE == "YES",
-            PrimaryKey = dbColumns.COLUMN_KEY == "PRI",
+            //PrimaryKey = dbColumns.COLUMN_KEY == "PRI",
             AutoIncrement = dbColumns.EXTRA.Contains("auto_increment")
         };
+
+        column.SetPrimaryKey(dbColumns.COLUMN_KEY == "PRI");
 
         column.DbTypes.Add(dbType);
 

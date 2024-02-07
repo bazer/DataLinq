@@ -13,20 +13,38 @@ public enum TableType
 
 public class TableMetadata
 {
-    private List<Column> primaryKeyColumns;
+    //private List<Column> primaryKeyColumns;
     public List<Column> Columns { get; set; }
     public DatabaseMetadata Database { get; set; }
     public string DbName { get; set; }
     public ModelMetadata Model { get; set; }
 
-    public List<Column> PrimaryKeyColumns =>
-        primaryKeyColumns ??= Columns.Where(x => x.PrimaryKey).ToList();
+    public Column[] PrimaryKeyColumns { get; private set; } = [];
+    //public List<Column> PrimaryKeyColumns =>
+    //    primaryKeyColumns ??= Columns.Where(x => x.PrimaryKey).ToList();
 
     public List<ColumnIndex> ColumnIndices { get; set; } = new List<ColumnIndex>();
 
     public TableType Type { get; protected set; } = TableType.Table;
     public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = [];
     public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; set; } = [];
+
+    public void AddPrimaryKeyColumn(Column column)
+    {
+        if (PrimaryKeyColumns == null)
+            PrimaryKeyColumns = [column];
+        else
+            PrimaryKeyColumns = PrimaryKeyColumns.Concat(new[] { column }).ToArray();
+    }
+
+    public void RemovePrimaryKeyColumn(Column column)
+    {
+        if (PrimaryKeyColumns == null)
+            return;
+
+        PrimaryKeyColumns = PrimaryKeyColumns.Where(x => x != column).ToArray();
+    }
+
     public bool UseCache
     {
         get => explicitUseCache.HasValue ? explicitUseCache.Value : Database.UseCache;

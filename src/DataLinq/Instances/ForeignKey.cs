@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
@@ -17,8 +18,11 @@ public class ForeignKey
     /// <param name="data">The data that the foreign key references.</param>
     public ForeignKey(ColumnIndex index, object[] data)
     {
+        ArgumentNullException.ThrowIfNull(data);
+
         Index = index;
         Data = data;
+        cachedHashCode = ComputeHashCode();
     }
 
     /// <summary>
@@ -30,6 +34,7 @@ public class ForeignKey
     /// Gets the data that the foreign key references.
     /// </summary>
     public object[] Data { get; }
+    private readonly int cachedHashCode;
 
     public IEnumerable<(Column column, object data)> GetColumns()
     {
@@ -48,14 +53,24 @@ public class ForeignKey
     /// </summary>
     /// <param name="other">The object to compare with the current object.</param>
     /// <returns>true if the specified object is equal to the current object; otherwise, false.</returns>
-    public bool Equals(ForeignKey other)
+    //public bool Equals(ForeignKey other)
+    //{
+    //    if (ReferenceEquals(null, other))
+    //        return false;
+    //    if (ReferenceEquals(this, other))
+    //        return true;
+
+    //    return Index == other.Index && Data.SequenceEqual(other.Data);
+    //}
+
+    public bool Equals(ForeignKey? other)
     {
-        if (ReferenceEquals(null, other))
+        if (other is null)
             return false;
         if (ReferenceEquals(this, other))
             return true;
 
-        return Index == other.Index && Data.SequenceEqual(other.Data);
+        return Index == other.Index && ArraysEqual(Data, other.Data);
     }
 
     /// <summary>
@@ -65,50 +80,47 @@ public class ForeignKey
     /// <returns>true if the specified object is equal to the current object; otherwise, false.</returns>
     public override bool Equals(object? obj)
     {
-        if (ReferenceEquals(null, obj))
-            return false;
-        if (ReferenceEquals(this, obj))
-            return true;
-        if (obj.GetType() != typeof(ForeignKey))
-            return false;
-
-        return Equals((ForeignKey)obj);
+        return Equals(obj as ForeignKey);
     }
 
     /// <summary>
     /// Serves as the default hash function.
     /// </summary>
     /// <returns>A hash code for the current object.</returns>
-    //public override int GetHashCode()
-    //{
-    //    unchecked
-    //    {
-    //        int hash = 17;
-
-    //        hash = hash * 31 + Index.GetHashCode();
-    //        hash = hash * 31 + Data.GetHashCode();
-
-    //        return hash;
-    //    }
-    //}
-
     public override int GetHashCode()
+    {
+        return cachedHashCode;
+    }
+
+    private int ComputeHashCode()
     {
         unchecked
         {
-            if (Data == null)
-            {
-                return 0;
-            }
             int hash = 17;
-            for (int i = 0; i < Data.Length; i++)
+            foreach (var obj in Data)
             {
-                // Use a fixed hash code for null items, e.g., 0.
-                // If item is not null, use item's hash code.
-                hash = hash * 31 + (Data[i]?.GetHashCode() ?? 0);
+                hash = hash * 31 + (obj?.GetHashCode() ?? 0);
             }
             return hash;
         }
+    }
+
+    static bool ArraysEqual<T>(T[] a1, T[] a2)
+    {
+        // If either array is null or lengths are different, return false.
+        if (a1 == null || a2 == null || a1.Length != a2.Length)
+            return false;
+
+        for (int i = 0; i < a1.Length; i++)
+        {
+            // Use the static Object.Equals method to compare the elements
+            // which safely handles nulls.
+            if (!Object.Equals(a1[i], a2[i]))
+                return false;
+        }
+
+        // All checks passed, arrays are equal.
+        return true;
     }
 
     public override string ToString()

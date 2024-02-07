@@ -25,7 +25,7 @@ public class Column
     public List<DatabaseColumnType> DbTypes { get; set; } = new List<DatabaseColumnType>();
     public int Index { get; set; }
     public bool ForeignKey { get; set; }
-    public bool PrimaryKey { get; set; }
+    public bool PrimaryKey { get; private set; }
     public bool Unique => ColumnIndices.Any(x => x.Characteristic == Attributes.IndexCharacteristic.Unique);
     public bool AutoIncrement { get; set; }
     public bool Nullable { get; set; }
@@ -33,6 +33,16 @@ public class Column
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
     public TableMetadata Table { get; set; }
     public ValueProperty ValueProperty { get; set; }
+
+    public void SetPrimaryKey(bool value)
+    {
+        PrimaryKey = value;
+
+        if (value)
+            Table.AddPrimaryKeyColumn(this);
+        else
+            Table.RemovePrimaryKeyColumn(this);
+    }
 
     public override string ToString()
     {

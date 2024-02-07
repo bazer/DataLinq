@@ -18,6 +18,7 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
     public PrimaryKeys(IDataLinqDataReader reader, TableMetadata table)
     {
         Data = CheckData(ReadReader(reader, table).ToArray(), table);
+        cachedHashCode = ComputeHashCode();
     }
 
     /// <summary>
@@ -27,6 +28,7 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
     public PrimaryKeys(RowData row)
     {
         Data = CheckData(ReadRow(row).ToArray(), row.Table);
+        cachedHashCode = ComputeHashCode();
     }
 
     /// <summary>
@@ -36,6 +38,7 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
     public PrimaryKeys(params object[] data)
     {
         Data = CheckData(data);
+        cachedHashCode = ComputeHashCode();
     }
 
     /// <summary>
@@ -45,9 +48,10 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
     public PrimaryKeys(IEnumerable<object> data)
     {
         Data = CheckData(data.ToArray());
+        cachedHashCode = ComputeHashCode();
     }
 
-    private static object?[] CheckData(object?[] data, TableMetadata? table = null)
+    private object[] CheckData(object?[] data, TableMetadata? table = null)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -57,16 +61,17 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
         //        throw new ArgumentNullException(nameof(data), "Data contains null values.");
         //}
 
-        if (table != null && data.Length != table.PrimaryKeyColumns.Count)
-            throw new ArgumentException($"The number of primary key values ({data.Length}) does not match the number of primary key columns ({table.PrimaryKeyColumns.Count}).");
+        if (table != null && data.Length != table.PrimaryKeyColumns.Length)
+            throw new ArgumentException($"The number of primary key values ({data.Length}) does not match the number of primary key columns ({table.PrimaryKeyColumns.Length}).");
 
-        return data; // Cast to non-nullable array type
+        return data!;
     }
 
     /// <summary>
     /// Gets the primary key data.
     /// </summary>
     public object?[] Data { get; }
+    private readonly int cachedHashCode;
 
     /// <summary>
     /// Determines whether the specified object is equal to the current object.
@@ -80,7 +85,7 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
         if (ReferenceEquals(this, other))
             return true;
 
-        return Data.SequenceEqual(other.Data);
+        return ArraysEqual(Data, other.Data);
     }
 
     /// <summary>
@@ -90,14 +95,7 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
     /// <returns>true if the specified object is equal to the current object; otherwise, false.</returns>
     public override bool Equals(object? obj)
     {
-        if (obj is null)
-            return false;
-        if (ReferenceEquals(this, obj))
-            return true;
-        if (obj.GetType() != typeof(PrimaryKeys))
-            return false;
-
-        return ArraysEqual(Data, ((PrimaryKeys)obj).Data);
+        return Equals(obj as PrimaryKeys);
     }
 
     /// <summary>
@@ -106,18 +104,32 @@ public class PrimaryKeys : IEquatable<PrimaryKeys>
     /// <returns>A hash code for the current object.</returns>
     public override int GetHashCode()
     {
+        return cachedHashCode;
+        //unchecked
+        //{
+        //    if (Data == null)
+        //    {
+        //        return 0;
+        //    }
+        //    int hash = 17;
+        //    for (int i = 0; i < Data.Length; i++)
+        //    {
+        //        // Use a fixed hash code for null items, e.g., 0.
+        //        // If item is not null, use item's hash code.
+        //        hash = hash * 31 + (Data[i]?.GetHashCode() ?? 0);
+        //    }
+        //    return hash;
+        //}
+    }
+
+    private int ComputeHashCode()
+    {
         unchecked
         {
-            if (Data == null)
-            {
-                return 0;
-            }
             int hash = 17;
-            for (int i = 0; i < Data.Length; i++)
+            foreach (var obj in Data)
             {
-                // Use a fixed hash code for null items, e.g., 0.
-                // If item is not null, use item's hash code.
-                hash = hash * 31 + (Data[i]?.GetHashCode() ?? 0);
+                hash = hash * 31 + (obj?.GetHashCode() ?? 0);
             }
             return hash;
         }

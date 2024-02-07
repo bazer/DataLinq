@@ -182,9 +182,11 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             Table = table,
             DbName = dbName,
             Nullable = reader.GetBoolean(3) == false, // For views, this seems to indicate all columns as Nullable
-            PrimaryKey = reader.GetBoolean(5),
+            //PrimaryKey = reader.GetBoolean(5),
             AutoIncrement = dbAccess.ExecuteScalar<long>($"SELECT COUNT(*) FROM sqlite_sequence WHERE name='{dbName}'") > 0 // Only works if there are rows in the table
         };
+
+        column.SetPrimaryKey(reader.GetBoolean(5));
 
         column.DbTypes.Add(dbType);
 

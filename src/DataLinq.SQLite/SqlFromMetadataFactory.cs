@@ -29,13 +29,13 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
                     sql.NewRow().Indent()
                         .ColumnName(column.DbName)
                         .Type(dbType.Name.ToUpper(), column.DbName, longestName)
-                        .Add(column.PrimaryKey && table.PrimaryKeyColumns.Count == 1 ? " PRIMARY KEY" : "")
+                        .Add(column.PrimaryKey && table.PrimaryKeyColumns.Length == 1 ? " PRIMARY KEY" : "")
                         .Add(column.AutoIncrement ? " AUTOINCREMENT" : "");
 
                     sql.Nullable(column.PrimaryKey ? false : column.Nullable);
                 }
 
-                if (table.PrimaryKeyColumns.Count > 1)
+                if (table.PrimaryKeyColumns.Length > 1)
                     sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
 
                 //{

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Castle.DynamicProxy;
+using CommunityToolkit.HighPerformance.Buffers;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -41,14 +42,10 @@ internal class ImmutableRowInterceptor(RowData rowData, IDatabaseProvider databa
 
         if (info.MethodType == MethodType.Property)
         {
-            if (ValueProperties.ContainsKey(info.Name.ToString()))
-            {
-                invocation.ReturnValue = RowData.GetValue(ValueProperties[info.Name.ToString()].Column);
-            }
+            if (ValueProperties.TryGetValue(StringPool.Shared.GetOrAdd(info.Name.Span), out var property))
+                invocation.ReturnValue = RowData.GetValue(property.Column);
             else
-            {
-                invocation.ReturnValue = GetRelation(RelationProperties[info.Name.ToString()]);
-            }
+                invocation.ReturnValue = GetRelation(RelationProperties[StringPool.Shared.GetOrAdd(info.Name.Span)]);
 
             return;
         }
