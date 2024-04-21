@@ -200,7 +200,10 @@ public class TableCache
     public void ClearRows()
     {
         RowCache.Clear();
-        keysTicks.Clear();
+        lock (keyTicksQueueLock)
+        {
+            keysTicks.Clear();
+        }
         oldestKeyTick = null;
     }
 
