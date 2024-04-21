@@ -87,4 +87,23 @@ public class ThreadingTests : BaseTests
             Assert.Equal("d005", department.Managers.First().Department.DeptNo);
         });
     }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void MakeSnapshot(Database<Employees> employeesDb)
+    {
+        var rand = Random.Shared;
+
+        Parallel.For(0, 100, i =>
+        {
+            var salaryLow = rand.Next(0, 200000);
+            var salaryHigh = rand.Next(salaryLow, 200000);
+
+            var salaries = employeesDb.Query().salaries.Where(x => x.salary > salaryLow && x.salary < salaryHigh).Take(10).ToList();
+            var snapshot = employeesDb.Provider.State.Cache.MakeSnapshot();
+
+            Assert.NotEmpty(salaries);
+            Assert.NotEqual(0, snapshot.TableCaches.Single(x => x.TableName == "salaries").TotalBytes);
+        });
+    }
 }

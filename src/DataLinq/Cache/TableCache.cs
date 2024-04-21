@@ -42,11 +42,34 @@ public class TableCache
     }
 
     public long? OldestTick => oldestKeyTick?.ticks;
-    public long? NewestTick => !oldestKeyTick.HasValue ? null : keysTicks.Last().ticks;
+    public long? NewestTick
+    {
+        get
+        {
+            if (!oldestKeyTick.HasValue)
+                return null;
+
+            lock (keyTicksQueueLock)
+            {
+                return keysTicks.Last().ticks;
+            }
+        }
+    }
+
     public int RowCount => RowCache.Count;
     public IEnumerable<(string index, int count)> IndicesCount => indices.Select(x => (x.Name, IndexCaches[x].Count));
     public int TransactionRowsCount => TransactionRows.Count;
-    public long TotalBytes => keysTicks.Sum(x => x.size);
+    public long TotalBytes
+    {
+        get
+        {
+            lock (keyTicksQueueLock)
+            {
+                return keysTicks.Sum(x => x.size);
+            }
+        }
+    }
+
     public string TotalBytesFormatted => TotalBytes.ToFileSize();
     public TableMetadata Table { get; }
     public DatabaseCache DatabaseCache { get; }
