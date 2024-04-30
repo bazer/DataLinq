@@ -10,18 +10,22 @@ namespace DataLinq.Tests;
 public class ThreadingTests : BaseTests
 {
     private Helpers helpers = new Helpers();
-
-
+    
     [Theory]
     [MemberData(nameof(GetEmployees))]
     public void StressTest(Database<Employees> employeesDb)
     {
-        var employees = employeesDb.Query().Employees.ToList();
+        var employees = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 10000)
+            .OrderBy(x => x.emp_no)
+            .ToList();
 
-        Parallel.For(0, 9000, i =>
+        Parallel.For(0, 10000, i =>
         {
             var employee = employees[i];
-            Assert.NotEmpty(employee.dept_emp);
+            Assert.False(employee.dept_emp.Count() == 0,
+                    $"Collection dept_emp is empty for employee '{employee.emp_no}'");
+
             foreach (var dept_emp in employee.dept_emp)
             {
                 Assert.NotNull(dept_emp.employees);
