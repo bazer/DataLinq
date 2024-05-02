@@ -30,11 +30,11 @@ static class Program
 
     public class CreateOptions : Options
     {
-        [Option('d', "database-name", HelpText = "Database name on server", Required = false)]
-        public string DatabaseName { get; set; }
+        [Option('d', "datasource", HelpText = "Name of the database instance on the server or file on disk, depending on the connection type", Required = false)]
+        public string DataSource { get; set; }
 
-        [Option('n', "name", HelpText = "Schema name", Required = false)]
-        public string SchemaName { get; set; }
+        [Option('n', "name", HelpText = "Name in the DataLinq config file", Required = false)]
+        public string Name { get; set; }
 
         [Option('t', "type", HelpText = "Which database connection type to create the database for", Required = false)]
         public string ConnectionType { get; set; }
@@ -113,7 +113,7 @@ static class Program
                     Console.WriteLine("Connections:");
                     foreach (var connection in db.Connections)
                     {
-                        Console.WriteLine($"{connection.Type} ({connection.DatabaseName})");
+                        Console.WriteLine($"{connection.Type} ({connection.DataSourceName})");
                     }
 
                     Console.WriteLine();
@@ -135,7 +135,7 @@ static class Program
                 if (ReadConfig() == false)
                     return;
 
-                var result = ConfigFile.GetConnection(options.SchemaName, ConfigReader.ParseDatabaseType(options.ConnectionType));
+                var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
                     Console.WriteLine(result.Failure);
@@ -152,7 +152,7 @@ static class Program
                     Views = db.Views
                 });
 
-                var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
+                var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
 
                 if (databaseMetadata.HasFailed)
                 {
@@ -165,7 +165,7 @@ static class Program
                 if (ReadConfig() == false)
                     return;
 
-                var result = ConfigFile.GetConnection(options.SchemaName, ConfigReader.ParseDatabaseType(options.ConnectionType));
+                var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
                     Console.WriteLine(result.Failure);
@@ -190,7 +190,7 @@ static class Program
                 if (ReadConfig() == false)
                     return;
 
-                var result = ConfigFile.GetConnection(options.SchemaName, ConfigReader.ParseDatabaseType(options.ConnectionType));
+                var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
                     Console.WriteLine(result.Failure);
@@ -202,7 +202,7 @@ static class Program
                 {
                 });
 
-                generator.Create(connection, ConfigBasePath, options.DatabaseName ?? connection.DatabaseName ?? options.SchemaName);
+                generator.Create(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
             })
             .WithNotParsed(options =>
             {

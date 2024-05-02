@@ -53,7 +53,7 @@ public class CoreTests : BaseTests
         var factory = PluginHook.MetadataFromSqlFactories[connection.Type]
             .GetMetadataFromSqlFactory(new MetadataFromDatabaseFactoryOptions());
 
-        var metadata = factory.ParseDatabase("employees", "Employees", connection.DatabaseName, connection.ConnectionString.Original);
+        var metadata = factory.ParseDatabase("employees", "Employees", connection.DataSourceName, connection.ConnectionString.Original);
         TestDatabase(metadata, false);
     }
 

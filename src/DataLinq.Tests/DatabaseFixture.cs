@@ -33,14 +33,14 @@ public class DatabaseFixture : IDisposable
         {
             var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
 
-            var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString.Original, connection.DatabaseName);
+            var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString.Original, connection.DataSourceName);
 
             lock (lockObject)
             {
                 if (!dbEmployees.FileOrServerExists() || !dbEmployees.Exists())
                 {
                     PluginHook.CreateDatabaseFromMetadata(connection.Type,
-                        dbEmployees.Provider.Metadata, connection.DatabaseName, connection.ConnectionString.Original, true);
+                        dbEmployees.Provider.Metadata, connection.DataSourceName, connection.ConnectionString.Original, true);
                 }
 
                 if (dbEmployees.Query().Employees.Count() == 0)

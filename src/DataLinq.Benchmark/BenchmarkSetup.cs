@@ -18,7 +18,7 @@ public class BenchmarkSetup
         DataLinqConfig config = DataLinqConfig.FindAndReadConfigs("D:\\git\\DataLinq\\src\\DataLinq.Benchmark\\datalinq.json", Console.WriteLine);
         var conn = config.Databases.Single(x => x.Name == "AllroundBenchmark").Connections.Single(x => x.Type == DatabaseType.MySQL);
 
-        db = new MySqlDatabase<AllroundBenchmark>(conn.ConnectionString.Original, conn.DatabaseName);
+        db = new MySqlDatabase<AllroundBenchmark>(conn.ConnectionString.Original, conn.DataSourceName);
     }
 
     [GlobalSetup]
