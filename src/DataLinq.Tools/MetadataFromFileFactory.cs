@@ -288,6 +288,23 @@ public class MetadataFromFileFactory
             return new CacheCleanupAttribute(cleanupType, long.Parse(arguments[1]));
         }
 
+        if (name == "IndexCache")
+        {
+            if (arguments.Count < 1 || arguments.Count > 2)
+            {
+                throw new ArgumentException($"Attribute '{name}' doesn't have 1 or 2 arguments");
+            }
+
+            if (!Enum.TryParse(arguments[0].Split('.').Last(), out IndexCacheType indexCacheType))
+            {
+                throw new ArgumentException($"Invalid IndexCacheType value '{arguments[0]}'");
+            }
+
+            return arguments.Count == 1
+                ? new IndexCacheAttribute(indexCacheType)
+                : new IndexCacheAttribute(indexCacheType, int.Parse(arguments[1]));
+        }
+
         if (name == "AutoIncrement")
         {
             if (arguments.Any())

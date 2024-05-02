@@ -446,7 +446,7 @@ public class TableCache
         if (Table.PrimaryKeyColumns.Length == foreignKey.Index.Columns.Count() && Table.PrimaryKeyColumns.All(x => foreignKey.Index.Columns.Contains(x)))
             return [new PrimaryKeys(foreignKey.Data)];
 
-        if (transaction == null || transaction.Type == TransactionType.ReadOnly && indexCachePolicy.type != IndexCacheType.None)
+        if ((transaction == null || transaction.Type == TransactionType.ReadOnly) && indexCachePolicy.type != IndexCacheType.None)
         {
             if (IndexCaches[foreignKey.Index].TryGetValue(foreignKey, out var keys))
                 return keys;
