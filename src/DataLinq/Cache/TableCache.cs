@@ -51,7 +51,11 @@ public class TableCache
 
             lock (keyTicksQueueLock)
             {
-                return keysTicks.Last().ticks;
+                // Get the last element or use default (an empty tuple)
+                var lastItem = keysTicks.LastOrDefault();
+
+                // If the queue is empty, the default is returned and all elements of the tuple will be default values
+                return lastItem.Equals(default) ? null : lastItem.ticks;
             }
         }
     }

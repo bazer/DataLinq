@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
+using System.Text.RegularExpressions;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
 using ThrowAway;
@@ -47,7 +48,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
-            foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`partial`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l\r\nJOIN pragma_index_info(l.`name`) i"))
+            foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`unique`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l JOIN pragma_index_info(l.`name`) i"))
             {
                 var column = tableModel
                     .Table.Columns.Single(x => x.DbName == reader.GetString(4));
@@ -177,13 +178,24 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         var dbName = reader.GetString(1);
 
+        var createStatement = dbAccess.ExecuteScalar<string>($"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table.DbName}'");
+        var hasAutoIncrement = false;
+
+        if (createStatement != null)
+        {
+            // Check if the specified column is defined as AUTOINCREMENT
+            var pattern = $@"\""({dbName})\""\s+INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT\b";
+            var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+            hasAutoIncrement = regex.IsMatch(createStatement);
+        }
+
         var column = new Column
         {
             Table = table,
             DbName = dbName,
             Nullable = reader.GetBoolean(3) == false, // For views, this seems to indicate all columns as Nullable
-            //PrimaryKey = reader.GetBoolean(5),
-            AutoIncrement = dbAccess.ExecuteScalar<long>($"SELECT COUNT(*) FROM sqlite_sequence WHERE name='{dbName}'") > 0 // Only works if there are rows in the table
+            AutoIncrement = hasAutoIncrement
         };
 
         column.SetPrimaryKey(reader.GetBoolean(5));

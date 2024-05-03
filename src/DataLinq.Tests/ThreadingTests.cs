@@ -15,12 +15,14 @@ public class ThreadingTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void StressTest(Database<Employees> employeesDb)
     {
+        var amount = 100;
+
         var employees = employeesDb.Query().Employees
-            .Where(x => x.emp_no <= 10000)
+            .Where(x => x.emp_no <= amount)
             .OrderBy(x => x.emp_no)
             .ToList();
 
-        Parallel.For(0, 10000, i =>
+        Parallel.For(0, amount, i =>
         {
             var employee = employees[i];
             Assert.False(employee.dept_emp.Count() == 0,

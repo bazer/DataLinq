@@ -87,8 +87,15 @@ public class CoreTests : BaseTests
         var emp_no = employees.Columns.Single(x => x.DbName == "emp_no");
         Assert.True(emp_no.PrimaryKey);
         Assert.True(emp_no.AutoIncrement);
-        Assert.Equal("int", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL).Name);
-        //Assert.Equal("integer", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.SQLite).Name);
+
+        Assert.NotEmpty(emp_no.DbTypes);
+        
+        if (emp_no.DbTypes.Any(x=> x.DatabaseType == DatabaseType.MySQL))
+            Assert.Equal("int", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL).Name);
+        
+        if (emp_no.DbTypes.Any(x=> x.DatabaseType == DatabaseType.SQLite))
+            Assert.Equal("integer", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.SQLite).Name);
+
         Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
 
         var dept_name = database.TableModels.Single(x => x.Table.DbName == "departments").Table.Columns.Single(x => x.DbName == "dept_name");
