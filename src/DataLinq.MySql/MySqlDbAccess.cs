@@ -35,7 +35,7 @@ public class MySqlDbAccess : DatabaseTransaction
             command.Connection = connection;
             
             if (databaseName != null)
-                command.CommandText = $"USE {databaseName};{command.CommandText}";
+                command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
 
             int result = command.ExecuteNonQuery();
             connection.Close();
@@ -64,7 +64,7 @@ public class MySqlDbAccess : DatabaseTransaction
             command.Connection = connection;
 
             if (databaseName != null)
-                command.CommandText = $"USE {databaseName};{command.CommandText}";
+                command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
 
             object result = command.ExecuteScalar();
             connection.Close();
@@ -80,7 +80,7 @@ public class MySqlDbAccess : DatabaseTransaction
         connection.Open();
 
         if (databaseName != null)
-            command.CommandText = $"USE {databaseName};{command.CommandText}";
+            command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
 
         return new MySqlDataLinqDataReader(command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
     }

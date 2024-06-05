@@ -54,7 +54,7 @@ public partial record Employee : ITableModel<Employees>
     [Column("last_name")]
     public virtual string last_name { get; set; }
 
-    [Relation("dept_emp", "emp_no", "dept_emp_ibfk_1")]
+    [Relation("dept-emp", "emp_no", "dept_emp_ibfk_1")]
     public virtual IEnumerable<dept_emp> dept_emp { get; }
 
     [Relation("dept_manager", "emp_no", "dept_manager_ibfk_1")]

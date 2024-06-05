@@ -20,7 +20,7 @@ public class Delete<T> : IQuery
     public Sql ToSql(string paramPrefix = null)
     {
         return query.GetWhere(
-            new Sql().AddFormat("DELETE FROM {0} \n", query.Table.DbName),
+            new Sql().AddFormat("DELETE FROM {0} \n", query.DbName),
             paramPrefix);
     }
 

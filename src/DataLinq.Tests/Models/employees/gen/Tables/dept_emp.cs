@@ -5,7 +5,7 @@ using DataLinq.Interfaces;
 
 namespace DataLinq.Tests.Models;
 
-[Table("dept_emp")]
+[Table("dept-emp")]
 [IndexCache(IndexCacheType.None)]
 public partial record dept_emp : ITableModel<Employees>
 {

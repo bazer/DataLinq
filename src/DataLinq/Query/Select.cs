@@ -21,7 +21,7 @@ public class Select<T> : IQuery
     public Sql ToSql(string paramPrefix = null)
     {
         var columns = (query.WhatList ?? query.Table.Columns)
-            .Select(x => $"{(!string.IsNullOrWhiteSpace(query.Alias) ? $"{query.Alias}." : "")}{x.DbName}")
+            .Select(x => $"{(!string.IsNullOrWhiteSpace(query.Alias) ? $"{query.Alias}." : "")}{query.EscapeCharacter}{x.DbName}{query.EscapeCharacter}")
             .ToJoinedString(", ");
 
         var sql = new Sql().AddFormat($"SELECT {columns} FROM {query.DbName}");

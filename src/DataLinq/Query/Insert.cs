@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Linq;
 
 namespace DataLinq.Query;
 
@@ -18,7 +19,7 @@ public class Insert<T> : IQuery
         if (length == 0)
             return sql.AddFormat("VALUES (NULL)");
 
-        sql.AddFormat("({0}) VALUES (", string.Join(",", query.SetList.Keys));
+        sql.AddFormat("({0}) VALUES (", string.Join(",", query.SetList.Keys.Select(x => $"{query.EscapeCharacter}{x}{query.EscapeCharacter}")));
 
         int i = 0;
         foreach (var with in query.SetList)
@@ -40,7 +41,7 @@ public class Insert<T> : IQuery
     public Sql ToSql(string paramPrefix = null)
     {
         var sql = GetSet(
-            new Sql().AddFormat("INSERT INTO {0} ", query.Table.DbName),
+            new Sql().AddFormat("INSERT INTO {0} ", query.DbName),
             paramPrefix);
 
         if (query.LastIdQuery)

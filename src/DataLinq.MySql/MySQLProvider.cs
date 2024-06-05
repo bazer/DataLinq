@@ -33,6 +33,7 @@ public class MySQLProviderConstants : IDatabaseProviderConstants
 {
     public string ParameterSign { get; } = "?";
     public string LastInsertCommand { get; } = "last_insert_id()";
+    public string EscapeCharacter { get; } = "`";
 }
 
 public class MySQLProvider<T> : DatabaseProvider<T>
@@ -69,7 +70,7 @@ public class MySQLProvider<T> : DatabaseProvider<T>
         using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
 
         var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
-            $"USE {databaseName ?? DatabaseName};\n" +
+            $"USE `{databaseName ?? DatabaseName}`;\n" +
             GetCreateSql();
 
         transaction.ExecuteNonQuery(query);
@@ -184,7 +185,7 @@ public class MySQLProvider<T> : DatabaseProvider<T>
 
         var sqlText = sql.Text;
         if (DatabaseName != null)
-            sqlText = $"USE {DatabaseName};\n" + sqlText;
+            sqlText = $"USE `{DatabaseName}`;\n" + sqlText;
 
         var command = new MySqlCommand(sqlText);
         command.Parameters.AddRange(sql.Parameters.ToArray());

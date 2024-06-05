@@ -20,7 +20,7 @@ public class Update<T> : IQuery
     public Sql ToSql(string paramPrefix = null)
     {
         var sql = query.GetSet(
-            new Sql().AddFormat("UPDATE {0} SET ", query.Table.DbName),
+            new Sql().AddFormat("UPDATE {0} SET ", query.DbName),
             paramPrefix);
 
         return query.GetWhere(

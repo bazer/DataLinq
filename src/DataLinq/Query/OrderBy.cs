@@ -8,9 +8,9 @@ public class OrderBy
     public string? Alias { get; }
     public bool Ascending { get; }
 
-    internal string DbName => string.IsNullOrEmpty(Alias)
-        ? Column.DbName
-        : $"{Alias}.{Column.DbName}";
+    internal string DbName(string escapeCharacter) => string.IsNullOrEmpty(Alias)
+        ? $"{escapeCharacter}{Column.DbName}{escapeCharacter}"
+        : $"{Alias}.{escapeCharacter}{Column.DbName}{escapeCharacter}";
 
     public OrderBy(Column column, string? alias, bool ascending)
     {

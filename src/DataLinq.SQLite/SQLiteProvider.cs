@@ -35,6 +35,7 @@ public class SQLiteProviderConstants : IDatabaseProviderConstants
     public string ParameterSign { get; } = "@";
 
     public string LastInsertCommand { get; } = "last_insert_rowid()";
+    public string EscapeCharacter { get; } = "\"";
 }
 
 public class SQLiteProvider<T> : DatabaseProvider<T>
@@ -65,8 +66,8 @@ public class SQLiteProvider<T> : DatabaseProvider<T>
 
         using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
 
-        var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
-            $"USE {databaseName ?? DatabaseName};\n" +
+        var query = $"CREATE DATABASE IF NOT EXISTS `{databaseName ?? DatabaseName}`;\n" +
+            $"USE `{databaseName ?? DatabaseName}`;\n" +
             GetCreateSql();
 
         transaction.ExecuteNonQuery(query);

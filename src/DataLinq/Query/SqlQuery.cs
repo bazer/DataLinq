@@ -63,8 +63,10 @@ public class SqlQuery<T>
     public TableMetadata Table { get; }
     public string? Alias { get; }
     internal string DbName => string.IsNullOrEmpty(Alias)
-        ? Table.DbName
-        : $"{Table.DbName} {Alias}";
+        ? $"{EscapeCharacter}{Table.DbName}{EscapeCharacter}"
+        : $"{EscapeCharacter}{Table.DbName}{EscapeCharacter} {Alias}";
+
+    internal string EscapeCharacter => Transaction.Provider.Constants.EscapeCharacter;
 
     public SqlQuery(Transaction transaction, string? alias = null)
     {
@@ -299,7 +301,7 @@ public class SqlQuery<T>
             return sql;
 
         sql.AddText("\nORDER BY ");
-        sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.DbName}{(x.Ascending ? "" : " DESC")}")));
+        sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.DbName(EscapeCharacter)}{(x.Ascending ? "" : " DESC")}")));
 
         return sql;
     }

@@ -58,7 +58,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
                 DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
 
                 if (databaseName != null)
-                    ExecuteNonQuery($"USE {databaseName};");
+                    ExecuteNonQuery($"USE `{databaseName}`;");
             }
 
             if (dbConnection == null)

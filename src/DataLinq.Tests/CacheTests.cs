@@ -78,7 +78,7 @@ public class CacheTests
             Assert.Equal(setup.Dept6Count, dept6.DepartmentEmployees.Count());
 
             var table = employeesDb.Provider.Metadata
-                .TableModels.Single(x => x.Table.DbName == "dept_emp").Table;
+                .TableModels.Single(x => x.Table.DbName == "dept-emp").Table;
 
             Assert.Equal(setup.Dept2Count + setup.Dept6Count + 2 - 1, employeesDb.Provider.GetTableCache(table).RowCount);
         }
@@ -91,7 +91,7 @@ public class CacheTests
         var setup = new SharedSetup(employeesDb);
 
         var table = employeesDb.Provider.Metadata
-                .TableModels.Single(x => x.Table.DbName == "dept_emp").Table;
+                .TableModels.Single(x => x.Table.DbName == "dept-emp").Table;
 
         var cache = employeesDb.Provider.GetTableCache(table);
         cache.ClearRows();
@@ -118,7 +118,7 @@ public class CacheTests
         Assert.Equal(2, tables.Count);
         Assert.Equal("employees", tables[1].table.Table.DbName);
         Assert.Equal(1, tables[1].numRows);
-        Assert.Equal("dept_emp", tables[0].table.Table.DbName);
+        Assert.Equal("dept-emp", tables[0].table.Table.DbName);
         Assert.Equal(1, tables[0].numRows);
         Assert.Equal(setup.Dept2Count + setup.Dept6Count, cache.RowCount);
 
@@ -130,7 +130,7 @@ public class CacheTests
         Assert.Equal(2, tables.Count);
         Assert.Equal("departments", tables[0].table.Table.DbName);
         Assert.Equal(1, tables[0].numRows);
-        Assert.Equal("dept_emp", tables[1].table.Table.DbName);
+        Assert.Equal("dept-emp", tables[1].table.Table.DbName);
         Assert.Equal(setup.Dept2Count, tables[1].numRows);
         Assert.Equal(setup.Dept6Count, cache.RowCount);
 
@@ -142,7 +142,7 @@ public class CacheTests
         Assert.Equal(2, tables.Count);
         Assert.Equal("departments", tables[0].table.Table.DbName);
         Assert.Equal(1, tables[0].numRows);
-        Assert.Equal("dept_emp", tables[1].table.Table.DbName);
+        Assert.Equal("dept-emp", tables[1].table.Table.DbName);
         Assert.Equal(setup.Dept6Count, tables[1].numRows);
         Assert.Equal(0, cache.RowCount);
 
@@ -161,7 +161,7 @@ public class CacheTests
         var setup = new SharedSetup(employeesDb);
 
         var table = employeesDb.Provider.Metadata
-                .TableModels.Single(x => x.Table.DbName == "dept_emp").Table;
+                .TableModels.Single(x => x.Table.DbName == "dept-emp").Table;
 
         var cache = employeesDb.Provider.GetTableCache(table);
         cache.ClearRows();
@@ -176,7 +176,7 @@ public class CacheTests
             .ToList();
 
         Assert.Single(tables);
-        Assert.Equal("dept_emp", tables[0].table.Table.DbName);
+        Assert.Equal("dept-emp", tables[0].table.Table.DbName);
         Assert.Equal(setup.Dept7Count - 100, tables[0].numRows);
         Assert.Equal(100, cache.RowCount);
     }
@@ -188,7 +188,7 @@ public class CacheTests
         var setup = new SharedSetup(employeesDb);
 
         var table = employeesDb.Provider.Metadata
-                .TableModels.Single(x => x.Table.DbName == "dept_emp").Table;
+                .TableModels.Single(x => x.Table.DbName == "dept-emp").Table;
 
         var cache = employeesDb.Provider.GetTableCache(table);
         cache.ClearRows();
@@ -203,7 +203,7 @@ public class CacheTests
             .ToList();
 
         Assert.Single(tables);
-        Assert.Equal("dept_emp", tables[0].table.Table.DbName);
+        Assert.Equal("dept-emp", tables[0].table.Table.DbName);
         Assert.True(tables[0].numRows > 0);
         Assert.True(cache.TotalBytes <= 1024 * 1024);
     }

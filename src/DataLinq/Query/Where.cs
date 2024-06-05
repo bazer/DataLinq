@@ -46,15 +46,18 @@ public class Where<T> : IWhere<T>
     private string? ValueAlias;
 
     private string? KeyName => string.IsNullOrEmpty(KeyAlias)
-        ? Key
-        : $"{KeyAlias}.{Key}";
+        ? $"{WhereGroup.Query.EscapeCharacter}{Key}{WhereGroup.Query.EscapeCharacter}"
+        : $"{KeyAlias}.{WhereGroup.Query.EscapeCharacter}{Key}{WhereGroup.Query.EscapeCharacter}";
 
     private string? ValueName => string.IsNullOrEmpty(ValueAlias)
-        ? Value?[0] as string
-        : $"{ValueAlias}.{Value?[0]}";
+        ? $"{WhereGroup.Query.EscapeCharacter}{Value?[0] as string}{WhereGroup.Query.EscapeCharacter}"
+        : $"{ValueAlias}.{WhereGroup.Query.EscapeCharacter}{Value?[0]}{WhereGroup.Query.EscapeCharacter}";
 
     internal Where(WhereGroup<T> group, string key, string? keyAlias, bool isValue = true, bool isNegated = false)
     {
+        if (keyAlias == null)
+            (key, keyAlias) = QueryUtils.ParseColumnNameAndAlias(key);
+
         WhereGroup = group;
         Key = key;
         IsValue = isValue;
