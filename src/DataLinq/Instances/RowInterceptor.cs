@@ -15,8 +15,6 @@ internal abstract class RowInterceptor : IInterceptor
     protected RowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
     {
         RowData = rowData;
-        //RelationProperties = RowData.Table.Model.Properties.DistinctBy(x => x.CsName).OfType<RelationProperty>().ToDictionary(x => x.CsName);
-        //ValueProperties = RowData.Table.Model.Properties.DistinctBy(x => x.CsName).OfType<ValueProperty>().ToDictionary(x => x.CsName);
         this.databaseProvider = databaseProvider;
         this.writeTransaction = transaction == null || transaction.Type == TransactionType.ReadOnly ? null : transaction;
     }
@@ -37,7 +35,7 @@ internal abstract class RowInterceptor : IInterceptor
         if (writeTransaction != null && (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
             writeTransaction = null;
 
-        return writeTransaction; //databaseProvider.StartTransaction(TransactionType.ReadOnly);
+        return writeTransaction;
     }
 
     protected object? GetRelation(RelationProperty property)
@@ -59,19 +57,12 @@ internal abstract class RowInterceptor : IInterceptor
             // Use the cache
             var castMethod = castMethodCache.GetOrAdd(listType, (Type lt) =>
             {
-                return typeof(Enumerable)
-                    .GetMethod("Cast", BindingFlags.Static | BindingFlags.Public)
+                return (typeof(Enumerable)
+                    .GetMethod("Cast", BindingFlags.Static | BindingFlags.Public) ?? throw new InvalidOperationException("Could not find method 'Cast' in 'Enumerable'"))
                     .MakeGenericMethod(lt);
             });
 
-            returnvalue = castMethod.Invoke(null, new object[] { result });
-
-            //var listType = property.CsType.GetTypeInfo().GenericTypeArguments[0];
-
-            //returnvalue = typeof(Enumerable)
-            //    .GetMethod("Cast")
-            //    .MakeGenericMethod(listType)
-            //    .Invoke(null, new object[] { result });
+            returnvalue = castMethod.Invoke(null, [result]);
         }
 
         return returnvalue;

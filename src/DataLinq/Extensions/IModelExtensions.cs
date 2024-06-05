@@ -64,16 +64,8 @@ public static class IModelExtensions
             return model;
 
         var type = model.GetType();
-
-        //var method = type
-        //    .GetProperty("Mutate")
-        //    .GetGetMethod();
-
-        var method = type
-            .GetMethod("Mutate");
-
-        var obj = method
-            .Invoke(model, new object[] { });
+        var method = type.GetMethod("Mutate") ?? throw new Exception($"Could not find 'Mutate' method of model with type {model.GetType()}");
+        var obj = method.Invoke(model, []) ?? throw new Exception($"'Mutate' method of model with type {model.GetType()} returned null");
 
         return (T)obj;
     }

@@ -42,7 +42,7 @@ public class ForeignKey
             yield return (Index.Columns[i], Data[i]);
     }
 
-    public IEnumerable<(string columnDbName, object data)> GetData()
+    public IEnumerable<(string columnDbName, object? data)> GetData()
     {
         for (int i = 0; i < Index.Columns.Count; i++)
             yield return (Index.Columns[i].DbName, Data[i]);

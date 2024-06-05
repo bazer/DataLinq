@@ -143,13 +143,13 @@ public class TableCache
             return numRows;
         }
 
-        IEnumerable<object> GetValues(IModel model, IEnumerable<Column> columns) 
-        {
-            if (model is InstanceBase instance)
-                return instance.GetValues(columns).Select(x => x.Value);
-            else
-                return model.GetValues(columns).Select(x => x.Value);
-        }
+        //IEnumerable<object> GetValues(IModel model, IEnumerable<Column> columns) 
+        //{
+        //    if (model is InstanceBase instance)
+        //        return instance.GetValues(columns).Select(x => x.Value);
+        //    else
+        //        return model.GetValues(columns).Select(x => x.Value);
+        //}
     }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
@@ -442,7 +442,7 @@ public class TableCache
             query.Limit(limitRows.Value);
 
         foreach (var pk in query.SelectQuery().ReadKeys()) // .ReadForeignKeys(otherSide.RelationPart.ColumnIndex))
-            IndexCaches[foreignKey.Index].TryAdd(new ForeignKey(foreignKey.Index, pk.Data), []);
+            IndexCaches[foreignKey.Index].TryAdd(new ForeignKey(foreignKey.Index, pk.Data!), []);
     }
 
     public PrimaryKeys[] GetKeys(ForeignKey foreignKey, RelationProperty otherSide, Transaction? transaction = null)
@@ -501,7 +501,7 @@ public class TableCache
     public object? GetRow(PrimaryKeys primaryKeys, Transaction transaction) =>
         GetRows([primaryKeys], transaction).SingleOrDefault();
 
-    public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction? transaction = null, List<OrderBy> orderings = null)
+    public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction? transaction = null, List<OrderBy>? orderings = null)
     {
         if (transaction != null && transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
             TransactionRows.TryAdd(transaction, new ConcurrentDictionary<PrimaryKeys, ImmutableInstanceBase>());
@@ -537,7 +537,7 @@ public class TableCache
         }
     }
 
-    private IEnumerable<ImmutableInstanceBase> LoadOrderedRowsFromDatabaseAndCache(Transaction transaction, PrimaryKeys[] primaryKeys, List<OrderBy> orderings)
+    private IEnumerable<ImmutableInstanceBase> LoadOrderedRowsFromDatabaseAndCache(Transaction? transaction, PrimaryKeys[] primaryKeys, List<OrderBy> orderings)
     {
         var keysToLoad = new List<PrimaryKeys>(primaryKeys.Length);
         var loadedRows = new List<ImmutableInstanceBase>(primaryKeys.Length);
@@ -552,6 +552,8 @@ public class TableCache
 
         if (keysToLoad.Count != 0)
         {
+            transaction ??= DatabaseCache.Database.StartTransaction(TransactionType.ReadOnly);
+
             foreach (var split in keysToLoad.SplitList(500))
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, transaction, orderings))
@@ -586,7 +588,7 @@ public class TableCache
             : orderedRows;
     }
 
-    private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction, List<OrderBy> orderings = null)
+    private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<PrimaryKeys> keys, Transaction transaction, List<OrderBy>? orderings = null)
     {
         var q = new SqlQuery(Table.DbName, transaction);
 
