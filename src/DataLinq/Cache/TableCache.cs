@@ -9,24 +9,16 @@ using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
-using DataLinq.Utils;
-using Remotion.Linq.Clauses;
 
 namespace DataLinq.Cache;
 
 public class TableCache
 {
-    private readonly object keyTicksQueueLock = new();
-    private (PrimaryKeys keys, long ticks, int size)? oldestKeyTick;
-    private readonly Queue<(PrimaryKeys keys, long ticks, int size)> keysTicks = new();
-
     protected Dictionary<ColumnIndex, IndexCache> IndexCaches;
+    protected RowCache RowCache = new();
+    protected ConcurrentDictionary<Transaction, RowCache> TransactionRows = new();
 
-    protected ConcurrentDictionary<PrimaryKeys, ImmutableInstanceBase> RowCache = new();
-    protected ConcurrentDictionary<Transaction, ConcurrentDictionary<PrimaryKeys, ImmutableInstanceBase>> TransactionRows = new();
     protected int primaryKeyColumnsCount;
-
-    protected int numRowsInTable;
     protected List<ColumnIndex> indices;
     protected (IndexCacheType type, int? amount) indexCachePolicy;
 
@@ -41,50 +33,24 @@ public class TableCache
         IndexCaches = indices.ToDictionary(x => x, _ => new IndexCache());
     }
 
-    public long? OldestTick => oldestKeyTick?.ticks;
-    public long? NewestTick
-    {
-        get
-        {
-            if (!oldestKeyTick.HasValue)
-                return null;
-
-            lock (keyTicksQueueLock)
-            {
-                // Get the last element or use default (an empty tuple)
-                var lastItem = keysTicks.LastOrDefault();
-
-                // If the queue is empty, the default is returned and all elements of the tuple will be default values
-                return lastItem.Equals(default) ? null : lastItem.ticks;
-            }
-        }
-    }
-
+    public long? OldestTick => RowCache.OldestTick;
+    public long? NewestTick => RowCache.NewestTick;
     public int RowCount => RowCache.Count;
-    public IEnumerable<(string index, int count)> IndicesCount => indices.Select(x => (x.Name, IndexCaches[x].Count));
+    public long TotalBytes => RowCache.TotalBytes;
+    public string TotalBytesFormatted => RowCache.TotalBytesFormatted;
     public int TransactionRowsCount => TransactionRows.Count;
-    public long TotalBytes
-    {
-        get
-        {
-            lock (keyTicksQueueLock)
-            {
-                return keysTicks.Sum(x => x.size);
-            }
-        }
-    }
+    public IEnumerable<(string index, int count)> IndicesCount => indices.Select(x => (x.Name, IndexCaches[x].Count));
 
-    public string TotalBytesFormatted => TotalBytes.ToFileSize();
     public TableMetadata Table { get; }
     public DatabaseCache DatabaseCache { get; }
 
     public bool IsTransactionInCache(Transaction transaction) => TransactionRows.ContainsKey(transaction);
-    public IEnumerable<object> GetTransactionRows(Transaction transaction)
+    public IEnumerable<ImmutableInstanceBase> GetTransactionRows(Transaction transaction)
     {
         if (TransactionRows.TryGetValue(transaction, out var result))
-            return result.Values;
+            return result.Rows;
 
-        return new List<object>();
+        return new List<ImmutableInstanceBase>();
     }
 
     public int ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
@@ -104,11 +70,11 @@ public class TableCache
                         numRows += transRows;
                 }
 
-                TryRemoveRow(change.PrimaryKeys, out var rows);
+                RowCache.TryRemoveRow(change.PrimaryKeys, out var rows);
                 numRows += rows;
             }
 
-            
+
             TryRemoveRowFromAllIndices(change.PrimaryKeys, out var indexRows);
             numRows += indexRows;
 
@@ -142,14 +108,6 @@ public class TableCache
 
             return numRows;
         }
-
-        //IEnumerable<object> GetValues(IModel model, IEnumerable<Column> columns) 
-        //{
-        //    if (model is InstanceBase instance)
-        //        return instance.GetValues(columns).Select(x => x.Value);
-        //    else
-        //        return model.GetValues(columns).Select(x => x.Value);
-        //}
     }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
@@ -175,11 +133,58 @@ public class TableCache
         ClearIndex();
     }
 
+    public void ClearRows()
+    {
+        RowCache.ClearRows();
+    }
+
     public void ClearIndex()
     {
         for (var i = 0; i < indices.Count; i++)
             IndexCaches[indices[i]].Clear();
     }
+
+    public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
+    {
+        if (limitType == CacheLimitType.Seconds)
+            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks);
+
+        if (limitType == CacheLimitType.Minutes)
+            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks);
+
+        if (limitType == CacheLimitType.Hours)
+            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks);
+
+        if (limitType == CacheLimitType.Days)
+            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks);
+
+        if (limitType == CacheLimitType.Ticks)
+            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks);
+
+        if (limitType == CacheLimitType.Rows)
+            return RowCache.RemoveRowsOverRowLimit((int)amount);
+
+        if (limitType == CacheLimitType.Bytes)
+            return RowCache.RemoveRowsOverSizeLimit(amount);
+
+        if (limitType == CacheLimitType.Kilobytes)
+            return RowCache.RemoveRowsOverSizeLimit(amount * 1024);
+
+        if (limitType == CacheLimitType.Megabytes)
+            return RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024);
+
+        if (limitType == CacheLimitType.Gigabytes)
+            return RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024);
+
+        throw new NotImplementedException();
+    }
+
+    public int RemoveRowsInsertedBeforeTick(long tick)
+    {
+        RemoveAllIndicesInsertedBeforeTick(tick);
+        return RowCache.RemoveRowsInsertedBeforeTick(tick);
+    }
+
 
     public void TryRemoveRowFromAllIndices(PrimaryKeys primaryKeys, out int numRowsRemoved)
     {
@@ -201,198 +206,11 @@ public class TableCache
     public int RemoveAllIndicesInsertedBeforeTick(long tick) =>
         IndexCaches.Select(x => x.Value.RemoveInsertedBeforeTick(tick)).Sum();
 
-    public void ClearRows()
-    {
-        RowCache.Clear();
-        lock (keyTicksQueueLock)
-        {
-            keysTicks.Clear();
-        }
-        oldestKeyTick = null;
-    }
-
-    public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
-    {
-        if (limitType == CacheLimitType.Seconds)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Minutes)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Hours)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Days)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Ticks)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Rows)
-            return RemoveRowsOverRowLimit((int)amount);
-
-        if (limitType == CacheLimitType.Bytes)
-            return RemoveRowsOverSizeLimit(amount);
-
-        if (limitType == CacheLimitType.Kilobytes)
-            return RemoveRowsOverSizeLimit(amount * 1024);
-
-        if (limitType == CacheLimitType.Megabytes)
-            return RemoveRowsOverSizeLimit(amount * 1024 * 1024);
-
-        if (limitType == CacheLimitType.Gigabytes)
-            return RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024);
-
-        throw new NotImplementedException();
-    }
-
-    public int RemoveRowsOverRowLimit(int maxRows)
-    {
-        var count = 0;
-        var rowCount = RowCount;
-
-        if (rowCount <= maxRows)
-            return 0;
-
-        lock (keyTicksQueueLock)
-        {
-            if (!oldestKeyTick.HasValue)
-                return 0;
-
-            while (rowCount > maxRows)
-            {
-                if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
-                {
-                    rowCount -= numRowsRemoved;
-                    count += numRowsRemoved;
-
-                    keysTicks.TryDequeue(out _);
-
-                    if (keysTicks.TryPeek(out var nextTick))
-                        oldestKeyTick = nextTick;
-                    else
-                    {
-                        oldestKeyTick = null;
-                        break;
-                    }
-                }
-                else
-                    break;
-            }
-        }
-
-        return count;
-    }
-
-    public int RemoveRowsOverSizeLimit(long maxSize)
-    {
-        var count = 0;
-        var totalSize = TotalBytes;
-
-        if (totalSize <= maxSize)
-            return 0;
-
-        lock (keyTicksQueueLock)
-        {
-            if (!oldestKeyTick.HasValue)
-                return 0;
-
-            while (totalSize > maxSize)
-            {
-                if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
-                {
-                    totalSize -= oldestKeyTick.Value.size;
-                    count += numRowsRemoved;
-
-                    keysTicks.TryDequeue(out _);
-
-                    if (keysTicks.TryPeek(out var nextTick))
-                        oldestKeyTick = nextTick;
-                    else
-                    {
-                        oldestKeyTick = null;
-                        break;
-                    }
-                }
-                else
-                    break;
-            }
-        }
-
-        return count;
-    }
-
-    public int RemoveRowsInsertedBeforeTick(long tick)
-    {
-        RemoveAllIndicesInsertedBeforeTick(tick);
-
-        if (!oldestKeyTick.HasValue)
-            return 0;
-
-        var count = 0;
-        lock (keyTicksQueueLock)
-        {
-            while (oldestKeyTick?.ticks < tick)
-            {
-                if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
-                {
-                    count += numRowsRemoved;
-
-                    keysTicks.TryDequeue(out var _);
-                }
-                else
-                    break;
-
-                if (keysTicks.TryPeek(out var nextTick))
-                    oldestKeyTick = nextTick;
-                else
-                {
-                    oldestKeyTick = null;
-                    break;
-                }
-            }
-        }
-
-        return count;
-    }
-
-    public bool TryRemoveRow(PrimaryKeys primaryKeys, out int numRowsRemoved)
-    {
-        numRowsRemoved = 0;
-
-        if (RowCache.ContainsKey(primaryKeys))
-        {
-            if (RowCache.TryRemove(primaryKeys, out var _))
-            {
-                numRowsRemoved = 1;
-                return true;
-            }
-            else
-                return false;
-        }
-
-        return true;
-    }
-
     public bool TryRemoveTransactionRow(PrimaryKeys primaryKeys, Transaction transaction, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
-        if (!TransactionRows.ContainsKey(transaction))
-            return false;
-
-        if (TransactionRows[transaction].ContainsKey(primaryKeys))
-        {
-            if (TransactionRows[transaction].TryRemove(primaryKeys, out var _))
-            {
-                numRowsRemoved = 1;
-                return true;
-            }
-            else
-                return false;
-        }
-
-        return true;
+        return TransactionRows.TryGetValue(transaction, out RowCache? rowCache) && rowCache.TryRemoveRow(primaryKeys, out numRowsRemoved);
     }
 
     public bool TryRemoveTransaction(Transaction transaction)
@@ -480,16 +298,6 @@ public class TableCache
         return newKeys;
     }
 
-    //public IEnumerable<RowData> GetRowDataFromForeignKey(ForeignKey foreignKey, Transaction transaction)
-    //{
-    //    var select = new SqlQuery(Table, transaction)
-    //        .Where(foreignKey.GetData())
-    //        //.Where(foreignKey.Index.DbName).EqualTo(foreignKey.Data)
-    //        .SelectQuery();
-
-    //    return select.ReadRows();
-    //}
-
     public IEnumerable<object> GetRows(ForeignKey foreignKey, RelationProperty otherSide, Transaction? transaction = null)
     {
         if (foreignKey.Data == null)
@@ -504,7 +312,7 @@ public class TableCache
     public IEnumerable<object> GetRows(PrimaryKeys[] primaryKeys, Transaction? transaction = null, List<OrderBy>? orderings = null)
     {
         if (transaction != null && transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
-            TransactionRows.TryAdd(transaction, new ConcurrentDictionary<PrimaryKeys, ImmutableInstanceBase>());
+            TransactionRows.TryAdd(transaction, new RowCache());
 
         if (orderings == null)
             return LoadRowsFromDatabaseAndCache(primaryKeys, transaction);
@@ -616,7 +424,7 @@ public class TableCache
             return true;
         else if (transaction != null && transaction.Type != TransactionType.ReadOnly && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out row))
             return true;
-        
+
         row = null;
         return false;
     }
@@ -632,33 +440,8 @@ public class TableCache
         row = InstanceFactory.NewImmutableRow(rowData, transaction.Provider, transaction);
         var keys = rowData.GetKeys();
 
-
-        if ((transaction.Type == TransactionType.ReadOnly && (!Table.UseCache || TryAddRowAllDict(keys, rowData, row)))
-            || (transaction.Type != TransactionType.ReadOnly && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryAdd(keys, row)))
-        {
-            return true;
-        }
-
-        return false;
-
-        bool TryAddRowAllDict(PrimaryKeys keys, RowData data, ImmutableInstanceBase instance)
-        {
-            var ticks = DateTime.Now.Ticks;
-
-            if (!RowCache.TryAdd(keys, instance))
-                return false;
-
-            lock (keyTicksQueueLock)
-            {
-                keysTicks.Enqueue((keys, ticks, data.Size));
-
-                if (!oldestKeyTick.HasValue)
-                    oldestKeyTick = (keys, ticks, data.Size);
-            }
-
-
-            return true;
-        }
+        return (transaction.Type == TransactionType.ReadOnly && (!Table.UseCache || RowCache.TryAddRow(keys, rowData, row)))
+            || (transaction.Type != TransactionType.ReadOnly && TransactionRows.TryGetValue(transaction, out var rowCache) && rowCache.TryAddRow(keys, rowData, row));
     }
 
     public TableCacheSnapshot MakeSnapshot()
