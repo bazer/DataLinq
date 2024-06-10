@@ -168,7 +168,7 @@ public class RowCache
         return count;
     }
 
-    public bool TryGetValue(PrimaryKeys primaryKeys, out ImmutableInstanceBase row) => rows.TryGetValue(primaryKeys, out row);
+    public bool TryGetValue(PrimaryKeys primaryKeys, out ImmutableInstanceBase? row) => rows.TryGetValue(primaryKeys, out row);
 
     public bool TryRemoveRow(PrimaryKeys primaryKeys, out int numRowsRemoved)
     {

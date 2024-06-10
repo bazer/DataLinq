@@ -131,7 +131,7 @@ public class IndexCache
 
     public bool ContainsKey(ForeignKey foreignKey) => foreignKeys.ContainsKey(foreignKey);
 
-    public bool TryGetValue(ForeignKey foreignKey, out PrimaryKeys[] keys) => foreignKeys.TryGetValue(foreignKey, out keys);
+    public bool TryGetValue(ForeignKey foreignKey, out PrimaryKeys[]? keys) => foreignKeys.TryGetValue(foreignKey, out keys);
 
     public IEnumerable<PrimaryKeys[]> Values => foreignKeys.Values;
 

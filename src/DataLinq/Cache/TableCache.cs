@@ -271,7 +271,7 @@ public class TableCache
         if ((transaction == null || transaction.Type == TransactionType.ReadOnly) && indexCachePolicy.type != IndexCacheType.None)
         {
             if (IndexCaches[foreignKey.Index].TryGetValue(foreignKey, out var keys))
-                return keys;
+                return keys!;
 
             if (IndexCaches[foreignKey.Index].Count == 0)
             {
@@ -279,7 +279,7 @@ public class TableCache
                 GetRows(IndexCaches[foreignKey.Index].Values.SelectMany(x => x).Take(1000).ToArray(), transaction).ToList();
 
                 if (IndexCaches[foreignKey.Index].TryGetValue(foreignKey, out var retryKeys))
-                    return retryKeys;
+                    return retryKeys!;
             }
         }
 
