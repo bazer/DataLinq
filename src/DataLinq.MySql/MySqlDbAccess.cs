@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using DataLinq.Mutation;
+using DataLinq.Logging;
 using MySqlConnector;
 
 namespace DataLinq.MySql;
@@ -8,13 +9,17 @@ namespace DataLinq.MySql;
 public class MySqlDbAccess : DatabaseTransaction
 {
     private readonly string databaseName;
+    private readonly MySqlDataSource dataSource;
+    private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public MySqlDbAccess(string connectionString, TransactionType type, string databaseName) : base(connectionString, type)
+    public MySqlDbAccess(MySqlDataSource dataSource, string connectionString, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, type)
     {
         if (type != TransactionType.ReadOnly)
             throw new ArgumentException("Only 'TransactionType.ReadOnly' is allowed");
 
+        this.dataSource = dataSource;
         this.databaseName = databaseName;
+        this.loggingConfiguration = loggingConfiguration;
     }
 
     public override void Commit()
@@ -29,13 +34,15 @@ public class MySqlDbAccess : DatabaseTransaction
 
     public override int ExecuteNonQuery(IDbCommand command)
     {
-        using (var connection = new MySqlConnection(ConnectionString))
+        using (var connection = dataSource.OpenConnection())
         {
             connection.Open();
             command.Connection = connection;
             
-            if (databaseName != null)
-                command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
+            //if (databaseName != null)
+            //    command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
+
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
             int result = command.ExecuteNonQuery();
             connection.Close();
@@ -58,13 +65,15 @@ public class MySqlDbAccess : DatabaseTransaction
 
     public override object ExecuteScalar(IDbCommand command)
     {
-        using (var connection = new MySqlConnection(ConnectionString))
+        using (var connection = dataSource.OpenConnection())
         {
             connection.Open();
             command.Connection = connection;
 
-            if (databaseName != null)
-                command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
+            //if (databaseName != null)
+            //    command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
+
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
             object result = command.ExecuteScalar();
             connection.Close();
@@ -75,12 +84,14 @@ public class MySqlDbAccess : DatabaseTransaction
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
-        var connection = new MySqlConnection(ConnectionString);
+        var connection = dataSource.CreateConnection();
         command.Connection = connection;
         connection.Open();
 
-        if (databaseName != null)
-            command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
+        //if (databaseName != null)
+        //    command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
+
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
         return new MySqlDataLinqDataReader(command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
     }

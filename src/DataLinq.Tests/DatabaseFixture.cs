@@ -9,6 +9,7 @@ using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models;
+using Microsoft.Extensions.Logging;
 
 namespace DataLinq.Tests;
 
@@ -29,9 +30,12 @@ public class DatabaseFixture : IDisposable
         EmployeeConnections = employees.Connections;
         var lockObject = new object();
 
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
+
         foreach (var connection in employees.Connections)
         {
             var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
+            provider.UseLoggerFactory(loggerFactory);
 
             var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString.Original, connection.DataSourceName);
 

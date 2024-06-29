@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -49,12 +50,12 @@ public class SQLiteProvider<T> : DatabaseProvider<T>
         SQLiteProvider.RegisterProvider();
     }
 
-    public SQLiteProvider(string connectionString) : base(connectionString, DatabaseType.SQLite)
+    public SQLiteProvider(string connectionString) : base(connectionString, DatabaseType.SQLite, DataLinqLoggingConfiguration.NullConfiguration)
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
     }
 
-    public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.SQLite, databaseName)
+    public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.SQLite, DataLinqLoggingConfiguration.NullConfiguration, databaseName)
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
     }

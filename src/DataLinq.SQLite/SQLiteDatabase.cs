@@ -1,10 +1,13 @@
 ﻿using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using Microsoft.Extensions.Logging;
 
 namespace DataLinq.SQLite;
 
 public class SQLiteDatabaseCreator : IDatabaseProviderCreator
 {
+    private ILoggerFactory? loggerFactory;
+
     public bool IsDatabaseType(string typeName)
     {
         return typeName.Equals("sqlite", System.StringComparison.OrdinalIgnoreCase);
@@ -14,6 +17,15 @@ public class SQLiteDatabaseCreator : IDatabaseProviderCreator
     {
         return new SQLiteDatabase<T>(connectionString, databaseName);
     }
+
+    public SQLiteDatabaseCreator UseLoggerFactory(ILoggerFactory? loggerFactory)
+    {
+        this.loggerFactory = loggerFactory;
+        return this;
+    }
+
+    IDatabaseProviderCreator IDatabaseProviderCreator.UseLoggerFactory(ILoggerFactory? loggerFactory) =>
+        UseLoggerFactory(loggerFactory);
 }
 
 public class SQLiteDatabase<T> : Database<T>

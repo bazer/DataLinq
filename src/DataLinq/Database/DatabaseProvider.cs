@@ -4,6 +4,7 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Cache;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -22,7 +23,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     /// </summary>
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
-    protected DatabaseProvider(string connectionString, DatabaseType databaseType) : base(connectionString, typeof(T), databaseType)
+    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, typeof(T), databaseType, loggingConfiguration)
     {
     }
 
@@ -32,7 +33,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database.</param>
-    protected DatabaseProvider(string connectionString, DatabaseType databaseType, string databaseName) : base(connectionString, typeof(T), databaseType, databaseName)
+    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string databaseName) : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName)
     {
     }
 }
@@ -44,6 +45,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
 {
     public string DatabaseName { get; protected set; }
     public DatabaseType DatabaseType { get; }
+    public DataLinqLoggingConfiguration LoggingConfiguration { get; }
     public abstract IDatabaseProviderConstants Constants { get; }
 
     public string ConnectionString { get; }
@@ -51,6 +53,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public State State { get; }
 
     private static readonly object lockObject = new();
+    
 
     /// <summary>
     /// Retrieves the table cache for a given table metadata.
@@ -66,7 +69,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// <param name="type">The type of the model that the database contains.</param>
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database (optional).</param>
-    protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, string? databaseName = null)
+    protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName = null)
     {
         lock (lockObject)
         {
@@ -101,10 +104,13 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         }
 
         DatabaseType = databaseType;
+        LoggingConfiguration = loggingConfiguration;
         DatabaseName = databaseName ?? Metadata.DbName;
         ConnectionString = connectionString;
         State = new State(this);
     }
+
+    
 
     /// <summary>
     /// Starts a new database transaction with the specified transaction type.

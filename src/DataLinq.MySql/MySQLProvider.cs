@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -39,8 +40,9 @@ public class MySQLProviderConstants : IDatabaseProviderConstants
 public class MySQLProvider<T> : DatabaseProvider<T>
     where T : class, IDatabaseModel
 {
-    private MySqlConnectionStringBuilder connectionStringBuilder;
     private MySqlDataLinqDataWriter dataWriter = new MySqlDataLinqDataWriter();
+    private MySqlDataSource dataSource;
+    private MySqlDbAccess dbAccess;
 
     public override IDatabaseProviderConstants Constants { get; } = new MySQLProviderConstants();
 
@@ -49,17 +51,36 @@ public class MySQLProvider<T> : DatabaseProvider<T>
         MySQLProvider.RegisterProvider();
     }
 
-    public MySQLProvider(string connectionString) : base(connectionString, DatabaseType.MySQL)
+    public MySQLProvider(string connectionString) : this(connectionString, null, DataLinqLoggingConfiguration.NullConfiguration)
     {
-        connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+    }
+
+    public MySQLProvider(string connectionString, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration)
+    {
+        var connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
 
         if (!string.IsNullOrWhiteSpace(connectionStringBuilder.Database))
             DatabaseName = connectionStringBuilder.Database;
+
+        Setup();
     }
 
-    public MySQLProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.MySQL, databaseName)
+    public MySQLProvider(string connectionString, string? databaseName) : this(connectionString, databaseName, DataLinqLoggingConfiguration.NullConfiguration)
     {
-        connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+    }
+
+    public MySQLProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration, databaseName)
+    {
+        Setup();
+    }
+
+    private void Setup()
+    {
+        dataSource = new MySqlDataSourceBuilder(ConnectionString)
+            .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
+            .Build();
+
+        dbAccess = new MySqlDbAccess(dataSource, ConnectionString, TransactionType.ReadOnly, DatabaseName, LoggingConfiguration);
     }
 
     public override void CreateDatabase(string? databaseName = null)
@@ -79,8 +100,8 @@ public class MySQLProvider<T> : DatabaseProvider<T>
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
         DatabaseTransaction transaction = type == TransactionType.ReadOnly
-            ? new MySqlDbAccess(ConnectionString, type, DatabaseName)
-            : new MySqlDatabaseTransaction(ConnectionString, type, DatabaseName);
+            ? dbAccess
+            : new MySqlDatabaseTransaction(dataSource, ConnectionString, type, DatabaseName, LoggingConfiguration);
 
         //if (DatabaseName != null)
         //    transaction.ExecuteNonQuery($"USE {DatabaseName};");
@@ -90,7 +111,7 @@ public class MySQLProvider<T> : DatabaseProvider<T>
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
-        return new MySqlDatabaseTransaction(dbTransaction, type, DatabaseName);
+        return new MySqlDatabaseTransaction(dbTransaction, type, DatabaseName, LoggingConfiguration);
     }
 
     public override string GetExists(string? databaseName = null)
@@ -127,8 +148,8 @@ public class MySQLProvider<T> : DatabaseProvider<T>
 
     public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] key)
     {
-        return sql.AddFormat("{0} {1} {2}", 
-            field, 
+        return sql.AddFormat("{0} {1} {2}",
+            field,
             relation.ToSql(),
             GetParameterName(relation, key));
     }

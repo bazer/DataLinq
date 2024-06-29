@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using DataLinq.Logging;
 using DataLinq.Mutation;
 using MySqlConnector;
 
@@ -12,15 +13,19 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
 {
     private IDbConnection? dbConnection;
     private readonly string databaseName;
+    private readonly MySqlDataSource dataSource;
+    private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
     /// <summary>
     /// Initializes a new instance of the MySqlDatabaseTransaction class with the specified connection string and transaction type.
     /// </summary>
     /// <param name="connectionString">The connection string to the MySQL database.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(string connectionString, TransactionType type, string databaseName) : base(connectionString, type)
+    public MySqlDatabaseTransaction(MySqlDataSource dataSource, string connectionString, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, type)
     {
+        this.dataSource = dataSource;
         this.databaseName = databaseName;
+        this.loggingConfiguration = loggingConfiguration;
     }
 
     /// <summary>
@@ -29,7 +34,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// </summary>
     /// <param name="dbTransaction">The existing database transaction.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName) : base(dbTransaction, type)
+    public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(dbTransaction, type)
     {
         if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
         if (dbTransaction.Connection is not MySqlConnection) throw new ArgumentException("The transaction connection must be an MySqlConnection", "dbTransaction.Connection");
@@ -38,6 +43,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
         SetStatus(DatabaseTransactionStatus.Open);
         dbConnection = dbTransaction.Connection;
         this.databaseName = databaseName;
+        this.loggingConfiguration = loggingConfiguration;
     }
 
     /// <summary>
@@ -53,8 +59,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
             if (Status == DatabaseTransactionStatus.Closed)
             {
                 SetStatus(DatabaseTransactionStatus.Open);
-                dbConnection = new MySqlConnection(ConnectionString);
-                dbConnection.Open();
+                dbConnection = dataSource.OpenConnection();
                 DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
 
                 if (databaseName != null)
@@ -79,6 +84,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
         {
             command.Connection = DbConnection;
             command.Transaction = DbTransaction;
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
             return command.ExecuteNonQuery();
         }
         catch (Exception)
@@ -142,6 +148,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
         {
             command.Connection = DbConnection;
             command.Transaction = DbTransaction;
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
             var result = command.ExecuteScalar();
             return result == DBNull.Value ? null : result;
         }
@@ -175,6 +182,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
         {
             command.Connection = DbConnection;
             command.Transaction = DbTransaction;
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
             //return command.ExecuteReader() as IDataLinqDataReader;
             return new MySqlDataLinqDataReader(command.ExecuteReader() as MySqlDataReader);
