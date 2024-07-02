@@ -24,8 +24,8 @@ public class Insert<T> : IQuery
         int i = 0;
         foreach (var with in query.SetList)
         {
-            query.Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-            query.Transaction.Provider.GetParameterValue(sql, paramPrefix + "v" + i);
+            query.DataSource.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+            query.DataSource.Provider.GetParameterValue(sql, paramPrefix + "v" + i);
 
             if (i + 1 < length)
                 sql.AddText(",");
@@ -45,14 +45,14 @@ public class Insert<T> : IQuery
             paramPrefix);
 
         if (query.LastIdQuery)
-            sql.AddFormat(";\n{0}", query.Transaction.Provider.GetLastIdQuery());
+            sql.AddFormat(";\n{0}", query.DataSource.Provider.GetLastIdQuery());
 
         return sql;
     }
 
     public IDbCommand ToDbCommand()
     {
-        return query.Transaction.Provider.ToDbCommand(this);
+        return query.DataSource.Provider.ToDbCommand(this);
     }
 
     public QueryResult Execute()

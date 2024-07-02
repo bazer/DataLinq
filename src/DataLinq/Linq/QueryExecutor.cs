@@ -29,14 +29,14 @@ internal class QueryExecutor : IQueryExecutor
     /// <summary>
     /// Initializes a new instance of the QueryExecutor class with the specified transaction and table metadata.
     /// </summary>
-    internal QueryExecutor(Transaction transaction, TableMetadata table)
+    internal QueryExecutor(DataSourceAccess transaction, TableMetadata table)
     {
         this.Transaction = transaction;
         this.Table = table;
     }
 
     /// <summary>Gets the transaction associated with the query executor.</summary>
-    private Transaction Transaction { get; }
+    private DataSourceAccess Transaction { get; }
 
     /// <summary>Gets the metadata for the table that queries will be executed against.</summary>
     private TableMetadata Table { get; }

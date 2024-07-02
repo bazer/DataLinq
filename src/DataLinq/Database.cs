@@ -25,6 +25,7 @@ public abstract class Database<T> : IDisposable
     /// Gets the database provider.
     /// </summary>
     public DatabaseProvider<T> Provider { get; }
+    
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Database{T}"/> class.
@@ -51,8 +52,8 @@ public abstract class Database<T> : IDisposable
     /// <returns><c>true</c> if the database exists; otherwise, <c>false</c>.</returns>
     public bool Exists(string? databaseName = null)
     {
-        return Transaction(TransactionType.ReadOnly)
-            .DatabaseTransaction
+        return Provider
+            .DatabaseAccess
             .ReadReader(Provider.GetExists(databaseName))
             .Any();
     }
@@ -84,7 +85,7 @@ public abstract class Database<T> : IDisposable
     /// <returns>The query result.</returns>
     public T Query()
     {
-        return Transaction(TransactionType.ReadOnly).Query();
+        return Provider.TypedReadOnlyAccess.Query();
     }
 
     /// <summary>
@@ -98,10 +99,10 @@ public abstract class Database<T> : IDisposable
         if (alias == null)
             (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
-        var transaction = Transaction(TransactionType.ReadOnly);
-        var table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
+        //var transaction = Transaction(TransactionType.ReadOnly);
+        var table = Provider.TypedReadOnlyAccess.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
-        return new SqlQuery(table, transaction, alias);
+        return new SqlQuery(table, Provider.TypedReadOnlyAccess, alias);
     }
 
     /// <summary>
@@ -112,7 +113,7 @@ public abstract class Database<T> : IDisposable
     /// <returns>The new SQL query.</returns>
     public SqlQuery From(TableMetadata table, string? alias = null)
     {
-        return new SqlQuery(table, Transaction(TransactionType.ReadOnly), alias);
+        return new SqlQuery(table, Provider.TypedReadOnlyAccess, alias);
     }
 
     /// <summary>
@@ -122,7 +123,7 @@ public abstract class Database<T> : IDisposable
     /// <returns>The new SQL query.</returns>
     public SqlQuery<V> From<V>() where V : IModel
     {
-        return Transaction(TransactionType.ReadOnly).From<V>();
+        return Provider.TypedReadOnlyAccess.From<V>();
     }
 
     /// <summary>

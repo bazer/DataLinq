@@ -18,6 +18,8 @@ namespace DataLinq;
 public abstract class DatabaseProvider<T> : DatabaseProvider
     where T : class, IDatabaseModel
 {
+    public ReadOnlyAccess<T> TypedReadOnlyAccess { get; set; }
+
     /// <summary>
     /// Initializes a new instance of the DatabaseProvider with the specified connection string and database type.
     /// </summary>
@@ -25,6 +27,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     /// <param name="databaseType">The type of the database.</param>
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, typeof(T), databaseType, loggingConfiguration)
     {
+        TypedReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
     /// <summary>
@@ -35,6 +38,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     /// <param name="databaseName">The name of the database.</param>
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string databaseName) : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName)
     {
+        TypedReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 }
 
@@ -49,6 +53,8 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public abstract IDatabaseProviderConstants Constants { get; }
 
     public string ConnectionString { get; }
+    public abstract DatabaseAccess DatabaseAccess { get; }
+    public virtual ReadOnlyAccess ReadOnlyAccess { get; }
     public DatabaseMetadata Metadata { get; }
     public State State { get; }
 
@@ -108,6 +114,8 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         DatabaseName = databaseName ?? Metadata.DbName;
         ConnectionString = connectionString;
         State = new State(this);
+
+        this.ReadOnlyAccess = new ReadOnlyAccess(this);
     }
 
     
@@ -155,4 +163,5 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     {
         State.Dispose();
     }
+
 }

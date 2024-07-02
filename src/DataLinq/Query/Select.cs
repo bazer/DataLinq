@@ -35,7 +35,7 @@ public class Select<T> : IQuery
 
     public IDbCommand ToDbCommand()
     {
-        return query.Transaction.Provider.ToDbCommand(this);
+        return query.DataSource.Provider.ToDbCommand(this);
     }
 
     public Select<T> What(IEnumerable<Column> columns)
@@ -47,34 +47,34 @@ public class Select<T> : IQuery
 
     public IEnumerable<RowData> ReadRows()
     {
-        return query.Transaction
-            .DatabaseTransaction
-            .ReadReader(query.Transaction.Provider.ToDbCommand(this))
+        return query.DataSource
+            .DatabaseAccess
+            .ReadReader(query.DataSource.Provider.ToDbCommand(this))
             .Select(x => new RowData(x, query.Table, query.Table.Columns));
     }
 
     public IEnumerable<PrimaryKeys> ReadKeys()
     {
-        return query.Transaction
-            .DatabaseTransaction
-            .ReadReader(query.Transaction.Provider.ToDbCommand(this))
+        return query.DataSource
+            .DatabaseAccess
+            .ReadReader(query.DataSource.Provider.ToDbCommand(this))
             .Select(x => new PrimaryKeys(x, query.Table));
     }
 
     public IEnumerable<ForeignKey> ReadForeignKeys(ColumnIndex foreignKeyIndex)
     {
-        return query.Transaction
-            .DatabaseTransaction
-            .ReadReader(query.Transaction.Provider.ToDbCommand(this))
+        return query.DataSource
+            .DatabaseAccess
+            .ReadReader(query.DataSource.Provider.ToDbCommand(this))
             .Select(x => new RowData(x, query.Table, foreignKeyIndex.Columns))
             .Select(x => new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()));
     }
 
     public IEnumerable<(ForeignKey, PrimaryKeys[])> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
     {
-        return query.Transaction
-            .DatabaseTransaction
-            .ReadReader(query.Transaction.Provider.ToDbCommand(this))
+        return query.DataSource
+            .DatabaseAccess
+            .ReadReader(query.DataSource.Provider.ToDbCommand(this))
             .Select(x => new RowData(x, query.Table, query.Table.PrimaryKeyColumns.Concat(foreignKeyIndex.Columns).Distinct().ToList()))
             .Select(x => (fk: new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()), pk: new PrimaryKeys(x)))
             .GroupBy(x => x.fk)
@@ -118,14 +118,14 @@ public class Select<T> : IQuery
                 .ReadKeys()
                 .ToArray();
 
-            foreach (var row in query.Transaction.Provider.GetTableCache(query.Table).GetRows(keys, query.Transaction, orderings: query.OrderByList))
+            foreach (var row in query.DataSource.Provider.GetTableCache(query.Table).GetRows(keys, query.DataSource, orderings: query.OrderByList))
                 yield return row;
         }
         else
         {
             var rows = this
                 .ReadRows()
-                .Select(x => InstanceFactory.NewImmutableRow(x, query.Transaction.Provider, query.Transaction));
+                .Select(x => InstanceFactory.NewImmutableRow(x, query.DataSource.Provider, query.DataSource));
 
             foreach (var row in rows)
                 yield return row;

@@ -12,11 +12,11 @@ namespace DataLinq.Instances;
 
 internal abstract class RowInterceptor : IInterceptor
 {
-    protected RowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
+    protected RowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
     {
         RowData = rowData;
         this.databaseProvider = databaseProvider;
-        this.writeTransaction = transaction == null || transaction.Type == TransactionType.ReadOnly ? null : transaction;
+        this.writeTransaction = dataSource is Transaction transaction ? transaction : null;
     }
 
     protected Dictionary<string, RelationProperty> RelationProperties => RowData.Table.Model.RelationProperties;
@@ -30,12 +30,12 @@ internal abstract class RowInterceptor : IInterceptor
 
     public abstract void Intercept(IInvocation invocation);
 
-    protected Transaction? GetTransaction()
+    protected DataSourceAccess GetTransaction()
     {
         if (writeTransaction != null && (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
             writeTransaction = null;
 
-        return writeTransaction;
+        return writeTransaction as DataSourceAccess ?? databaseProvider.ReadOnlyAccess;
     }
 
     protected object? GetRelation(RelationProperty property)

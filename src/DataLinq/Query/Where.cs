@@ -225,7 +225,7 @@ public class Where<T> : IWhere<T>
             sql.AddText("(");
 
         if (IsValue)
-            WhereGroup.Query.Transaction.Provider.GetParameterComparison(sql, KeyName, Relation, indexList.Select(x => prefix + "w" + x).ToArray());
+            WhereGroup.Query.DataSource.Provider.GetParameterComparison(sql, KeyName, Relation, indexList.Select(x => prefix + "w" + x).ToArray());
         else
             sql.AddFormat("{0} {1} {2}", KeyName, Relation.ToSql(), ValueName);
 
@@ -240,14 +240,14 @@ public class Where<T> : IWhere<T>
             if (Value == null)
             {
                 yield return sql.Index;
-                WhereGroup.Query.Transaction.Provider.GetParameter(sql, prefix + "w" + sql.IndexAdd(), null);
+                WhereGroup.Query.DataSource.Provider.GetParameter(sql, prefix + "w" + sql.IndexAdd(), null);
             }
             else
             {
                 foreach (var value in Value)
                 {
                     yield return sql.Index;
-                    WhereGroup.Query.Transaction.Provider.GetParameter(sql, prefix + "w" + sql.IndexAdd(), value);
+                    WhereGroup.Query.DataSource.Provider.GetParameter(sql, prefix + "w" + sql.IndexAdd(), value);
                 }
             }
         }

@@ -9,7 +9,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-internal class ImmutableRowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
+internal class ImmutableRowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess transaction)
     : RowInterceptor(rowData, databaseProvider, transaction)
 {
     public override void Intercept(IInvocation invocation)

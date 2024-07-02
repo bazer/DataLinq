@@ -28,7 +28,7 @@ public static class InstanceFactory
     private static readonly ProxyGenerator generator = new();
     private static readonly ProxyGenerationOptions options = new ProxyGenerationOptions(new RowInterceptorGenerationHook());
 
-    public static ImmutableInstanceBase NewImmutableRow(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
+    public static ImmutableInstanceBase NewImmutableRow(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess transaction)
     {
         return (ImmutableInstanceBase)(rowData.Table.Model.CsType.IsInterface
             ? generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new Type[] { typeof(ImmutableInstanceBase) }, options, new ImmutableRowInterceptor(rowData, databaseProvider, transaction))
@@ -46,7 +46,7 @@ public static class InstanceFactory
                 new MutableRowInterceptor(rowData, databaseProvider, transaction));
     }
 
-    public static T NewDatabase<T>(Transaction transaction) where T : class, IDatabaseModel
+    public static T NewDatabase<T>(DataSourceAccess transaction) where T : class, IDatabaseModel
     {
         return generator.CreateInterfaceProxyWithoutTarget<T>(new DatabaseInterceptor(transaction));
     }

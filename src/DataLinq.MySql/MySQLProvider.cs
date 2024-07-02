@@ -37,7 +37,7 @@ public class MySQLProviderConstants : IDatabaseProviderConstants
     public string EscapeCharacter { get; } = "`";
 }
 
-public class MySQLProvider<T> : DatabaseProvider<T>
+public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel
 {
     private MySqlDataLinqDataWriter dataWriter = new MySqlDataLinqDataWriter();
@@ -45,6 +45,7 @@ public class MySQLProvider<T> : DatabaseProvider<T>
     private MySqlDbAccess dbAccess;
 
     public override IDatabaseProviderConstants Constants { get; } = new MySQLProviderConstants();
+    public override DatabaseAccess DatabaseAccess => dbAccess;
 
     static MySQLProvider()
     {
@@ -80,7 +81,7 @@ public class MySQLProvider<T> : DatabaseProvider<T>
             .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
             .Build();
 
-        dbAccess = new MySqlDbAccess(dataSource, ConnectionString, TransactionType.ReadOnly, DatabaseName, LoggingConfiguration);
+        dbAccess = new MySqlDbAccess(dataSource, DatabaseName, LoggingConfiguration);
     }
 
     public override void CreateDatabase(string? databaseName = null)
@@ -97,16 +98,11 @@ public class MySQLProvider<T> : DatabaseProvider<T>
         transaction.ExecuteNonQuery(query);
     }
 
+
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
-        DatabaseTransaction transaction = type == TransactionType.ReadOnly
-            ? dbAccess
-            : new MySqlDatabaseTransaction(dataSource, ConnectionString, type, DatabaseName, LoggingConfiguration);
 
-        //if (DatabaseName != null)
-        //    transaction.ExecuteNonQuery($"USE {DatabaseName};");
-
-        return transaction;
+        return new MySqlDatabaseTransaction(dataSource, type, DatabaseName, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
@@ -126,9 +122,7 @@ public class MySQLProvider<T> : DatabaseProvider<T>
     {
         try
         {
-            using var transaction = GetNewDatabaseTransaction(TransactionType.ReadOnly);
-
-            return transaction.ExecuteScalar<int>("SELECT 1") == 1;
+            return DatabaseAccess.ExecuteScalar<int>("SELECT 1") == 1;
         }
         catch (Exception)
         {

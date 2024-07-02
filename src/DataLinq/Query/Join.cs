@@ -18,8 +18,8 @@ public class Join<T>
     private readonly string? Alias;
 
     internal string DbName => string.IsNullOrEmpty(Alias)
-        ? $"{Query.Transaction.Provider.Constants.EscapeCharacter}{TableName}{Query.Transaction.Provider.Constants.EscapeCharacter}"
-        : $"{Query.Transaction.Provider.Constants.EscapeCharacter}{TableName}{Query.Transaction.Provider.Constants.EscapeCharacter} {Alias}";
+        ? $"{Query.DataSource.Provider.Constants.EscapeCharacter}{TableName}{Query.DataSource.Provider.Constants.EscapeCharacter}"
+        : $"{Query.DataSource.Provider.Constants.EscapeCharacter}{TableName}{Query.DataSource.Provider.Constants.EscapeCharacter} {Alias}";
 
     internal Join(SqlQuery<T> query, string tableName, string? alias, JoinType type)
     {

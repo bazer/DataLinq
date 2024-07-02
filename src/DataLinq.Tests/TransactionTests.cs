@@ -98,7 +98,7 @@ public class TransactionTests : BaseTests
             .SelectQuery()
             .ToDbCommand();
 
-        var dbTransaction = transaction.DatabaseTransaction.DbTransaction;
+        var dbTransaction = transaction.DatabaseAccess.DbTransaction;
 
         command.Connection = dbTransaction.Connection;
         command.Transaction = dbTransaction;

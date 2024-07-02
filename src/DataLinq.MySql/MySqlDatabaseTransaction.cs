@@ -21,7 +21,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// </summary>
     /// <param name="connectionString">The connection string to the MySQL database.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(MySqlDataSource dataSource, string connectionString, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, type)
+    public MySqlDatabaseTransaction(MySqlDataSource dataSource, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(type)
     {
         this.dataSource = dataSource;
         this.databaseName = databaseName;

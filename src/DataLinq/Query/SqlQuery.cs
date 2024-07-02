@@ -18,15 +18,15 @@ public interface IQuery
 
 public class SqlQuery : SqlQuery<object>
 {
-    public SqlQuery(Transaction transaction, string? alias = null) : base(transaction, alias)
+    public SqlQuery(DataSourceAccess transaction, string? alias = null) : base(transaction, alias)
     {
     }
 
-    public SqlQuery(TableMetadata table, Transaction transaction, string? alias = null) : base(table, transaction, alias)
+    public SqlQuery(TableMetadata table, DataSourceAccess transaction, string? alias = null) : base(table, transaction, alias)
     {
     }
 
-    public SqlQuery(string tableName, Transaction transaction, string? alias = null) : base(tableName, transaction, alias)
+    public SqlQuery(string tableName, DataSourceAccess transaction, string? alias = null) : base(tableName, transaction, alias)
     {
     }
 
@@ -58,7 +58,7 @@ public class SqlQuery<T>
     protected int? limit;
     protected int? offset;
     public bool LastIdQuery { get; protected set; }
-    public Transaction Transaction { get; }
+    public DataSourceAccess DataSource { get; }
 
     public TableMetadata Table { get; }
     public string? Alias { get; }
@@ -66,38 +66,38 @@ public class SqlQuery<T>
         ? $"{EscapeCharacter}{Table.DbName}{EscapeCharacter}"
         : $"{EscapeCharacter}{Table.DbName}{EscapeCharacter} {Alias}";
 
-    internal string EscapeCharacter => Transaction.Provider.Constants.EscapeCharacter;
+    internal string EscapeCharacter => DataSource.Provider.Constants.EscapeCharacter;
 
-    public SqlQuery(Transaction transaction, string? alias = null)
+    public SqlQuery(DataSourceAccess dataSource, string? alias = null)
     {
-        CheckTransaction(transaction);
+        CheckTransaction(dataSource);
 
-        this.Transaction = transaction;
-        this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
+        this.DataSource = dataSource;
+        this.Table = dataSource.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
         this.Alias = alias;
     }
 
-    public SqlQuery(TableMetadata table, Transaction transaction, string? alias = null)
+    public SqlQuery(TableMetadata table, DataSourceAccess transaction, string? alias = null)
     {
         CheckTransaction(transaction);
 
-        this.Transaction = transaction;
+        this.DataSource = transaction;
         this.Table = table;
         this.Alias = alias;
     }
 
-    public SqlQuery(string tableName, Transaction transaction, string? alias = null)
+    public SqlQuery(string tableName, DataSourceAccess transaction, string? alias = null)
     {
         CheckTransaction(transaction);
 
-        this.Transaction = transaction;
+        this.DataSource = transaction;
         this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
         this.Alias = alias;
     }
 
-    private void CheckTransaction(Transaction transaction)
+    private void CheckTransaction(DataSourceAccess dataSource)
     {
-        if (/*transaction.Type != TransactionType.ReadOnly && */(transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
+        if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
             throw new Exception("Can't open a new connection on a committed or rolled back transaction");
     }
 
@@ -375,7 +375,7 @@ public class SqlQuery<T>
 
     internal Sql GetLimit(Sql sql)
     {
-        return Transaction.Provider.GetLimitOffset(sql, limit, offset);
+        return DataSource.Provider.GetLimitOffset(sql, limit, offset);
     }
 
     internal Sql GetSet(Sql sql, string paramPrefix)
@@ -387,8 +387,8 @@ public class SqlQuery<T>
         int i = 0;
         foreach (var with in SetList)
         {
-            Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-            Transaction.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, [paramPrefix + "v" + i]);
+            DataSource.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+            DataSource.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, [paramPrefix + "v" + i]);
 
             if (i + 1 < length)
                 sql.AddText(",");

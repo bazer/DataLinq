@@ -1,54 +1,40 @@
-﻿using System;
-using System.Data;
-using DataLinq.Mutation;
+﻿using System.Data;
 using DataLinq.Logging;
 using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-public class MySqlDbAccess : DatabaseTransaction
+public class MySqlDbAccess : DatabaseAccess
 {
     private readonly string databaseName;
     private readonly MySqlDataSource dataSource;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public MySqlDbAccess(MySqlDataSource dataSource, string connectionString, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, type)
+    public MySqlDbAccess(MySqlDataSource dataSource, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base()
     {
-        if (type != TransactionType.ReadOnly)
-            throw new ArgumentException("Only 'TransactionType.ReadOnly' is allowed");
+        //if (type != TransactionType.ReadOnly)
+        //    throw new ArgumentException("Only 'TransactionType.ReadOnly' is allowed");
 
         this.dataSource = dataSource;
         this.databaseName = databaseName;
         this.loggingConfiguration = loggingConfiguration;
     }
 
-    public override void Commit()
-    {
-
-    }
-
-    public override void Dispose()
-    {
-
-    }
-
     public override int ExecuteNonQuery(IDbCommand command)
     {
-        using (var connection = dataSource.OpenConnection())
-        {
-            connection.Open();
-            command.Connection = connection;
-            
-            //if (databaseName != null)
-            //    command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
+        using var connection = dataSource.OpenConnection();
+        //connection.Open();
+        command.Connection = connection;
 
-            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        //if (databaseName != null)
+        //    command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
 
-            int result = command.ExecuteNonQuery();
-            connection.Close();
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-            return result;
-        }
+        int result = command.ExecuteNonQuery();
+        //connection.Close();
+
+        return result;
     }
 
     public override int ExecuteNonQuery(string query) =>
@@ -65,28 +51,26 @@ public class MySqlDbAccess : DatabaseTransaction
 
     public override object ExecuteScalar(IDbCommand command)
     {
-        using (var connection = dataSource.OpenConnection())
-        {
-            connection.Open();
-            command.Connection = connection;
+        using var connection = dataSource.OpenConnection();
+        //connection.Open();
+        command.Connection = connection;
 
-            //if (databaseName != null)
-            //    command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
+        //if (databaseName != null)
+        //    command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
 
-            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-            object result = command.ExecuteScalar();
-            connection.Close();
+        object result = command.ExecuteScalar();
+        //connection.Close();
 
-            return result;
-        }
+        return result;
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
-        var connection = dataSource.CreateConnection();
+        var connection = dataSource.OpenConnection();
         command.Connection = connection;
-        connection.Open();
+        //connection.Open();
 
         //if (databaseName != null)
         //    command.CommandText = $"USE `{databaseName}`;{command.CommandText}";
@@ -98,9 +82,4 @@ public class MySqlDbAccess : DatabaseTransaction
 
     public override IDataLinqDataReader ExecuteReader(string query) =>
         ExecuteReader(new MySqlCommand(query));
-
-    public override void Rollback()
-    {
-
-    }
 }

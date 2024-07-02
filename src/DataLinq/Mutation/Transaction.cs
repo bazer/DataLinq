@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 using DataLinq.Query;
 
 namespace DataLinq.Mutation;
@@ -78,7 +80,7 @@ public class TransactionStatusChangeEventArgs : EventArgs
 /// <summary>
 /// Represents a database transaction.
 /// </summary>
-public class Transaction : IDisposable, IEquatable<Transaction>
+public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction>
 {
     private static uint transactionCount = 0;
 
@@ -86,16 +88,6 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     /// Gets the ID of the transaction.
     /// </summary>
     public uint TransactionID { get; }
-
-    /// <summary>
-    /// Gets the database provider.
-    /// </summary>
-    public IDatabaseProvider Provider { get; }
-
-    /// <summary>
-    /// Gets or sets the database transaction.
-    /// </summary>
-    public DatabaseTransaction DatabaseTransaction { get; set; }
 
     /// <summary>
     /// Gets the list of state changes.
@@ -110,7 +102,9 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     /// <summary>
     /// Gets the status of the database transaction.
     /// </summary>
-    public DatabaseTransactionStatus Status => DatabaseTransaction.Status;
+    public DatabaseTransactionStatus Status => DatabaseAccess.Status;
+
+    public override DatabaseTransaction DatabaseAccess { get; }
 
     /// <summary>
     /// Occurs when the status of the transaction changes.
@@ -122,11 +116,11 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     /// </summary>
     /// <param name="databaseProvider">The database provider.</param>
     /// <param name="type">The type of the transaction.</param>
-    public Transaction(IDatabaseProvider databaseProvider, TransactionType type)
+    public Transaction(IDatabaseProvider databaseProvider, TransactionType type) : base(databaseProvider)
     {
-        Provider = databaseProvider;
-        DatabaseTransaction = databaseProvider.GetNewDatabaseTransaction(type);
-        DatabaseTransaction.OnStatusChanged += (_, args) => OnStatusChanged?.Invoke(this, new TransactionStatusChangeEventArgs(this, args.Status));
+        //Provider = databaseProvider;
+        DatabaseAccess = databaseProvider.GetNewDatabaseTransaction(type);
+        DatabaseAccess.OnStatusChanged += (_, args) => OnStatusChanged?.Invoke(this, new TransactionStatusChangeEventArgs(this, args.Status));
         Type = type;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
@@ -138,11 +132,11 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     /// <param name="databaseProvider">The database provider.</param>
     /// <param name="dbTransaction">The database transaction.</param>
     /// <param name="type">The type of the transaction.</param>
-    public Transaction(IDatabaseProvider databaseProvider, IDbTransaction dbTransaction, TransactionType type)
+    public Transaction(IDatabaseProvider databaseProvider, IDbTransaction dbTransaction, TransactionType type) : base(databaseProvider)
     {
-        Provider = databaseProvider;
-        DatabaseTransaction = databaseProvider.AttachDatabaseTransaction(dbTransaction, type);
-        DatabaseTransaction.OnStatusChanged += (_, args) => OnStatusChanged?.Invoke(this, new TransactionStatusChangeEventArgs(this, args.Status));
+        //Provider = databaseProvider;
+        DatabaseAccess = databaseProvider.AttachDatabaseTransaction(dbTransaction, type);
+        DatabaseAccess.OnStatusChanged += (_, args) => OnStatusChanged?.Invoke(this, new TransactionStatusChangeEventArgs(this, args.Status));
         Type = type;
 
         TransactionID = Interlocked.Increment(ref transactionCount);
@@ -273,11 +267,11 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="query">The query to execute.</param>
     /// <returns>The models returned by the query.</returns>
-    public IEnumerable<T> GetFromQuery<T>(string query) where T : IModel
+    public override IEnumerable<T> GetFromQuery<T>(string query)
     {
         var table = Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
 
-        return DatabaseTransaction
+        return DatabaseAccess
             .ReadReader(query)
             .Select(x => new RowData(x, table, table.Columns))
             .Select(x => InstanceFactory.NewImmutableRow(x, Provider, this))
@@ -290,11 +284,11 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="dbCommand">The command to execute.</param>
     /// <returns>The models returned by the command.</returns>
-    public IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand) where T : IModel
+    public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand)
     {
         var table = Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
 
-        return DatabaseTransaction
+        return DatabaseAccess
             .ReadReader(dbCommand)
             .Select(x => new RowData(x, table, table.Columns))
             .Select(x => InstanceFactory.NewImmutableRow(x, Provider, this))
@@ -325,7 +319,7 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     {
         CheckIfTransactionIsValid();
 
-        DatabaseTransaction.Commit();
+        DatabaseAccess.Commit();
 
         Provider.State.ApplyChanges(Changes);
         Provider.State.RemoveTransactionFromCache(this);
@@ -338,7 +332,7 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     {
         CheckIfTransactionIsValid();
 
-        DatabaseTransaction.Rollback();
+        DatabaseAccess.Rollback();
         Provider.State.RemoveTransactionFromCache(this);
     }
 
@@ -368,7 +362,7 @@ public class Transaction : IDisposable, IEquatable<Transaction>
     public void Dispose()
     {
         Provider.State.RemoveTransactionFromCache(this);
-        DatabaseTransaction.Dispose();
+        DatabaseAccess.Dispose();
     }
 
     /// <summary>

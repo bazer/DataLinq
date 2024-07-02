@@ -12,11 +12,15 @@ public interface IDatabaseProvider : IDisposable
     string DatabaseName { get; }
     string ConnectionString { get; }
     DatabaseMetadata Metadata { get; }
+    DatabaseAccess DatabaseAccess { get; }
     State State { get; }
     IDatabaseProviderConstants Constants { get; }
+    ReadOnlyAccess ReadOnlyAccess { get; }
+
     IDbCommand ToDbCommand(IQuery query);
 
     Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite);
+
 
     DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
 

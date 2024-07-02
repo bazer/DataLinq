@@ -9,15 +9,15 @@ namespace DataLinq.Instances;
 internal class DatabaseInterceptor : IInterceptor
 {
     public Dictionary<string, object> Data { get; }
-    public Transaction Transaction { get; }
+    public DataSourceAccess Transaction { get; }
 
-    public DatabaseInterceptor(Transaction transaction)
+    public DatabaseInterceptor(DataSourceAccess transaction)
     {
         Transaction = transaction;
         Data = ReadDatabase(transaction).ToDictionary(x => x.name, x => x.value);
     }
 
-    private IEnumerable<(string name, object value)> ReadDatabase(Transaction transaction)
+    private IEnumerable<(string name, object value)> ReadDatabase(DataSourceAccess transaction)
     {
         foreach (var table in transaction.Provider.Metadata.TableModels)
         {
