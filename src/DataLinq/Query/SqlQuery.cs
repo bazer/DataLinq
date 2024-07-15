@@ -408,7 +408,7 @@ public class SqlQuery<T>
 
     public SqlQuery<T> What(IEnumerable<Column> columns)
     {
-        WhatList ??= new List<Column>();
+        WhatList ??= [];
         WhatList.AddRange(columns);
 
         return this;

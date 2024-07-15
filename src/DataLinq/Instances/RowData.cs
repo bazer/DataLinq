@@ -1,67 +1,50 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
 
 public class RowData
 {
-    //public RowData(Dictionary<string, object> data, TableMetadata table)
-    //{
-    //    Data = data;
-    //    Table = table;
-    //}
-
-    public RowData(IDataLinqDataReader reader, TableMetadata table, List<Column> columns)
+    public RowData(IDataLinqDataReader reader, TableMetadata table, Span<Column> columns)
     {
         Table = table;
-        Columns = columns;
-        (Data, Size) = ReadReader(reader);
+        //Columns = columns;
+        (Data, Size) = ReadReader(reader, columns);
     }
 
-    protected Dictionary<Column, object> Data { get; }
+    protected Dictionary<Column, object?> Data { get; }
 
     public TableMetadata Table { get; }
-    public List<Column> Columns { get; }
-
-    public PrimaryKeys GetKeys() =>
-        new PrimaryKeys(this);
-
-    
+    //public List<Column> Columns { get; }
 
     public int Size { get; }
 
-    //public object this[string columnDbName] => GetValue(columnDbName);
-    public object this[Column column] => Data[column];
+    public object? this[Column column] => Data[column];
 
-    //public object GetValue(string columnDbName)
-    //{
-    //    return Data[columnDbName];
-    //}
-
-    public object GetValue(Column column)
+    public object? GetValue(Column column)
     {
         return Data[column];
     }
 
-    //public IEnumerable<object> GetValues(IEnumerable<string> columnDbName)
-    //{
-    //    foreach (var name in columnDbName)
-    //        yield return Data[name];
-    //}
+    public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues()
+    {
+        return Data.AsEnumerable();
+    }
 
-    public IEnumerable<object> GetValues(IEnumerable<Column> columns)
+    public IEnumerable<object?> GetValues(IEnumerable<Column> columns)
     {
         foreach (var column in columns)
             yield return Data[column];
     }
 
-    private (Dictionary<Column, object> data, int size) ReadReader(IDataLinqDataReader reader)
+    private static (Dictionary<Column, object?> data, int size) ReadReader(IDataLinqDataReader reader, Span<Column> columns)
     {
-        var data = new Dictionary<Column, object>();
+        var data = new Dictionary<Column, object?>();
         var size = 0;
 
-        foreach (var column in Columns)
+        foreach (var column in columns)
         {
             var value = reader.ReadColumn(column);
             size += GetSize(column, value);
@@ -72,22 +55,19 @@ public class RowData
         return (data, size);
     }
 
-    private int GetSize(Column column, object value)
+    private static int GetSize(Column column, object? value)
     {
-        //if (column.ForeignKey)
-        //    return 0;
-
         if (value == null)
             return 0;
 
         if (column.ValueProperty.CsSize.HasValue)
             return column.ValueProperty.CsSize.Value;
 
-        if (column.ValueProperty.CsType == typeof(string))
-            return (value as string).Length * sizeof(char) + sizeof(int);
+        if (column.ValueProperty.CsType == typeof(string) && value is string s)
+            return s.Length * sizeof(char) + sizeof(int);
 
-        if (column.ValueProperty.CsType == typeof(byte[]))
-            return (value as byte[]).Length;
+        if (column.ValueProperty.CsType == typeof(byte[]) && value is byte[] b)
+            return b.Length;
 
         throw new NotImplementedException($"Size for type '{column.ValueProperty.CsType}' not implemented");
     }

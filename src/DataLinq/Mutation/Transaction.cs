@@ -4,6 +4,7 @@ using System.Data;
 using System.Data.Common;
 using System.Linq;
 using System.Threading;
+using CommunityToolkit.HighPerformance;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -273,7 +274,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         return DatabaseAccess
             .ReadReader(query)
-            .Select(x => new RowData(x, table, table.Columns))
+            .Select(x => new RowData(x, table, table.Columns.AsSpan()))
             .Select(x => InstanceFactory.NewImmutableRow(x, Provider, this))
             .Cast<T>();
     }
@@ -290,7 +291,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         return DatabaseAccess
             .ReadReader(dbCommand)
-            .Select(x => new RowData(x, table, table.Columns))
+            .Select(x => new RowData(x, table, table.Columns.AsSpan()))
             .Select(x => InstanceFactory.NewImmutableRow(x, Provider, this))
             .Cast<T>();
     }

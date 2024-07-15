@@ -97,10 +97,10 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .Where(x => x != null)
             .FirstOrDefault();
 
-        if (!type.HasValue)
+        if (type == null)
             throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
 
-        return type.Value;
+        return type;
     }
 
     private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)

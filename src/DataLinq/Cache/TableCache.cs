@@ -438,7 +438,7 @@ public class TableCache
     private bool TryAddRow(RowData rowData, DataSourceAccess dataSource, out ImmutableInstanceBase row)
     {
         row = InstanceFactory.NewImmutableRow(rowData, dataSource.Provider, dataSource);
-        var keys = rowData.GetKeys();
+        var keys = new PrimaryKeys(rowData);
 
         return (dataSource is ReadOnlyAccess && (!Table.UseCache || RowCache.TryAddRow(keys, rowData, row)))
             || (dataSource is Transaction transaction && TransactionRows.TryGetValue(transaction, out var rowCache) && rowCache.TryAddRow(keys, rowData, row));

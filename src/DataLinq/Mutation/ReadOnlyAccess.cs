@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using CommunityToolkit.HighPerformance;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -37,7 +38,7 @@ public class ReadOnlyAccess : DataSourceAccess
         return Provider
             .DatabaseAccess
             .ReadReader(query)
-            .Select(x => new RowData(x, table, table.Columns))
+            .Select(x => new RowData(x, table, table.Columns.AsSpan()))
             .Select(x => InstanceFactory.NewImmutableRow(x, Provider, null))
             .Cast<T>();
     }
@@ -55,7 +56,7 @@ public class ReadOnlyAccess : DataSourceAccess
         return Provider
             .DatabaseAccess
             .ReadReader(dbCommand)
-            .Select(x => new RowData(x, table, table.Columns))
+            .Select(x => new RowData(x, table, table.Columns.AsSpan()))
             .Select(x => InstanceFactory.NewImmutableRow(x, Provider, null))
             .Cast<T>();
     }

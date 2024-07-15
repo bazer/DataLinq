@@ -84,19 +84,19 @@ public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
         dbAccess = new MySqlDbAccess(dataSource, DatabaseName, LoggingConfiguration);
     }
 
-    public override void CreateDatabase(string? databaseName = null)
-    {
-        if (databaseName == null && DatabaseName == null)
-            throw new ArgumentNullException("DatabaseName not defined");
+    //public override void CreateDatabase(string? databaseName = null)
+    //{
+    //    if (databaseName == null && DatabaseName == null)
+    //        throw new ArgumentNullException("DatabaseName not defined");
 
-        using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
+    //    using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
 
-        var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
-            $"USE `{databaseName ?? DatabaseName}`;\n" +
-            GetCreateSql();
+    //    var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
+    //        $"USE `{databaseName ?? DatabaseName}`;\n" +
+    //        GetCreateSql();
 
-        transaction.ExecuteNonQuery(query);
-    }
+    //    transaction.ExecuteNonQuery(query);
+    //}
 
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)

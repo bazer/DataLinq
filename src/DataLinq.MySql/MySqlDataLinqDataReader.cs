@@ -64,8 +64,8 @@ public class MySqlDataLinqDataReader : IDataLinqDataReader
             return null;
         else if (column.ValueProperty.CsType == typeof(Guid) || column.ValueProperty.CsType == typeof(Guid?))
         {
-            var dbType = SqlFromMetadataFactory.GetDbType(column);
-            if (value is byte[] bytes && dbType.Name == "binary" && dbType.Length == 16)
+            var dbType = column.DbTypes.FirstOrDefault(x => x.DatabaseType == DatabaseType.MySQL) ?? column.DbTypes.FirstOrDefault(); //SqlFromMetadataFactory.GetDbType(column);
+            if (value is byte[] bytes && dbType?.Name == "binary" && dbType?.Length == 16)
                 return new Guid(bytes);
         }
         else if (column.ValueProperty.CsType == typeof(DateOnly))

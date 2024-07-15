@@ -153,7 +153,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public abstract DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
     public abstract string GetExists(string? databaseName = null);
     public abstract bool FileOrServerExists();
-    public abstract void CreateDatabase(string? databaseName = null);
+    //public abstract void CreateDatabase(string? databaseName = null);
     public abstract IDataLinqDataWriter GetWriter();
 
     /// <summary>

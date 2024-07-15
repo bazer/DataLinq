@@ -5,7 +5,7 @@ using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
 
-public struct DatabaseColumnType
+public class DatabaseColumnType
 {
     public DatabaseType DatabaseType { get; set; }
     public string Name { get; set; }

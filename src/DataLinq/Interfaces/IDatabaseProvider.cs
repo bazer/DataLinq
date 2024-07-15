@@ -40,6 +40,5 @@ public interface IDatabaseProvider : IDisposable
 
     string GetExists(string databaseName);
 
-    void CreateDatabase(string databaseName);
     IDataLinqDataWriter GetWriter();
 }

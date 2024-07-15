@@ -24,9 +24,9 @@ internal class ImmutableRowInterceptor(RowData rowData, IDatabaseProvider databa
             if (info.Name.Span.SequenceEqual("GetValues".AsSpan()))
             {
                 if (info.Arguments?.Length == 1 && info.Arguments[0] is IEnumerable<Column> columns)
-                    invocation.ReturnValue = columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+                    invocation.ReturnValue = columns.Select(x => new KeyValuePair<Column, object?>(x, RowData.GetValue(x)));
                 else
-                    invocation.ReturnValue = RowData.Columns.Select(x => new KeyValuePair<Column, object>(x, RowData.GetValue(x)));
+                    invocation.ReturnValue = RowData.GetColumnAndValues();
             }
             else if (info.Name.Span.SequenceEqual("Mutate".AsSpan()))
             {

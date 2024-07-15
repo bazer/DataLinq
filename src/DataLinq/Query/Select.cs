@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using CommunityToolkit.HighPerformance;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -9,8 +11,6 @@ namespace DataLinq.Query;
 
 public class Select<T> : IQuery
 {
-    protected List<Column> columnsToSelect;
-
     protected readonly SqlQuery<T> query;
 
     public Select(SqlQuery<T> query)
@@ -40,7 +40,7 @@ public class Select<T> : IQuery
 
     public Select<T> What(IEnumerable<Column> columns)
     {
-        columnsToSelect = columns.ToList();
+        query.What(columns);
 
         return this;
     }
@@ -50,7 +50,7 @@ public class Select<T> : IQuery
         return query.DataSource
             .DatabaseAccess
             .ReadReader(query.DataSource.Provider.ToDbCommand(this))
-            .Select(x => new RowData(x, query.Table, query.Table.Columns));
+            .Select(x => new RowData(x, query.Table, query.Table.Columns.AsSpan()));
     }
 
     public IEnumerable<PrimaryKeys> ReadKeys()
@@ -66,7 +66,7 @@ public class Select<T> : IQuery
         return query.DataSource
             .DatabaseAccess
             .ReadReader(query.DataSource.Provider.ToDbCommand(this))
-            .Select(x => new RowData(x, query.Table, foreignKeyIndex.Columns))
+            .Select(x => new RowData(x, query.Table, foreignKeyIndex.Columns.AsSpan()))
             .Select(x => new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()));
     }
 
@@ -75,7 +75,7 @@ public class Select<T> : IQuery
         return query.DataSource
             .DatabaseAccess
             .ReadReader(query.DataSource.Provider.ToDbCommand(this))
-            .Select(x => new RowData(x, query.Table, query.Table.PrimaryKeyColumns.Concat(foreignKeyIndex.Columns).Distinct().ToList()))
+            .Select(x => new RowData(x, query.Table, query.Table.PrimaryKeyColumns.Concat(foreignKeyIndex.Columns).Distinct().ToArray()))
             .Select(x => (fk: new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()), pk: new PrimaryKeys(x)))
             .GroupBy(x => x.fk)
             .Select(x => (x.Key, x.Select(y => y.pk).ToArray()));

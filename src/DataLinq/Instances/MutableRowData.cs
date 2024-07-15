@@ -29,19 +29,18 @@ public class MutableRowData
         MutatedData[column] = value;
     }
 
-    public IEnumerable<KeyValuePair<Column, object>> GetValues()
+    public IEnumerable<KeyValuePair<Column, object?>> GetValues()
     {
-        foreach (var column in ImmutableRowData.Columns)
-            yield return new KeyValuePair<Column, object>(column, GetValue(column));
+        return ImmutableRowData.GetColumnAndValues();
     }
 
-    public IEnumerable<KeyValuePair<Column, object>> GetValues(IEnumerable<Column> columns)
+    public IEnumerable<KeyValuePair<Column, object?>> GetValues(IEnumerable<Column> columns)
     {
         foreach (var column in columns)
-            yield return new KeyValuePair<Column, object>(column, GetValue(column));
+            yield return new KeyValuePair<Column, object?>(column, GetValue(column));
     }
 
-    public IEnumerable<KeyValuePair<Column, object>> GetChanges()
+    public IEnumerable<KeyValuePair<Column, object?>> GetChanges()
     {
         foreach (var change in MutatedData)
             yield return change;
