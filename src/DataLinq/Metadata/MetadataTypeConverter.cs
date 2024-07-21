@@ -22,7 +22,7 @@ public static class MetadataTypeConverter
             "bool" => sizeof(bool),
             "decimal" => sizeof(decimal),
             "DateTime" => 8,
-            "DateOnly" => sizeof(int),
+            "DateOnly" => sizeof(long),
             "Guid" => 16,
             "String" => null,
             "byte[]" => null,

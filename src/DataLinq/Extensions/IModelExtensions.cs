@@ -10,26 +10,26 @@ namespace DataLinq;
 
 public static class IModelExtensions
 {
-    public static IEnumerable<KeyValuePair<Column, object>> GetValues(this IModel model)
+    public static IEnumerable<KeyValuePair<Column, object?>> GetValues(this IModel model)
     {
         return model.Metadata().Table.Columns
-            .Select(x => new KeyValuePair<Column, object>(x, x.ValueProperty.GetValue(model)));
+            .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
     }
 
-    public static IEnumerable<KeyValuePair<Column, object>> GetValues(this IModel model, IEnumerable<Column> columns)
+    public static IEnumerable<KeyValuePair<Column, object?>> GetValues(this IModel model, IEnumerable<Column> columns)
     {
         return columns
-            .Select(x => new KeyValuePair<Column, object>(x, x.ValueProperty.GetValue(model)));
+            .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
     }
 
-    public static PrimaryKeys PrimaryKeys(this IModel model)
+    public static IKey PrimaryKeys(this IModel model)
     {
-        return new PrimaryKeys(model.Metadata().Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+        return KeyFactory.CreateKeyFromValues(model.Metadata().Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
     }
 
-    internal static PrimaryKeys PrimaryKeys(this IModel model, ModelMetadata metadata)
+    internal static IKey PrimaryKeys(this IModel model, ModelMetadata metadata)
     {
-        return new PrimaryKeys(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+        return KeyFactory.CreateKeyFromValues(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
     }
 
     public static bool HasPrimaryKeysSet(this IModel model)

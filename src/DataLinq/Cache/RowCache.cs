@@ -10,10 +10,10 @@ namespace DataLinq.Cache;
 public class RowCache
 {
     private readonly object keyTicksQueueLock = new();
-    private (PrimaryKeys keys, long ticks, int size)? oldestKeyTick;
-    private readonly Queue<(PrimaryKeys keys, long ticks, int size)> keysTicks = new();
+    private (IKey keys, long ticks, int size)? oldestKeyTick;
+    private readonly Queue<(IKey keys, long ticks, int size)> keysTicks = new();
 
-    protected ConcurrentDictionary<PrimaryKeys, ImmutableInstanceBase> rows = new();
+    protected ConcurrentDictionary<IKey, ImmutableInstanceBase> rows = new();
 
     public IEnumerable<ImmutableInstanceBase> Rows => rows.Values.AsEnumerable();
     public int Count => rows.Count;
@@ -168,9 +168,9 @@ public class RowCache
         return count;
     }
 
-    public bool TryGetValue(PrimaryKeys primaryKeys, out ImmutableInstanceBase? row) => rows.TryGetValue(primaryKeys, out row);
+    public bool TryGetValue(IKey primaryKeys, out ImmutableInstanceBase? row) => rows.TryGetValue(primaryKeys, out row);
 
-    public bool TryRemoveRow(PrimaryKeys primaryKeys, out int numRowsRemoved)
+    public bool TryRemoveRow(IKey primaryKeys, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
@@ -188,7 +188,7 @@ public class RowCache
         return true;
     }
 
-    public bool TryAddRow(PrimaryKeys keys, RowData data, ImmutableInstanceBase instance)
+    public bool TryAddRow(IKey keys, RowData data, ImmutableInstanceBase instance)
     {
         var ticks = DateTime.Now.Ticks;
 

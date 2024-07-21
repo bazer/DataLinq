@@ -104,7 +104,7 @@ public class MetadataTransformer
             {
                 if (!destProperty.Column.DbTypes.Any(x => x.DatabaseType == srcDbType.DatabaseType))
                 {
-                    destProperty.Column.DbTypes.Add(new DatabaseColumnType
+                    destProperty.Column.AddDbType(new DatabaseColumnType
                     {
                         DatabaseType = srcDbType.DatabaseType,
                         Name = srcDbType.Name,

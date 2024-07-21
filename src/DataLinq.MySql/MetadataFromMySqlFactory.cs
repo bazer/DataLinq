@@ -170,7 +170,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             .COLUMNS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == table.DbName)
             .AsEnumerable()
             .Select(x => ParseColumn(table, x))
-            .ToList();
+            .ToArray();
 
         return new TableModelMetadata
         {
@@ -210,7 +210,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
         column.SetPrimaryKey(dbColumns.COLUMN_KEY == "PRI");
 
-        column.DbTypes.Add(dbType);
+        column.AddDbType(dbType);
 
         var csType = ParseCsType(dbType.Name);
         var valueProp = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);

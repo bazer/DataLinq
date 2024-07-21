@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Data;
 using System.Linq;
 using DataLinq.Attributes;
@@ -14,7 +15,7 @@ public enum TableType
 public class TableMetadata
 {
     //private List<Column> primaryKeyColumns;
-    public List<Column> Columns { get; set; }
+    public Column[] Columns { get; set; }
     public DatabaseMetadata Database { get; set; }
     public string DbName { get; set; }
     public ModelMetadata Model { get; set; }

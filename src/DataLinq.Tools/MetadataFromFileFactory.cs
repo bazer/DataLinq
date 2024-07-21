@@ -445,7 +445,7 @@ public class MetadataFromFileFactory
 
         table.Columns = model.ValueProperties.Values
             .Select(x => table.ParseColumn(x))
-            .ToList();
+            .ToArray();
 
         model.Table = table;
 

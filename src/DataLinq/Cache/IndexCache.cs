@@ -12,13 +12,13 @@ public class IndexCache
     private (ForeignKey keys, long ticks)? oldestTick;
     private readonly Queue<(ForeignKey keys, long ticks)> ticks = new();
 
-    private ConcurrentDictionary<PrimaryKeys, List<ForeignKey>> primaryKeysToForeignKeys = new();
+    private ConcurrentDictionary<IKey, List<ForeignKey>> primaryKeysToForeignKeys = new();
 
-    protected ConcurrentDictionary<ForeignKey, PrimaryKeys[]> foreignKeys = new();
+    protected ConcurrentDictionary<ForeignKey, IKey[]> foreignKeys = new();
 
     public int Count => foreignKeys.Count;
 
-    public bool TryAdd(ForeignKey foreignKey, PrimaryKeys[] primaryKeys)
+    public bool TryAdd(ForeignKey foreignKey, IKey[] primaryKeys)
     {
         var ticksNow = DateTime.Now.Ticks;
 
@@ -76,7 +76,7 @@ public class IndexCache
         return true;
     }
 
-    public IEnumerable<ForeignKey> GetForeignKeysByPrimaryKey(PrimaryKeys primaryKey)
+    public IEnumerable<ForeignKey> GetForeignKeysByPrimaryKey(IKey primaryKey)
     {
         if (primaryKeysToForeignKeys.TryGetValue(primaryKey, out var foreignKeys))
             return foreignKeys;
@@ -84,7 +84,7 @@ public class IndexCache
         return Enumerable.Empty<ForeignKey>();
     }
 
-    public bool TryRemove(PrimaryKeys primaryKey, out int numRowsRemoved)
+    public bool TryRemove(IKey primaryKey, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
@@ -131,9 +131,9 @@ public class IndexCache
 
     public bool ContainsKey(ForeignKey foreignKey) => foreignKeys.ContainsKey(foreignKey);
 
-    public bool TryGetValue(ForeignKey foreignKey, out PrimaryKeys[]? keys) => foreignKeys.TryGetValue(foreignKey, out keys);
+    public bool TryGetValue(ForeignKey foreignKey, out IKey[]? keys) => foreignKeys.TryGetValue(foreignKey, out keys);
 
-    public IEnumerable<PrimaryKeys[]> Values => foreignKeys.Values;
+    public IEnumerable<IKey[]> Values => foreignKeys.Values;
 
     public void Clear()
     {

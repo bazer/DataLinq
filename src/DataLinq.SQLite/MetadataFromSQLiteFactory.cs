@@ -138,7 +138,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         table.Columns = dbAccess
             .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
             .Select(x => ParseColumn(table, x))
-            .ToList();
+            .ToArray();
 
         return new TableModelMetadata
         {
@@ -200,7 +200,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         column.SetPrimaryKey(reader.GetBoolean(5));
 
-        column.DbTypes.Add(dbType);
+        column.AddDbType(dbType);
 
         var csType = ParseCsType(dbType.Name);
 

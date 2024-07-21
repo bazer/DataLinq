@@ -33,7 +33,7 @@ public class StateChange
     /// <summary>
     /// Gets the primary keys for the model.
     /// </summary>
-    public PrimaryKeys PrimaryKeys { get; }
+    public IKey PrimaryKeys { get; }
 
     /// <summary>
     /// Determines if the model has an auto-incrementing primary key.
@@ -62,7 +62,7 @@ public class StateChange
         Table = table;
         Type = type;
 
-        PrimaryKeys = new PrimaryKeys(Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)));
+        PrimaryKeys = KeyFactory.CreateKeyFromValues(Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)));
     }
 
     public IEnumerable<KeyValuePair<Column, object>> GetValues() =>

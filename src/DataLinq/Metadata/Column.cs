@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
@@ -22,7 +23,7 @@ public class DatabaseColumnType
 public class Column
 {
     public string DbName { get; set; }
-    public List<DatabaseColumnType> DbTypes { get; set; } = new List<DatabaseColumnType>();
+    public DatabaseColumnType[] DbTypes { get; private set; } = [];
     public int Index { get; set; }
     public bool ForeignKey { get; set; }
     public bool PrimaryKey { get; private set; }
@@ -42,6 +43,20 @@ public class Column
             Table.AddPrimaryKeyColumn(this);
         else
             Table.RemovePrimaryKeyColumn(this);
+    }
+
+    public void AddDbType(DatabaseColumnType columnType)
+    {
+        DbTypes = DbTypes.AsEnumerable().Append(columnType).ToArray();
+    }
+
+    private ConcurrentDictionary<DatabaseType, DatabaseColumnType?> cachedDbTypes = new();
+    public DatabaseColumnType? GetDbTypeFor(DatabaseType databaseType)
+    {
+        if (cachedDbTypes.TryGetValue(databaseType, out DatabaseColumnType? result))
+            return result;
+        else
+            return cachedDbTypes.GetOrAdd(databaseType, type => DbTypes.FirstOrDefault(x => x.DatabaseType == type) ?? DbTypes.FirstOrDefault());
     }
 
     public override string ToString()

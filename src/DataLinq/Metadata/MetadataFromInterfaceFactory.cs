@@ -203,7 +203,7 @@ public static class MetadataFromInterfaceFactory
 
         table.Columns = model.ValueProperties.Values
             .Select(x => table.ParseColumn(x))
-            .ToList();
+            .ToArray();
 
         model.Table = table;
 
@@ -240,7 +240,7 @@ public static class MetadataFromInterfaceFactory
 
             if (attribute is TypeAttribute t)
             {
-                column.DbTypes.Add(new DatabaseColumnType
+                column.AddDbType(new DatabaseColumnType
                 {
                     DatabaseType = t.DatabaseType,
                     Name = t.Name,

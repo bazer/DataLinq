@@ -9,14 +9,14 @@ namespace DataLinq.Instances;
 /// <summary>
 /// Represents a foreign key in a database table.
 /// </summary>
-public class ForeignKey
+public class ForeignKey: IKey
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ForeignKey"/> class.
     /// </summary>
     /// <param name="index">The column that the foreign key references.</param>
     /// <param name="data">The data that the foreign key references.</param>
-    public ForeignKey(ColumnIndex index, object[] data)
+    public ForeignKey(ColumnIndex index, object?[] data)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -33,10 +33,13 @@ public class ForeignKey
     /// <summary>
     /// Gets the data that the foreign key references.
     /// </summary>
-    public object[] Data { get; }
+    public object?[] Data { get; }
+
+    public object?[] Values => Data;
+
     private readonly int cachedHashCode;
 
-    public IEnumerable<(Column column, object data)> GetColumns()
+    public IEnumerable<(Column column, object? data)> GetColumns()
     {
         for (int i = 0; i < Index.Columns.Count; i++)
             yield return (Index.Columns[i], Data[i]);

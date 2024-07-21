@@ -7,17 +7,15 @@ namespace DataLinq.Instances;
 
 public class RowData
 {
-    public RowData(IDataLinqDataReader reader, TableMetadata table, Span<Column> columns)
+    public RowData(IDataLinqDataReader reader, TableMetadata table, ReadOnlySpan<Column> columns)
     {
         Table = table;
-        //Columns = columns;
         (Data, Size) = ReadReader(reader, columns);
     }
 
     protected Dictionary<Column, object?> Data { get; }
 
     public TableMetadata Table { get; }
-    //public List<Column> Columns { get; }
 
     public int Size { get; }
 
@@ -39,14 +37,14 @@ public class RowData
             yield return Data[column];
     }
 
-    private static (Dictionary<Column, object?> data, int size) ReadReader(IDataLinqDataReader reader, Span<Column> columns)
+    private static (Dictionary<Column, object?> data, int size) ReadReader(IDataLinqDataReader reader, ReadOnlySpan<Column> columns)
     {
         var data = new Dictionary<Column, object?>();
         var size = 0;
 
         foreach (var column in columns)
         {
-            var value = reader.ReadColumn(column);
+            var value = reader.GetValue<object>(column);
             size += GetSize(column, value);
 
             data.Add(column, value);

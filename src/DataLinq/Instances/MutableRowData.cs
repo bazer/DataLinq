@@ -13,8 +13,8 @@ public class MutableRowData
         this.ImmutableRowData = immutableRowData;
     }
 
-    public PrimaryKeys GetKey() =>
-        new PrimaryKeys(this.ImmutableRowData);
+    public IKey GetKey() =>
+        KeyFactory.GetKey(this.ImmutableRowData, this.ImmutableRowData.Table.PrimaryKeyColumns);
 
     public object? GetValue(Column column)
     {

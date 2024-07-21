@@ -23,7 +23,7 @@ public abstract class Property
 
     private Func<object, object> getAccessor = null;
 
-    public object GetValue(object m)
+    public object? GetValue(object m)
     {
         if (getAccessor == null)
             getAccessor = BuildGetAccessor();

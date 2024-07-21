@@ -18,7 +18,7 @@ public abstract class DatabaseAccess
     {
         using var reader = ExecuteReader(command);
 
-        while (reader.Read())
+        while (reader.ReadNextRow())
             yield return reader;
     }
 
@@ -26,7 +26,7 @@ public abstract class DatabaseAccess
     {
         using var reader = ExecuteReader(query);
 
-        while (reader.Read())
+        while (reader.ReadNextRow())
             yield return reader;
     }
 }
