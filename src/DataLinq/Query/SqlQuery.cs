@@ -62,9 +62,6 @@ public class SqlQuery<T>
 
     public TableMetadata Table { get; }
     public string? Alias { get; }
-    internal string DbName => string.IsNullOrEmpty(Alias)
-        ? $"{EscapeCharacter}{Table.DbName}{EscapeCharacter}"
-        : $"{EscapeCharacter}{Table.DbName}{EscapeCharacter} {Alias}";
 
     internal string EscapeCharacter => DataSource.Provider.Constants.EscapeCharacter;
 
@@ -211,7 +208,7 @@ public class SqlQuery<T>
         return WhereGroup;
     }
 
-    internal Sql GetWhere(Sql sql, string paramPrefix)
+    internal Sql GetWhere(Sql sql, string? paramPrefix)
     {
         if (WhereGroup == null)
             return sql;
@@ -256,7 +253,14 @@ public class SqlQuery<T>
         return Table.Columns.SingleOrDefault(x => x.ValueProperty.CsName == expression.Member.Name);
     }
 
-    internal Sql GetJoins(Sql sql, string paramPrefix)
+    internal Sql AddTableName(Sql sql, string tableName, string? alias)
+    {
+        DataSource.Provider.GetTableName(sql, tableName, alias);
+
+        return sql;
+    }
+
+    internal Sql GetJoins(Sql sql, string? paramPrefix)
     {
         foreach (var join in JoinList)
             join.GetSql(sql, paramPrefix);
@@ -378,7 +382,7 @@ public class SqlQuery<T>
         return DataSource.Provider.GetLimitOffset(sql, limit, offset);
     }
 
-    internal Sql GetSet(Sql sql, string paramPrefix)
+    internal Sql GetSet(Sql sql, string? paramPrefix)
     {
         int length = SetList.Count;
         if (length == 0)

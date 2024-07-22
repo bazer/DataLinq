@@ -13,7 +13,7 @@ public class Insert<T> : IQuery
         this.query = query;
     }
 
-    protected Sql GetSet(Sql sql, string paramPrefix)
+    protected Sql GetSet(Sql sql, string? paramPrefix)
     {
         int length = query.SetList.Count;
         if (length == 0)
@@ -38,11 +38,14 @@ public class Insert<T> : IQuery
         return sql;
     }
 
-    public Sql ToSql(string paramPrefix = null)
+    public Sql ToSql(string? paramPrefix = null)
     {
-        var sql = GetSet(
-            new Sql().AddFormat("INSERT INTO {0} ", query.DbName),
-            paramPrefix);
+        var sql = new Sql();
+
+        sql.AddFormat("INSERT INTO ");
+        query.AddTableName(sql, query.Table.DbName, query.Alias);
+        sql.AddText(" ");
+        GetSet(sql, paramPrefix);
 
         if (query.LastIdQuery)
             sql.AddFormat(";\n{0}", query.DataSource.Provider.GetLastIdQuery());

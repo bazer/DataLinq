@@ -44,9 +44,9 @@ public class SQLiteProvider : IDatabaseProviderRegister
 public class SQLiteProviderConstants : IDatabaseProviderConstants
 {
     public string ParameterSign { get; } = "@";
-
     public string LastInsertCommand { get; } = "last_insert_rowid()";
     public string EscapeCharacter { get; } = "\"";
+    public bool SupportsMultipleDatabases { get; } = false;
 }
 
 public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
@@ -66,17 +66,18 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     public SQLiteProvider(string connectionString) : base(connectionString, DatabaseType.SQLite, DataLinqLoggingConfiguration.NullConfiguration)
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
+        DatabaseName = Path.GetFileNameWithoutExtension(connectionStringBuilder.DataSource);
         dbAccess = new SQLiteDbAccess(connectionString);
         SetJournalMode(SQLiteJournalMode.WAL);
 
     }
 
-    public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.SQLite, DataLinqLoggingConfiguration.NullConfiguration, databaseName)
-    {
-        connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
-        dbAccess = new SQLiteDbAccess(connectionString);
-        SetJournalMode(SQLiteJournalMode.WAL);
-    }
+    //public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.SQLite, DataLinqLoggingConfiguration.NullConfiguration, databaseName)
+    //{
+    //    connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
+    //    dbAccess = new SQLiteDbAccess(connectionString);
+    //    SetJournalMode(SQLiteJournalMode.WAL);
+    //}
 
     //public override void CreateDatabase(string databaseName = null)
     //{
@@ -188,6 +189,15 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
         return sql;
     }
 
+    public override Sql GetTableName(Sql sql, string tableName, string? alias = null)
+    {
+        sql.AddText(string.IsNullOrEmpty(alias)
+        ? $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter}"
+        : $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter} {alias}");
+
+        return sql;
+    }
+
     public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
 
     public override IDbCommand ToDbCommand(IQuery query)
@@ -199,12 +209,13 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
         return command;
     }
 
-    public override string GetExists(string databaseName = null)
+    public override bool DatabaseExists(string? databaseName = null)
     {
-        if (databaseName == null && DatabaseName == null)
-            throw new ArgumentNullException("DatabaseName not defined");
+        return FileOrServerExists();
+        //if (databaseName == null && DatabaseName == null)
+        //    throw new ArgumentNullException("DatabaseName not defined");
 
-        return $"SELECT name FROM pragma_database_list WHERE name = '{databaseName ?? DatabaseName}'";
+        //return $"SELECT name FROM pragma_database_list WHERE name = '{databaseName ?? DatabaseName}'";
     }
 
     public override bool FileOrServerExists()

@@ -38,7 +38,9 @@ public interface IDatabaseProvider : IDisposable
 
     Sql GetLimitOffset(Sql sql, int? limit, int? offset);
 
-    string GetExists(string databaseName);
+    bool DatabaseExists(string? databaseName = null);
+    bool FileOrServerExists();
 
     IDataLinqDataWriter GetWriter();
+    Sql GetTableName(Sql sql, string tableName, string? alias = null);
 }

@@ -17,11 +17,15 @@ public class Delete<T> : IQuery
         throw new System.NotImplementedException();
     }
 
-    public Sql ToSql(string paramPrefix = null)
+    public Sql ToSql(string? paramPrefix = null)
     {
-        return query.GetWhere(
-            new Sql().AddFormat("DELETE FROM {0} \n", query.DbName),
-            paramPrefix);
+        var sql = new Sql();
+
+        sql.AddText("DELETE FROM ");
+        query.AddTableName(sql, query.Table.DbName, query.Alias);
+        query.GetWhere(sql, paramPrefix);
+
+        return sql;
     }
 
     public QueryResult Execute()

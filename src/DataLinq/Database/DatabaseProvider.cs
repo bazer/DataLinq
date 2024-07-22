@@ -148,10 +148,11 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public abstract Sql GetParameterValue(Sql sql, string key);
     public abstract Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] key);
     public abstract Sql GetLimitOffset(Sql sql, int? limit, int? offset);
+    public abstract Sql GetTableName(Sql sql, string tableName, string? alias = null);
     public abstract Sql GetCreateSql();
     public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
     public abstract DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
-    public abstract string GetExists(string? databaseName = null);
+    public abstract bool DatabaseExists(string? databaseName = null);
     public abstract bool FileOrServerExists();
     //public abstract void CreateDatabase(string? databaseName = null);
     public abstract IDataLinqDataWriter GetWriter();

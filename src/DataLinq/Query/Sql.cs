@@ -43,6 +43,13 @@ public class Sql
         return this;
     }
 
+    public Sql AddLineBreak()
+    {
+        builder.Append('\n');
+
+        return this;
+    }
+
     public Sql AddFormat(string format, params string[] values)
     {
         builder.AppendFormat(format, values);

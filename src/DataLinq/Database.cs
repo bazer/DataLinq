@@ -52,10 +52,7 @@ public abstract class Database<T> : IDisposable
     /// <returns><c>true</c> if the database exists; otherwise, <c>false</c>.</returns>
     public bool Exists(string? databaseName = null)
     {
-        return Provider
-            .DatabaseAccess
-            .ReadReader(Provider.GetExists(databaseName))
-            .Any();
+        return Provider.DatabaseExists(databaseName);
     }
 
     /// <summary>

@@ -72,9 +72,9 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         if (file != "memory")
         {
             if (File.Exists(file))
-                return DataLinqOptionFailure.Fail("Database file already exists");
+                return DataLinqOptionFailure.Fail($"Failed to create new SQLite database file '{file}', it already exists.");
 
-            File.WriteAllBytes(file, new byte[] { });
+            File.WriteAllBytes(file, []);
         }
 
         using var connection = new SqliteConnection(connectionString);

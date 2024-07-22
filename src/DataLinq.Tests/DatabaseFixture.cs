@@ -10,6 +10,7 @@ using DataLinq.MySql.Models;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models;
 using Microsoft.Extensions.Logging;
+using Xunit;
 
 namespace DataLinq.Tests;
 
@@ -43,8 +44,11 @@ public class DatabaseFixture : IDisposable
             {
                 if (!dbEmployees.FileOrServerExists() || !dbEmployees.Exists())
                 {
-                    PluginHook.CreateDatabaseFromMetadata(connection.Type,
+                    var result = PluginHook.CreateDatabaseFromMetadata(connection.Type,
                         dbEmployees.Provider.Metadata, connection.DataSourceName, connection.ConnectionString.Original, true);
+
+                    if (result.HasFailed)
+                        Assert.Fail(result.Failure.ToString());
                 }
 
                 if (dbEmployees.Query().Employees.Count() == 0)

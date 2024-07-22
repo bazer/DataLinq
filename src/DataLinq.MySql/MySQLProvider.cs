@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using DataLinq.Extensions.Helpers;
@@ -35,6 +36,7 @@ public class MySQLProviderConstants : IDatabaseProviderConstants
     public string ParameterSign { get; } = "?";
     public string LastInsertCommand { get; } = "last_insert_id()";
     public string EscapeCharacter { get; } = "`";
+    public bool SupportsMultipleDatabases { get; } = true;
 }
 
 public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
@@ -110,12 +112,14 @@ public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
         return new MySqlDatabaseTransaction(dbTransaction, type, DatabaseName, LoggingConfiguration);
     }
 
-    public override string GetExists(string? databaseName = null)
+    public override bool DatabaseExists(string? databaseName = null)
     {
         if (databaseName == null && DatabaseName == null)
             throw new ArgumentNullException("DatabaseName not defined");
 
-        return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
+        return DatabaseAccess
+            .ReadReader($"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'")
+            .Any();
     }
 
     public override bool FileOrServerExists()
@@ -194,15 +198,22 @@ public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
         return sql;
     }
 
+    public override Sql GetTableName(Sql sql, string tableName, string? alias = null)
+    {
+        sql.AddText($"{Constants.EscapeCharacter}{DatabaseName}{Constants.EscapeCharacter}.");
+
+        sql.AddText(string.IsNullOrEmpty(alias)
+            ? $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter}"
+            : $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter} {alias}");
+
+        return sql;
+    }
+
     public override IDbCommand ToDbCommand(IQuery query)
     {
         var sql = query.ToSql("");
 
-        var sqlText = sql.Text;
-        if (DatabaseName != null)
-            sqlText = $"USE `{DatabaseName}`;\n" + sqlText;
-
-        var command = new MySqlCommand(sqlText);
+        var command = new MySqlCommand(sql.Text);
         command.Parameters.AddRange(sql.Parameters.ToArray());
 
         return command;

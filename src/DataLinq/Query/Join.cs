@@ -17,10 +17,6 @@ public class Join<T>
     protected WhereGroup<T> WhereContainer;
     private readonly string? Alias;
 
-    internal string DbName => string.IsNullOrEmpty(Alias)
-        ? $"{Query.DataSource.Provider.Constants.EscapeCharacter}{TableName}{Query.DataSource.Provider.Constants.EscapeCharacter}"
-        : $"{Query.DataSource.Provider.Constants.EscapeCharacter}{TableName}{Query.DataSource.Provider.Constants.EscapeCharacter} {Alias}";
-
     internal Join(SqlQuery<T> query, string tableName, string? alias, JoinType type)
     {
         this.Query = query;
@@ -40,7 +36,7 @@ public class Join<T>
         return WhereContainer.AddWhere(columnName, alias, BooleanType.And);
     }
 
-    public Sql GetSql(Sql sql, string paramPrefix)
+    public Sql GetSql(Sql sql, string? paramPrefix)
     {
         if (Type == JoinType.Inner)
             sql.AddText("\nJOIN ");
@@ -51,7 +47,8 @@ public class Join<T>
         else
             throw new NotImplementedException("Wrong JoinType: " + Type);
 
-        sql.AddFormat("{0} ON ", DbName);
+        Query.AddTableName(sql, TableName, Alias);
+        sql.AddText(" ON ");
 
         WhereContainer.AddCommandString(sql, paramPrefix, true);
 

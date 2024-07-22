@@ -17,15 +17,18 @@ public class Update<T> : IQuery
         throw new System.NotImplementedException();
     }
 
-    public Sql ToSql(string paramPrefix = null)
+    public Sql ToSql(string? paramPrefix = null)
     {
-        var sql = query.GetSet(
-            new Sql().AddFormat("UPDATE {0} SET ", query.DbName),
-            paramPrefix);
+        var sql = new Sql();
 
-        return query.GetWhere(
-            sql.AddText(" \n"),
-            paramPrefix);
+        sql.AddText("UPDATE ");
+        query.AddTableName(sql, query.Table.DbName, query.Alias);
+        sql.AddText(" SET ");
+        query.GetSet(sql, paramPrefix);
+        sql.AddText(" \n");
+        query.GetWhere(sql, paramPrefix);
+
+        return sql;
     }
 
     public QueryResult Execute()

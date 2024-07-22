@@ -19,13 +19,14 @@ public class Select<T> : IQuery
         this.query = query;
     }
 
-    public Sql ToSql(string paramPrefix = null)
+    public Sql ToSql(string? paramPrefix = null)
     {
         var columns = (query.WhatList ?? query.Table.Columns.AsEnumerable())
             .Select(x => $"{(!string.IsNullOrWhiteSpace(query.Alias) ? $"{query.Alias}." : "")}{query.EscapeCharacter}{x.DbName}{query.EscapeCharacter}")
             .ToJoinedString(", ");
 
-        var sql = new Sql().AddFormat($"SELECT {columns} FROM {query.DbName}");
+        var sql = new Sql().AddFormat($"SELECT {columns} FROM ");
+        query.AddTableName(sql, query.Table.DbName, query.Alias);
         query.GetJoins(sql, paramPrefix);
         query.GetWhere(sql, paramPrefix);
         query.GetOrderBy(sql);
