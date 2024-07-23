@@ -17,10 +17,13 @@ internal abstract class RowInterceptor : IInterceptor
         RowData = rowData;
         this.databaseProvider = databaseProvider;
         this.writeTransaction = dataSource is Transaction transaction ? transaction : null;
+
+        RelationKeys = RelationProperties.ToDictionary(x => x.Value, x => KeyFactory.CreateKeyFromValues(RowData.GetValues(x.Value.RelationPart.ColumnIndex.Columns)));
     }
 
     protected Dictionary<string, RelationProperty> RelationProperties => RowData.Table.Model.RelationProperties;
     protected Dictionary<string, ValueProperty> ValueProperties => RowData.Table.Model.ValueProperties;
+    protected Dictionary<RelationProperty, IKey> RelationKeys;
     protected RowData RowData { get; }
     protected Transaction? writeTransaction;
     protected IDatabaseProvider databaseProvider;
@@ -30,7 +33,7 @@ internal abstract class RowInterceptor : IInterceptor
 
     public abstract void Intercept(IInvocation invocation);
 
-    protected DataSourceAccess GetTransaction()
+    protected DataSourceAccess GetDataSource()
     {
         if (writeTransaction != null && (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
             writeTransaction = null;
@@ -43,7 +46,7 @@ internal abstract class RowInterceptor : IInterceptor
         var otherSide = property.RelationPart.GetOtherSide();
         var result = databaseProvider
             .GetTableCache(otherSide.ColumnIndex.Table)
-            .GetRows(new ForeignKey(otherSide.ColumnIndex, RowData.GetValues(property.RelationPart.ColumnIndex.Columns).ToArray()), property, GetTransaction());
+            .GetRows(RelationKeys[property], property, GetDataSource());
 
         object? returnvalue;
         if (property.RelationPart.Type == RelationPartType.ForeignKey)

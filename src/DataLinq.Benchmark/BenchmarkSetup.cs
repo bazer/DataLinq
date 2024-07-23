@@ -48,9 +48,14 @@ public class BenchmarkSetup
     [Benchmark]
     public void LoadAllUsers()
     {
-        for (int i = 0; i < 1000; i++)
+        for (int i = 0; i < 100; i++)
         {
-            var users = db.Query().Productreviews.ToList();
+            var reviews = db.Query().Productreviews;
+
+            foreach (var user in reviews.Select(x => x.Users))
+            {
+                var orders = user.Orders.ToList();
+            }
         }
     }
 

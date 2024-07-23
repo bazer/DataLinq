@@ -7,8 +7,8 @@ namespace DataLinq.Tests.Models;
 
 [UseCache]
 [CacheLimit(CacheLimitType.Megabytes, 200)]
-[CacheLimit(CacheLimitType.Seconds, 30)]
-[CacheCleanup(CacheCleanupType.Seconds, 20)]
+[CacheLimit(CacheLimitType.Minutes, 60)]
+[CacheCleanup(CacheCleanupType.Minutes, 30)]
 [Database("employees")]
 public interface Employees : IDatabaseModel
 {

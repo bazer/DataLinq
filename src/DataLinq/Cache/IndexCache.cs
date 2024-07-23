@@ -9,16 +9,16 @@ namespace DataLinq.Cache;
 public class IndexCache
 {
     private readonly object ticksQueueLock = new();
-    private (ForeignKey keys, long ticks)? oldestTick;
-    private readonly Queue<(ForeignKey keys, long ticks)> ticks = new();
+    private (IKey keys, long ticks)? oldestTick;
+    private readonly Queue<(IKey keys, long ticks)> ticks = new();
 
-    private ConcurrentDictionary<IKey, List<ForeignKey>> primaryKeysToForeignKeys = new();
+    private ConcurrentDictionary<IKey, List<IKey>> primaryKeysToForeignKeys = new();
 
-    protected ConcurrentDictionary<ForeignKey, IKey[]> foreignKeys = new();
+    protected ConcurrentDictionary<IKey, IKey[]> foreignKeys = new();
 
     public int Count => foreignKeys.Count;
 
-    public bool TryAdd(ForeignKey foreignKey, IKey[] primaryKeys)
+    public bool TryAdd(IKey foreignKey, IKey[] primaryKeys)
     {
         var ticksNow = DateTime.Now.Ticks;
 
@@ -36,7 +36,7 @@ public class IndexCache
         foreach (var primaryKey in primaryKeys)
         {
             primaryKeysToForeignKeys.AddOrUpdate(primaryKey,
-                new List<ForeignKey> { foreignKey },
+                new List<IKey> { foreignKey },
                 (key, existingList) =>
                 {
                     existingList.Add(foreignKey);
@@ -47,20 +47,20 @@ public class IndexCache
         return true;
     }
 
-    public bool TryRemove(ForeignKey keys, out int numRowsRemoved)
+    public bool TryRemoveForeignKey(IKey foreignKey, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
-        if (foreignKeys.ContainsKey(keys))
+        if (foreignKeys.ContainsKey(foreignKey))
         {
-            if (foreignKeys.TryRemove(keys, out var pks))
+            if (foreignKeys.TryRemove(foreignKey, out var pks))
             {
                 numRowsRemoved = 1;
                 foreach (var pk in pks)
                 {
                     if (primaryKeysToForeignKeys.TryGetValue(pk, out var foreignKeysList))
                     {
-                        foreignKeysList.Remove(keys);
+                        foreignKeysList.Remove(foreignKey);
                         if (foreignKeysList.Count == 0)
                         {
                             primaryKeysToForeignKeys.TryRemove(pk, out _);
@@ -76,21 +76,21 @@ public class IndexCache
         return true;
     }
 
-    public IEnumerable<ForeignKey> GetForeignKeysByPrimaryKey(IKey primaryKey)
+    public IEnumerable<IKey> GetForeignKeysByPrimaryKey(IKey primaryKey)
     {
         if (primaryKeysToForeignKeys.TryGetValue(primaryKey, out var foreignKeys))
             return foreignKeys;
 
-        return Enumerable.Empty<ForeignKey>();
+        return Enumerable.Empty<IKey>();
     }
 
-    public bool TryRemove(IKey primaryKey, out int numRowsRemoved)
+    public bool TryRemovePrimaryKey(IKey primaryKey, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
         foreach (var fk in GetForeignKeysByPrimaryKey(primaryKey).ToList())
         {
-            TryRemove(fk, out var num);
+            TryRemoveForeignKey(fk, out var num);
             numRowsRemoved += num;
         }
 
@@ -107,7 +107,7 @@ public class IndexCache
         {
             while (oldestTick?.ticks < tick)
             {
-                if (TryRemove(oldestTick.Value.keys, out var numRowsRemoved))
+                if (TryRemoveForeignKey(oldestTick.Value.keys, out var numRowsRemoved))
                 {
                     count += numRowsRemoved;
 
@@ -129,9 +129,9 @@ public class IndexCache
         return count;
     }
 
-    public bool ContainsKey(ForeignKey foreignKey) => foreignKeys.ContainsKey(foreignKey);
+    public bool ContainsKey(IKey foreignKey) => foreignKeys.ContainsKey(foreignKey);
 
-    public bool TryGetValue(ForeignKey foreignKey, out IKey[]? keys) => foreignKeys.TryGetValue(foreignKey, out keys);
+    public bool TryGetValue(IKey foreignKey, out IKey[]? keys) => foreignKeys.TryGetValue(foreignKey, out keys);
 
     public IEnumerable<IKey[]> Values => foreignKeys.Values;
 

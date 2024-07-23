@@ -62,12 +62,12 @@ public class CoreTests : BaseTests
         Assert.Equal(2, database.CacheLimits.Count);
         Assert.Equal(CacheLimitType.Megabytes, database.CacheLimits[0].limitType);
         Assert.Equal(200, database.CacheLimits[0].amount);
-        Assert.Equal(CacheLimitType.Seconds, database.CacheLimits[1].limitType);
-        Assert.Equal(30, database.CacheLimits[1].amount);
+        Assert.Equal(CacheLimitType.Minutes, database.CacheLimits[1].limitType);
+        Assert.Equal(60, database.CacheLimits[1].amount);
 
         Assert.Single(database.CacheCleanup);
-        Assert.Equal(CacheCleanupType.Seconds, database.CacheCleanup[0].cleanupType);
-        Assert.Equal(20, database.CacheCleanup[0].amount);
+        Assert.Equal(CacheCleanupType.Minutes, database.CacheCleanup[0].cleanupType);
+        Assert.Equal(30, database.CacheCleanup[0].amount);
 
         Assert.Single(database.CacheCleanup);
     }

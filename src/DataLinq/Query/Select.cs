@@ -65,18 +65,18 @@ public class Select<T> : IQuery
         return KeyFactory.GetKeys(this, query.Table.PrimaryKeyColumns);
     }
 
-    public IEnumerable<ForeignKey> ReadForeignKeys(ColumnIndex foreignKeyIndex)
-    {
-        return ReadReader()
-            .Select(x => new RowData(x, query.Table, foreignKeyIndex.Columns.AsSpan()))
-            .Select(x => new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()));
-    }
+    //public IEnumerable<IKey> ReadForeignKeys(ColumnIndex foreignKeyIndex)
+    //{
+    //    return ReadReader()
+    //        .Select(x => new RowData(x, query.Table, foreignKeyIndex.Columns.AsSpan()))
+    //        .Select(x => new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()));
+    //}
 
-    public IEnumerable<(ForeignKey, IKey[])> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
+    public IEnumerable<(IKey fk, IKey[] pks)> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
     {
         return ReadReader()
             .Select(x => new RowData(x, query.Table, query.Table.PrimaryKeyColumns.Concat(foreignKeyIndex.Columns).Distinct().ToArray()))
-            .Select(x => (fk: new ForeignKey(foreignKeyIndex, x.GetValues(foreignKeyIndex.Columns).ToArray()), pk: KeyFactory.GetKey(x, query.Table.PrimaryKeyColumns)))
+            .Select(x => (fk: KeyFactory.CreateKeyFromValues(x.GetValues(foreignKeyIndex.Columns)), pk: KeyFactory.GetKey(x, query.Table.PrimaryKeyColumns)))
             .GroupBy(x => x.fk)
             .Select(x => (x.Key, x.Select(y => y.pk).ToArray()));
     }
@@ -84,7 +84,7 @@ public class Select<T> : IQuery
     public IEnumerable<V> ExecuteAs<V>() =>
         Execute().Select(x => (V)x);
 
-    public IEnumerable<object> Execute()
+    public IEnumerable<ImmutableInstanceBase> Execute()
     {
         if (query.Table.PrimaryKeyColumns.Length != 0)
         {
