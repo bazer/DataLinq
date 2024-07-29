@@ -49,7 +49,7 @@ public class ModelMetadata
     protected bool IsOfType(Type modelType) =>
            modelType == CsType || modelType.BaseType == CsType;
 
-    public static ModelMetadata Find(IModel model) =>
+    public static ModelMetadata? Find(IModel model) =>
         DatabaseMetadata
         .LoadedDatabases
         .Values

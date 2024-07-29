@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 
@@ -38,20 +39,29 @@ public class WhereGroup<T> : IWhere<T>
         if (addParentheses || IsNegated)
             sql.AddText("(");
 
-        for (int i = 0; i < length; i++)
-        {
-            if (i != 0)
+        //if (whereList!.All(x => x.type == BooleanType.Or && x.where is Where<T> w && w.IsValue && !w.IsNegated))
+        //{
+        //    sql.AddText("IN (");
+        //    whereList.Select(x => Query.DataSource.Provider.GetParameterValue(sql, x.where.)
+        //    sql.AddText("IN )");
+        //}
+        //else
+        //{
+            for (int i = 0; i < length; i++)
             {
-                if (whereList[i].type == BooleanType.And)
-                    sql.AddText(" AND ");
-                else if (whereList[i].type == BooleanType.Or)
-                    sql.AddText(" OR ");
-                else
-                    throw new NotImplementedException();
-            }
+                if (i != 0)
+                {
+                    if (whereList[i].type == BooleanType.And)
+                        sql.AddText(" AND ");
+                    else if (whereList[i].type == BooleanType.Or)
+                        sql.AddText(" OR ");
+                    else
+                        throw new NotImplementedException();
+                }
 
-            whereList[i].where.AddCommandString(sql, prefix, addCommandParameter, whereList[i].where is WhereGroup<T>);
-        }
+                whereList[i].where.AddCommandString(sql, prefix, addCommandParameter, whereList[i].where is WhereGroup<T>);
+            }
+        //}
 
         if (addParentheses || IsNegated)
             sql.AddText(")");

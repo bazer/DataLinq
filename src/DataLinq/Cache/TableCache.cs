@@ -6,6 +6,7 @@ using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -22,11 +23,13 @@ public class TableCache
     protected int primaryKeyColumnsCount;
     protected List<ColumnIndex> indices;
     protected (IndexCacheType type, int? amount) indexCachePolicy;
+    private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public TableCache(TableMetadata table, DatabaseCache databaseCache)
+    public TableCache(TableMetadata table, DatabaseCache databaseCache, DataLinqLoggingConfiguration loggingConfiguration)
     {
         this.Table = table;
         this.DatabaseCache = databaseCache;
+        this.loggingConfiguration = loggingConfiguration;
         this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Length;
         this.indices = Table.ColumnIndices;
         this.indexCachePolicy = GetIndexCachePolicy();
@@ -264,38 +267,11 @@ public class TableCache
             IndexCaches[index].TryAdd(pk, []);
     }
 
-    //public IEnumerable<IKey> GetPrimaryKeys<T>(Select<T> select)
-    //{
-    //    var buffer = new Memory<byte>(new byte[KeyFactory.KeyLength(Table.PrimaryKeyColumns)]);
-    //    var length = new Memory<int>(new int[Table.PrimaryKeyColumns.Length]);
-    //    //Memory<object?> buffer = new object?[Table.PrimaryKeyColumns.Length];
-
-    //    foreach (var row in select.ReadReader())
-    //    {
-    //        KeyFactory.ReadReader(row, Table.PrimaryKeyColumns, buffer.Span, length.Span);
-    //        yield return GetPrimaryKeys(buffer.Span, length.Span);
-    //    }
-    //}
-
-    //private IKey GetPrimaryKeys(Span<byte> data, Span<int> length)
-    //{
-    //    if (PrimaryKeysCache.TryGetValue(KeyFactory.ComputeHashCode(data, length), out var primaryKeys))
-    //        return primaryKeys!;
-    //    else
-    //    {
-    //        var newKeys = new PrimaryKeys(data, length, Table);
-    //        PrimaryKeysCache.TryAdd(newKeys);
-
-    //        return newKeys;
-    //    }
-    //}
-
     public IKey[] GetKeys(IKey foreignKey, RelationProperty otherSide, DataSourceAccess dataSource)
     {
         var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
         if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
             return [foreignKey];
-        //if (Table.PrimaryKeyColumns.Length == index.Columns.Count() && Table.PrimaryKeyColumns.All(x => index.Columns.Contains(x)))
 
         if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None)
         {
@@ -305,7 +281,10 @@ public class TableCache
             if (IndexCaches[index].Count == 0)
             {
                 PreloadIndex(foreignKey, otherSide, indexCachePolicy.type == IndexCacheType.MaxAmountRows ? indexCachePolicy.amount : null);
-                GetRows(IndexCaches[index].Values.SelectMany(x => x).Take(1000).ToArray(), dataSource).ToList();
+                Log.IndexCachePreload(loggingConfiguration.CacheLogger, index, IndexCaches[index].Count);
+
+                var rowCount = GetRows(IndexCaches[index].Values.SelectMany(x => x).Take(1000).ToArray(), dataSource).Count();
+                Log.RowCachePreload(loggingConfiguration.CacheLogger, Table, rowCount);
 
                 if (IndexCaches[index].TryGetValue(foreignKey, out var retryKeys))
                     return retryKeys!;
@@ -349,6 +328,8 @@ public class TableCache
 
     private IEnumerable<ImmutableInstanceBase> LoadRowsFromDatabaseAndCache(IKey[] primaryKeys, DataSourceAccess dataSource)
     {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+
         var keysToLoad = new List<IKey>(primaryKeys.Length);
         foreach (var key in primaryKeys)
         {
@@ -358,10 +339,10 @@ public class TableCache
                 keysToLoad.Add(key);
         }
 
+        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, primaryKeys.Length - keysToLoad.Count);
+
         if (keysToLoad.Count != 0)
         {
-            dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
-
             foreach (var split in keysToLoad.SplitList(500))
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource))
@@ -369,11 +350,15 @@ public class TableCache
                     yield return AddRow(rowData, dataSource);
                 }
             }
+
+            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
         }
     }
 
     private IEnumerable<ImmutableInstanceBase> LoadOrderedRowsFromDatabaseAndCache(IKey[] primaryKeys, DataSourceAccess dataSource, List<OrderBy> orderings)
     {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+
         var keysToLoad = new List<IKey>(primaryKeys.Length);
         var loadedRows = new List<ImmutableInstanceBase>(primaryKeys.Length);
 
@@ -385,10 +370,10 @@ public class TableCache
                 keysToLoad.Add(key);
         }
 
+        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, loadedRows.Count);
+
         if (keysToLoad.Count != 0)
         {
-            dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
-
             foreach (var split in keysToLoad.SplitList(500))
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource, orderings))
@@ -396,6 +381,8 @@ public class TableCache
                     loadedRows.Add(AddRow(rowData, dataSource));
                 }
             }
+
+            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
         }
 
         IOrderedEnumerable<ImmutableInstanceBase>? orderedRows = null;
@@ -427,11 +414,18 @@ public class TableCache
     {
         var q = new SqlQuery(Table.DbName, dataSource);
 
-        foreach (var key in keys)
+        if (Table.PrimaryKeyColumns.Length == 1)
         {
-            var where = q.AddWhereGroup(BooleanType.Or);
-            for (var i = 0; i < primaryKeyColumnsCount; i++)
-                where.And(Table.PrimaryKeyColumns[i].DbName).EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(Table.PrimaryKeyColumns[i], key.Values[i]));
+            q.Where(Table.PrimaryKeyColumns[0].DbName).In(keys.Select(x => dataSource.Provider.GetWriter().ConvertColumnValue(Table.PrimaryKeyColumns[0], x.Values[0])));
+        }
+        else
+        {
+            foreach (var key in keys)
+            {
+                var where = q.AddWhereGroup(BooleanType.Or);
+                for (var i = 0; i < primaryKeyColumnsCount; i++)
+                    where.And(Table.PrimaryKeyColumns[i].DbName).EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(Table.PrimaryKeyColumns[i], key.Values[i]));
+            }
         }
 
         if (orderings != null)

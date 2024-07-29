@@ -39,8 +39,8 @@ public class Where<T> : IWhere<T>
     private string? Key;
     private object?[]? Value;
     private Relation Relation;
-    private bool IsValue = true;
-    private bool IsNegated = false;
+    internal bool IsValue = true;
+    internal bool IsNegated = false;
     protected WhereGroup<T> WhereGroup;
     private string? KeyAlias;
     private string? ValueAlias;

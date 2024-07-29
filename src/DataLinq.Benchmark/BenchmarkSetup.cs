@@ -4,6 +4,8 @@ using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models.Allround;
+using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace DataLinq.Benchmark;
 
@@ -17,9 +19,25 @@ public class BenchmarkSetup
         MySQLProvider.RegisterProvider();
         SQLiteProvider.RegisterProvider();
 
+        // Configure Serilog
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Warning()
+            .WriteTo.File("D:\\git\\DataLinq\\logs\\benchmark.txt", rollingInterval: RollingInterval.Day, flushToDiskInterval: TimeSpan.FromSeconds(1))
+            .CreateLogger();
+
+        // Set up logging with Serilog
+        var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.ClearProviders();
+            builder.AddSerilog();
+        });
+
+        //var logger = loggerFactory.CreateLogger<Program>();
+
+        //var loggerFactory = LoggerFactory.Create(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
         DataLinqConfig config = DataLinqConfig.FindAndReadConfigs("D:\\git\\DataLinq\\src\\DataLinq.Benchmark\\datalinq.json", Console.WriteLine);
         conn = config.Databases.Single(x => x.Name == "AllroundBenchmark").Connections.Single(x => x.Type == DatabaseType.MySQL);
-        db = new MySqlDatabase<AllroundBenchmark>(conn.ConnectionString.Original, conn.DataSourceName);
+        db = new MySqlDatabase<AllroundBenchmark>(conn.ConnectionString.Original, conn.DataSourceName, loggerFactory);
     }
 
     [GlobalSetup]
@@ -50,11 +68,12 @@ public class BenchmarkSetup
     {
         for (int i = 0; i < 100; i++)
         {
-            var reviews = db.Query().Productreviews;
+            var reviews = db.Query().Productreviews.Take(1000);
 
             foreach (var user in reviews.Select(x => x.Users))
             {
-                var orders = user.Orders.ToList();
+                //var orders = user.Orders.ToList();
+                Console.WriteLine($"Num orders for user {user.UserName}: {user.Orders.Count()}");
             }
         }
     }

@@ -61,9 +61,9 @@ public partial record Employee : ITableModel<Employees>
     public virtual IEnumerable<Manager> dept_manager { get; }
 
     [Relation("salaries", "emp_no", "salaries_ibfk_1")]
-    public virtual IEnumerable<salaries> salaries { get; }
+    public virtual IEnumerable<Salaries> salaries { get; }
 
     [Relation("titles", "emp_no", "titles_ibfk_1")]
-    public virtual IEnumerable<titles> titles { get; }
+    public virtual IEnumerable<Titles> titles { get; }
 
 }

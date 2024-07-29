@@ -83,7 +83,7 @@ public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
             .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
             .Build();
 
-        dbAccess = new MySqlDbAccess(dataSource, DatabaseName, LoggingConfiguration);
+        dbAccess = new MySqlDbAccess(dataSource, LoggingConfiguration);
     }
 
     //public override void CreateDatabase(string? databaseName = null)
@@ -211,7 +211,7 @@ public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override IDbCommand ToDbCommand(IQuery query)
     {
-        var sql = query.ToSql("");
+        var sql = query.ToSql();
 
         var command = new MySqlCommand(sql.Text);
         command.Parameters.AddRange(sql.Parameters.ToArray());

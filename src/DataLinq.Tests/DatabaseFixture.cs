@@ -10,6 +10,7 @@ using DataLinq.MySql.Models;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models;
 using Microsoft.Extensions.Logging;
+using Serilog;
 using Xunit;
 
 namespace DataLinq.Tests;
@@ -31,7 +32,20 @@ public class DatabaseFixture : IDisposable
         EmployeeConnections = employees.Connections;
         var lockObject = new object();
 
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
+        // Configure Serilog
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.File("D:\\git\\DataLinq\\logs\\tests.txt", rollingInterval: RollingInterval.Day, flushToDiskInterval: TimeSpan.FromSeconds(1))
+            .CreateLogger();
+
+        // Set up logging with Serilog
+        var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.ClearProviders();
+            builder.AddSerilog();
+        });
+
+        //var loggerFactory = LoggerFactory.Create(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
 
         foreach (var connection in employees.Connections)
         {
@@ -51,7 +65,7 @@ public class DatabaseFixture : IDisposable
                         Assert.Fail(result.Failure.ToString());
                 }
 
-                if (dbEmployees.Query().Employees.Count() == 0)
+                if (!dbEmployees.Query().Employees.Any())
                 {
                     FillEmployeesWithBogusData(dbEmployees);
                 }
@@ -101,7 +115,7 @@ public class DatabaseFixture : IDisposable
         transaction.Insert(dept_empFaker.Generate(numEmployees));
 
         empNo = 0;
-        var titlesFaker = new Faker<titles>()
+        var titlesFaker = new Faker<Titles>()
            .StrictMode(false)
            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
@@ -110,7 +124,7 @@ public class DatabaseFixture : IDisposable
         transaction.Insert(titlesFaker.Generate(numEmployees));
 
         empNo = 0;
-        var salariesFaker = new Faker<salaries>()
+        var salariesFaker = new Faker<Salaries>()
            .StrictMode(false)
            .RuleFor(x => x.FromDate, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.ToDate, x => x.Date.PastDateOnly(20))

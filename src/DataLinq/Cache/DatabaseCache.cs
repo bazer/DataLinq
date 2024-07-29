@@ -4,6 +4,7 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Workers;
@@ -13,21 +14,19 @@ namespace DataLinq.Cache;
 public class DatabaseCache : IDisposable
 {
     public IDatabaseProvider Database { get; set; }
-
+    private readonly DataLinqLoggingConfiguration loggingConfiguration;
     public Dictionary<TableMetadata, TableCache> TableCaches { get; }
 
-    public CleanCacheWorker CleanCacheWorker { get; }
+    public CleanCacheWorker? CleanCacheWorker { get; }
 
     public CacheHistory History { get; } = new();
 
-    public DatabaseCache(IDatabaseProvider database)
+    public DatabaseCache(IDatabaseProvider database, DataLinqLoggingConfiguration loggingConfiguration)
     {
         this.Database = database;
-
+        this.loggingConfiguration = loggingConfiguration;
         this.TableCaches = this.Database.Metadata.TableModels
-            .ToDictionary(x => x.Table, x => new TableCache(x.Table, this));
-            //.Select(x => new TableCache(x.Table, this))
-            //.ToList();
+            .ToDictionary(x => x.Table, x => new TableCache(x.Table, this, loggingConfiguration));
 
         this.MakeSnapshot();
 
@@ -159,7 +158,7 @@ public class DatabaseCache : IDisposable
 
     public void Dispose()
     {
-        this.CleanCacheWorker.Stop();
+        this.CleanCacheWorker?.Stop();
         this.ClearCache();
     }
 }

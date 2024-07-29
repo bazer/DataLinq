@@ -113,7 +113,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         LoggingConfiguration = loggingConfiguration;
         DatabaseName = databaseName ?? Metadata.DbName;
         ConnectionString = connectionString;
-        State = new State(this);
+        State = new State(this, loggingConfiguration);
 
         this.ReadOnlyAccess = new ReadOnlyAccess(this);
     }

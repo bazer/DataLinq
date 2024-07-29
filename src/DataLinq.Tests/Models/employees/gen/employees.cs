@@ -18,6 +18,6 @@ public interface Employees : IDatabaseModel
     DbRead<Manager> Managers { get; }
     DbRead<dept_emp> DepartmentEmployees { get; }
     DbRead<Employee> Employees { get; }
-    DbRead<salaries> salaries { get; }
-    DbRead<titles> titles { get; }
+    DbRead<Salaries> salaries { get; }
+    DbRead<Titles> titles { get; }
 }

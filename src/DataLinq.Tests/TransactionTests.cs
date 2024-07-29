@@ -457,7 +457,7 @@ public class TransactionTests : BaseTests
         {
             Assert.Empty(employee.salaries);
 
-            var newSalary = new salaries
+            var newSalary = new Salaries
             {
                 emp_no = employee.emp_no.Value,
                 salary = 50000,
@@ -491,7 +491,7 @@ public class TransactionTests : BaseTests
             var employeeDb = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
             Assert.Empty(employeeDb.salaries);
 
-            var newSalary = new salaries
+            var newSalary = new Salaries
             {
                 emp_no = employeeDb.emp_no.Value,
                 salary = 50000,
@@ -527,7 +527,7 @@ public class TransactionTests : BaseTests
         foreach (var s in employee.salaries)
             employeesDb.Delete(s);
 
-        salaries salary = null;
+        Salaries salary = null;
         Employee employeeDb = null;
 
         var table = employeesDb.Provider.Metadata
@@ -542,7 +542,7 @@ public class TransactionTests : BaseTests
         employeeDb = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
         Assert.Empty(employeeDb.salaries);
 
-        var newSalary = new salaries
+        var newSalary = new Salaries
         {
             emp_no = employeeDb.emp_no.Value,
             salary = 50000,

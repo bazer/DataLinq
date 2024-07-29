@@ -21,8 +21,8 @@ public class Select<T> : IQuery
 
     public Sql ToSql(string? paramPrefix = null)
     {
-        var columns = (query.WhatList ?? query.Table.Columns.AsEnumerable())
-            .Select(x => $"{(!string.IsNullOrWhiteSpace(query.Alias) ? $"{query.Alias}." : "")}{query.EscapeCharacter}{x.DbName}{query.EscapeCharacter}")
+        var columns = (query.WhatList ?? query.Table.Columns.Select(x => $"{query.EscapeCharacter}{x.DbName}{query.EscapeCharacter}"))
+            .Select(x => $"{(!string.IsNullOrWhiteSpace(query.Alias) ? $"{query.Alias}." : "")}{x}")
             .ToJoinedString(", ");
 
         var sql = new Sql().AddFormat($"SELECT {columns} FROM ");
@@ -43,6 +43,13 @@ public class Select<T> : IQuery
     public Select<T> What(IEnumerable<Column> columns)
     {
         query.What(columns);
+
+        return this;
+    }
+
+    public Select<T> What(params string[] selectors)
+    {
+        query.What(selectors);
 
         return this;
     }
@@ -106,6 +113,16 @@ public class Select<T> : IQuery
             foreach (var row in rows)
                 yield return row;
         }
+    }
+
+    public V ExecuteScalar<V>()
+    {
+        return query.DataSource.DatabaseAccess.ExecuteScalar<V>(query.DataSource.Provider.ToDbCommand(this));
+    }
+
+    public object? ExecuteScalar()
+    {
+        return query.DataSource.DatabaseAccess.ExecuteScalar(query.DataSource.Provider.ToDbCommand(this));
     }
 
     public override string ToString()

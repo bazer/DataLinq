@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using DataLinq.Cache;
+using DataLinq.Logging;
 
 namespace DataLinq.Mutation;
 
@@ -10,6 +11,8 @@ namespace DataLinq.Mutation;
 /// </summary>
 public class State : IDisposable
 {
+    private readonly DataLinqLoggingConfiguration loggingConfiguration;
+
     /// <summary>
     /// Gets or sets the history of changes made to the database.
     /// </summary>
@@ -29,10 +32,11 @@ public class State : IDisposable
     /// Initializes a new instance of the <see cref="State"/> class with the specified database provider.
     /// </summary>
     /// <param name="database">The database provider to associate with the state.</param>
-    public State(DatabaseProvider database)
+    public State(DatabaseProvider database, DataLinqLoggingConfiguration loggingConfiguration)
     {
         this.Database = database;
-        this.Cache = new DatabaseCache(database);
+        this.loggingConfiguration = loggingConfiguration;
+        this.Cache = new DatabaseCache(database, loggingConfiguration);
         this.History = new History();
     }
 

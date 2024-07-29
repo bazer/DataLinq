@@ -10,4 +10,5 @@ public sealed class DataLinqLoggingConfiguration(ILoggerFactory loggerFactory)
     public ILoggerFactory LoggerFactory { get; } = loggerFactory;
     public ILogger SqlCommandLogger { get; } = loggerFactory.CreateLogger("DataLinq.SqlCommand");
     public ILogger TransactionLogger { get; } = loggerFactory.CreateLogger("DataLinq.Transaction");
+    public ILogger CacheLogger { get; } = loggerFactory.CreateLogger("DataLinq.Cache");
 }

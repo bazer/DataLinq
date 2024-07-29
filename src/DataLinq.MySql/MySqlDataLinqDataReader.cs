@@ -7,14 +7,14 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-public class MySqlDataLinqDataReader : IDataLinqDataReader
+public struct MySqlDataLinqDataReader : IDataLinqDataReader, IDisposable
 {
     public MySqlDataLinqDataReader(MySqlDataReader dataReader)
     {
         this.dataReader = dataReader;
     }
 
-    protected MySqlDataReader dataReader;
+    private readonly MySqlDataReader dataReader;
 
     public void Dispose()
     {

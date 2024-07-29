@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -54,7 +55,7 @@ public class SqlQuery<T>
     internal Dictionary<string, object> SetList = new Dictionary<string, object>();
     protected List<Join<T>> JoinList = new List<Join<T>>();
     internal List<OrderBy> OrderByList = new List<OrderBy>();
-    internal List<Column> WhatList;
+    internal List<string> WhatList;
     protected int? limit;
     protected int? offset;
     public bool LastIdQuery { get; protected set; }
@@ -412,20 +413,20 @@ public class SqlQuery<T>
 
     public SqlQuery<T> What(IEnumerable<Column> columns)
     {
+        return What(columns.Select(x => $"{EscapeCharacter}{x.DbName}{EscapeCharacter}"));
+    }
+
+    public SqlQuery<T> What(IEnumerable<string> selectors)
+    {
         WhatList ??= [];
-        WhatList.AddRange(columns);
+        WhatList.AddRange(selectors.Select(x => Table.Columns.Any(y => y.DbName == x) ? $"{EscapeCharacter}{x}{EscapeCharacter}" : x));
 
         return this;
     }
 
-    public SqlQuery<T> What(IEnumerable<string> columns)
+    public SqlQuery<T> What(params string[] selectors)
     {
-        return What(columns.Select(x => Table.Columns.Single(y => y.DbName == x)));
-    }
-
-    public SqlQuery<T> What(params string[] columns)
-    {
-        return What(columns.AsEnumerable());
+        return What(selectors.AsEnumerable());
     }
 
     public SqlQuery<T> AddLastIdQuery()

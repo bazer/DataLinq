@@ -1,5 +1,7 @@
+using System;
 using System.Data;
 using System.Text;
+using DataLinq.Metadata;
 using Microsoft.Extensions.Logging;
 
 namespace DataLinq.Logging;
@@ -11,9 +13,21 @@ public static partial class Log
 
     public static void SqlCommand(ILogger logger, IDbCommand command)
     {
-        var formattedCommand = command.FormatCommand();
-        Sql(logger, formattedCommand);
+        if(logger.IsEnabled(LogLevel.Debug))
+            Sql(logger, command.FormatCommand());
     }
+
+    [LoggerMessage(EventIds.IndexCachePreload, LogLevel.Debug, "Preloaded {rowsLoaded} keys to index cache: {index}")]
+    public static partial void IndexCachePreload(ILogger logger, ColumnIndex index, int rowsLoaded);
+
+    [LoggerMessage(EventIds.RowCachePreload, LogLevel.Debug, "Preloaded {rowsLoaded} rows to table cache: {table}")]
+    public static partial void RowCachePreload(ILogger logger, TableMetadata table, int rowsLoaded);
+
+    [LoggerMessage(EventIds.LoadRowsFromCache, LogLevel.Debug, "Fetched {rowsLoaded} rows from table cache: {table}")]
+    public static partial void LoadRowsFromCache(ILogger logger, TableMetadata table, int rowsLoaded);
+
+    [LoggerMessage(EventIds.LoadRowsFromDatabase, LogLevel.Debug, "Fetched {rowsLoaded} rows from database and added to table cache: {table}")]
+    public static partial void LoadRowsFromDatabase(ILogger logger, TableMetadata table, int rowsLoaded);
 }
 
 public static class DbCommandExtensions
@@ -28,7 +42,7 @@ public static class DbCommandExtensions
             sb.AppendLine("Parameters:");
             foreach (IDbDataParameter param in command.Parameters)
             {
-                sb.AppendLine($"{param.ParameterName} = {param.Value} (Type: {param.DbType})");
+                sb.AppendLine($"{param.ParameterName} = {ConvertParamValue(param)} (Type: {param.DbType})");
             }
         }
 
@@ -39,5 +53,31 @@ public static class DbCommandExtensions
         }
 
         return sb.ToString();
+
+        string ConvertParamValue(IDbDataParameter param)
+        {
+            return param.Value switch
+            {
+                null => "NULL",
+                DBNull _ => "NULL",
+                byte[] byteArray => TryParseGuid(byteArray, out var guid) ? guid.ToString() : BitConverter.ToString(byteArray).Replace("-", " "),
+                DateTime dateTime => dateTime.ToString("o"), // ISO 8601 format
+                string str => Guid.TryParse(str, out var guid) ? guid.ToString() : $"\"{str}\"",
+                _ => param.Value?.ToString() ?? "NULL",
+            };
+        }
+
+        bool TryParseGuid(byte[] byteArray, out Guid guid)
+        {
+            // Assuming the byte array represents a GUID in a common format
+            if (byteArray.Length == 16)
+            {
+                guid = new Guid(byteArray);
+                return true;
+            }
+
+            guid = default;
+            return false;
+        }
     }
 }

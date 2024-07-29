@@ -51,7 +51,7 @@ public class SQLiteDbAccess : DatabaseAccess
     public override int ExecuteNonQuery(string query) =>
         ExecuteNonQuery(new SqliteCommand(query));
 
-    public override object ExecuteScalar(string query) =>
+    public override object? ExecuteScalar(string query) =>
         ExecuteScalar(new SqliteCommand(query));
 
     public override T ExecuteScalar<T>(string query) =>
@@ -60,7 +60,7 @@ public class SQLiteDbAccess : DatabaseAccess
     public override T ExecuteScalar<T>(IDbCommand command) =>
         (T)ExecuteScalar(command);
 
-    public override object ExecuteScalar(IDbCommand command)
+    public override object? ExecuteScalar(IDbCommand command)
     {
         using (var connection = new SqliteConnection(connectionString))
         {

@@ -127,7 +127,7 @@ public class ThreadingTests : BaseTests
         Parallel.For(0, 100, i =>
         {
             
-            List<salaries> salaries;
+            List<Salaries> salaries;
             do
             {
                 var salaryLow = rand.Next(0, 200000);

@@ -202,7 +202,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override IDbCommand ToDbCommand(IQuery query)
     {
-        var sql = query.ToSql("");
+        var sql = query.ToSql();
         var command = new SqliteCommand(sql.Text);
         command.Parameters.AddRange(sql.Parameters.ToArray());
 
@@ -212,10 +212,6 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     public override bool DatabaseExists(string? databaseName = null)
     {
         return FileOrServerExists();
-        //if (databaseName == null && DatabaseName == null)
-        //    throw new ArgumentNullException("DatabaseName not defined");
-
-        //return $"SELECT name FROM pragma_database_list WHERE name = '{databaseName ?? DatabaseName}'";
     }
 
     public override bool FileOrServerExists()

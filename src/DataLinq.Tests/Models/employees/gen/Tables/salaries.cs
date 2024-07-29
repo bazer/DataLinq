@@ -6,7 +6,7 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models;
 
 [Table("salaries")]
-public partial record salaries : ITableModel<Employees>
+public partial record Salaries : ITableModel<Employees>
 {
     [PrimaryKey]
     [ForeignKey("employees", "emp_no", "salaries_ibfk_1")]

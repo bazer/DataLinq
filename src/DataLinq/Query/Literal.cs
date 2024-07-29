@@ -26,7 +26,7 @@ public class Literal : IQuery
         this.parameters = parameters;
     }
 
-    public Sql ToSql(string paramPrefix)
+    public Sql ToSql(string? paramPrefix = null)
     {
         return new Sql(sql, parameters.ToArray());
     }
