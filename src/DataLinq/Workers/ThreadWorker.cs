@@ -117,7 +117,7 @@ public abstract class ThreadWorker<T> : IDisposable
         {
             //TODO: Logging
         }
-        catch (Exception e)
+        catch (Exception)
         {
             //TODO: Logging
         }

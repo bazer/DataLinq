@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Exceptions;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
@@ -78,10 +78,11 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         //    sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
 
         foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
-            foreach (var relation in foreignKey.RelationParts)
-                sql.ForeignKey(relation, foreignKeyRestrict);
+            foreach (var index in foreignKey.ColumnIndices)
+                foreach (var relation in index.RelationParts)
+                    sql.ForeignKey(relation, foreignKeyRestrict);
 
-        foreach (var index in table.ColumnIndices)
+        foreach (var index in table.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
             sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
     }
 
@@ -96,10 +97,10 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .Where(x => x != null)
             .FirstOrDefault();
 
-        if (!type.HasValue)
+        if (type == null)
             throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
 
-        return type.Value;
+        return type;
     }
 
     private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)

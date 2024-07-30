@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
 
@@ -94,8 +94,17 @@ public static class MetadataFactory
 
     public static void ParseRelations(DatabaseMetadata database)
     {
-        foreach (var column in database.
-            TableModels.SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
+        foreach (var table in database.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table))
+        {
+            var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
+
+            if (!columns.Any())
+                throw new Exception($"Table {table.DbName} is missing a primary key. Having a primary key for every table is a requirement for DataLinq.");
+
+            table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
+        }
+
+        foreach (var column in database.TableModels.Where(x => x.Table.Type == TableType.Table).SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
         {
             foreach (var attribute in column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
             {
@@ -117,51 +126,72 @@ public static class MetadataFactory
                 if (candidateColumn == null)
                     continue;
 
-                relation.ForeignKey = CreateRelationPart(relation, column, RelationPartType.ForeignKey);
-                relation.CandidateKey = CreateRelationPart(relation, candidateColumn, RelationPartType.CandidateKey);
+                if (!column.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.ForeignKey))
+                    column.Table.ColumnIndices.Add(
+                        new ColumnIndex(column.DbName, IndexCharacteristic.ForeignKey, IndexType.BTREE, [column]));
 
-                AttachRelationProperty(relation.ForeignKey, candidateColumn);
-                AttachRelationProperty(relation.CandidateKey, column);
+                if (!candidateColumn.ColumnIndices.Any())
+                    candidateColumn.Table.ColumnIndices.Add(
+                        new ColumnIndex(candidateColumn.DbName, IndexCharacteristic.VirtualDataLinq, IndexType.BTREE, [candidateColumn]));
+
+                var foreignKeyIndex = column.ColumnIndices.Last();
+                var candidateKeyIndex = candidateColumn.ColumnIndices.First();
+
+                relation.ForeignKey = CreateRelationPart(relation, foreignKeyIndex, RelationPartType.ForeignKey);
+                relation.CandidateKey = CreateRelationPart(relation, candidateKeyIndex, RelationPartType.CandidateKey);
+
+                var candidateProperty = GetRelationProperty(relation.ForeignKey, candidateColumn);
+                var columnProperty = GetRelationProperty(relation.CandidateKey, column);
+
+                if (candidateProperty != null && columnProperty != null)
+                {
+                    foreignKeyIndex.RelationParts.Add(relation.ForeignKey);
+                    candidateKeyIndex.RelationParts.Add(relation.CandidateKey);
+
+                    candidateProperty.RelationPart = relation.ForeignKey;
+                    columnProperty.RelationPart = relation.CandidateKey;
+                }
             }
         }
     }
 
-    private static RelationPart CreateRelationPart(Relation relation, Column column, RelationPartType type)
+    private static RelationPart CreateRelationPart(Relation relation, ColumnIndex column, RelationPartType type)
     {
-        var relationPart = new RelationPart
+        return new RelationPart
         {
             Relation = relation,
-            Column = column,
+            ColumnIndex = column,
             Type = type,
             CsName = column.Table.Model.CsTypeName
         };
-
-        column.RelationParts.Add(relationPart);
-
-        return relationPart;
     }
 
-    private static RelationProperty AttachRelationProperty(RelationPart relationPart, Column column)
+    private static RelationProperty? GetRelationProperty(RelationPart relationPart, Column column)
     {
-        var property = relationPart.Column.Table.Model
-            .RelationProperties.SingleOrDefault(x =>
+        return relationPart.ColumnIndex.Table.Model
+            .RelationProperties.Values.SingleOrDefault(x =>
                 x.Attributes.Any(y =>
                     y is RelationAttribute relationAttribute
                     && relationAttribute.Table == column.Table.DbName
-                    && relationAttribute.Column == column.DbName));
+                    && relationAttribute.Columns[0] == column.DbName
+                    && (relationAttribute.Name == null || relationAttribute.Name == relationPart.Relation.ConstraintName)));
+    }
 
-        if (property == null)
-        {
-            property = new RelationProperty();
-            property.Attributes.Add(new RelationAttribute(column.Table.DbName, column.DbName));
-            property.CsName = column.Table.Database.TableModels.Single(x => x.Table == column.Table).CsPropertyName;
-            property.Model = relationPart.Column.Table.Model;
-            relationPart.Column.Table.Model.Properties.Add(property);
-        }
+    public static RelationProperty AddRelationProperty(Column column, Column referencedColumn, string constraintName)
+    {
+        var relationProperty = new RelationProperty();
+        relationProperty.Attributes.Add(new RelationAttribute(referencedColumn.Table.DbName, referencedColumn.DbName, constraintName));
+        relationProperty.Model = column.Table.Model;
+        relationProperty.CsName = referencedColumn.Table.DbName;
+        relationProperty.RelationName = constraintName;
 
-        property.RelationPart = relationPart;
+        var i = 2;
+        while (relationProperty.Model.RelationProperties.ContainsKey(relationProperty.CsName))
+            relationProperty.CsName = relationProperty.CsName + "_" + i++;
 
-        return property;
+        relationProperty.Model.AddProperty(relationProperty);
+
+        return relationProperty;
     }
 
     public static ModelMetadata AttachModel(TableMetadata table, bool capitaliseNames)
@@ -201,7 +231,7 @@ public static class MetadataFactory
 
         property.Attributes = GetAttributes(property).ToList();
         column.ValueProperty = property;
-        column.Table.Model.Properties.Add(column.ValueProperty);
+        column.Table.Model.AddProperty(column.ValueProperty);
 
         return property;
     }

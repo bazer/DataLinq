@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Workers;
 
@@ -12,20 +14,19 @@ namespace DataLinq.Cache;
 public class DatabaseCache : IDisposable
 {
     public IDatabaseProvider Database { get; set; }
+    private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    public Dictionary<TableMetadata, TableCache> TableCaches { get; }
 
-    public List<TableCache> TableCaches { get; }
-
-    public CleanCacheWorker CleanCacheWorker { get; }
+    public CleanCacheWorker? CleanCacheWorker { get; }
 
     public CacheHistory History { get; } = new();
 
-    public DatabaseCache(IDatabaseProvider database)
+    public DatabaseCache(IDatabaseProvider database, DataLinqLoggingConfiguration loggingConfiguration)
     {
         this.Database = database;
-
+        this.loggingConfiguration = loggingConfiguration;
         this.TableCaches = this.Database.Metadata.TableModels
-            .Select(x => new TableCache(x.Table, database))
-            .ToList();
+            .ToDictionary(x => x.Table, x => new TableCache(x.Table, this, loggingConfiguration));
 
         this.MakeSnapshot();
 
@@ -41,6 +42,16 @@ public class DatabaseCache : IDisposable
         }
     }
 
+    //public TableCache GetTableCache(string tableName)
+    //{
+    //    return TableCaches.Single(x => x.Table.DbName == tableName);
+    //}
+
+    public TableCache GetTableCache(TableMetadata table)
+    {
+        return TableCaches[table];
+    }
+
     public DatabaseCacheSnapshot GetLatestSnapshot()
     {
         return History.GetLatest() ?? MakeSnapshot();
@@ -48,7 +59,7 @@ public class DatabaseCache : IDisposable
 
     public DatabaseCacheSnapshot MakeSnapshot()
     {
-        var snapshot = new DatabaseCacheSnapshot(DateTime.UtcNow, TableCaches.Select(x => x.MakeSnapshot()).ToArray());
+        var snapshot = new DatabaseCacheSnapshot(DateTime.UtcNow, TableCaches.Values.Select(x => x.MakeSnapshot()).ToArray());
         History.Add(snapshot);
 
         return snapshot;
@@ -66,18 +77,32 @@ public class DatabaseCache : IDisposable
         };
     }
 
+    public (IndexCacheType, int? amount) GetIndexCachePolicy()
+    {
+        if (!Database.Metadata.IndexCache.Any() || Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.None))
+            return (IndexCacheType.None, 0);
+
+        if (Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
+            return (IndexCacheType.MaxAmountRows, Database.Metadata.IndexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
+
+        if (Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.All))
+            return (IndexCacheType.All, null);
+
+        throw new NotImplementedException();
+    }
+
 
     public void ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
     {
         foreach (var change in changes.GroupBy(x => x.Table))
         {
-            TableCaches.Single(x => x.Table == change.Key).ApplyChanges(change, transaction);
+            TableCaches[change.Key].ApplyChanges(change, transaction);
         }
     }
 
     public void RemoveTransaction(Transaction transaction)
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             table.TryRemoveTransaction(transaction);
         }
@@ -85,7 +110,7 @@ public class DatabaseCache : IDisposable
 
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsBySettings()
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             foreach (var (limitType, amount) in table.Table.CacheLimits)
             {
@@ -103,7 +128,7 @@ public class DatabaseCache : IDisposable
 
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsByLimit(CacheLimitType limitType, long amount)
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             var numRows = table.RemoveRowsByLimit(limitType, amount);
 
@@ -114,7 +139,7 @@ public class DatabaseCache : IDisposable
 
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsInsertedBeforeTick(long tick)
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
             var numRows = table.RemoveRowsInsertedBeforeTick(tick);
 
@@ -125,15 +150,15 @@ public class DatabaseCache : IDisposable
 
     public void ClearCache()
     {
-        foreach (var table in TableCaches)
+        foreach (var table in TableCaches.Values)
         {
-            table.ClearRows();
+            table.ClearCache();
         }
     }
 
     public void Dispose()
     {
-        this.CleanCacheWorker.Stop();
+        this.CleanCacheWorker?.Stop();
         this.ClearCache();
     }
 }

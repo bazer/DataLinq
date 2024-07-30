@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace DataLinq.Extensions;
+namespace DataLinq.Extensions.Helpers;
 
 public static class LinqExtensions
 {

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
+using System.Text.RegularExpressions;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
 using ThrowAway;
@@ -47,7 +48,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
-            foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`partial`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l\r\nJOIN pragma_index_info(l.`name`) i"))
+            foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`unique`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l JOIN pragma_index_info(l.`name`) i"))
             {
                 var column = tableModel
                     .Table.Columns.Single(x => x.DbName == reader.GetString(4));
@@ -94,11 +95,26 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         {
             foreach (var reader in dbAccess.ReadReader($"SELECT `id`, `table`, `from`, `to` FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
             {
+                var keyName = reader.GetString(0);
+                var tableName = reader.GetString(1);
+                var fromColumn = reader.GetString(2);
+                var toColumn = reader.GetString(3);
+
                 var foreignKeyColumn = tableModel
-                    .Table.Columns.Single(x => x.DbName == reader.GetString(2));
+                    .Table.Columns.Single(x => x.DbName == fromColumn);
 
                 foreignKeyColumn.ForeignKey = true;
-                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(reader.GetString(1), reader.GetString(3), reader.GetString(0)));
+                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(tableName, toColumn, keyName));
+
+                var referencedColumn = database
+                   .TableModels.SingleOrDefault(x => x.Table.DbName == tableName)?
+                   .Table.Columns.SingleOrDefault(x => x.DbName == toColumn);
+
+                if (referencedColumn != null)
+                {
+                    MetadataFactory.AddRelationProperty(referencedColumn, foreignKeyColumn, keyName);
+                    MetadataFactory.AddRelationProperty(foreignKeyColumn, referencedColumn, keyName);
+                }
             }
         }
     }
@@ -122,7 +138,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         table.Columns = dbAccess
             .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
             .Select(x => ParseColumn(table, x))
-            .ToList();
+            .ToArray();
 
         return new TableModelMetadata
         {
@@ -162,16 +178,29 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         var dbName = reader.GetString(1);
 
+        var createStatement = dbAccess.ExecuteScalar<string>($"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table.DbName}'");
+        var hasAutoIncrement = false;
+
+        if (createStatement != null)
+        {
+            // Check if the specified column is defined as AUTOINCREMENT
+            var pattern = $@"\""({dbName})\""\s+INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT\b";
+            var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+            hasAutoIncrement = regex.IsMatch(createStatement);
+        }
+
         var column = new Column
         {
             Table = table,
             DbName = dbName,
             Nullable = reader.GetBoolean(3) == false, // For views, this seems to indicate all columns as Nullable
-            PrimaryKey = reader.GetBoolean(5),
-            AutoIncrement = dbAccess.ExecuteScalar<long>($"SELECT COUNT(*) FROM sqlite_sequence WHERE name='{dbName}'") > 0 // Only works if there are rows in the table
+            AutoIncrement = hasAutoIncrement
         };
 
-        column.DbTypes.Add(dbType);
+        column.SetPrimaryKey(reader.GetBoolean(5));
+
+        column.AddDbType(dbType);
 
         var csType = ParseCsType(dbType.Name);
 

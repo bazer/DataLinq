@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Castle.DynamicProxy;
@@ -10,59 +12,43 @@ namespace DataLinq.Instances;
 
 internal abstract class RowInterceptor : IInterceptor
 {
-    protected RowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
+    protected RowInterceptor(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
     {
         RowData = rowData;
         this.databaseProvider = databaseProvider;
-        this.writeTransaction = transaction == null || transaction.Type == TransactionType.ReadOnly ? null : transaction;
+        this.writeTransaction = dataSource is Transaction transaction ? transaction : null;
+
+        RelationKeys = RelationProperties.ToDictionary(x => x.Value, x => KeyFactory.CreateKeyFromValues(RowData.GetValues(x.Value.RelationPart.ColumnIndex.Columns)));
     }
 
-    protected List<Property> Properties =>
-        RowData.Table.Model.Properties;
-
+    protected Dictionary<string, RelationProperty> RelationProperties => RowData.Table.Model.RelationProperties;
+    protected Dictionary<string, ValueProperty> ValueProperties => RowData.Table.Model.ValueProperties;
+    protected Dictionary<RelationProperty, IKey> RelationKeys;
     protected RowData RowData { get; }
-    //protected ConcurrentDictionary<string, object> RelationCache;
     protected Transaction? writeTransaction;
     protected IDatabaseProvider databaseProvider;
 
+    private static readonly ConcurrentDictionary<Type, MethodInfo> castMethodCache = new();
+
+
     public abstract void Intercept(IInvocation invocation);
 
-    protected Transaction GetTransaction()
+    protected DataSourceAccess GetDataSource()
     {
         if (writeTransaction != null && (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
             writeTransaction = null;
 
-        return writeTransaction ?? databaseProvider.StartTransaction(TransactionType.ReadOnly);
+        return writeTransaction as DataSourceAccess ?? databaseProvider.ReadOnlyAccess;
     }
 
-    protected object GetRelation(InvocationInfo info)
+    protected object? GetRelation(RelationProperty property)
     {
-        var property = Properties
-            .OfType<RelationProperty>()
-            .Single(x => x.CsName == info.Name);
-
-        //if (RelationCache == null)
-        //    RelationCache = new ConcurrentDictionary<string, object>();
-
-        //if (!RelationCache.TryGetValue(info.Name, out object returnvalue))
-        //{
-
-        //if (writeTransaction != null && (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
-        //    writeTransaction = null;
-
-        //var transaction = writeTransaction ?? databaseProvider.StartTransaction(TransactionType.ReadOnly);
-
-        //if (writeTransaction == null || (writeTransaction.Status == DatabaseTransactionStatus.Committed || writeTransaction.Status == DatabaseTransactionStatus.RolledBack))
-        //    writeTransaction = databaseProvider.StartTransaction(TransactionType.ReadOnly);
-
-        var transaction = GetTransaction();
-
         var otherSide = property.RelationPart.GetOtherSide();
         var result = databaseProvider
-            .GetTableCache(otherSide.Column.Table)
-            .GetRows(new ForeignKey(otherSide.Column, RowData.GetValue(property.RelationPart.Column.DbName)), transaction);
+            .GetTableCache(otherSide.ColumnIndex.Table)
+            .GetRows(RelationKeys[property], property, GetDataSource());
 
-        object returnvalue;
+        object? returnvalue;
         if (property.RelationPart.Type == RelationPartType.ForeignKey)
         {
             returnvalue = result.SingleOrDefault();
@@ -71,14 +57,16 @@ internal abstract class RowInterceptor : IInterceptor
         {
             var listType = property.CsType.GetTypeInfo().GenericTypeArguments[0];
 
-            returnvalue = typeof(Enumerable)
-                .GetMethod("Cast")
-                .MakeGenericMethod(listType)
-                .Invoke(null, new object[] { result });
-        }
+            // Use the cache
+            var castMethod = castMethodCache.GetOrAdd(listType, (Type lt) =>
+            {
+                return (typeof(Enumerable)
+                    .GetMethod("Cast", BindingFlags.Static | BindingFlags.Public) ?? throw new InvalidOperationException("Could not find method 'Cast' in 'Enumerable'"))
+                    .MakeGenericMethod(lt);
+            });
 
-        //    RelationCache.TryAdd(info.Name, returnvalue);
-        //}
+            returnvalue = castMethod.Invoke(null, [result]);
+        }
 
         return returnvalue;
     }

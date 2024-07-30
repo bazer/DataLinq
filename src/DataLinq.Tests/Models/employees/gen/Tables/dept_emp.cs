@@ -1,10 +1,12 @@
 ﻿using System;
+using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
 namespace DataLinq.Tests.Models;
 
-[Table("dept_emp")]
+[Table("dept-emp")]
+[IndexCache(IndexCacheType.None)]
 public partial record dept_emp : ITableModel<Employees>
 {
     [PrimaryKey]
@@ -31,10 +33,10 @@ public partial record dept_emp : ITableModel<Employees>
     [Column("to_date")]
     public virtual DateOnly to_date { get; set; }
 
-    [Relation("departments", "dept_no")]
+    [Relation("departments", "dept_no", "dept_emp_ibfk_2")]
     public virtual Department departments { get; }
 
-    [Relation("employees", "emp_no")]
+    [Relation("employees", "emp_no", "dept_emp_ibfk_1")]
     public virtual Employee employees { get; }
 
 }

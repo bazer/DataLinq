@@ -31,6 +31,7 @@ public class MetadataTransformer
         destMetadata.Attributes = srcMetadata.Attributes;
         destMetadata.UseCache = srcMetadata.UseCache;
         destMetadata.CacheLimits = srcMetadata.CacheLimits;
+        destMetadata.IndexCache = srcMetadata.IndexCache;
         destMetadata.CacheCleanup = srcMetadata.CacheCleanup;
 
         foreach (var srcTable in srcMetadata.TableModels)
@@ -72,9 +73,9 @@ public class MetadataTransformer
         destTable.Model.Interfaces = new ModelInterface[] { new ModelInterface { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName } };
         destTable.Model.Namespaces = srcTable.Model.Namespaces;
 
-        foreach (var srcProperty in srcTable.Model.ValueProperties)
+        foreach (var srcProperty in srcTable.Model.ValueProperties.Values)
         {
-            var destProperty = destTable.Model.ValueProperties.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
+            var destProperty = destTable.Model.ValueProperties.Values.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
 
             if (destProperty == null)
             {
@@ -103,7 +104,7 @@ public class MetadataTransformer
             {
                 if (!destProperty.Column.DbTypes.Any(x => x.DatabaseType == srcDbType.DatabaseType))
                 {
-                    destProperty.Column.DbTypes.Add(new DatabaseColumnType
+                    destProperty.Column.AddDbType(new DatabaseColumnType
                     {
                         DatabaseType = srcDbType.DatabaseType,
                         Name = srcDbType.Name,
@@ -115,11 +116,11 @@ public class MetadataTransformer
             }
         }
 
-        foreach (var srcProperty in srcTable.Model.RelationProperties)
+        foreach (var srcProperty in srcTable.Model.RelationProperties.Values)
         {
-            var destProperty = destTable.Model.RelationProperties.FirstOrDefault(x =>
-                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().Column.Table.DbName == y.Table) &&
-                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().Column.DbName == y.Column));
+            var destProperty = destTable.Model.RelationProperties.Values.FirstOrDefault(x =>
+                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().ColumnIndex.Table.DbName == y.Table) &&
+                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().ColumnIndex.Columns.All(z => y.Columns.Contains(z.DbName)) == true));
 
             if (destProperty == null)
             {

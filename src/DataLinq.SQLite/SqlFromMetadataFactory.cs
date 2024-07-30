@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Exceptions;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using Microsoft.Data.Sqlite;
@@ -29,13 +29,13 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
                     sql.NewRow().Indent()
                         .ColumnName(column.DbName)
                         .Type(dbType.Name.ToUpper(), column.DbName, longestName)
-                        .Add(column.PrimaryKey && table.PrimaryKeyColumns.Count == 1 ? " PRIMARY KEY" : "")
+                        .Add(column.PrimaryKey && table.PrimaryKeyColumns.Length == 1 ? " PRIMARY KEY" : "")
                         .Add(column.AutoIncrement ? " AUTOINCREMENT" : "");
 
                     sql.Nullable(column.PrimaryKey ? false : column.Nullable);
                 }
 
-                if (table.PrimaryKeyColumns.Count > 1)
+                if (table.PrimaryKeyColumns.Length > 1)
                     sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
 
                 //{
@@ -47,8 +47,9 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
                     sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
 
                 foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
-                    foreach (var relation in foreignKey.RelationParts)
-                        sql.ForeignKey(relation, foreignKeyRestrict);
+                    foreach (var index in foreignKey.ColumnIndices)
+                        foreach (var relation in index.RelationParts)
+                            sql.ForeignKey(relation, foreignKeyRestrict);
             });
         }
 
@@ -71,9 +72,9 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         if (file != "memory")
         {
             if (File.Exists(file))
-                return DataLinqOptionFailure.Fail("Database file already exists");
+                return DataLinqOptionFailure.Fail($"Failed to create new SQLite database file '{file}', it already exists.");
 
-            File.WriteAllBytes(file, new byte[] { });
+            File.WriteAllBytes(file, []);
         }
 
         using var connection = new SqliteConnection(connectionString);
@@ -95,10 +96,10 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .Where(x => x != null)
             .FirstOrDefault();
 
-        if (!type.HasValue)
+        if (type == null)
             throw new Exception($"Could not find a SQLite database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
 
-        return type.Value;
+        return type;
     }
 
     private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)

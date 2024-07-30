@@ -32,17 +32,24 @@ public class ModelMetadata
     public ModelNamespace[] Namespaces { get; set; }
     public DatabaseMetadata Database { get; set; }
     public TableMetadata Table { get; set; }
-    public List<Property> Properties { get; set; } = new List<Property>();
-    public IEnumerable<RelationProperty> RelationProperties => Properties
-        .OfType<RelationProperty>();
-    public IEnumerable<ValueProperty> ValueProperties => Properties
-        .OfType<ValueProperty>();
+    public Dictionary<string, RelationProperty> RelationProperties { get; } = new();
+    public Dictionary<string, ValueProperty> ValueProperties { get; } = new();
     public Attribute[] Attributes { get; set; }
+
+    public void AddProperty(Property property)
+    { 
+        if (property is RelationProperty relationProperty)
+            RelationProperties.Add(relationProperty.CsName, relationProperty);
+        else if (property is ValueProperty valueProperty)
+            ValueProperties.Add(valueProperty.CsName, valueProperty);
+        else
+            throw new NotImplementedException();
+    }
 
     protected bool IsOfType(Type modelType) =>
            modelType == CsType || modelType.BaseType == CsType;
 
-    public static ModelMetadata Find(IModel model) =>
+    public static ModelMetadata? Find(IModel model) =>
         DatabaseMetadata
         .LoadedDatabases
         .Values

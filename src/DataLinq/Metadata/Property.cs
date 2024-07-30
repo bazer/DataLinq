@@ -21,9 +21,9 @@ public abstract class Property
     public PropertyInfo PropertyInfo { get; set; }
     public PropertyType Type { get; protected set; }
 
-
     private Func<object, object> getAccessor = null;
-    public object GetValue(object m)
+
+    public object? GetValue(object m)
     {
         if (getAccessor == null)
             getAccessor = BuildGetAccessor();
@@ -114,6 +114,7 @@ public record struct EnumProperty
 public class RelationProperty : Property
 {
     public RelationPart RelationPart { get; set; }
+    public string RelationName { get; set; }
 
     public RelationProperty()
     {

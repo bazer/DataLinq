@@ -5,12 +5,21 @@ namespace DataLinq.Attributes;
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
 public sealed class RelationAttribute : Attribute
 {
-    public RelationAttribute(string table, string column)
+    public RelationAttribute(string table, string column, string? name = null)
     {
-        Column = column;
         Table = table;
+        Columns = [column];
+        Name = name;
     }
 
-    public string Column { get; }
+    public RelationAttribute(string table, string[] column, string? name = null)
+    {
+        Table = table;
+        Columns = column;
+        Name = name;
+    }
+
     public string Table { get; }
+    public string[] Columns { get; }
+    public string? Name { get; }
 }

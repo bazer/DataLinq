@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Cache;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -16,13 +18,16 @@ namespace DataLinq;
 public abstract class DatabaseProvider<T> : DatabaseProvider
     where T : class, IDatabaseModel
 {
+    public ReadOnlyAccess<T> TypedReadOnlyAccess { get; set; }
+
     /// <summary>
     /// Initializes a new instance of the DatabaseProvider with the specified connection string and database type.
     /// </summary>
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
-    protected DatabaseProvider(string connectionString, DatabaseType databaseType) : base(connectionString, typeof(T), databaseType)
+    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, typeof(T), databaseType, loggingConfiguration)
     {
+        TypedReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
     /// <summary>
@@ -31,8 +36,9 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database.</param>
-    protected DatabaseProvider(string connectionString, DatabaseType databaseType, string databaseName) : base(connectionString, typeof(T), databaseType, databaseName)
+    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string databaseName) : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName)
     {
+        TypedReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 }
 
@@ -43,20 +49,24 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
 {
     public string DatabaseName { get; protected set; }
     public DatabaseType DatabaseType { get; }
+    public DataLinqLoggingConfiguration LoggingConfiguration { get; }
     public abstract IDatabaseProviderConstants Constants { get; }
 
     public string ConnectionString { get; }
+    public abstract DatabaseAccess DatabaseAccess { get; }
+    public virtual ReadOnlyAccess ReadOnlyAccess { get; }
     public DatabaseMetadata Metadata { get; }
     public State State { get; }
 
     private static readonly object lockObject = new();
+    
 
     /// <summary>
     /// Retrieves the table cache for a given table metadata.
     /// </summary>
     /// <param name="table">The metadata of the table to retrieve the cache for.</param>
     /// <returns>The table cache for the specified table.</returns>
-    public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches.Single(x => x.Table == table);
+    public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches[table];
 
     /// <summary>
     /// Initializes a new instance of the DatabaseProvider class with the specified connection string, type of the model, database type, and optional database name.
@@ -65,7 +75,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// <param name="type">The type of the model that the database contains.</param>
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database (optional).</param>
-    protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, string? databaseName = null)
+    protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName = null)
     {
         lock (lockObject)
         {
@@ -77,14 +87,38 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
             {
                 Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(type);
                 DatabaseMetadata.LoadedDatabases.TryAdd(type, Metadata);
+
+                if (Metadata.UseCache)
+                {
+                    if (!Metadata.CacheLimits.Any())
+                    {
+                        Metadata.CacheLimits.Add((CacheLimitType.Megabytes, 256));
+                        Metadata.CacheLimits.Add((CacheLimitType.Minutes, 30));
+                    }
+
+                    if (!Metadata.CacheCleanup.Any())
+                    {
+                        Metadata.CacheCleanup.Add((CacheCleanupType.Minutes, 10));
+                    }
+
+                    if (!Metadata.IndexCache.Any())
+                    {
+                        Metadata.IndexCache.Add((IndexCacheType.MaxAmountRows, 1000000));
+                    }
+                }
             }
         }
 
         DatabaseType = databaseType;
+        LoggingConfiguration = loggingConfiguration;
         DatabaseName = databaseName ?? Metadata.DbName;
         ConnectionString = connectionString;
-        State = new State(this);
+        State = new State(this, loggingConfiguration);
+
+        this.ReadOnlyAccess = new ReadOnlyAccess(this);
     }
+
+    
 
     /// <summary>
     /// Starts a new database transaction with the specified transaction type.
@@ -110,16 +144,17 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     // Abstract methods definitions:
     public abstract IDbCommand ToDbCommand(IQuery query);
     public abstract string GetLastIdQuery();
-    public abstract Sql GetParameter(Sql sql, string key, object value);
+    public abstract Sql GetParameter(Sql sql, string key, object? value);
     public abstract Sql GetParameterValue(Sql sql, string key);
-    public abstract Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key);
+    public abstract Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] key);
     public abstract Sql GetLimitOffset(Sql sql, int? limit, int? offset);
+    public abstract Sql GetTableName(Sql sql, string tableName, string? alias = null);
     public abstract Sql GetCreateSql();
     public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
     public abstract DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
-    public abstract string GetExists(string? databaseName = null);
+    public abstract bool DatabaseExists(string? databaseName = null);
     public abstract bool FileOrServerExists();
-    public abstract void CreateDatabase(string? databaseName = null);
+    //public abstract void CreateDatabase(string? databaseName = null);
     public abstract IDataLinqDataWriter GetWriter();
 
     /// <summary>
@@ -129,4 +164,5 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     {
         State.Dispose();
     }
+
 }

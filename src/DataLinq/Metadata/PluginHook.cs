@@ -2,19 +2,16 @@ using System.Collections.Generic;
 using DataLinq.Exceptions;
 using DataLinq.Interfaces;
 using DataLinq.Query;
+using Microsoft.Extensions.Logging;
 using ThrowAway;
 
 namespace DataLinq.Metadata;
-
-//public enum PluginHookError
-//{
-//    NoHandlerForType
-//}
 
 public interface IDatabaseProviderCreator
 {
     Database<T> GetDatabaseProvider<T>(string connectionString, string databaseName) where T : class, IDatabaseModel;
     bool IsDatabaseType(string typeName);
+    IDatabaseProviderCreator UseLoggerFactory(ILoggerFactory? loggerFactory);
 }
 
 public interface ISqlFromMetadataFactory

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -20,10 +21,10 @@ public partial record Department : ITableModel<Employees>
     [Column("dept_name")]
     public virtual string Name { get; set; }
 
-    [Relation("dept_emp", "dept_no")]
+    [Relation("dept-emp", "dept_no", "dept_emp_ibfk_2")]
     public virtual IEnumerable<dept_emp> DepartmentEmployees { get; }
 
-    [Relation("dept_manager", "dept_fk")]
+    [Relation("dept_manager", "dept_fk", "dept_manager_ibfk_2")]
     public virtual IEnumerable<Manager> Managers { get; }
 
 }

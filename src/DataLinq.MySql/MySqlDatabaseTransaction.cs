@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using DataLinq.Logging;
 using DataLinq.Mutation;
 using MySqlConnector;
 
@@ -11,14 +12,20 @@ namespace DataLinq.MySql;
 public class MySqlDatabaseTransaction : DatabaseTransaction
 {
     private IDbConnection? dbConnection;
+    private readonly string databaseName;
+    private readonly MySqlDataSource? dataSource;
+    private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
     /// <summary>
     /// Initializes a new instance of the MySqlDatabaseTransaction class with the specified connection string and transaction type.
     /// </summary>
     /// <param name="connectionString">The connection string to the MySQL database.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(string connectionString, TransactionType type) : base(connectionString, type)
+    public MySqlDatabaseTransaction(MySqlDataSource dataSource, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(type)
     {
+        this.dataSource = dataSource;
+        this.databaseName = databaseName;
+        this.loggingConfiguration = loggingConfiguration;
     }
 
     /// <summary>
@@ -27,7 +34,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// </summary>
     /// <param name="dbTransaction">The existing database transaction.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) : base(dbTransaction, type)
+    public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(dbTransaction, type)
     {
         if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
         if (dbTransaction.Connection is not MySqlConnection) throw new ArgumentException("The transaction connection must be an MySqlConnection", "dbTransaction.Connection");
@@ -35,6 +42,8 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
 
         SetStatus(DatabaseTransactionStatus.Open);
         dbConnection = dbTransaction.Connection;
+        this.databaseName = databaseName;
+        this.loggingConfiguration = loggingConfiguration;
     }
 
     /// <summary>
@@ -49,10 +58,15 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
 
             if (Status == DatabaseTransactionStatus.Closed)
             {
+                if (dataSource == null)
+                    throw new Exception("The data source is null");
+
                 SetStatus(DatabaseTransactionStatus.Open);
-                dbConnection = new MySqlConnection(ConnectionString);
-                dbConnection.Open();
+                dbConnection = dataSource.OpenConnection();
                 DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
+
+                if (databaseName != null)
+                    ExecuteNonQuery($"USE `{databaseName}`;");
             }
 
             if (dbConnection == null)
@@ -69,16 +83,10 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// <returns>The number of rows affected.</returns>
     public override int ExecuteNonQuery(IDbCommand command)
     {
-        try
-        {
-            command.Connection = DbConnection;
-            command.Transaction = DbTransaction;
-            return command.ExecuteNonQuery();
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        command.Connection = DbConnection;
+        command.Transaction = DbTransaction;
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        return command.ExecuteNonQuery();
     }
 
     /// <summary>
@@ -103,13 +111,8 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// <typeparam name="T">The expected return type of the scalar result.</typeparam>
     /// <param name="query">The SQL query string to execute.</param>
     /// <returns>The result cast to the type T, or default(T) if the result is DBNull or null.</returns>
-    public override T ExecuteScalar<T>(string query)
-    {
-        var result = ExecuteScalar(new MySqlCommand(query));
-#pragma warning disable CS8603 // Possible null reference return.
-        return result == null ? default : (T)result;
-#pragma warning restore CS8603 // Possible null reference return.
-    }
+    public override T ExecuteScalar<T>(string query) =>
+        ExecuteScalar<T>(new MySqlCommand(query));
 
     /// <summary>
     /// Executes a SQL command that returns a single value of type T, using the provided IDbCommand.
@@ -117,13 +120,8 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// <typeparam name="T">The expected return type of the scalar result.</typeparam>
     /// <param name="command">The IDbCommand to execute.</param>
     /// <returns>The result cast to the type T, or default(T) if the result is DBNull or null.</returns>
-    public override T ExecuteScalar<T>(IDbCommand command)
-    {
-        var result = ExecuteScalar(command);
-#pragma warning disable CS8603 // Possible null reference return.
-        return result == null ? default : (T)result;
-#pragma warning restore CS8603 // Possible null reference return.
-    }
+    public override T ExecuteScalar<T>(IDbCommand command) =>
+        (T)(ExecuteScalar(command) ?? default(T)!);
 
     /// <summary>
     /// Executes a SQL command that returns a single value, using the provided IDbCommand.
@@ -132,18 +130,11 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// <returns>The first column of the first row in the result set returned by the command, or null if the result is DBNull.</returns>
     public override object? ExecuteScalar(IDbCommand command)
     {
-        try
-        {
-            command.Connection = DbConnection;
-            command.Transaction = DbTransaction;
-            var result = command.ExecuteScalar();
-            return result == DBNull.Value ? null : result;
-        }
-        catch (Exception)
-        {
-            // TODO: Implement specific exception handling or logging here.
-            throw;
-        }
+        command.Connection = DbConnection;
+        command.Transaction = DbTransaction;
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
+        var result = command.ExecuteScalar();
+        return result == DBNull.Value ? null : result;
     }
 
 
@@ -165,19 +156,11 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// <returns></returns>
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
-        try
-        {
-            command.Connection = DbConnection;
-            command.Transaction = DbTransaction;
+        command.Connection = DbConnection;
+        command.Transaction = DbTransaction;
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-            //return command.ExecuteReader() as IDataLinqDataReader;
-            return new MySqlDataLinqDataReader(command.ExecuteReader() as MySqlDataReader);
-        }
-        catch (Exception)
-        {
-            //Rollback();
-            throw;
-        }
+        return new MySqlDataLinqDataReader((command.ExecuteReader() as MySqlDataReader)!);
     }
 
     /// <summary>

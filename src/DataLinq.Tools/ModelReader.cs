@@ -106,7 +106,7 @@ public class ModelReader : Generator
 
             DatabaseMetadata dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
                 .GetMetadataFromSqlFactory(sqlOptions)
-                .ParseDatabase(db.Name, db.CsType, connection.DatabaseName, connectionString.Original);
+                .ParseDatabase(db.Name, db.CsType, connection.DataSourceName, connectionString.Original);
 
             //var dbMetadata = connection.ParsedType switch
             //{

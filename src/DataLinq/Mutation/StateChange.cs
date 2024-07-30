@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Reflection;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -31,7 +33,7 @@ public class StateChange
     /// <summary>
     /// Gets the primary keys for the model.
     /// </summary>
-    public PrimaryKeys PrimaryKeys { get; }
+    public IKey PrimaryKeys { get; }
 
     /// <summary>
     /// Determines if the model has an auto-incrementing primary key.
@@ -60,7 +62,26 @@ public class StateChange
         Table = table;
         Type = type;
 
-        PrimaryKeys = new PrimaryKeys(Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)));
+        PrimaryKeys = KeyFactory.CreateKeyFromValues(Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)));
+    }
+
+    public IEnumerable<KeyValuePair<Column, object>> GetValues() =>
+        GetValues(Table.Columns);
+
+    public IEnumerable<KeyValuePair<Column, object>> GetValues(IEnumerable<Column> columns)
+    {
+        if (Model is InstanceBase instance)
+            return instance.GetValues(columns);
+        else
+            return Model.GetValues(columns);
+    }
+
+    public IEnumerable<KeyValuePair<Column, object>> GetChanges()
+    {
+        if (Model is MutableInstanceBase instance)
+            return instance.GetChanges();
+        else
+            return GetValues();
     }
 
     /// <summary>
@@ -71,7 +92,7 @@ public class StateChange
     {
         if (Type == TransactionChangeType.Insert && HasAutoIncrement && Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)).All(x => x == default))
         {
-            var newId = transaction.DatabaseTransaction.ExecuteScalar(GetDbCommand(transaction));
+            var newId = transaction.DatabaseAccess.ExecuteScalar(GetDbCommand(transaction));
 
             Table.PrimaryKeyColumns
                 .FirstOrDefault(x => x.AutoIncrement)?
@@ -79,7 +100,7 @@ public class StateChange
                 .SetValue(Model, newId);
         }
         else
-            transaction.DatabaseTransaction.ExecuteNonQuery(GetDbCommand(transaction));
+            transaction.DatabaseAccess.ExecuteNonQuery(GetDbCommand(transaction));
     }
 
     /// <summary>

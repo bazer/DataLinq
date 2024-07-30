@@ -18,32 +18,36 @@ internal enum MethodType
     Method
 }
 
-internal struct InvocationInfo
+internal ref struct InvocationInfo
 {
+    private const string getPrefix = "get_";
+    private const string setPrefix = "set_";
+
     internal CallType CallType { get; }
     internal MethodType MethodType { get; }
-    internal string Name { get; }
+    internal ReadOnlyMemory<char> Name { get; }
     internal object? Value { get; }
+    internal object[]? Arguments { get; }
 
     internal InvocationInfo(IInvocation invocation)
     {
-        var name = invocation.Method.Name;
+        var name = invocation.Method.Name.AsMemory();
 
-        if (name.StartsWith("set_", StringComparison.Ordinal))
+        if (name[..4].Span.SequenceEqual(setPrefix.AsSpan()))
             this.CallType = CallType.Set;
-        else if (name.StartsWith("get_", StringComparison.Ordinal))
+        else if (name[..4].Span.SequenceEqual(getPrefix.AsSpan()))
             this.CallType = CallType.Get;
         else if (invocation.Method.MemberType == MemberTypes.Method)
             this.CallType = CallType.Method;
         else
             throw new NotImplementedException();
 
-        if ((this.CallType == CallType.Get && invocation.Arguments.Length == 1) || (this.CallType == CallType.Set && invocation.Arguments.Length == 2))
+        if (((int)this.CallType == (int)CallType.Get && invocation.Arguments.Length == 1) || ((int)this.CallType == (int)CallType.Set && invocation.Arguments.Length == 2))
         {
             this.MethodType = MethodType.Indexer;
-            this.Name = (string)invocation.Arguments[0];
+            this.Name = ((string)invocation.Arguments[0]).AsMemory();
         }
-        else if (this.CallType == CallType.Method)
+        else if ((int)this.CallType == (int)CallType.Method)
         {
             this.MethodType = MethodType.Method;
             this.Name = name;
@@ -51,15 +55,15 @@ internal struct InvocationInfo
         else
         {
             this.MethodType = MethodType.Property;
-            this.Name = name.Substring(4);
+            this.Name = name[4..];
         }
 
-        if (this.CallType == CallType.Set && this.MethodType == MethodType.Property)
+        if ((int)this.CallType == (int)CallType.Set && (int)this.MethodType == (int)MethodType.Property)
             this.Value = invocation.Arguments[0];
-        else if (this.CallType == CallType.Set && this.MethodType == MethodType.Indexer)
+        else if ((int)this.CallType == (int)CallType.Set && (int)this.MethodType == (int)MethodType.Indexer)
             this.Value = invocation.Arguments[1];
-        else if (this.CallType == CallType.Method && invocation.Arguments.Length > 0)
-            this.Value = invocation.Arguments[0];
+        else if ((int)this.CallType == (int)CallType.Method && invocation.Arguments.Length > 0)
+            this.Arguments = invocation.Arguments;
         else
             this.Value = null;
     }

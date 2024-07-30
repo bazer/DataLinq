@@ -205,23 +205,23 @@ public record DataLinqDatabaseConnection
     public DataLinqDatabaseConfig DatabaseConfig { get; }
 
     public DatabaseType Type { get; }
-    public string DatabaseName { get; }
+    public string DataSourceName { get; }
     public DataLinqConnectionString ConnectionString { get; }
 
     public string GetRootedPath(string basePath)
     {
-        if (Path.IsPathRooted(DatabaseName))
-            return DatabaseName;
+        if (Path.IsPathRooted(DataSourceName))
+            return DataSourceName;
         else if (Path.IsPathRooted(ConnectionString.Path))
             return ConnectionString.Path;
 
-        return Path.Combine(basePath, DatabaseName);
+        return Path.Combine(basePath, DataSourceName);
     }
 
     public DataLinqDatabaseConnection(DataLinqDatabaseConfig databaseConfig, ConfigFileDatabaseConnection connection)
     {
         DatabaseConfig = databaseConfig;
-        DatabaseName = connection.DatabaseName ?? throw new ArgumentNullException(nameof(connection.DatabaseName));
+        DataSourceName = connection.DataSourceName ?? connection.DatabaseName ?? throw new ArgumentNullException(nameof(connection.DataSourceName));
         Type = ConfigReader.ParseDatabaseType(connection.Type) ?? throw new ArgumentException($"Couldn't find database type for '{connection.Type}'");
         ConnectionString = new DataLinqConnectionString(connection.ConnectionString);
     }

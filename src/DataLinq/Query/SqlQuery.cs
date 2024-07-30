@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -18,15 +19,15 @@ public interface IQuery
 
 public class SqlQuery : SqlQuery<object>
 {
-    public SqlQuery(Transaction transaction, string? alias = null) : base(transaction, alias)
+    public SqlQuery(DataSourceAccess transaction, string? alias = null) : base(transaction, alias)
     {
     }
 
-    public SqlQuery(TableMetadata table, Transaction transaction, string? alias = null) : base(table, transaction, alias)
+    public SqlQuery(TableMetadata table, DataSourceAccess transaction, string? alias = null) : base(table, transaction, alias)
     {
     }
 
-    public SqlQuery(string tableName, Transaction transaction, string? alias = null) : base(tableName, transaction, alias)
+    public SqlQuery(string tableName, DataSourceAccess transaction, string? alias = null) : base(tableName, transaction, alias)
     {
     }
 
@@ -54,48 +55,47 @@ public class SqlQuery<T>
     internal Dictionary<string, object> SetList = new Dictionary<string, object>();
     protected List<Join<T>> JoinList = new List<Join<T>>();
     internal List<OrderBy> OrderByList = new List<OrderBy>();
-    internal List<Column> WhatList;
+    internal List<string> WhatList;
     protected int? limit;
     protected int? offset;
     public bool LastIdQuery { get; protected set; }
-    public Transaction Transaction { get; }
+    public DataSourceAccess DataSource { get; }
 
     public TableMetadata Table { get; }
     public string? Alias { get; }
-    internal string DbName => string.IsNullOrEmpty(Alias)
-        ? Table.DbName
-        : $"{Table.DbName} {Alias}";
 
-    public SqlQuery(Transaction transaction, string? alias = null)
+    internal string EscapeCharacter => DataSource.Provider.Constants.EscapeCharacter;
+
+    public SqlQuery(DataSourceAccess dataSource, string? alias = null)
     {
-        CheckTransaction(transaction);
+        CheckTransaction(dataSource);
 
-        this.Transaction = transaction;
-        this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
+        this.DataSource = dataSource;
+        this.Table = dataSource.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
         this.Alias = alias;
     }
 
-    public SqlQuery(TableMetadata table, Transaction transaction, string? alias = null)
+    public SqlQuery(TableMetadata table, DataSourceAccess transaction, string? alias = null)
     {
         CheckTransaction(transaction);
 
-        this.Transaction = transaction;
+        this.DataSource = transaction;
         this.Table = table;
         this.Alias = alias;
     }
 
-    public SqlQuery(string tableName, Transaction transaction, string? alias = null)
+    public SqlQuery(string tableName, DataSourceAccess transaction, string? alias = null)
     {
         CheckTransaction(transaction);
 
-        this.Transaction = transaction;
+        this.DataSource = transaction;
         this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
         this.Alias = alias;
     }
 
-    private void CheckTransaction(Transaction transaction)
+    private void CheckTransaction(DataSourceAccess dataSource)
     {
-        if (/*transaction.Type != TransactionType.ReadOnly && */(transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
+        if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
             throw new Exception("Can't open a new connection on a committed or rolled back transaction");
     }
 
@@ -147,6 +147,17 @@ public class SqlQuery<T>
         return WhereGroup.AddWhere(columnName, alias, BooleanType.And);
     }
 
+    public WhereGroup<T> Where(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        if (WhereGroup == null)
+            WhereGroup = new WhereGroup<T>(this);
+
+        foreach (var (columnName, value) in wheres)
+            WhereGroup.AddWhere(columnName, alias, type).EqualTo(value);
+
+        return WhereGroup;
+    }
+
     public WhereGroup<T> Where(Func<Func<string, Where<T>>, WhereGroup<T>> func)
     {
         if (WhereGroup == null)
@@ -161,6 +172,17 @@ public class SqlQuery<T>
             WhereGroup = new WhereGroup<T>(this);
 
         return WhereGroup.AddWhereNot(columnName, alias, BooleanType.And);
+    }
+
+    public WhereGroup<T> WhereNot(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        if (WhereGroup == null)
+            WhereGroup = new WhereGroup<T>(this);
+
+        foreach (var (columnName, value) in wheres)
+            WhereGroup.AddWhereNot(columnName, alias, type).EqualTo(value);
+
+        return WhereGroup;
     }
 
     public WhereGroup<T> AddWhereGroup(BooleanType type = BooleanType.And)
@@ -187,7 +209,7 @@ public class SqlQuery<T>
         return WhereGroup;
     }
 
-    internal Sql GetWhere(Sql sql, string paramPrefix)
+    internal Sql GetWhere(Sql sql, string? paramPrefix)
     {
         if (WhereGroup == null)
             return sql;
@@ -232,7 +254,14 @@ public class SqlQuery<T>
         return Table.Columns.SingleOrDefault(x => x.ValueProperty.CsName == expression.Member.Name);
     }
 
-    internal Sql GetJoins(Sql sql, string paramPrefix)
+    internal Sql AddTableName(Sql sql, string tableName, string? alias)
+    {
+        DataSource.Provider.GetTableName(sql, tableName, alias);
+
+        return sql;
+    }
+
+    internal Sql GetJoins(Sql sql, string? paramPrefix)
     {
         foreach (var join in JoinList)
             join.GetSql(sql, paramPrefix);
@@ -277,7 +306,7 @@ public class SqlQuery<T>
             return sql;
 
         sql.AddText("\nORDER BY ");
-        sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.DbName}{(x.Ascending ? "" : " DESC")}")));
+        sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.DbName(EscapeCharacter)}{(x.Ascending ? "" : " DESC")}")));
 
         return sql;
     }
@@ -351,10 +380,10 @@ public class SqlQuery<T>
 
     internal Sql GetLimit(Sql sql)
     {
-        return Transaction.Provider.GetLimitOffset(sql, limit, offset);
+        return DataSource.Provider.GetLimitOffset(sql, limit, offset);
     }
 
-    internal Sql GetSet(Sql sql, string paramPrefix)
+    internal Sql GetSet(Sql sql, string? paramPrefix)
     {
         int length = SetList.Count;
         if (length == 0)
@@ -363,8 +392,8 @@ public class SqlQuery<T>
         int i = 0;
         foreach (var with in SetList)
         {
-            Transaction.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-            Transaction.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, paramPrefix + "v" + i);
+            DataSource.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+            DataSource.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, [paramPrefix + "v" + i]);
 
             if (i + 1 < length)
                 sql.AddText(",");
@@ -384,20 +413,20 @@ public class SqlQuery<T>
 
     public SqlQuery<T> What(IEnumerable<Column> columns)
     {
-        WhatList ??= new List<Column>();
-        WhatList.AddRange(columns);
+        return What(columns.Select(x => $"{EscapeCharacter}{x.DbName}{EscapeCharacter}"));
+    }
+
+    public SqlQuery<T> What(IEnumerable<string> selectors)
+    {
+        WhatList ??= [];
+        WhatList.AddRange(selectors.Select(x => Table.Columns.Any(y => y.DbName == x) ? $"{EscapeCharacter}{x}{EscapeCharacter}" : x));
 
         return this;
     }
 
-    public SqlQuery<T> What(IEnumerable<string> columns)
+    public SqlQuery<T> What(params string[] selectors)
     {
-        return What(columns.Select(x => Table.Columns.Single(y => y.DbName == x)));
-    }
-
-    public SqlQuery<T> What(params string[] columns)
-    {
-        return What(columns.AsEnumerable());
+        return What(selectors.AsEnumerable());
     }
 
     public SqlQuery<T> AddLastIdQuery()

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 
@@ -26,7 +27,7 @@ public class WhereGroup<T> : IWhere<T>
         IsNegated = isNegated;
     }
 
-    public void AddCommandString(Sql sql, string prefix = "", bool addCommandParameter = true, bool addParentheses = false)
+    public void AddCommandString(Sql sql, string? prefix = "", bool addCommandParameter = true, bool addParentheses = false)
     {
         int length = whereList?.Count ?? 0;
         if (length == 0)
@@ -38,20 +39,29 @@ public class WhereGroup<T> : IWhere<T>
         if (addParentheses || IsNegated)
             sql.AddText("(");
 
-        for (int i = 0; i < length; i++)
-        {
-            if (i != 0)
+        //if (whereList!.All(x => x.type == BooleanType.Or && x.where is Where<T> w && w.IsValue && !w.IsNegated))
+        //{
+        //    sql.AddText("IN (");
+        //    whereList.Select(x => Query.DataSource.Provider.GetParameterValue(sql, x.where.)
+        //    sql.AddText("IN )");
+        //}
+        //else
+        //{
+            for (int i = 0; i < length; i++)
             {
-                if (whereList[i].type == BooleanType.And)
-                    sql.AddText(" AND ");
-                else if (whereList[i].type == BooleanType.Or)
-                    sql.AddText(" OR ");
-                else
-                    throw new NotImplementedException();
-            }
+                if (i != 0)
+                {
+                    if (whereList[i].type == BooleanType.And)
+                        sql.AddText(" AND ");
+                    else if (whereList[i].type == BooleanType.Or)
+                        sql.AddText(" OR ");
+                    else
+                        throw new NotImplementedException();
+                }
 
-            whereList[i].where.AddCommandString(sql, prefix, addCommandParameter, whereList[i].where is WhereGroup<T>);
-        }
+                whereList[i].where.AddCommandString(sql, prefix, addCommandParameter, whereList[i].where is WhereGroup<T>);
+            }
+        //}
 
         if (addParentheses || IsNegated)
             sql.AddText(")");
@@ -154,29 +164,39 @@ public class WhereGroup<T> : IWhere<T>
         return new Insert<T>(Query);
     }
 
-    public Where<T> Where(string columnName, string alias = null)
+    public Where<T> Where(string columnName, string? alias = null)
     {
         return Query.Where(columnName, alias);
     }
 
-    public SqlQuery<T> OrderBy(string columnName, string alias = null, bool ascending = true)
+    public WhereGroup<T> Where(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        return Query.Where(wheres, type, alias);
+    }
+
+    public WhereGroup<T> WhereNot(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        return Query.WhereNot(wheres, type, alias);
+    }
+
+    public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true)
     {
         return Query.OrderBy(columnName, alias, ascending);
     }
 
-    public SqlQuery<T> OrderBy(Column column, string alias = null, bool ascending = true)
+    public SqlQuery<T> OrderBy(Column column, string? alias = null, bool ascending = true)
     {
         return Query.OrderBy(column, alias, ascending);
     }
 
-    public SqlQuery<T> OrderByDesc(string columnName)
+    public SqlQuery<T> OrderByDesc(string columnName, string? alias = null)
     {
-        return Query.OrderByDesc(columnName);
+        return Query.OrderByDesc(columnName, alias);
     }
 
-    public SqlQuery<T> OrderByDesc(Column column)
+    public SqlQuery<T> OrderByDesc(Column column, string? alias = null)
     {
-        return Query.OrderByDesc(column);
+        return Query.OrderByDesc(column, alias);
     }
 
     public SqlQuery<T> Limit(int rows)
@@ -184,17 +204,17 @@ public class WhereGroup<T> : IWhere<T>
         return Query.Limit(rows);
     }
 
-    public Join<T> Join(string tableName, string alias = null)
+    public Join<T> Join(string tableName, string? alias = null)
     {
         return Query.Join(tableName, alias);
     }
 
-    public Join<T> LeftJoin(string tableName, string alias = null)
+    public Join<T> LeftJoin(string tableName, string? alias = null)
     {
         return Query.Join(tableName, alias);
     }
 
-    public Join<T> RightJoin(string tableName, string alias = null)
+    public Join<T> RightJoin(string tableName, string? alias = null)
     {
         return Query.Join(tableName, alias);
     }

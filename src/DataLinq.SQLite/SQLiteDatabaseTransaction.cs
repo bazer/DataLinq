@@ -8,10 +8,13 @@ namespace DataLinq.SQLite;
 public class SQLiteDatabaseTransaction : DatabaseTransaction
 {
     private IDbConnection dbConnection;
+    private readonly string connectionString;
+
     //private SqliteTransaction dbTransaction;
 
-    public SQLiteDatabaseTransaction(string connectionString, TransactionType type) : base(connectionString, type)
+    public SQLiteDatabaseTransaction(string connectionString, TransactionType type) : base(type)
     {
+        this.connectionString = connectionString;
     }
 
     public SQLiteDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) : base(dbTransaction, type)
@@ -34,18 +37,36 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
             if (Status == DatabaseTransactionStatus.Closed)
             {
                 SetStatus(DatabaseTransactionStatus.Open);
-                dbConnection = new SqliteConnection(ConnectionString);
+                dbConnection = new SqliteConnection(connectionString);
                 dbConnection.Open();
-
-                using (var command = new SqliteCommand("PRAGMA journal_mode=WAL;", dbConnection as SqliteConnection))
-                {
-                    command.ExecuteNonQuery();
-                }
+                SetIsolationLevel((dbConnection as SqliteConnection)!, IsolationLevel.ReadUncommitted);
 
                 DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadUncommitted);
             }
 
             return dbConnection;
+        }
+    }
+
+    private void SetIsolationLevel(SqliteConnection connection, IsolationLevel isolationLevel)
+    {
+        switch (isolationLevel)
+        {
+            case IsolationLevel.ReadUncommitted:
+                using (var command = new SqliteCommand("PRAGMA read_uncommitted = true;", connection))
+                {
+                    command.ExecuteNonQuery();
+                }
+                break;
+            case IsolationLevel.Serializable:
+            // Serializable is the default mode in SQLite, but you can explicitly set it if needed.
+            // Other isolation levels can be managed here if SQLite supports them in future versions.
+            default:
+                using (var command = new SqliteCommand("PRAGMA read_uncommitted = false;", connection))
+                {
+                    command.ExecuteNonQuery();
+                }
+                break;
         }
     }
 

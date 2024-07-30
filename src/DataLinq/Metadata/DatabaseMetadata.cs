@@ -22,8 +22,9 @@ public class DatabaseMetadata
     public Type? CsType { get; }
     public string CsTypeName { get; }
     public Attribute[] Attributes { get; set; }
-    public List<TableModelMetadata> TableModels { get; set; } = new();
-    public List<(CacheLimitType limitType, long amount)> CacheLimits { get; internal set; } = new();
-    public List<(CacheCleanupType cleanupType, long amount)> CacheCleanup { get; internal set; } = new();
+    public List<TableModelMetadata> TableModels { get; set; } = [];
+    public List<(CacheLimitType limitType, long amount)> CacheLimits { get; internal set; } = [];
+    public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; set; } = [];
+    public List<(CacheCleanupType cleanupType, long amount)> CacheCleanup { get; internal set; } = [];
     public bool UseCache { get; internal set; }
 }

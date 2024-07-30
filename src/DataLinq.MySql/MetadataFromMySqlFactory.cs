@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using ThrowAway;
@@ -129,8 +129,20 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
             foreignKeyColumn.ForeignKey = true;
             foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
+
+            var referencedColumn = database
+                .TableModels.SingleOrDefault(x => x.Table.DbName == key.REFERENCED_TABLE_NAME)?
+                .Table.Columns.SingleOrDefault(x => x.DbName == key.REFERENCED_COLUMN_NAME);
+
+            if (referencedColumn != null)
+            {
+                MetadataFactory.AddRelationProperty(referencedColumn, foreignKeyColumn, key.CONSTRAINT_NAME);
+                MetadataFactory.AddRelationProperty(foreignKeyColumn, referencedColumn, key.CONSTRAINT_NAME);
+            }
         }
     }
+
+    
 
     private TableModelMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
     {
@@ -158,7 +170,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             .COLUMNS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == table.DbName)
             .AsEnumerable()
             .Select(x => ParseColumn(table, x))
-            .ToList();
+            .ToArray();
 
         return new TableModelMetadata
         {
@@ -192,11 +204,13 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             Table = table,
             DbName = dbColumns.COLUMN_NAME,
             Nullable = dbColumns.IS_NULLABLE == "YES",
-            PrimaryKey = dbColumns.COLUMN_KEY == "PRI",
+            //PrimaryKey = dbColumns.COLUMN_KEY == "PRI",
             AutoIncrement = dbColumns.EXTRA.Contains("auto_increment")
         };
 
-        column.DbTypes.Add(dbType);
+        column.SetPrimaryKey(dbColumns.COLUMN_KEY == "PRI");
+
+        column.AddDbType(dbType);
 
         var csType = ParseCsType(dbType.Name);
         var valueProp = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);

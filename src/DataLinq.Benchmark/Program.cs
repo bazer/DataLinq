@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Running;
 
 namespace DataLinq.Benchmark;
 
@@ -30,7 +31,7 @@ public class Program
     {
         var setup = new BenchmarkSetup();
         setup.Setup();
-        setup.YourBenchmarkMethod();
+        setup.LoadAllUsers();
 
 
         //var summary = BenchmarkRunner.Run<BenchmarkSetup>();

@@ -9,6 +9,9 @@ using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models;
+using Microsoft.Extensions.Logging;
+using Serilog;
+using Xunit;
 
 namespace DataLinq.Tests;
 
@@ -29,21 +32,40 @@ public class DatabaseFixture : IDisposable
         EmployeeConnections = employees.Connections;
         var lockObject = new object();
 
+        // Configure Serilog
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.File("D:\\git\\DataLinq\\logs\\tests.txt", rollingInterval: RollingInterval.Day, flushToDiskInterval: TimeSpan.FromSeconds(1))
+            .CreateLogger();
+
+        // Set up logging with Serilog
+        var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.ClearProviders();
+            builder.AddSerilog();
+        });
+
+        //var loggerFactory = LoggerFactory.Create(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
+
         foreach (var connection in employees.Connections)
         {
             var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
+            provider.UseLoggerFactory(loggerFactory);
 
-            var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString.Original, connection.DatabaseName);
+            var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString.Original, connection.DataSourceName);
 
             lock (lockObject)
             {
                 if (!dbEmployees.FileOrServerExists() || !dbEmployees.Exists())
                 {
-                    PluginHook.CreateDatabaseFromMetadata(connection.Type,
-                        dbEmployees.Provider.Metadata, connection.DatabaseName, connection.ConnectionString.Original, true);
+                    var result = PluginHook.CreateDatabaseFromMetadata(connection.Type,
+                        dbEmployees.Provider.Metadata, connection.DataSourceName, connection.ConnectionString.Original, true);
+
+                    if (result.HasFailed)
+                        Assert.Fail(result.Failure.ToString());
                 }
 
-                if (dbEmployees.Query().Employees.Count() == 0)
+                if (!dbEmployees.Query().Employees.Any())
                 {
                     FillEmployeesWithBogusData(dbEmployees);
                 }
@@ -93,7 +115,7 @@ public class DatabaseFixture : IDisposable
         transaction.Insert(dept_empFaker.Generate(numEmployees));
 
         empNo = 0;
-        var titlesFaker = new Faker<titles>()
+        var titlesFaker = new Faker<Titles>()
            .StrictMode(false)
            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
@@ -102,7 +124,7 @@ public class DatabaseFixture : IDisposable
         transaction.Insert(titlesFaker.Generate(numEmployees));
 
         empNo = 0;
-        var salariesFaker = new Faker<salaries>()
+        var salariesFaker = new Faker<Salaries>()
            .StrictMode(false)
            .RuleFor(x => x.FromDate, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.ToDate, x => x.Date.PastDateOnly(20))

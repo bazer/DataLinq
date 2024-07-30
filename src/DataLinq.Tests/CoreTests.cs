@@ -53,7 +53,7 @@ public class CoreTests : BaseTests
         var factory = PluginHook.MetadataFromSqlFactories[connection.Type]
             .GetMetadataFromSqlFactory(new MetadataFromDatabaseFactoryOptions());
 
-        var metadata = factory.ParseDatabase("employees", "Employees", connection.DatabaseName, connection.ConnectionString.Original);
+        var metadata = factory.ParseDatabase("employees", "Employees", connection.DataSourceName, connection.ConnectionString.Original);
         TestDatabase(metadata, false);
     }
 
@@ -62,12 +62,12 @@ public class CoreTests : BaseTests
         Assert.Equal(2, database.CacheLimits.Count);
         Assert.Equal(CacheLimitType.Megabytes, database.CacheLimits[0].limitType);
         Assert.Equal(200, database.CacheLimits[0].amount);
-        Assert.Equal(CacheLimitType.Seconds, database.CacheLimits[1].limitType);
-        Assert.Equal(30, database.CacheLimits[1].amount);
+        Assert.Equal(CacheLimitType.Minutes, database.CacheLimits[1].limitType);
+        Assert.Equal(60, database.CacheLimits[1].amount);
 
         Assert.Single(database.CacheCleanup);
-        Assert.Equal(CacheCleanupType.Seconds, database.CacheCleanup[0].cleanupType);
-        Assert.Equal(20, database.CacheCleanup[0].amount);
+        Assert.Equal(CacheCleanupType.Minutes, database.CacheCleanup[0].cleanupType);
+        Assert.Equal(30, database.CacheCleanup[0].amount);
 
         Assert.Single(database.CacheCleanup);
     }
@@ -78,17 +78,24 @@ public class CoreTests : BaseTests
         Assert.Equal(8, database.TableModels.Count);
         Assert.Equal(2, database.TableModels.Count(x => x.Table.Type == TableType.View));
         Assert.Equal(12, database.TableModels.Sum(x => x.Model.RelationProperties.Count()));
-        Assert.Contains(database.TableModels, x => x.Table.Columns.Any(y => y.RelationParts.Any()));
+        Assert.Contains(database.TableModels, x => x.Table.Columns.Any(y => y.ColumnIndices.Any(z => z.RelationParts.Any())));
 
         var employees = database.TableModels.Single(x => x.Table.DbName == "employees").Table;
         Assert.Same(employees, employees.Model.Table);
-        Assert.Equal(6, employees.Columns.Count);
+        Assert.Equal(7, employees.Columns.Length);
 
         var emp_no = employees.Columns.Single(x => x.DbName == "emp_no");
         Assert.True(emp_no.PrimaryKey);
         Assert.True(emp_no.AutoIncrement);
-        Assert.Equal("int", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL).Name);
-        //Assert.Equal("integer", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.SQLite).Name);
+
+        Assert.NotEmpty(emp_no.DbTypes);
+        
+        if (emp_no.DbTypes.Any(x=> x.DatabaseType == DatabaseType.MySQL))
+            Assert.Equal("int", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL).Name);
+        
+        if (emp_no.DbTypes.Any(x=> x.DatabaseType == DatabaseType.SQLite))
+            Assert.Equal("integer", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.SQLite).Name);
+
         Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
 
         var dept_name = database.TableModels.Single(x => x.Table.DbName == "departments").Table.Columns.Single(x => x.DbName == "dept_name");

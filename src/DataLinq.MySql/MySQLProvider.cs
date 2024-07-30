@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Data;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using DataLinq.Extensions;
+using System.Text;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -32,80 +35,98 @@ public class MySQLProviderConstants : IDatabaseProviderConstants
 {
     public string ParameterSign { get; } = "?";
     public string LastInsertCommand { get; } = "last_insert_id()";
+    public string EscapeCharacter { get; } = "`";
+    public bool SupportsMultipleDatabases { get; } = true;
 }
 
-public class MySQLProvider<T> : DatabaseProvider<T>
+public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel
 {
-    private MySqlConnectionStringBuilder connectionStringBuilder;
     private MySqlDataLinqDataWriter dataWriter = new MySqlDataLinqDataWriter();
+    private MySqlDataSource dataSource;
+    private MySqlDbAccess dbAccess;
 
     public override IDatabaseProviderConstants Constants { get; } = new MySQLProviderConstants();
+    public override DatabaseAccess DatabaseAccess => dbAccess;
 
     static MySQLProvider()
     {
         MySQLProvider.RegisterProvider();
     }
 
-    public MySQLProvider(string connectionString) : base(connectionString, DatabaseType.MySQL)
+    public MySQLProvider(string connectionString) : this(connectionString, null, DataLinqLoggingConfiguration.NullConfiguration)
     {
-        connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+    }
+
+    public MySQLProvider(string connectionString, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration)
+    {
+        var connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
 
         if (!string.IsNullOrWhiteSpace(connectionStringBuilder.Database))
             DatabaseName = connectionStringBuilder.Database;
+
+        Setup();
     }
 
-    public MySQLProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.MySQL, databaseName)
+    public MySQLProvider(string connectionString, string? databaseName) : this(connectionString, databaseName, DataLinqLoggingConfiguration.NullConfiguration)
     {
-        connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
     }
 
-    public override void CreateDatabase(string? databaseName = null)
+    public MySQLProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration, databaseName)
     {
-        if (databaseName == null && DatabaseName == null)
-            throw new ArgumentNullException("DatabaseName not defined");
-
-        using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
-
-        var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
-            $"USE {databaseName ?? DatabaseName};\n" +
-            GetCreateSql();
-
-        transaction.ExecuteNonQuery(query);
+        Setup();
     }
+
+    private void Setup()
+    {
+        dataSource = new MySqlDataSourceBuilder(ConnectionString)
+            .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
+            .Build();
+
+        dbAccess = new MySqlDbAccess(dataSource, LoggingConfiguration);
+    }
+
+    //public override void CreateDatabase(string? databaseName = null)
+    //{
+    //    if (databaseName == null && DatabaseName == null)
+    //        throw new ArgumentNullException("DatabaseName not defined");
+
+    //    using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
+
+    //    var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
+    //        $"USE `{databaseName ?? DatabaseName}`;\n" +
+    //        GetCreateSql();
+
+    //    transaction.ExecuteNonQuery(query);
+    //}
+
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
-        DatabaseTransaction transaction = type == TransactionType.ReadOnly
-            ? new MySqlDbAccess(ConnectionString, type)
-            : new MySqlDatabaseTransaction(ConnectionString, type);
 
-        if (DatabaseName != null)
-            transaction.ExecuteNonQuery($"USE {DatabaseName};");
-
-        return transaction;
+        return new MySqlDatabaseTransaction(dataSource, type, DatabaseName, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
-        return new MySqlDatabaseTransaction(dbTransaction, type);
+        return new MySqlDatabaseTransaction(dbTransaction, type, DatabaseName, LoggingConfiguration);
     }
 
-    public override string GetExists(string? databaseName = null)
+    public override bool DatabaseExists(string? databaseName = null)
     {
         if (databaseName == null && DatabaseName == null)
             throw new ArgumentNullException("DatabaseName not defined");
 
-        return $"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'";
+        return DatabaseAccess
+            .ReadReader($"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'")
+            .Any();
     }
 
     public override bool FileOrServerExists()
     {
         try
         {
-            using var transaction = GetNewDatabaseTransaction(TransactionType.ReadOnly);
-
-            return transaction.ExecuteScalar<int>("SELECT 1") == 1;
+            return DatabaseAccess.ExecuteScalar<int>("SELECT 1") == 1;
         }
         catch (Exception)
         {
@@ -123,12 +144,41 @@ public class MySQLProvider<T> : DatabaseProvider<T>
         return sql.AddFormat("?{0}", key);
     }
 
-    public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string key)
+    public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] key)
     {
-        return sql.AddFormat("{0} {1} ?{2}", field, relation.ToSql(), key);
+        return sql.AddFormat("{0} {1} {2}",
+            field,
+            relation.ToSql(),
+            GetParameterName(relation, key));
     }
 
-    public override Sql GetParameter(Sql sql, string key, object value)
+    private string GetParameterName(Query.Relation relation, string[] key)
+    {
+        var builder = new StringBuilder();
+        if (key.Length > 1 || relation == Query.Relation.In || relation == Query.Relation.NotIn)
+        {
+            builder.Append('(');
+        }
+
+        for (int i = 0; i < key.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+            builder.Append('?');
+            builder.Append(key[i]);
+        }
+
+        if (key.Length > 1 || relation == Query.Relation.In || relation == Query.Relation.NotIn)
+        {
+            builder.Append(')');
+        }
+
+        return builder.ToString();
+    }
+
+    public override Sql GetParameter(Sql sql, string key, object? value)
     {
         return sql.AddParameters(new MySqlParameter("?" + key, value ?? DBNull.Value));
     }
@@ -148,15 +198,22 @@ public class MySQLProvider<T> : DatabaseProvider<T>
         return sql;
     }
 
+    public override Sql GetTableName(Sql sql, string tableName, string? alias = null)
+    {
+        sql.AddText($"{Constants.EscapeCharacter}{DatabaseName}{Constants.EscapeCharacter}.");
+
+        sql.AddText(string.IsNullOrEmpty(alias)
+            ? $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter}"
+            : $"{Constants.EscapeCharacter}{tableName}{Constants.EscapeCharacter} {alias}");
+
+        return sql;
+    }
+
     public override IDbCommand ToDbCommand(IQuery query)
     {
-        var sql = query.ToSql("");
+        var sql = query.ToSql();
 
-        var sqlText = sql.Text;
-        if (DatabaseName != null)
-            sqlText = $"USE {DatabaseName};\n" + sqlText;
-
-        var command = new MySqlCommand(sqlText);
+        var command = new MySqlCommand(sql.Text);
         command.Parameters.AddRange(sql.Parameters.ToArray());
 
         return command;

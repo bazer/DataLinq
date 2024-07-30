@@ -4,9 +4,11 @@ namespace DataLinq.Utils;
 
 public class FileSizeFormatProvider : IFormatProvider, ICustomFormatter
 {
-    public object GetFormat(Type formatType)
+    public object? GetFormat(Type? formatType)
     {
-        if (formatType == typeof(ICustomFormatter)) return this;
+        if (formatType == typeof(ICustomFormatter))
+            return this;
+
         return null;
     }
 
@@ -15,7 +17,7 @@ public class FileSizeFormatProvider : IFormatProvider, ICustomFormatter
     private const decimal OneMegaByte = OneKiloByte * 1024M;
     private const decimal OneGigaByte = OneMegaByte * 1024M;
 
-    public string Format(string format, object arg, IFormatProvider formatProvider)
+    public string Format(string? format, object? arg, IFormatProvider? formatProvider)
     {
         if (format?.StartsWith(fileSizeFormat) != true)
         {
@@ -60,17 +62,18 @@ public class FileSizeFormatProvider : IFormatProvider, ICustomFormatter
         }
 
         var precision = format.Substring(2);
-        if (string.IsNullOrEmpty(precision)) precision = "2";
+        if (string.IsNullOrEmpty(precision))
+            precision = "2";
+
         return string.Format("{0:N" + precision + "} {1}", size, suffix);
     }
 
-    private static string DefaultFormat(string format, object arg, IFormatProvider formatProvider)
+    private static string DefaultFormat(string? format, object? arg, IFormatProvider? formatProvider)
     {
         if (arg is IFormattable formattableArg)
-        {
             return formattableArg.ToString(format, formatProvider);
-        }
-        return arg.ToString();
+
+        return arg?.ToString() ?? "";
     }
 }
 

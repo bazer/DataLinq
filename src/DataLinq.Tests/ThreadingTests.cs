@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Tests.Models;
@@ -9,12 +10,42 @@ namespace DataLinq.Tests;
 public class ThreadingTests : BaseTests
 {
     private Helpers helpers = new Helpers();
+    
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void StressTest(Database<Employees> employeesDb)
+    {
+        var amount = 100;
+
+        var employees = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= amount)
+            .OrderBy(x => x.emp_no)
+            .ToList();
+
+        Parallel.For(0, amount, i =>
+        {
+            var employee = employees[i];
+            Assert.False(employee.dept_emp.Count() == 0,
+                    $"Collection dept_emp is empty for employee '{employee.emp_no}'");
+
+            foreach (var dept_emp in employee.dept_emp)
+            {
+                Assert.NotNull(dept_emp.employees);
+                Assert.Equal(employee, dept_emp.employees);
+                Assert.NotNull(dept_emp.departments);
+                Assert.False(dept_emp.departments.DepartmentEmployees.Count() == 0, 
+                    $"Collection DepartmentEmployees is empty for Department '{dept_emp.departments.DeptNo}', Employee '{employee.emp_no}'");
+                Assert.False(dept_emp.departments.Managers.Count() == 0,
+                    $"Collection Managers is empty for Department '{dept_emp.departments.DeptNo}', Employee '{employee.emp_no}'");
+            }
+        });
+    }
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
     public void ReadParallel(Database<Employees> employeesDb)
     {
-        Parallel.For(0, 10, i =>
+        Parallel.For(0, 100, i =>
         {
             SetAndTest(1004, employeesDb);
             SetAndTest(1005, employeesDb);
@@ -59,19 +90,18 @@ public class ThreadingTests : BaseTests
         });
     }
 
-    //[Fact]
-    //public void LazyLoadSingleValue()
-    //{
-    //    var emp_no = 10001;
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void LazyLoadSingleValue(Database<Employees> employeesDb)
+    {
+        Parallel.For(1, 10, i =>
+        {
+            var manager = employeesDb.Query().Managers.FirstOrDefault(x => x.dept_fk == "d00" + i);
 
-    //    Parallel.For(0, 100, i =>
-    //    {
-    //        var manager = fixture.employeesDb.Query().dept_manager.Single(x => x.dept_no == "d005" && x.emp_no == emp_no + i);
-
-    //        Assert.NotNull(manager.departments);
-    //        Assert.Equal("d005", manager.departments.dept_no);
-    //    });
-    //}
+            Assert.NotNull(manager.Department);
+            Assert.Equal("d00" + i, manager.Department.DeptNo);
+        });
+    }
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
@@ -85,6 +115,31 @@ public class ThreadingTests : BaseTests
             Assert.NotEmpty(department.Managers);
             Assert.True(10 < department.Managers.Count());
             Assert.Equal("d005", department.Managers.First().Department.DeptNo);
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void MakeSnapshot(Database<Employees> employeesDb)
+    {
+        var rand = Random.Shared;
+
+        Parallel.For(0, 100, i =>
+        {
+            
+            List<Salaries> salaries;
+            do
+            {
+                var salaryLow = rand.Next(0, 200000);
+                var salaryHigh = rand.Next(salaryLow, 200000);
+
+                var snapshot = employeesDb.Provider.State.Cache.MakeSnapshot();
+                salaries = [.. employeesDb.Query().salaries.Where(x => x.salary > salaryLow && x.salary < salaryHigh).Take(10)];
+                var snapshot2 = employeesDb.Provider.State.Cache.MakeSnapshot();
+
+                Assert.True(snapshot.Timestamp < snapshot2.Timestamp);
+            }
+            while (salaries.Count == 0);
         });
     }
 }

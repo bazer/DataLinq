@@ -10,7 +10,7 @@ public class SqlTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhere(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").EqualTo("d005")
@@ -18,9 +18,9 @@ public class SqlTests : BaseTests
             .ToSql();
 
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no = {sign}w0", sql.Text);
+{escape}dept_no{escape} = {sign}w0", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -30,7 +30,7 @@ dept_no = {sign}w0", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereAnd(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
             .Where("dept_no").EqualTo("d005")
             .And("dept_name").EqualTo("Development")
@@ -38,9 +38,9 @@ dept_no = {sign}w0", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no = {sign}w0 AND dept_name = {sign}w1 AND dept_name = {sign}w2", sql.Text);
+{escape}dept_no{escape} = {sign}w0 AND {escape}dept_name{escape} = {sign}w1 AND {escape}dept_name{escape} = {sign}w2", sql.Text);
         Assert.Equal(3, sql.Parameters.Count);
         Assert.Equal($"{sign}w1", sql.Parameters[1].ParameterName);
         Assert.Equal("Development", sql.Parameters[1].Value);
@@ -50,7 +50,7 @@ dept_no = {sign}w0 AND dept_name = {sign}w1 AND dept_name = {sign}w2", sql.Text)
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereOr(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
             .Where("dept_no").EqualTo("d005")
             .Or("dept_name").EqualTo("Development")
@@ -58,9 +58,9 @@ dept_no = {sign}w0 AND dept_name = {sign}w1 AND dept_name = {sign}w2", sql.Text)
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no = {sign}w0 OR dept_name = {sign}w1 OR dept_name = {sign}w2", sql.Text);
+{escape}dept_no{escape} = {sign}w0 OR {escape}dept_name{escape} = {sign}w1 OR {escape}dept_name{escape} = {sign}w2", sql.Text);
         Assert.Equal(3, sql.Parameters.Count);
         Assert.Equal($"{sign}w1", sql.Parameters[1].ParameterName);
         Assert.Equal("Development", sql.Parameters[1].Value);
@@ -70,16 +70,16 @@ dept_no = {sign}w0 OR dept_name = {sign}w1 OR dept_name = {sign}w2", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void ComplexWhereOR(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
             .Where(x => x("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
             .Or(x => x("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-(dept_no = {sign}w0 AND dept_name = {sign}w1) OR (dept_no = {sign}w2 AND dept_name = {sign}w3)", sql.Text);
+({escape}dept_no{escape} = {sign}w0 AND {escape}dept_name{escape} = {sign}w1) OR ({escape}dept_no{escape} = {sign}w2 AND {escape}dept_name{escape} = {sign}w3)", sql.Text);
         Assert.Equal(4, sql.Parameters.Count);
         Assert.Equal($"{sign}w1", sql.Parameters[1].ParameterName);
         Assert.Equal("Marketing", sql.Parameters[1].Value);
@@ -91,16 +91,16 @@ WHERE
     [MemberData(nameof(GetEmployees))]
     public void ComplexWhereAND(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
             .Where(x => x("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
             .And(x => x("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-(dept_no = {sign}w0 AND dept_name = {sign}w1) AND (dept_no = {sign}w2 AND dept_name = {sign}w3)", sql.Text);
+({escape}dept_no{escape} = {sign}w0 AND {escape}dept_name{escape} = {sign}w1) AND ({escape}dept_no{escape} = {sign}w2 AND {escape}dept_name{escape} = {sign}w3)", sql.Text);
         Assert.Equal(4, sql.Parameters.Count);
         Assert.Equal($"{sign}w1", sql.Parameters[1].ParameterName);
         Assert.Equal("Marketing", sql.Parameters[1].Value);
@@ -112,16 +112,16 @@ WHERE
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereNot(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").NotEqualTo("d005")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no <> {sign}w0", sql.Text);
+{escape}dept_no{escape} <> {sign}w0", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -131,16 +131,16 @@ dept_no <> {sign}w0", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void WhereGroupNot(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .WhereNot("dept_no").EqualTo("d005")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-NOT (dept_no = {sign}w0)", sql.Text);
+NOT ({escape}dept_no{escape} = {sign}w0)", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -150,35 +150,42 @@ NOT (dept_no = {sign}w0)", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereGreaterThan(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").GreaterThan("d005")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no > {sign}w0", sql.Text);
+{escape}dept_no{escape} > {sign}w0", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
     }
 
+    private (string sign, string escape, string dbName) GetConstants(Database<Employees> employeesDb) =>
+        (employeesDb.Provider.Constants.ParameterSign,
+        employeesDb.Provider.Constants.EscapeCharacter,
+        employeesDb.Provider.Constants.SupportsMultipleDatabases
+            ? $"{employeesDb.Provider.Constants.EscapeCharacter}{employeesDb.Provider.DatabaseName}{employeesDb.Provider.Constants.EscapeCharacter}."
+            : "");
+
     [Theory]
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereGreaterThanOrEqual(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").GreaterThanOrEqual("d005")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no >= {sign}w0", sql.Text);
+{escape}dept_no{escape} >= {sign}w0", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -188,16 +195,16 @@ dept_no >= {sign}w0", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereLessThan(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").LessThan("d005")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no < {sign}w0", sql.Text);
+{escape}dept_no{escape} < {sign}w0", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -207,16 +214,16 @@ dept_no < {sign}w0", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereLessThanOrEqual(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").LessThanOrEqual("d005")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no <= {sign}w0", sql.Text);
+{escape}dept_no{escape} <= {sign}w0", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -226,16 +233,16 @@ dept_no <= {sign}w0", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleLike(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").Like("d005%")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no LIKE {sign}w0", sql.Text);
+{escape}dept_no{escape} LIKE {sign}w0", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005%", sql.Parameters[0].Value);
@@ -245,15 +252,15 @@ dept_no LIKE {sign}w0", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleOrderBy(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .OrderBy("dept_no")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-ORDER BY dept_no", sql.Text);
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
+ORDER BY {escape}dept_no{escape}", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -261,15 +268,15 @@ ORDER BY dept_no", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleOrderByDesc(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .OrderByDesc("dept_no")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-ORDER BY dept_no DESC", sql.Text);
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
+ORDER BY {escape}dept_no{escape} DESC", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -278,7 +285,7 @@ ORDER BY dept_no DESC", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleOrderByTwice(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .OrderBy("dept_no")
@@ -286,8 +293,8 @@ ORDER BY dept_no DESC", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-ORDER BY dept_no, dept_name", sql.Text);
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
+ORDER BY {escape}dept_no{escape}, {escape}dept_name{escape}", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -295,7 +302,7 @@ ORDER BY dept_no, dept_name", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleOrderByDescTwice(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .OrderByDesc("dept_no")
@@ -303,8 +310,8 @@ ORDER BY dept_no, dept_name", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-ORDER BY dept_no DESC, dept_name DESC", sql.Text);
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
+ORDER BY {escape}dept_no{escape} DESC, {escape}dept_name{escape} DESC", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -312,7 +319,7 @@ ORDER BY dept_no DESC, dept_name DESC", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleOrderByTwiceMixed(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .OrderBy("dept_no")
@@ -320,8 +327,8 @@ ORDER BY dept_no DESC, dept_name DESC", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-ORDER BY dept_no, dept_name DESC", sql.Text);
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
+ORDER BY {escape}dept_no{escape}, {escape}dept_name{escape} DESC", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -329,7 +336,7 @@ ORDER BY dept_no, dept_name DESC", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleOrderByDescTwiceMixed(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .OrderByDesc("dept_no")
@@ -337,8 +344,8 @@ ORDER BY dept_no, dept_name DESC", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
-ORDER BY dept_no DESC, dept_name", sql.Text);
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
+ORDER BY {escape}dept_no{escape} DESC, {escape}dept_name{escape}", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -346,7 +353,7 @@ ORDER BY dept_no DESC, dept_name", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereOrderBy(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").EqualTo("d005")
@@ -354,10 +361,10 @@ ORDER BY dept_no DESC, dept_name", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no = {sign}w0
-ORDER BY dept_no", sql.Text);
+{escape}dept_no{escape} = {sign}w0
+ORDER BY {escape}dept_no{escape}", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -367,7 +374,7 @@ ORDER BY dept_no", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereOrderByDesc(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").EqualTo("d005")
@@ -375,10 +382,10 @@ ORDER BY dept_no", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no = {sign}w0
-ORDER BY dept_no DESC", sql.Text);
+{escape}dept_no{escape} = {sign}w0
+ORDER BY {escape}dept_no{escape} DESC", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -388,14 +395,14 @@ ORDER BY dept_no DESC", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void Limit1(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Limit(1)
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 LIMIT 1", sql.Text);
     }
 
@@ -403,14 +410,14 @@ LIMIT 1", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void Limit2(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Limit(2)
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 LIMIT 2", sql.Text);
     }
 
@@ -418,14 +425,14 @@ LIMIT 2", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void Limit2Offset5(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Limit(2, 5)
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 LIMIT 2 OFFSET 5", sql.Text);
     }
 
@@ -433,7 +440,7 @@ LIMIT 2 OFFSET 5", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereOrderByDescLimit1(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").EqualTo("d005")
@@ -442,10 +449,10 @@ LIMIT 2 OFFSET 5", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no = {sign}w0
-ORDER BY dept_no DESC
+{escape}dept_no{escape} = {sign}w0
+ORDER BY {escape}dept_no{escape} DESC
 LIMIT 1", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
@@ -456,7 +463,7 @@ LIMIT 1", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereLimit1OrderByDesc(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Where("dept_no").EqualTo("d005")
@@ -465,10 +472,10 @@ LIMIT 1", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
 WHERE
-dept_no = {sign}w0
-ORDER BY dept_no DESC
+{escape}dept_no{escape} = {sign}w0
+ORDER BY {escape}dept_no{escape} DESC
 LIMIT 1", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
@@ -479,14 +486,14 @@ LIMIT 1", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhat(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .What("dept_name")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal("SELECT dept_name FROM departments", sql.Text);
+        Assert.Equal($"SELECT {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -494,15 +501,15 @@ LIMIT 1", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleJoinExplicitAlias(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments", "d")
             .Join("dept_manager", "m").On("dept_no", "d").EqualToColumn("dept_no", "m")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
-JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
+        Assert.Equal($@"SELECT d.{escape}dept_no{escape}, d.{escape}dept_name{escape} FROM {dbName}{escape}departments{escape} d
+JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{escape}dept_no{escape}", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -510,15 +517,15 @@ JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleJoinIncludedAlias(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
             .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
-JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
+        Assert.Equal($@"SELECT d.{escape}dept_no{escape}, d.{escape}dept_name{escape} FROM {dbName}{escape}departments{escape} d
+JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{escape}dept_no{escape}", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -526,7 +533,7 @@ JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleJoinIncludedAliasWhere(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
             .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
@@ -536,11 +543,11 @@ JOIN dept_manager m ON d.dept_no = m.dept_no", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
-JOIN dept_manager m ON d.dept_no = m.dept_no
+        Assert.Equal($@"SELECT d.{escape}dept_no{escape}, d.{escape}dept_name{escape} FROM {dbName}{escape}departments{escape} d
+JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{escape}dept_no{escape}
 WHERE
-m.dept_no = {sign}w0
-ORDER BY d.dept_no DESC
+m.{escape}dept_no{escape} = {sign}w0
+ORDER BY d.{escape}dept_no{escape} DESC
 LIMIT 1", sql.Text);
         Assert.NotEmpty(sql.Parameters);
     }
@@ -550,7 +557,7 @@ LIMIT 1", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleJoinIncludedAliasLimit(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
             .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
@@ -559,9 +566,9 @@ LIMIT 1", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
-JOIN dept_manager m ON d.dept_no = m.dept_no
-ORDER BY d.dept_no DESC
+        Assert.Equal($@"SELECT d.{escape}dept_no{escape}, d.{escape}dept_name{escape} FROM {dbName}{escape}departments{escape} d
+JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{escape}dept_no{escape}
+ORDER BY d.{escape}dept_no{escape} DESC
 LIMIT 1", sql.Text);
         Assert.Empty(sql.Parameters);
     }
@@ -571,7 +578,7 @@ LIMIT 1", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleJoinIncludedAliasOrderByDesc(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
             .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
@@ -579,9 +586,9 @@ LIMIT 1", sql.Text);
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
-JOIN dept_manager m ON d.dept_no = m.dept_no
-ORDER BY d.dept_no DESC", sql.Text);
+        Assert.Equal($@"SELECT d.{escape}dept_no{escape}, d.{escape}dept_name{escape} FROM {dbName}{escape}departments{escape} d
+JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{escape}dept_no{escape}
+ORDER BY d.{escape}dept_no{escape} DESC", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -589,19 +596,19 @@ ORDER BY d.dept_no DESC", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void DoubleJoinIncludedAliasOrderByDesc(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
             .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
-            .Join("dept_emp e").On("e.dept_no").EqualToColumn("m.dept_no")
+            .Join("dept-emp e").On("e.dept_no").EqualToColumn("m.dept_no")
             .OrderByDesc("d.dept_no")
             .SelectQuery()
             .ToSql();
 
-        Assert.Equal($@"SELECT dept_no, dept_name FROM departments d
-JOIN dept_manager m ON d.dept_no = m.dept_no
-JOIN dept_emp e ON e.dept_no = m.dept_no
-ORDER BY d.dept_no DESC", sql.Text);
+        Assert.Equal($@"SELECT d.{escape}dept_no{escape}, d.{escape}dept_name{escape} FROM {dbName}{escape}departments{escape} d
+JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{escape}dept_no{escape}
+JOIN {dbName}{escape}dept-emp{escape} e ON e.{escape}dept_no{escape} = m.{escape}dept_no{escape}
+ORDER BY d.{escape}dept_no{escape} DESC", sql.Text);
         Assert.Empty(sql.Parameters);
     }
 
@@ -609,14 +616,14 @@ ORDER BY d.dept_no DESC", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleInsert(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments")
             .Set("dept_no", "d005")
             .InsertQuery()
             .ToSql();
 
-        Assert.Equal($@"INSERT INTO departments (dept_no) VALUES ({sign}v0)", sql.Text);
+        Assert.Equal($@"INSERT INTO {dbName}{escape}departments{escape} ({escape}dept_no{escape}) VALUES ({sign}v0)", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}v0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
@@ -626,7 +633,7 @@ ORDER BY d.dept_no DESC", sql.Text);
     [MemberData(nameof(GetEmployees))]
     public void SimpleInsertWithLastId(Database<Employees> employeesDb)
     {
-        var sign = employeesDb.Provider.Constants.ParameterSign;
+        var (sign, escape, dbName) = GetConstants(employeesDb);
         var lastInsert = employeesDb.Provider.Constants.LastInsertCommand;
         var sql = employeesDb
             .From("departments")
@@ -635,10 +642,79 @@ ORDER BY d.dept_no DESC", sql.Text);
             .InsertQuery()
             .ToSql();
 
-        Assert.Equal($@"INSERT INTO departments (dept_no) VALUES ({sign}v0);
+        Assert.Equal($@"INSERT INTO {dbName}{escape}departments{escape} ({escape}dept_no{escape}) VALUES ({sign}v0);
 SELECT {lastInsert}", sql.Text);
         Assert.Single(sql.Parameters);
         Assert.Equal($"{sign}v0", sql.Parameters[0].ParameterName);
         Assert.Equal("d005", sql.Parameters[0].Value);
     }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereInOne(Database<Employees> employeesDb)
+    {
+        var (sign, escape, dbName) = GetConstants(employeesDb);
+        var ids = new[] { 3 };
+        var sql = employeesDb
+            .From("departments d")
+            .Where("Id").In(ids)
+            .SelectQuery()
+            .ToSql();
+
+        Assert.Equal($@"SELECT d.{escape}dept_no{escape}, d.{escape}dept_name{escape} FROM {dbName}{escape}departments{escape} d
+WHERE
+{escape}Id{escape} IN ({sign}w0)", sql.Text);
+        Assert.Single(sql.Parameters);
+        Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
+        Assert.Equal(ids[0], sql.Parameters[0].Value);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereIn(Database<Employees> employeesDb)
+    {
+        var (sign, escape, dbName) = GetConstants(employeesDb);
+        var ids = new[] { 1, 2, 3 };
+        var sql = employeesDb
+            .From("departments d")
+            .Where("Id").In(ids)
+            .SelectQuery()
+            .ToSql();
+
+        Assert.Equal($@"SELECT d.{escape}dept_no{escape}, d.{escape}dept_name{escape} FROM {dbName}{escape}departments{escape} d
+WHERE
+{escape}Id{escape} IN ({sign}w0, {sign}w1, {sign}w2)", sql.Text);
+        Assert.Equal(3, sql.Parameters.Count);
+        Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
+        Assert.Equal(ids[0], sql.Parameters[0].Value);
+        Assert.Equal($"{sign}w1", sql.Parameters[1].ParameterName);
+        Assert.Equal(ids[1], sql.Parameters[1].Value);
+        Assert.Equal($"{sign}w2", sql.Parameters[2].ParameterName);
+        Assert.Equal(ids[2], sql.Parameters[2].Value);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereNotIn(Database<Employees> employeesDb)
+    {
+        var (sign, escape, dbName) = GetConstants(employeesDb);
+        var ids = new[] { 1, 2, 3 };
+        var sql = employeesDb
+            .From("departments")
+            .Where("Id").NotIn(ids)
+            .SelectQuery()
+            .ToSql();
+
+        Assert.Equal($@"SELECT {escape}dept_no{escape}, {escape}dept_name{escape} FROM {dbName}{escape}departments{escape}
+WHERE
+{escape}Id{escape} NOT IN ({sign}w0, {sign}w1, {sign}w2)", sql.Text);
+        Assert.Equal(3, sql.Parameters.Count);
+        Assert.Equal($"{sign}w0", sql.Parameters[0].ParameterName);
+        Assert.Equal(ids[0], sql.Parameters[0].Value);
+        Assert.Equal($"{sign}w1", sql.Parameters[1].ParameterName);
+        Assert.Equal(ids[1], sql.Parameters[1].Value);
+        Assert.Equal($"{sign}w2", sql.Parameters[2].ParameterName);
+        Assert.Equal(ids[2], sql.Parameters[2].Value);
+    }
+
 }

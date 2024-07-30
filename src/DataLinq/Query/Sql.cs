@@ -2,7 +2,7 @@
 using System.Data;
 using System.Linq;
 using System.Text;
-using DataLinq.Extensions;
+using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Query;
 
@@ -39,6 +39,13 @@ public class Sql
     public Sql AddText(string text)
     {
         builder.Append(text);
+
+        return this;
+    }
+
+    public Sql AddLineBreak()
+    {
+        builder.Append('\n');
 
         return this;
     }

@@ -10,12 +10,18 @@ namespace DataLinq.Metadata;
 /// </summary>
 public class ColumnIndex
 {
-    private List<Column> columns;
+    /// <summary>
+    /// Table that the index belongs to.
+    /// </summary>
+    public TableMetadata Table { get; set; }
+
     /// <summary>
     /// Gets or sets the list of columns associated with the index. 
     /// Each entry includes the column in the order of the index.
     /// </summary>
-    public IEnumerable<Column> Columns => columns;
+    public List<Column> Columns { get; }
+
+    public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
 
     /// <summary>
     /// Gets or sets the characteristic of the index, such as whether it's a primary key or unique.
@@ -44,7 +50,8 @@ public class ColumnIndex
         Name = name;
         Characteristic = characteristic;
         Type = type;
-        this.columns = columns ?? new List<Column>();
+        this.Columns = columns ?? [];
+        this.Table = this.Columns.First().Table;
         Validate();
     }
 
@@ -52,8 +59,8 @@ public class ColumnIndex
     {
         if (Columns.Contains(column))
             throw new ArgumentException($"Columns already contains column '{column}'");
-
-        columns.Add(column);
+        
+        Columns.Add(column);
     }
 
     /// <summary>
@@ -80,6 +87,11 @@ public class ColumnIndex
         if (!Columns.Any())
         {
             throw new InvalidOperationException("An index should have at least one column.");
+        }
+
+        if (Columns.Any(c => c.Table != Table))
+        {
+            throw new InvalidOperationException("All columns in an index must belong to the same table.");
         }
 
         // A FULLTEXT index should not be a primary key or unique.

@@ -1,14 +1,14 @@
 ﻿using System;
+using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
 namespace DataLinq.Tests.Models;
 
-[Definition("select `dept_emp`.`emp_no` AS `emp_no`,max(`dept_emp`.`from_date`) AS `from_date`,max(`dept_emp`.`to_date`) AS `to_date` from `dept_emp` group by `dept_emp`.`emp_no`")]
+[Definition("select `dept-emp`.`emp_no` AS `emp_no`,max(`dept-emp`.`from_date`) AS `from_date`,max(`dept-emp`.`to_date`) AS `to_date` from `dept-emp` group by `dept-emp`.`emp_no`")]
 [View("dept_emp_latest_date")]
 public partial record dept_emp_latest_date : IViewModel<Employees>
 {
-    [PrimaryKey]
     [Type(DatabaseType.MySQL, "int")]
     [Type(DatabaseType.SQLite, "integer")]
     [Column("emp_no")]

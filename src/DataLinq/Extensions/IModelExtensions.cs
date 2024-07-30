@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -9,19 +10,26 @@ namespace DataLinq;
 
 public static class IModelExtensions
 {
-    public static RowData RowData(this IModel model)
+    public static IEnumerable<KeyValuePair<Column, object?>> GetValues(this IModel model)
     {
-        throw new NotImplementedException();
+        return model.Metadata().Table.Columns
+            .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
     }
 
-    public static PrimaryKeys PrimaryKeys(this IModel model)
+    public static IEnumerable<KeyValuePair<Column, object?>> GetValues(this IModel model, IEnumerable<Column> columns)
     {
-        return new PrimaryKeys(model.Metadata().Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+        return columns
+            .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
     }
 
-    internal static PrimaryKeys PrimaryKeys(this IModel model, ModelMetadata metadata)
+    public static IKey PrimaryKeys(this IModel model)
     {
-        return new PrimaryKeys(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+        return KeyFactory.CreateKeyFromValues(model.Metadata().Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+    }
+
+    internal static IKey PrimaryKeys(this IModel model, ModelMetadata metadata)
+    {
+        return KeyFactory.CreateKeyFromValues(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
     }
 
     public static bool HasPrimaryKeysSet(this IModel model)
@@ -56,16 +64,8 @@ public static class IModelExtensions
             return model;
 
         var type = model.GetType();
-
-        //var method = type
-        //    .GetProperty("Mutate")
-        //    .GetGetMethod();
-
-        var method = type
-            .GetMethod("Mutate");
-
-        var obj = method
-            .Invoke(model, new object[] { });
+        var method = type.GetMethod("Mutate") ?? throw new Exception($"Could not find 'Mutate' method of model with type {model.GetType()}");
+        var obj = method.Invoke(model, []) ?? throw new Exception($"'Mutate' method of model with type {model.GetType()} returned null");
 
         return (T)obj;
     }

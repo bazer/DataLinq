@@ -21,3 +21,4 @@ launchSettings.json
 /nupkg
 /src/DataLinq.Benchmark/BenchmarkDotNet.Artifacts
 *.user.json
+/logs

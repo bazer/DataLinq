@@ -42,6 +42,7 @@ public record ConfigFileDatabaseConnection
     }
     public string? Type { get; set; }
     public string? DatabaseName { get; set; }
+    public string? DataSourceName { get; set; }
     public string? ConnectionString { get; set; }
     public DataLinqConnectionString? ParsedConnectionString => new DataLinqConnectionString(ConnectionString);
 }

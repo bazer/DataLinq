@@ -98,7 +98,7 @@ public class TransactionTests : BaseTests
             .SelectQuery()
             .ToDbCommand();
 
-        var dbTransaction = transaction.DatabaseTransaction.DbTransaction;
+        var dbTransaction = transaction.DatabaseAccess.DbTransaction;
 
         command.Connection = dbTransaction.Connection;
         command.Transaction = dbTransaction;
@@ -146,7 +146,7 @@ public class TransactionTests : BaseTests
         var table = employeesDb.Provider.Metadata
                 .TableModels.Single(x => x.Table.DbName == "employees").Table;
 
-        var cache = employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
+        var cache = employeesDb.Provider.State.Cache.TableCaches[table];
         Assert.True(cache.IsTransactionInCache(transaction));
         Assert.Single(cache.GetTransactionRows(transaction));
         Assert.Same(dbTransactionEmployee, cache.GetTransactionRows(transaction).First());
@@ -457,7 +457,7 @@ public class TransactionTests : BaseTests
         {
             Assert.Empty(employee.salaries);
 
-            var newSalary = new salaries
+            var newSalary = new Salaries
             {
                 emp_no = employee.emp_no.Value,
                 salary = 50000,
@@ -491,7 +491,7 @@ public class TransactionTests : BaseTests
             var employeeDb = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
             Assert.Empty(employeeDb.salaries);
 
-            var newSalary = new salaries
+            var newSalary = new Salaries
             {
                 emp_no = employeeDb.emp_no.Value,
                 salary = 50000,
@@ -527,13 +527,13 @@ public class TransactionTests : BaseTests
         foreach (var s in employee.salaries)
             employeesDb.Delete(s);
 
-        salaries salary = null;
+        Salaries salary = null;
         Employee employeeDb = null;
 
         var table = employeesDb.Provider.Metadata
                 .TableModels.Single(x => x.Table.DbName == "salaries").Table;
 
-        var cache = employeesDb.Provider.State.Cache.TableCaches.Single(x => x.Table == table);
+        var cache = employeesDb.Provider.State.Cache.TableCaches[table];
 
         using var transaction = employeesDb.Transaction();
 
@@ -542,7 +542,7 @@ public class TransactionTests : BaseTests
         employeeDb = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
         Assert.Empty(employeeDb.salaries);
 
-        var newSalary = new salaries
+        var newSalary = new Salaries
         {
             emp_no = employeeDb.emp_no.Value,
             salary = 50000,

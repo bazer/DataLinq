@@ -8,6 +8,7 @@ using DataLinq.Mutation;
 using DataLinq.Query;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
+using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Clauses.ResultOperators;
 
 namespace DataLinq.Linq;
@@ -29,17 +30,46 @@ internal class QueryExecutor : IQueryExecutor
     /// <summary>
     /// Initializes a new instance of the QueryExecutor class with the specified transaction and table metadata.
     /// </summary>
-    internal QueryExecutor(Transaction transaction, TableMetadata table)
+    internal QueryExecutor(DataSourceAccess transaction, TableMetadata table)
     {
         this.Transaction = transaction;
         this.Table = table;
     }
 
     /// <summary>Gets the transaction associated with the query executor.</summary>
-    private Transaction Transaction { get; }
+    private DataSourceAccess Transaction { get; }
 
     /// <summary>Gets the metadata for the table that queries will be executed against.</summary>
     private TableMetadata Table { get; }
+
+    private static QueryModel? ExtractQueryModel(Expression expression)
+    {
+        switch (expression)
+        {
+            case SubQueryExpression subQueryExpression:
+                return subQueryExpression.QueryModel;
+
+            case MemberExpression memberExpression:
+                return QueryExecutor.ExtractQueryModel(memberExpression.Expression);
+
+            case MethodCallExpression methodCallExpression:
+                foreach (var argument in methodCallExpression.Arguments)
+                {
+                    var subQuery = QueryExecutor.ExtractQueryModel(argument);
+                    if (subQuery != null)
+                        return subQuery;
+                }
+                break;
+
+            case UnaryExpression unaryExpression:
+                return QueryExecutor.ExtractQueryModel(unaryExpression.Operand);
+
+            case ConstantExpression constantExpression when constantExpression.Value is IQueryable queryable:
+                return null;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Parses the provided QueryModel into a SQL query.
@@ -47,12 +77,17 @@ internal class QueryExecutor : IQueryExecutor
     /// <remarks>
     /// The method parses through body clauses and result operators to construct a SQL query.
     /// It uses the Where and OrderBy clauses to form the SQL conditions and ordering.
-    /// 
-    /// TODO: Enhance the parsing logic to support additional query expressions and body clauses
-    /// for a richer query building experience.
     /// </remarks>
     private Select<object> ParseQueryModel(QueryModel queryModel)
     {
+        // Extract the subquery model from the main clause if necessary
+        var subQueryModel = ExtractQueryModel(queryModel.MainFromClause.FromExpression);
+        if (subQueryModel != null)
+        {
+            // Recursively parse the subquery model
+            return ParseQueryModel(subQueryModel);
+        }
+
         var query = new SqlQuery(Table, Transaction);
 
         foreach (var body in queryModel.BodyClauses)
@@ -89,41 +124,58 @@ internal class QueryExecutor : IQueryExecutor
                 query.Limit(1);
             else if (opString == "FirstOrDefault()")
                 query.Limit(1);
+            else if (opString == "Any()")
+                query.Limit(1);
         }
 
         return query.SelectQuery();
     }
 
-    private Func<object, T> GetSelectFunc<T>(SelectClause selectClause)
+    private static Func<object?, T?> GetSelectFunc<T>(SelectClause selectClause)
     {
         if (selectClause != null && selectClause.Selector.NodeType == ExpressionType.MemberAccess)
         {
-            var memberExpression = selectClause.Selector as MemberExpression;
-            var prop = memberExpression.Member as PropertyInfo;
+            if (selectClause.Selector is not MemberExpression memberExpression)
+                throw new NotImplementedException($"'{selectClause.Selector}' selector is not implemented");
 
-            return x => (T)prop.GetValue(x);
+            if (memberExpression.Member is not PropertyInfo prop)
+                throw new NotImplementedException($"'{memberExpression.Member}' member is not implemented");
+
+            return x => (T?)prop.GetValue(x);
         }
         else if (selectClause?.Selector.NodeType == ExpressionType.New)
         {
-            var memberExpression = selectClause.Selector as NewExpression;
-            var memberType = (memberExpression.Arguments[0] as MemberExpression).Expression.Type;
+            if (selectClause.Selector is not NewExpression newExpression)
+                throw new NotImplementedException($"'{selectClause.Selector}' selector is not implemented");
+
+            if (newExpression.Arguments[0] is not MemberExpression argumentExpression)
+                throw new NotImplementedException($"'{newExpression.Arguments[0]}' argument is not implemented");
+
+            if (argumentExpression.Expression == null)
+                throw new NotImplementedException($"'{argumentExpression}' expression is not implemented");
+
+            var memberType = argumentExpression.Expression.Type;
             var param = Expression.Parameter(typeof(object));
             var convert = Expression.Convert(param, memberType);
 
-            var arguments = memberExpression.Arguments.Select(x =>
+            var arguments = newExpression.Arguments.Select(x =>
             {
-                var memberExp = x as MemberExpression;
+                if (x is not MemberExpression memberExp)
+                    throw new NotImplementedException($"'{x}' argument is not implemented");
 
                 return Expression.MakeMemberAccess(convert, memberExp.Member);
             });
 
-            var newExpression = Expression.New(memberExpression.Constructor, arguments, memberExpression.Members);
-            var lambda = Expression.Lambda<Func<object, T>>(newExpression, param);
+            if (newExpression.Constructor == null)
+                throw new NotImplementedException($"'{newExpression}' constructor is not implemented");
+
+            var expression = Expression.New(newExpression.Constructor, arguments, newExpression.Members);
+            var lambda = Expression.Lambda<Func<object?, T?>>(expression, param);
 
             return lambda.Compile();
         }
 
-        return x => (T)x;
+        return x => (T?)x;
     }
 
     /// <summary>
@@ -132,11 +184,8 @@ internal class QueryExecutor : IQueryExecutor
     /// <remarks>
     /// This method performs the actual execution of the SQL query and maps the result set
     /// to a collection of objects of the specified type using a projection function.
-    /// 
-    /// TODO: Consider implementing caching strategies for query results to minimize database hits
-    /// for frequently executed queries.
     /// </remarks>
-    public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
+    public IEnumerable<T?> ExecuteCollection<T>(QueryModel queryModel)
     {
         return ParseQueryModel(queryModel)
             .Execute()
@@ -189,17 +238,47 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     public T ExecuteScalar<T>(QueryModel queryModel)
     {
-        var keys = ParseQueryModel(queryModel)
-            .ReadKeys();
-
         if (queryModel.ResultOperators.Any())
         {
-            if (queryModel.ResultOperators[0].ToString() == "Count()")
-                return (T)(object)keys.Count();
-            else if (queryModel.ResultOperators[0].ToString() == "Any()")
-                return (T)(object)keys.Any();
+            var select = ParseQueryModel(queryModel);
+            var op = queryModel.ResultOperators[0].ToString();
+
+            // Modify the SQL query for Count() or Any()
+            if (op == "Count()" || op == "Any()")
+                select.What("COUNT(*)");
+            else
+                throw new NotImplementedException($"Query results operator '{op}' is not implemented");
+
+            // Execute the scalar query
+            var result = select.ExecuteScalar();
+
+            // Handle the result for different types
+            if (result is int intResult)
+            {
+                if (typeof(T) == typeof(int))
+                    return (T)(object)intResult;
+
+                if (typeof(T) == typeof(long))
+                    return (T)(object)(long)intResult;
+
+                if (typeof(T) == typeof(bool) && op == "Any()")
+                    return (T)(object)(intResult > 0);
+            }
+            else if (result is long longResult)
+            {
+                if (typeof(T) == typeof(long))
+                    return (T)(object)longResult;
+
+                if (typeof(T) == typeof(int))
+                    return (T)(object)(int)longResult;
+
+                if (typeof(T) == typeof(bool) && op == "Any()")
+                    return (T)(object)(longResult > 0);
+            }
+
+            throw new InvalidOperationException($"Unexpected result type '{result?.GetType()}' for operator '{op}'");
         }
 
-        throw new NotImplementedException();
+        throw new NotImplementedException($"The query model lacks a results operator: '{queryModel}'");
     }
 }
