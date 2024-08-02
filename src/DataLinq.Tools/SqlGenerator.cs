@@ -63,13 +63,13 @@ public class SqlGenerator : Generator
 
         var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
         var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList());
-        if (dbMetadata.HasFailed)
-        {
-            log("Error: Unable to parse model files.");
-            return SqlGeneratorError.UnableToParseModelFiles;
-        }
+        //if (dbMetadata.HasFailed)
+        //{
+        //    log("Error: Unable to parse model files.");
+        //    return SqlGeneratorError.UnableToParseModelFiles;
+        //}
 
-        log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
+        log($"Tables in model files: {dbMetadata.TableModels.Count}");
         log($"Writing sql to: {writePath}");
 
         var sql = PluginHook.GenerateSql(connection.Type, dbMetadata, true);

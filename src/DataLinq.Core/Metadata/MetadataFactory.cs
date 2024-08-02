@@ -270,4 +270,69 @@ public static class MetadataFactory
             //    yield return new TypeAttribute(column.DbTypes);
         }
     }
+
+    public static void ParseAttributes(this DatabaseMetadata database)
+    {
+        foreach (var attribute in database.Attributes)
+        {
+            if (attribute is DatabaseAttribute databaseAttribute)
+                database.Name = databaseAttribute.Name;
+
+            if (attribute is UseCacheAttribute useCache)
+                database.UseCache = useCache.UseCache;
+
+            if (attribute is CacheLimitAttribute cacheLimit)
+                database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+
+            if (attribute is IndexCacheAttribute indexCache)
+                database.IndexCache.Add((indexCache.Type, indexCache.Amount));
+
+            if (attribute is CacheCleanupAttribute cacheCleanup)
+                database.CacheCleanup.Add((cacheCleanup.LimitType, cacheCleanup.Amount));
+        }
+    }
+
+    public static Column ParseColumn(this TableMetadata table, ValueProperty property)
+    {
+        var column = new Column
+        {
+            Table = table,
+            DbName = property.PropertyInfo?.Name,
+            ValueProperty = property
+        };
+
+        property.Column = column;
+
+        foreach (var attribute in property.Attributes)
+        {
+            if (attribute is ColumnAttribute columnAttribute)
+                column.DbName = columnAttribute.Name;
+
+            if (attribute is NullableAttribute)
+                column.Nullable = true;
+
+            if (attribute is AutoIncrementAttribute)
+                column.AutoIncrement = true;
+
+            if (attribute is PrimaryKeyAttribute)
+                column.SetPrimaryKey(true);
+
+            if (attribute is ForeignKeyAttribute)
+                column.ForeignKey = true;
+
+            if (attribute is TypeAttribute t)
+            {
+                column.AddDbType(new DatabaseColumnType
+                {
+                    DatabaseType = t.DatabaseType,
+                    Name = t.Name,
+                    Length = t.Length,
+                    Decimals = t.Decimals,
+                    Signed = t.Signed
+                });
+            }
+        }
+
+        return column;
+    }
 }

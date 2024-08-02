@@ -18,6 +18,7 @@
 		<Configuration>Release</Configuration>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageOutputPath>./../../nupkg</PackageOutputPath>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 
 	<ItemGroup>

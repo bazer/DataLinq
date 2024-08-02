@@ -18,12 +18,26 @@
 		<Configuration>Release</Configuration>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageOutputPath>./../../nupkg</PackageOutputPath>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<!--<ProduceReferenceAssembly>true</ProduceReferenceAssembly>-->
+		<!--<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>-->
+		<!--<CompilerGeneratedFilesOutputPath>generated</CompilerGeneratedFilesOutputPath>-->
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Castle.Core" Version="5.1.1" />
 		<PackageReference Include="CommunityToolkit.HighPerformance" Version="8.2.2" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+		<!--<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4">-->
+			<!--<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>-->
+		<!--</PackageReference>-->
+		<!--<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.10.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.10.0" />-->
+		
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1">
+			<!--<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>-->
+		</PackageReference>
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -44,5 +58,18 @@
 			<PackagePath></PackagePath>
 		</None>
 	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj"  />
+	</ItemGroup>
+
+	<!--<ItemGroup>
+		<Analyzer Include="..\DataLinq.Generators\bin\Debug\netstandard2.0\DataLinq.Generators.dll" />
+	</ItemGroup>-->
+
+	<!--<ItemGroup>
+		--><!-- Exclude the output of source generators from the compilation --><!--
+		<Compile Remove="generated/**/*.g.cs" />
+	</ItemGroup>-->
 
 </Project>

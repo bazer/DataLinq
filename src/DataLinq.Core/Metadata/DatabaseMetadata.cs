@@ -21,6 +21,7 @@ public class DatabaseMetadata
     public string DbName { get; }
     public Type? CsType { get; }
     public string CsTypeName { get; }
+    public string CsNamespace { get; set; }
     public Attribute[] Attributes { get; set; }
     public List<TableModelMetadata> TableModels { get; set; } = [];
     public List<(CacheLimitType limitType, long amount)> CacheLimits { get; internal set; } = [];

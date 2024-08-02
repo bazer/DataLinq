@@ -134,13 +134,13 @@ public class ModelGenerator : Generator
 
                 var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
                 var srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, srcPathsExists.Select(x => x.Value));
-                if (srcMetadata.HasFailed)
-                {
-                    //log("Error: Unable to parse source files.");
-                    return "Error: Unable to parse source files";
-                }
+                //if (srcMetadata.HasFailed)
+                //{
+                //    //log("Error: Unable to parse source files.");
+                //    return "Error: Unable to parse source files";
+                //}
 
-                log($"Tables in source model files: {srcMetadata.Value.TableModels.Count}");
+                log($"Tables in source model files: {srcMetadata.TableModels.Count}");
                 log("");
 
                 var transformer = new MetadataTransformer(new MetadataTransformerOptions(db.RemoveInterfacePrefix));

@@ -31,7 +31,7 @@ public class CoreTests : BaseTests
             .ToList();
 
         //var srcPaths = Fixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories.Select(x => Path.GetFullPath(x)).ToList();
-        var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths).Value;
+        var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths);
 
         TestDatabaseAttributes(metadata);
         TestDatabase(metadata, false);

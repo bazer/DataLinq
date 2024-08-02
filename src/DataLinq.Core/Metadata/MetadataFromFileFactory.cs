@@ -4,12 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using DataLinq.Attributes;
-using DataLinq.Extensions;
 using DataLinq.Extensions.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using ThrowAway;
+//using ThrowAway;
 
 namespace DataLinq.Metadata;
 
@@ -38,7 +37,8 @@ public class MetadataFromFileFactory
         Log = log;
     }
 
-    public Option<DatabaseMetadata, MetadataFromFileFactoryError> ReadFiles(string csType, IEnumerable<string> srcPaths)
+    //public Option<DatabaseMetadata, MetadataFromFileFactoryError> ReadFiles(string csType, IEnumerable<string> srcPaths)
+    public DatabaseMetadata ReadFiles(string csType, IEnumerable<string> srcPaths)
     {
         var trees = new List<SyntaxTree>();
 
@@ -57,9 +57,14 @@ public class MetadataFromFileFactory
         var modelSyntaxes = trees
             .Where(x => x.HasCompilationUnitRoot)
             .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
-                    .Where(cls => cls.BaseList?.Types.Any(baseType => IsInterfaceOfInterest(baseType.ToString())) == true))
+                    .Where(cls => cls.BaseList?.Types.Any(baseType => IsModelInterface(baseType.ToString()) || IsCustomModelInterface(baseType.ToString())) == true))
             .ToList();
 
+        return ReadSyntaxTrees(modelSyntaxes);
+    }
+
+    public DatabaseMetadata ReadSyntaxTrees(List<TypeDeclarationSyntax> modelSyntaxes)
+    { 
         // Identify classes implementing the interfaces of interest
         var dbModelClasses = modelSyntaxes
             .Where(cls => cls.BaseList.Types
@@ -74,6 +79,9 @@ public class MetadataFromFileFactory
             dbModelClasses.FirstOrDefault();
 
         var database = new DatabaseMetadata(dbType?.Identifier.Text ?? "Unnamed");
+        
+        if (dbType != null)
+            database.CsNamespace = GetNamespace(dbType);
 
         var customModelClasses = modelSyntaxes
             .Where(cls => cls.BaseList.Types
@@ -133,11 +141,38 @@ public class MetadataFromFileFactory
         return database;
     }
 
-    private bool IsInterfaceOfInterest(string interfaceName)
+    public static string GetNamespace(TypeDeclarationSyntax typeDeclaration)
     {
-        var interfacesOfInterest = new[] { "ICustomDatabaseModel", "IDatabaseModel", "ICustomTableModel", "ITableModel", "ICustomViewModel", "IViewModel" };
-        return interfacesOfInterest.Any(x => interfaceName.StartsWith(x));
+        // Traverse up the syntax tree to find the containing namespace
+        SyntaxNode? potentialNamespaceParent = typeDeclaration.Parent;
+
+        while (potentialNamespaceParent != null && !(potentialNamespaceParent is NamespaceDeclarationSyntax || potentialNamespaceParent is FileScopedNamespaceDeclarationSyntax))
+        {
+            potentialNamespaceParent = potentialNamespaceParent.Parent;
+        }
+
+        // If we found a NamespaceDeclarationSyntax, return its name
+        if (potentialNamespaceParent is NamespaceDeclarationSyntax namespaceDeclaration)
+        {
+            return namespaceDeclaration.Name.ToString();
+        }
+        else if (potentialNamespaceParent is FileScopedNamespaceDeclarationSyntax fileScopedNamespaceDeclaration)
+        {
+            return fileScopedNamespaceDeclaration.Name.ToString();
+        }
+
+        // If no namespace was found, return an empty string or some default value
+        return string.Empty;
     }
+
+    private static readonly string[] modelInterfaceNames = ["IDatabaseModel", "ITableModel", "IViewModel"];
+    private static readonly string[] customModelInterfaceName = ["ICustomDatabaseModel", "ICustomTableModel", "ICustomViewModel"];
+
+    public static bool IsModelInterface(string interfaceName) =>
+        modelInterfaceNames.Any(interfaceName.StartsWith);
+
+    public static bool IsCustomModelInterface(string interfaceName) =>
+        customModelInterfaceName.Any(interfaceName.StartsWith);
 
     private TableModelMetadata ParseTableModel(DatabaseMetadata database, TypeDeclarationSyntax classSyntax, string csPropertyName)
     {
@@ -217,6 +252,8 @@ public class MetadataFromFileFactory
         var arguments = attributeSyntax.ArgumentList?.Arguments
             .Select(x => x.Expression.ToString().Trim('"'))
             .ToList() ?? new();
+
+        
 
         if (name == "Database")
         {
