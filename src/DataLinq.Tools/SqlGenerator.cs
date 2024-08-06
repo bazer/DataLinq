@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using DataLinq.Config;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Extensions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;

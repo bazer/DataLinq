@@ -8,7 +8,7 @@ public class SqlTests : BaseTests
 {
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhere(Database<Employees> employeesDb)
+    public void SimpleWhere(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -28,7 +28,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereAnd(Database<Employees> employeesDb)
+    public void SimpleWhereAnd(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
@@ -48,7 +48,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereOr(Database<Employees> employeesDb)
+    public void SimpleWhereOr(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
@@ -68,7 +68,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void ComplexWhereOR(Database<Employees> employeesDb)
+    public void ComplexWhereOR(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
@@ -89,7 +89,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void ComplexWhereAND(Database<Employees> employeesDb)
+    public void ComplexWhereAND(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
@@ -110,7 +110,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereNot(Database<Employees> employeesDb)
+    public void SimpleWhereNot(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -129,7 +129,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void WhereGroupNot(Database<Employees> employeesDb)
+    public void WhereGroupNot(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -148,7 +148,7 @@ NOT ({escape}dept_no{escape} = {sign}w0)", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereGreaterThan(Database<Employees> employeesDb)
+    public void SimpleWhereGreaterThan(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -165,7 +165,7 @@ WHERE
         Assert.Equal("d005", sql.Parameters[0].Value);
     }
 
-    private (string sign, string escape, string dbName) GetConstants(Database<Employees> employeesDb) =>
+    private (string sign, string escape, string dbName) GetConstants(Database<EmployeesDb> employeesDb) =>
         (employeesDb.Provider.Constants.ParameterSign,
         employeesDb.Provider.Constants.EscapeCharacter,
         employeesDb.Provider.Constants.SupportsMultipleDatabases
@@ -174,7 +174,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereGreaterThanOrEqual(Database<Employees> employeesDb)
+    public void SimpleWhereGreaterThanOrEqual(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -193,7 +193,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereLessThan(Database<Employees> employeesDb)
+    public void SimpleWhereLessThan(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -212,7 +212,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereLessThanOrEqual(Database<Employees> employeesDb)
+    public void SimpleWhereLessThanOrEqual(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -231,7 +231,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleLike(Database<Employees> employeesDb)
+    public void SimpleLike(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -250,7 +250,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleOrderBy(Database<Employees> employeesDb)
+    public void SimpleOrderBy(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -266,7 +266,7 @@ ORDER BY {escape}dept_no{escape}", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleOrderByDesc(Database<Employees> employeesDb)
+    public void SimpleOrderByDesc(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -283,7 +283,7 @@ ORDER BY {escape}dept_no{escape} DESC", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleOrderByTwice(Database<Employees> employeesDb)
+    public void SimpleOrderByTwice(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -300,7 +300,7 @@ ORDER BY {escape}dept_no{escape}, {escape}dept_name{escape}", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleOrderByDescTwice(Database<Employees> employeesDb)
+    public void SimpleOrderByDescTwice(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -317,7 +317,7 @@ ORDER BY {escape}dept_no{escape} DESC, {escape}dept_name{escape} DESC", sql.Text
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleOrderByTwiceMixed(Database<Employees> employeesDb)
+    public void SimpleOrderByTwiceMixed(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -334,7 +334,7 @@ ORDER BY {escape}dept_no{escape}, {escape}dept_name{escape} DESC", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleOrderByDescTwiceMixed(Database<Employees> employeesDb)
+    public void SimpleOrderByDescTwiceMixed(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -351,7 +351,7 @@ ORDER BY {escape}dept_no{escape} DESC, {escape}dept_name{escape}", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereOrderBy(Database<Employees> employeesDb)
+    public void SimpleWhereOrderBy(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -372,7 +372,7 @@ ORDER BY {escape}dept_no{escape}", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereOrderByDesc(Database<Employees> employeesDb)
+    public void SimpleWhereOrderByDesc(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -393,7 +393,7 @@ ORDER BY {escape}dept_no{escape} DESC", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void Limit1(Database<Employees> employeesDb)
+    public void Limit1(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -408,7 +408,7 @@ LIMIT 1", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void Limit2(Database<Employees> employeesDb)
+    public void Limit2(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -423,7 +423,7 @@ LIMIT 2", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void Limit2Offset5(Database<Employees> employeesDb)
+    public void Limit2Offset5(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -438,7 +438,7 @@ LIMIT 2 OFFSET 5", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereOrderByDescLimit1(Database<Employees> employeesDb)
+    public void SimpleWhereOrderByDescLimit1(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -461,7 +461,7 @@ LIMIT 1", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereLimit1OrderByDesc(Database<Employees> employeesDb)
+    public void SimpleWhereLimit1OrderByDesc(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -484,7 +484,7 @@ LIMIT 1", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhat(Database<Employees> employeesDb)
+    public void SimpleWhat(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -499,7 +499,7 @@ LIMIT 1", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleJoinExplicitAlias(Database<Employees> employeesDb)
+    public void SimpleJoinExplicitAlias(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -515,7 +515,7 @@ JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{es
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleJoinIncludedAlias(Database<Employees> employeesDb)
+    public void SimpleJoinIncludedAlias(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -531,7 +531,7 @@ JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{es
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleJoinIncludedAliasWhere(Database<Employees> employeesDb)
+    public void SimpleJoinIncludedAliasWhere(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -555,7 +555,7 @@ LIMIT 1", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleJoinIncludedAliasLimit(Database<Employees> employeesDb)
+    public void SimpleJoinIncludedAliasLimit(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -576,7 +576,7 @@ LIMIT 1", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleJoinIncludedAliasOrderByDesc(Database<Employees> employeesDb)
+    public void SimpleJoinIncludedAliasOrderByDesc(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -594,7 +594,7 @@ ORDER BY d.{escape}dept_no{escape} DESC", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void DoubleJoinIncludedAliasOrderByDesc(Database<Employees> employeesDb)
+    public void DoubleJoinIncludedAliasOrderByDesc(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -614,7 +614,7 @@ ORDER BY d.{escape}dept_no{escape} DESC", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleInsert(Database<Employees> employeesDb)
+    public void SimpleInsert(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
@@ -631,7 +631,7 @@ ORDER BY d.{escape}dept_no{escape} DESC", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleInsertWithLastId(Database<Employees> employeesDb)
+    public void SimpleInsertWithLastId(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var lastInsert = employeesDb.Provider.Constants.LastInsertCommand;
@@ -651,7 +651,7 @@ SELECT {lastInsert}", sql.Text);
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereInOne(Database<Employees> employeesDb)
+    public void SimpleWhereInOne(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var ids = new[] { 3 };
@@ -671,7 +671,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereIn(Database<Employees> employeesDb)
+    public void SimpleWhereIn(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var ids = new[] { 1, 2, 3 };
@@ -695,7 +695,7 @@ WHERE
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereNotIn(Database<Employees> employeesDb)
+    public void SimpleWhereNotIn(Database<EmployeesDb> employeesDb)
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var ids = new[] { 1, 2, 3 };

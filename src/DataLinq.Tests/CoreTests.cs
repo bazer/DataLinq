@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Config;
+using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
@@ -17,7 +19,7 @@ public class CoreTests : BaseTests
     public void TestMetadataFromFixture()
     {
         Assert.Equal(2, DatabaseMetadata.LoadedDatabases.Count);
-        Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(Employees));
+        Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(EmployeesDb));
         Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(information_schema));
     }
 
@@ -40,7 +42,7 @@ public class CoreTests : BaseTests
     [Fact]
     public void TestMetadataFromInterfaceFactory()
     {
-        var metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(typeof(Employees));
+        var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb));
 
         TestDatabaseAttributes(metadata);
         TestDatabase(metadata, true);

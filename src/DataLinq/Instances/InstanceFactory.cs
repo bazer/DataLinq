@@ -48,6 +48,6 @@ public static class InstanceFactory
 
     public static T NewDatabase<T>(DataSourceAccess transaction) where T : class, IDatabaseModel
     {
-        return generator.CreateInterfaceProxyWithoutTarget<T>(new DatabaseInterceptor(transaction));
+        return generator.CreateClassProxy<T>(new DatabaseInterceptor(transaction));
     }
 }

@@ -13,14 +13,14 @@ public class DatabaseMetadata
     {
         Name = name;
         CsType = csType;
-        CsTypeName = csTypeName ?? CsType?.Name ?? name;
-        DbName = dbName ?? name;
+        CsTypeName = csTypeName ?? CsType?.Name ?? Name;
+        DbName = dbName ?? Name;
     }
 
     public string Name { get; internal set; }
     public string DbName { get; }
     public Type? CsType { get; }
-    public string CsTypeName { get; }
+    public string CsTypeName { get; set; }
     public string CsNamespace { get; set; }
     public Attribute[] Attributes { get; set; }
     public List<TableModelMetadata> TableModels { get; set; } = [];

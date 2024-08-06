@@ -14,7 +14,7 @@ internal class Helpers
         //this.fixture = fixture;
     }
 
-    public Employee GetEmployee(int? emp_no, Database<Employees> employeesDb)
+    public Employee GetEmployee(int? emp_no, Database<EmployeesDb> employeesDb)
     {
         var employee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
 

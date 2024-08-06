@@ -85,7 +85,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
             }
             else
             {
-                Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(type);
+                Metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(type);
                 DatabaseMetadata.LoadedDatabases.TryAdd(type, Metadata);
 
                 if (Metadata.UseCache)

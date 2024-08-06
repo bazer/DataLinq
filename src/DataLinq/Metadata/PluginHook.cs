@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DataLinq.Core.Factories;
 using DataLinq.Exceptions;
 using DataLinq.Interfaces;
 using DataLinq.Query;

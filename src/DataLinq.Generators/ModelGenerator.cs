@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Text;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -10,7 +12,8 @@ namespace DataLinq.SourceGenerators;
 [Generator]
 public class ModelGenerator : IIncrementalGenerator
 {
-    private readonly MetadataFromFileFactory factory = new(new MetadataFromFileFactoryOptions());
+    private readonly MetadataFromInterfacesFactory metadataFactory = new(new MetadataFromInterfacesFactoryOptions());
+    private readonly GeneratorFileFactory fileFactory = new(new GeneratorFileFactoryOptions());
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -29,8 +32,8 @@ public class ModelGenerator : IIncrementalGenerator
     }
 
     private static bool IsModelDeclaration(SyntaxNode node) =>
-        node is TypeDeclarationSyntax classDeclaration &&
-        classDeclaration.BaseList?.Types.Any(t => MetadataFromFileFactory.IsModelInterface(t.ToString())) == true;
+        node is InterfaceDeclarationSyntax interfaceDeclaration &&
+        interfaceDeclaration.BaseList?.Types.Any(t => MetadataFromFileFactory.IsModelInterface(t.ToString())) == true;
 
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;
@@ -40,17 +43,23 @@ public class ModelGenerator : IIncrementalGenerator
         context.ReportDiagnostic(Diagnostic.Create(
             new DiagnosticDescriptor("DL0001", "Info", "Executing source generator", "Info", DiagnosticSeverity.Info, true), Location.None));
 
-        var metadata = factory.ReadSyntaxTrees(modelDeclarations.ToList());
+        var metadata = metadataFactory.ReadSyntaxTrees(modelDeclarations);
 
-        foreach (var table in metadata.TableModels)
+        foreach (var db in metadata)
         {
-            var source = GenerateProxyClass(context, table);
-            context.AddSource($"{table.Model.CsTypeName}Proxy.cs", source);
+            foreach (var (path, contents) in fileFactory.CreateModelFiles(db))
+            {
+                //var source = GenerateProxyClass(context, table);
+                context.AddSource($"{db.Name}/{path}", contents);
+            }
         }
     }
 
     private string GenerateProxyClass(SourceProductionContext context, TableModelMetadata tableModel)
     {
+        
+
+
         var namespaceName = tableModel.Model.Database.CsNamespace;
 
         if (string.IsNullOrWhiteSpace(namespaceName))
@@ -61,17 +70,15 @@ public class ModelGenerator : IIncrementalGenerator
         }
 
         var className = tableModel.Model.CsTypeName;
-        var proxyClassName = $"{className}Proxy";
+        var proxyClassName = $"{className}";
 
         var sb = new StringBuilder();
         var tab = "    ";
         sb.AppendLine("using System;");
-        sb.AppendLine($"namespace {namespaceName}");
+        sb.AppendLine($"namespace {namespaceName};");
+        sb.AppendLine($"public partial record {className}");
         sb.AppendLine("{");
-        sb.AppendLine($"{tab}public partial record {className}");
-        sb.AppendLine(tab + "{");
-        sb.AppendLine($"{tab}{tab}public string Generated => \"Generator: {className}\";");
-        sb.AppendLine(tab + "}");
+        sb.AppendLine($"{tab}public string Generated => \"Generator: {className}\";");
         sb.AppendLine("}");
 
         return sb.ToString();

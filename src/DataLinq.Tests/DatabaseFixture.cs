@@ -52,7 +52,7 @@ public class DatabaseFixture : IDisposable
             var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
             provider.UseLoggerFactory(loggerFactory);
 
-            var dbEmployees = provider.GetDatabaseProvider<Employees>(connection.ConnectionString.Original, connection.DataSourceName);
+            var dbEmployees = provider.GetDatabaseProvider<EmployeesDb>(connection.ConnectionString.Original, connection.DataSourceName);
 
             lock (lockObject)
             {
@@ -79,23 +79,23 @@ public class DatabaseFixture : IDisposable
 
     public static DataLinqConfig DataLinqConfig { get; set; }
     public List<DataLinqDatabaseConnection> EmployeeConnections { get; set; } = new();
-    public List<Database<Employees>> AllEmployeesDb { get; set; } = new();
+    public List<Database<EmployeesDb>> AllEmployeesDb { get; set; } = new();
     public MySqlDatabase<information_schema> information_schema { get; set; }
 
-    public void FillEmployeesWithBogusData(Database<Employees> database)
+    public void FillEmployeesWithBogusData(Database<EmployeesDb> database)
     {
         Randomizer.Seed = new Random(59345922);
 
         var numEmployees = 10000;
         using var transaction = database.Transaction();
 
-        var employeeFaker = new Faker<Employee>()
+        var employeeFaker = new Faker<IEmployee>()
             .StrictMode(false)
             .RuleFor(x => x.first_name, x => x.Person.FirstName)
             .RuleFor(x => x.last_name, x => x.Person.LastName)
             .RuleFor(x => x.birth_date, x => DateOnly.FromDateTime(x.Person.DateOfBirth.Date))
             .RuleFor(x => x.hire_date, x => x.Date.PastDateOnly(20))
-            .RuleFor(x => x.gender, x => (Employee.Employeegender)(((int)x.Person.Gender) + 1));
+            .RuleFor(x => x.gender, x => (IEmployee.Employeegender)(((int)x.Person.Gender) + 1));
         var employees = transaction.Insert(employeeFaker.Generate(numEmployees));
 
         var deptNo = 1;
@@ -106,7 +106,7 @@ public class DatabaseFixture : IDisposable
         var departments = transaction.Insert(departmentFaker.Generate(20));
 
         var empNo = 0;
-        var dept_empFaker = new Faker<dept_emp>()
+        var dept_empFaker = new Faker<Dept_emp>()
            .StrictMode(false)
            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
@@ -136,7 +136,7 @@ public class DatabaseFixture : IDisposable
            .StrictMode(false)
            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.Type, x => x.PickRandom<Manager.ManagerType>())
+           .RuleFor(x => x.Type, x => x.PickRandom<ManagerType>())
            .RuleFor(x => x.emp_no, x => x.PickRandom(employees).emp_no)
            .RuleFor(x => x.dept_fk, x => x.PickRandom(departments).DeptNo);
 

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DataLinq.Config;
+using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using ThrowAway;
 
@@ -149,7 +151,7 @@ public class ModelGenerator : Generator
         }
 
 
-        var options = new FileFactoryOptions
+        var options = new InterfaceFileFactoryOptions
         {
             NamespaceName = db.Namespace,
             UseRecords = db.UseRecord,
@@ -158,7 +160,7 @@ public class ModelGenerator : Generator
         };
 
         //log($"Writing models to:");
-        foreach (var file in new FileFactory(options).CreateModelFiles(dbMetadata))
+        foreach (var file in new InterfaceFileFactory(options).CreateModelFiles(dbMetadata))
         {
             var filepath = $"{destDir}{Path.DirectorySeparatorChar}{file.path}";
             log($"Writing {filepath}");

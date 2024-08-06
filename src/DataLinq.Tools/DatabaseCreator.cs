@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using DataLinq.Config;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Extensions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;

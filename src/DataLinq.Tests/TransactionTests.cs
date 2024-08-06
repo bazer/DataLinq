@@ -15,7 +15,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void AttachTransaction(Database<Employees> employeesDb)
+    public void AttachTransaction(Database<EmployeesDb> employeesDb)
     {
         using IDbConnection dbConnection = employeesDb.DatabaseType == DatabaseType.MySQL
             ? new MySqlConnection(employeesDb.Provider.ConnectionString)
@@ -47,7 +47,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void AttachMutateTransaction(Database<Employees> employeesDb)
+    public void AttachMutateTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999700;
 
@@ -81,7 +81,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void GetTransaction(Database<Employees> employeesDb)
+    public void GetTransaction(Database<EmployeesDb> employeesDb)
     {
         using var transaction = employeesDb.Transaction();
 
@@ -117,7 +117,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void Insert(Database<Employees> employeesDb)
+    public void Insert(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999999;
 
@@ -165,7 +165,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void InsertAutoIncrement(Database<Employees> employeesDb)
+    public void InsertAutoIncrement(Database<EmployeesDb> employeesDb)
     {
         var employee = helpers.NewEmployee();
         Assert.False(employee.HasPrimaryKeysSet());
@@ -194,7 +194,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void InsertAndUpdateAutoIncrement(Database<Employees> employeesDb)
+    public void InsertAndUpdateAutoIncrement(Database<EmployeesDb> employeesDb)
     {
         var employee = helpers.NewEmployee();
         Assert.False(employee.HasPrimaryKeysSet());
@@ -230,7 +230,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void UpdateImplicitTransaction(Database<Employees> employeesDb)
+    public void UpdateImplicitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999998;
 
@@ -255,7 +255,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void UpdateExplicitTransaction(Database<Employees> employeesDb)
+    public void UpdateExplicitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999997;
 
@@ -282,7 +282,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void RollbackTransaction(Database<Employees> employeesDb)
+    public void RollbackTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999996;
 
@@ -317,7 +317,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void DoubleCommitTransaction(Database<Employees> employeesDb)
+    public void DoubleCommitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999995;
 
@@ -339,7 +339,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void DoubleRollbackTransaction(Database<Employees> employeesDb)
+    public void DoubleRollbackTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999994;
 
@@ -361,7 +361,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void CommitRollbackTransaction(Database<Employees> employeesDb)
+    public void CommitRollbackTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999993;
 
@@ -383,7 +383,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void RollbackCommitTransaction(Database<Employees> employeesDb)
+    public void RollbackCommitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999992;
 
@@ -405,11 +405,11 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void TransactionCache(Database<Employees> employeesDb)
+    public void TransactionCache(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999991;
         var employee = helpers.GetEmployee(emp_no, employeesDb);
-        Transaction<Employees>[] transactions = new Transaction<Employees>[10];
+        Transaction<EmployeesDb>[] transactions = new Transaction<EmployeesDb>[10];
 
         for (int i = 0; i < 10; i++)
         {
@@ -431,7 +431,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void InsertOrUpdate(Database<Employees> employeesDb)
+    public void InsertOrUpdate(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999800;
         var employee = helpers.GetEmployee(emp_no, employeesDb);
@@ -445,7 +445,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void InsertRelations(Database<Employees> employeesDb)
+    public void InsertRelations(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999799;
         var employee = helpers.GetEmployee(emp_no, employeesDb);
@@ -478,7 +478,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void InsertRelationsInTransaction(Database<Employees> employeesDb)
+    public void InsertRelationsInTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999798;
         var employee = helpers.GetEmployee(emp_no, employeesDb);
@@ -519,7 +519,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void InsertRelationsReadAfterTransaction(Database<Employees> employeesDb)
+    public void InsertRelationsReadAfterTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999797;
         var employee = helpers.GetEmployee(emp_no, employeesDb);
@@ -576,7 +576,7 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void UpdateOldModel(Database<Employees> employeesDb)
+    public void UpdateOldModel(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999796;
         var employee = helpers.GetEmployee(emp_no, employeesDb);

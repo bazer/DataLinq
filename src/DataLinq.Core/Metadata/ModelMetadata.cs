@@ -12,7 +12,7 @@ public enum ModelCsType
     Interface
 }
 
-public class ModelNamespace
+public class ModelUsing
 {
     public string FullNamespaceName { get; set; }
 }
@@ -27,9 +27,10 @@ public class ModelMetadata
 {
     public Type CsType { get; set; }
     public string CsTypeName { get; set; }
+    public string? CsNamespace { get; set; }
     public ModelCsType ModelCsType { get; set; }
     public ModelInterface[] Interfaces { get; set; }
-    public ModelNamespace[] Namespaces { get; set; }
+    public ModelUsing[] Usings { get; set; }
     public DatabaseMetadata Database { get; set; }
     public TableMetadata Table { get; set; }
     public Dictionary<string, RelationProperty> RelationProperties { get; } = new();

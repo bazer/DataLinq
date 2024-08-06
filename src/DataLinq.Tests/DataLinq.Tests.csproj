@@ -30,19 +30,15 @@
 		<!--<ProjectReference Include="..\DataLinq\DataLinq.csproj" />-->
 		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
+		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
-		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" />
+		<!--<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />-->
 	</ItemGroup>
 
 	<ItemGroup>
 		<None Update="appsettings.json">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="datalinq.user.json">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="datalinq.json">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="employees.db">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -50,6 +46,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Folder Include="Models\" />
 		<Folder Include="Views\" />
 	</ItemGroup>
 

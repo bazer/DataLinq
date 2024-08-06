@@ -4,10 +4,10 @@ using DataLinq.Tests.Models;
 namespace DataLinq.Blazor.Code;
 public class RandomTableData
 {
-    private readonly MySqlDatabase<Employees> _db;
+    private readonly MySqlDatabase<EmployeesDb> _db;
     private static Random _random = new Random();
 
-    public RandomTableData(MySqlDatabase<Employees> db)
+    public RandomTableData(MySqlDatabase<EmployeesDb> db)
     {
         _db = db;
     }

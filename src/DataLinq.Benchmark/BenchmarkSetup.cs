@@ -70,10 +70,10 @@ public class BenchmarkSetup
         {
             var reviews = db.Query().Productreviews.Take(1000);
 
-            foreach (var user in reviews.Select(x => x.Users))
+            foreach (var user in reviews.Select(x => x.users))
             {
                 //var orders = user.Orders.ToList();
-                Console.WriteLine($"Num orders for user {user.UserName}: {user.Orders.Count()}");
+                Console.WriteLine($"Num orders for user {user.UserName}: {user.orders.Count()}");
             }
         }
     }

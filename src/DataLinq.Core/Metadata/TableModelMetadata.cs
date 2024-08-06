@@ -2,6 +2,7 @@
 
 public class TableModelMetadata
 {
+    public bool IsStub { get; set; }
     public TableMetadata Table { get; set; }
     public ModelMetadata Model { get; set; }
     /// <summary>

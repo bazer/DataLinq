@@ -31,6 +31,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.Generators.Tests",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLinq.Core", "DataLinq.Core\DataLinq.Core.csproj", "{1919C618-C895-41D1-BCFF-A1B8B40DE086}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLinq.Tests.Models", "DataLinq.Tests.Models\DataLinq.Tests.Models.csproj", "{5E490877-847F-4E55-ADAB-662DD4FAD20F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -81,6 +83,10 @@ Global
 		{1919C618-C895-41D1-BCFF-A1B8B40DE086}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1919C618-C895-41D1-BCFF-A1B8B40DE086}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1919C618-C895-41D1-BCFF-A1B8B40DE086}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E490877-847F-4E55-ADAB-662DD4FAD20F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E490877-847F-4E55-ADAB-662DD4FAD20F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E490877-847F-4E55-ADAB-662DD4FAD20F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E490877-847F-4E55-ADAB-662DD4FAD20F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
