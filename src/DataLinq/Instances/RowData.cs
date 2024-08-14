@@ -22,7 +22,7 @@ public interface IRowData
     IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues(IEnumerable<Column> columns);
 }
 
-public class RowData
+public class RowData : IRowData, IEquatable<RowData>
 {
     public RowData(IDataLinqDataReader reader, TableMetadata table, ReadOnlySpan<Column> columns)
     {
@@ -104,5 +104,37 @@ public class RowData
             return b.Length;
 
         throw new NotImplementedException($"Size for type '{column.ValueProperty.CsType}' not implemented");
+    }
+
+    public bool Equals(RowData? other)
+    {
+        if (Data.Count != other?.Data.Count)
+            return false;
+
+        foreach (var kvp in Data)
+        {
+            if (!other.Data.TryGetValue(kvp.Key, out var value) && value != kvp.Value)
+                return false;
+        }
+
+        return true;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is RowData other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+
+        foreach (var kvp in Data.OrderBy(kvp => kvp.Key))
+        {
+            hash.Add(kvp.Key);
+            hash.Add(kvp.Value);
+        }
+
+        return hash.ToHashCode();
     }
 }

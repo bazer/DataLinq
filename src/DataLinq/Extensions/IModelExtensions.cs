@@ -10,17 +10,17 @@ namespace DataLinq;
 
 public static class IModelExtensions
 {
-    public static IEnumerable<KeyValuePair<Column, object?>> GetValues(this IModel model)
-    {
-        return model.Metadata().Table.Columns
-            .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
-    }
+    //public static IEnumerable<KeyValuePair<Column, object?>> GetValues(this IModel model)
+    //{
+    //    return model.Metadata().Table.Columns
+    //        .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
+    //}
 
-    public static IEnumerable<KeyValuePair<Column, object?>> GetValues(this IModel model, IEnumerable<Column> columns)
-    {
-        return columns
-            .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
-    }
+    //public static IEnumerable<KeyValuePair<Column, object?>> GetValues(this IModel model, IEnumerable<Column> columns)
+    //{
+    //    return columns
+    //        .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
+    //}
 
     //public static IKey PrimaryKeys(this IModel model)
     //{
@@ -32,31 +32,31 @@ public static class IModelExtensions
     //    return KeyFactory.CreateKeyFromValues(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
     //}
 
-    public static bool HasPrimaryKeysSet(this IModel model)
-    {
-        return model.Metadata().Table
-            .PrimaryKeyColumns
-            .All(x => x.ValueProperty.GetValue(model) != default);
-    }
+    //public static bool HasPrimaryKeysSet(this IModel model)
+    //{
+    //    return model.Metadata().Table
+    //        .PrimaryKeyColumns
+    //        .All(x => x.ValueProperty.GetValue(model) != default);
+    //}
 
-    public static ModelMetadata Metadata(this IModel model)
-    {
-        var metadata = ModelMetadata.Find(model);
+    //public static ModelMetadata Metadata(this IModel model)
+    //{
+    //    var metadata = ModelMetadata.Find(model);
 
-        if (metadata == null)
-            throw new Exception($"Metadata not loaded for model with type {model.GetType()}");
+    //    if (metadata == null)
+    //        throw new Exception($"Metadata not loaded for model with type {model.GetType()}");
 
-        return metadata;
-    }
+    //    return metadata;
+    //}
 
-    public static bool IsNewModel(this IModel model) =>
-        !typeof(InstanceBase).IsAssignableFrom(model.GetType());
+    //public static bool IsNewModel(this IModel model) =>
+    //    !typeof(InstanceBase).IsAssignableFrom(model.GetType());
 
-    public static bool IsImmutable(this IModel model) =>
-        typeof(ImmutableInstanceBase).IsAssignableFrom(model.GetType());
+    //public static bool IsImmutable(this IModel model) =>
+    //    typeof(ImmutableInstanceBase).IsAssignableFrom(model.GetType());
 
-    public static bool IsMutable(this IModel model) =>
-        typeof(MutableInstanceBase).IsAssignableFrom(model.GetType());
+    //public static bool IsMutable(this IModel model) =>
+    //    typeof(MutableInstanceBase).IsAssignableFrom(model.GetType());
 
     //public static T Mutate<T>(this T model) where T : IModel
     //{

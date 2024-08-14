@@ -278,17 +278,17 @@ public class TableCache
             if (IndexCaches[index].TryGetValue(foreignKey, out var keys))
                 return keys!;
 
-            if (IndexCaches[index].Count == 0)
-            {
-                PreloadIndex(foreignKey, otherSide, indexCachePolicy.type == IndexCacheType.MaxAmountRows ? indexCachePolicy.amount : null);
-                Log.IndexCachePreload(loggingConfiguration.CacheLogger, index, IndexCaches[index].Count);
+            //if (IndexCaches[index].Count == 0)
+            //{
+            //    PreloadIndex(foreignKey, otherSide, indexCachePolicy.type == IndexCacheType.MaxAmountRows ? indexCachePolicy.amount : null);
+            //    Log.IndexCachePreload(loggingConfiguration.CacheLogger, index, IndexCaches[index].Count);
 
-                var rowCount = GetRows(IndexCaches[index].Values.SelectMany(x => x).Take(1000).ToArray(), dataSource).Count();
-                Log.RowCachePreload(loggingConfiguration.CacheLogger, Table, rowCount);
+            //    var rowCount = GetRows(IndexCaches[index].Values.SelectMany(x => x).Take(1000).ToArray(), dataSource).Count();
+            //    Log.RowCachePreload(loggingConfiguration.CacheLogger, Table, rowCount);
 
-                if (IndexCaches[index].TryGetValue(foreignKey, out var retryKeys))
-                    return retryKeys!;
-            }
+            //    if (IndexCaches[index].TryGetValue(foreignKey, out var retryKeys))
+            //        return retryKeys!;
+            //}
         }
 
         var select = new SqlQuery(Table, dataSource ?? DatabaseCache.Database.ReadOnlyAccess)

@@ -236,7 +236,6 @@ public class TransactionTests : BaseTests
         var emp_no = 999998;
 
         var employee = helpers.GetEmployee(emp_no, employeesDb);
-        Assert.False(employee.IsNewModel());
         var orgBirthDate = employee.birth_date;
         var employeeMut = employee.Mutate();
         Assert.False(employeeMut.IsNewModel());

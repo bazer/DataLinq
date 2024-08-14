@@ -156,13 +156,15 @@ public class GeneratorFileFactory
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
             {
-                yield return $"{namespaceTab}{tab}private {otherPart.ColumnIndex.Table.Model.CsTypeName} _{relationProperty.CsName};";
-                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} => _{relationProperty.CsName} ??= GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
+                //yield return $"{namespaceTab}{tab}private {otherPart.ColumnIndex.Table.Model.CsTypeName} _{relationProperty.CsName};";
+                //yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} => _{relationProperty.CsName} ??= GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
+                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} => GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
             }
             else
             {
-                yield return $"{namespaceTab}{tab}private IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> _{relationProperty.CsName};";
-                yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} => _{relationProperty.CsName} ??= GetRelation<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
+                //yield return $"{namespaceTab}{tab}private IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> _{relationProperty.CsName};";
+                //yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} => _{relationProperty.CsName} ??= GetRelation<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
+                yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} => GetRelation<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
             }
 
             yield return $"";

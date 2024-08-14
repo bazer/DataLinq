@@ -62,7 +62,7 @@ public class StateChange
         Table = table;
         Type = type;
 
-        PrimaryKeys = KeyFactory.CreateKeyFromValues(Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)));
+        PrimaryKeys = model.PrimaryKeys();
     }
 
     public IEnumerable<KeyValuePair<Column, object>> GetValues() =>
@@ -90,14 +90,17 @@ public class StateChange
     /// <param name="transaction">The transaction to execute the query on.</param>
     public void ExecuteQuery(Transaction transaction)
     {
-        if (Type == TransactionChangeType.Insert && HasAutoIncrement && Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(Model)).All(x => x == default))
+        if (Type == TransactionChangeType.Insert && HasAutoIncrement && !Model.HasPrimaryKeysSet())
         {
             var newId = transaction.DatabaseAccess.ExecuteScalar(GetDbCommand(transaction));
 
-            Table.PrimaryKeyColumns
-                .FirstOrDefault(x => x.AutoIncrement)?
-                .ValueProperty
-                .SetValue(Model, newId);
+            if (Model is MutableInstanceBase mutable)
+            {
+                var autoIncrement = Table.PrimaryKeyColumns.FirstOrDefault(x => x.AutoIncrement);
+
+                if (autoIncrement != null)
+                    mutable[autoIncrement] = newId;
+            }
         }
         else
             transaction.DatabaseAccess.ExecuteNonQuery(GetDbCommand(transaction));
@@ -134,7 +137,7 @@ public class StateChange
     {
         foreach (var column in Table.Columns)
         {
-            var val = writer.ConvertColumnValue(column, column.ValueProperty.GetValue(Model));
+            var val = writer.ConvertColumnValue(column, Model[column]);
             query.Set(column.DbName, val);
         }
 
@@ -147,7 +150,7 @@ public class StateChange
     private IQuery BuildUpdateQuery(SqlQuery query, IDataLinqDataWriter writer)
     {
         foreach (var column in Table.PrimaryKeyColumns)
-            query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, column.ValueProperty.GetValue(Model)));
+            query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, Model[column]));
 
         foreach (var change in ((MutableInstanceBase)Model).GetChanges())
             query.Set(change.Key.DbName, writer.ConvertColumnValue(change.Key, change.Value));
@@ -158,7 +161,7 @@ public class StateChange
     private IQuery BuildDeleteQuery(SqlQuery query, IDataLinqDataWriter writer)
     {
         foreach (var column in Table.PrimaryKeyColumns)
-            query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, column.ValueProperty.GetValue(Model)));
+            query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, Model[column]));
 
         return query.DeleteQuery();
     }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Metadata;
 
@@ -9,26 +10,20 @@ public class MutableRowData : IRowData
     RowData? ImmutableRowData { get; }
     Dictionary<Column, object?> MutatedData { get; } = new Dictionary<Column, object?>();
 
-    public TableMetadata Table => throw new System.NotImplementedException();
+    public TableMetadata Table { get; }
 
-    public object? this[Column column] => throw new System.NotImplementedException();
+    public object? this[Column column] => GetValue(column);
 
-    public MutableRowData()
+    public MutableRowData(TableMetadata table)
     {
+        this.Table = table;
     }
 
     public MutableRowData(RowData immutableRowData)
     {
         this.ImmutableRowData = immutableRowData;
+        this.Table = immutableRowData.Table;
     }
-
-    //public IKey GetKey() =>
-    //    KeyFactory.GetKey(this.ImmutableRowData, this.ImmutableRowData.Table.PrimaryKeyColumns);
-
-    //public T? GetValue<T>(string columnDbName)
-    //{
-    //    return (T?)GetValue(ImmutableRowData.Table.Columns.Single(x => x.DbName == columnDbName));
-    //}
 
     public T? GetValue<T>(Column column)
     {
@@ -49,14 +44,12 @@ public class MutableRowData : IRowData
             yield return GetValue(column);
     }
 
-    //public void SetValue<T>(string columnDbName, T? value)
-    //{
-    //    SetValue(ImmutableRowData.Table.Columns.Single(x => x.DbName == columnDbName), value);
-    //}
-
     public void SetValue(Column column, object? value)
     {
-        MutatedData[column] = value;
+        if (value == null || value.GetType() == column.ValueProperty.CsType)
+            MutatedData[column] = value;
+        else
+            MutatedData[column] = Convert.ChangeType(value, column.ValueProperty.CsType);
     }
 
     public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues()
@@ -78,8 +71,6 @@ public class MutableRowData : IRowData
         foreach (var change in MutatedData)
             yield return change;
     }
-
-   
 
     IEnumerable<object?> IRowData.GetValues(IEnumerable<Column> columns)
     {

@@ -10,13 +10,15 @@ public static class KeyFactory
 {
     public static IKey CreateKeyFromValue<T>(T? value)
     {
-        if (value is RowData row)
+        if (value is RowData)
             throw new Exception("Cannot create a primary key from a RowData object. Use CreatePrimaryKey(RowData, Column[]) instead.");
 
         return value switch
         {
             null => new NullKey(),
             int intValue => new IntKey(intValue),
+            long int64Value => new Int64Key(int64Value),
+            ulong uInt64Value => new UInt64Key(uInt64Value),
             Guid guidValue => new GuidKey(guidValue),
             string stringValue => new StringKey(stringValue),
             _ => throw new Exception($"Type {value.GetType()} not supported as a key value")

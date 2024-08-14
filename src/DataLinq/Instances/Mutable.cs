@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using DataLinq.Interfaces;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
@@ -19,11 +15,24 @@ public class Mutable<T> : MutableInstanceBase
 
     private MutableRowData mutableRowData;
     public MutableRowData GetRowData() => mutableRowData;
+    IRowData InstanceBase.GetRowData() => GetRowData();
+
+    public object? this[Column column]
+    {
+        get => mutableRowData[column];
+        set => mutableRowData.SetValue(column, value);
+    }
+
+    public object? this[string propertyName]
+    {
+        get => mutableRowData.GetValue(metadata.ValueProperties[propertyName].Column);
+        set => mutableRowData.SetValue(metadata.ValueProperties[propertyName].Column, value);
+    }
 
     public Mutable()
     {
         metadata = ModelMetadata.Find<T>() ?? throw new InvalidOperationException($"Model {typeof(T).Name} not found");
-        this.mutableRowData = new MutableRowData();
+        this.mutableRowData = new MutableRowData(metadata.Table);
         isNewModel = true;
     }
 
@@ -41,26 +50,15 @@ public class Mutable<T> : MutableInstanceBase
         this.isNewModel = false;
     }
 
-    protected V? GetValue<V>(string propertyName) => mutableRowData.GetValue<V>(metadata.ValueProperties[propertyName].Column);
-    protected void SetValue<V>(string propertyName, V value) => mutableRowData.SetValue(metadata.ValueProperties[propertyName].Column, value);
+    public V? GetValue<V>(string propertyName) => mutableRowData.GetValue<V>(metadata.ValueProperties[propertyName].Column);
+    public void SetValue<V>(string propertyName, V value) => mutableRowData.SetValue(metadata.ValueProperties[propertyName].Column, value);
 
     public IKey PrimaryKeys() => KeyFactory.CreateKeyFromValues(mutableRowData.GetValues(metadata.Table.PrimaryKeyColumns));
     public bool HasPrimaryKeysSet() => PrimaryKeys() is not NullKey;
 
-    public IEnumerable<KeyValuePair<Column, object>> GetChanges()
-    {
-        throw new NotImplementedException();
-    }
+    public IEnumerable<KeyValuePair<Column, object?>> GetChanges() => mutableRowData.GetChanges();
 
-    public IEnumerable<KeyValuePair<Column, object>> GetValues()
-    {
-        throw new NotImplementedException();
-    }
+    public IEnumerable<KeyValuePair<Column, object?>> GetValues() => mutableRowData.GetColumnAndValues();
 
-    public IEnumerable<KeyValuePair<Column, object>> GetValues(IEnumerable<Column> columns)
-    {
-        throw new NotImplementedException();
-    }
-
-    
+    public IEnumerable<KeyValuePair<Column, object?>> GetValues(IEnumerable<Column> columns) => mutableRowData.GetColumnAndValues(columns);
 }

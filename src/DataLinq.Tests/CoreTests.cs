@@ -28,9 +28,9 @@ public class CoreTests : BaseTests
     [Fact]
     public void TestMetadataFromFilesFactory()
     {
-        var projectRoot = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent;
+        var projectRoot = Path.Combine(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.Parent.FullName, "DataLinq.Tests.Models");
         var srcPaths = DatabaseFixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories
-            .Select(x => Path.Combine(projectRoot.FullName, x))
+            .Select(x => Path.Combine(projectRoot, x))
             .ToList();
 
         //var srcPaths = Fixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories.Select(x => Path.GetFullPath(x)).ToList();
