@@ -38,7 +38,7 @@
 
 	<ItemGroup>
 		<None Update="appsettings.json">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 		<None Update="employees.db">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>

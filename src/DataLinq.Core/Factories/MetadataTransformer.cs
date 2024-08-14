@@ -71,7 +71,7 @@ public class MetadataTransformer
             //}
         }
 
-        destTable.Model.Interfaces = new ModelInterface[] { new ModelInterface { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName } };
+        destTable.Model.Interfaces = [new ModelTypeDeclaration { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName }];
         destTable.Model.Usings = srcTable.Model.Usings;
 
         foreach (var srcProperty in srcTable.Model.ValueProperties.Values)

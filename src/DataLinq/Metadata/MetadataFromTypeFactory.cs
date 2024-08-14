@@ -115,9 +115,12 @@ public static class MetadataFromTypeFactory
             CsTypeName = type.Name,
             CsNamespace = type.Namespace,
             Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray(),
-            Interfaces = type.GetInterfaces().Select(x => new ModelInterface { CsType = x, CsTypeName = x.Name }).ToArray(),
+            Interfaces = type.GetInterfaces().Select(x => new ModelTypeDeclaration(x, x.Name, ParseModelCsType(x))).ToArray(),
             Usings = [new ModelUsing { FullNamespaceName = type.Namespace }]
         };
+
+        model.ImmutableType = FindType(type,$"{model.CsNamespace}.Immutable{model.CsTypeName}");
+        model.MutableType = FindType(type,$"{model.CsNamespace}.Mutable{model.CsTypeName}");
 
         type
             .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -138,6 +141,16 @@ public static class MetadataFromTypeFactory
             .ToArray();
 
         return model;
+    }
+
+    private static ModelTypeDeclaration FindType(Type modelType, string name)
+    {
+        var type = modelType.Assembly.GetTypes().FirstOrDefault(x =>x.FullName == name);
+
+        if (type == null)
+            throw new NotImplementedException($"Type '{name}' not found");
+
+        return new ModelTypeDeclaration(type, type.Name, ParseModelCsType(type));
     }
 
     private static ModelCsType ParseModelCsType(Type type)

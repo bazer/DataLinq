@@ -1,35 +1,37 @@
 ﻿using System;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("productimages")]
-public partial record Productimage : ITableModel<AllroundBenchmark>
+public abstract partial class Productimage(RowData rowData, DataSourceAccess dataSource) : Immutable<Productimage>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ImageId")]
-    public virtual Guid ImageId { get; set; }
+    public abstract Guid ImageId { get; }
 
     [ForeignKey("products", "ProductId", "productimages_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProductId")]
-    public virtual Guid? ProductId { get; set; }
+    public abstract Guid? ProductId { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "mediumblob", 16777215)]
     [Column("ImageData")]
-    public virtual byte[] ImageData { get; set; }
+    public abstract byte[] ImageData { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "text", 65535)]
     [Column("ImageURL")]
-    public virtual string ImageURL { get; set; }
+    public abstract string ImageURL { get; }
 
     [Relation("products", "ProductId", "productimages_ibfk_1")]
-    public virtual Product products { get; }
+    public abstract Product products { get; }
 
 }

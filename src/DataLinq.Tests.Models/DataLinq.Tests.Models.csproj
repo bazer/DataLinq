@@ -16,7 +16,7 @@
 
 	<ItemGroup>
 	  <None Update="datalinq.json">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="datalinq.user.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>

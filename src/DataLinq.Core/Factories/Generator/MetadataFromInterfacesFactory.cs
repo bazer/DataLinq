@@ -220,13 +220,12 @@ public class MetadataFromInterfacesFactory
             CsTypeName = typeSyntax.Identifier.Text,
             CsNamespace = GetNamespace(typeSyntax),
             Attributes = typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => ParseAttribute(x)).ToArray(),
-            Interfaces = typeSyntax.BaseList.Types.Select(baseType => new ModelInterface { CsTypeName = baseType.ToString() }).ToArray()
+            Interfaces = typeSyntax.BaseList.Types.Select(baseType => new ModelTypeDeclaration { CsTypeName = baseType.ToString() }).ToArray()
         };
 
         if (model.ModelCsType == ModelCsType.Interface)
         {
             model.CsTypeName = RemoveInterfacePrefix(model.CsTypeName);
-            model.CsInheritedInterfaceName = typeSyntax.Identifier.Text;
         }
 
         typeSyntax.Members.OfType<PropertyDeclarationSyntax>()

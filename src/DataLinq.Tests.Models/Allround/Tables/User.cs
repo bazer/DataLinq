@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("users")]
-public partial record User : ITableModel<AllroundBenchmark>
+public abstract partial class User(RowData rowData, DataSourceAccess dataSource) : Immutable<User>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum UserRoleValue
     {
@@ -19,58 +21,58 @@ public partial record User : ITableModel<AllroundBenchmark>
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("UserId")]
-    public virtual Guid UserId { get; set; }
+    public abstract Guid UserId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date")]
+    [Type(DatabaseType.MySQL, "date", 0)]
     [Column("DateJoined")]
-    public virtual DateOnly? DateJoined { get; set; }
+    public abstract DateOnly? DateJoined { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("Email")]
-    public virtual string Email { get; set; }
+    public abstract string Email { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "time")]
+    [Type(DatabaseType.MySQL, "time", 0)]
     [Column("LastLoginTime")]
-    public virtual TimeOnly? LastLoginTime { get; set; }
+    public abstract TimeOnly? LastLoginTime { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "tinyint")]
+    [Type(DatabaseType.MySQL, "tinyint", 0)]
     [Column("UserAge")]
-    public virtual int? UserAge { get; set; }
+    public abstract int? UserAge { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "float")]
+    [Type(DatabaseType.MySQL, "float", 0)]
     [Column("UserHeight")]
-    public virtual float? UserHeight { get; set; }
+    public abstract float? UserHeight { get; }
 
     [Index("idx_username", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("UserName")]
-    public virtual string UserName { get; set; }
+    public abstract string UserName { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "enum")]
     [Enum("Admin", "User", "Guest")]
     [Column("UserRole")]
-    public virtual UserRoleValue? UserRole { get; set; }
+    public abstract UserRoleValue? UserRole { get; }
 
     [Relation("orders", "UserId", "orders_ibfk_1")]
-    public virtual IEnumerable<Order> orders { get; }
+    public abstract IEnumerable<Order> orders { get; }
 
     [Relation("productreviews", "UserId", "productreviews_ibfk_1")]
-    public virtual IEnumerable<Productreview> productreviews { get; }
+    public abstract IEnumerable<Productreview> productreviews { get; }
 
     [Relation("userfeedback", "UserId", "userfeedback_ibfk_1")]
-    public virtual IEnumerable<Userfeedback> userfeedback { get; }
+    public abstract IEnumerable<Userfeedback> userfeedback { get; }
 
     [Relation("userhistory", "UserId", "userhistory_ibfk_1")]
-    public virtual IEnumerable<Userhistory> userhistory { get; }
+    public abstract IEnumerable<Userhistory> userhistory { get; }
 
     [Relation("userprofiles", "UserId", "userprofiles_ibfk_1")]
-    public virtual IEnumerable<Userprofile> userprofiles { get; }
+    public abstract IEnumerable<Userprofile> userprofiles { get; }
 
 }

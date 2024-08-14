@@ -1,41 +1,43 @@
 ﻿using System;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("userhistory")]
-public partial record Userhistory : ITableModel<AllroundBenchmark>
+public abstract partial class Userhistory(RowData rowData, DataSourceAccess dataSource) : Immutable<Userhistory>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("HistoryId")]
-    public virtual int? HistoryId { get; set; }
+    public abstract int? HistoryId { get; }
 
     [ForeignKey("users", "UserId", "userhistory_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("UserId")]
-    public virtual Guid? UserId { get; set; }
+    public abstract Guid? UserId { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "tinyblob", 255)]
     [Column("ActivityBlob")]
-    public virtual byte[] ActivityBlob { get; set; }
+    public abstract byte[] ActivityBlob { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date")]
+    [Type(DatabaseType.MySQL, "date", 0)]
     [Column("ActivityDate")]
-    public virtual DateOnly? ActivityDate { get; set; }
+    public abstract DateOnly? ActivityDate { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "text", 65535)]
     [Column("ActivityLog")]
-    public virtual string ActivityLog { get; set; }
+    public abstract string ActivityLog { get; }
 
     [Relation("users", "UserId", "userhistory_ibfk_1")]
-    public virtual User users { get; }
+    public abstract User users { get; }
 
 }

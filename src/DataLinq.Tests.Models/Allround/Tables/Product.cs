@@ -2,58 +2,60 @@
 using System.Collections.Generic;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("products")]
-public partial record Product : ITableModel<AllroundBenchmark>
+public abstract partial class Product(RowData rowData, DataSourceAccess dataSource) : Immutable<Product>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProductId")]
-    public virtual Guid ProductId { get; set; }
+    public abstract Guid ProductId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("CategoryId")]
-    public virtual int? CategoryId { get; set; }
+    public abstract int? CategoryId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("ManufacturerId")]
-    public virtual int? ManufacturerId { get; set; }
+    public abstract int? ManufacturerId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "double")]
+    [Type(DatabaseType.MySQL, "double", 0)]
     [Column("Price")]
-    public virtual double? Price { get; set; }
+    public abstract double? Price { get; }
 
     [Index("idx_productname", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("ProductName")]
-    public virtual string ProductName { get; set; }
+    public abstract string ProductName { get; }
 
     [Relation("discounts", "ProductId", "discounts_ibfk_1")]
-    public virtual IEnumerable<Discount> discounts { get; }
+    public abstract IEnumerable<Discount> discounts { get; }
 
     [Relation("inventory", "ProductId", "inventory_ibfk_1")]
-    public virtual IEnumerable<Inventory> inventory { get; }
+    public abstract IEnumerable<Inventory> inventory { get; }
 
     [Relation("orderdetails", "ProductId", "orderdetails_ibfk_2")]
-    public virtual IEnumerable<Orderdetail> orderdetails { get; }
+    public abstract IEnumerable<Orderdetail> orderdetails { get; }
 
     [Relation("orders", "ProductId", "orders_ibfk_2")]
-    public virtual IEnumerable<Order> orders { get; }
+    public abstract IEnumerable<Order> orders { get; }
 
     [Relation("productimages", "ProductId", "productimages_ibfk_1")]
-    public virtual IEnumerable<Productimage> productimages { get; }
+    public abstract IEnumerable<Productimage> productimages { get; }
 
     [Relation("productreviews", "ProductId", "productreviews_ibfk_2")]
-    public virtual IEnumerable<Productreview> productreviews { get; }
+    public abstract IEnumerable<Productreview> productreviews { get; }
 
     [Relation("userfeedback", "ProductId", "userfeedback_ibfk_2")]
-    public virtual IEnumerable<Userfeedback> userfeedback { get; }
+    public abstract IEnumerable<Userfeedback> userfeedback { get; }
 
 }

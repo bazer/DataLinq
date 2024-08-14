@@ -1,31 +1,33 @@
 ﻿using System;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("usercontacts")]
-public partial record Usercontact : ITableModel<AllroundBenchmark>
+public abstract partial class Usercontact(RowData rowData, DataSourceAccess dataSource) : Immutable<Usercontact>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("ContactId")]
-    public virtual int? ContactId { get; set; }
+    public abstract int? ContactId { get; }
 
     [ForeignKey("userprofiles", "ProfileId", "usercontacts_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProfileId")]
-    public virtual Guid? ProfileId { get; set; }
+    public abstract Guid? ProfileId { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "char", 30)]
     [Column("Phone")]
-    public virtual string Phone { get; set; }
+    public abstract string Phone { get; }
 
     [Relation("userprofiles", "ProfileId", "usercontacts_ibfk_1")]
-    public virtual Userprofile userprofiles { get; }
+    public abstract Userprofile userprofiles { get; }
 
 }

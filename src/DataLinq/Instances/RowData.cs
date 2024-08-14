@@ -36,22 +36,25 @@ public class RowData
 
     public int Size { get; }
 
-    public object? this[Column column] => Data[column];
+    public object? this[Column column] => GetValue(column);
 
     public object? GetValue(Column column)
     {
-        return Data[column];
+        if (Data == null || !Data.TryGetValue(column, out var value))
+            throw new InvalidOperationException($"Data dictionary is not initialized or column '{column.DbName}' key does not exist.");
+
+        return value;
     }
 
     public T? GetValue<T>(Column column)
     {
-        return (T?)Data[column];
-    }
+        if (Data == null || !Data.TryGetValue(column, out var value))
+            throw new InvalidOperationException($"Data dictionary is not initialized or column '{column.DbName}' key does not exist.");
 
-    //public T? GetValue<T>(string columnDbName)
-    //{
-    //    return (T?)Data[Table.Columns.Single(x => x.DbName == columnDbName)];
-    //}
+        return value == null
+            ? default
+            : (T?)value;
+    }
 
     public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues()
     {
@@ -61,13 +64,13 @@ public class RowData
     public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues(IEnumerable<Column> columns)
     {
         foreach (var column in columns)
-            yield return new KeyValuePair<Column, object?>(column, Data[column]);
+            yield return new KeyValuePair<Column, object?>(column, GetValue(column));
     }
 
     public IEnumerable<object?> GetValues(IEnumerable<Column> columns)
     {
         foreach (var column in columns)
-            yield return Data[column];
+            yield return GetValue(column);
     }
 
     private static (Dictionary<Column, object?> data, int size) ReadReader(IDataLinqDataReader reader, ReadOnlySpan<Column> columns)

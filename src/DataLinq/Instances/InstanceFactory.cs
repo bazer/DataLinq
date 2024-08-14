@@ -62,7 +62,7 @@ public static class InstanceFactory
 
     public static ImmutableInstanceBase NewImmutableRow(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
     {
-        var model = Activator.CreateInstance(rowData.Table.Model.CsType, rowData, dataSource);
+        var model = Activator.CreateInstance(rowData.Table.Model.ImmutableType.CsType, rowData, dataSource);
 
         if (model == null)
             throw new Exception($"Failed to create instance of immutable model type '{rowData.Table.Model.CsType}'");
@@ -72,7 +72,7 @@ public static class InstanceFactory
 
     public static T NewImmutableRow<T>(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
     {
-        var model = Activator.CreateInstance(typeof(T), rowData, dataSource);
+        var model = NewImmutableRow(rowData, databaseProvider, dataSource);
 
         if (model == null)
             throw new Exception($"Failed to create instance of immutable model type '{typeof(T)}'");

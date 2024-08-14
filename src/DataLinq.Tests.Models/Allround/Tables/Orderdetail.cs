@@ -1,44 +1,46 @@
 ﻿using System;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("orderdetails")]
-public partial record Orderdetail : ITableModel<AllroundBenchmark>
+public abstract partial class Orderdetail(RowData rowData, DataSourceAccess dataSource) : Immutable<Orderdetail>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("DetailId")]
-    public virtual Guid DetailId { get; set; }
+    public abstract Guid DetailId { get; }
 
     [ForeignKey("orders", "OrderId", "orderdetails_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("OrderId")]
-    public virtual Guid? OrderId { get; set; }
+    public abstract Guid? OrderId { get; }
 
     [ForeignKey("products", "ProductId", "orderdetails_ibfk_2")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProductId")]
-    public virtual Guid? ProductId { get; set; }
+    public abstract Guid? ProductId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "double")]
+    [Type(DatabaseType.MySQL, "double", 0)]
     [Column("Discount")]
-    public virtual double? Discount { get; set; }
+    public abstract double? Discount { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("Quantity")]
-    public virtual int? Quantity { get; set; }
+    public abstract int? Quantity { get; }
 
     [Relation("orders", "OrderId", "orderdetails_ibfk_1")]
-    public virtual Order orders { get; }
+    public abstract Order orders { get; }
 
     [Relation("products", "ProductId", "orderdetails_ibfk_2")]
-    public virtual Product products { get; }
+    public abstract Product products { get; }
 
 }

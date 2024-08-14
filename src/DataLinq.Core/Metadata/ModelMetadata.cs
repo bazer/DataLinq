@@ -17,10 +17,8 @@ public class ModelUsing
     public string FullNamespaceName { get; set; }
 }
 
-public class ModelInterface
+public record struct ModelTypeDeclaration(Type CsType, string CsTypeName, ModelCsType ModelCsType)
 {
-    public Type CsType { get; set; }
-    public string CsTypeName { get; set; }
 }
 
 public class ModelMetadata
@@ -28,9 +26,10 @@ public class ModelMetadata
     public Type CsType { get; set; }
     public string CsTypeName { get; set; }
     public string? CsNamespace { get; set; }
-    public string? CsInheritedInterfaceName { get; set; }
     public ModelCsType ModelCsType { get; set; }
-    public ModelInterface[] Interfaces { get; set; }
+    public ModelTypeDeclaration ImmutableType { get; set; }
+    public ModelTypeDeclaration MutableType { get; set; }
+    public ModelTypeDeclaration[] Interfaces { get; set; }
     public ModelUsing[] Usings { get; set; }
     public DatabaseMetadata Database { get; set; }
     public TableMetadata Table { get; set; }

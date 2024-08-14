@@ -2,48 +2,50 @@
 using System.Collections.Generic;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("locations")]
-public partial record Location : ITableModel<AllroundBenchmark>
+public abstract partial class Location(RowData rowData, DataSourceAccess dataSource) : Immutable<Location>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("LocationId")]
-    public virtual Guid LocationId { get; set; }
+    public abstract Guid LocationId { get; }
 
     [Index("idx_address", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 500)]
     [Column("Address")]
-    public virtual string Address { get; set; }
+    public abstract string Address { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("City")]
-    public virtual string City { get; set; }
+    public abstract string City { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("Country")]
-    public virtual string Country { get; set; }
+    public abstract string Country { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "float")]
+    [Type(DatabaseType.MySQL, "float", 0)]
     [Column("Latitude")]
-    public virtual float? Latitude { get; set; }
+    public abstract float? Latitude { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "float")]
+    [Type(DatabaseType.MySQL, "float", 0)]
     [Column("Longitude")]
-    public virtual float? Longitude { get; set; }
+    public abstract float? Longitude { get; }
 
     [Relation("inventory", "LocationId", "inventory_ibfk_2")]
-    public virtual IEnumerable<Inventory> inventory { get; }
+    public abstract IEnumerable<Inventory> inventory { get; }
 
     [Relation("locationshistory", "LocationId", "locationshistory_ibfk_1")]
-    public virtual IEnumerable<Locationhistory> locationshistory { get; }
+    public abstract IEnumerable<Locationhistory> locationshistory { get; }
 
 }

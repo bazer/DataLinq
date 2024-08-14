@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("orders")]
-public partial record Order : ITableModel<AllroundBenchmark>
+public abstract partial class Order(RowData rowData, DataSourceAccess dataSource) : Immutable<Order>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum OrderStatusValue
     {
@@ -20,51 +22,51 @@ public partial record Order : ITableModel<AllroundBenchmark>
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("OrderId")]
-    public virtual Guid OrderId { get; set; }
+    public abstract Guid OrderId { get; }
 
     [ForeignKey("products", "ProductId", "orders_ibfk_2")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProductId")]
-    public virtual Guid? ProductId { get; set; }
+    public abstract Guid? ProductId { get; }
 
     [ForeignKey("users", "UserId", "orders_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("UserId")]
-    public virtual Guid? UserId { get; set; }
+    public abstract Guid? UserId { get; }
 
     [Index("idx_orderdate", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
-    [Type(DatabaseType.MySQL, "date")]
+    [Type(DatabaseType.MySQL, "date", 0)]
     [Column("OrderDate")]
-    public virtual DateOnly? OrderDate { get; set; }
+    public abstract DateOnly? OrderDate { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "enum")]
     [Enum("Placed", "Shipped", "Delivered", "Cancelled")]
     [Column("OrderStatus")]
-    public virtual OrderStatusValue? OrderStatus { get; set; }
+    public abstract OrderStatusValue? OrderStatus { get; }
 
-    [Type(DatabaseType.MySQL, "timestamp")]
+    [Type(DatabaseType.MySQL, "timestamp", 0)]
     [Column("OrderTimestamp")]
-    public virtual DateTime OrderTimestamp { get; set; }
+    public abstract DateTime OrderTimestamp { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("ShippingCompanyId")]
-    public virtual int? ShippingCompanyId { get; set; }
+    public abstract int? ShippingCompanyId { get; }
 
     [Relation("orderdetails", "OrderId", "orderdetails_ibfk_1")]
-    public virtual IEnumerable<Orderdetail> orderdetails { get; }
+    public abstract IEnumerable<Orderdetail> orderdetails { get; }
 
     [Relation("payments", "OrderId", "payments_ibfk_1")]
-    public virtual IEnumerable<Payment> payments { get; }
+    public abstract IEnumerable<Payment> payments { get; }
 
     [Relation("products", "ProductId", "orders_ibfk_2")]
-    public virtual Product products { get; }
+    public abstract Product products { get; }
 
     [Relation("users", "UserId", "orders_ibfk_1")]
-    public virtual User users { get; }
+    public abstract User users { get; }
 
 }

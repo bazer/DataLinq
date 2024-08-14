@@ -138,8 +138,6 @@ public class GeneratorFileFactory
             .ThenBy(x => x.CsName)
             .ToList();
 
-        var interfaces = model.CsInheritedInterfaceName; 
-
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{table.Model.CsTypeName}(RowData rowData, DataSourceAccess dataSource) : {table.Model.CsTypeName}(rowData, dataSource)";
         yield return namespaceTab + "{";
 
@@ -193,8 +191,6 @@ public class GeneratorFileFactory
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
             .ThenBy(x => x.CsName)
             .ToList();
-
-        var interfaces = model.CsInheritedInterfaceName;
 
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{table.Model.CsTypeName}: Mutable<{table.Model.CsTypeName}>";
         yield return namespaceTab + "{";

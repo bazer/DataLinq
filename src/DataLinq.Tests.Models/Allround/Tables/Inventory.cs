@@ -1,40 +1,42 @@
 ﻿using System;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("inventory")]
-public partial record Inventory : ITableModel<AllroundBenchmark>
+public abstract partial class Inventory(RowData rowData, DataSourceAccess dataSource) : Immutable<Inventory>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("InventoryId")]
-    public virtual int? InventoryId { get; set; }
+    public abstract int? InventoryId { get; }
 
     [ForeignKey("locations", "LocationId", "inventory_ibfk_2")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("LocationId")]
-    public virtual Guid? LocationId { get; set; }
+    public abstract Guid? LocationId { get; }
 
     [ForeignKey("products", "ProductId", "inventory_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProductId")]
-    public virtual Guid? ProductId { get; set; }
+    public abstract Guid? ProductId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("Stock")]
-    public virtual int? Stock { get; set; }
+    public abstract int? Stock { get; }
 
     [Relation("locations", "LocationId", "inventory_ibfk_2")]
-    public virtual Location locations { get; }
+    public abstract Location locations { get; }
 
     [Relation("products", "ProductId", "inventory_ibfk_1")]
-    public virtual Product products { get; }
+    public abstract Product products { get; }
 
 }

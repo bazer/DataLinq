@@ -1,40 +1,42 @@
 ﻿using System;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("userfeedback")]
-public partial record Userfeedback : ITableModel<AllroundBenchmark>
+public abstract partial class Userfeedback(RowData rowData, DataSourceAccess dataSource) : Immutable<Userfeedback>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int")]
+    [Type(DatabaseType.MySQL, "int", 0)]
     [Column("FeedbackId")]
-    public virtual int? FeedbackId { get; set; }
+    public abstract int? FeedbackId { get; }
 
     [ForeignKey("products", "ProductId", "userfeedback_ibfk_2")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProductId")]
-    public virtual Guid? ProductId { get; set; }
+    public abstract Guid? ProductId { get; }
 
     [ForeignKey("users", "UserId", "userfeedback_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("UserId")]
-    public virtual Guid? UserId { get; set; }
+    public abstract Guid? UserId { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "text", 65535)]
     [Column("Feedback")]
-    public virtual string Feedback { get; set; }
+    public abstract string Feedback { get; }
 
     [Relation("products", "ProductId", "userfeedback_ibfk_2")]
-    public virtual Product products { get; }
+    public abstract Product products { get; }
 
     [Relation("users", "UserId", "userfeedback_ibfk_1")]
-    public virtual User users { get; }
+    public abstract User users { get; }
 
 }
