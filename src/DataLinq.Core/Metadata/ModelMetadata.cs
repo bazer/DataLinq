@@ -28,6 +28,7 @@ public class ModelMetadata
     public Type CsType { get; set; }
     public string CsTypeName { get; set; }
     public string? CsNamespace { get; set; }
+    public string? CsInheritedInterfaceName { get; set; }
     public ModelCsType ModelCsType { get; set; }
     public ModelInterface[] Interfaces { get; set; }
     public ModelUsing[] Usings { get; set; }
@@ -55,6 +56,14 @@ public class ModelMetadata
         .LoadedDatabases
         .Values
         .Select(x => x.TableModels.Find(y => y.Model.IsOfType(model.GetType())))
+        .FirstOrDefault(x => x != null)
+        ?.Model;
+
+    public static ModelMetadata? Find<T>() where T : IModel =>
+        DatabaseMetadata
+        .LoadedDatabases
+        .Values
+        .Select(x => x.TableModels.Find(y => y.Model.IsOfType(typeof(T))))
         .FirstOrDefault(x => x != null)
         ?.Model;
 

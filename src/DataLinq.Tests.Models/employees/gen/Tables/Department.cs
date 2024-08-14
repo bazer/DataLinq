@@ -2,29 +2,31 @@
 using System.Collections.Generic;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
-namespace DataLinq.Tests.Models;
+namespace DataLinq.Tests.Models.Employees;
 
 [Table("departments")]
-public interface IDepartment : ITableModel<IEmployees>
+public abstract partial class Department(RowData RowData, DataSourceAccess DataSource) : Immutable<Department>(RowData, DataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "char", 4)]
     [Type(DatabaseType.SQLite, "text")]
     [Column("dept_no")]
-    string DeptNo { get; set; }
+    public abstract string DeptNo { get; }
 
     [Index("dept_name", IndexCharacteristic.Unique, IndexType.BTREE)]
     [Type(DatabaseType.MySQL, "varchar", 40)]
     [Type(DatabaseType.SQLite, "text")]
     [Column("dept_name")]
-    string Name { get; set; }
+    public abstract string Name { get; }
 
     [Relation("dept-emp", "dept_no", "dept_emp_ibfk_2")]
-    IEnumerable<IDept_emp> DepartmentEmployees { get; }
+    public abstract IEnumerable<Dept_emp> DepartmentEmployees { get; }
 
     [Relation("dept_manager", "dept_fk", "dept_manager_ibfk_2")]
-    IEnumerable<IManager> Managers { get; }
+    public abstract IEnumerable<Manager> Managers { get; }
 
 }

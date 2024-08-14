@@ -6,30 +6,30 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("productimages")]
-public interface IProductimage : ITableModel<IAllroundBenchmark>
+public partial record Productimage : ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ImageId")]
-    Guid ImageId { get; set; }
+    public virtual Guid ImageId { get; set; }
 
     [ForeignKey("products", "ProductId", "productimages_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProductId")]
-    Guid? ProductId { get; set; }
+    public virtual Guid? ProductId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "mediumblob", 16777215)]
     [Column("ImageData")]
-    byte[] ImageData { get; set; }
+    public virtual byte[] ImageData { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "text", 65535)]
     [Column("ImageURL")]
-    string ImageURL { get; set; }
+    public virtual string ImageURL { get; set; }
 
     [Relation("products", "ProductId", "productimages_ibfk_1")]
-    IProduct products { get; }
+    public virtual Product products { get; }
 
 }

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Xunit;
 
 namespace DataLinq.Tests;
@@ -682,18 +684,18 @@ public class QueryTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void TakeLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
+    public async void TakeLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
     {
-        Assert.Throws<NotSupportedException>(() =>
-            employeesDb.Query().Employees.TakeLast(5).ToList());
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            Task.FromResult(employeesDb.Query().Employees.TakeLast(5).ToList()));
     }
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SkipLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
+    public async void SkipLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
     {
-        Assert.Throws<NotSupportedException>(() =>
-            employeesDb.Query().Employees.SkipLast(5).ToList());
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            Task.FromResult(employeesDb.Query().Employees.SkipLast(5).ToList()));
     }
 
     [Theory]

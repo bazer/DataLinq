@@ -3,8 +3,12 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Transactions;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Extensions.Helpers;
+using DataLinq.Interfaces;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace DataLinq.Metadata;
 
@@ -12,11 +16,11 @@ public class GeneratorFileFactoryOptions
 {
     public string NamespaceName { get; set; } = null; //"Models";
     public string Tab { get; set; } = "    ";
-    public bool UseRecords { get; set; } = true;
+    public bool UseRecords { get; set; } = false;
     //public bool UseCache { get; set; } = true;
     public bool UseFileScopedNamespaces { get; set; }
     public bool SeparateTablesAndViews { get; set; } = false;
-    public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes" };
+    public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
 public class GeneratorFileFactory
@@ -26,6 +30,7 @@ public class GeneratorFileFactory
     public GeneratorFileFactory(GeneratorFileFactoryOptions options)
     {
         this.options = options;
+        this.options.UseRecords = false;
     }
 
     public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database)
@@ -34,11 +39,11 @@ public class GeneratorFileFactory
             ? $"{database.CsTypeName}Db"
             : database.CsTypeName;
 
-        yield return ($"{dbCsTypeName}.cs",
-                FileHeader(options.NamespaceName ?? database.CsNamespace, options.UseFileScopedNamespaces, options.Usings)
-                .Concat(DatabaseFileContents(database, dbCsTypeName, options))
-                .Concat(FileFooter(options.UseFileScopedNamespaces))
-                .ToJoinedString("\n"));
+        //yield return ($"{dbCsTypeName}.cs",
+        //        FileHeader(options.NamespaceName ?? database.CsNamespace, options.UseFileScopedNamespaces, options.Usings)
+        //        .Concat(DatabaseFileContents(database, dbCsTypeName, options))
+        //        .Concat(FileFooter(options.UseFileScopedNamespaces))
+        //        .ToJoinedString("\n"));
 
         foreach (var table in database.TableModels.Where(x => !x.IsStub))
         {
@@ -61,7 +66,9 @@ public class GeneratorFileFactory
 
             var file =
                 FileHeader(namespaceName, options.UseFileScopedNamespaces, usings)
-                .Concat(ModelFileContents(table.Model, options))
+                .Concat(ImmutableModelFileContents(table.Model, options))
+                .Concat(MutableModelFileContents(table.Model, options))
+                .Concat(ExtensionMethodsFileContents(table.Model, options))
                 .Concat(FileFooter(options.UseFileScopedNamespaces))
                 .ToJoinedString("\n");
 
@@ -88,28 +95,30 @@ public class GeneratorFileFactory
         var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
         var tab = settings.Tab;
 
-        if (database.UseCache)
-            yield return $"{namespaceTab}[UseCache]";
+        //if (database.UseCache)
+        //    yield return $"{namespaceTab}[UseCache]";
 
-        foreach (var limit in database.CacheLimits)
-            yield return $"{namespaceTab}[CacheLimit(CacheLimitType.{limit.limitType}, {limit.amount})]";
+        //foreach (var limit in database.CacheLimits)
+        //    yield return $"{namespaceTab}[CacheLimit(CacheLimitType.{limit.limitType}, {limit.amount})]";
 
-        foreach (var cleanup in database.CacheCleanup)
-            yield return $"{namespaceTab}[CacheCleanup(CacheCleanupType.{cleanup.cleanupType}, {cleanup.amount})]";
+        //foreach (var cleanup in database.CacheCleanup)
+        //    yield return $"{namespaceTab}[CacheCleanup(CacheCleanupType.{cleanup.cleanupType}, {cleanup.amount})]";
 
-        yield return $"{namespaceTab}[Database(\"{database.Name}\")]";
-        yield return $"{namespaceTab}public partial class {dbName} : IDatabaseModel";
+        //yield return $"{namespaceTab}[Database(\"{database.Name}\")]";
+        yield return $"{namespaceTab}public partial class {dbName}(DataSourceAccess dataSource) : {database.CsInheritedInterfaceName}";
         yield return namespaceTab + "{";
+
+        //yield return $"{namespaceTab}{tab}public ";
 
         foreach (var t in database.TableModels.OrderBy(x => x.Table.DbName))
         {
-            yield return $"{namespaceTab}{tab}public virtual DbRead<{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }}";
+            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }} = new DbRead<{t.Model.CsTypeName}>(dataSource);";
         }
 
         yield return namespaceTab + "}";
     }
 
-    private IEnumerable<string> ModelFileContents(ModelMetadata model, GeneratorFileFactoryOptions options)
+    private IEnumerable<string> ImmutableModelFileContents(ModelMetadata model, GeneratorFileFactoryOptions options)
     {
         var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
         var tab = options.Tab;
@@ -129,81 +138,17 @@ public class GeneratorFileFactory
             .ThenBy(x => x.CsName)
             .ToList();
 
-        foreach (var row in valueProps.Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
-            yield return row;
+        var interfaces = model.CsInheritedInterfaceName; 
 
-        if (table is ViewMetadata view)
-        {
-            yield return $"{namespaceTab}[Definition(\"{view.Definition}\")]";
-            yield return $"{namespaceTab}[View(\"{table.DbName}\")]";
-        }
-        else
-        {
-            yield return $"{namespaceTab}[Table(\"{table.DbName}\")]";
-        }
-
-        var interfaces = table.Type == TableType.Table ? "ITableModel" : "IViewModel";
-
-        interfaces += $"<{model.Database.CsTypeName}>";
-        //if (model.Interfaces?.Length > 0)
-        //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
-
-        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
+        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{table.Model.CsTypeName}(RowData rowData, DataSourceAccess dataSource) : {table.Model.CsTypeName}(rowData, dataSource)";
         yield return namespaceTab + "{";
-
-        foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
-            yield return tab + row;
 
         foreach (var valueProperty in valueProps)
         {
             var c = valueProperty.Column;
-            if (c.PrimaryKey)
-                yield return $"{namespaceTab}{tab}[PrimaryKey]";
-
-            foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
-            {
-                var columns = index.Columns.Count() > 1
-                    ? "," + index.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")
-                    : string.Empty;
-
-                yield return $"{namespaceTab}{tab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}{columns})]";
-            }
-
-            foreach (var index in c.ColumnIndices)
-            {
-                foreach (var relationPart in index.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
-                {
-                    yield return $"{namespaceTab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName}\", \"{relationPart.Relation.CandidateKey.ColumnIndex.Columns[0].DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
-                }
-            }
-
-            if (c.AutoIncrement)
-                yield return $"{namespaceTab}{tab}[AutoIncrement]";
-
-            if (c.Nullable)
-                yield return $"{namespaceTab}{tab}[Nullable]";
-
-            foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
-            {
-                if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
-                else if (dbType.Signed.HasValue && dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
-                else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {(dbType.Signed.Value ? "true" : "false")})]";
-                else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals})]";
-                else if (dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length})]";
-                else
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
-            }
-
-            if (valueProperty.EnumProperty != null)
-                yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
-
-            yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
-            yield return $"{namespaceTab}{tab}public virtual {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; set; }}";
+            
+            yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetFieldNullable(c.ValueProperty)} _{c.ValueProperty.CsName};";
+            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.CsName} => _{c.ValueProperty.CsName} ??= GetValue<{c.ValueProperty.CsTypeName}>(nameof({c.ValueProperty.CsName}));";
             yield return $"";
         }
 
@@ -211,21 +156,154 @@ public class GeneratorFileFactory
         {
             var otherPart = relationProperty.RelationPart.GetOtherSide();
 
-            if (otherPart.ColumnIndex.Columns.Count == 1)
-                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", \"{otherPart.ColumnIndex.Columns[0].DbName}\", \"{relationProperty.RelationName}\")]";
-            else
-                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", [{otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")}], \"{relationProperty.RelationName}\")]";
-
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
-                yield return $"{namespaceTab}{tab}public virtual {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} {{ get; }}";
+            {
+                yield return $"{namespaceTab}{tab}private {otherPart.ColumnIndex.Table.Model.CsTypeName} _{relationProperty.CsName};";
+                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} => _{relationProperty.CsName} ??= GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
+            }
             else
-                yield return $"{namespaceTab}{tab}public virtual IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
+            {
+                yield return $"{namespaceTab}{tab}private IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> _{relationProperty.CsName};";
+                yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} => _{relationProperty.CsName} ??= GetRelation<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
+            }
 
             yield return $"";
         }
 
+        yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsTypeName} Mutate() => new(this);";
+        yield return namespaceTab + "}";
+    }
+
+    private IEnumerable<string> MutableModelFileContents(ModelMetadata model, GeneratorFileFactoryOptions options)
+    {
+        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
+        var tab = options.Tab;
+        var table = model.Table;
+
+        var valueProps = model.ValueProperties.Values
+            .OrderBy(x => x.Type)
+            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
+            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
+            .ThenBy(x => x.CsName)
+            .ToList();
+
+        var relationProps = model.RelationProperties.Values
+            .OrderBy(x => x.Type)
+            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
+            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
+            .ThenBy(x => x.CsName)
+            .ToList();
+
+        var interfaces = model.CsInheritedInterfaceName;
+
+        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{table.Model.CsTypeName}: Mutable<{table.Model.CsTypeName}>";
+        yield return namespaceTab + "{";
+
+        yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsTypeName}(): base() {{}}";
+        yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsTypeName}({table.Model.CsTypeName} immutable{table.Model.CsTypeName}): base(immutable{table.Model.CsTypeName}.GetRowData()) {{}}";
+
+        foreach (var valueProperty in valueProps)
+        {
+            var c = valueProperty.Column;
+
+            yield return $"";
+            yield return $"{namespaceTab}{tab}public virtual {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.CsName}";
+            yield return $"{namespaceTab}{tab}{{";
+            yield return $"{namespaceTab}{tab}{tab}get => GetValue<{GetCsTypeName(c.ValueProperty)}>(nameof({c.ValueProperty.CsName}));";
+            yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.CsName}), value);";
+            yield return $"{namespaceTab}{tab}}}";
+        }
 
         yield return namespaceTab + "}";
+    }
+
+    private IEnumerable<string> ExtensionMethodsFileContents(ModelMetadata model, GeneratorFileFactoryOptions options)
+    {
+        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
+        var tab = options.Tab;
+
+        //public static class EmployeeExtensions
+        //{
+        //    public static MutableEmployee Mutate(this Employee model) => new(model);
+
+        //    public static Employee Update(this Employee model, Action<MutableEmployee> changes, Transaction transaction)
+        //    {
+        //        var mutable = new MutableEmployee(model);
+        //        changes(mutable);
+
+        //        return transaction.Update(mutable);
+        //    }
+
+        //    public static Employee InsertOrUpdate(this Employee model, Action<MutableEmployee> changes, Transaction transaction)
+        //    {
+        //        var mutable = model == null
+        //            ? new MutableEmployee()
+        //            : new MutableEmployee(model);
+
+        //        changes(mutable);
+
+        //        return transaction.InsertOrUpdate(mutable);
+        //    }
+
+        //    public static Employee Update<T>(this Database<T> database, Employee model, Action<MutableEmployee> changes) where T : class, IDatabaseModel =>
+        //        database.Commit(transaction => model.Update(changes, transaction));
+
+        //    public static Employee InsertOrUpdate<T>(this Database<T> database, Employee model, Action<MutableEmployee> changes) where T : class, IDatabaseModel =>
+        //        database.Commit(transaction => model.InsertOrUpdate(changes, transaction));
+
+        //    public static Employee Update(this Transaction transaction, Employee model, Action<MutableEmployee> changes) =>
+        //        model.Update(changes, transaction);
+
+        //    public static Employee InsertOrUpdate(this Transaction transaction, Employee model, Action<MutableEmployee> changes) =>
+        //        model.InsertOrUpdate(changes, transaction);
+        //}
+
+        yield return $"{namespaceTab}public static class {model.CsTypeName}Extensions";
+        yield return namespaceTab + "{";
+        yield return $"{namespaceTab}{tab}public static Mutable{model.CsTypeName} Mutate(this {model.CsTypeName} model) => new(model);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
+        yield return $"{namespaceTab}{tab}{{";
+        yield return $"{namespaceTab}{tab}{tab}var mutable = new Mutable{model.CsTypeName}(model);";
+        yield return $"{namespaceTab}{tab}{tab}changes(mutable);";
+        yield return $"{namespaceTab}{tab}{tab}return transaction.Update(mutable);";
+        yield return $"{namespaceTab}{tab}}}";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
+        yield return $"{namespaceTab}{tab}{{";
+        yield return $"{namespaceTab}{tab}{tab}var mutable = model == null ? new Mutable{model.CsTypeName}() : new Mutable{model.CsTypeName}(model);";
+        yield return $"{namespaceTab}{tab}{tab}changes(mutable);";
+        yield return $"{namespaceTab}{tab}{tab}return transaction.InsertOrUpdate(mutable);";
+        yield return $"{namespaceTab}{tab}}}";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update<T>(this Database<T> database, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this Database<T> database, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+        yield return namespaceTab + "}";
+    }
+
+    private string GetCsTypeName(ValueProperty property)
+    {
+        string name = string.Empty;
+
+        if (property.EnumProperty?.DeclaredInClass == true)
+            name += $"{property.Model.CsTypeName}.";
+
+        name += property.CsTypeName;
+        
+        return name;
+    }
+
+    private string GetPropertyNullable(ValueProperty property)
+    {
+        return (property.CsNullable || property.Column.AutoIncrement) ? "?" : "";
+    }
+
+    private string GetFieldNullable(ValueProperty property)
+    {
+        return property.CsNullable || property.EnumProperty.HasValue || MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName) || !MetadataTypeConverter.IsKnownCsType(property.CsTypeName) ? "?" : "";
     }
 
     private IEnumerable<string> WriteEnum(ValueProperty property, string namespaceTab, string tab)

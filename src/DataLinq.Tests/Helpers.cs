@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 
 namespace DataLinq.Tests;
 
@@ -16,17 +17,17 @@ internal class Helpers
 
     public Employee GetEmployee(int? emp_no, Database<EmployeesDb> employeesDb)
     {
-        var employee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no) ?? NewEmployee(emp_no);
+        var employee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no);
 
-        if (employee.IsNewModel())
-            return employeesDb.Insert(employee);
+        if (employee == null)
+            return employeesDb.Insert(NewEmployee(emp_no));
 
         return employee;
     }
 
-    public Employee NewEmployee(int? emp_no = null)
+    public MutableEmployee NewEmployee(int? emp_no = null)
     {
-        return new Employee
+        return new MutableEmployee
         {
             birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)),
             emp_no = emp_no,

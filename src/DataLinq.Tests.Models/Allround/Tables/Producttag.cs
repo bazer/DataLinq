@@ -6,31 +6,31 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("producttags")]
-public interface IProducttag : ITableModel<IAllroundBenchmark>
+public partial record Producttag : ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
     [Type(DatabaseType.MySQL, "int")]
     [Column("TagId")]
-    int? TagId { get; set; }
+    public virtual int? TagId { get; set; }
 
     [ForeignKey("productcategories", "CategoryId", "producttags_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("CategoryId")]
-    Guid? CategoryId { get; set; }
+    public virtual Guid? CategoryId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "text", 65535)]
     [Column("Description")]
-    string Description { get; set; }
+    public virtual string Description { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("TagName")]
-    string TagName { get; set; }
+    public virtual string TagName { get; set; }
 
     [Relation("productcategories", "CategoryId", "producttags_ibfk_1")]
-    IProductcategory productcategories { get; }
+    public virtual Productcategory productcategories { get; }
 
 }

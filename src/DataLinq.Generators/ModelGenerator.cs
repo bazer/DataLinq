@@ -32,8 +32,8 @@ public class ModelGenerator : IIncrementalGenerator
     }
 
     private static bool IsModelDeclaration(SyntaxNode node) =>
-        node is InterfaceDeclarationSyntax interfaceDeclaration &&
-        interfaceDeclaration.BaseList?.Types.Any(t => MetadataFromFileFactory.IsModelInterface(t.ToString())) == true;
+        node is ClassDeclarationSyntax classDeclaration &&
+        classDeclaration.BaseList?.Types.Any(t => MetadataFromFileFactory.IsModelInterface(t.ToString())) == true;
 
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;

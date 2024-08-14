@@ -23,9 +23,9 @@ internal class MutableRowInterceptor(RowData rowData, IDatabaseProvider database
             if (info.Name.Span.SequenceEqual("GetValues".AsSpan()))
             {
                 if (info.Arguments?.Length == 1 && info.Arguments[0] is IEnumerable<Column> columns)
-                    invocation.ReturnValue = MutableRowData.GetValues(columns);
+                    invocation.ReturnValue = MutableRowData.GetColumnAndValues(columns);
                 else
-                    invocation.ReturnValue = MutableRowData.GetValues();
+                    invocation.ReturnValue = MutableRowData.GetColumnAndValues();
             }
             else if (info.Name.Span.SequenceEqual("GetChanges".AsSpan()))
             {

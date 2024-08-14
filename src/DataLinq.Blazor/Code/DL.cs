@@ -1,6 +1,7 @@
 ﻿using DataLinq.MySql;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 
 namespace DataLinq.Blazor.Code;
 

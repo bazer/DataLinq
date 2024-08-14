@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
+using DataLinq.Instances;
+using DataLinq.Mutation;
 using DataLinq.SourceGenerators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -115,7 +117,7 @@ public class SourceGeneratorTests
         var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models\\employees\\gen"], true);
         var code = SyntaxTreesToString(syntax);
 
-        Assert.Contains("public partial record Employee", code);
+        Assert.Contains("public partial class ImmutableEmployee", code);
     }
 
     [Fact]
@@ -157,4 +159,25 @@ public class SourceGeneratorTests
         Assert.Contains("public partial record Payment", code);
         Assert.Contains("public partial record Employee", code);
     }
+
 }
+
+//public partial class EmployeesDb(DataSourceAccess dataSource) : IEmployees, IDatabaseModelInstance
+//{
+//    public virtual DbRead<current_dept_emp> current_dept_emp { get; } = new DbRead<current_dept_emp>(dataSource);
+//    public virtual DbRead<DepartmentEmployees> DepartmentEmployees { get; }
+//    public virtual DbRead<Departments> Departments { get; }
+//    public virtual DbRead<dept_emp_latest_date> dept_emp_latest_date { get; }
+//    public virtual DbRead<Employees> Employees { get; }
+//    public virtual DbRead<Managers> Managers { get; }
+//    public virtual DbRead<salaries> salaries { get; }
+//    public virtual DbRead<titles> titles { get; }
+//}
+
+//public class ConcreteDatabaseModelFactory : IDatabaseModelInstanceFactory<EmployeesDb>
+//{
+//    public EmployeesDb CreateInstance(DataSourceAccess dataSource)
+//    {
+//        return new EmployeesDb(dataSource);
+//    }
+//}

@@ -16,21 +16,21 @@ namespace DataLinq.Linq.Visitors;
 /// that represents a LINQ Where clause and converting it into the corresponding 
 /// SQL query predicates.
 /// </summary>
-internal class WhereVisitor : ExpressionVisitor
+internal class WhereVisitor<T> : ExpressionVisitor
 {
-    protected SqlQuery query;
+    protected SqlQuery<T> query;
     // Tracks the number of negations (NOT operations) encountered.
     NonNegativeInt negations = new NonNegativeInt(0);
     // Tracks the number of OR operations encountered.
     NonNegativeInt ors = new NonNegativeInt(0);
     // A stack to manage groups of WHERE clauses.
-    Stack<WhereGroup<object>> whereGroups = new Stack<WhereGroup<object>>();
+    Stack<WhereGroup<T>> whereGroups = new Stack<WhereGroup<T>>();
 
     /// <summary>
     /// Initializes a new instance of the WhereVisitor with a given SQL query.
     /// </summary>
     /// <param name="query">The SQL query to be built upon.</param>
-    internal WhereVisitor(SqlQuery query)
+    internal WhereVisitor(SqlQuery<T> query)
     {
         this.query = query;
     }

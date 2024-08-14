@@ -6,17 +6,17 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("shippingcompanies")]
-public interface IShippingcompany : ITableModel<IAllroundBenchmark>
+public partial record Shippingcompany : ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
     [Type(DatabaseType.MySQL, "int")]
     [Column("ShippingCompanyId")]
-    int? ShippingCompanyId { get; set; }
+    public virtual int? ShippingCompanyId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("CompanyName")]
-    string CompanyName { get; set; }
+    public virtual string CompanyName { get; set; }
 
 }

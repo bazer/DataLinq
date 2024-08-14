@@ -1,37 +1,39 @@
 ﻿using System;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
-namespace DataLinq.Tests.Models;
+namespace DataLinq.Tests.Models.Employees;
 
 [Table("salaries")]
-public interface ISalaries : ITableModel<IEmployees>
+public abstract partial class Salaries(RowData RowData, DataSourceAccess DataSource) : Immutable<Salaries>(RowData, DataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [ForeignKey("employees", "emp_no", "salaries_ibfk_1")]
     [Type(DatabaseType.MySQL, "int")]
     [Type(DatabaseType.SQLite, "integer")]
     [Column("emp_no")]
-    int emp_no { get; set; }
+    public abstract int emp_no { get; }
 
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "date")]
     [Type(DatabaseType.SQLite, "text")]
     [Column("from_date")]
-    DateOnly FromDate { get; set; }
+    public abstract DateOnly FromDate { get; }
 
     [Type(DatabaseType.MySQL, "int")]
     [Type(DatabaseType.SQLite, "integer")]
     [Column("salary")]
-    int salary { get; set; }
+    public abstract int salary { get; }
 
     [Type(DatabaseType.MySQL, "date")]
     [Type(DatabaseType.SQLite, "text")]
     [Column("to_date")]
-    DateOnly ToDate { get; set; }
+    public abstract DateOnly ToDate { get; }
 
     [Relation("employees", "emp_no", "salaries_ibfk_1")]
-    IEmployee employees { get; }
+    public abstract Employee employees { get; }
 
 }

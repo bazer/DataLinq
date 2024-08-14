@@ -1,34 +1,32 @@
 ﻿using System;
 using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
-namespace DataLinq.Tests.Models;
+namespace DataLinq.Tests.Models.Employees;
 
 [Definition("select `l`.`emp_no` AS `emp_no`,`d`.`dept_no` AS `dept_no`,`l`.`from_date` AS `from_date`,`l`.`to_date` AS `to_date` from (`dept-emp` `d` join `dept_emp_latest_date` `l` on(`d`.`emp_no` = `l`.`emp_no` and `d`.`from_date` = `l`.`from_date` and `l`.`to_date` = `d`.`to_date`))")]
 [View("current_dept_emp")]
-public interface ICurrent_dept_emp : IViewModel<IEmployees>
+public abstract partial class current_dept_emp(RowData rowData, DataSourceAccess dataSource) : Immutable<current_dept_emp>(rowData, dataSource), IViewModel<EmployeesDb>
 {
     [Type(DatabaseType.MySQL, "char", 4)]
-    [Type(DatabaseType.SQLite, "text")]
     [Column("dept_no")]
-    string dept_no { get; set; }
+    public abstract string dept_no { get; }
 
     [Type(DatabaseType.MySQL, "int")]
-    [Type(DatabaseType.SQLite, "integer")]
     [Column("emp_no")]
-    int emp_no { get; set; }
+    public abstract int emp_no { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "date")]
-    [Type(DatabaseType.SQLite, "text")]
     [Column("from_date")]
-    DateOnly? from_date { get; set; }
+    public abstract DateOnly? from_date { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "date")]
-    [Type(DatabaseType.SQLite, "text")]
     [Column("to_date")]
-    DateOnly? to_date { get; set; }
+    public abstract DateOnly? to_date { get; }
 
 }

@@ -1,5 +1,6 @@
 using DataLinq.Query;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Xunit;
 
 namespace DataLinq.Tests;

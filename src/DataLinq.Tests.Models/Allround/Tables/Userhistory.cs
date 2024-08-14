@@ -6,36 +6,36 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("userhistory")]
-public interface IUserhistory : ITableModel<IAllroundBenchmark>
+public partial record Userhistory : ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
     [Type(DatabaseType.MySQL, "int")]
     [Column("HistoryId")]
-    int? HistoryId { get; set; }
+    public virtual int? HistoryId { get; set; }
 
     [ForeignKey("users", "UserId", "userhistory_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("UserId")]
-    Guid? UserId { get; set; }
+    public virtual Guid? UserId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "tinyblob", 255)]
     [Column("ActivityBlob")]
-    byte[] ActivityBlob { get; set; }
+    public virtual byte[] ActivityBlob { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "date")]
     [Column("ActivityDate")]
-    DateOnly? ActivityDate { get; set; }
+    public virtual DateOnly? ActivityDate { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "text", 65535)]
     [Column("ActivityLog")]
-    string ActivityLog { get; set; }
+    public virtual string ActivityLog { get; set; }
 
     [Relation("users", "UserId", "userhistory_ibfk_1")]
-    IUser users { get; }
+    public virtual User users { get; }
 
 }

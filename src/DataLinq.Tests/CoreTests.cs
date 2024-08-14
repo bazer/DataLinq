@@ -8,6 +8,7 @@ using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Microsoft.CodeAnalysis;
 using Xunit;
 

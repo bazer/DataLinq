@@ -6,7 +6,7 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("payments")]
-public interface IPayment : ITableModel<IAllroundBenchmark>
+public partial record Payment : ITableModel<AllroundBenchmark>
 {
     public enum PaymentMethodValue
     {
@@ -20,36 +20,36 @@ public interface IPayment : ITableModel<IAllroundBenchmark>
     [AutoIncrement]
     [Type(DatabaseType.MySQL, "int")]
     [Column("PaymentId")]
-    int? PaymentId { get; set; }
+    public virtual int? PaymentId { get; set; }
 
     [ForeignKey("orders", "OrderId", "payments_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("OrderId")]
-    Guid? OrderId { get; set; }
+    public virtual Guid? OrderId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "decimal", 10, 2)]
     [Column("Amount")]
-    decimal? Amount { get; set; }
+    public virtual decimal? Amount { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "date")]
     [Column("PaymentDate")]
-    DateOnly? PaymentDate { get; set; }
+    public virtual DateOnly? PaymentDate { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "longtext", 4294967295)]
     [Column("PaymentDetails")]
-    string PaymentDetails { get; set; }
+    public virtual string PaymentDetails { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "enum")]
     [Enum("CreditCard", "DebitCard", "PayPal", "BankTransfer")]
     [Column("PaymentMethod")]
-    PaymentMethodValue? PaymentMethod { get; set; }
+    public virtual PaymentMethodValue? PaymentMethod { get; set; }
 
     [Relation("orders", "OrderId", "payments_ibfk_1")]
-    IOrder orders { get; }
+    public virtual Order orders { get; }
 
 }

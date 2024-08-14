@@ -23,7 +23,7 @@ public class StateChange
     /// <summary>
     /// Gets the model that the change will be applied to.
     /// </summary>
-    public IModel Model { get; }
+    public InstanceBase Model { get; }
 
     /// <summary>
     /// Gets the table metadata associated with the model.
@@ -47,7 +47,7 @@ public class StateChange
     /// <param name="model">The model to apply the change to.</param>
     /// <param name="table">The table metadata for the model.</param>
     /// <param name="type">The type of change to be applied.</param>
-    public StateChange(IModel model, TableMetadata table, TransactionChangeType type)
+    public StateChange(InstanceBase model, TableMetadata table, TransactionChangeType type)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(table);

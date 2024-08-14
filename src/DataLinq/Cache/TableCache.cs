@@ -99,7 +99,7 @@ public class TableCache
 
         return numRows;
 
-        int RemoveIndexOnBothSides(ColumnIndex columnIndex, IModel model)
+        int RemoveIndexOnBothSides(ColumnIndex columnIndex, InstanceBase model)
         {
             var fk = KeyFactory.CreateKeyFromValues(model.GetValues(columnIndex.Columns).Select(x => x.Value));
 

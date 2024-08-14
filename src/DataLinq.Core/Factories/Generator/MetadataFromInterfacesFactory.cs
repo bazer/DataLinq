@@ -83,6 +83,7 @@ public class MetadataFromInterfacesFactory
 
             var database = new DatabaseMetadata(RemoveInterfacePrefix(dbType.Identifier.Text)!);
             database.CsNamespace = GetNamespace(dbType);
+            database.CsInheritedInterfaceName = dbType.Identifier.Text;
 
             var modelClasses = modelSyntaxes
                 .Where(cls => cls.BaseList != null && cls.BaseList.Types
@@ -223,7 +224,10 @@ public class MetadataFromInterfacesFactory
         };
 
         if (model.ModelCsType == ModelCsType.Interface)
+        {
             model.CsTypeName = RemoveInterfacePrefix(model.CsTypeName);
+            model.CsInheritedInterfaceName = typeSyntax.Identifier.Text;
+        }
 
         typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)

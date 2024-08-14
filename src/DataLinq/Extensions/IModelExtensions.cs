@@ -22,15 +22,15 @@ public static class IModelExtensions
             .Select(x => new KeyValuePair<Column, object?>(x, x.ValueProperty.GetValue(model)));
     }
 
-    public static IKey PrimaryKeys(this IModel model)
-    {
-        return KeyFactory.CreateKeyFromValues(model.Metadata().Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
-    }
+    //public static IKey PrimaryKeys(this IModel model)
+    //{
+    //    return KeyFactory.CreateKeyFromValues(model.Metadata().Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+    //}
 
-    internal static IKey PrimaryKeys(this IModel model, ModelMetadata metadata)
-    {
-        return KeyFactory.CreateKeyFromValues(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
-    }
+    //internal static IKey PrimaryKeys(this IModel model, ModelMetadata metadata)
+    //{
+    //    return KeyFactory.CreateKeyFromValues(metadata.Table.PrimaryKeyColumns.Select(x => x.ValueProperty.GetValue(model)));
+    //}
 
     public static bool HasPrimaryKeysSet(this IModel model)
     {
@@ -58,44 +58,44 @@ public static class IModelExtensions
     public static bool IsMutable(this IModel model) =>
         typeof(MutableInstanceBase).IsAssignableFrom(model.GetType());
 
-    public static T Mutate<T>(this T model) where T : IModel
-    {
-        if (model.IsNewModel() || model.IsMutable())
-            return model;
+    //public static T Mutate<T>(this T model) where T : IModel
+    //{
+    //    if (model.IsNewModel() || model.IsMutable())
+    //        return model;
 
-        var type = model.GetType();
-        var method = type.GetMethod("Mutate") ?? throw new Exception($"Could not find 'Mutate' method of model with type {model.GetType()}");
-        var obj = method.Invoke(model, []) ?? throw new Exception($"'Mutate' method of model with type {model.GetType()} returned null");
+    //    var type = model.GetType();
+    //    var method = type.GetMethod("Mutate") ?? throw new Exception($"Could not find 'Mutate' method of model with type {model.GetType()}");
+    //    var obj = method.Invoke(model, []) ?? throw new Exception($"'Mutate' method of model with type {model.GetType()} returned null");
 
-        return (T)obj;
-    }
+    //    return (T)obj;
+    //}
 
-    public static T Insert<T>(this T model, Transaction transaction) where T : IModel
+    public static T Insert<T>(this Mutable<T> model, Transaction transaction) where T : ImmutableInstanceBase
     {
         return transaction.Insert(model);
     }
 
-    public static T Update<T>(this T model, Transaction transaction) where T : IModel
+    public static T Update<T>(this Mutable<T> model, Transaction transaction) where T : ImmutableInstanceBase
     {
         return transaction.Update(model);
     }
 
-    public static T Update<T>(this T model, Action<T> changes, Transaction transaction) where T : IModel
-    {
-        return transaction.Update(model, changes);
-    }
+    //public static T Update<T>(this T model, Action<Mutable<T>> changes, Transaction transaction) where T : ImmutableInstanceBase
+    //{
+    //    return transaction.Update(model, changes);
+    //}
 
-    public static T InsertOrUpdate<T>(this T model, Transaction transaction) where T : IModel
+    public static T InsertOrUpdate<T>(this Mutable<T> model, Transaction transaction) where T : ImmutableInstanceBase
     {
         return transaction.InsertOrUpdate(model);
     }
 
-    public static T InsertOrUpdate<T>(this T model, Action<T> changes, Transaction transaction) where T : IModel, new()
-    {
-        return transaction.InsertOrUpdate(model, changes);
-    }
+    //public static T InsertOrUpdate<T>(this T model, Action<Mutable<T>> changes, Transaction transaction) where T : ImmutableInstanceBase
+    //{
+    //    return transaction.InsertOrUpdate(model, changes);
+    //}
 
-    public static void Delete<T>(this T model, Transaction transaction) where T : IModel
+    public static void Delete<T>(this T model, Transaction transaction) where T : InstanceBase
     {
         transaction.Delete(model);
     }

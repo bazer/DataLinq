@@ -6,22 +6,22 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("manufacturers")]
-public interface IManufacturer : ITableModel<IAllroundBenchmark>
+public partial record Manufacturer : ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int")] 
+    [Type(DatabaseType.MySQL, "int")]
     [Column("ManufacturerId")]
-    int? ManufacturerId { get; set; }
+    public virtual int? ManufacturerId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "longblob", 4294967295)]
     [Column("Logo")]
-    byte[] Logo { get; set; }
+    public virtual byte[] Logo { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("ManufacturerName")]
-    string ManufacturerName { get; set; }
+    public virtual string ManufacturerName { get; set; }
 
 }

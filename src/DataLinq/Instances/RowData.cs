@@ -5,6 +5,23 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
 
+public interface IRowData
+{
+    TableMetadata Table { get; }
+
+    object? this[Column column] { get; }
+
+    object? GetValue(Column column);
+
+    T? GetValue<T>(Column column);
+
+    IEnumerable<object?> GetValues(IEnumerable<Column> columns);
+
+    IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues();
+
+    IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues(IEnumerable<Column> columns);
+}
+
 public class RowData
 {
     public RowData(IDataLinqDataReader reader, TableMetadata table, ReadOnlySpan<Column> columns)
@@ -26,9 +43,25 @@ public class RowData
         return Data[column];
     }
 
+    public T? GetValue<T>(Column column)
+    {
+        return (T?)Data[column];
+    }
+
+    //public T? GetValue<T>(string columnDbName)
+    //{
+    //    return (T?)Data[Table.Columns.Single(x => x.DbName == columnDbName)];
+    //}
+
     public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues()
     {
         return Data.AsEnumerable();
+    }
+
+    public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues(IEnumerable<Column> columns)
+    {
+        foreach (var column in columns)
+            yield return new KeyValuePair<Column, object?>(column, Data[column]);
     }
 
     public IEnumerable<object?> GetValues(IEnumerable<Column> columns)

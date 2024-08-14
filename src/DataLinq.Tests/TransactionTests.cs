@@ -3,6 +3,7 @@ using System.Data;
 using System.Linq;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
 using Xunit;
@@ -54,7 +55,7 @@ public class TransactionTests : BaseTests
         foreach (var alreadyExists in employeesDb.Query().Employees.Where(x => x.emp_no == emp_no).ToList())
             employeesDb.Delete(alreadyExists);
 
-        var employee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no) ?? helpers.NewEmployee(emp_no);
+        var employee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no)?.Mutate() ?? helpers.NewEmployee(emp_no);
         employee.first_name = "Bob";
         employeesDb.InsertOrUpdate(employee);
 
@@ -85,7 +86,7 @@ public class TransactionTests : BaseTests
     {
         using var transaction = employeesDb.Transaction();
 
-        transaction.Insert(new Department
+        transaction.Insert(new MutableDepartment
         {
             DeptNo = "d099",
             Name = "Transactions"
@@ -199,7 +200,7 @@ public class TransactionTests : BaseTests
         var employee = helpers.NewEmployee();
         Assert.False(employee.HasPrimaryKeysSet());
 
-        Employee dbEmployee;
+        MutableEmployee dbEmployee;
         using (var transaction = employeesDb.Transaction())
         {
             dbEmployee = transaction.Insert(employee).Mutate();
@@ -457,7 +458,7 @@ public class TransactionTests : BaseTests
         {
             Assert.Empty(employee.salaries);
 
-            var newSalary = new Salaries
+            var newSalary = new MutableSalaries
             {
                 emp_no = employee.emp_no.Value,
                 salary = 50000,
@@ -491,7 +492,7 @@ public class TransactionTests : BaseTests
             var employeeDb = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
             Assert.Empty(employeeDb.salaries);
 
-            var newSalary = new Salaries
+            var newSalary = new MutableSalaries
             {
                 emp_no = employeeDb.emp_no.Value,
                 salary = 50000,
@@ -499,7 +500,7 @@ public class TransactionTests : BaseTests
                 ToDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20))
             };
 
-            Assert.Null(newSalary.employees);
+            //Assert.Null(newSalary.employees);
             Assert.Empty(employeeDb.salaries);
             var salary = transaction.Insert(newSalary);
             Assert.NotNull(salary);
@@ -542,7 +543,7 @@ public class TransactionTests : BaseTests
         employeeDb = transaction.Query().Employees.Single(x => x.emp_no == emp_no);
         Assert.Empty(employeeDb.salaries);
 
-        var newSalary = new Salaries
+        var newSalary = new MutableSalaries
         {
             emp_no = employeeDb.emp_no.Value,
             salary = 50000,

@@ -68,6 +68,9 @@ public static class MetadataTypeConverter
         }
     }
 
+    static char? sdf;
+
+
     public static bool IsCsTypeNullable(string csType)
     {
         return csType switch
@@ -85,7 +88,46 @@ public static class MetadataTypeConverter
             "byte[]" => false,
             "decimal" => true,
             "enum" => true,
-            _ => throw new NotImplementedException($"Unknown type '{csType}'"),
+            "sbyte" => true,
+            "byte" => true,
+            "short" => true,
+            "ushort" => true,
+            "uint" => true,
+            "ulong" => true,
+            "char" => true,
+            "String" => false,
+            _ => false,
+            //_ => throw new NotImplementedException($"Unknown type '{csType}'"),
+        };
+    }
+
+    public static bool IsKnownCsType(string csType)
+    {
+        return csType switch
+        {
+            "int" => true,
+            "string" => true,
+            "bool" => true,
+            "double" => true,
+            "DateTime" => true,
+            "DateOnly" => true,
+            "TimeOnly" => true,
+            "float" => true,
+            "long" => true,
+            "Guid" => true,
+            "byte[]" => true,
+            "decimal" => true,
+            "enum" => true,
+            "sbyte" => true,
+            "byte" => true,
+            "short" => true,
+            "ushort" => true,
+            "uint" => true,
+            "ulong" => true,
+            "char" => true,
+            "String" => true,
+            _ => false,
+            //_ => throw new NotImplementedException($"Unknown type '{csType}'"),
         };
     }
 }

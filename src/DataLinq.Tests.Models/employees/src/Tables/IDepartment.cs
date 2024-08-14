@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
-namespace DataLinq.Tests.Models;
+namespace DataLinq.Tests.Models.Employees;
 
 [Table("departments")]
 public interface ICustomDepartment : ICustomTableModel
@@ -11,10 +11,10 @@ public interface ICustomDepartment : ICustomTableModel
     public string DeptNo { get; set; }
 
     [Relation("dept-emp", "dept_no")]
-    public IEnumerable<IDept_emp> DepartmentEmployees { get; }
+    public IEnumerable<Dept_emp> DepartmentEmployees { get; }
 
     [Relation("dept_manager", "dept_fk")]
-    public IEnumerable<IManager> Managers { get; }
+    public IEnumerable<ICustomManager> Managers { get; }
 
     [Column("dept_name")]
     public string Name { get; set; }

@@ -6,26 +6,26 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("usercontacts")]
-public interface IUsercontact : ITableModel<IAllroundBenchmark>
+public partial record Usercontact : ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]
     [Type(DatabaseType.MySQL, "int")]
     [Column("ContactId")]
-    int? ContactId { get; set; }
+    public virtual int? ContactId { get; set; }
 
     [ForeignKey("userprofiles", "ProfileId", "usercontacts_ibfk_1")]
     [Nullable]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProfileId")]
-    Guid? ProfileId { get; set; }
+    public virtual Guid? ProfileId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "char", 30)]
     [Column("Phone")]
-    string Phone { get; set; }
+    public virtual string Phone { get; set; }
 
     [Relation("userprofiles", "ProfileId", "usercontacts_ibfk_1")]
-    IUserprofile userprofiles { get; }
+    public virtual Userprofile userprofiles { get; }
 
 }

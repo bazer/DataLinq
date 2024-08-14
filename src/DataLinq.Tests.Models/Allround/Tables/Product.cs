@@ -7,53 +7,53 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("products")]
-public interface IProduct : ITableModel<IAllroundBenchmark>
+public partial record Product : ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
     [Column("ProductId")]
-    Guid ProductId { get; set; }
+    public virtual Guid ProductId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "int")]
     [Column("CategoryId")]
-    int? CategoryId { get; set; }
+    public virtual int? CategoryId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "int")]
     [Column("ManufacturerId")]
-    int? ManufacturerId { get; set; }
+    public virtual int? ManufacturerId { get; set; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "double")]
     [Column("Price")]
-    double? Price { get; set; }
+    public virtual double? Price { get; set; }
 
     [Index("idx_productname", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 255)]
     [Column("ProductName")]
-    string ProductName { get; set; }
+    public virtual string ProductName { get; set; }
 
     [Relation("discounts", "ProductId", "discounts_ibfk_1")]
-    IEnumerable<IDiscount> discounts { get; }
+    public virtual IEnumerable<Discount> discounts { get; }
 
     [Relation("inventory", "ProductId", "inventory_ibfk_1")]
-    IEnumerable<IInventory> inventory { get; }
+    public virtual IEnumerable<Inventory> inventory { get; }
 
     [Relation("orderdetails", "ProductId", "orderdetails_ibfk_2")]
-    IEnumerable<IOrderdetail> orderdetails { get; }
+    public virtual IEnumerable<Orderdetail> orderdetails { get; }
 
     [Relation("orders", "ProductId", "orders_ibfk_2")]
-    IEnumerable<IOrder> orders { get; }
+    public virtual IEnumerable<Order> orders { get; }
 
     [Relation("productimages", "ProductId", "productimages_ibfk_1")]
-    IEnumerable<IProductimage> productimages { get; }
+    public virtual IEnumerable<Productimage> productimages { get; }
 
     [Relation("productreviews", "ProductId", "productreviews_ibfk_2")]
-    IEnumerable<IProductreview> productreviews { get; }
+    public virtual IEnumerable<Productreview> productreviews { get; }
 
     [Relation("userfeedback", "ProductId", "userfeedback_ibfk_2")]
-    IEnumerable<IUserfeedback> userfeedback { get; }
+    public virtual IEnumerable<Userfeedback> userfeedback { get; }
 
 }

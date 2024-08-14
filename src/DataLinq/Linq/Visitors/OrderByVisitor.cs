@@ -5,12 +5,12 @@ using Remotion.Linq.Clauses;
 
 namespace DataLinq.Linq.Visitors;
 
-internal class OrderByVisitor : ExpressionVisitor
+internal class OrderByVisitor<T> : ExpressionVisitor
 {
-    protected SqlQuery select;
+    protected SqlQuery<T> select;
     protected OrderingDirection direction;
 
-    internal OrderByVisitor(SqlQuery query)
+    internal OrderByVisitor(SqlQuery<T> query)
     {
         this.select = query;
     }

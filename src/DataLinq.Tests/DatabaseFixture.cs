@@ -9,6 +9,7 @@ using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Xunit;
@@ -89,24 +90,24 @@ public class DatabaseFixture : IDisposable
         var numEmployees = 10000;
         using var transaction = database.Transaction();
 
-        var employeeFaker = new Faker<IEmployee>()
+        var employeeFaker = new Faker<MutableEmployee>()
             .StrictMode(false)
             .RuleFor(x => x.first_name, x => x.Person.FirstName)
             .RuleFor(x => x.last_name, x => x.Person.LastName)
             .RuleFor(x => x.birth_date, x => DateOnly.FromDateTime(x.Person.DateOfBirth.Date))
             .RuleFor(x => x.hire_date, x => x.Date.PastDateOnly(20))
-            .RuleFor(x => x.gender, x => (IEmployee.Employeegender)(((int)x.Person.Gender) + 1));
+            .RuleFor(x => x.gender, x => (Employee.Employeegender)(((int)x.Person.Gender) + 1));
         var employees = transaction.Insert(employeeFaker.Generate(numEmployees));
 
         var deptNo = 1;
-        var departmentFaker = new Faker<Department>()
+        var departmentFaker = new Faker<MutableDepartment>()
             .StrictMode(false)
             .RuleFor(x => x.DeptNo, x => $"d{deptNo++:000}")
             .RuleFor(x => x.Name, x => x.Commerce.Department());
         var departments = transaction.Insert(departmentFaker.Generate(20));
 
         var empNo = 0;
-        var dept_empFaker = new Faker<Dept_emp>()
+        var dept_empFaker = new Faker<MutableDept_emp>()
            .StrictMode(false)
            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
@@ -115,7 +116,7 @@ public class DatabaseFixture : IDisposable
         transaction.Insert(dept_empFaker.Generate(numEmployees));
 
         empNo = 0;
-        var titlesFaker = new Faker<Titles>()
+        var titlesFaker = new Faker<MutableTitles>()
            .StrictMode(false)
            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
@@ -124,7 +125,7 @@ public class DatabaseFixture : IDisposable
         transaction.Insert(titlesFaker.Generate(numEmployees));
 
         empNo = 0;
-        var salariesFaker = new Faker<Salaries>()
+        var salariesFaker = new Faker<MutableSalaries>()
            .StrictMode(false)
            .RuleFor(x => x.FromDate, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.ToDate, x => x.Date.PastDateOnly(20))
@@ -132,7 +133,7 @@ public class DatabaseFixture : IDisposable
            .RuleFor(x => x.salary, x => (int)x.Finance.Amount(10000, 200000, 0));
         transaction.Insert(salariesFaker.Generate(numEmployees));
 
-        var dept_managerFaker = new Faker<Manager>()
+        var dept_managerFaker = new Faker<MutableManager>()
            .StrictMode(false)
            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
