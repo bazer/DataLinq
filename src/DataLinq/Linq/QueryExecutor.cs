@@ -43,7 +43,7 @@ internal class QueryExecutor : IQueryExecutor
     /// <summary>Gets the metadata for the table that queries will be executed against.</summary>
     private TableMetadata Table { get; }
 
-    private static QueryModel? ExtractQueryModel(Expression expression)
+    private static QueryModel? ExtractQueryModel(Expression? expression)
     {
         switch (expression)
         {

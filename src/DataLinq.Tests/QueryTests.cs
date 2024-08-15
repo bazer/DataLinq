@@ -684,7 +684,7 @@ public class QueryTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public async void TakeLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
+    public async Task TakeLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
     {
         await Assert.ThrowsAsync<NotSupportedException>(() =>
             Task.FromResult(employeesDb.Query().Employees.TakeLast(5).ToList()));
@@ -692,7 +692,7 @@ public class QueryTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public async void SkipLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
+    public async Task SkipLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
     {
         await Assert.ThrowsAsync<NotSupportedException>(() =>
             Task.FromResult(employeesDb.Query().Employees.SkipLast(5).ToList()));

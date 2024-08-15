@@ -25,8 +25,8 @@ public interface ImmutableInstanceBase : InstanceBase, IModel
 
 public interface MutableInstanceBase : InstanceBase
 {
-    object? this[string propertyName] { get; set; }
-    object? this[Column column] { get; set; }
+    new object? this[string propertyName] { get; set; }
+    new object? this[Column column] { get; set; }
 
     IEnumerable<KeyValuePair<Column, object?>> GetChanges();
     bool IsNewModel();

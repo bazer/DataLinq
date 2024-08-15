@@ -44,7 +44,7 @@ internal static class TypeSystem
             return null;
 
         if (seqType.IsArray)
-            return typeof(IEnumerable<>).MakeGenericType(seqType.GetElementType());
+            return typeof(IEnumerable<>).MakeGenericType(seqType.GetElementType()!);
 
         if (seqType.IsGenericType)
         {

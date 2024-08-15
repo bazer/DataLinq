@@ -389,7 +389,7 @@ public class TableCache
 
         foreach (var ordering in orderings)
         {
-            Func<ImmutableInstanceBase, IComparable> keySelector = x => (IComparable)x.GetValues([ordering.Column]).First().Value;
+            Func<ImmutableInstanceBase, IComparable?> keySelector = x => (IComparable?)x.GetValues([ordering.Column]).First().Value;
 
             if (orderedRows == null)
             {
