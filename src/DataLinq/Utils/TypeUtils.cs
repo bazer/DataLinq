@@ -12,7 +12,7 @@ public static class TypeUtils
     {
         if (returnType.IsGenericType && returnType.GetGenericTypeDefinition().Equals(typeof(Nullable<>)))
         {
-            if (!nullableTypes.TryGetValue(returnType, out Type nullableType))
+            if (!nullableTypes.TryGetValue(returnType, out Type? nullableType))
             {
                 nullableType = new NullableConverter(returnType).UnderlyingType;
                 nullableTypes.TryAdd(returnType, nullableType);

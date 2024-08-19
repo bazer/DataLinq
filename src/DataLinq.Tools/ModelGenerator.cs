@@ -156,6 +156,7 @@ public class ModelGenerator : Generator
             NamespaceName = db.Namespace,
             UseRecords = db.UseRecord,
             UseFileScopedNamespaces = db.UseFileScopedNamespaces,
+            UseNullableReferenceTypes = db.UseNullableReferenceTypes,
             SeparateTablesAndViews = db.SeparateTablesAndViews
         };
 

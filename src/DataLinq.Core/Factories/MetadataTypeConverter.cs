@@ -68,9 +68,6 @@ public static class MetadataTypeConverter
         }
     }
 
-    static char? sdf;
-
-
     public static bool IsCsTypeNullable(string csType)
     {
         return csType switch
@@ -129,5 +126,13 @@ public static class MetadataTypeConverter
             _ => false,
             //_ => throw new NotImplementedException($"Unknown type '{csType}'"),
         };
+    }
+
+    public static string RemoveInterfacePrefix(string interfaceName)
+    {
+        if (interfaceName.StartsWith("I") && interfaceName.Length > 1 && char.IsUpper(interfaceName[1]))
+            return interfaceName.Substring(1);
+        else
+            return interfaceName;
     }
 }

@@ -19,6 +19,7 @@ public record ConfigFileDatabase
     public List<string>? Views { get; set; }
     public bool? UseRecord { get; set; }
     public bool? UseFileScopedNamespaces { get; set; }
+    public bool? UseNullableReferenceTypes { get; set; }
     public bool? CapitalizeNames { get; set; }
     public bool? RemoveInterfacePrefix { get; set; }
     public bool? SeparateTablesAndViews { get; set; }

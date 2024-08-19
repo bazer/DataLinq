@@ -129,6 +129,7 @@ public record DataLinqDatabaseConfig
     //public bool UseCache { get; }
     public bool UseRecord { get; private set; }
     public bool UseFileScopedNamespaces { get; private set; }
+    public bool UseNullableReferenceTypes { get; private set; }
     public bool CapitalizeNames { get; private set; }
     public bool RemoveInterfacePrefix { get; private set; }
     public bool SeparateTablesAndViews { get; private set; }
@@ -147,6 +148,7 @@ public record DataLinqDatabaseConfig
         Views = database.Views ?? new List<string>();
         UseRecord = database.UseRecord ?? false;
         UseFileScopedNamespaces = database.UseFileScopedNamespaces ?? false;
+        UseNullableReferenceTypes = database.UseNullableReferenceTypes ?? false;
         CapitalizeNames = database.CapitalizeNames ?? false;
         RemoveInterfacePrefix = database.RemoveInterfacePrefix ?? true;
         SeparateTablesAndViews = database.SeparateTablesAndViews ?? false;
@@ -182,6 +184,9 @@ public record DataLinqDatabaseConfig
 
         if (database.UseFileScopedNamespaces != null)
             UseFileScopedNamespaces = database.UseFileScopedNamespaces.Value;
+
+        if (database.UseNullableReferenceTypes != null)
+            UseNullableReferenceTypes = database.UseNullableReferenceTypes.Value;
 
         if (database.CapitalizeNames != null)
             CapitalizeNames = database.CapitalizeNames.Value;

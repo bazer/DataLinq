@@ -15,7 +15,7 @@ public enum BooleanType
 public class WhereGroup<T> : IWhere<T>
 {
     public readonly SqlQuery<T> Query;
-    protected List<(IWhere<T> where, BooleanType type)> whereList;
+    protected List<(IWhere<T> where, BooleanType type)>? whereList;
 
     private bool IsNegated = false;
 
@@ -27,7 +27,7 @@ public class WhereGroup<T> : IWhere<T>
         IsNegated = isNegated;
     }
 
-    public void AddCommandString(Sql sql, string? prefix = "", bool addCommandParameter = true, bool addParentheses = false)
+    public void AddCommandString(Sql sql, string prefix = "", bool addCommandParameter = true, bool addParentheses = false)
     {
         int length = whereList?.Count ?? 0;
         if (length == 0)
@@ -51,15 +51,15 @@ public class WhereGroup<T> : IWhere<T>
             {
                 if (i != 0)
                 {
-                    if (whereList[i].type == BooleanType.And)
+                    if (whereList?[i].type == BooleanType.And)
                         sql.AddText(" AND ");
-                    else if (whereList[i].type == BooleanType.Or)
+                    else if (whereList?[i].type == BooleanType.Or)
                         sql.AddText(" OR ");
                     else
                         throw new NotImplementedException();
                 }
 
-                whereList[i].where.AddCommandString(sql, prefix, addCommandParameter, whereList[i].where is WhereGroup<T>);
+                whereList?[i].where.AddCommandString(sql, prefix, addCommandParameter, whereList[i].where is WhereGroup<T>);
             }
         //}
 
@@ -97,7 +97,7 @@ public class WhereGroup<T> : IWhere<T>
         return group;
     }
 
-    public Where<T> And(string columnName, string alias = null)
+    public Where<T> And(string columnName, string? alias = null)
     {
         return AddWhere(new Where<T>(this, columnName, alias), BooleanType.And);
     }
@@ -113,7 +113,7 @@ public class WhereGroup<T> : IWhere<T>
         return this;
     }
 
-    public Where<T> Or(string columnName, string alias = null)
+    public Where<T> Or(string columnName, string? alias = null)
     {
         return AddWhere(new Where<T>(this, columnName, alias), BooleanType.Or);
     }

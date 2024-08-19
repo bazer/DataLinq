@@ -67,7 +67,7 @@ public class SQLiteDbAccess : DatabaseAccess
             connection.Open();
             command.Connection = connection;
             SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
-            object result = command.ExecuteScalar();
+            var result = command.ExecuteScalar();
             connection.Close();
 
             return result;
@@ -86,7 +86,7 @@ public class SQLiteDbAccess : DatabaseAccess
         //    pragma.ExecuteNonQuery();
         //}
 
-        return new SQLiteDataLinqDataReader(command.ExecuteReader(CommandBehavior.CloseConnection) as SqliteDataReader);
+        return new SQLiteDataLinqDataReader((command.ExecuteReader(CommandBehavior.CloseConnection) as SqliteDataReader)!);
     }
 
     public override IDataLinqDataReader ExecuteReader(string query) =>

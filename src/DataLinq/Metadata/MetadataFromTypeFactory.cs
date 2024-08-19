@@ -116,7 +116,7 @@ public static class MetadataFromTypeFactory
             CsNamespace = type.Namespace,
             Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray(),
             Interfaces = type.GetInterfaces().Select(x => new ModelTypeDeclaration(x, x.Name, ParseModelCsType(x))).ToArray(),
-            Usings = [new ModelUsing { FullNamespaceName = type.Namespace }]
+            Usings = type.Namespace == null ? [] : [new ModelUsing { FullNamespaceName = type.Namespace }]
         };
 
         model.ImmutableType = FindType(type,$"{model.CsNamespace}.Immutable{model.CsTypeName}");
@@ -134,7 +134,7 @@ public static class MetadataFromTypeFactory
             .Select(x => x.CsType?.Namespace)
             .Distinct()
             .Where(x => x != null)
-            .Select(name => (name.StartsWith("System"), name))
+            .Select(name => (name!.StartsWith("System"), name))
             .OrderByDescending(x => x.Item1)
             .ThenBy(x => x.name)
             .Select(x => new ModelUsing { FullNamespaceName = x.name })

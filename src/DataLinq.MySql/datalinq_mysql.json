@@ -11,6 +11,7 @@
       "UseCache": false,
       "UseRecord": true,
       "UseFileScopedNamespaces": true,
+      "UseNullableReferenceTypes": true,
       "CapitalizeNames": false,
       "SeparateTablesAndViews": true,
       "FileEncoding": "UTF-8-BOM"

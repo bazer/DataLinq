@@ -30,9 +30,9 @@ public class MetadataFromFileFactoryOptions
 public class MetadataFromFileFactory
 {
     private readonly MetadataFromFileFactoryOptions options;
-    public Action<string> Log { get; }
+    public Action<string>? Log { get; }
 
-    public MetadataFromFileFactory(MetadataFromFileFactoryOptions options, Action<string> log = null)
+    public MetadataFromFileFactory(MetadataFromFileFactoryOptions options, Action<string>? log = null)
     {
         this.options = options;
         Log = log;
@@ -68,25 +68,25 @@ public class MetadataFromFileFactory
     {
         // Identify classes implementing the interfaces of interest
         var dbModelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList.Types
-                .Any(baseType => baseType.ToString() == "ICustomDatabaseModel" || baseType.ToString() == "IDatabaseModel"))
+            .Where(cls => cls.BaseList?.Types
+                .Any(baseType => baseType.ToString() == "ICustomDatabaseModel" || baseType.ToString() == "IDatabaseModel") == true)
             .ToList();
 
         // Prioritize the classes implementing ICustomDatabaseModel
         var dbType = dbModelClasses
-            .FirstOrDefault(cls => cls.BaseList.Types
-                .Any(baseType => baseType.ToString() == "ICustomDatabaseModel"))
+            .FirstOrDefault(cls => cls.BaseList?.Types
+                .Any(baseType => baseType.ToString() == "ICustomDatabaseModel") == true)
             ??
             dbModelClasses.FirstOrDefault();
 
-        var database = new DatabaseMetadata(RemoveInterfacePrefix(dbType?.Identifier.Text ?? "Unnamed"));
+        var database = new DatabaseMetadata(MetadataTypeConverter.RemoveInterfacePrefix(dbType?.Identifier.Text ?? "Unnamed"));
 
         if (dbType != null)
             database.CsNamespace = GetNamespace(dbType);
 
         var customModelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList.Types
-                .Any(baseType => baseType.ToString().StartsWith("ICustomTableModel") || baseType.ToString().StartsWith("ICustomViewModel")))
+            .Where(cls => cls.BaseList?.Types
+                .Any(baseType => baseType.ToString().StartsWith("ICustomTableModel") || baseType.ToString().StartsWith("ICustomViewModel")) == true)
             .ToList();
 
         var customModels = customModelClasses
@@ -95,8 +95,8 @@ public class MetadataFromFileFactory
 
 
         var modelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList.Types
-                .Any(baseType => baseType.ToString().StartsWith("ITableModel") || baseType.ToString().StartsWith("IViewModel")))
+            .Where(cls => cls.BaseList?.Types
+                .Any(baseType => baseType.ToString().StartsWith("ITableModel") || baseType.ToString().StartsWith("IViewModel")) ?? true)
             .ToList();
 
         if (dbType != null)
@@ -226,11 +226,11 @@ public class MetadataFromFileFactory
             CsTypeName = typeSyntax.Identifier.Text,
             CsNamespace = GetNamespace(typeSyntax),
             Attributes = typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => ParseAttribute(x)).ToArray(),
-            Interfaces = typeSyntax.BaseList.Types.Select(baseType => new ModelTypeDeclaration { CsTypeName = baseType.ToString() }).ToArray()
+            Interfaces = typeSyntax.BaseList?.Types.Select(baseType => new ModelTypeDeclaration { CsTypeName = baseType.ToString() }).ToArray() ?? []
         };
 
         if (model.ModelCsType == ModelCsType.Interface)
-            model.CsTypeName = RemoveInterfacePrefix(model.CsTypeName);
+            model.CsTypeName = MetadataTypeConverter.RemoveInterfacePrefix(model.CsTypeName);
 
         typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
@@ -245,20 +245,12 @@ public class MetadataFromFileFactory
             .Select(uds => uds?.Name?.ToString())
             .Where(x => !string.IsNullOrEmpty(x))
             .Distinct()
-            .OrderBy(ns => ns.StartsWith("System"))
+            .OrderBy(ns => ns!.StartsWith("System"))
             .ThenBy(ns => ns)
-            .Select(ns => new ModelUsing { FullNamespaceName = ns })
+            .Select(ns => new ModelUsing { FullNamespaceName = ns! })
             .ToArray();
 
         return model;
-    }
-
-    public static string? RemoveInterfacePrefix(string? interfaceName)
-    {
-        if (interfaceName != null && interfaceName.StartsWith("I") && interfaceName.Length > 1 && char.IsUpper(interfaceName[1]))
-            return interfaceName.Substring(1);
-        else
-            return interfaceName;
     }
 
     private ModelCsType ParseModelCsType(TypeDeclarationSyntax typeSyntax)

@@ -31,9 +31,9 @@ public class MetadataFromInterfacesFactoryOptions
 public class MetadataFromInterfacesFactory
 {
     private readonly MetadataFromInterfacesFactoryOptions options;
-    public Action<string> Log { get; }
+    public Action<string>? Log { get; }
 
-    public MetadataFromInterfacesFactory(MetadataFromInterfacesFactoryOptions options, Action<string> log = null)
+    public MetadataFromInterfacesFactory(MetadataFromInterfacesFactoryOptions options, Action<string>? log = null)
     {
         this.options = options;
         Log = log;
@@ -78,10 +78,10 @@ public class MetadataFromInterfacesFactory
             if (dbType == null)
                 throw new ArgumentException("Database model class not found");
 
-            if (dbType?.Identifier.Text == null)
+            if (dbType.Identifier.Text == null)
                 throw new ArgumentException("Database model class must have a name");
 
-            var database = new DatabaseMetadata(RemoveInterfacePrefix(dbType.Identifier.Text)!);
+            var database = new DatabaseMetadata(MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text));
             database.CsNamespace = GetNamespace(dbType);
             database.CsInheritedInterfaceName = dbType.Identifier.Text;
 
@@ -220,12 +220,12 @@ public class MetadataFromInterfacesFactory
             CsTypeName = typeSyntax.Identifier.Text,
             CsNamespace = GetNamespace(typeSyntax),
             Attributes = typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => ParseAttribute(x)).ToArray(),
-            Interfaces = typeSyntax.BaseList.Types.Select(baseType => new ModelTypeDeclaration { CsTypeName = baseType.ToString() }).ToArray()
+            Interfaces = typeSyntax.BaseList?.Types.Select(baseType => new ModelTypeDeclaration { CsTypeName = baseType.ToString() }).ToArray() ?? []
         };
 
         if (model.ModelCsType == ModelCsType.Interface)
         {
-            model.CsTypeName = RemoveInterfacePrefix(model.CsTypeName);
+            model.CsTypeName = MetadataTypeConverter.RemoveInterfacePrefix(model.CsTypeName);
         }
 
         typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
@@ -241,21 +241,15 @@ public class MetadataFromInterfacesFactory
             .Select(uds => uds?.Name?.ToString())
             .Where(x => !string.IsNullOrEmpty(x))
             .Distinct()
-            .OrderBy(ns => ns.StartsWith("System"))
+            .OrderBy(ns => ns!.StartsWith("System"))
             .ThenBy(ns => ns)
-            .Select(ns => new ModelUsing { FullNamespaceName = ns })
+            .Select(ns => new ModelUsing { FullNamespaceName = ns! })
             .ToArray();
 
         return model;
     }
 
-    public static string? RemoveInterfacePrefix(string? interfaceName)
-    {
-        if (interfaceName != null && interfaceName.StartsWith("I") && interfaceName.Length > 1 && char.IsUpper(interfaceName[1]))
-            return interfaceName.Substring(1);
-        else
-            return interfaceName;
-    }
+   
 
     private ModelCsType ParseModelCsType(TypeDeclarationSyntax typeSyntax)
     {
@@ -442,7 +436,10 @@ public class MetadataFromInterfacesFactory
                         else
                             return new TypeAttribute(dbType, arguments[1], bool.Parse(arguments[2]));
                     case 4:
-                        return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), int.Parse(arguments[3]));
+                        if (int.TryParse(arguments[3], out int decimals))
+                            return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), decimals);
+                        else
+                            return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), bool.Parse(arguments[3]));
                     case 5:
                         return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), int.Parse(arguments[3]), bool.Parse(arguments[4]));
                 }

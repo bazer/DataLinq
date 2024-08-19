@@ -14,7 +14,7 @@ namespace DataLinq.Metadata;
 
 public class GeneratorFileFactoryOptions
 {
-    public string NamespaceName { get; set; } = null; //"Models";
+    public string? NamespaceName { get; set; } = null; //"Models";
     public string Tab { get; set; } = "    ";
     public bool UseRecords { get; set; } = false;
     //public bool UseCache { get; set; } = true;
@@ -304,18 +304,18 @@ public class GeneratorFileFactory
         return property.CsNullable || property.EnumProperty.HasValue || MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName) || !MetadataTypeConverter.IsKnownCsType(property.CsTypeName) ? "?" : "";
     }
 
-    private IEnumerable<string> WriteEnum(ValueProperty property, string namespaceTab, string tab)
-    {
-        yield return $"{namespaceTab}public enum {property.CsTypeName}";
-        yield return namespaceTab + "{";
-        //yield return $"{tab}{tab}Empty,";
+    //private IEnumerable<string> WriteEnum(ValueProperty property, string namespaceTab, string tab)
+    //{
+    //    yield return $"{namespaceTab}public enum {property.CsTypeName}";
+    //    yield return namespaceTab + "{";
+    //    //yield return $"{tab}{tab}Empty,";
 
-        foreach (var val in property.EnumProperty.Value.EnumValues)
-            yield return $"{namespaceTab}{tab}{val.name} = {val.value},";
+    //    foreach (var val in property.EnumProperty.Value.EnumValues)
+    //        yield return $"{namespaceTab}{tab}{val.name} = {val.value},";
 
-        yield return namespaceTab + "}";
-        yield return "";
-    }
+    //    yield return namespaceTab + "}";
+    //    yield return "";
+    //}
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)
     {

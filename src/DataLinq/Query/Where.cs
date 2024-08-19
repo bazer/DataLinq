@@ -45,11 +45,11 @@ public class Where<T> : IWhere<T>
     private string? KeyAlias;
     private string? ValueAlias;
 
-    private string? KeyName => string.IsNullOrEmpty(KeyAlias)
+    private string KeyName => string.IsNullOrEmpty(KeyAlias)
         ? $"{WhereGroup.Query.EscapeCharacter}{Key}{WhereGroup.Query.EscapeCharacter}"
         : $"{KeyAlias}.{WhereGroup.Query.EscapeCharacter}{Key}{WhereGroup.Query.EscapeCharacter}";
 
-    private string? ValueName => string.IsNullOrEmpty(ValueAlias)
+    private string ValueName => string.IsNullOrEmpty(ValueAlias)
         ? $"{WhereGroup.Query.EscapeCharacter}{Value?[0] as string}{WhereGroup.Query.EscapeCharacter}"
         : $"{ValueAlias}.{WhereGroup.Query.EscapeCharacter}{Value?[0]}{WhereGroup.Query.EscapeCharacter}";
 
@@ -70,7 +70,7 @@ public class Where<T> : IWhere<T>
         WhereGroup = group;
     }
 
-    internal Where<T> AddKey(string key, string alias, bool isValue = true)
+    internal Where<T> AddKey(string key, string? alias, bool isValue = true)
     {
         Key = key;
         IsValue = isValue;
@@ -89,7 +89,7 @@ public class Where<T> : IWhere<T>
         return SetAndReturnNull(Relation.EqualNull);
     }
 
-    public WhereGroup<T> EqualToColumn(string column, string alias = null)
+    public WhereGroup<T> EqualToColumn(string column, string? alias = null)
     {
         return SetAndReturnColumn(column, alias, Relation.Equal);
     }
@@ -104,7 +104,7 @@ public class Where<T> : IWhere<T>
         return SetAndReturnNull(Relation.NotEqualNull);
     }
 
-    public WhereGroup<T> NotEqualToColumn(string column, string alias = null)
+    public WhereGroup<T> NotEqualToColumn(string column, string? alias = null)
     {
         return SetAndReturnColumn(column, alias, Relation.NotEqual);
     }
@@ -114,7 +114,7 @@ public class Where<T> : IWhere<T>
         return SetAndReturn(value, Relation.Like);
     }
 
-    public WhereGroup<T> LikeColumn(string column, string alias = null)
+    public WhereGroup<T> LikeColumn(string column, string? alias = null)
     {
         return SetAndReturnColumn(column, alias, Relation.Like);
     }
@@ -124,7 +124,7 @@ public class Where<T> : IWhere<T>
         return SetAndReturn(value, Relation.GreaterThan);
     }
 
-    public WhereGroup<T> GreaterThanColumn(string column, string alias = null)
+    public WhereGroup<T> GreaterThanColumn(string column, string? alias = null)
     {
         return SetAndReturnColumn(column, alias, Relation.GreaterThan);
     }
@@ -134,7 +134,7 @@ public class Where<T> : IWhere<T>
         return SetAndReturn(value, Relation.GreaterThanOrEqual);
     }
 
-    public WhereGroup<T> GreaterThanOrEqualToColumn(string column, string alias = null)
+    public WhereGroup<T> GreaterThanOrEqualToColumn(string column, string? alias = null)
     {
         return SetAndReturnColumn(column, alias, Relation.GreaterThanOrEqual);
     }
@@ -144,7 +144,7 @@ public class Where<T> : IWhere<T>
         return SetAndReturn(value, Relation.LessThan);
     }
 
-    public WhereGroup<T> LessThanColumn(string column, string alias = null)
+    public WhereGroup<T> LessThanColumn(string column, string? alias = null)
     {
         return SetAndReturnColumn(column, alias, Relation.LessThan);
     }
@@ -154,7 +154,7 @@ public class Where<T> : IWhere<T>
         return SetAndReturn(value, Relation.LessThanOrEqual);
     }
 
-    public WhereGroup<T> LessThanOrEqualToColumn(string column, string alias = null)
+    public WhereGroup<T> LessThanOrEqualToColumn(string column, string? alias = null)
     {
         return SetAndReturnColumn(column, alias, Relation.LessThanOrEqual);
     }
@@ -199,7 +199,7 @@ public class Where<T> : IWhere<T>
         return this.WhereGroup;
     }
 
-    protected WhereGroup<T> SetAndReturnColumn(string column, string alias, Relation relation)
+    protected WhereGroup<T> SetAndReturnColumn(string column, string? alias, Relation relation)
     {
         if (alias == null)
             (column, alias) = QueryUtils.ParseColumnNameAndAlias(column);

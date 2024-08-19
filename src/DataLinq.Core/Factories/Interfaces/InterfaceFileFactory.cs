@@ -12,11 +12,12 @@ namespace DataLinq.Core.Factories.Models;
 
 public class InterfaceFileFactoryOptions
 {
-    public string NamespaceName { get; set; } = null; //"Models";
+    public string? NamespaceName { get; set; } = null; //"Models";
     public string Tab { get; set; } = "    ";
     public bool UseRecords { get; set; } = true;
     //public bool UseCache { get; set; } = true;
     public bool UseFileScopedNamespaces { get; set; }
+    public bool UseNullableReferenceTypes { get; set; }
     public bool SeparateTablesAndViews { get; set; } = false;
     public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Instances", "DataLinq.Mutation" };
 }
@@ -208,7 +209,7 @@ public class InterfaceFileFactory
                 yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
 
             yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
-            yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsTypeName}{(c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; }}";
+            yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsTypeName}{(options.UseNullableReferenceTypes || c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; }}";
             yield return $"";
         }
 
@@ -222,7 +223,7 @@ public class InterfaceFileFactory
                 yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", [{otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")}], \"{relationProperty.RelationName}\")]";
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
-                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} {{ get; }}";
+                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsTypeName}{(options.UseNullableReferenceTypes ? "?" : "")} {relationProperty.CsName} {{ get; }}";
             else
                 yield return $"{namespaceTab}{tab}public abstract IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
 
@@ -239,7 +240,7 @@ public class InterfaceFileFactory
         yield return namespaceTab + "{";
         //yield return $"{tab}{tab}Empty,";
 
-        foreach (var val in property.EnumProperty.Value.EnumValues)
+        foreach (var val in property.EnumProperty!.Value.EnumValues)
             yield return $"{namespaceTab}{tab}{val.name} = {val.value},";
 
         yield return namespaceTab + "}";

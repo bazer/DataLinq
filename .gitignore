@@ -22,3 +22,5 @@ launchSettings.json
 /src/DataLinq.Benchmark/BenchmarkDotNet.Artifacts
 *.user.json
 /logs
+/src/.idea
+/src/qodana.yaml

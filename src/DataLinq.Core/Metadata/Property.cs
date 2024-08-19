@@ -18,7 +18,7 @@ public abstract class Property
     public Type CsType { get; set; }
     public string CsTypeName { get; set; }
     public ModelMetadata Model { get; set; }
-    public PropertyInfo PropertyInfo { get; set; }
+    public PropertyInfo? PropertyInfo { get; set; }
     public PropertyType Type { get; protected set; }
 
     //private Func<object, object> getAccessor = null;

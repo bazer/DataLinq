@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
@@ -298,9 +299,11 @@ public static class MetadataFactory
         var column = new Column
         {
             Table = table,
-            DbName = property.PropertyInfo?.Name,
             ValueProperty = property
         };
+
+        if (property.PropertyInfo?.Name != null)
+            column.DbName = property.PropertyInfo.Name;
 
         property.Column = column;
 
