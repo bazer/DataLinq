@@ -8,7 +8,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("orderdetails")]
-public abstract partial class Orderdetail(RowData rowData, DataSourceAccess dataSource) : Immutable<Orderdetail>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Orderdetail(RowData rowData, DataSourceAccess dataSource) : Immutable<Orderdetail, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

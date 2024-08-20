@@ -9,7 +9,7 @@ namespace DataLinq.MySql.Models;
 
 [Definition("")]
 [View("STATISTICS")]
-public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataSource) : Immutable<STATISTICS>(rowData, dataSource), IViewModel<information_schema>
+public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataSource) : Immutable<STATISTICS, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint", 0)]

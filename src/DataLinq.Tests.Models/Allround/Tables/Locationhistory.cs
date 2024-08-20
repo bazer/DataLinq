@@ -8,7 +8,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("locationshistory")]
-public abstract partial class Locationhistory(RowData rowData, DataSourceAccess dataSource) : Immutable<Locationhistory>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Locationhistory(RowData rowData, DataSourceAccess dataSource) : Immutable<Locationhistory, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

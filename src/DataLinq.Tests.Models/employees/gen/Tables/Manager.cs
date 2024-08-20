@@ -17,7 +17,7 @@ public enum ManagerType
 
 
 [Table("dept_manager")]
-public abstract partial class Manager(RowData RowData, DataSourceAccess DataSource) : Immutable<Manager>(RowData, DataSource), ITableModel<EmployeesDb>
+public abstract partial class Manager(RowData RowData, DataSourceAccess DataSource) : Immutable<Manager, EmployeesDb>(RowData, DataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [ForeignKey("departments", "dept_no", "dept_manager_ibfk_2")]

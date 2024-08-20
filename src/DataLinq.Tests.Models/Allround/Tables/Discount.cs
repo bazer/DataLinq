@@ -8,7 +8,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("discounts")]
-public abstract partial class Discount(RowData rowData, DataSourceAccess dataSource) : Immutable<Discount>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Discount(RowData rowData, DataSourceAccess dataSource) : Immutable<Discount, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

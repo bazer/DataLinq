@@ -9,7 +9,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("users")]
-public abstract partial class User(RowData rowData, DataSourceAccess dataSource) : Immutable<User>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class User(RowData rowData, DataSourceAccess dataSource) : Immutable<User, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum UserRoleValue
     {

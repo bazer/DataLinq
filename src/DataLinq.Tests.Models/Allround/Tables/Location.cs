@@ -9,7 +9,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("locations")]
-public abstract partial class Location(RowData rowData, DataSourceAccess dataSource) : Immutable<Location>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Location(RowData rowData, DataSourceAccess dataSource) : Immutable<Location, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

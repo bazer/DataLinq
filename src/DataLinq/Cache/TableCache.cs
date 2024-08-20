@@ -49,12 +49,12 @@ public class TableCache
     public DatabaseCache DatabaseCache { get; }
 
     public bool IsTransactionInCache(Transaction transaction) => TransactionRows.ContainsKey(transaction);
-    public IEnumerable<ImmutableInstanceBase> GetTransactionRows(Transaction transaction)
+    public IEnumerable<IImmutableInstance> GetTransactionRows(Transaction transaction)
     {
         if (TransactionRows.TryGetValue(transaction, out var result))
             return result.Rows;
 
-        return new List<ImmutableInstanceBase>();
+        return new List<IImmutableInstance>();
     }
 
     public int ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
@@ -99,7 +99,7 @@ public class TableCache
 
         return numRows;
 
-        int RemoveIndexOnBothSides(ColumnIndex columnIndex, InstanceBase model)
+        int RemoveIndexOnBothSides(ColumnIndex columnIndex, IModelInstance model)
         {
             var fk = KeyFactory.CreateKeyFromValues(model.GetValues(columnIndex.Columns).Select(x => x.Value));
 
@@ -304,7 +304,7 @@ public class TableCache
         return newKeys;
     }
 
-    public IEnumerable<ImmutableInstanceBase> GetRows(IKey foreignKey, RelationProperty otherSide, DataSourceAccess transaction)
+    public IEnumerable<IImmutableInstance> GetRows(IKey foreignKey, RelationProperty otherSide, DataSourceAccess transaction)
     {
         if (foreignKey is NullKey)
             return [];
@@ -312,10 +312,10 @@ public class TableCache
         return GetRows(GetKeys(foreignKey, otherSide, transaction), transaction);
     }
 
-    public ImmutableInstanceBase? GetRow(IKey primaryKeys, Transaction transaction) =>
+    public IImmutableInstance? GetRow(IKey primaryKeys, Transaction transaction) =>
         GetRows([primaryKeys], transaction).SingleOrDefault();
 
-    public IEnumerable<ImmutableInstanceBase> GetRows(IKey[] primaryKeys, DataSourceAccess dataSource, List<OrderBy>? orderings = null)
+    public IEnumerable<IImmutableInstance> GetRows(IKey[] primaryKeys, DataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
             TransactionRows.TryAdd(transaction, new RowCache());
@@ -326,7 +326,7 @@ public class TableCache
             return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
     }
 
-    private IEnumerable<ImmutableInstanceBase> LoadRowsFromDatabaseAndCache(IKey[] primaryKeys, DataSourceAccess dataSource)
+    private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache(IKey[] primaryKeys, DataSourceAccess dataSource)
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
 
@@ -355,12 +355,12 @@ public class TableCache
         }
     }
 
-    private IEnumerable<ImmutableInstanceBase> LoadOrderedRowsFromDatabaseAndCache(IKey[] primaryKeys, DataSourceAccess dataSource, List<OrderBy> orderings)
+    private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache(IKey[] primaryKeys, DataSourceAccess dataSource, List<OrderBy> orderings)
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
 
         var keysToLoad = new List<IKey>(primaryKeys.Length);
-        var loadedRows = new List<ImmutableInstanceBase>(primaryKeys.Length);
+        var loadedRows = new List<IImmutableInstance>(primaryKeys.Length);
 
         foreach (var key in primaryKeys)
         {
@@ -385,11 +385,11 @@ public class TableCache
             Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
         }
 
-        IOrderedEnumerable<ImmutableInstanceBase>? orderedRows = null;
+        IOrderedEnumerable<IImmutableInstance>? orderedRows = null;
 
         foreach (var ordering in orderings)
         {
-            Func<ImmutableInstanceBase, IComparable?> keySelector = x => (IComparable?)x.GetValues([ordering.Column]).First().Value;
+            Func<IImmutableInstance, IComparable?> keySelector = x => (IComparable?)x.GetValues([ordering.Column]).First().Value;
 
             if (orderedRows == null)
             {
@@ -439,7 +439,7 @@ public class TableCache
             .ReadRows();
     }
 
-    private bool GetRowFromCache(IKey key, DataSourceAccess dataSource, out ImmutableInstanceBase? row)
+    private bool GetRowFromCache(IKey key, DataSourceAccess dataSource, out IImmutableInstance? row)
     {
         if (dataSource is ReadOnlyAccess && RowCache.TryGetValue(key, out row))
             return true;
@@ -450,13 +450,13 @@ public class TableCache
         return false;
     }
 
-    private ImmutableInstanceBase AddRow(RowData rowData, DataSourceAccess transaction)
+    private IImmutableInstance AddRow(RowData rowData, DataSourceAccess transaction)
     {
         TryAddRow(rowData, transaction, out var row);
         return row;
     }
 
-    private bool TryAddRow(RowData rowData, DataSourceAccess dataSource, out ImmutableInstanceBase row)
+    private bool TryAddRow(RowData rowData, DataSourceAccess dataSource, out IImmutableInstance row)
     {
         row = InstanceFactory.NewImmutableRow(rowData, dataSource.Provider, dataSource);
         var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);

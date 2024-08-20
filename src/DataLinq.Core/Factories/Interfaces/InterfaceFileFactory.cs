@@ -153,7 +153,7 @@ public class InterfaceFileFactory
         //if (model.Interfaces?.Length > 0)
         //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
 
-        yield return $"{namespaceTab}public abstract partial class {table.Model.CsTypeName}(RowData rowData, DataSourceAccess dataSource) : Immutable<{table.Model.CsTypeName}>(rowData, dataSource), {interfaces}";
+        yield return $"{namespaceTab}public abstract partial class {table.Model.CsTypeName}(RowData rowData, DataSourceAccess dataSource) : Immutable<{table.Model.CsTypeName}, {model.Database.CsTypeName}>(rowData, dataSource), {interfaces}";
         //yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
         yield return namespaceTab + "{";
 

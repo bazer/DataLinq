@@ -70,12 +70,12 @@ public static class IModelExtensions
     //    return (T)obj;
     //}
 
-    public static T Insert<T>(this Mutable<T> model, Transaction transaction) where T : ImmutableInstanceBase
+    public static T Insert<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance
     {
         return transaction.Insert(model);
     }
 
-    public static T Update<T>(this Mutable<T> model, Transaction transaction) where T : ImmutableInstanceBase
+    public static T Update<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance
     {
         return transaction.Update(model);
     }
@@ -85,7 +85,7 @@ public static class IModelExtensions
     //    return transaction.Update(model, changes);
     //}
 
-    public static T InsertOrUpdate<T>(this Mutable<T> model, Transaction transaction) where T : ImmutableInstanceBase
+    public static T InsertOrUpdate<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance
     {
         return transaction.InsertOrUpdate(model);
     }
@@ -95,7 +95,7 @@ public static class IModelExtensions
     //    return transaction.InsertOrUpdate(model, changes);
     //}
 
-    public static void Delete<T>(this T model, Transaction transaction) where T : InstanceBase
+    public static void Delete<T>(this T model, Transaction transaction) where T : IModelInstance
     {
         transaction.Delete(model);
     }

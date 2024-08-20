@@ -4,8 +4,8 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
 
-public class Mutable<T> : MutableInstanceBase
-    where T: ImmutableInstanceBase
+public class Mutable<T> : IMutableInstance
+    where T: IImmutableInstance
 {
     private readonly ModelMetadata metadata;
     public ModelMetadata Metadata() => metadata;
@@ -15,7 +15,7 @@ public class Mutable<T> : MutableInstanceBase
 
     private MutableRowData mutableRowData;
     public MutableRowData GetRowData() => mutableRowData;
-    IRowData InstanceBase.GetRowData() => GetRowData();
+    IRowData IModelInstance.GetRowData() => GetRowData();
 
     public object? this[Column column]
     {

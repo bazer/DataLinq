@@ -9,7 +9,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("orders")]
-public abstract partial class Order(RowData rowData, DataSourceAccess dataSource) : Immutable<Order>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Order(RowData rowData, DataSourceAccess dataSource) : Immutable<Order, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum OrderStatusValue
     {

@@ -438,7 +438,10 @@ public class MetadataFromFileFactory
                         else
                             return new TypeAttribute(dbType, arguments[1], bool.Parse(arguments[2]));
                     case 4:
-                        return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), int.Parse(arguments[3]));
+                        if (int.TryParse(arguments[3], out int decimals))
+                            return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), decimals);
+                        else
+                            return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), bool.Parse(arguments[3]));
                     case 5:
                         return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), int.Parse(arguments[3]), bool.Parse(arguments[4]));
                 }

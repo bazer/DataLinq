@@ -56,7 +56,7 @@ namespace DataLinq.Tests.Models.Employees;
 //}
 
 [Table("employees")]
-public abstract partial class Employee(RowData RowData, DataSourceAccess DataSource) : Immutable<Employee>(RowData, DataSource), ITableModel<EmployeesDb>
+public abstract partial class Employee(RowData RowData, DataSourceAccess DataSource) : Immutable<Employee, EmployeesDb>(RowData, DataSource), ITableModel<EmployeesDb>
 {
     public enum Employeegender
     {

@@ -9,7 +9,7 @@ namespace DataLinq.MySql.Models;
 
 [Definition("")]
 [View("KEY_COLUMN_USAGE")]
-public abstract partial class KEY_COLUMN_USAGE(RowData rowData, DataSourceAccess dataSource) : Immutable<KEY_COLUMN_USAGE>(rowData, dataSource), IViewModel<information_schema>
+public abstract partial class KEY_COLUMN_USAGE(RowData rowData, DataSourceAccess dataSource) : Immutable<KEY_COLUMN_USAGE, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("COLUMN_NAME")]

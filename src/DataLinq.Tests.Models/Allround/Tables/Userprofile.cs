@@ -9,7 +9,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("userprofiles")]
-public abstract partial class Userprofile(RowData rowData, DataSourceAccess dataSource) : Immutable<Userprofile>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Userprofile(RowData rowData, DataSourceAccess dataSource) : Immutable<Userprofile, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

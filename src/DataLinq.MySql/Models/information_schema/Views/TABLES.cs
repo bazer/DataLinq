@@ -9,7 +9,7 @@ namespace DataLinq.MySql.Models;
 
 [Definition("")]
 [View("TABLES")]
-public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSource) : Immutable<TABLES>(rowData, dataSource), IViewModel<information_schema>
+public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSource) : Immutable<TABLES, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint", 0, false)]

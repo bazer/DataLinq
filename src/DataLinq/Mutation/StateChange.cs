@@ -23,7 +23,7 @@ public class StateChange
     /// <summary>
     /// Gets the model that the change will be applied to.
     /// </summary>
-    public InstanceBase Model { get; }
+    public IModelInstance Model { get; }
 
     /// <summary>
     /// Gets the table metadata associated with the model.
@@ -47,7 +47,7 @@ public class StateChange
     /// <param name="model">The model to apply the change to.</param>
     /// <param name="table">The table metadata for the model.</param>
     /// <param name="type">The type of change to be applied.</param>
-    public StateChange(InstanceBase model, TableMetadata table, TransactionChangeType type)
+    public StateChange(IModelInstance model, TableMetadata table, TransactionChangeType type)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(table);
@@ -55,7 +55,7 @@ public class StateChange
         if (table.Type == TableType.View)
             throw new InvalidOperationException("Cannot change a view.");
 
-        if (type == TransactionChangeType.Update && model is not MutableInstanceBase)
+        if (type == TransactionChangeType.Update && model is not IMutableInstance)
             throw new InvalidOperationException("Cannot update a model that is not mutable.");
 
         Model = model;
@@ -70,7 +70,7 @@ public class StateChange
 
     public IEnumerable<KeyValuePair<Column, object>> GetValues(IEnumerable<Column> columns)
     {
-        if (Model is InstanceBase instance)
+        if (Model is IModelInstance instance)
             return instance.GetValues(columns);
         else
             return Model.GetValues(columns);
@@ -78,7 +78,7 @@ public class StateChange
 
     public IEnumerable<KeyValuePair<Column, object>> GetChanges()
     {
-        if (Model is MutableInstanceBase instance)
+        if (Model is IMutableInstance instance)
             return instance.GetChanges();
         else
             return GetValues();
@@ -94,7 +94,7 @@ public class StateChange
         {
             var newId = transaction.DatabaseAccess.ExecuteScalar(GetDbCommand(transaction));
 
-            if (Model is MutableInstanceBase mutable)
+            if (Model is IMutableInstance mutable)
             {
                 var autoIncrement = Table.PrimaryKeyColumns.FirstOrDefault(x => x.AutoIncrement);
 
@@ -152,7 +152,7 @@ public class StateChange
         foreach (var column in Table.PrimaryKeyColumns)
             query.Where(column.DbName).EqualTo(writer.ConvertColumnValue(column, Model[column]));
 
-        foreach (var change in ((MutableInstanceBase)Model).GetChanges())
+        foreach (var change in ((IMutableInstance)Model).GetChanges())
             query.Set(change.Key.DbName, writer.ConvertColumnValue(change.Key, change.Value));
 
         return query.UpdateQuery();

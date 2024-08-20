@@ -6,7 +6,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public interface InstanceBase
+public interface IModelInstance : IModel
 {
     object? this[string propertyName] { get; }
     object? this[Column column] { get; }
@@ -18,12 +18,22 @@ public interface InstanceBase
     IRowData GetRowData();
 }
 
-public interface ImmutableInstanceBase : InstanceBase, IModel
+public interface IModelInstance<T> : IModelInstance
+    where T : IDatabaseModel
+{
+}
+
+public interface IImmutableInstance : IModelInstance
 {
     new RowData GetRowData();
 }
 
-public interface MutableInstanceBase : InstanceBase
+public interface IImmutableInstance<T> : IImmutableInstance, IModelInstance<T>
+    where T : IDatabaseModel
+{
+}
+
+public interface IMutableInstance : IModelInstance
 {
     new object? this[string propertyName] { get; set; }
     new object? this[Column column] { get; set; }
@@ -33,43 +43,22 @@ public interface MutableInstanceBase : InstanceBase
     new MutableRowData GetRowData();
 }
 
+public interface IMutableInstance<T> : IMutableInstance, IModelInstance<T>
+    where T : IDatabaseModel
+{
+}
+
 
 public static class InstanceFactory
 {
-    //private static readonly ProxyGenerator generator = new();
-    //private static readonly ProxyGenerationOptions options = new ProxyGenerationOptions(new RowInterceptorGenerationHook());
-
-    //public static ImmutableInstanceBase NewImmutableRow(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess transaction)
-    //{
-    //    return (ImmutableInstanceBase)(rowData.Table.Model.CsType.IsInterface
-    //        ? generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType, new Type[] { typeof(ImmutableInstanceBase) }, options, new ImmutableRowInterceptor(rowData, databaseProvider, transaction))
-    //        : generator.CreateClassProxy(rowData.Table.Model.CsType, new Type[] { typeof(ImmutableInstanceBase) }, options, new ImmutableRowInterceptor(rowData, databaseProvider, transaction)));
-    //}
-
-    //public static object NewMutableRow(RowData rowData, IDatabaseProvider databaseProvider, Transaction? transaction)
-    //{
-    //    return rowData.Table.Model.CsType.IsInterface
-    //        ? generator.CreateInterfaceProxyWithoutTarget(rowData.Table.Model.CsType,
-    //            new Type[] { typeof(MutableInstanceBase) }, options,
-    //            new MutableRowInterceptor(rowData, databaseProvider, transaction))
-    //        : generator.CreateClassProxy(rowData.Table.Model.CsType,
-    //            new Type[] { typeof(MutableInstanceBase) }, options,
-    //            new MutableRowInterceptor(rowData, databaseProvider, transaction));
-    //}
-
-    //public static T NewDatabase<T>(DataSourceAccess transaction) where T : class, IDatabaseModel
-    //{
-    //    return generator.CreateClassProxy<T>(new DatabaseInterceptor(transaction));
-    //}
-
-    public static ImmutableInstanceBase NewImmutableRow(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
+    public static IImmutableInstance NewImmutableRow(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
     {
         var model = Activator.CreateInstance(rowData.Table.Model.ImmutableType.CsType, rowData, dataSource);
 
         if (model == null)
             throw new Exception($"Failed to create instance of immutable model type '{rowData.Table.Model.CsType}'");
 
-        return (ImmutableInstanceBase)model;
+        return (IImmutableInstance)model;
     }
 
     public static T NewImmutableRow<T>(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
@@ -91,67 +80,4 @@ public static class InstanceFactory
 
         return (T)db;
     }
-
-
-
-    //public static T NewDatabase<T>(IDatabaseModelInstanceFactory<T> factory, DataSourceAccess dataSource) where T : IDatabaseModelInstance
-    //{
-    //    return factory.CreateInstance(dataSource);
-    //}
 }
-
-
-
-//public interface IDatabaseModelInstance
-//{
-//    //protected DatabaseModelInstance(DataSourceAccess dataSource)
-//    //{
-//    //    DataSource = dataSource;
-//    //}
-
-//    //public DataSourceAccess DataSource { get; }
-//}
-
-//public class ConcreteDatabaseModel : IDatabaseModelInstance
-//{
-//    public ConcreteDatabaseModel(DataSourceAccess dataSource) 
-//    {
-//    }
-
-//    //public void PrintDataSource()
-//    //{
-//    //    Console.WriteLine(DataSource.ToString());
-//    //}
-//}
-
-//public interface IDatabaseModelInstanceFactory<T> where T : IDatabaseModelInstance
-//{
-//    T CreateInstance(DataSourceAccess dataSource);
-//}
-
-//public class ConcreteDatabaseModelFactory : IDatabaseModelInstanceFactory<ConcreteDatabaseModel>
-//{
-//    public ConcreteDatabaseModel CreateInstance(DataSourceAccess dataSource)
-//    {
-//        return new ConcreteDatabaseModel(dataSource);
-//    }
-//}
-
-////public static class DatabaseFactory
-////{
-////    public static T NewDatabase<T>(IDatabaseModelInstanceFactory<T> factory, DataSourceAccess dataSource) where T : DatabaseModelInstance
-////    {
-////        return factory.CreateInstance(dataSource);
-////    }
-////}
-
-//class Program
-//{
-//    static void Main()
-//    {
-//        var dataSource = new DataSourceAccess();
-//        var factory = new ConcreteDatabaseModelFactory();
-//        var dbInstance = DatabaseFactory.NewDatabase(factory, dataSource);
-//        dbInstance.PrintDataSource();
-//    }
-//}

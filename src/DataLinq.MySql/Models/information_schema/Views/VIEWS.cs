@@ -9,7 +9,7 @@ namespace DataLinq.MySql.Models;
 
 [Definition("")]
 [View("VIEWS")]
-public abstract partial class VIEWS(RowData rowData, DataSourceAccess dataSource) : Immutable<VIEWS>(rowData, dataSource), IViewModel<information_schema>
+public abstract partial class VIEWS(RowData rowData, DataSourceAccess dataSource) : Immutable<VIEWS, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Type(DatabaseType.MySQL, "varchar", 10)]
     [Column("ALGORITHM")]

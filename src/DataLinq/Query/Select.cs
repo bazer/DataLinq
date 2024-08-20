@@ -91,7 +91,7 @@ public class Select<T> : IQuery
     public IEnumerable<V> ExecuteAs<V>() =>
         Execute().Select(x => (V)x);
 
-    public IEnumerable<ImmutableInstanceBase> Execute()
+    public IEnumerable<IImmutableInstance> Execute()
     {
         if (query.Table.PrimaryKeyColumns.Length != 0)
         {

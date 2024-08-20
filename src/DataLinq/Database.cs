@@ -131,7 +131,7 @@ public abstract class Database<T> : IDisposable
     /// <param name="model">The model to insert.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The inserted model.</returns>
-    public M Insert<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : ImmutableInstanceBase
+    public M Insert<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
     {
         return Commit(transaction => transaction.Insert(model), transactionType);
     }
@@ -143,7 +143,7 @@ public abstract class Database<T> : IDisposable
     /// <param name="model">The model to update.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The updated model.</returns>
-    public M Update<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : ImmutableInstanceBase
+    public M Update<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
     {
         return Commit(transaction => transaction.Update(model), transactionType);
     }
@@ -168,7 +168,7 @@ public abstract class Database<T> : IDisposable
     /// <param name="model">The model to insert or update.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The inserted or updated model.</returns>
-    public M InsertOrUpdate<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : ImmutableInstanceBase
+    public M InsertOrUpdate<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
     {
         return Commit(transaction => transaction.InsertOrUpdate(model), transactionType);
     }
@@ -181,10 +181,10 @@ public abstract class Database<T> : IDisposable
     /// <param name="changes">The changes to apply to the model.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The inserted or updated model.</returns>
-    //public M InsertOrUpdate<M>(M model, Action<Mutable<M>> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : ImmutableInstanceBase, new()
-    //{
-    //    return Commit(transaction => transaction.InsertOrUpdate(model, changes), transactionType);
-    //}
+    public M InsertOrUpdate<M>(M model, Action<Mutable<M>> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
+    {
+        return Commit(transaction => transaction.InsertOrUpdate(model, changes), transactionType);
+    }
 
     /// <summary>
     /// Deletes a model from the database.
@@ -192,7 +192,7 @@ public abstract class Database<T> : IDisposable
     /// <typeparam name="M">The type of the model.</typeparam>
     /// <param name="model">The model to delete.</param>
     /// <param name="transactionType">The type of the transaction.</param>
-    public void Delete<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : ImmutableInstanceBase
+    public void Delete<M>(M model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IModelInstance
     {
         Commit(transaction => transaction.Delete(model), transactionType);
     }
@@ -216,7 +216,7 @@ public abstract class Database<T> : IDisposable
     /// <param name="func">The function to perform in the transaction.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The result of the function.</returns>
-    public M Commit<M>(Func<Transaction, M> func, TransactionType transactionType = TransactionType.ReadAndWrite) where M : ImmutableInstanceBase
+    public M Commit<M>(Func<Transaction, M> func, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
     {
         using var transaction = Transaction(transactionType);
         var result = func(transaction);

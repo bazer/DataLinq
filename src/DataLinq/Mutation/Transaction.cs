@@ -149,7 +149,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="model">The model to insert.</param>
     /// <returns>The inserted model.</returns>
-    public T Insert<T>(Mutable<T> model) where T : ImmutableInstanceBase
+    public T Insert<T>(Mutable<T> model) where T : IImmutableInstance
     {
         CheckIfTransactionIsValid();
 
@@ -170,7 +170,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="models">The models to insert.</param>
     /// <returns>The inserted models.</returns>
-    public List<T> Insert<T>(IEnumerable<Mutable<T>> models) where T : ImmutableInstanceBase
+    public List<T> Insert<T>(IEnumerable<Mutable<T>> models) where T : IImmutableInstance
     {
         return models
             .Select(Insert)
@@ -183,7 +183,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="model">The model to update.</param>
     /// <returns>The updated model.</returns>
-    public T Update<T>(Mutable<T> model) where T : ImmutableInstanceBase
+    public T Update<T>(Mutable<T> model) where T : IImmutableInstance
     {
         CheckIfTransactionIsValid();
 
@@ -205,7 +205,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="model">The model to update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The updated model.</returns>
-    public T Update<T>(T model, Action<Mutable<T>> changes) where T : ImmutableInstanceBase
+    public T Update<T>(T model, Action<Mutable<T>> changes) where T : IImmutableInstance
     {
         var mut = new Mutable<T>(model);
         changes(mut);
@@ -219,7 +219,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="model">The model to insert or update.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T InsertOrUpdate<T>(Mutable<T> model) where T : ImmutableInstanceBase
+    public T InsertOrUpdate<T>(Mutable<T> model) where T : IImmutableInstance
     {
         if (model == null)
             throw new ArgumentException("Model argument has null value");
@@ -237,7 +237,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T InsertOrUpdate<T>(T model, Action<Mutable<T>> changes) where T : ImmutableInstanceBase
+    public T InsertOrUpdate<T>(T model, Action<Mutable<T>> changes) where T : IImmutableInstance
     {
         var mut = model == null
             ? new Mutable<T>()
@@ -249,10 +249,26 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     }
 
     /// <summary>
+    /// Inserts a new row into the database or updates an existing row if it already exists with the specified changes.
+    /// </summary>
+    /// <typeparam name="T">The type of the model.</typeparam>
+    /// <param name="model">The model to insert or update.</param>
+    /// <param name="changes">The changes to apply to the model.</param>
+    /// <returns>The inserted or updated model.</returns>
+    public T InsertOrUpdate<T>(Mutable<T> model, Action<Mutable<T>> changes) where T : IImmutableInstance
+    {
+        var mut = model ?? new Mutable<T>();
+
+        changes(mut);
+
+        return InsertOrUpdate(mut);
+    }
+
+    /// <summary>
     /// Deletes an existing row from the database.
     /// </summary>
     /// <param name="model">The model to delete.</param>
-    public void Delete(InstanceBase model)
+    public void Delete(IModelInstance model)
     {
         CheckIfTransactionIsValid();
 
@@ -294,7 +310,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             .Select(x => InstanceFactory.NewImmutableRow<T>(x, Provider, this));
     }
 
-    private void AddAndExecute(InstanceBase model, TransactionChangeType type)
+    private void AddAndExecute(IModelInstance model, TransactionChangeType type)
     {
         var table = model.Metadata().Table;
 
@@ -335,7 +351,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         Provider.State.RemoveTransactionFromCache(this);
     }
 
-    private T? GetModelFromCache<T>(Mutable<T> model) where T : ImmutableInstanceBase
+    private T? GetModelFromCache<T>(Mutable<T> model) where T : IImmutableInstance
     {
         var metadata = model.Metadata();
         var keys = model.PrimaryKeys();

@@ -194,7 +194,7 @@ public class GeneratorFileFactory
             .ThenBy(x => x.CsName)
             .ToList();
 
-        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{table.Model.CsTypeName}: Mutable<{table.Model.CsTypeName}>";
+        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{table.Model.CsTypeName}: Mutable<{table.Model.CsTypeName}>, IMutableInstance<{model.Database.CsTypeName}>";
         yield return namespaceTab + "{";
 
         yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsTypeName}(): base() {{}}";

@@ -12,7 +12,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Allround;
 
 [Table("productcategories")]
-public abstract partial class Productcategory(RowData rowData, DataSourceAccess dataSource) : Immutable<Productcategory>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Productcategory(RowData rowData, DataSourceAccess dataSource) : Immutable<Productcategory, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
