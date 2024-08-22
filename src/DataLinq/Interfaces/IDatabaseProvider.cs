@@ -43,4 +43,6 @@ public interface IDatabaseProvider : IDisposable
 
     IDataLinqDataWriter GetWriter();
     Sql GetTableName(Sql sql, string tableName, string? alias = null);
+    M Commit<M>(Func<Transaction, M> func);
+    void Commit(Action<Transaction> action);
 }

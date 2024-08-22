@@ -130,6 +130,22 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         return new Transaction(this, transactionType);
     }
 
+    public M Commit<M>(Func<Transaction, M> func)
+    {
+        using var transaction = StartTransaction();
+        var result = func(transaction);
+        transaction.Commit();
+
+        return result;
+    }
+
+    public void Commit(Action<Transaction> action)
+    {
+        using var transaction = StartTransaction();
+        action(transaction);
+        transaction.Commit();
+    }
+
     /// <summary>
     /// Attaches an existing database transaction to this provider with the specified transaction type.
     /// </summary>

@@ -70,7 +70,7 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
         return result;
     }
 
-    protected DataSourceAccess GetDataSource()
+    public DataSourceAccess GetDataSource()
     {
         if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
             dataSource = dataSource.Provider.ReadOnlyAccess;

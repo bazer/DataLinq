@@ -1,24 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.IO;
 using System.Linq;
-using System.Transactions;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Extensions.Helpers;
-using DataLinq.Interfaces;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace DataLinq.Metadata;
 
 public class GeneratorFileFactoryOptions
 {
-    public string? NamespaceName { get; set; } = null; //"Models";
+    public string? NamespaceName { get; set; } = null;
     public string Tab { get; set; } = "    ";
     public bool UseRecords { get; set; } = false;
-    //public bool UseCache { get; set; } = true;
-    public bool UseFileScopedNamespaces { get; set; }
+    public bool UseFileScopedNamespaces { get; set; } = false;
     public bool SeparateTablesAndViews { get; set; } = false;
     public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
@@ -38,12 +33,6 @@ public class GeneratorFileFactory
         var dbCsTypeName = database.TableModels.Any(x => x.Model.CsTypeName == database.CsTypeName)
             ? $"{database.CsTypeName}Db"
             : database.CsTypeName;
-
-        //yield return ($"{dbCsTypeName}.cs",
-        //        FileHeader(options.NamespaceName ?? database.CsNamespace, options.UseFileScopedNamespaces, options.Usings)
-        //        .Concat(DatabaseFileContents(database, dbCsTypeName, options))
-        //        .Concat(FileFooter(options.UseFileScopedNamespaces))
-        //        .ToJoinedString("\n"));
 
         foreach (var table in database.TableModels.Where(x => !x.IsStub))
         {
@@ -90,34 +79,6 @@ public class GeneratorFileFactory
         return path;
     }
 
-    private IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName, GeneratorFileFactoryOptions settings)
-    {
-        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
-        var tab = settings.Tab;
-
-        //if (database.UseCache)
-        //    yield return $"{namespaceTab}[UseCache]";
-
-        //foreach (var limit in database.CacheLimits)
-        //    yield return $"{namespaceTab}[CacheLimit(CacheLimitType.{limit.limitType}, {limit.amount})]";
-
-        //foreach (var cleanup in database.CacheCleanup)
-        //    yield return $"{namespaceTab}[CacheCleanup(CacheCleanupType.{cleanup.cleanupType}, {cleanup.amount})]";
-
-        //yield return $"{namespaceTab}[Database(\"{database.Name}\")]";
-        yield return $"{namespaceTab}public partial class {dbName}(DataSourceAccess dataSource) : {database.CsInheritedInterfaceName}";
-        yield return namespaceTab + "{";
-
-        //yield return $"{namespaceTab}{tab}public ";
-
-        foreach (var t in database.TableModels.OrderBy(x => x.Table.DbName))
-        {
-            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }} = new DbRead<{t.Model.CsTypeName}>(dataSource);";
-        }
-
-        yield return namespaceTab + "}";
-    }
-
     private IEnumerable<string> ImmutableModelFileContents(ModelMetadata model, GeneratorFileFactoryOptions options)
     {
         var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
@@ -144,7 +105,7 @@ public class GeneratorFileFactory
         foreach (var valueProperty in valueProps)
         {
             var c = valueProperty.Column;
-            
+
             yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetFieldNullable(c.ValueProperty)} _{c.ValueProperty.CsName};";
             yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.CsName} => _{c.ValueProperty.CsName} ??= GetValue<{c.ValueProperty.CsTypeName}>(nameof({c.ValueProperty.CsName}));";
             yield return $"";
@@ -156,14 +117,10 @@ public class GeneratorFileFactory
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
             {
-                //yield return $"{namespaceTab}{tab}private {otherPart.ColumnIndex.Table.Model.CsTypeName} _{relationProperty.CsName};";
-                //yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} => _{relationProperty.CsName} ??= GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
                 yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsTypeName} {relationProperty.CsName} => GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
             }
             else
             {
-                //yield return $"{namespaceTab}{tab}private IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> _{relationProperty.CsName};";
-                //yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} => _{relationProperty.CsName} ??= GetRelation<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
                 yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} => GetRelation<{otherPart.ColumnIndex.Table.Model.CsTypeName}>(nameof({relationProperty.CsName}));";
             }
 
@@ -198,7 +155,7 @@ public class GeneratorFileFactory
         yield return namespaceTab + "{";
 
         yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsTypeName}(): base() {{}}";
-        yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsTypeName}({table.Model.CsTypeName} immutable{table.Model.CsTypeName}): base(immutable{table.Model.CsTypeName}.GetRowData()) {{}}";
+        yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsTypeName}({table.Model.CsTypeName} immutable{table.Model.CsTypeName}): base(immutable{table.Model.CsTypeName}) {{}}";
 
         foreach (var valueProperty in valueProps)
         {
@@ -220,65 +177,60 @@ public class GeneratorFileFactory
         var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
         var tab = options.Tab;
 
-        //public static class EmployeeExtensions
-        //{
-        //    public static MutableEmployee Mutate(this Employee model) => new(model);
-
-        //    public static Employee Update(this Employee model, Action<MutableEmployee> changes, Transaction transaction)
-        //    {
-        //        var mutable = new MutableEmployee(model);
-        //        changes(mutable);
-
-        //        return transaction.Update(mutable);
-        //    }
-
-        //    public static Employee InsertOrUpdate(this Employee model, Action<MutableEmployee> changes, Transaction transaction)
-        //    {
-        //        var mutable = model == null
-        //            ? new MutableEmployee()
-        //            : new MutableEmployee(model);
-
-        //        changes(mutable);
-
-        //        return transaction.InsertOrUpdate(mutable);
-        //    }
-
-        //    public static Employee Update<T>(this Database<T> database, Employee model, Action<MutableEmployee> changes) where T : class, IDatabaseModel =>
-        //        database.Commit(transaction => model.Update(changes, transaction));
-
-        //    public static Employee InsertOrUpdate<T>(this Database<T> database, Employee model, Action<MutableEmployee> changes) where T : class, IDatabaseModel =>
-        //        database.Commit(transaction => model.InsertOrUpdate(changes, transaction));
-
-        //    public static Employee Update(this Transaction transaction, Employee model, Action<MutableEmployee> changes) =>
-        //        model.Update(changes, transaction);
-
-        //    public static Employee InsertOrUpdate(this Transaction transaction, Employee model, Action<MutableEmployee> changes) =>
-        //        model.InsertOrUpdate(changes, transaction);
-        //}
-
         yield return $"{namespaceTab}public static class {model.CsTypeName}Extensions";
         yield return namespaceTab + "{";
+
+        //Mutate
         yield return $"{namespaceTab}{tab}public static Mutable{model.CsTypeName} Mutate(this {model.CsTypeName} model) => new(model);";
+
+        //InsertOrUpdate
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
+        yield return $"{namespaceTab}{tab}{{";
+        yield return $"{namespaceTab}{tab}{tab}var mutable = new Mutable{model.CsTypeName}(model);";
+        yield return $"{namespaceTab}{tab}{tab}changes(mutable);";
+        yield return $"{namespaceTab}{tab}{tab}return transaction.InsertOrUpdate(mutable);";
+        yield return $"{namespaceTab}{tab}}}";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
+        yield return $"{namespaceTab}{tab}{{";
+        yield return $"{namespaceTab}{tab}{tab}changes(model);";
+        yield return $"{namespaceTab}{tab}{tab}return transaction.InsertOrUpdate(model);";
+        yield return $"{namespaceTab}{tab}}}";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Transaction transaction, Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+
+        //Insert
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Insert(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
+        yield return $"{namespaceTab}{tab}{{";
+        yield return $"{namespaceTab}{tab}{tab}changes(model);";
+        yield return $"{namespaceTab}{tab}{tab}return transaction.Insert(model);";
+        yield return $"{namespaceTab}{tab}}}";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Insert<T>(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Insert(this Transaction transaction, Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.Insert(changes, transaction);";
+
+        //Update
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.Update(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
         yield return $"{namespaceTab}{tab}{{";
         yield return $"{namespaceTab}{tab}{tab}var mutable = new Mutable{model.CsTypeName}(model);";
         yield return $"{namespaceTab}{tab}{tab}changes(mutable);";
         yield return $"{namespaceTab}{tab}{tab}return transaction.Update(mutable);";
         yield return $"{namespaceTab}{tab}}}";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
-        yield return $"{namespaceTab}{tab}{{";
-        yield return $"{namespaceTab}{tab}{tab}var mutable = model == null ? new Mutable{model.CsTypeName}() : new Mutable{model.CsTypeName}(model);";
-        yield return $"{namespaceTab}{tab}{tab}changes(mutable);";
-        yield return $"{namespaceTab}{tab}{tab}return transaction.InsertOrUpdate(mutable);";
-        yield return $"{namespaceTab}{tab}}}";
         yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update<T>(this Database<T> database, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) where T : class, IDatabaseModel =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(changes, transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this Database<T> database, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) where T : class, IDatabaseModel =>";
-        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+
         yield return namespaceTab + "}";
     }
 
@@ -290,7 +242,7 @@ public class GeneratorFileFactory
             name += $"{property.Model.CsTypeName}.";
 
         name += property.CsTypeName;
-        
+
         return name;
     }
 
@@ -303,19 +255,6 @@ public class GeneratorFileFactory
     {
         return property.CsNullable || property.EnumProperty.HasValue || MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName) || !MetadataTypeConverter.IsKnownCsType(property.CsTypeName) ? "?" : "";
     }
-
-    //private IEnumerable<string> WriteEnum(ValueProperty property, string namespaceTab, string tab)
-    //{
-    //    yield return $"{namespaceTab}public enum {property.CsTypeName}";
-    //    yield return namespaceTab + "{";
-    //    //yield return $"{tab}{tab}Empty,";
-
-    //    foreach (var val in property.EnumProperty.Value.EnumValues)
-    //        yield return $"{namespaceTab}{tab}{val.name} = {val.value},";
-
-    //    yield return namespaceTab + "}";
-    //    yield return "";
-    //}
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)
     {

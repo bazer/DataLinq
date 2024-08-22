@@ -434,10 +434,10 @@ public class TransactionTests : BaseTests
     public void InsertOrUpdate(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999800;
-        var employee = helpers.GetEmployee(emp_no, employeesDb);
+        var employee = helpers.GetEmployee(emp_no, employeesDb).Mutate();
 
         var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
-        var dbEmployee = employeesDb.InsertOrUpdate(employee, x => { x.birth_date = newBirthDate; });
+        var dbEmployee = employee.InsertOrUpdate(x => { x.birth_date = newBirthDate; }, employeesDb);
         Assert.Equal(emp_no, dbEmployee.emp_no);
         Assert.Equal(newBirthDate.ToShortDateString(), dbEmployee.birth_date.ToShortDateString());
     }
@@ -579,15 +579,15 @@ public class TransactionTests : BaseTests
     public void UpdateOldModel(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999796;
-        var employee = helpers.GetEmployee(emp_no, employeesDb);
+        var employee = helpers.GetEmployee(emp_no, employeesDb).Mutate();
 
         var newBirthDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
-        var dbEmployee = employeesDb.InsertOrUpdate(employee, x => { x.birth_date = newBirthDate; });
+        var dbEmployee = employee.InsertOrUpdate(x => { x.birth_date = newBirthDate; }, employeesDb);
         Assert.Equal(emp_no, dbEmployee.emp_no);
         Assert.Equal(newBirthDate, dbEmployee.birth_date);
 
         var newHireDate = helpers.RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20));
-        var dbEmployee2 = employeesDb.InsertOrUpdate(employee, x => { x.hire_date = newHireDate; });
+        var dbEmployee2 = employee.InsertOrUpdate(x => { x.hire_date = newHireDate; }, employeesDb);
         Assert.Equal(emp_no, dbEmployee2.emp_no);
         Assert.Equal(newBirthDate, dbEmployee2.birth_date);
         Assert.Equal(newHireDate, dbEmployee2.hire_date);

@@ -26,6 +26,7 @@ public interface IModelInstance<T> : IModelInstance
 public interface IImmutableInstance : IModelInstance
 {
     new RowData GetRowData();
+    DataSourceAccess GetDataSource();
 }
 
 public interface IImmutableInstance<T> : IImmutableInstance, IModelInstance<T>
