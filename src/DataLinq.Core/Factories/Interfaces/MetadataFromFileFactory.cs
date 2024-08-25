@@ -409,12 +409,15 @@ public class MetadataFromFileFactory
 
         if (name == "Index")
         {
-            if (arguments.Count < 3)
+            if (arguments.Count < 2)
                 throw new ArgumentException($"Attribute '{name}' have too few arguments");
 
             string indexName = arguments[0];
             if (!Enum.TryParse(arguments[1].Split('.').Last(), out IndexCharacteristic characteristic))
                 throw new ArgumentException($"Invalid IndexCharacteristic value '{arguments[1]}'");
+
+            if (arguments.Count == 2)
+                return new IndexAttribute(arguments[0], characteristic);
 
             if (Enum.TryParse(arguments[2].Split('.').Last(), out IndexType type))
                 return new IndexAttribute(indexName, characteristic, type, arguments.Skip(3).ToArray());

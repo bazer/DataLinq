@@ -10,49 +10,6 @@ namespace DataLinq.Tests.Models.Employees;
 
 //public static class EmployeeExtensions
 //{
-    //public static Employee Update<T>(this Database<T> database, Employee model, Action<MutableEmployee> changes) where T : class, IDatabaseModel =>
-    //    database.Commit(transaction => model.Update(changes, transaction));
-
-    //public static Employee InsertOrUpdate<T>(this Database<T> database, Employee model, Action<MutableEmployee> changes) where T : class, IDatabaseModel =>
-    //    database.Commit(transaction => model.InsertOrUpdate(changes, transaction));
-
-    //public static Employee Update(this Transaction transaction, Employee model, Action<MutableEmployee> changes) =>
-    //    model.Update(changes, transaction);
-
-    //public static Employee InsertOrUpdate(this Transaction transaction, Employee model, Action<MutableEmployee> changes) =>
-    //    model.InsertOrUpdate(changes, transaction);
-
-
-
-    //{
-    //    return Commit(transaction => transaction.Update(model, changes), transactionType);
-    //}
-
-    //public M Update<M>(M model, Action<Mutable<M>> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : ImmutableInstanceBase
-    //{
-    //    return Commit(transaction => transaction.Update(model, changes), transactionType);
-    //}
-
-    //    public static MutableEmployee Mutate(this Employee model) => new(model);
-
-    //    public static Employee Update(this Employee model, Action<MutableEmployee> changes, Transaction transaction)
-    //    {
-    //        var mutable = new MutableEmployee(model);
-    //        changes(mutable);
-
-    //        return transaction.Update(mutable);
-    //    }
-
-    //    public static Employee InsertOrUpdate(this Employee model, Action<MutableEmployee> changes, Transaction transaction)
-    //    {
-    //        var mutable = model == null
-    //            ? new MutableEmployee()
-    //            : new MutableEmployee(model);
-
-    //        changes(mutable);
-
-    //        return transaction.InsertOrUpdate(mutable);
-    //    }
 //}
 
 [Table("employees")]

@@ -28,59 +28,29 @@ public class ModelGenerator : IIncrementalGenerator
         IncrementalValueProvider<(Compilation, ImmutableArray<TypeDeclarationSyntax>)> compilationAndClasses = context.CompilationProvider
             .Combine(modelDeclarations.Collect());
 
-        context.RegisterSourceOutput(compilationAndClasses, (spc, source) => Execute(source.Item1, source.Item2, spc));
+        // Add this line to cache the metadata
+        IncrementalValuesProvider<DatabaseMetadata> cachedMetadata = compilationAndClasses.SelectMany((source, _) => 
+            metadataFactory.ReadSyntaxTrees(source.Item2));
+
+        context.RegisterSourceOutput(cachedMetadata, (spc, metadata) => ExecuteForDatabase(metadata, spc));
     }
 
-    private static bool IsModelDeclaration(SyntaxNode node) =>
-        node is ClassDeclarationSyntax classDeclaration &&
-        classDeclaration.BaseList?.Types.Any(t => MetadataFromFileFactory.IsModelInterface(t.ToString())) == true;
+    private static bool IsModelDeclaration(SyntaxNode node)
+    {
+        if (node is not ClassDeclarationSyntax classDeclaration)
+            return false;
+        
+        return classDeclaration.BaseList?.Types.Any(t => MetadataFromFileFactory.IsModelInterface(t.ToString())) == true;
+    }
 
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;
 
-    private void Execute(Compilation compilation, ImmutableArray<TypeDeclarationSyntax> modelDeclarations, SourceProductionContext context)
+    private void ExecuteForDatabase(DatabaseMetadata db, SourceProductionContext context)
     {
-        context.ReportDiagnostic(Diagnostic.Create(
-            new DiagnosticDescriptor("DL0001", "Info", "Executing source generator", "Info", DiagnosticSeverity.Info, true), Location.None));
-
-        var metadata = metadataFactory.ReadSyntaxTrees(modelDeclarations);
-
-        foreach (var db in metadata)
+        foreach (var (path, contents) in fileFactory.CreateModelFiles(db))
         {
-            foreach (var (path, contents) in fileFactory.CreateModelFiles(db))
-            {
-                //var source = GenerateProxyClass(context, table);
-                context.AddSource($"{db.Name}/{path}", contents);
-            }
+            context.AddSource($"{db.Name}/{path}", contents);
         }
-    }
-
-    private string GenerateProxyClass(SourceProductionContext context, TableModelMetadata tableModel)
-    {
-        
-
-
-        var namespaceName = tableModel.Model.Database.CsNamespace;
-
-        if (string.IsNullOrWhiteSpace(namespaceName))
-        {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor("DL002", "Error", "Unable to determine namespace", "DataLinq", DiagnosticSeverity.Error, true), null));
-            return string.Empty;
-        }
-
-        var className = tableModel.Model.CsTypeName;
-        var proxyClassName = $"{className}";
-
-        var sb = new StringBuilder();
-        var tab = "    ";
-        sb.AppendLine("using System;");
-        sb.AppendLine($"namespace {namespaceName};");
-        sb.AppendLine($"public partial record {className}");
-        sb.AppendLine("{");
-        sb.AppendLine($"{tab}public string Generated => \"Generator: {className}\";");
-        sb.AppendLine("}");
-
-        return sb.ToString();
     }
 }

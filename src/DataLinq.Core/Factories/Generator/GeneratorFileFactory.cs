@@ -181,37 +181,35 @@ public class GeneratorFileFactory
         yield return namespaceTab + "{";
 
         //Mutate
-        yield return $"{namespaceTab}{tab}public static Mutable{model.CsTypeName} Mutate(this {model.CsTypeName} model) => new(model);";
-
-        //InsertOrUpdate
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
+        yield return $"{namespaceTab}{tab}public static Mutable{model.CsTypeName} Mutate(this {model.CsTypeName} model) => model is null";
+        yield return $"{namespaceTab}{tab}{tab}? throw new ArgumentNullException(nameof(model))";
+        yield return $"{namespaceTab}{tab}{tab}: new(model);";
+        yield return $"{namespaceTab}{tab}public static Mutable{model.CsTypeName} Mutate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes)";
         yield return $"{namespaceTab}{tab}{{";
-        yield return $"{namespaceTab}{tab}{tab}var mutable = new Mutable{model.CsTypeName}(model);";
+        yield return $"{namespaceTab}{tab}{tab}if (model is null)";
+        yield return $"{namespaceTab}{tab}{tab}{tab}throw new ArgumentNullException(nameof(model));";
+        yield return $"{namespaceTab}{tab}{tab}";
+        yield return $"{namespaceTab}{tab}{tab}var mutable = model.Mutate();";
         yield return $"{namespaceTab}{tab}{tab}changes(mutable);";
-        yield return $"{namespaceTab}{tab}{tab}return transaction.InsertOrUpdate(mutable);";
+        yield return $"{namespaceTab}{tab}{tab}return mutable;";
         yield return $"{namespaceTab}{tab}}}";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
-        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
+        yield return $"{namespaceTab}{tab}public static Mutable{model.CsTypeName} Mutate(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes)";
         yield return $"{namespaceTab}{tab}{{";
         yield return $"{namespaceTab}{tab}{tab}changes(model);";
-        yield return $"{namespaceTab}{tab}{tab}return transaction.InsertOrUpdate(model);";
+        yield return $"{namespaceTab}{tab}{tab}return model;";
         yield return $"{namespaceTab}{tab}}}";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
-        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Transaction transaction, Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static Mutable{model.CsTypeName} MutateOrNew(this {model.CsTypeName} model) => model is null";
+        yield return $"{namespaceTab}{tab}{tab}? new()";
+        yield return $"{namespaceTab}{tab}{tab}: new(model);";
+        yield return $"{namespaceTab}{tab}public static Mutable{model.CsTypeName} MutateOrNew(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) => model is null";
+        yield return $"{namespaceTab}{tab}{tab}? new Mutable{model.CsTypeName}().Mutate(changes)";
+        yield return $"{namespaceTab}{tab}{tab}: new Mutable{model.CsTypeName}(model).Mutate(changes);";
 
         //Insert
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Insert(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
-        yield return $"{namespaceTab}{tab}{{";
-        yield return $"{namespaceTab}{tab}{tab}changes(model);";
-        yield return $"{namespaceTab}{tab}{tab}return transaction.Insert(model);";
-        yield return $"{namespaceTab}{tab}}}";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Insert<T>(this Mutable{model.CsTypeName} model, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Insert(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction) =>";
+        yield return $"{namespaceTab}{tab}{tab}transaction.Insert(model.Mutate(changes));";
         yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Insert<T>(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Insert(this Transaction transaction, Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
@@ -220,16 +218,50 @@ public class GeneratorFileFactory
         //Update
         yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.Update(changes, transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction)";
-        yield return $"{namespaceTab}{tab}{{";
-        yield return $"{namespaceTab}{tab}{tab}var mutable = new Mutable{model.CsTypeName}(model);";
-        yield return $"{namespaceTab}{tab}{tab}changes(mutable);";
-        yield return $"{namespaceTab}{tab}{tab}return transaction.Update(mutable);";
-        yield return $"{namespaceTab}{tab}}}";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction) =>";
+        yield return $"{namespaceTab}{tab}{tab}transaction.Update(model.Mutate(changes));";
         yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update<T>(this Database<T> database, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) where T : class, IDatabaseModel =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Update<T>(this Mutable{model.CsTypeName} model, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(transaction));";
+        
+        //InsertOrUpdate
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction) =>";
+        yield return $"{namespaceTab}{tab}{tab}transaction.InsertOrUpdate(model.Mutate(changes));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this Mutable{model.CsTypeName} model, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction) =>";
+        yield return $"{namespaceTab}{tab}{tab}transaction.InsertOrUpdate(model.Mutate(changes));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate<T>(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} InsertOrUpdate(this Transaction transaction, Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+
+        //Save
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Save(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.Update(changes);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Save(this {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Save<T>(this Database<T> database, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Update(model, changes);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Save(this Transaction transaction, {model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Save<T>(this Mutable{model.CsTypeName} model, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(database);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Save(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Transaction transaction) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Save<T>(this Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, database);";
+        yield return $"{namespaceTab}{tab}public static {model.CsTypeName} Save(this Transaction transaction, Mutable{model.CsTypeName} model, Action<Mutable{model.CsTypeName}> changes) =>";
+        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
 
         yield return namespaceTab + "}";
     }

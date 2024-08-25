@@ -27,13 +27,18 @@ public class MutableRowData : IRowData
 
     public T? GetValue<T>(Column column)
     {
-        return (T?)GetValue(column);
+        var val = GetValue(column);
+
+        if (val is null)
+            return default;
+
+        return (T?)val;
     }
 
     public object? GetValue(Column column)
     {
-        if (MutatedData.ContainsKey(column))
-            return MutatedData[column];
+        if (MutatedData.TryGetValue(column, out var value))
+            return value;
 
         return ImmutableRowData?.GetValue(column);
     }
