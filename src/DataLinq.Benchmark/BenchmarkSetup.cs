@@ -66,7 +66,7 @@ public class BenchmarkSetup
     [Benchmark]
     public void LoadAllUsers()
     {
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < 1000; i++)
         {
             var reviews = db.Query().Productreviews.Take(1000).ToArray();
 

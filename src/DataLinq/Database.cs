@@ -97,7 +97,6 @@ public abstract class Database<T> : IDisposable
         if (alias == null)
             (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
-        //var transaction = Transaction(TransactionType.ReadOnly);
         var table = Provider.TypedReadOnlyAccess.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
         return new SqlQuery(table, Provider.TypedReadOnlyAccess, alias);
@@ -149,19 +148,6 @@ public abstract class Database<T> : IDisposable
     }
 
     /// <summary>
-    /// Updates an existing model in the database with the specified changes.
-    /// </summary>
-    /// <typeparam name="M">The type of the model.</typeparam>
-    /// <param name="model">The model to update.</param>
-    /// <param name="changes">The changes to apply to the model.</param>
-    /// <param name="transactionType">The type of the transaction.</param>
-    /// <returns>The updated model.</returns>
-    //public M Update<M>(M model, Action<Mutable<M>> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : ImmutableInstanceBase
-    //{
-    //    return Commit(transaction => transaction.Update(model, changes), transactionType);
-    //}
-
-    /// <summary>
     /// Inserts or updates a model in the database.
     /// </summary>
     /// <typeparam name="M">The type of the model.</typeparam>
@@ -171,19 +157,6 @@ public abstract class Database<T> : IDisposable
     public M InsertOrUpdate<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
     {
         return Commit(transaction => transaction.InsertOrUpdate(model), transactionType);
-    }
-
-    /// <summary>
-    /// Inserts or updates a model in the database with the specified changes.
-    /// </summary>
-    /// <typeparam name="M">The type of the model.</typeparam>
-    /// <param name="model">The model to insert or update.</param>
-    /// <param name="changes">The changes to apply to the model.</param>
-    /// <param name="transactionType">The type of the transaction.</param>
-    /// <returns>The inserted or updated model.</returns>
-    public M InsertOrUpdate<M>(M model, Action<Mutable<M>> changes, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
-    {
-        return Commit(transaction => transaction.InsertOrUpdate(model, changes), transactionType);
     }
 
     /// <summary>
