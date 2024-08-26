@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -42,7 +43,7 @@ internal class QueryExecutor : IQueryExecutor
     /// <summary>Gets the metadata for the table that queries will be executed against.</summary>
     private TableMetadata Table { get; }
 
-    private static QueryModel? ExtractQueryModel(Expression expression)
+    private static QueryModel? ExtractQueryModel(Expression? expression)
     {
         switch (expression)
         {
@@ -78,17 +79,17 @@ internal class QueryExecutor : IQueryExecutor
     /// The method parses through body clauses and result operators to construct a SQL query.
     /// It uses the Where and OrderBy clauses to form the SQL conditions and ordering.
     /// </remarks>
-    private Select<object> ParseQueryModel(QueryModel queryModel)
+    private Select<T> ParseQueryModel<T>(QueryModel queryModel)
     {
         // Extract the subquery model from the main clause if necessary
         var subQueryModel = ExtractQueryModel(queryModel.MainFromClause.FromExpression);
         if (subQueryModel != null)
         {
             // Recursively parse the subquery model
-            return ParseQueryModel(subQueryModel);
+            return ParseQueryModel<T>(subQueryModel);
         }
 
-        var query = new SqlQuery(Table, Transaction);
+        var query = new SqlQuery<T>(Table, Transaction);
 
         foreach (var body in queryModel.BodyClauses)
         {
@@ -187,7 +188,7 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     public IEnumerable<T?> ExecuteCollection<T>(QueryModel queryModel)
     {
-        return ParseQueryModel(queryModel)
+        return ParseQueryModel<T>(queryModel)
             .Execute()
             .Select(GetSelectFunc<T>(queryModel.SelectClause));
     }
@@ -204,7 +205,7 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
     {
-        var sequence = ParseQueryModel(queryModel)
+        var sequence = ParseQueryModel<T>(queryModel)
             .Execute()
             .Select(GetSelectFunc<T>(queryModel.SelectClause));
 
@@ -240,7 +241,7 @@ internal class QueryExecutor : IQueryExecutor
     {
         if (queryModel.ResultOperators.Any())
         {
-            var select = ParseQueryModel(queryModel);
+            var select = ParseQueryModel<T>(queryModel);
             var op = queryModel.ResultOperators[0].ToString();
 
             // Modify the SQL query for Count() or Any()

@@ -14,16 +14,12 @@ public class DbRead<T> : Queryable<T>
     /// Initializes a new instance of the <see cref="DbRead{T}"/> class.
     /// </summary>
     /// <param name="transaction">The transaction.</param>
-    public DbRead(DataSourceAccess transaction) : base(transaction, transaction.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table)
-    {
-    }
+    public DbRead(DataSourceAccess transaction) : base(transaction, transaction.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table) { }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DbRead{T}"/> class.
     /// </summary>
     /// <param name="provider">The query provider.</param>
     /// <param name="expression">The expression.</param>
-    public DbRead(IQueryProvider provider, Expression expression) : base(provider, expression)
-    {
-    }
+    public DbRead(IQueryProvider provider, Expression expression) : base(provider, expression) { }
 }

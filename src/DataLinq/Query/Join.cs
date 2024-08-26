@@ -14,7 +14,7 @@ public class Join<T>
     public readonly SqlQuery<T> Query;
     readonly string TableName;
     readonly JoinType Type;
-    protected WhereGroup<T> WhereContainer;
+    protected WhereGroup<T>? WhereContainer = null;
     private readonly string? Alias;
 
     internal Join(SqlQuery<T> query, string tableName, string? alias, JoinType type)
@@ -25,7 +25,7 @@ public class Join<T>
         this.Alias = alias;
     }
 
-    public Where<T> On(string columnName, string alias = null)
+    public Where<T> On(string columnName, string? alias = null)
     {
         if (WhereContainer == null)
             WhereContainer = new WhereGroup<T>(Query);
@@ -49,6 +49,9 @@ public class Join<T>
 
         Query.AddTableName(sql, TableName, Alias);
         sql.AddText(" ON ");
+
+        if (WhereContainer == null)
+            throw new InvalidOperationException("Join without ON clause.");
 
         WhereContainer.AddCommandString(sql, paramPrefix, true);
 

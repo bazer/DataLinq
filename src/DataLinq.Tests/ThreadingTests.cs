@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Xunit;
 
 namespace DataLinq.Tests;
@@ -13,7 +14,7 @@ public class ThreadingTests : BaseTests
     
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void StressTest(Database<Employees> employeesDb)
+    public void StressTest(Database<EmployeesDb> employeesDb)
     {
         var amount = 100;
 
@@ -43,7 +44,7 @@ public class ThreadingTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void ReadParallel(Database<Employees> employeesDb)
+    public void ReadParallel(Database<EmployeesDb> employeesDb)
     {
         Parallel.For(0, 100, i =>
         {
@@ -55,7 +56,7 @@ public class ThreadingTests : BaseTests
         });
     }
 
-    private void SetAndTest(int value, Database<Employees> employeesDb)
+    private void SetAndTest(int value, Database<EmployeesDb> employeesDb)
     {
         var employee = employeesDb.Query().Employees.Single(x => x.emp_no == value);
         Assert.Equal(value, employee.emp_no);
@@ -63,7 +64,7 @@ public class ThreadingTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void CommitTransactionParallel(Database<Employees> employeesDb)
+    public void CommitTransactionParallel(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999990;
 
@@ -92,7 +93,7 @@ public class ThreadingTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void LazyLoadSingleValue(Database<Employees> employeesDb)
+    public void LazyLoadSingleValue(Database<EmployeesDb> employeesDb)
     {
         Parallel.For(1, 10, i =>
         {
@@ -105,7 +106,7 @@ public class ThreadingTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void LazyLoadList(Database<Employees> employeesDb)
+    public void LazyLoadList(Database<EmployeesDb> employeesDb)
     {
         Parallel.For(0, 100, i =>
         {
@@ -120,7 +121,7 @@ public class ThreadingTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void MakeSnapshot(Database<Employees> employeesDb)
+    public void MakeSnapshot(Database<EmployeesDb> employeesDb)
     {
         var rand = Random.Shared;
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Xunit;
 
 namespace DataLinq.Tests;
@@ -16,7 +17,7 @@ public class SharedSetup
     public int Dept7Count { get; }
 
 
-    public SharedSetup(Database<Employees> employeesDb)
+    public SharedSetup(Database<EmployeesDb> employeesDb)
     {
         TestEmployee = employeesDb.Query().Employees.Single(x => x.emp_no == 1010);
         TestEmployeeDeptCount = TestEmployee.dept_emp.Count();
@@ -54,7 +55,7 @@ public class CacheTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void CheckRowDuplicates(Database<Employees> employeesDb)
+    public void CheckRowDuplicates(Database<EmployeesDb> employeesDb)
     {
         var setup = new SharedSetup(employeesDb);
 
@@ -86,7 +87,7 @@ public class CacheTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void TimeLimit(Database<Employees> employeesDb)
+    public void TimeLimit(Database<EmployeesDb> employeesDb)
     {
         var setup = new SharedSetup(employeesDb);
 
@@ -156,7 +157,7 @@ public class CacheTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void RowLimit(Database<Employees> employeesDb)
+    public void RowLimit(Database<EmployeesDb> employeesDb)
     {
         var setup = new SharedSetup(employeesDb);
 
@@ -183,7 +184,7 @@ public class CacheTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SizeLimit(Database<Employees> employeesDb)
+    public void SizeLimit(Database<EmployeesDb> employeesDb)
     {
         var setup = new SharedSetup(employeesDb);
 

@@ -3,9 +3,12 @@ using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Config;
+using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Microsoft.CodeAnalysis;
 using Xunit;
 
@@ -17,7 +20,7 @@ public class CoreTests : BaseTests
     public void TestMetadataFromFixture()
     {
         Assert.Equal(2, DatabaseMetadata.LoadedDatabases.Count);
-        Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(Employees));
+        Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(EmployeesDb));
         Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(information_schema));
     }
 
@@ -25,13 +28,13 @@ public class CoreTests : BaseTests
     [Fact]
     public void TestMetadataFromFilesFactory()
     {
-        var projectRoot = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent;
+        var projectRoot = Path.Combine(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.Parent.FullName, "DataLinq.Tests.Models");
         var srcPaths = DatabaseFixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories
-            .Select(x => Path.Combine(projectRoot.FullName, x))
+            .Select(x => Path.Combine(projectRoot, x))
             .ToList();
 
         //var srcPaths = Fixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories.Select(x => Path.GetFullPath(x)).ToList();
-        var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths).Value;
+        var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths);
 
         TestDatabaseAttributes(metadata);
         TestDatabase(metadata, false);
@@ -40,7 +43,7 @@ public class CoreTests : BaseTests
     [Fact]
     public void TestMetadataFromInterfaceFactory()
     {
-        var metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(typeof(Employees));
+        var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb));
 
         TestDatabaseAttributes(metadata);
         TestDatabase(metadata, true);

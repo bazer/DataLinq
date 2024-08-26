@@ -85,7 +85,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
             }
             else
             {
-                Metadata = MetadataFromInterfaceFactory.ParseDatabaseFromDatabaseModel(type);
+                Metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(type);
                 DatabaseMetadata.LoadedDatabases.TryAdd(type, Metadata);
 
                 if (Metadata.UseCache)
@@ -128,6 +128,22 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite)
     {
         return new Transaction(this, transactionType);
+    }
+
+    public M Commit<M>(Func<Transaction, M> func)
+    {
+        using var transaction = StartTransaction();
+        var result = func(transaction);
+        transaction.Commit();
+
+        return result;
+    }
+
+    public void Commit(Action<Transaction> action)
+    {
+        using var transaction = StartTransaction();
+        action(transaction);
+        transaction.Commit();
     }
 
     /// <summary>

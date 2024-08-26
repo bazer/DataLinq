@@ -13,9 +13,9 @@ public class RowCache
     private (IKey keys, long ticks, int size)? oldestKeyTick;
     private readonly Queue<(IKey keys, long ticks, int size)> keysTicks = new();
 
-    protected ConcurrentDictionary<IKey, ImmutableInstanceBase> rows = new();
+    protected ConcurrentDictionary<IKey, IImmutableInstance> rows = new();
 
-    public IEnumerable<ImmutableInstanceBase> Rows => rows.Values.AsEnumerable();
+    public IEnumerable<IImmutableInstance> Rows => rows.Values.AsEnumerable();
     public int Count => rows.Count;
 
     public long? OldestTick => oldestKeyTick?.ticks;
@@ -168,7 +168,7 @@ public class RowCache
         return count;
     }
 
-    public bool TryGetValue(IKey primaryKeys, out ImmutableInstanceBase? row) => rows.TryGetValue(primaryKeys, out row);
+    public bool TryGetValue(IKey primaryKeys, out IImmutableInstance? row) => rows.TryGetValue(primaryKeys, out row);
 
     public bool TryRemoveRow(IKey primaryKeys, out int numRowsRemoved)
     {
@@ -188,7 +188,7 @@ public class RowCache
         return true;
     }
 
-    public bool TryAddRow(IKey keys, RowData data, ImmutableInstanceBase instance)
+    public bool TryAddRow(IKey keys, RowData data, IImmutableInstance instance)
     {
         var ticks = DateTime.Now.Ticks;
 

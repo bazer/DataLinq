@@ -1,15 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
-    <ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
-    <ProjectReference Include="..\DataLinq.Tests\DataLinq.Tests.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
+		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
+		<ProjectReference Include="..\DataLinq.Tests\DataLinq.Tests.csproj" />
+	</ItemGroup>
 
 </Project>

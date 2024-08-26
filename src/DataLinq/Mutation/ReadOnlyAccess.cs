@@ -38,8 +38,7 @@ public class ReadOnlyAccess : DataSourceAccess
             .DatabaseAccess
             .ReadReader(query)
             .Select(x => new RowData(x, table, table.Columns))
-            .Select(x => InstanceFactory.NewImmutableRow(x, Provider, null))
-            .Cast<T>();
+            .Select(x => InstanceFactory.NewImmutableRow<T>(x, Provider, this));
     }
 
     /// <summary>
@@ -56,8 +55,7 @@ public class ReadOnlyAccess : DataSourceAccess
             .DatabaseAccess
             .ReadReader(dbCommand)
             .Select(x => new RowData(x, table, table.Columns))
-            .Select(x => InstanceFactory.NewImmutableRow(x, Provider, null))
-            .Cast<T>();
+            .Select(x => InstanceFactory.NewImmutableRow<T>(x, Provider, this));
     }
 }
 
@@ -77,7 +75,6 @@ public class ReadOnlyAccess<T> : ReadOnlyAccess where T : class, IDatabaseModel
     /// Initializes a new instance of the <see cref="Transaction{T}"/> class.
     /// </summary>
     /// <param name="databaseProvider">The database provider.</param>
-    /// <param name="type">The type of the transaction.</param>
     public ReadOnlyAccess(DatabaseProvider<T> databaseProvider) : base(databaseProvider)
     {
         Database = InstanceFactory.NewDatabase<T>(this);

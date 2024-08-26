@@ -41,6 +41,28 @@ public readonly record struct IntKey(int Value) : IKey, IEquatable<IntKey>
         Value.GetHashCode();
 }
 
+public readonly record struct UInt64Key(ulong Value) : IKey, IEquatable<UInt64Key>
+{
+    public object?[] Values => [Value];
+
+    public bool Equals(UInt64Key other) =>
+        Value == other.Value;
+
+    public override int GetHashCode() =>
+        Value.GetHashCode();
+}
+
+public readonly record struct Int64Key(long Value) : IKey, IEquatable<Int64Key>
+{
+    public object?[] Values => [Value];
+
+    public bool Equals(Int64Key other) =>
+        Value == other.Value;
+
+    public override int GetHashCode() =>
+        Value.GetHashCode();
+}
+
 public readonly record struct GuidKey(Guid Value) : IKey, IEquatable<GuidKey>
 {
     public object?[] Values => [Value];

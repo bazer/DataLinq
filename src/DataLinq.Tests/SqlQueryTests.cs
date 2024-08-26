@@ -1,5 +1,6 @@
 using System.Linq;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Xunit;
 
 namespace DataLinq.Tests;
@@ -8,7 +9,7 @@ public class SqlQueryTests : BaseTests
 {
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhere(Database<Employees> employeesDb)
+    public void SimpleWhere(Database<EmployeesDb> employeesDb)
     {
         var departement = employeesDb
             .From<Department>()
@@ -21,7 +22,7 @@ public class SqlQueryTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void GetFromQueryWhere(Database<Employees> employeesDb)
+    public void GetFromQueryWhere(Database<EmployeesDb> employeesDb)
     {
         var departement = employeesDb.Transaction().GetFromQuery<Department>("SELECT * FROM departments WHERE dept_no = 'd005'");
 

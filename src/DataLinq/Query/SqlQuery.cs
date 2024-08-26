@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -31,22 +30,22 @@ public class SqlQuery : SqlQuery<object>
     {
     }
 
-    public SqlQuery Where(WhereClause where)
-    {
-        new WhereVisitor(this).Parse(where);
+    //public SqlQuery Where(WhereClause where)
+    //{
+    //    new WhereVisitor<object>(this).Parse(where);
 
-        return this;
-    }
+    //    return this;
+    //}
 
-    public SqlQuery OrderBy(OrderByClause orderBy)
-    {
-        foreach (var ordering in orderBy.Orderings)
-        {
-            new OrderByVisitor(this).Parse(ordering);
-        }
+    //public SqlQuery OrderBy(OrderByClause orderBy)
+    //{
+    //    foreach (var ordering in orderBy.Orderings)
+    //    {
+    //        new OrderByVisitor<object>(this).Parse(ordering);
+    //    }
 
-        return this;
-    }
+    //    return this;
+    //}
 }
 
 public class SqlQuery<T>
@@ -207,6 +206,23 @@ public class SqlQuery<T>
             WhereGroup = new WhereGroup<T>(this);
 
         return WhereGroup;
+    }
+
+    public SqlQuery<T> Where(WhereClause where)
+    {
+        new WhereVisitor<T>(this).Parse(where);
+
+        return this;
+    }
+
+    public SqlQuery<T> OrderBy(OrderByClause orderBy)
+    {
+        foreach (var ordering in orderBy.Orderings)
+        {
+            new OrderByVisitor<T>(this).Parse(ordering);
+        }
+
+        return this;
     }
 
     internal Sql GetWhere(Sql sql, string? paramPrefix)

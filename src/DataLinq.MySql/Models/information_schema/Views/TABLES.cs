@@ -1,121 +1,124 @@
 ﻿using System;
+using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.MySql.Models;
 
 [Definition("")]
 [View("TABLES")]
-public partial record TABLES : IViewModel<information_schema>
+public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSource) : Immutable<TABLES, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("AUTO_INCREMENT")]
-    public virtual long? AUTO_INCREMENT { get; set; }
+    public abstract long? AUTO_INCREMENT { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("AVG_ROW_LENGTH")]
-    public virtual long? AVG_ROW_LENGTH { get; set; }
+    public abstract long? AVG_ROW_LENGTH { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "datetime")]
+    [Type(DatabaseType.MySQL, "datetime", 0)]
     [Column("CHECK_TIME")]
-    public virtual DateTime? CHECK_TIME { get; set; }
+    public abstract DateTime? CHECK_TIME { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("CHECKSUM")]
-    public virtual long? CHECKSUM { get; set; }
+    public abstract long? CHECKSUM { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 2048)]
     [Column("CREATE_OPTIONS")]
-    public virtual string CREATE_OPTIONS { get; set; }
+    public abstract string? CREATE_OPTIONS { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "datetime")]
+    [Type(DatabaseType.MySQL, "datetime", 0)]
     [Column("CREATE_TIME")]
-    public virtual DateTime? CREATE_TIME { get; set; }
+    public abstract DateTime? CREATE_TIME { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("DATA_FREE")]
-    public virtual long? DATA_FREE { get; set; }
+    public abstract long? DATA_FREE { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("DATA_LENGTH")]
-    public virtual long? DATA_LENGTH { get; set; }
+    public abstract long? DATA_LENGTH { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("ENGINE")]
-    public virtual string ENGINE { get; set; }
+    public abstract string? ENGINE { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("INDEX_LENGTH")]
-    public virtual long? INDEX_LENGTH { get; set; }
+    public abstract long? INDEX_LENGTH { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("MAX_DATA_LENGTH")]
-    public virtual long? MAX_DATA_LENGTH { get; set; }
+    public abstract long? MAX_DATA_LENGTH { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("MAX_INDEX_LENGTH")]
-    public virtual long? MAX_INDEX_LENGTH { get; set; }
+    public abstract long? MAX_INDEX_LENGTH { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 10)]
     [Column("ROW_FORMAT")]
-    public virtual string ROW_FORMAT { get; set; }
+    public abstract string? ROW_FORMAT { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 512)]
     [Column("TABLE_CATALOG")]
-    public virtual string TABLE_CATALOG { get; set; }
+    public abstract string? TABLE_CATALOG { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 32)]
     [Column("TABLE_COLLATION")]
-    public virtual string TABLE_COLLATION { get; set; }
+    public abstract string? TABLE_COLLATION { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 2048)]
     [Column("TABLE_COMMENT")]
-    public virtual string TABLE_COMMENT { get; set; }
+    public abstract string? TABLE_COMMENT { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_NAME")]
-    public virtual string TABLE_NAME { get; set; }
+    public abstract string? TABLE_NAME { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("TABLE_ROWS")]
-    public virtual long? TABLE_ROWS { get; set; }
+    public abstract long? TABLE_ROWS { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_SCHEMA")]
-    public virtual string TABLE_SCHEMA { get; set; }
+    public abstract string? TABLE_SCHEMA { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_TYPE")]
-    public virtual string TABLE_TYPE { get; set; }
+    public abstract string? TABLE_TYPE { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 1)]
     [Column("TEMPORARY")]
-    public virtual string TEMPORARY { get; set; }
+    public abstract string? TEMPORARY { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "datetime")]
+    [Type(DatabaseType.MySQL, "datetime", 0)]
     [Column("UPDATE_TIME")]
-    public virtual DateTime? UPDATE_TIME { get; set; }
+    public abstract DateTime? UPDATE_TIME { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("VERSION")]
-    public virtual long? VERSION { get; set; }
+    public abstract long? VERSION { get; }
 
 }

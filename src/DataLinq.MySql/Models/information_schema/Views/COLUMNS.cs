@@ -1,108 +1,111 @@
 ﻿using System;
+using DataLinq;
 using DataLinq.Attributes;
+using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.MySql.Models;
 
 [Definition("")]
 [View("COLUMNS")]
-public partial record COLUMNS : IViewModel<information_schema>
+public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSource) : Immutable<COLUMNS, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("CHARACTER_MAXIMUM_LENGTH")]
-    public virtual long? CHARACTER_MAXIMUM_LENGTH { get; set; }
+    public abstract long? CHARACTER_MAXIMUM_LENGTH { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("CHARACTER_OCTET_LENGTH")]
-    public virtual long? CHARACTER_OCTET_LENGTH { get; set; }
+    public abstract long? CHARACTER_OCTET_LENGTH { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 32)]
     [Column("CHARACTER_SET_NAME")]
-    public virtual string CHARACTER_SET_NAME { get; set; }
+    public abstract string? CHARACTER_SET_NAME { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 32)]
     [Column("COLLATION_NAME")]
-    public virtual string COLLATION_NAME { get; set; }
+    public abstract string? COLLATION_NAME { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 1024)]
     [Column("COLUMN_COMMENT")]
-    public virtual string COLUMN_COMMENT { get; set; }
+    public abstract string? COLUMN_COMMENT { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "longtext", 4294967295)]
     [Column("COLUMN_DEFAULT")]
-    public virtual string COLUMN_DEFAULT { get; set; }
+    public abstract string? COLUMN_DEFAULT { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 3)]
     [Column("COLUMN_KEY")]
-    public virtual string COLUMN_KEY { get; set; }
+    public abstract string? COLUMN_KEY { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("COLUMN_NAME")]
-    public virtual string COLUMN_NAME { get; set; }
+    public abstract string? COLUMN_NAME { get; }
 
     [Type(DatabaseType.MySQL, "longtext", 4294967295)]
     [Column("COLUMN_TYPE")]
-    public virtual string COLUMN_TYPE { get; set; }
+    public abstract string? COLUMN_TYPE { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("DATA_TYPE")]
-    public virtual string DATA_TYPE { get; set; }
+    public abstract string? DATA_TYPE { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("DATETIME_PRECISION")]
-    public virtual long? DATETIME_PRECISION { get; set; }
+    public abstract long? DATETIME_PRECISION { get; }
 
-    [Type(DatabaseType.MySQL, "varchar", 30)]
+    [Type(DatabaseType.MySQL, "varchar", 80)]
     [Column("EXTRA")]
-    public virtual string EXTRA { get; set; }
+    public abstract string? EXTRA { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "longtext", 4294967295)]
     [Column("GENERATION_EXPRESSION")]
-    public virtual string GENERATION_EXPRESSION { get; set; }
+    public abstract string? GENERATION_EXPRESSION { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 6)]
     [Column("IS_GENERATED")]
-    public virtual string IS_GENERATED { get; set; }
+    public abstract string? IS_GENERATED { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 3)]
     [Column("IS_NULLABLE")]
-    public virtual string IS_NULLABLE { get; set; }
+    public abstract string? IS_NULLABLE { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("NUMERIC_PRECISION")]
-    public virtual long? NUMERIC_PRECISION { get; set; }
+    public abstract long? NUMERIC_PRECISION { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("NUMERIC_SCALE")]
-    public virtual long? NUMERIC_SCALE { get; set; }
+    public abstract long? NUMERIC_SCALE { get; }
 
-    [Type(DatabaseType.MySQL, "bigint", false)]
+    [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("ORDINAL_POSITION")]
-    public virtual long ORDINAL_POSITION { get; set; }
+    public abstract long? ORDINAL_POSITION { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 80)]
     [Column("PRIVILEGES")]
-    public virtual string PRIVILEGES { get; set; }
+    public abstract string? PRIVILEGES { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 512)]
     [Column("TABLE_CATALOG")]
-    public virtual string TABLE_CATALOG { get; set; }
+    public abstract string? TABLE_CATALOG { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_NAME")]
-    public virtual string TABLE_NAME { get; set; }
+    public abstract string? TABLE_NAME { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_SCHEMA")]
-    public virtual string TABLE_SCHEMA { get; set; }
+    public abstract string? TABLE_SCHEMA { get; }
 
 }

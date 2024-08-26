@@ -35,7 +35,7 @@ public class BenchmarkSetup
         //var logger = loggerFactory.CreateLogger<Program>();
 
         //var loggerFactory = LoggerFactory.Create(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
-        DataLinqConfig config = DataLinqConfig.FindAndReadConfigs("D:\\git\\DataLinq\\src\\DataLinq.Benchmark\\datalinq.json", Console.WriteLine);
+        DataLinqConfig config = DataLinqConfig.FindAndReadConfigs("D:\\git\\DataLinq\\src\\DataLinq.Tests.Models\\datalinq.json", Console.WriteLine);
         conn = config.Databases.Single(x => x.Name == "AllroundBenchmark").Connections.Single(x => x.Type == DatabaseType.MySQL);
         db = new MySqlDatabase<AllroundBenchmark>(conn.ConnectionString.Original, conn.DataSourceName, loggerFactory);
     }
@@ -66,14 +66,14 @@ public class BenchmarkSetup
     [Benchmark]
     public void LoadAllUsers()
     {
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < 1000; i++)
         {
-            var reviews = db.Query().Productreviews.Take(1000);
+            var reviews = db.Query().Productreviews.Take(1000).ToArray();
 
-            foreach (var user in reviews.Select(x => x.Users))
+            foreach (var user in reviews.Select(x => x.users))
             {
-                //var orders = user.Orders.ToList();
-                Console.WriteLine($"Num orders for user {user.UserName}: {user.Orders.Count()}");
+                var orders = user.orders.ToList();
+                //Console.WriteLine($"Num orders for user {user.UserName}: {user.orders.Count()}");
             }
         }
     }

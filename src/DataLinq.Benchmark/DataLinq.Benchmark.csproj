@@ -1,26 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.13.12" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+		<PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
+		<PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
-    <ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
-    <ProjectReference Include="..\DataLinq.Tests\DataLinq.Tests.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="datalinq.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" />
+		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
+		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
+		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
+	</ItemGroup>
 
 </Project>

@@ -4,7 +4,7 @@ using DataLinq.Interfaces;
 
 namespace DataLinq.Mutation;
 
-public abstract class DataSourceAccess
+public abstract class DataSourceAccess : IDataSourceAccess
 {
 
     /// <summary>

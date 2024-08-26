@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DataLinq.Config;
+using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using ThrowAway;
 
@@ -134,13 +136,13 @@ public class ModelGenerator : Generator
 
                 var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
                 var srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, srcPathsExists.Select(x => x.Value));
-                if (srcMetadata.HasFailed)
-                {
-                    //log("Error: Unable to parse source files.");
-                    return "Error: Unable to parse source files";
-                }
+                //if (srcMetadata.HasFailed)
+                //{
+                //    //log("Error: Unable to parse source files.");
+                //    return "Error: Unable to parse source files";
+                //}
 
-                log($"Tables in source model files: {srcMetadata.Value.TableModels.Count}");
+                log($"Tables in source model files: {srcMetadata.TableModels.Count}");
                 log("");
 
                 var transformer = new MetadataTransformer(new MetadataTransformerOptions(db.RemoveInterfacePrefix));
@@ -149,16 +151,17 @@ public class ModelGenerator : Generator
         }
 
 
-        var options = new FileFactoryOptions
+        var options = new InterfaceFileFactoryOptions
         {
             NamespaceName = db.Namespace,
             UseRecords = db.UseRecord,
             UseFileScopedNamespaces = db.UseFileScopedNamespaces,
+            UseNullableReferenceTypes = db.UseNullableReferenceTypes,
             SeparateTablesAndViews = db.SeparateTablesAndViews
         };
 
         //log($"Writing models to:");
-        foreach (var file in new FileFactory(options).CreateModelFiles(dbMetadata))
+        foreach (var file in new InterfaceFileFactory(options).CreateModelFiles(dbMetadata))
         {
             var filepath = $"{destDir}{Path.DirectorySeparatorChar}{file.path}";
             log($"Writing {filepath}");

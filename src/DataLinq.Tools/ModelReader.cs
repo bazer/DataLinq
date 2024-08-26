@@ -2,6 +2,8 @@
 using System.IO;
 using System.Linq;
 using DataLinq.Config;
+using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using ThrowAway;
 

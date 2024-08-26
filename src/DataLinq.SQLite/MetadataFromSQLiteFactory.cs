@@ -3,6 +3,7 @@ using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using ThrowAway;
 

@@ -21,6 +21,7 @@
 		<PackAsTool>true</PackAsTool>
 		<ToolCommandName>datalinq</ToolCommandName>
 		<PackageOutputPath>./../../nupkg</PackageOutputPath>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 
 	<ItemGroup>

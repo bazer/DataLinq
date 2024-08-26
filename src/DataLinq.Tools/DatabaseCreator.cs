@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using DataLinq.Config;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Extensions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
@@ -62,13 +63,13 @@ public class DatabaseCreator : Generator
 
         var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
         var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList());
-        if (dbMetadata.HasFailed)
-        {
-            log("Error: Unable to parse model files.");
-            return DatabaseCreatorError.UnableToParseModelFiles;
-        }
+        //if (dbMetadata.HasFailed)
+        //{
+        //    log("Error: Unable to parse model files.");
+        //    return DatabaseCreatorError.UnableToParseModelFiles;
+        //}
 
-        log($"Tables in model files: {dbMetadata.Value.TableModels.Count}");
+        log($"Tables in model files: {dbMetadata.TableModels.Count}");
 
         if (connection.Type == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
             databaseName = Path.Combine(basePath, databaseName);

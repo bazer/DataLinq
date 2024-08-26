@@ -1,5 +1,6 @@
 using System.Linq;
 using DataLinq.Tests.Models;
+using DataLinq.Tests.Models.Employees;
 using Xunit;
 
 namespace DataLinq.Tests;
@@ -8,7 +9,7 @@ public class RelationTests : BaseTests
 {
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void LazyLoadSingleValue(Database<Employees> employeesDb)
+    public void LazyLoadSingleValue(Database<EmployeesDb> employeesDb)
     {
         var manager = employeesDb.Query().Managers.Single(x => x.dept_fk == "d005" && x.emp_no == 1251);
 
@@ -18,7 +19,7 @@ public class RelationTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void LazyLoadList(Database<Employees> employeesDb)
+    public void LazyLoadList(Database<EmployeesDb> employeesDb)
     {
         var department = employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
 
@@ -30,7 +31,7 @@ public class RelationTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void EmptyList(Database<Employees> employeesDb)
+    public void EmptyList(Database<EmployeesDb> employeesDb)
     {
         var employee = employeesDb.Query().Employees.Single(x => x.emp_no == 1000);
 

@@ -17,7 +17,7 @@ public class MySQLProvider : IDatabaseProviderRegister
 {
     public static bool HasBeenRegistered { get; private set; }
 
-    [ModuleInitializer]
+    //[ModuleInitializer]
     public static void RegisterProvider()
     {
         if (HasBeenRegistered)
