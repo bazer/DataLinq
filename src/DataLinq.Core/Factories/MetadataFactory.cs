@@ -22,7 +22,7 @@ public struct MetadataFromDatabaseFactoryOptions
 
 public static class MetadataFactory
 {
-    public static void ParseIndices(DatabaseMetadata database)
+    public static void ParseIndices(DatabaseDefinition database)
     {
         var indices = database.TableModels
             .SelectMany(tableModel => tableModel.Table.Columns
@@ -44,7 +44,7 @@ public static class MetadataFactory
                 {
                     var columnsForIndex = indexAttribute.Columns.Any()
                         ? indexAttribute.Columns.Select(colName => column.Table.Columns.Single(c => c.DbName == colName)).ToList()
-                        : new List<Column> { column };
+                        : new List<ColumnDefinition> { column };
 
                     column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
                 }
@@ -94,7 +94,7 @@ public static class MetadataFactory
     //    }
     //}
 
-    public static void ParseRelations(DatabaseMetadata database)
+    public static void ParseRelations(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table))
         {
@@ -115,7 +115,7 @@ public static class MetadataFactory
                 //    .OfType<ForeignKeyAttribute>()
                 //    .Single();
 
-                var relation = new Relation
+                var relation = new RelationDefinition
                 {
                     ConstraintName = attribute.Name,
                     Type = RelationType.OneToMany
@@ -157,18 +157,18 @@ public static class MetadataFactory
         }
     }
 
-    private static RelationPart CreateRelationPart(Relation relation, ColumnIndex column, RelationPartType type)
+    private static RelationPart CreateRelationPart(RelationDefinition relation, ColumnIndex column, RelationPartType type)
     {
         return new RelationPart
         {
             Relation = relation,
             ColumnIndex = column,
             Type = type,
-            CsName = column.Table.Model.CsTypeName
+            CsName = column.Table.Model.CsType.Name
         };
     }
 
-    private static RelationProperty? GetRelationProperty(RelationPart relationPart, Column column)
+    private static RelationProperty? GetRelationProperty(RelationPart relationPart, ColumnDefinition column)
     {
         return relationPart.ColumnIndex.Table.Model
             .RelationProperties.Values.SingleOrDefault(x =>
@@ -179,7 +179,7 @@ public static class MetadataFactory
                     && (relationAttribute.Name == null || relationAttribute.Name == relationPart.Relation.ConstraintName)));
     }
 
-    public static RelationProperty AddRelationProperty(Column column, Column referencedColumn, string constraintName)
+    public static RelationProperty AddRelationProperty(ColumnDefinition column, ColumnDefinition referencedColumn, string constraintName)
     {
         var relationProperty = new RelationProperty();
         relationProperty.Attributes.Add(new RelationAttribute(referencedColumn.Table.DbName, referencedColumn.DbName, constraintName));
@@ -196,15 +196,15 @@ public static class MetadataFactory
         return relationProperty;
     }
 
-    public static ModelMetadata AttachModel(TableMetadata table, bool capitaliseNames)
+    public static ModelDefinition AttachModel(TableDefinition table, string @namespace, bool capitaliseNames)
     {
         var name = capitaliseNames
             ? table.DbName.FirstCharToUpper()
             : table.DbName;
 
-        table.Model = new ModelMetadata
+        table.Model = new ModelDefinition
         {
-            CsTypeName = name,
+            CsType = new CsTypeDeclaration(name, @namespace, ModelCsType.Class),
             Table = table,
             Database = table.Database
         };
@@ -212,7 +212,7 @@ public static class MetadataFactory
         return table.Model;
     }
 
-    public static ValueProperty AttachValueProperty(Column column, string csTypeName, bool capitaliseNames)
+    public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {
         var name = capitaliseNames
             ? column.DbName.FirstCharToUpper()
@@ -273,15 +273,15 @@ public static class MetadataFactory
         }
     }
 
-    public static void ParseAttributes(this DatabaseMetadata database)
+    public static void ParseAttributes(this DatabaseDefinition database)
     {
         foreach (var attribute in database.Attributes)
         {
             if (attribute is DatabaseAttribute databaseAttribute)
-                database.Name = databaseAttribute.Name;
+                database.SetName(databaseAttribute.Name);
 
             if (attribute is UseCacheAttribute useCache)
-                database.UseCache = useCache.UseCache;
+                database.SetCache(useCache.UseCache);
 
             if (attribute is CacheLimitAttribute cacheLimit)
                 database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
@@ -294,9 +294,9 @@ public static class MetadataFactory
         }
     }
 
-    public static Column ParseColumn(this TableMetadata table, ValueProperty property)
+    public static ColumnDefinition ParseColumn(this TableDefinition table, ValueProperty property)
     {
-        var column = new Column
+        var column = new ColumnDefinition
         {
             Table = table,
             ValueProperty = property

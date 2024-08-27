@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Text;
+using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
@@ -29,7 +30,7 @@ public class ModelGenerator : IIncrementalGenerator
             .Combine(modelDeclarations.Collect());
 
         // Add this line to cache the metadata
-        IncrementalValuesProvider<DatabaseMetadata> cachedMetadata = compilationAndClasses.SelectMany((source, _) => 
+        IncrementalValuesProvider<DatabaseDefinition> cachedMetadata = compilationAndClasses.SelectMany((source, _) => 
             metadataFactory.ReadSyntaxTrees(source.Item2));
 
         context.RegisterSourceOutput(cachedMetadata, (spc, metadata) => ExecuteForDatabase(metadata, spc));
@@ -40,13 +41,13 @@ public class ModelGenerator : IIncrementalGenerator
         if (node is not ClassDeclarationSyntax classDeclaration)
             return false;
         
-        return classDeclaration.BaseList?.Types.Any(t => MetadataFromFileFactory.IsModelInterface(t.ToString())) == true;
+        return classDeclaration.BaseList?.Types.Any(t => SyntaxParser.IsModelInterface(t.ToString())) == true;
     }
 
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;
 
-    private void ExecuteForDatabase(DatabaseMetadata db, SourceProductionContext context)
+    private void ExecuteForDatabase(DatabaseDefinition db, SourceProductionContext context)
     {
         foreach (var (path, contents) in fileFactory.CreateModelFiles(db))
         {

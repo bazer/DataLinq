@@ -38,7 +38,7 @@ public static class KeyFactory
         return new CompositeKey(array);
     }
 
-    public static IKey GetKey(IDataLinqDataReader reader, Column[] columns)
+    public static IKey GetKey(IDataLinqDataReader reader, ColumnDefinition[] columns)
     {
         if (columns.Length == 1)
         {
@@ -56,10 +56,10 @@ public static class KeyFactory
         return new CompositeKey(columns.Select(x => reader.GetValue<object>(x)).ToArray());
     }
 
-    public static IKey GetKey(RowData row, Column[] columns) =>
+    public static IKey GetKey(RowData row, ColumnDefinition[] columns) =>
         CreateKeyFromValues(columns.Select(row.GetValue));
 
-    public static IEnumerable<IKey> GetKeys<T>(Select<T> select, Column[] columns) => select
+    public static IEnumerable<IKey> GetKeys<T>(Select<T> select, ColumnDefinition[] columns) => select
         .ReadReader()
         .Select(x => GetKey(x, columns));
 }

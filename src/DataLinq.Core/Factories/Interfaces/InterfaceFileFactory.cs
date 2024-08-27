@@ -31,23 +31,23 @@ public class InterfaceFileFactory
         this.options = options;
     }
 
-    public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseMetadata database)
+    public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
     {
         //var dbCsTypeName = database.TableModels.Any(x => x.Model.CsTypeName == database.CsTypeName)
         //    ? $"I{database.CsTypeName}Db"
         //    : $"I{database.CsTypeName}";
 
-        yield return ($"{database.CsTypeName}.cs",
-                FileHeader(options.NamespaceName ?? database.CsNamespace, options.UseFileScopedNamespaces, options.Usings)
-                .Concat(DatabaseFileContents(database, database.CsTypeName, options))
+        yield return ($"{database.CsType.Name}.cs",
+                FileHeader(options.NamespaceName ?? database.CsType.Namespace, options.UseFileScopedNamespaces, options.Usings)
+                .Concat(DatabaseFileContents(database, database.CsType.Name, options))
                 .Concat(FileFooter(options.UseFileScopedNamespaces))
                 .ToJoinedString("\n"));
 
         foreach (var table in database.TableModels.Where(x => !x.IsStub))
         {
-            var namespaceName = options.NamespaceName ?? table.Model.CsNamespace;
+            var namespaceName = options.NamespaceName ?? table.Model.CsType.Namespace;
             if (namespaceName == null)
-                throw new Exception($"Namespace is null for '{table.Model.CsTypeName}'");
+                throw new Exception($"Namespace is null for '{table.Model.CsType.Name}'");
 
             var usings = options.Usings
                 .Concat(table.Model.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>())
@@ -74,9 +74,9 @@ public class InterfaceFileFactory
         }
     }
 
-    private string GetFilePath(TableModelMetadata table)
+    private string GetFilePath(TableModel table)
     {
-        var path = $"{table.Model.CsTypeName}.cs";
+        var path = $"{table.Model.CsType.Name}.cs";
 
         if (options.SeparateTablesAndViews)
             return table.Table.Type == TableType.Table
@@ -86,7 +86,7 @@ public class InterfaceFileFactory
         return path;
     }
 
-    private IEnumerable<string> DatabaseFileContents(DatabaseMetadata database, string dbName, InterfaceFileFactoryOptions settings)
+    private IEnumerable<string> DatabaseFileContents(DatabaseDefinition database, string dbName, InterfaceFileFactoryOptions settings)
     {
         var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
         var tab = settings.Tab;
@@ -107,14 +107,14 @@ public class InterfaceFileFactory
 
         foreach (var t in database.TableModels.OrderBy(x => x.Table.DbName))
         {
-            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }} = new DbRead<{t.Model.CsTypeName}>(dataSource);";
+            yield return $"{namespaceTab}{tab}public DbRead<{t.Model.CsType.Name}> {t.CsPropertyName} {{ get; }} = new DbRead<{t.Model.CsType.Name}>(dataSource);";
             //yield return $"{namespaceTab}{tab}DbRead<I{t.Model.CsTypeName}> {t.CsPropertyName} {{ get; }}";
         }
 
         yield return namespaceTab + "}";
     }
 
-    private IEnumerable<string> ModelFileContents(ModelMetadata model, InterfaceFileFactoryOptions options)
+    private IEnumerable<string> ModelFileContents(ModelDefinition model, InterfaceFileFactoryOptions options)
     {
         var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
         var tab = options.Tab;
@@ -137,7 +137,7 @@ public class InterfaceFileFactory
         foreach (var row in valueProps.Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
             yield return row;
 
-        if (table is ViewMetadata view)
+        if (table is ViewDefinition view)
         {
             yield return $"{namespaceTab}[Definition(\"{view.Definition}\")]";
             yield return $"{namespaceTab}[View(\"{table.DbName}\")]";
@@ -149,11 +149,11 @@ public class InterfaceFileFactory
 
         var interfaces = table.Type == TableType.Table ? "ITableModel" : "IViewModel";
 
-        interfaces += $"<{model.Database.CsTypeName}>";
+        interfaces += $"<{model.Database.CsType.Name}>";
         //if (model.Interfaces?.Length > 0)
         //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
 
-        yield return $"{namespaceTab}public abstract partial class {table.Model.CsTypeName}(RowData rowData, DataSourceAccess dataSource) : Immutable<{table.Model.CsTypeName}, {model.Database.CsTypeName}>(rowData, dataSource), {interfaces}";
+        yield return $"{namespaceTab}public abstract partial class {table.Model.CsType.Name}(RowData rowData, DataSourceAccess dataSource) : Immutable<{table.Model.CsType.Name}, {model.Database.CsType.Name}>(rowData, dataSource), {interfaces}";
         //yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
         yield return namespaceTab + "{";
 
@@ -223,9 +223,9 @@ public class InterfaceFileFactory
                 yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", [{otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")}], \"{relationProperty.RelationName}\")]";
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
-                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsTypeName}{(options.UseNullableReferenceTypes ? "?" : "")} {relationProperty.CsName} {{ get; }}";
+                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{(options.UseNullableReferenceTypes ? "?" : "")} {relationProperty.CsName} {{ get; }}";
             else
-                yield return $"{namespaceTab}{tab}public abstract IEnumerable<{otherPart.ColumnIndex.Table.Model.CsTypeName}> {relationProperty.CsName} {{ get; }}";
+                yield return $"{namespaceTab}{tab}public abstract IEnumerable<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.CsName} {{ get; }}";
 
             yield return $"";
         }

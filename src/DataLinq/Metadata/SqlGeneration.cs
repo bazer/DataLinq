@@ -18,7 +18,7 @@ public class SqlGeneration
     }
 
     // Sort tables when generating SQL code to ensure that tables with foreign key columns are created after the candidate key tables.
-    public List<TableMetadata> SortTablesByForeignKeys(List<TableMetadata> tables)
+    public List<TableDefinition> SortTablesByForeignKeys(List<TableDefinition> tables)
     {
         for (var i = 0; i < tables.Count; i++)
         {
@@ -46,7 +46,7 @@ public class SqlGeneration
         return tables;
     }
 
-    public List<ViewMetadata> SortViewsByForeignKeys(List<ViewMetadata> views)
+    public List<ViewDefinition> SortViewsByForeignKeys(List<ViewDefinition> views)
     {
         for (var i = 0; i < views.Count; i++)
         {

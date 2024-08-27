@@ -20,7 +20,7 @@ public class DatabaseColumnType
     }
 }
 
-public class Column
+public class ColumnDefinition
 {
     public string DbName { get; set; }
     public DatabaseColumnType[] DbTypes { get; private set; } = [];
@@ -32,7 +32,7 @@ public class Column
     public bool Nullable { get; set; }
     //public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
-    public TableMetadata Table { get; set; }
+    public TableDefinition Table { get; set; }
     public ValueProperty ValueProperty { get; set; }
 
     public void SetPrimaryKey(bool value)

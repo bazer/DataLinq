@@ -8,13 +8,13 @@ namespace DataLinq.Instances;
 public class MutableRowData : IRowData
 {
     RowData? ImmutableRowData { get; }
-    Dictionary<Column, object?> MutatedData { get; } = new Dictionary<Column, object?>();
+    Dictionary<ColumnDefinition, object?> MutatedData { get; } = new Dictionary<ColumnDefinition, object?>();
 
-    public TableMetadata Table { get; }
+    public TableDefinition Table { get; }
 
-    public object? this[Column column] => GetValue(column);
+    public object? this[ColumnDefinition column] => GetValue(column);
 
-    public MutableRowData(TableMetadata table)
+    public MutableRowData(TableDefinition table)
     {
         this.Table = table;
     }
@@ -25,7 +25,7 @@ public class MutableRowData : IRowData
         this.Table = immutableRowData.Table;
     }
 
-    public T? GetValue<T>(Column column)
+    public T? GetValue<T>(ColumnDefinition column)
     {
         var val = GetValue(column);
 
@@ -35,7 +35,7 @@ public class MutableRowData : IRowData
         return (T?)val;
     }
 
-    public object? GetValue(Column column)
+    public object? GetValue(ColumnDefinition column)
     {
         if (MutatedData.TryGetValue(column, out var value))
             return value;
@@ -43,13 +43,13 @@ public class MutableRowData : IRowData
         return ImmutableRowData?.GetValue(column);
     }
 
-    public IEnumerable<object?> GetValues(IEnumerable<Column> columns)
+    public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns)
     {
         foreach (var column in columns)
             yield return GetValue(column);
     }
 
-    public void SetValue(Column column, object? value)
+    public void SetValue(ColumnDefinition column, object? value)
     {
         if (value == null || value.GetType() == column.ValueProperty.CsType)
             MutatedData[column] = value;
@@ -57,7 +57,7 @@ public class MutableRowData : IRowData
             MutatedData[column] = Convert.ChangeType(value, column.ValueProperty.CsType);
     }
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues()
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()
     {
         if (ImmutableRowData == null)
             return MutatedData.AsEnumerable();
@@ -65,19 +65,19 @@ public class MutableRowData : IRowData
         return GetColumnAndValues(ImmutableRowData.GetColumnAndValues().Select(x => x.Key));
     }
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues(IEnumerable<Column> columns)
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns)
     {
         foreach (var column in columns)
-            yield return new KeyValuePair<Column, object?>(column, GetValue(column));
+            yield return new KeyValuePair<ColumnDefinition, object?>(column, GetValue(column));
     }
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetChanges()
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges()
     {
         foreach (var change in MutatedData)
             yield return change;
     }
 
-    IEnumerable<object?> IRowData.GetValues(IEnumerable<Column> columns)
+    IEnumerable<object?> IRowData.GetValues(IEnumerable<ColumnDefinition> columns)
     {
         throw new System.NotImplementedException();
     }

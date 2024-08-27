@@ -5,7 +5,7 @@ public enum RelationType
     OneToMany
 }
 
-public class Relation
+public class RelationDefinition
 {
     public RelationPart ForeignKey { get; set; }
     public RelationPart CandidateKey { get; set; }

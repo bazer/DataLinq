@@ -55,7 +55,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public string ConnectionString { get; }
     public abstract DatabaseAccess DatabaseAccess { get; }
     public virtual ReadOnlyAccess ReadOnlyAccess { get; }
-    public DatabaseMetadata Metadata { get; }
+    public DatabaseDefinition Metadata { get; }
     public State State { get; }
 
     private static readonly object lockObject = new();
@@ -66,7 +66,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// </summary>
     /// <param name="table">The metadata of the table to retrieve the cache for.</param>
     /// <returns>The table cache for the specified table.</returns>
-    public TableCache GetTableCache(TableMetadata table) => State.Cache.TableCaches[table];
+    public TableCache GetTableCache(TableDefinition table) => State.Cache.TableCaches[table];
 
     /// <summary>
     /// Initializes a new instance of the DatabaseProvider class with the specified connection string, type of the model, database type, and optional database name.
@@ -79,14 +79,14 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     {
         lock (lockObject)
         {
-            if (DatabaseMetadata.LoadedDatabases.TryGetValue(type, out var metadata))
+            if (DatabaseDefinition.LoadedDatabases.TryGetValue(type, out var metadata))
             {
                 Metadata = metadata;
             }
             else
             {
                 Metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(type);
-                DatabaseMetadata.LoadedDatabases.TryAdd(type, Metadata);
+                DatabaseDefinition.LoadedDatabases.TryAdd(type, Metadata);
 
                 if (Metadata.UseCache)
                 {

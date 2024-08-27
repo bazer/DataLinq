@@ -11,7 +11,7 @@ public interface IDatabaseProvider : IDisposable
 {
     string DatabaseName { get; }
     string ConnectionString { get; }
-    DatabaseMetadata Metadata { get; }
+    DatabaseDefinition Metadata { get; }
     DatabaseAccess DatabaseAccess { get; }
     State State { get; }
     IDatabaseProviderConstants Constants { get; }
@@ -28,7 +28,7 @@ public interface IDatabaseProvider : IDisposable
 
     string GetLastIdQuery();
 
-    TableCache GetTableCache(TableMetadata table);
+    TableCache GetTableCache(TableDefinition table);
 
     Sql GetParameter(Sql sql, string key, object? value);
 

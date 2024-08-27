@@ -25,7 +25,7 @@ public class TableCache
     protected (IndexCacheType type, int? amount) indexCachePolicy;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public TableCache(TableMetadata table, DatabaseCache databaseCache, DataLinqLoggingConfiguration loggingConfiguration)
+    public TableCache(TableDefinition table, DatabaseCache databaseCache, DataLinqLoggingConfiguration loggingConfiguration)
     {
         this.Table = table;
         this.DatabaseCache = databaseCache;
@@ -45,7 +45,7 @@ public class TableCache
     public int TransactionRowsCount => TransactionRows.Count;
     public IEnumerable<(string index, int count)> IndicesCount => indices.Select(x => (x.Name, IndexCaches[x].Count));
 
-    public TableMetadata Table { get; }
+    public TableDefinition Table { get; }
     public DatabaseCache DatabaseCache { get; }
 
     public bool IsTransactionInCache(Transaction transaction) => TransactionRows.ContainsKey(transaction);

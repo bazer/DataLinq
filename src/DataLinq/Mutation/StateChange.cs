@@ -28,7 +28,7 @@ public class StateChange
     /// <summary>
     /// Gets the table metadata associated with the model.
     /// </summary>
-    public TableMetadata Table { get; }
+    public TableDefinition Table { get; }
 
     /// <summary>
     /// Gets the primary keys for the model.
@@ -47,7 +47,7 @@ public class StateChange
     /// <param name="model">The model to apply the change to.</param>
     /// <param name="table">The table metadata for the model.</param>
     /// <param name="type">The type of change to be applied.</param>
-    public StateChange(IModelInstance model, TableMetadata table, TransactionChangeType type)
+    public StateChange(IModelInstance model, TableDefinition table, TransactionChangeType type)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(table);
@@ -65,10 +65,10 @@ public class StateChange
         PrimaryKeys = model.PrimaryKeys();
     }
 
-    public IEnumerable<KeyValuePair<Column, object>> GetValues() =>
+    public IEnumerable<KeyValuePair<ColumnDefinition, object>> GetValues() =>
         GetValues(Table.Columns);
 
-    public IEnumerable<KeyValuePair<Column, object>> GetValues(IEnumerable<Column> columns)
+    public IEnumerable<KeyValuePair<ColumnDefinition, object>> GetValues(IEnumerable<ColumnDefinition> columns)
     {
         if (Model is IModelInstance instance)
             return instance.GetValues(columns);
@@ -76,7 +76,7 @@ public class StateChange
             return Model.GetValues(columns);
     }
 
-    public IEnumerable<KeyValuePair<Column, object>> GetChanges()
+    public IEnumerable<KeyValuePair<ColumnDefinition, object>> GetChanges()
     {
         if (Model is IMutableInstance instance)
             return instance.GetChanges();

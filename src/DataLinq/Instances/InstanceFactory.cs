@@ -9,11 +9,11 @@ namespace DataLinq.Instances;
 public interface IModelInstance : IModel
 {
     object? this[string propertyName] { get; }
-    object? this[Column column] { get; }
-    IEnumerable<KeyValuePair<Column, object?>> GetValues();
-    IEnumerable<KeyValuePair<Column, object?>> GetValues(IEnumerable<Column> columns);
+    object? this[ColumnDefinition column] { get; }
+    IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues();
+    IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns);
     bool HasPrimaryKeysSet();
-    ModelMetadata Metadata();
+    ModelDefinition Metadata();
     IKey PrimaryKeys();
     IRowData GetRowData();
 }
@@ -37,9 +37,9 @@ public interface IImmutableInstance<T> : IImmutableInstance, IModelInstance<T>
 public interface IMutableInstance : IModelInstance
 {
     new object? this[string propertyName] { get; set; }
-    new object? this[Column column] { get; set; }
+    new object? this[ColumnDefinition column] { get; set; }
 
-    IEnumerable<KeyValuePair<Column, object?>> GetChanges();
+    IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges();
     bool IsNewModel();
     new MutableRowData GetRowData();
 }
@@ -54,7 +54,7 @@ public static class InstanceFactory
 {
     public static IImmutableInstance NewImmutableRow(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
     {
-        var model = Activator.CreateInstance(rowData.Table.Model.ImmutableType.CsType, rowData, dataSource);
+        var model = Activator.CreateInstance(rowData.Table.Model.ImmutableType.Type!, rowData, dataSource);
 
         if (model == null)
             throw new Exception($"Failed to create instance of immutable model type '{rowData.Table.Model.CsType}'");

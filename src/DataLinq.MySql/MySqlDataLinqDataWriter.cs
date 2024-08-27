@@ -21,7 +21,7 @@ public class MySqlDataLinqDataWriter : IDataLinqDataWriter
     /// <param name="column">The column metadata.</param>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
-    public object? ConvertValue(Column column, object? value)
+    public object? ConvertValue(ColumnDefinition column, object? value)
     {
         if (value == null)
             return null;

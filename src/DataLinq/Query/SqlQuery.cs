@@ -22,7 +22,7 @@ public class SqlQuery : SqlQuery<object>
     {
     }
 
-    public SqlQuery(TableMetadata table, DataSourceAccess transaction, string? alias = null) : base(table, transaction, alias)
+    public SqlQuery(TableDefinition table, DataSourceAccess transaction, string? alias = null) : base(table, transaction, alias)
     {
     }
 
@@ -60,7 +60,7 @@ public class SqlQuery<T>
     public bool LastIdQuery { get; protected set; }
     public DataSourceAccess DataSource { get; }
 
-    public TableMetadata Table { get; }
+    public TableDefinition Table { get; }
     public string? Alias { get; }
 
     internal string EscapeCharacter => DataSource.Provider.Constants.EscapeCharacter;
@@ -70,11 +70,11 @@ public class SqlQuery<T>
         CheckTransaction(dataSource);
 
         this.DataSource = dataSource;
-        this.Table = dataSource.Provider.Metadata.TableModels.Single(x => x.Model.CsType == typeof(T)).Table;
+        this.Table = dataSource.Provider.Metadata.TableModels.Single(x => x.Model.CsType.Type == typeof(T)).Table;
         this.Alias = alias;
     }
 
-    public SqlQuery(TableMetadata table, DataSourceAccess transaction, string? alias = null)
+    public SqlQuery(TableDefinition table, DataSourceAccess transaction, string? alias = null)
     {
         CheckTransaction(transaction);
 
@@ -265,7 +265,7 @@ public class SqlQuery<T>
             throw new InvalidQueryException("Value is not a member or constant.");
     }
 
-    internal Column? GetColumn(MemberExpression expression)
+    internal ColumnDefinition? GetColumn(MemberExpression expression)
     {
         return Table.Columns.SingleOrDefault(x => x.ValueProperty.CsName == expression.Member.Name);
     }
@@ -335,7 +335,7 @@ public class SqlQuery<T>
         return OrderBy(this.Table.Columns.Single(x => x.DbName == columnName), alias, ascending);
     }
 
-    public SqlQuery<T> OrderBy(Column column, string? alias = null, bool ascending = true)
+    public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true)
     {
         if (!this.Table.Columns.Contains(column))
             throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
@@ -353,7 +353,7 @@ public class SqlQuery<T>
         return OrderByDesc(this.Table.Columns.Single(x => x.DbName == columnName), alias);
     }
 
-    public SqlQuery<T> OrderByDesc(Column column, string? alias = null)
+    public SqlQuery<T> OrderByDesc(ColumnDefinition column, string? alias = null)
     {
         if (!this.Table.Columns.Contains(column))
             throw new ArgumentException($"Column '{column.DbName}' does not belong to table '{Table.DbName}'");
@@ -427,7 +427,7 @@ public class SqlQuery<T>
     }
 
 
-    public SqlQuery<T> What(IEnumerable<Column> columns)
+    public SqlQuery<T> What(IEnumerable<ColumnDefinition> columns)
     {
         return What(columns.Select(x => $"{EscapeCharacter}{x.DbName}{EscapeCharacter}"));
     }

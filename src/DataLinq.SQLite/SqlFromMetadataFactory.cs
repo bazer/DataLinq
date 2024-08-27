@@ -14,7 +14,7 @@ namespace DataLinq.SQLite;
 
 public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
-    public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
+    public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
         var sql = new SQLiteGeneration(2, '"', "/* Generated %datetime% by DataLinq */\n\n");
         foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.Table).ToList()))
@@ -53,7 +53,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             });
         }
 
-        foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.View).Cast<ViewMetadata>().ToList()))
+        foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.View).Cast<ViewDefinition>().ToList()))
         {
             if (string.IsNullOrWhiteSpace(view.Definition))
                 return DataLinqOptionFailure.Fail($"View '{view.DbName}' does not have a Definition, can't create view. Add the 'DefinitionAttribute' to the view.");
@@ -85,7 +85,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return command.ExecuteNonQuery();
     }
 
-    public static DatabaseColumnType GetDbType(Column column)
+    public static DatabaseColumnType GetDbType(ColumnDefinition column)
     {
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.SQLite))
             return column.DbTypes.First(x => x.DatabaseType == DatabaseType.SQLite);
@@ -97,7 +97,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .FirstOrDefault();
 
         if (type == null)
-            throw new Exception($"Could not find a SQLite database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
+            throw new Exception($"Could not find a SQLite database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.CsName}'");
 
         return type;
     }

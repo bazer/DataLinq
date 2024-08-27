@@ -70,9 +70,9 @@ public class ModelReader : Generator
         //log($"Reading models from: {srcDir}");
 
         var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = db.FileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-        DatabaseMetadata srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, paths);
+        DatabaseDefinition srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, paths);
 
-        log($"Tables in model files: {srcMetadata.TableModels.Count}");
+        log($"Tables in model files: {srcMetadata.TableModels.Length}");
         //}
         //else
         //{
@@ -106,9 +106,9 @@ public class ModelReader : Generator
             if (connection.Type == DatabaseType.SQLite)
                 connectionString = connectionString.ChangeValue("Data Source", connection.GetRootedPath(basePath)); // $"Data Source={databaseName};Cache=Shared;";
 
-            DatabaseMetadata dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
+            DatabaseDefinition dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
                 .GetMetadataFromSqlFactory(sqlOptions)
-                .ParseDatabase(db.Name, db.CsType, connection.DataSourceName, connectionString.Original);
+                .ParseDatabase(db.Name, db.CsType, db.Namespace, connection.DataSourceName, connectionString.Original);
 
             //var dbMetadata = connection.ParsedType switch
             //{
@@ -119,7 +119,7 @@ public class ModelReader : Generator
             //};
 
             log($"Name in database: {dbMetadata.DbName}");
-            log($"Tables read from database: {dbMetadata.TableModels.Count}");
+            log($"Tables read from database: {dbMetadata.TableModels.Length}");
         }
 
         return true;

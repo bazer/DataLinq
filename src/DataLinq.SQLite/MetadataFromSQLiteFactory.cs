@@ -27,15 +27,14 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         this.options = options;
     }
 
-    public Option<DatabaseMetadata> ParseDatabase(string name, string csTypeName, string dbName, string connectionString)
+    public Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString)
     {
         dbAccess = new SQLiteDatabaseTransaction(connectionString, Mutation.TransactionType.ReadOnly);
 
-        var database = new DatabaseMetadata(name, null, csTypeName, dbName);
-        database.TableModels = dbAccess
+        var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
+        database.SetTableModels(dbAccess
             .ReadReader("SELECT *\r\nFROM sqlite_master m\r\nWHERE\r\nm.type <> 'index' AND\r\nm.tbl_name <> 'sqlite_sequence'")
-            .Select(x => ParseTable(database, x))
-            .ToList();
+            .Select(x => ParseTable(database, x)));
 
         ParseIndices(database);
         ParseRelations(database);
@@ -45,7 +44,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return database;
     }
 
-    private void ParseIndices(DatabaseMetadata database)
+    private void ParseIndices(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
@@ -90,7 +89,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     //    }
     //}
 
-    private void ParseRelations(DatabaseMetadata database)
+    private void ParseRelations(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
@@ -120,18 +119,18 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         }
     }
 
-    private TableModelMetadata ParseTable(DatabaseMetadata database, IDataLinqDataReader reader)
+    private TableModel ParseTable(DatabaseDefinition database, IDataLinqDataReader reader)
     {
         var type = reader.GetString(0) == "table" ? TableType.Table : TableType.View; //sqlite_master.type
         var table = type == TableType.Table
-             ? new TableMetadata()
-             : new ViewMetadata();
+             ? new TableDefinition()
+             : new ViewDefinition();
 
         table.Database = database;
         table.DbName = reader.GetString(2); //sqlite_master.tbl_name
-        MetadataFactory.AttachModel(table, options.CapitaliseNames);
+        MetadataFactory.AttachModel(table, database.CsType.Namespace, options.CapitaliseNames);
 
-        if (table is ViewMetadata view)
+        if (table is ViewDefinition view)
         {
             view.Definition = ParseViewDefinition(reader.GetString(4)); //sqlite_master.sql
         }
@@ -141,11 +140,11 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             .Select(x => ParseColumn(table, x))
             .ToArray();
 
-        return new TableModelMetadata
+        return new TableModel
         {
             Table = table,
             Model = table.Model,
-            CsPropertyName = table.Model.CsTypeName
+            CsPropertyName = table.Model.CsType.Name
         };
     }
 
@@ -163,7 +162,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return definition;
     }
 
-    private Column ParseColumn(TableMetadata table, IDataLinqDataReader reader)
+    private ColumnDefinition ParseColumn(TableDefinition table, IDataLinqDataReader reader)
     {
         var dbType = new DatabaseColumnType
         {
@@ -191,7 +190,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             hasAutoIncrement = regex.IsMatch(createStatement);
         }
 
-        var column = new Column
+        var column = new ColumnDefinition
         {
             Table = table,
             DbName = dbName,

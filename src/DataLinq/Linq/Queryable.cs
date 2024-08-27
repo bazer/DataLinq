@@ -14,5 +14,5 @@ public class Queryable<T> : QueryableBase<T>
 
     public Queryable(IQueryProvider provider, Expression expression) : base(provider, expression) { }
 
-    public Queryable(DataSourceAccess dataSource, TableMetadata table) : base(queryParser, new QueryExecutor(dataSource, table)) { }
+    public Queryable(DataSourceAccess dataSource, TableDefinition table) : base(queryParser, new QueryExecutor(dataSource, table)) { }
 }

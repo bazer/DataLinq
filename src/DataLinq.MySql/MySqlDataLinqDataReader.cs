@@ -132,12 +132,12 @@ public struct MySqlDataLinqDataReader : IDataLinqDataReader, IDisposable
     //    }
     //}
 
-    public T? GetValue<T>(Column column)
+    public T? GetValue<T>(ColumnDefinition column)
     {
         return GetValue<T>(column, GetOrdinal(column.DbName));
     }
 
-    public T? GetValue<T>(Column column, int ordinal)
+    public T? GetValue<T>(ColumnDefinition column, int ordinal)
     {
         if (IsDbNull(ordinal))
             return default;

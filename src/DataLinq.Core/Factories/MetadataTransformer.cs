@@ -27,13 +27,16 @@ public class MetadataTransformer
         this.options = options;
     }
 
-    public void TransformDatabase(DatabaseMetadata srcMetadata, DatabaseMetadata destMetadata)
+    public void TransformDatabase(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
-        destMetadata.Attributes = srcMetadata.Attributes;
-        destMetadata.UseCache = srcMetadata.UseCache;
-        destMetadata.CacheLimits = srcMetadata.CacheLimits;
-        destMetadata.IndexCache = srcMetadata.IndexCache;
-        destMetadata.CacheCleanup = srcMetadata.CacheCleanup;
+        destMetadata.SetAttributes(srcMetadata.Attributes);
+        destMetadata.SetCache(srcMetadata.UseCache);
+        destMetadata.CacheLimits.Clear();
+        destMetadata.CacheLimits.AddRange(srcMetadata.CacheLimits);
+        destMetadata.IndexCache.Clear();
+        destMetadata.IndexCache.AddRange(srcMetadata.IndexCache);
+        destMetadata.CacheCleanup.Clear();
+        destMetadata.CacheCleanup.AddRange(srcMetadata.CacheCleanup);
 
         foreach (var srcTable in srcMetadata.TableModels)
         {
@@ -50,20 +53,20 @@ public class MetadataTransformer
         }
     }
 
-    public void TransformTable(TableModelMetadata srcTable, TableModelMetadata destTable)
+    public void TransformTable(TableModel srcTable, TableModel destTable)
     {
         //log($"Transforming model '{srcTable.Table.DbName}'");
-        var modelCsTypeName = srcTable.Model.CsTypeName;
+        var modelCsTypeName = srcTable.Model.CsType.Name;
 
-        if (options.RemoveInterfacePrefix && srcTable.Model.ModelCsType == ModelCsType.Interface)
+        if (options.RemoveInterfacePrefix && srcTable.Model.CsType.ModelCsType == ModelCsType.Interface)
         {
             if (modelCsTypeName.StartsWith("I") && !char.IsLower(modelCsTypeName[1]))
                 modelCsTypeName = modelCsTypeName.Substring(1);
         }
 
-        if (destTable.Model.CsTypeName != modelCsTypeName)
+        if (destTable.Model.CsType.Name != modelCsTypeName)
         {
-            destTable.Model.CsTypeName = modelCsTypeName;
+            destTable.Model.CsType = destTable.Model.CsType.MutateName(modelCsTypeName);
 
             //foreach (var enumProp in destTable.Model.Properties.OfType<EnumProperty>())
             //{
@@ -71,7 +74,7 @@ public class MetadataTransformer
             //}
         }
 
-        destTable.Model.Interfaces = [new ModelTypeDeclaration { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName }];
+        destTable.Model.Interfaces = [srcTable.Model.CsType]; //[new CsTypeDeclaration { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName }];
         destTable.Model.Usings = srcTable.Model.Usings;
 
         foreach (var srcProperty in srcTable.Model.ValueProperties.Values)

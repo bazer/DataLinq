@@ -9,7 +9,7 @@ public enum RelationPartType
 public class RelationPart
 {
     public ColumnIndex ColumnIndex { get; set; }
-    public Relation Relation { get; set; }
+    public RelationDefinition Relation { get; set; }
     public RelationPartType Type { get; set; }
     public string CsName { get; set; }
 

@@ -28,17 +28,16 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         this.options = options;
     }
 
-    public Option<DatabaseMetadata> ParseDatabase(string name, string csTypeName, string dbName, string connectionString)
+    public Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString)
     {
         var information_Schema = new MySqlDatabase<information_schema>(connectionString, "information_schema").Query();
-        var database = new DatabaseMetadata(name, null, csTypeName, dbName);
+        var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
 
-        database.TableModels = information_Schema
+        database.SetTableModels(information_Schema
             .TABLES.Where(x => x.TABLE_SCHEMA == dbName)
             .AsEnumerable()
             .Select(x => ParseTable(database, information_Schema, x))
-            .Where(IsTableOrViewInOptionsList)
-            .ToList();
+            .Where(IsTableOrViewInOptionsList));
 
         var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
         if (missingTables.Any())
@@ -52,7 +51,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         return database;
     }
 
-    private IEnumerable<string> FindMissingTablesOrViewInOptionsList(List<TableModelMetadata> tableModels)
+    private IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)
     {
         foreach (var tableName in options.Tables.Concat(options.Views))
         {
@@ -61,7 +60,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         }
     }
 
-    private bool IsTableOrViewInOptionsList(TableModelMetadata tableModel)
+    private bool IsTableOrViewInOptionsList(TableModel tableModel)
     {
         if (tableModel.Table.Type == TableType.View && options.Views.Any() && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
             return false;
@@ -72,7 +71,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         return true;
     }
 
-    private void ParseIndices(DatabaseMetadata database, information_schema information_Schema)
+    private void ParseIndices(DatabaseDefinition database, information_schema information_Schema)
     {
         // Fetch table-column pairs that are part of a foreign key relationship
         var foreignKeyColumns = information_Schema.KEY_COLUMN_USAGE
@@ -116,7 +115,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         }
     }
 
-    private void ParseRelations(DatabaseMetadata database, information_schema information_Schema)
+    private void ParseRelations(DatabaseDefinition database, information_schema information_Schema)
     {
         foreach (var key in information_Schema
             .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
@@ -145,19 +144,19 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
     
 
-    private TableModelMetadata ParseTable(DatabaseMetadata database, information_schema information_Schema, TABLES dbTables)
+    private TableModel ParseTable(DatabaseDefinition database, information_schema information_Schema, TABLES dbTables)
     {
         var type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
 
         var table = type == TableType.Table
-            ? new TableMetadata()
-            : new ViewMetadata();
+            ? new TableDefinition()
+            : new ViewDefinition();
 
         table.Database = database;
         table.DbName = dbTables.TABLE_NAME;
-        MetadataFactory.AttachModel(table, options.CapitaliseNames);
+        MetadataFactory.AttachModel(table, database.CsType.Namespace ?? "", options.CapitaliseNames);
 
-        if (table is ViewMetadata view)
+        if (table is ViewDefinition view)
         {
             view.Definition = information_Schema
                 .VIEWS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == view.DbName)
@@ -173,15 +172,15 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             .Select(x => ParseColumn(table, x))
             .ToArray();
 
-        return new TableModelMetadata
+        return new TableModel
         {
             Table = table,
             Model = table.Model,
-            CsPropertyName = table.Model.CsTypeName
+            CsPropertyName = table.Model.CsType.Name
         };
     }
 
-    private Column ParseColumn(TableMetadata table, COLUMNS dbColumns)
+    private ColumnDefinition ParseColumn(TableDefinition table, COLUMNS dbColumns)
     {
         var dbType = new DatabaseColumnType
         {
@@ -200,7 +199,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             dbType.Length = dbColumns.CHARACTER_MAXIMUM_LENGTH;
         }
 
-        var column = new Column
+        var column = new ColumnDefinition
         {
             Table = table,
             DbName = dbColumns.COLUMN_NAME,

@@ -61,7 +61,7 @@ public class ModelGenerator : Generator
         this.options = options;
     }
 
-    public Option<DatabaseMetadata> CreateModels(DataLinqDatabaseConnection connection, string basePath, string databaseName)
+    public Option<DatabaseDefinition> CreateModels(DataLinqDatabaseConnection connection, string basePath, string databaseName)
     {
         var db = connection.DatabaseConfig;
 
@@ -91,7 +91,7 @@ public class ModelGenerator : Generator
 
         var dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
             .GetMetadataFromSqlFactory(sqlOptions)
-            .ParseDatabase(db.Name, db.CsType, databaseName, connectionString.Original);
+            .ParseDatabase(db.Name, db.CsType, db.Namespace, databaseName, connectionString.Original);
 
         if (dbMetadata.HasFailed)
             return dbMetadata.Failure;
@@ -104,7 +104,7 @@ public class ModelGenerator : Generator
         //        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, $"Data Source={databaseName};Cache=Shared;")
         //};
 
-        log($"Tables read from database: {dbMetadata.Value.TableModels.Count}");
+        log($"Tables read from database: {dbMetadata.Value.TableModels.Length}");
         log("");
 
         var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
@@ -142,7 +142,7 @@ public class ModelGenerator : Generator
                 //    return "Error: Unable to parse source files";
                 //}
 
-                log($"Tables in source model files: {srcMetadata.TableModels.Count}");
+                log($"Tables in source model files: {srcMetadata.TableModels.Length}");
                 log("");
 
                 var transformer = new MetadataTransformer(new MetadataTransformerOptions(db.RemoveInterfacePrefix));

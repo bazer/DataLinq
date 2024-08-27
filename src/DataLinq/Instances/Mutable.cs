@@ -7,8 +7,8 @@ namespace DataLinq.Instances;
 public class Mutable<T> : IMutableInstance
     where T: IImmutableInstance
 {
-    private readonly ModelMetadata metadata;
-    public ModelMetadata Metadata() => metadata;
+    private readonly ModelDefinition metadata;
+    public ModelDefinition Metadata() => metadata;
 
     private readonly bool isNewModel;
     public bool IsNewModel() => isNewModel;
@@ -17,7 +17,7 @@ public class Mutable<T> : IMutableInstance
     public MutableRowData GetRowData() => mutableRowData;
     IRowData IModelInstance.GetRowData() => GetRowData();
 
-    public object? this[Column column]
+    public object? this[ColumnDefinition column]
     {
         get => mutableRowData[column];
         set => mutableRowData.SetValue(column, value);
@@ -31,7 +31,7 @@ public class Mutable<T> : IMutableInstance
 
     public Mutable()
     {
-        metadata = ModelMetadata.Find<T>() ?? throw new InvalidOperationException($"Model {typeof(T).Name} not found");
+        metadata = ModelDefinition.Find<T>() ?? throw new InvalidOperationException($"Model {typeof(T).Name} not found");
         this.mutableRowData = new MutableRowData(metadata.Table);
         isNewModel = true;
     }
@@ -56,9 +56,9 @@ public class Mutable<T> : IMutableInstance
     public IKey PrimaryKeys() => KeyFactory.CreateKeyFromValues(mutableRowData.GetValues(metadata.Table.PrimaryKeyColumns));
     public bool HasPrimaryKeysSet() => PrimaryKeys() is not NullKey;
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetChanges() => mutableRowData.GetChanges();
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges() => mutableRowData.GetChanges();
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetValues() => mutableRowData.GetColumnAndValues();
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues() => mutableRowData.GetColumnAndValues();
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetValues(IEnumerable<Column> columns) => mutableRowData.GetColumnAndValues(columns);
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns) => mutableRowData.GetColumnAndValues(columns);
 }

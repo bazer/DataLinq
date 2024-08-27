@@ -27,7 +27,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return command.ExecuteNonQuery();
     }
 
-    public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict)
+    public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
         var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
         //sql.CreateDatabase(metadata.DbName);
@@ -40,7 +40,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             });
         }
 
-        foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewMetadata>().ToList()))
+        foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewDefinition>().ToList()))
         {
             sql.CreateView(view.DbName, view.Definition);
         }
@@ -48,7 +48,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return sql.sql;
     }
 
-    private static void CreateColumns(bool foreignKeyRestrict, SqlGeneration sql, TableMetadata table)
+    private static void CreateColumns(bool foreignKeyRestrict, SqlGeneration sql, TableDefinition table)
     {
         var longestName = table.Columns.Max(x => x.DbName.Length) + 1;
         foreach (var column in table.Columns.OrderBy(x => x.Index))
@@ -86,7 +86,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
     }
 
-    public static DatabaseColumnType GetDbType(Column column)
+    public static DatabaseColumnType GetDbType(ColumnDefinition column)
     {
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
             return column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL);
@@ -98,7 +98,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .FirstOrDefault();
 
         if (type == null)
-            throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsTypeName}.{column.ValueProperty.CsName}'");
+            throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.CsName}'");
 
         return type;
     }

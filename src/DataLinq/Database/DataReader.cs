@@ -15,8 +15,8 @@ public interface IDataLinqDataReader : IDisposable
     Guid GetGuid(int ordinal);
     byte[]? GetBytes(int ordinal);
     long GetBytes(int ordinal, Span<byte> buffer);
-    T? GetValue<T>(Column column);
-    T? GetValue<T>(Column column, int ordinal);
+    T? GetValue<T>(ColumnDefinition column);
+    T? GetValue<T>(ColumnDefinition column, int ordinal);
     bool ReadNextRow();
     bool IsDbNull(int ordinal);
 }

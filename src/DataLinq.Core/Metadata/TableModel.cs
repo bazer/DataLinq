@@ -1,10 +1,10 @@
 ﻿namespace DataLinq.Metadata;
 
-public class TableModelMetadata
+public class TableModel
 {
     public bool IsStub { get; set; }
-    public TableMetadata Table { get; set; }
-    public ModelMetadata Model { get; set; }
+    public TableDefinition Table { get; set; }
+    public ModelDefinition Model { get; set; }
     /// <summary>
     /// Name of the table's model property, in the IDatabaseModel
     /// </summary>

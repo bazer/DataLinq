@@ -17,18 +17,18 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
 
     protected ConcurrentDictionary<string, object?>? lazyValues = null;
 
-    public object? this[Column column] => rowData[column];
+    public object? this[ColumnDefinition column] => rowData[column];
     public object? this[string propertyName] => rowData.GetValue(rowData.Table.Model.ValueProperties[propertyName].Column);
 
-    public ModelMetadata Metadata() => rowData.Table.Model;
+    public ModelDefinition Metadata() => rowData.Table.Model;
     public IKey PrimaryKeys() => KeyFactory.CreateKeyFromValues(rowData.GetValues(rowData.Table.PrimaryKeyColumns));
     public bool HasPrimaryKeysSet() => PrimaryKeys() is not NullKey;
 
     public RowData GetRowData() => rowData;
     IRowData IModelInstance.GetRowData() => GetRowData();
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetValues() => rowData.GetColumnAndValues();
-    public IEnumerable<KeyValuePair<Column, object?>> GetValues(IEnumerable<Column> columns) => rowData.GetColumnAndValues(columns);
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues() => rowData.GetColumnAndValues();
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns) => rowData.GetColumnAndValues(columns);
 
 
     protected void ClearLazy() => lazyValues?.Clear();

@@ -4,7 +4,7 @@ namespace DataLinq.Query;
 
 public class OrderBy
 {
-    public Column Column { get; }
+    public ColumnDefinition Column { get; }
     public string? Alias { get; }
     public bool Ascending { get; }
 
@@ -12,7 +12,7 @@ public class OrderBy
         ? $"{escapeCharacter}{Column.DbName}{escapeCharacter}"
         : $"{Alias}.{escapeCharacter}{Column.DbName}{escapeCharacter}";
 
-    public OrderBy(Column column, string? alias, bool ascending)
+    public OrderBy(ColumnDefinition column, string? alias, bool ascending)
     {
         this.Column = column;
         this.Alias = alias;

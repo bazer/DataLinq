@@ -21,13 +21,13 @@ public static partial class Log
     public static partial void IndexCachePreload(ILogger logger, ColumnIndex index, int rowsLoaded);
 
     [LoggerMessage(EventIds.RowCachePreload, LogLevel.Debug, "Preloaded {rowsLoaded} rows to table cache: {table}")]
-    public static partial void RowCachePreload(ILogger logger, TableMetadata table, int rowsLoaded);
+    public static partial void RowCachePreload(ILogger logger, TableDefinition table, int rowsLoaded);
 
     [LoggerMessage(EventIds.LoadRowsFromCache, LogLevel.Debug, "Fetched {rowsLoaded} rows from table cache: {table}")]
-    public static partial void LoadRowsFromCache(ILogger logger, TableMetadata table, int rowsLoaded);
+    public static partial void LoadRowsFromCache(ILogger logger, TableDefinition table, int rowsLoaded);
 
     [LoggerMessage(EventIds.LoadRowsFromDatabase, LogLevel.Debug, "Fetched {rowsLoaded} rows from database and added to table cache: {table}")]
-    public static partial void LoadRowsFromDatabase(ILogger logger, TableMetadata table, int rowsLoaded);
+    public static partial void LoadRowsFromDatabase(ILogger logger, TableDefinition table, int rowsLoaded);
 }
 
 public static class DbCommandExtensions

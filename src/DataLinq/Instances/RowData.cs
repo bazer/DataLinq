@@ -7,38 +7,38 @@ namespace DataLinq.Instances;
 
 public interface IRowData
 {
-    TableMetadata Table { get; }
+    TableDefinition Table { get; }
 
-    object? this[Column column] { get; }
+    object? this[ColumnDefinition column] { get; }
 
-    object? GetValue(Column column);
+    object? GetValue(ColumnDefinition column);
 
-    T? GetValue<T>(Column column);
+    T? GetValue<T>(ColumnDefinition column);
 
-    IEnumerable<object?> GetValues(IEnumerable<Column> columns);
+    IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns);
 
-    IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues();
+    IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues();
 
-    IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues(IEnumerable<Column> columns);
+    IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns);
 }
 
 public class RowData : IRowData, IEquatable<RowData>
 {
-    public RowData(IDataLinqDataReader reader, TableMetadata table, ReadOnlySpan<Column> columns)
+    public RowData(IDataLinqDataReader reader, TableDefinition table, ReadOnlySpan<ColumnDefinition> columns)
     {
         Table = table;
         (Data, Size) = ReadReader(reader, columns);
     }
 
-    protected Dictionary<Column, object?> Data { get; }
+    protected Dictionary<ColumnDefinition, object?> Data { get; }
 
-    public TableMetadata Table { get; }
+    public TableDefinition Table { get; }
 
     public int Size { get; }
 
-    public object? this[Column column] => GetValue(column);
+    public object? this[ColumnDefinition column] => GetValue(column);
 
-    public object? GetValue(Column column)
+    public object? GetValue(ColumnDefinition column)
     {
         if (Data == null || !Data.TryGetValue(column, out var value))
             throw new InvalidOperationException($"Data dictionary is not initialized or column '{column.DbName}' key does not exist.");
@@ -46,7 +46,7 @@ public class RowData : IRowData, IEquatable<RowData>
         return value;
     }
 
-    public T? GetValue<T>(Column column)
+    public T? GetValue<T>(ColumnDefinition column)
     {
         if (Data == null || !Data.TryGetValue(column, out var value))
             throw new InvalidOperationException($"Data dictionary is not initialized or column '{column.DbName}' key does not exist.");
@@ -56,26 +56,26 @@ public class RowData : IRowData, IEquatable<RowData>
             : (T?)value;
     }
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues()
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()
     {
         return Data.AsEnumerable();
     }
 
-    public IEnumerable<KeyValuePair<Column, object?>> GetColumnAndValues(IEnumerable<Column> columns)
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns)
     {
         foreach (var column in columns)
-            yield return new KeyValuePair<Column, object?>(column, GetValue(column));
+            yield return new KeyValuePair<ColumnDefinition, object?>(column, GetValue(column));
     }
 
-    public IEnumerable<object?> GetValues(IEnumerable<Column> columns)
+    public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns)
     {
         foreach (var column in columns)
             yield return GetValue(column);
     }
 
-    private static (Dictionary<Column, object?> data, int size) ReadReader(IDataLinqDataReader reader, ReadOnlySpan<Column> columns)
+    private static (Dictionary<ColumnDefinition, object?> data, int size) ReadReader(IDataLinqDataReader reader, ReadOnlySpan<ColumnDefinition> columns)
     {
-        var data = new Dictionary<Column, object?>();
+        var data = new Dictionary<ColumnDefinition, object?>();
         var size = 0;
 
         foreach (var column in columns)
@@ -89,7 +89,7 @@ public class RowData : IRowData, IEquatable<RowData>
         return (data, size);
     }
 
-    private static int GetSize(Column column, object? value)
+    private static int GetSize(ColumnDefinition column, object? value)
     {
         if (value == null)
             return 0;

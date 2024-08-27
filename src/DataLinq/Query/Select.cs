@@ -40,7 +40,7 @@ public class Select<T> : IQuery
         return query.DataSource.Provider.ToDbCommand(this);
     }
 
-    public Select<T> What(IEnumerable<Column> columns)
+    public Select<T> What(IEnumerable<ColumnDefinition> columns)
     {
         query.What(columns);
 

@@ -17,7 +17,7 @@ public interface IDatabaseProviderCreator
 
 public interface ISqlFromMetadataFactory
 {
-    Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseMetadata metadata, bool foreignKeyRestrict);
+    Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict);
     Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict);
 }
 
@@ -28,7 +28,7 @@ public interface IMetadataFromDatabaseFactoryCreator
 
 public interface IMetadataFromSqlFactory
 {
-    Option<DatabaseMetadata> ParseDatabase(string name, string csTypeName, string dbName, string connectionString);
+    Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString);
 }
 
 public static class PluginHook
@@ -45,13 +45,13 @@ public static class PluginHook
         return SqlFromMetadataFactories[type].CreateDatabase(sql, databaseOrFile, connectionString, foreignKeyRestrict);
     }
 
-    public static Option<int, IDataLinqOptionFailure> CreateDatabaseFromMetadata(this DatabaseType type, DatabaseMetadata metadata, string databaseNameOrFile, string connectionString, bool foreignKeyRestrict)
+    public static Option<int, IDataLinqOptionFailure> CreateDatabaseFromMetadata(this DatabaseType type, DatabaseDefinition metadata, string databaseNameOrFile, string connectionString, bool foreignKeyRestrict)
     {
         Sql sql = GenerateSql(type, metadata, foreignKeyRestrict);
         return CreateDatabaseFromSql(type, sql, databaseNameOrFile, connectionString, foreignKeyRestrict);
     }
 
-    public static Option<Sql, IDataLinqOptionFailure> GenerateSql(this DatabaseType type, DatabaseMetadata metadata, bool foreignKeyRestrict)
+    public static Option<Sql, IDataLinqOptionFailure> GenerateSql(this DatabaseType type, DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
         if (!SqlFromMetadataFactories.ContainsKey(type))
             return new DataLinqOptionFailure<string>($"No handler for {type}");

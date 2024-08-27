@@ -13,13 +13,13 @@ public class ColumnIndex
     /// <summary>
     /// Table that the index belongs to.
     /// </summary>
-    public TableMetadata Table { get; set; }
+    public TableDefinition Table { get; set; }
 
     /// <summary>
     /// Gets or sets the list of columns associated with the index. 
     /// Each entry includes the column in the order of the index.
     /// </summary>
-    public List<Column> Columns { get; }
+    public List<ColumnDefinition> Columns { get; }
 
     public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
 
@@ -45,7 +45,7 @@ public class ColumnIndex
     /// <param name="characteristic">The characteristic of the index.</param>
     /// <param name="type">The type of the index.</param>
     /// <param name="columns">The columns associated with the index.</param>
-    public ColumnIndex(string name, IndexCharacteristic characteristic, IndexType type, List<Column> columns)
+    public ColumnIndex(string name, IndexCharacteristic characteristic, IndexType type, List<ColumnDefinition> columns)
     {
         Name = name;
         Characteristic = characteristic;
@@ -55,7 +55,7 @@ public class ColumnIndex
         Validate();
     }
 
-    public void AddColumn(Column column)
+    public void AddColumn(ColumnDefinition column)
     {
         if (Columns.Contains(column))
             throw new ArgumentException($"Columns already contains column '{column}'");

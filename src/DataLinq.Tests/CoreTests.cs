@@ -19,9 +19,9 @@ public class CoreTests : BaseTests
     [Fact]
     public void TestMetadataFromFixture()
     {
-        Assert.Equal(2, DatabaseMetadata.LoadedDatabases.Count);
-        Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(EmployeesDb));
-        Assert.Contains(DatabaseMetadata.LoadedDatabases, x => x.Key == typeof(information_schema));
+        Assert.Equal(2, DatabaseDefinition.LoadedDatabases.Count);
+        Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(EmployeesDb));
+        Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(information_schema));
     }
 
 
@@ -56,11 +56,11 @@ public class CoreTests : BaseTests
         var factory = PluginHook.MetadataFromSqlFactories[connection.Type]
             .GetMetadataFromSqlFactory(new MetadataFromDatabaseFactoryOptions());
 
-        var metadata = factory.ParseDatabase("employees", "Employees", connection.DataSourceName, connection.ConnectionString.Original);
+        var metadata = factory.ParseDatabase("employees", "Employees", "DataLinq.Tests.Models.Employees", connection.DataSourceName, connection.ConnectionString.Original);
         TestDatabase(metadata, false);
     }
 
-    private void TestDatabaseAttributes(DatabaseMetadata database)
+    private void TestDatabaseAttributes(DatabaseDefinition database)
     {
         Assert.Equal(2, database.CacheLimits.Count);
         Assert.Equal(CacheLimitType.Megabytes, database.CacheLimits[0].limitType);
@@ -75,10 +75,10 @@ public class CoreTests : BaseTests
         Assert.Single(database.CacheCleanup);
     }
 
-    private void TestDatabase(DatabaseMetadata database, bool testCsType)
+    private void TestDatabase(DatabaseDefinition database, bool testCsType)
     {
         Assert.NotEmpty(database.TableModels);
-        Assert.Equal(8, database.TableModels.Count);
+        Assert.Equal(8, database.TableModels.Length);
         Assert.Equal(2, database.TableModels.Count(x => x.Table.Type == TableType.View));
         Assert.Equal(12, database.TableModels.Sum(x => x.Model.RelationProperties.Count()));
         Assert.Contains(database.TableModels, x => x.Table.Columns.Any(y => y.ColumnIndices.Any(z => z.RelationParts.Any())));

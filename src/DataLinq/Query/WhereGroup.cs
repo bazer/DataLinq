@@ -184,7 +184,7 @@ public class WhereGroup<T> : IWhere<T>
         return Query.OrderBy(columnName, alias, ascending);
     }
 
-    public SqlQuery<T> OrderBy(Column column, string? alias = null, bool ascending = true)
+    public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true)
     {
         return Query.OrderBy(column, alias, ascending);
     }
@@ -194,7 +194,7 @@ public class WhereGroup<T> : IWhere<T>
         return Query.OrderByDesc(columnName, alias);
     }
 
-    public SqlQuery<T> OrderByDesc(Column column, string? alias = null)
+    public SqlQuery<T> OrderByDesc(ColumnDefinition column, string? alias = null)
     {
         return Query.OrderByDesc(column, alias);
     }

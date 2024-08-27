@@ -70,7 +70,7 @@ public class SqlGenerator : Generator
         //    return SqlGeneratorError.UnableToParseModelFiles;
         //}
 
-        log($"Tables in model files: {dbMetadata.TableModels.Count}");
+        log($"Tables in model files: {dbMetadata.TableModels.Length}");
         log($"Writing sql to: {writePath}");
 
         var sql = PluginHook.GenerateSql(connection.Type, dbMetadata, true);

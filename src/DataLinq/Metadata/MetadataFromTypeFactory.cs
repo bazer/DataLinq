@@ -10,70 +10,15 @@ namespace DataLinq.Metadata;
 
 public static class MetadataFromTypeFactory
 {
-    //public static DatabaseMetadata ParseDatabaseFromSources(bool removeInterfacePrefix, params Type[] types)
-    //{
-    //    var dbType =
-    //            types.FirstOrDefault(x => x.GetInterface("ICustomDatabaseModel") != null) ??
-    //            types.FirstOrDefault(x => x.GetInterface("IDatabaseModel") != null);
-
-    //    var database = new DatabaseMetadata(dbType?.Name ?? "Unnamed", dbType);
-
-    //    var customModels = types
-    //        .Where(x =>
-    //            x.GetInterface("ICustomTableModel") != null ||
-    //            x.GetInterface("ICustomViewModel") != null)
-    //        .Select(x => ParseTableModel(database, x, x.Name))
-    //        .ToList();
-
-    //    if (dbType != null)
-    //    {
-    //        database.Attributes = dbType.GetCustomAttributes(false).Cast<Attribute>().ToArray();
-
-    //        ParseAttributes(database);
-
-    //        database.TableModels = dbType
-    //            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-    //            .Select(GetTableType)
-    //            .Select(x => database.ParseTableModel(x.type, x.csName))
-    //            .ToList();
-
-    //        var transformer = new MetadataTransformer(new MetadataTransformerOptions(removeInterfacePrefix));
-
-    //        foreach (var customModel in customModels)
-    //        {
-    //            var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == customModel.Table.DbName);
-
-    //            if (match != null)
-    //            {
-    //                transformer.TransformTable(customModel, match);
-    //                //match.CsPropertyName = customModel.CsPropertyName;
-    //            }
-    //            else
-    //                database.TableModels.Add(customModel);
-    //        }
-    //    }
-    //    else
-    //    {
-    //        database.TableModels = customModels;
-    //    }
-
-    //    MetadataFactory.ParseIndices(database);
-    //    MetadataFactory.ParseRelations(database);
-
-    //    return database;
-
-    //}
-
-    public static DatabaseMetadata ParseDatabaseFromDatabaseModel(Type type)
+    public static DatabaseDefinition ParseDatabaseFromDatabaseModel(Type type)
     {
-        var database = new DatabaseMetadata(type.Name, type);
-        database.Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray();
+        var database = new DatabaseDefinition(type.Name, csType: new CsTypeDeclaration(type));
+        database.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
         database.ParseAttributes();
-        database.TableModels = type
+        database.SetTableModels(type
             .GetProperties(BindingFlags.Instance | BindingFlags.Public)
             .Select(GetTableType)
-            .Select(x => database.ParseTableModel(x.type, x.csName))
-            .ToList();
+            .Select(x => database.ParseTableModel(x.type, x.csName)));
 
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
@@ -81,19 +26,17 @@ public static class MetadataFromTypeFactory
         return database;
     }
 
-    private static TableModelMetadata ParseTableModel(this DatabaseMetadata database, Type type, string csPropertyName)
+    private static TableModel ParseTableModel(this DatabaseDefinition database, Type type, string csPropertyName)
     {
         var model = database.ParseModel(type);
 
-        return new TableModelMetadata
+        return new TableModel
         {
             Model = model,
             Table = model.ParseTable(),
             CsPropertyName = csPropertyName
         };
     }
-
-    
 
     private static (string csName, Type type) GetTableType(this PropertyInfo property)
     {
@@ -105,22 +48,19 @@ public static class MetadataFromTypeFactory
             throw new NotImplementedException();
     }
 
-    private static ModelMetadata ParseModel(this DatabaseMetadata database, Type type)
+    private static ModelDefinition ParseModel(this DatabaseDefinition database, Type type)
     {
-        var model = new ModelMetadata
+        var model = new ModelDefinition
         {
             Database = database,
-            CsType = type,
-            ModelCsType = ParseModelCsType(type),
-            CsTypeName = type.Name,
-            CsNamespace = type.Namespace,
+            CsType = new CsTypeDeclaration(type),
             Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray(),
-            Interfaces = type.GetInterfaces().Select(x => new ModelTypeDeclaration(x, x.Name, ParseModelCsType(x))).ToArray(),
+            Interfaces = type.GetInterfaces().Select(x => new CsTypeDeclaration(x)).ToArray(),
             Usings = type.Namespace == null ? [] : [new ModelUsing { FullNamespaceName = type.Namespace }]
         };
 
-        model.ImmutableType = FindType(type,$"{model.CsNamespace}.Immutable{model.CsTypeName}");
-        model.MutableType = FindType(type,$"{model.CsNamespace}.Mutable{model.CsTypeName}");
+        model.ImmutableType = FindType(type, $"{model.CsType.Namespace}.Immutable{model.CsType.Name}");
+        model.MutableType = FindType(type, $"{model.CsType.Namespace}.Mutable{model.CsType.Name}");
 
         type
             .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -143,41 +83,24 @@ public static class MetadataFromTypeFactory
         return model;
     }
 
-    private static ModelTypeDeclaration FindType(Type modelType, string name)
+    private static CsTypeDeclaration FindType(Type modelType, string name)
     {
-        var type = modelType.Assembly.GetTypes().FirstOrDefault(x =>x.FullName == name);
+        var type = modelType.Assembly.GetTypes().FirstOrDefault(x => x.FullName == name);
 
-        if (type == null)
-            throw new NotImplementedException($"Type '{name}' not found");
-
-        return new ModelTypeDeclaration(type, type.Name, ParseModelCsType(type));
+        return type == null
+            ? throw new NotImplementedException($"Type '{name}' not found")
+            : new CsTypeDeclaration(type);
     }
 
-    private static ModelCsType ParseModelCsType(Type type)
+    private static TableDefinition ParseTable(this ModelDefinition model)
     {
-        if (type.IsClass)
-        {
-            if (type.GetProperty("EqualityContract", BindingFlags.NonPublic | BindingFlags.Instance) != null)
-                return ModelCsType.Record;
-
-            return ModelCsType.Class;
-        }
-
-        if (type.IsInterface)
-            return ModelCsType.Interface;
-
-        throw new NotImplementedException($"Unknown type '{type}'");
-    }
-
-    private static TableMetadata ParseTable(this ModelMetadata model)
-    {
-        var table = model.CsType.GetInterfaces().Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
-            ? new TableMetadata()
-            : new ViewMetadata();
+        var table = model.CsType.Type?.GetInterfaces().Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel")) == true
+            ? new TableDefinition()
+            : new ViewDefinition();
 
         table.Model = model;
         table.Database = model.Database;
-        table.DbName = model.CsTypeName;
+        table.DbName = model.CsType.Name;
 
         foreach (var attribute in model.Attributes)
         {
@@ -193,7 +116,7 @@ public static class MetadataFromTypeFactory
             if (attribute is IndexCacheAttribute indexCache)
                 table.IndexCache.Add((indexCache.Type, indexCache.Amount));
 
-            if (table is ViewMetadata view && attribute is DefinitionAttribute definitionAttribute)
+            if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
                 view.Definition = definitionAttribute.Sql;
         }
 
@@ -206,9 +129,7 @@ public static class MetadataFromTypeFactory
         return table;
     }
 
-    
-
-    private static Property ParseProperty(this PropertyInfo propertyInfo, ModelMetadata model)
+    private static PropertyDefinition ParseProperty(this PropertyInfo propertyInfo, ModelDefinition model)
     {
         var attributes = propertyInfo
                 .GetCustomAttributes(false)
@@ -238,11 +159,6 @@ public static class MetadataFromTypeFactory
 
                 var enumValues = Enum.GetValues(property.CsType).Cast<int>().ToList();
                 valueProp.EnumProperty = new EnumProperty(enumValueList, Enum.GetNames(property.CsType).Select((x, i) => (x, enumValues[i])).ToList(), true);
-
-                //if (attributes.Any(attribute => attribute is EnumAttribute))
-                //    valueProp.EnumProperty.Value.EnumValues = attributes.OfType<EnumAttribute>().Single().Values.ToList();
-                //else
-                //    enumProp.EnumValues = Enum.GetNames(property.CsType).ToList();
             }
             else
                 valueProp.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
@@ -251,16 +167,10 @@ public static class MetadataFromTypeFactory
         return property;
     }
 
-    private static Property GetProperty(List<Attribute> attributes)
+    private static PropertyDefinition GetProperty(List<Attribute> attributes)
     {
-        //if (isEnum)
-        //    return new EnumProperty();
-
         if (attributes.Any(attribute => attribute is RelationAttribute))
             return new RelationProperty();
-
-        //if (attributes.Any(attribute => attribute is EnumAttribute))
-        //    return new EnumProperty();
 
         return new ValueProperty();
     }

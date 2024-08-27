@@ -11,13 +11,13 @@ public enum PropertyType
     Relation
 }
 
-public abstract class Property
+public abstract class PropertyDefinition
 {
     public List<Attribute> Attributes { get; set; } = new List<Attribute>();
     public string CsName { get; set; }
     public Type CsType { get; set; }
     public string CsTypeName { get; set; }
-    public ModelMetadata Model { get; set; }
+    public ModelDefinition Model { get; set; }
     public PropertyInfo? PropertyInfo { get; set; }
     public PropertyType Type { get; protected set; }
 
@@ -82,9 +82,9 @@ public abstract class Property
     }
 }
 
-public class ValueProperty : Property
+public class ValueProperty : PropertyDefinition
 {
-    public Column Column { get; set; }
+    public ColumnDefinition Column { get; set; }
     public bool CsNullable { get; set; }
     public int? CsSize { get; set; }
     public EnumProperty? EnumProperty { get; set; }
@@ -111,7 +111,7 @@ public record struct EnumProperty
     public bool DeclaredInClass { get; }
 }
 
-public class RelationProperty : Property
+public class RelationProperty : PropertyDefinition
 {
     public RelationPart RelationPart { get; set; }
     public string RelationName { get; set; }

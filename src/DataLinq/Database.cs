@@ -108,7 +108,7 @@ public abstract class Database<T> : IDisposable
     /// <param name="table">The table.</param>
     /// <param name="alias">The alias of the table.</param>
     /// <returns>The new SQL query.</returns>
-    public SqlQuery From(TableMetadata table, string? alias = null)
+    public SqlQuery From(TableDefinition table, string? alias = null)
     {
         return new SqlQuery(table, Provider.TypedReadOnlyAccess, alias);
     }

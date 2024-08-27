@@ -12,15 +12,15 @@ public enum TableType
     View
 }
 
-public class TableMetadata
+public class TableDefinition
 {
     //private List<Column> primaryKeyColumns;
-    public Column[] Columns { get; set; }
-    public DatabaseMetadata Database { get; set; }
+    public ColumnDefinition[] Columns { get; set; }
+    public DatabaseDefinition Database { get; set; }
     public string DbName { get; set; }
-    public ModelMetadata Model { get; set; }
+    public ModelDefinition Model { get; set; }
 
-    public Column[] PrimaryKeyColumns { get; private set; } = [];
+    public ColumnDefinition[] PrimaryKeyColumns { get; private set; } = [];
     //public List<Column> PrimaryKeyColumns =>
     //    primaryKeyColumns ??= Columns.Where(x => x.PrimaryKey).ToList();
 
@@ -30,7 +30,7 @@ public class TableMetadata
     public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = [];
     public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; set; } = [];
 
-    public void AddPrimaryKeyColumn(Column column)
+    public void AddPrimaryKeyColumn(ColumnDefinition column)
     {
         if (PrimaryKeyColumns == null)
             PrimaryKeyColumns = [column];
@@ -38,7 +38,7 @@ public class TableMetadata
             PrimaryKeyColumns = PrimaryKeyColumns.Concat(new[] { column }).ToArray();
     }
 
-    public void RemovePrimaryKeyColumn(Column column)
+    public void RemovePrimaryKeyColumn(ColumnDefinition column)
     {
         if (PrimaryKeyColumns == null)
             return;
@@ -58,18 +58,18 @@ public class TableMetadata
     {
         var desc = $"Table: {DbName}";
 
-        if (Model?.CsTypeName != DbName)
-            desc += $" ({Model.CsTypeName})";
+        if (Model?.CsType.Name != DbName)
+            desc += $" ({Model?.CsType.Name})";
 
         return desc;
     }
 }
 
-public class ViewMetadata : TableMetadata
+public class ViewDefinition : TableDefinition
 {
     public string Definition { get; set; }
 
-    public ViewMetadata()
+    public ViewDefinition()
     {
         Type = TableType.View;
     }

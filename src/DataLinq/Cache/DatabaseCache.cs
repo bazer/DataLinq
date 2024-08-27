@@ -15,7 +15,7 @@ public class DatabaseCache : IDisposable
 {
     public IDatabaseProvider Database { get; set; }
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
-    public Dictionary<TableMetadata, TableCache> TableCaches { get; }
+    public Dictionary<TableDefinition, TableCache> TableCaches { get; }
 
     public CleanCacheWorker? CleanCacheWorker { get; }
 
@@ -47,7 +47,7 @@ public class DatabaseCache : IDisposable
     //    return TableCaches.Single(x => x.Table.DbName == tableName);
     //}
 
-    public TableCache GetTableCache(TableMetadata table)
+    public TableCache GetTableCache(TableDefinition table)
     {
         return TableCaches[table];
     }

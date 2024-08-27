@@ -69,7 +69,7 @@ public class DatabaseCreator : Generator
         //    return DatabaseCreatorError.UnableToParseModelFiles;
         //}
 
-        log($"Tables in model files: {dbMetadata.TableModels.Count}");
+        log($"Tables in model files: {dbMetadata.TableModels.Length}");
 
         if (connection.Type == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
             databaseName = Path.Combine(basePath, databaseName);

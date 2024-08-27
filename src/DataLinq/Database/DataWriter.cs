@@ -14,7 +14,7 @@ public interface IDataLinqDataWriter
     /// <param name="column">The column to convert.</param>
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
-    object? ConvertValue(Column column, object? value);
+    object? ConvertValue(ColumnDefinition column, object? value);
 }
 
 /// <summary>
@@ -30,7 +30,7 @@ public static class DataWriter
     /// <param name="value">The value to convert.</param>
     /// <returns>The converted value.</returns>
     /// <exception cref="System.ArgumentNullException">Thrown when the column is null.</exception>
-    public static object? ConvertColumnValue(this IDataLinqDataWriter writer, Column column, object? value)
+    public static object? ConvertColumnValue(this IDataLinqDataWriter writer, ColumnDefinition column, object? value)
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(column);
