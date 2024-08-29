@@ -26,17 +26,8 @@ public static class MetadataFromTypeFactory
         return database;
     }
 
-    private static TableModel ParseTableModel(this DatabaseDefinition database, Type type, string csPropertyName)
-    {
-        var model = database.ParseModel(type);
-
-        return new TableModel
-        {
-            Model = model,
-            Table = model.ParseTable(),
-            CsPropertyName = csPropertyName
-        };
-    }
+    private static TableModel ParseTableModel(this DatabaseDefinition database, Type type, string csPropertyName) =>
+        new(csPropertyName, database, type.ParseModel());
 
     private static (string csName, Type type) GetTableType(this PropertyInfo property)
     {
@@ -48,19 +39,18 @@ public static class MetadataFromTypeFactory
             throw new NotImplementedException();
     }
 
-    private static ModelDefinition ParseModel(this DatabaseDefinition database, Type type)
+    private static ModelDefinition ParseModel(this Type type)
     {
-        var model = new ModelDefinition
-        {
-            Database = database,
-            CsType = new CsTypeDeclaration(type),
-            Attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray(),
-            Interfaces = type.GetInterfaces().Select(x => new CsTypeDeclaration(x)).ToArray(),
-            Usings = type.Namespace == null ? [] : [new ModelUsing { FullNamespaceName = type.Namespace }]
-        };
+        var model = new ModelDefinition(new CsTypeDeclaration(type));
 
-        model.ImmutableType = FindType(type, $"{model.CsType.Namespace}.Immutable{model.CsType.Name}");
-        model.MutableType = FindType(type, $"{model.CsType.Namespace}.Mutable{model.CsType.Name}");
+        model.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
+        model.SetInterfaces(type.GetInterfaces().Select(x => new CsTypeDeclaration(x)));
+
+        if (type.Namespace != null)
+            model.SetUsings([new(type.Namespace)]);
+
+        model.SetImmutableType(FindType(type, $"{model.CsType.Namespace}.Immutable{model.CsType.Name}"));
+        model.SetMutableType(FindType(type, $"{model.CsType.Namespace}.Mutable{model.CsType.Name}"));
 
         type
             .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -70,15 +60,14 @@ public static class MetadataFromTypeFactory
             .ToList()
             .ForEach(model.AddProperty);
 
-        model.Usings = model.ValueProperties.Values
+        model.SetUsings(model.ValueProperties.Values
             .Select(x => x.CsType?.Namespace)
             .Distinct()
             .Where(x => x != null)
             .Select(name => (name!.StartsWith("System"), name))
             .OrderByDescending(x => x.Item1)
             .ThenBy(x => x.name)
-            .Select(x => new ModelUsing { FullNamespaceName = x.name })
-            .ToArray();
+            .Select(x => new ModelUsing(x.name)));
 
         return model;
     }
@@ -92,42 +81,7 @@ public static class MetadataFromTypeFactory
             : new CsTypeDeclaration(type);
     }
 
-    private static TableDefinition ParseTable(this ModelDefinition model)
-    {
-        var table = model.CsType.Type?.GetInterfaces().Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel")) == true
-            ? new TableDefinition()
-            : new ViewDefinition();
-
-        table.Model = model;
-        table.Database = model.Database;
-        table.DbName = model.CsType.Name;
-
-        foreach (var attribute in model.Attributes)
-        {
-            if (attribute is TableAttribute tableAttribute)
-                table.DbName = tableAttribute.Name;
-
-            if (attribute is UseCacheAttribute useCache)
-                table.UseCache = useCache.UseCache;
-
-            if (attribute is CacheLimitAttribute cacheLimit)
-                table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
-
-            if (attribute is IndexCacheAttribute indexCache)
-                table.IndexCache.Add((indexCache.Type, indexCache.Amount));
-
-            if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
-                view.Definition = definitionAttribute.Sql;
-        }
-
-        table.Columns = model.ValueProperties.Values
-            .Select(x => table.ParseColumn(x))
-            .ToArray();
-
-        model.Table = table;
-
-        return table;
-    }
+   
 
     private static PropertyDefinition ParseProperty(this PropertyInfo propertyInfo, ModelDefinition model)
     {

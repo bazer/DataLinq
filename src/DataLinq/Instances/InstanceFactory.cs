@@ -54,7 +54,10 @@ public static class InstanceFactory
 {
     public static IImmutableInstance NewImmutableRow(RowData rowData, IDatabaseProvider databaseProvider, DataSourceAccess dataSource)
     {
-        var model = Activator.CreateInstance(rowData.Table.Model.ImmutableType.Type!, rowData, dataSource);
+        if (rowData.Table.Model.ImmutableType?.Type == null)
+            throw new Exception($"Immutable model type not defined for '{rowData.Table.Model.CsType}'");
+
+        var model = Activator.CreateInstance(rowData.Table.Model.ImmutableType.Value.Type!, rowData, dataSource);
 
         if (model == null)
             throw new Exception($"Failed to create instance of immutable model type '{rowData.Table.Model.CsType}'");

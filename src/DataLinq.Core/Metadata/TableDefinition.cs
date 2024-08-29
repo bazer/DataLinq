@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Data;
 using System.Linq;
 using DataLinq.Attributes;
 
@@ -12,23 +10,33 @@ public enum TableType
     View
 }
 
-public class TableDefinition
+public class TableDefinition(string dbName)
 {
-    //private List<Column> primaryKeyColumns;
-    public ColumnDefinition[] Columns { get; set; }
-    public DatabaseDefinition Database { get; set; }
-    public string DbName { get; set; }
-    public ModelDefinition Model { get; set; }
+    public string DbName { get; private set; } = dbName;
+    public void SetDbName(string dbName) => DbName = dbName;
+    public TableModel TableModel { get; private set; }
+    internal void SetTableModel(TableModel tableModel) => TableModel = tableModel;
+    public DatabaseDefinition Database => TableModel.Database;
+    public ModelDefinition Model => TableModel.Model;
+    //public void SetModel(ModelDefinition model) => Model = model;
+
+    public ColumnDefinition[] Columns { get; private set; } = [];
+    public void SetColumns(IEnumerable<ColumnDefinition> columns) => Columns = columns.ToArray();
 
     public ColumnDefinition[] PrimaryKeyColumns { get; private set; } = [];
-    //public List<Column> PrimaryKeyColumns =>
-    //    primaryKeyColumns ??= Columns.Where(x => x.PrimaryKey).ToList();
-
-    public List<ColumnIndex> ColumnIndices { get; set; } = new List<ColumnIndex>();
+    public List<ColumnIndex> ColumnIndices { get; private set; } = [];
 
     public TableType Type { get; protected set; } = TableType.Table;
-    public List<(CacheLimitType limitType, long amount)> CacheLimits { get; set; } = [];
-    public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; set; } = [];
+    public List<(CacheLimitType limitType, long amount)> CacheLimits { get; } = [];
+    public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; } = [];
+
+
+    internal bool? explicitUseCache;
+    public bool UseCache
+    {
+        get => explicitUseCache ?? Database.UseCache;
+        set => explicitUseCache = value;
+    }
 
     public void AddPrimaryKeyColumn(ColumnDefinition column)
     {
@@ -46,13 +54,6 @@ public class TableDefinition
         PrimaryKeyColumns = PrimaryKeyColumns.Where(x => x != column).ToArray();
     }
 
-    public bool UseCache
-    {
-        get => explicitUseCache.HasValue ? explicitUseCache.Value : Database.UseCache;
-        set => explicitUseCache = value;
-    }
-
-    internal bool? explicitUseCache;
 
     public override string ToString()
     {
@@ -67,9 +68,10 @@ public class TableDefinition
 
 public class ViewDefinition : TableDefinition
 {
-    public string Definition { get; set; }
+    public string? Definition { get; private set; }
+    public void SetDefinition(string definition) => Definition = definition;
 
-    public ViewDefinition()
+    public ViewDefinition(string dbName) : base(dbName)
     {
         Type = TableType.View;
     }

@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -14,9 +12,11 @@ public enum ModelCsType
     Interface
 }
 
-public class ModelUsing
+public class ModelUsing(string fullNamespaceName)
 {
-    public string FullNamespaceName { get; set; }
+    public string FullNamespaceName { get; } = fullNamespaceName;
+
+    public override string ToString() => FullNamespaceName;
 }
 
 public readonly record struct CsTypeDeclaration

@@ -15,21 +15,12 @@ public class DatabaseDefinition
         Name = name;
         DbName = dbName ?? Name;
         CsType = csType;
-        //CsTypeName = csTypeName ?? CsType?.Name ?? Name;
     }
-
-    //public void SetCsNamespace(string csNamespace)
-    //{
-    //    CsNamespace = csNamespace;
-    //}
 
     public string Name { get; private set; }
     public void SetName(string name) => Name = name;
     public string DbName { get; private set; }
     public void SetDbName(string dbName) => DbName = dbName;
-    //public Type? CsType { get; }
-    //public string CsTypeName { get; private set; }
-    //public string CsNamespace { get; private set; }
     public CsTypeDeclaration CsType { get; private set; }
     public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
     public bool UseCache { get; private set; }

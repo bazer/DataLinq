@@ -5,24 +5,26 @@ using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
 
-
-
-public class ModelDefinition
+public class ModelDefinition(CsTypeDeclaration csType)
 {
-    //public Type CsType { get; set; }
-    //public string CsTypeName { get; set; }
-    //public string? CsNamespace { get; set; }
-    //public ModelCsType ModelCsType { get; set; }
-    public CsTypeDeclaration CsType { get; set; }
-    public CsTypeDeclaration ImmutableType { get; set; }
-    public CsTypeDeclaration MutableType { get; set; }
-    public CsTypeDeclaration[] Interfaces { get; set; }
-    public ModelUsing[] Usings { get; set; }
-    public DatabaseDefinition Database { get; set; }
-    public TableDefinition Table { get; set; }
+    public CsTypeDeclaration CsType { get; private set; } = csType;
+    public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
+    public TableModel TableModel { get; private set; }
+    internal void SetTableModel(TableModel tableModel) => TableModel = tableModel;
+    public DatabaseDefinition Database => TableModel.Database;
+    public TableDefinition Table => TableModel.Table;
+    public CsTypeDeclaration? ImmutableType { get; private set; }
+    public void SetImmutableType(CsTypeDeclaration immutableType) => ImmutableType = immutableType;
+    public CsTypeDeclaration? MutableType { get; private set; }
+    public void SetMutableType(CsTypeDeclaration mutableType) => MutableType = mutableType;
+    public CsTypeDeclaration[] Interfaces { get; private set; } = [];
+    public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => Interfaces = interfaces.ToArray();
+    public ModelUsing[] Usings { get; private set; } = [];
+    public void SetUsings(IEnumerable<ModelUsing> usings) => Usings = usings.ToArray();
     public Dictionary<string, RelationProperty> RelationProperties { get; } = new();
     public Dictionary<string, ValueProperty> ValueProperties { get; } = new();
-    public Attribute[] Attributes { get; set; }
+    public Attribute[] Attributes { get; private set; } = [];
+    public void SetAttributes(IEnumerable<Attribute> attributes) => Attributes = attributes.ToArray();
 
     public void AddProperty(PropertyDefinition property)
     { 
@@ -36,22 +38,6 @@ public class ModelDefinition
 
     protected bool IsOfType(Type modelType) =>
            modelType == CsType.Type || modelType.BaseType == CsType.Type;
-
-    //public static ModelDefinition? Find(IModel model) =>
-    //    DatabaseDefinition
-    //    .LoadedDatabases
-    //    .Values
-    //    .Select(x => x.TableModels.Find(y => y.Model.IsOfType(model.GetType())))
-    //    .FirstOrDefault(x => x != null)
-    //    ?.Model;
-
-    //public static ModelDefinition? Find<T>() where T : IModel =>
-    //    DatabaseDefinition
-    //    .LoadedDatabases
-    //    .Values
-    //    .Select(x => x.TableModels.Find(y => y.Model.IsOfType(typeof(T))))
-    //    .FirstOrDefault(x => x != null)
-    //    ?.Model;
 
     public static ModelDefinition? Find(IModel model) =>
         DatabaseDefinition
@@ -68,8 +54,6 @@ public class ModelDefinition
         .Select(x => Array.Find(x.TableModels, y => y.Model.IsOfType(typeof(T))))
         .FirstOrDefault(x => x != null)
         ?.Model;
-
-
 
     public override string ToString()
     {

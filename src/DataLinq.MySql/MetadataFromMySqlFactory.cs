@@ -148,36 +148,33 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
     {
         var type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
 
-        var table = type == TableType.Table
-            ? new TableDefinition()
-            : new ViewDefinition();
+        if (dbTables.TABLE_NAME == null)
+            throw new Exception("Table name is null");
 
-        table.Database = database;
-        table.DbName = dbTables.TABLE_NAME;
-        MetadataFactory.AttachModel(table, database.CsType.Namespace ?? "", options.CapitaliseNames);
+        var table = type == TableType.Table
+            ? new TableDefinition(dbTables.TABLE_NAME)
+            : new ViewDefinition(dbTables.TABLE_NAME);
 
         if (table is ViewDefinition view)
         {
-            view.Definition = information_Schema
+            view.SetDefinition(information_Schema
                 .VIEWS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == view.DbName)
                 .AsEnumerable()
                 .Select(x => x.VIEW_DEFINITION)
                 .FirstOrDefault()?
-                .Replace($"`{database.DbName}`.", "") ?? "";
+                .Replace($"`{database.DbName}`.", "") ?? "");
         }
 
-        table.Columns = information_Schema
+        table.SetColumns(information_Schema
             .COLUMNS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == table.DbName)
             .AsEnumerable()
-            .Select(x => ParseColumn(table, x))
-            .ToArray();
+            .Select(x => ParseColumn(table, x)));
 
-        return new TableModel
-        {
-            Table = table,
-            Model = table.Model,
-            CsPropertyName = table.Model.CsType.Name
-        };
+        var csName = options.CapitaliseNames
+            ? table.DbName.FirstCharToUpper()
+            : table.DbName;
+
+        return new TableModel(table.Model.CsType.Name, database, table, csName);
     }
 
     private ColumnDefinition ParseColumn(TableDefinition table, COLUMNS dbColumns)

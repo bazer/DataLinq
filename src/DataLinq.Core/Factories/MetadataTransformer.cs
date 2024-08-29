@@ -49,7 +49,7 @@ public class MetadataTransformer
             }
 
             TransformTable(srcTable, destTable);
-            destTable.CsPropertyName = srcTable.CsPropertyName;
+            destTable.SetCsPropertyName(srcTable.CsPropertyName);
         }
     }
 
@@ -66,16 +66,11 @@ public class MetadataTransformer
 
         if (destTable.Model.CsType.Name != modelCsTypeName)
         {
-            destTable.Model.CsType = destTable.Model.CsType.MutateName(modelCsTypeName);
-
-            //foreach (var enumProp in destTable.Model.Properties.OfType<EnumProperty>())
-            //{
-            //    enumProp.CsTypeName = modelCsTypeName + enumProp.CsName;
-            //}
+            destTable.Model.SetCsType(destTable.Model.CsType.MutateName(modelCsTypeName));
         }
 
-        destTable.Model.Interfaces = [srcTable.Model.CsType]; //[new CsTypeDeclaration { CsType = srcTable.Model.CsType, CsTypeName = srcTable.Model.CsTypeName }];
-        destTable.Model.Usings = srcTable.Model.Usings;
+        //destTable.Model.SetInterfaces([srcTable.Model.CsType]); //TODO: Investigate if this is needed
+        destTable.Model.SetUsings(srcTable.Model.Usings);
 
         foreach (var srcProperty in srcTable.Model.ValueProperties.Values)
         {

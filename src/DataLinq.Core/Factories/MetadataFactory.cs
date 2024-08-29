@@ -22,6 +22,39 @@ public struct MetadataFromDatabaseFactoryOptions
 
 public static class MetadataFactory
 {
+    public static TableDefinition ParseTable(ModelDefinition model)
+    {
+        var table = model.Interfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
+            ? new TableDefinition(model.CsType.Name)
+            : new ViewDefinition(model.CsType.Name);
+
+        //var table = model.CsType.Type?.GetInterfaces().Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel")) == true
+        //    ? new TableDefinition(model.CsType.Name)
+        //    : new ViewDefinition(model.CsType.Name);
+
+        foreach (var attribute in model.Attributes)
+        {
+            if (attribute is TableAttribute tableAttribute)
+                table.SetDbName(tableAttribute.Name);
+
+            if (attribute is UseCacheAttribute useCache)
+                table.UseCache = useCache.UseCache;
+
+            if (attribute is CacheLimitAttribute cacheLimit)
+                table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+
+            if (attribute is IndexCacheAttribute indexCache)
+                table.IndexCache.Add((indexCache.Type, indexCache.Amount));
+
+            if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
+                view.SetDefinition(definitionAttribute.Sql);
+        }
+
+        table.SetColumns(model.ValueProperties.Values.Select(table.ParseColumn));
+
+        return table;
+    }
+
     public static void ParseIndices(DatabaseDefinition database)
     {
         var indices = database.TableModels
@@ -196,21 +229,17 @@ public static class MetadataFactory
         return relationProperty;
     }
 
-    public static ModelDefinition AttachModel(TableDefinition table, string @namespace, bool capitaliseNames)
-    {
-        var name = capitaliseNames
-            ? table.DbName.FirstCharToUpper()
-            : table.DbName;
+    //public static ModelDefinition AttachModel(TableDefinition table, string @namespace, bool capitaliseNames)
+    //{
+    //    var name = capitaliseNames
+    //        ? table.DbName.FirstCharToUpper()
+    //        : table.DbName;
 
-        table.Model = new ModelDefinition
-        {
-            CsType = new CsTypeDeclaration(name, @namespace, ModelCsType.Class),
-            Table = table,
-            Database = table.Database
-        };
+    //    table.SetModel(new ModelDefinition(new CsTypeDeclaration(name, @namespace, ModelCsType.Class), table.Database));
+    //    table.Model.Table = table;
 
-        return table.Model;
-    }
+    //    return table.Model;
+    //}
 
     public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {

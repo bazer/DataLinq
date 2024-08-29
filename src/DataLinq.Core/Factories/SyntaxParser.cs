@@ -22,41 +22,22 @@ public static class SyntaxParser
     public static TableModel ParseTableModel(DatabaseDefinition database, TypeDeclarationSyntax typeSyntax, string csPropertyName)
     {
         var model = typeSyntax == null
-            ? new ModelDefinition
-            {
-                Database = database,
-                CsType = new CsTypeDeclaration(csPropertyName, "", ModelCsType.Interface),
-                //ModelCsType = ModelCsType.Interface,
-                //CsTypeName = csPropertyName,
-                Interfaces = [],
-                Attributes = []
-            }
-             : ParseModel(database, typeSyntax);
+            ? new ModelDefinition(new CsTypeDeclaration(csPropertyName, database.CsType.Namespace, ModelCsType.Interface))
+            : typeSyntax.ParseModel();
 
-        return new TableModel
-        {
-            IsStub = typeSyntax == null,
-            Model = model,
-            Table = ParseTable(model),
-            CsPropertyName = csPropertyName
-        };
+        return new TableModel(csPropertyName, database, model, typeSyntax == null);
     }
 
-    public static ModelDefinition ParseModel(DatabaseDefinition database, TypeDeclarationSyntax typeSyntax)
+    private static ModelDefinition ParseModel(this TypeDeclarationSyntax typeSyntax)
     {
-        var model = new ModelDefinition
-        {
-            Database = database,
-            CsType = new CsTypeDeclaration(typeSyntax),
-            //ModelCsType = ParseModelCsType(typeSyntax),
-            //CsTypeName = typeSyntax.Identifier.Text,
-            //CsNamespace = GetNamespace(typeSyntax),
-            Attributes = typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => ParseAttribute(x)).ToArray(),
-            Interfaces = typeSyntax.BaseList?.Types.Select(baseType => new CsTypeDeclaration(baseType)).ToArray() ?? []
-        };
+        var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
+
+        model.SetAttributes(typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(ParseAttribute));
+        if (typeSyntax.BaseList != null)
+            model.SetInterfaces(typeSyntax.BaseList.Types.Select(baseType => new CsTypeDeclaration(baseType)));
 
         if (model.CsType.ModelCsType == ModelCsType.Interface)
-            model.CsType = new CsTypeDeclaration(MetadataTypeConverter.RemoveInterfacePrefix(model.CsType.Name), model.CsType.Namespace, model.CsType.ModelCsType);
+            model.SetCsType(model.CsType.MutateName(MetadataTypeConverter.RemoveInterfacePrefix(model.CsType.Name)));
 
         typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
@@ -65,7 +46,7 @@ public static class SyntaxParser
         .ToList()
         .ForEach(model.AddProperty);
 
-        model.Usings = typeSyntax.SyntaxTree.GetRoot()
+        model.SetUsings(typeSyntax.SyntaxTree.GetRoot()
             .DescendantNodes()
             .OfType<UsingDirectiveSyntax>()
             .Select(uds => uds?.Name?.ToString())
@@ -73,8 +54,7 @@ public static class SyntaxParser
             .Distinct()
             .OrderBy(ns => ns!.StartsWith("System"))
             .ThenBy(ns => ns)
-            .Select(ns => new ModelUsing { FullNamespaceName = ns! })
-            .ToArray();
+            .Select(ns => new ModelUsing(ns!)));
 
         return model;
     }
@@ -85,8 +65,6 @@ public static class SyntaxParser
         var arguments = attributeSyntax.ArgumentList?.Arguments
             .Select(x => x.Expression.ToString().Trim('"'))
             .ToList() ?? new();
-
-
 
         if (name == "Database")
         {
@@ -287,39 +265,31 @@ public static class SyntaxParser
         throw new NotImplementedException($"Attribute '{name}' not implemented");
     }
 
-    public static TableDefinition ParseTable(ModelDefinition model)
-    {
-        TableDefinition table = model.Interfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
-            ? new TableDefinition()
-            : new ViewDefinition();
+    //private static TableDefinition ParseTable(ModelDefinition model)
+    //{
+    //    TableDefinition table = model.Interfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
+    //        ? new TableDefinition(model.CsType.Name)
+    //        : new ViewDefinition(model.CsType.Name);
 
-        table.Model = model;
-        table.Database = model.Database;
-        table.DbName = model.CsType.Name;
+    //    foreach (var attribute in model.Attributes)
+    //    {
+    //        if (attribute is TableAttribute tableAttribute)
+    //            table.SetDbName(tableAttribute.Name);
 
-        foreach (var attribute in model.Attributes)
-        {
-            if (attribute is TableAttribute tableAttribute)
-                table.DbName = tableAttribute.Name;
+    //        if (attribute is UseCacheAttribute useCache)
+    //            table.UseCache = useCache.UseCache;
 
-            if (attribute is UseCacheAttribute useCache)
-                table.UseCache = useCache.UseCache;
+    //        if (attribute is CacheLimitAttribute cacheLimit)
+    //            table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
 
-            if (attribute is CacheLimitAttribute cacheLimit)
-                table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+    //        if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
+    //            view.SetDefinition(definitionAttribute.Sql);
+    //    }
 
-            if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
-                view.Definition = definitionAttribute.Sql;
-        }
+    //    table.SetColumns(model.ValueProperties.Values.Select(table.ParseColumn));
 
-        table.Columns = model.ValueProperties.Values
-            .Select(x => table.ParseColumn(x))
-            .ToArray();
-
-        model.Table = table;
-
-        return table;
-    }
+    //    return table;
+    //}
 
     public static PropertyDefinition ParseProperty(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
     {

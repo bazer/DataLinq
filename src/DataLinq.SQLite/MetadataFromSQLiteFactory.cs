@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using ThrowAway;
 
@@ -123,29 +124,21 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         var type = reader.GetString(0) == "table" ? TableType.Table : TableType.View; //sqlite_master.type
         var table = type == TableType.Table
-             ? new TableDefinition()
-             : new ViewDefinition();
-
-        table.Database = database;
-        table.DbName = reader.GetString(2); //sqlite_master.tbl_name
-        MetadataFactory.AttachModel(table, database.CsType.Namespace, options.CapitaliseNames);
+             ? new TableDefinition(reader.GetString(2))
+             : new ViewDefinition(reader.GetString(2));
 
         if (table is ViewDefinition view)
-        {
-            view.Definition = ParseViewDefinition(reader.GetString(4)); //sqlite_master.sql
-        }
+            view.SetDefinition(ParseViewDefinition(reader.GetString(4))); //sqlite_master.sql
 
-        table.Columns = dbAccess
+        table.SetColumns(dbAccess
             .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
-            .Select(x => ParseColumn(table, x))
-            .ToArray();
+            .Select(x => ParseColumn(table, x)));
 
-        return new TableModel
-        {
-            Table = table,
-            Model = table.Model,
-            CsPropertyName = table.Model.CsType.Name
-        };
+        var csName = options.CapitaliseNames
+            ? table.DbName.FirstCharToUpper()
+            : table.DbName;
+
+        return new TableModel(table.Model.CsType.Name, database, table, csName);
     }
 
     private static string ParseViewDefinition(string definition)
