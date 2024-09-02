@@ -103,14 +103,7 @@ public class MetadataTransformer
             {
                 if (!destProperty.Column.DbTypes.Any(x => x.DatabaseType == srcDbType.DatabaseType))
                 {
-                    destProperty.Column.AddDbType(new DatabaseColumnType
-                    {
-                        DatabaseType = srcDbType.DatabaseType,
-                        Name = srcDbType.Name,
-                        Length = srcDbType.Length,
-                        Decimals = srcDbType.Decimals,
-                        Signed = srcDbType.Signed
-                    });
+                    destProperty.Column.AddDbType(srcDbType.Clone());
                 }
             }
         }

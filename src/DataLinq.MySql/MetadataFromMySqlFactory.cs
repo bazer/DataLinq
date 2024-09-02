@@ -127,7 +127,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             if (foreignKeyColumn == null)
                 continue;
 
-            foreignKeyColumn.ForeignKey = true;
+            foreignKeyColumn.SetForeignKey();
             foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
 
             var referencedColumn = database
@@ -179,21 +179,19 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
     private ColumnDefinition ParseColumn(TableDefinition table, COLUMNS dbColumns)
     {
-        var dbType = new DatabaseColumnType
-        {
-            DatabaseType = DatabaseType.MySQL,
-            Name = dbColumns.DATA_TYPE,
-            Signed = dbColumns.COLUMN_TYPE.Contains("unsigned") ? false : null
-        };
+        var dbType = new DatabaseColumnType(DatabaseType.MySQL, dbColumns.DATA_TYPE);
 
+        if (dbColumns.COLUMN_TYPE.Contains("unsigned"))
+            dbType.SetSigned(false);
+       
         if (dbType.Name == "decimal" || dbType.Name == "bit")
         {
-            dbType.Length = dbColumns.NUMERIC_PRECISION;
-            dbType.Decimals = (int?)dbColumns.NUMERIC_SCALE;
+            dbType.SetLength(dbColumns.NUMERIC_PRECISION);
+            dbType.SetDecimals(dbColumns.NUMERIC_SCALE);
         }
         else if (dbType.Name != "enum")
         {
-            dbType.Length = dbColumns.CHARACTER_MAXIMUM_LENGTH;
+            dbType.SetLength(dbColumns.CHARACTER_MAXIMUM_LENGTH);
         }
 
         var column = new ColumnDefinition

@@ -42,19 +42,19 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
 
     [Type(DatabaseType.MySQL, "varchar", 3)]
     [Column("COLUMN_KEY")]
-    public abstract string? COLUMN_KEY { get; }
+    public abstract string COLUMN_KEY { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("COLUMN_NAME")]
-    public abstract string? COLUMN_NAME { get; }
+    public abstract string COLUMN_NAME { get; }
 
     [Type(DatabaseType.MySQL, "longtext", 4294967295)]
     [Column("COLUMN_TYPE")]
-    public abstract string? COLUMN_TYPE { get; }
+    public abstract string COLUMN_TYPE { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("DATA_TYPE")]
-    public abstract string? DATA_TYPE { get; }
+    public abstract string DATA_TYPE { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint", 0, false)]
@@ -63,7 +63,7 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
 
     [Type(DatabaseType.MySQL, "varchar", 80)]
     [Column("EXTRA")]
-    public abstract string? EXTRA { get; }
+    public abstract string EXTRA { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "longtext", 4294967295)]

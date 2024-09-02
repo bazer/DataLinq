@@ -112,31 +112,18 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         else if (dbType.DatabaseType == DatabaseType.SQLite)
             type = ParseSQLiteType(dbType.Name);
 
-        if (type == null)
-            return null;
-
-        return new DatabaseColumnType
-        {
-            DatabaseType = DatabaseType.MySQL,
-            Name = type,
-            Length = dbType.Length,
-            Decimals = dbType.Decimals,
-            Signed = dbType.Signed
-        };
+        return type == null
+            ? null
+            : new DatabaseColumnType(DatabaseType.MySQL, type, dbType.Length, dbType.Decimals, dbType.Signed);
     }
 
     private static DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
     {
         var type = ParseCsType(property.CsTypeName);
 
-        if (type == null)
-            return null;
-
-        return new DatabaseColumnType
-        {
-            DatabaseType = DatabaseType.SQLite,
-            Name = type
-        };
+        return type == null
+            ? null
+            : new DatabaseColumnType(DatabaseType.MySQL, type);
     }
 
     private static string? ParseDefaultType(string defaultType)

@@ -6,26 +6,31 @@ using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
 
-public class DatabaseColumnType
+public class DatabaseColumnType(DatabaseType databaseType, string name, long? length = null, int? decimals = null, bool? signed = null)
 {
-    public DatabaseType DatabaseType { get; set; }
-    public string Name { get; set; }
-    public long? Length { get; set; }
-    public int? Decimals { get; set; }
-    public bool? Signed { get; set; }
+    public DatabaseType DatabaseType { get; } = databaseType;
+    public string Name { get; private set; } = name;
+    public void SetName(string name) => Name = name;
+    public long? Length { get; private set; } = length;
+    public void SetLength(long? length) => Length = length;
+    public int? Decimals { get; private set; } = decimals;
+    public void SetDecimals(int? decimals) => Decimals = decimals;
+    public void SetDecimals(long? decimals) => Decimals = (int?)decimals;
+    public bool? Signed { get; private set; } = signed;
+    public void SetSigned(bool signed) => Signed = signed;
 
-    public override string ToString()
-    {
-        return $"{Name} ({Length}) [{DatabaseType}]";
-    }
+    public override string ToString() => $"{Name} ({Length}) [{DatabaseType}]";
+
+    public DatabaseColumnType Clone() => new(DatabaseType, Name, Length, Decimals, Signed);
 }
 
 public class ColumnDefinition
 {
     public string DbName { get; set; }
     public DatabaseColumnType[] DbTypes { get; private set; } = [];
-    public int Index { get; set; }
-    public bool ForeignKey { get; set; }
+    public int Index { get; private set; }
+    public bool ForeignKey { get; private set; }
+    public void SetForeignKey(bool value = true) => ForeignKey = value;
     public bool PrimaryKey { get; private set; }
     public bool Unique => ColumnIndices.Any(x => x.Characteristic == Attributes.IndexCharacteristic.Unique);
     public bool AutoIncrement { get; set; }
@@ -35,7 +40,7 @@ public class ColumnDefinition
     public TableDefinition Table { get; set; }
     public ValueProperty ValueProperty { get; set; }
 
-    public void SetPrimaryKey(bool value)
+    public void SetPrimaryKey(bool value = true)
     {
         PrimaryKey = value;
 

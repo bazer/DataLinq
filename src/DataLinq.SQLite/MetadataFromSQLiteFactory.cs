@@ -104,7 +104,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                 var foreignKeyColumn = tableModel
                     .Table.Columns.Single(x => x.DbName == fromColumn);
 
-                foreignKeyColumn.ForeignKey = true;
+                foreignKeyColumn.SetForeignKey();
                 foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(tableName, toColumn, keyName));
 
                 var referencedColumn = database
@@ -157,17 +157,11 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private ColumnDefinition ParseColumn(TableDefinition table, IDataLinqDataReader reader)
     {
-        var dbType = new DatabaseColumnType
-        {
-            DatabaseType = DatabaseType.SQLite,
-            Name = reader.GetString(2).ToLower(),
-            //Length = 2147483647,
-            Signed = null
-        };
+        var dbType = new DatabaseColumnType(DatabaseType.SQLite, reader.GetString(2).ToLower());
 
         // For whatever reason, sometimes the data type for columns in views return ""
         if (string.IsNullOrEmpty(dbType.Name))
-            dbType.Name = "text";
+            dbType.SetName("text");
 
         var dbName = reader.GetString(1);
 

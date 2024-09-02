@@ -18,8 +18,6 @@ public class TableDefinition(string dbName)
     internal void SetTableModel(TableModel tableModel) => TableModel = tableModel;
     public DatabaseDefinition Database => TableModel.Database;
     public ModelDefinition Model => TableModel.Model;
-    //public void SetModel(ModelDefinition model) => Model = model;
-
     public ColumnDefinition[] Columns { get; private set; } = [];
     public void SetColumns(IEnumerable<ColumnDefinition> columns) => Columns = columns.ToArray();
 

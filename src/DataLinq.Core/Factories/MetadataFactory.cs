@@ -348,22 +348,13 @@ public static class MetadataFactory
                 column.AutoIncrement = true;
 
             if (attribute is PrimaryKeyAttribute)
-                column.SetPrimaryKey(true);
+                column.SetPrimaryKey();
 
             if (attribute is ForeignKeyAttribute)
-                column.ForeignKey = true;
+                column.SetForeignKey();
 
             if (attribute is TypeAttribute t)
-            {
-                column.AddDbType(new DatabaseColumnType
-                {
-                    DatabaseType = t.DatabaseType,
-                    Name = t.Name,
-                    Length = t.Length,
-                    Decimals = t.Decimals,
-                    Signed = t.Signed
-                });
-            }
+                column.AddDbType(new DatabaseColumnType(t.DatabaseType, t.Name, t.Length, t.Decimals, t.Signed)); 
         }
 
         return column;
