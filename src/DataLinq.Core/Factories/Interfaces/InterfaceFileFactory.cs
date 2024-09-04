@@ -124,14 +124,14 @@ public class InterfaceFileFactory
             .OrderBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.CsName)
+            .ThenBy(x => x.PropertyName)
             .ToList();
 
         var relationProps = model.RelationProperties.Values
             .OrderBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.CsName)
+            .ThenBy(x => x.PropertyName)
             .ToList();
 
         foreach (var row in valueProps.Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
@@ -209,7 +209,7 @@ public class InterfaceFileFactory
                 yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
 
             yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
-            yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsTypeName}{(options.UseNullableReferenceTypes || c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.CsName} {{ get; }}";
+            yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{(options.UseNullableReferenceTypes || c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.PropertyName} {{ get; }}";
             yield return $"";
         }
 
@@ -223,9 +223,9 @@ public class InterfaceFileFactory
                 yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", [{otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")}], \"{relationProperty.RelationName}\")]";
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
-                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{(options.UseNullableReferenceTypes ? "?" : "")} {relationProperty.CsName} {{ get; }}";
+                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{(options.UseNullableReferenceTypes ? "?" : "")} {relationProperty.PropertyName} {{ get; }}";
             else
-                yield return $"{namespaceTab}{tab}public abstract IEnumerable<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.CsName} {{ get; }}";
+                yield return $"{namespaceTab}{tab}public abstract IEnumerable<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} {{ get; }}";
 
             yield return $"";
         }
@@ -236,7 +236,7 @@ public class InterfaceFileFactory
 
     private IEnumerable<string> WriteEnum(ValueProperty property, string namespaceTab, string tab)
     {
-        yield return $"{namespaceTab}public enum {property.CsTypeName}";
+        yield return $"{namespaceTab}public enum {property.CsType.Name}";
         yield return namespaceTab + "{";
         //yield return $"{tab}{tab}Empty,";
 

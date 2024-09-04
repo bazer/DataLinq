@@ -51,10 +51,10 @@ public class MutableRowData : IRowData
 
     public void SetValue(ColumnDefinition column, object? value)
     {
-        if (value == null || value.GetType() == column.ValueProperty.CsType)
+        if (value == null || column.ValueProperty.CsType.Type == null || value.GetType() == column.ValueProperty.CsType.Type)
             MutatedData[column] = value;
         else
-            MutatedData[column] = Convert.ChangeType(value, column.ValueProperty.CsType);
+            MutatedData[column] = Convert.ChangeType(value, column.ValueProperty.CsType.Type);
     }
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()

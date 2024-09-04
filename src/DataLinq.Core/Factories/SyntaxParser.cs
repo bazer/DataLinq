@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -265,72 +264,35 @@ public static class SyntaxParser
         throw new NotImplementedException($"Attribute '{name}' not implemented");
     }
 
-    //private static TableDefinition ParseTable(ModelDefinition model)
-    //{
-    //    TableDefinition table = model.Interfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
-    //        ? new TableDefinition(model.CsType.Name)
-    //        : new ViewDefinition(model.CsType.Name);
-
-    //    foreach (var attribute in model.Attributes)
-    //    {
-    //        if (attribute is TableAttribute tableAttribute)
-    //            table.SetDbName(tableAttribute.Name);
-
-    //        if (attribute is UseCacheAttribute useCache)
-    //            table.UseCache = useCache.UseCache;
-
-    //        if (attribute is CacheLimitAttribute cacheLimit)
-    //            table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
-
-    //        if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
-    //            view.SetDefinition(definitionAttribute.Sql);
-    //    }
-
-    //    table.SetColumns(model.ValueProperties.Values.Select(table.ParseColumn));
-
-    //    return table;
-    //}
-
     public static PropertyDefinition ParseProperty(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
     {
         var attributes = propSyntax.AttributeLists
             .SelectMany(attrList => attrList.Attributes)
-            .Select(attrSyntax => ParseAttribute(attrSyntax))
+            .Select(ParseAttribute)
             .ToList();
 
-        var property = GetProperty(attributes);
-
-        property.Model = model;
-        property.CsName = propSyntax.Identifier.Text;
-        property.CsTypeName = propSyntax.Type.ToString().Trim('?', '"', '\"');
-        property.Attributes = attributes;
+        PropertyDefinition property = attributes.Any(attribute => attribute is RelationAttribute)
+            ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes)
+            : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes);
 
         if (property is ValueProperty valueProp)
         {
-            valueProp.CsNullable = propSyntax.Type is NullableTypeSyntax;
+            valueProp.SetCsNullable(propSyntax.Type is NullableTypeSyntax);
 
             if (attributes.Any(attribute => attribute is EnumAttribute))
             {
-                valueProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
+                valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
                 var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1)).ToList();
-                valueProp.EnumProperty = new EnumProperty(enumValueList, null, true);
+                valueProp.SetEnumProperty(new EnumProperty(enumValueList, null, true));
             }
             else
             {
-                valueProp.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+                valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize(property.CsType.Name));
             }
         }
 
         return property;
-    }
-
-    public static PropertyDefinition GetProperty(List<Attribute> attributes)
-    {
-        if (attributes.Any(attr => attr is RelationAttribute))
-            return new RelationProperty();
-
-        return new ValueProperty();
     }
 
     public static (string csPropertyName, TypeDeclarationSyntax classSyntax) GetTableType(PropertyDeclarationSyntax property, List<TypeDeclarationSyntax> modelTypeSyntaxes)

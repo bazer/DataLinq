@@ -29,9 +29,9 @@ public class ModelDefinition(CsTypeDeclaration csType)
     public void AddProperty(PropertyDefinition property)
     { 
         if (property is RelationProperty relationProperty)
-            RelationProperties.Add(relationProperty.CsName, relationProperty);
+            RelationProperties.Add(relationProperty.PropertyName, relationProperty);
         else if (property is ValueProperty valueProperty)
-            ValueProperties.Add(valueProperty.CsName, valueProperty);
+            ValueProperties.Add(valueProperty.PropertyName, valueProperty);
         else
             throw new NotImplementedException();
     }

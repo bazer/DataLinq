@@ -142,7 +142,7 @@ public struct MySqlDataLinqDataReader : IDataLinqDataReader, IDisposable
         if (IsDbNull(ordinal))
             return default;
 
-        else if (column.ValueProperty.CsType == typeof(Guid) || column.ValueProperty.CsType == typeof(Guid?))
+        else if (column.ValueProperty.CsType.Type == typeof(Guid) || column.ValueProperty.CsType.Type == typeof(Guid?))
         {
             //var dbType = column.GetDbTypeFor(DatabaseType.MySQL); // column.DbTypes.FirstOrDefault(x => x.DatabaseType == DatabaseType.MySQL) ?? column.DbTypes.FirstOrDefault(); //SqlFromMetadataFactory.GetDbType(column);
             //if (value is byte[] bytes && column.GetDbTypeFor(DatabaseType.MySQL)?.Length == 16 && column.GetDbTypeFor(DatabaseType.MySQL)?.Name == "binary")
@@ -150,26 +150,26 @@ public struct MySqlDataLinqDataReader : IDataLinqDataReader, IDisposable
 
             return (T?)(object)GetGuid(ordinal);
         }
-        else if (column.ValueProperty.CsType == typeof(string))
+        else if (column.ValueProperty.CsType.Type == typeof(string))
             return (T?)(object)GetString(ordinal);
-        else if (column.ValueProperty.CsType == typeof(int) || column.ValueProperty.CsType == typeof(int?))
+        else if (column.ValueProperty.CsType.Type == typeof(int) || column.ValueProperty.CsType.Type == typeof(int?))
             return (T?)(object)GetInt32(ordinal);
-        else if (column.ValueProperty.CsType == typeof(DateOnly) || column.ValueProperty.CsType == typeof(DateOnly?))
+        else if (column.ValueProperty.CsType.Type == typeof(DateOnly) || column.ValueProperty.CsType.Type == typeof(DateOnly?))
             return (T?)(object)GetDateOnly(ordinal);
-        else if (column.ValueProperty.CsType.IsEnum)
+        else if (column.ValueProperty.CsType.Type?.IsEnum == true)
         {
             var enumValue = GetValue(ordinal);
             if (enumValue is string stringValue)
-                return (T?)Enum.ToObject(column.ValueProperty.CsType, column.ValueProperty.EnumProperty.Value.EnumValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
+                return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, column.ValueProperty.EnumProperty.Value.EnumValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
             else
-                return (T?)Enum.ToObject(column.ValueProperty.CsType, enumValue);
+                return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, enumValue);
         }
 
         var value = GetValue(ordinal);
         if (column.ValueProperty.CsNullable)
-            return (T?)Convert.ChangeType(value, TypeUtils.GetNullableConversionType(column.ValueProperty.CsType));
-        else if (value.GetType() != column.ValueProperty.CsType)
-            return (T?)Convert.ChangeType(value, column.ValueProperty.CsType);
+            return (T?)Convert.ChangeType(value, TypeUtils.GetNullableConversionType(column.ValueProperty.CsType.Type));
+        else if (value.GetType() != column.ValueProperty.CsType.Type)
+            return (T?)Convert.ChangeType(value, column.ValueProperty.CsType.Type);
 
         return (T?)value;
     }

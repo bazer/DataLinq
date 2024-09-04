@@ -56,12 +56,12 @@ public static class MetadataFromTypeFactory
             .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             .Select(x => ParseProperty(x, model))
             .Where(x => x.Attributes.Any(x => x is ColumnAttribute || x is RelationAttribute))
-            .Where(x => x.CsName != "EqualityContract")
+            .Where(x => x.PropertyName != "EqualityContract")
             .ToList()
             .ForEach(model.AddProperty);
 
         model.SetUsings(model.ValueProperties.Values
-            .Select(x => x.CsType?.Namespace)
+            .Select(x => x.CsType.Namespace)
             .Distinct()
             .Where(x => x != null)
             .Select(name => (name!.StartsWith("System"), name))
@@ -81,8 +81,6 @@ public static class MetadataFromTypeFactory
             : new CsTypeDeclaration(type);
     }
 
-   
-
     private static PropertyDefinition ParseProperty(this PropertyInfo propertyInfo, ModelDefinition model)
     {
         var attributes = propertyInfo
@@ -90,42 +88,30 @@ public static class MetadataFromTypeFactory
                 .OfType<Attribute>()
                 .ToList();
 
-        var property = GetProperty(attributes);
-
-        property.Model = model;
-        property.CsName = propertyInfo.Name;
-        property.CsType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
-        property.CsTypeName = MetadataTypeConverter.GetKeywordName(property.CsType);
-        property.PropertyInfo = propertyInfo;
-        property.Attributes = attributes;
+        var type = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
+        PropertyDefinition property = attributes.Any(attribute => attribute is RelationAttribute)
+            ? new RelationProperty(propertyInfo.Name, new CsTypeDeclaration(type), model, attributes)
+            : new ValueProperty(propertyInfo.Name, new CsTypeDeclaration(type), model, attributes);
 
         if (property is ValueProperty valueProp)
         {
-            valueProp.CsNullable = propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
+            valueProp.SetCsNullable(propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>));
 
-            if (property.CsType.IsEnum)
+            if (property.CsType.Type?.IsEnum == true)
             {
-                valueProp.CsSize = MetadataTypeConverter.CsTypeSize("enum");
+                valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
                 var enumValueList = attributes.Any(attribute => attribute is EnumAttribute)
                     ? attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i)).ToList()
                     : new List<(string name, int value)>();
 
-                var enumValues = Enum.GetValues(property.CsType).Cast<int>().ToList();
-                valueProp.EnumProperty = new EnumProperty(enumValueList, Enum.GetNames(property.CsType).Select((x, i) => (x, enumValues[i])).ToList(), true);
+                var enumValues = Enum.GetValues(property.CsType.Type).Cast<int>().ToList();
+                valueProp.SetEnumProperty(new EnumProperty(enumValueList, Enum.GetNames(property.CsType.Type).Select((x, i) => (x, enumValues[i])).ToList(), true));
             }
             else
-                valueProp.CsSize = MetadataTypeConverter.CsTypeSize(property.CsTypeName);
+                valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize(property.CsType.Name));
         }
 
         return property;
-    }
-
-    private static PropertyDefinition GetProperty(List<Attribute> attributes)
-    {
-        if (attributes.Any(attribute => attribute is RelationAttribute))
-            return new RelationProperty();
-
-        return new ValueProperty();
     }
 }

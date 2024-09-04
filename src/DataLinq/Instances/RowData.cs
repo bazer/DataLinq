@@ -97,10 +97,10 @@ public class RowData : IRowData, IEquatable<RowData>
         if (column.ValueProperty.CsSize.HasValue)
             return column.ValueProperty.CsSize.Value;
 
-        if (column.ValueProperty.CsType == typeof(string) && value is string s)
+        if (column.ValueProperty.CsType.Type == typeof(string) && value is string s)
             return s.Length * sizeof(char) + sizeof(int);
 
-        if (column.ValueProperty.CsType == typeof(byte[]) && value is byte[] b)
+        if (column.ValueProperty.CsType.Type == typeof(byte[]) && value is byte[] b)
             return b.Length;
 
         throw new NotImplementedException($"Size for type '{column.ValueProperty.CsType}' not implemented");

@@ -37,43 +37,43 @@ public static class DataReader
     public static object ConvertBytesToType(ReadOnlySpan<byte> bytes, ValueProperty property)
     {
         // Convert the byte array to the specified type
-        if (property.CsType == typeof(int))
+        if (property.CsType.Type == typeof(int))
         {
             return BitConverter.ToInt32(bytes);
         }
-        else if (property.CsType == typeof(short))
+        else if (property.CsType.Type == typeof(short))
         {
             return BitConverter.ToInt16(bytes);
         }
-        else if (property.CsType == typeof(long))
+        else if (property.CsType.Type == typeof(long))
         {
             return BitConverter.ToInt64(bytes);
         }
-        else if (property.CsType == typeof(float))
+        else if (property.CsType.Type == typeof(float))
         {
             return BitConverter.ToSingle(bytes);
         }
-        else if (property.CsType == typeof(double))
+        else if (property.CsType.Type == typeof(double))
         {
             return BitConverter.ToDouble(bytes);
         }
-        else if (property.CsType == typeof(bool))
+        else if (property.CsType.Type == typeof(bool))
         {
             return BitConverter.ToBoolean(bytes);
         }
-        else if (property.CsType == typeof(Guid))
+        else if (property.CsType.Type == typeof(Guid))
         {
             return new Guid(bytes);
         }
-        else if (property.CsType == typeof(string))
+        else if (property.CsType.Type == typeof(string))
         {
             return Encoding.UTF8.GetString(bytes);
         }
-        else if (property.CsType == typeof(DateTime))
+        else if (property.CsType.Type == typeof(DateTime))
         {
             return new DateTime(BitConverter.ToInt64(bytes));
         }
-        else if (property.CsType == typeof(DateOnly))
+        else if (property.CsType.Type == typeof(DateOnly))
         {
             return DateOnly.FromDateTime(new DateTime(BitConverter.ToInt64(bytes)));
         }
@@ -92,7 +92,7 @@ public static class DataReader
             throw new ArgumentNullException(nameof(property));
 
         // Convert the object to byte array based on the type
-        if (property.CsType == typeof(int))
+        if (property.CsType.Type == typeof(int))
         {
             if (value is int intValue)
                 return BitConverter.GetBytes(intValue);
@@ -103,39 +103,39 @@ public static class DataReader
             else
                 throw new ArgumentException($"Value {value} is not an integer.", nameof(value));
         }
-        else if (property.CsType == typeof(short))
+        else if (property.CsType.Type == typeof(short))
         {
             return BitConverter.GetBytes((short)value);
         }
-        else if (property.CsType == typeof(long))
+        else if (property.CsType.Type == typeof(long))
         {
             return BitConverter.GetBytes((long)value);
         }
-        else if (property.CsType == typeof(float))
+        else if (property.CsType.Type == typeof(float))
         {
             return BitConverter.GetBytes((float)value);
         }
-        else if (property.CsType == typeof(double))
+        else if (property.CsType.Type == typeof(double))
         {
             return BitConverter.GetBytes((double)value);
         }
-        else if (property.CsType == typeof(bool))
+        else if (property.CsType.Type == typeof(bool))
         {
             return BitConverter.GetBytes((bool)value);
         }
-        else if (property.CsType == typeof(Guid))
+        else if (property.CsType.Type == typeof(Guid))
         {
             return ((Guid)value).ToByteArray();
         }
-        else if (property.CsType == typeof(string))
+        else if (property.CsType.Type == typeof(string))
         {
             return Encoding.UTF8.GetBytes((string)value);
         }
-        else if (property.CsType == typeof(DateTime))
+        else if (property.CsType.Type == typeof(DateTime))
         {
             return BitConverter.GetBytes(((DateTime)value).Ticks);
         }
-        else if (property.CsType == typeof(DateOnly))
+        else if (property.CsType.Type == typeof(DateOnly))
         {
             return BitConverter.GetBytes(((DateOnly)value).ToDateTime(TimeOnly.MinValue).Ticks);
         }

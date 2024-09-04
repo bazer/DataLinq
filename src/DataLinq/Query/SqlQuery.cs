@@ -267,7 +267,7 @@ public class SqlQuery<T>
 
     internal ColumnDefinition? GetColumn(MemberExpression expression)
     {
-        return Table.Columns.SingleOrDefault(x => x.ValueProperty.CsName == expression.Member.Name);
+        return Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == expression.Member.Name);
     }
 
     internal Sql AddTableName(Sql sql, string tableName, string? alias)

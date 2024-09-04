@@ -89,14 +89,14 @@ public class GeneratorFileFactory
             .OrderBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.CsName)
+            .ThenBy(x => x.PropertyName)
             .ToList();
 
         var relationProps = model.RelationProperties.Values
             .OrderBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.CsName)
+            .ThenBy(x => x.PropertyName)
             .ToList();
 
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{table.Model.CsType.Name}(RowData rowData, DataSourceAccess dataSource) : {table.Model.CsType.Name}(rowData, dataSource)";
@@ -106,8 +106,8 @@ public class GeneratorFileFactory
         {
             var c = valueProperty.Column;
 
-            yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetFieldNullable(c.ValueProperty)} _{c.ValueProperty.CsName};";
-            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.CsName} => _{c.ValueProperty.CsName} ??= GetValue<{c.ValueProperty.CsTypeName}>(nameof({c.ValueProperty.CsName}));";
+            yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
+            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= GetValue<{c.ValueProperty.CsType.Name}>(nameof({c.ValueProperty.PropertyName}));";
             yield return $"";
         }
 
@@ -117,11 +117,11 @@ public class GeneratorFileFactory
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
             {
-                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name} {relationProperty.CsName} => GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.CsName}));";
+                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name} {relationProperty.PropertyName} => GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
             }
             else
             {
-                yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.CsName} => GetRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.CsName}));";
+                yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => GetRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
             }
 
             yield return $"";
@@ -141,14 +141,14 @@ public class GeneratorFileFactory
             .OrderBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.CsName)
+            .ThenBy(x => x.PropertyName)
             .ToList();
 
         var relationProps = model.RelationProperties.Values
             .OrderBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.CsName)
+            .ThenBy(x => x.PropertyName)
             .ToList();
 
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{table.Model.CsType.Name}: Mutable<{table.Model.CsType.Name}>, IMutableInstance<{model.Database.CsType.Name}>";
@@ -162,10 +162,10 @@ public class GeneratorFileFactory
             var c = valueProperty.Column;
 
             yield return $"";
-            yield return $"{namespaceTab}{tab}public virtual {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.CsName}";
+            yield return $"{namespaceTab}{tab}public virtual {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName}";
             yield return $"{namespaceTab}{tab}{{";
-            yield return $"{namespaceTab}{tab}{tab}get => GetValue<{GetCsTypeName(c.ValueProperty)}>(nameof({c.ValueProperty.CsName}));";
-            yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.CsName}), value);";
+            yield return $"{namespaceTab}{tab}{tab}get => GetValue<{GetCsTypeName(c.ValueProperty)}>(nameof({c.ValueProperty.PropertyName}));";
+            yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.PropertyName}), value);";
             yield return $"{namespaceTab}{tab}}}";
         }
 
@@ -273,7 +273,7 @@ public class GeneratorFileFactory
         if (property.EnumProperty?.DeclaredInClass == true)
             name += $"{property.Model.CsType.Name}.";
 
-        name += property.CsTypeName;
+        name += property.CsType.Name;
 
         return name;
     }
@@ -285,7 +285,7 @@ public class GeneratorFileFactory
 
     private string GetFieldNullable(ValueProperty property)
     {
-        return property.CsNullable || property.EnumProperty.HasValue || MetadataTypeConverter.IsCsTypeNullable(property.CsTypeName) || !MetadataTypeConverter.IsKnownCsType(property.CsTypeName) ? "?" : "";
+        return property.CsNullable || property.EnumProperty.HasValue || MetadataTypeConverter.IsCsTypeNullable(property.CsType.Name) || !MetadataTypeConverter.IsKnownCsType(property.CsType.Name) ? "?" : "";
     }
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)

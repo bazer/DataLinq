@@ -7,7 +7,6 @@ using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
-using DataLinq.Tests.Models;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.CodeAnalysis;
 using Xunit;
@@ -99,10 +98,10 @@ public class CoreTests : BaseTests
         if (emp_no.DbTypes.Any(x=> x.DatabaseType == DatabaseType.SQLite))
             Assert.Equal("integer", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.SQLite).Name);
 
-        Assert.Equal("int", emp_no.ValueProperty.CsTypeName);
+        Assert.Equal("int", emp_no.ValueProperty.CsType.Name);
 
         var dept_name = database.TableModels.Single(x => x.Table.DbName == "departments").Table.Columns.Single(x => x.DbName == "dept_name");
-        Assert.Equal("string", dept_name.ValueProperty.CsTypeName);
+        Assert.Equal("string", dept_name.ValueProperty.CsType.Name);
         Assert.False(dept_name.PrimaryKey);
         Assert.False(dept_name.AutoIncrement);
         Assert.Single(dept_name.ColumnIndices);
@@ -112,8 +111,8 @@ public class CoreTests : BaseTests
 
         if (testCsType)
         {
-            Assert.Equal(typeof(int), emp_no.ValueProperty.CsType);
-            Assert.DoesNotContain(database.TableModels, x => x.Model.CsType == null);
+            Assert.Equal(typeof(int), emp_no.ValueProperty.CsType.Type);
+            Assert.DoesNotContain(database.TableModels, x => x.Model.CsType.Type == null);
         }
     }
 }

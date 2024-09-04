@@ -110,7 +110,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
                     .TableModels.SingleOrDefault(x => x.Table.DbName == indexColumn.TABLE_NAME)?
                     .Table.Columns.SingleOrDefault(x => x.DbName == indexColumn.COLUMN_NAME);
 
-                column?.ValueProperty.Attributes.Add(new IndexAttribute(dbIndexGroup.First().INDEX_NAME, indexCharacteristic, indexType, columnNames));
+                column?.ValueProperty.AddAttribute(new IndexAttribute(dbIndexGroup.First().INDEX_NAME, indexCharacteristic, indexType, columnNames));
             }
         }
     }
@@ -128,7 +128,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
                 continue;
 
             foreignKeyColumn.SetForeignKey();
-            foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
+            foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
 
             var referencedColumn = database
                 .TableModels.SingleOrDefault(x => x.Table.DbName == key.REFERENCED_TABLE_NAME)?
@@ -194,17 +194,10 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             dbType.SetLength(dbColumns.CHARACTER_MAXIMUM_LENGTH);
         }
 
-        var column = new ColumnDefinition
-        {
-            Table = table,
-            DbName = dbColumns.COLUMN_NAME,
-            Nullable = dbColumns.IS_NULLABLE == "YES",
-            //PrimaryKey = dbColumns.COLUMN_KEY == "PRI",
-            AutoIncrement = dbColumns.EXTRA.Contains("auto_increment")
-        };
-
+        var column = new ColumnDefinition(dbColumns.COLUMN_NAME, table);
+        column.SetNullable(dbColumns.IS_NULLABLE == "YES");
         column.SetPrimaryKey(dbColumns.COLUMN_KEY == "PRI");
-
+        column.SetAutoIncrement(dbColumns.EXTRA.Contains("auto_increment"));
         column.AddDbType(dbType);
 
         var csType = ParseCsType(dbType.Name);
@@ -213,7 +206,9 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         if (csType == "enum")
         {
             MetadataFactory.AttachEnumProperty(valueProp, new List<(string name, int value)>(), ParseEnumType(dbColumns.COLUMN_TYPE), true);
-            valueProp.CsTypeName = valueProp.CsTypeName == "enum" ? valueProp.CsName + "Value" : valueProp.CsTypeName;
+            if (valueProp.CsType.Name == "enum")
+                valueProp.SetCsType(valueProp.CsType.MutateName(valueProp.PropertyName + "Value"));
+            //valueProp.CsTypeName = valueProp.CsTypeName == "enum" ? valueProp.PropertyName + "Value" : valueProp.CsTypeName;
         }
 
         return column;

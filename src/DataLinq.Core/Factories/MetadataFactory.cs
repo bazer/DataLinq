@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Xml.Linq;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
@@ -27,10 +26,6 @@ public static class MetadataFactory
         var table = model.Interfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
             ? new TableDefinition(model.CsType.Name)
             : new ViewDefinition(model.CsType.Name);
-
-        //var table = model.CsType.Type?.GetInterfaces().Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel")) == true
-        //    ? new TableDefinition(model.CsType.Name)
-        //    : new ViewDefinition(model.CsType.Name);
 
         foreach (var attribute in model.Attributes)
         {
@@ -85,48 +80,6 @@ public static class MetadataFactory
         }
     }
 
-
-    //public static void ParseIndices(DatabaseMetadata database)
-    //{
-    //    foreach (var column in database
-    //        .TableModels.SelectMany(x => x.Table.Columns.Where(y => y.ValueProperty.Attributes.OfType<IndexAttribute>().Any())))
-    //    {
-    //        foreach (var indexAttribute in column.ValueProperty.Attributes.OfType<IndexAttribute>())
-    //        {
-    //            if (column.Table.ColumnIndices.Any(x => x.Name == indexAttribute.Name))
-    //            {
-    //                column.Table.ColumnIndices.Single(x => x.Name == indexAttribute.Name).Columns.Add(column);
-    //            }
-    //            else
-    //            {
-    //                column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, new List<Column> { column }));
-    //            }
-    //        }
-    //    }
-    //}
-
-
-    //public static void ParseIndices(DatabaseMetadata database)
-    //{
-    //    foreach (var column in database.
-    //        TableModels.SelectMany(x => x.Table.Columns.Where(y => y.Unique)))
-    //    {
-    //        var uniqueAttribute = column.ValueProperty
-    //            .Attributes
-    //            .OfType<IndexAttribute>()
-    //            .Single();
-
-    //        if (column.Table.ColumnIndices.Any(x => x.Name == uniqueAttribute.Name))
-    //        {
-    //            column.Table.ColumnIndices.Single(x => x.Name == uniqueAttribute.Name).Columns.Add(column);
-    //        }
-    //        else
-    //        {
-    //            column.Table.ColumnIndices.Add(new ColumnIndex(uniqueAttribute.Name, IndexCharacteristic.Unique, IndexType.BTREE, new List<Column> { column }));
-    //        }
-    //    }
-    //}
-
     public static void ParseRelations(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table))
@@ -143,11 +96,6 @@ public static class MetadataFactory
         {
             foreach (var attribute in column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
             {
-                //var attribute = column.ValueProperty
-                //    .Attributes
-                //    .OfType<ForeignKeyAttribute>()
-                //    .Single();
-
                 var relation = new RelationDefinition
                 {
                     ConstraintName = attribute.Name,
@@ -214,32 +162,17 @@ public static class MetadataFactory
 
     public static RelationProperty AddRelationProperty(ColumnDefinition column, ColumnDefinition referencedColumn, string constraintName)
     {
-        var relationProperty = new RelationProperty();
-        relationProperty.Attributes.Add(new RelationAttribute(referencedColumn.Table.DbName, referencedColumn.DbName, constraintName));
-        relationProperty.Model = column.Table.Model;
-        relationProperty.CsName = referencedColumn.Table.DbName;
-        relationProperty.RelationName = constraintName;
-
+        var propertyName = referencedColumn.Table.DbName;
         var i = 2;
-        while (relationProperty.Model.RelationProperties.ContainsKey(relationProperty.CsName))
-            relationProperty.CsName = relationProperty.CsName + "_" + i++;
+        while (column.Table.Model.RelationProperties.ContainsKey(propertyName))
+            propertyName = propertyName + "_" + i++;
 
+        var relationProperty = new RelationProperty(propertyName, referencedColumn.Table.Model.CsType, column.Table.Model, [new RelationAttribute(referencedColumn.Table.DbName, referencedColumn.DbName, constraintName)]);
+        relationProperty.RelationName = constraintName;
         relationProperty.Model.AddProperty(relationProperty);
 
         return relationProperty;
     }
-
-    //public static ModelDefinition AttachModel(TableDefinition table, string @namespace, bool capitaliseNames)
-    //{
-    //    var name = capitaliseNames
-    //        ? table.DbName.FirstCharToUpper()
-    //        : table.DbName;
-
-    //    table.SetModel(new ModelDefinition(new CsTypeDeclaration(name, @namespace, ModelCsType.Class), table.Database));
-    //    table.Model.Table = table;
-
-    //    return table.Model;
-    //}
 
     public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {
@@ -247,21 +180,15 @@ public static class MetadataFactory
             ? column.DbName.FirstCharToUpper()
             : column.DbName;
 
-        var type = Type.GetType(csTypeName);
+        var type = MetadataTypeConverter.GetType(csTypeName);
 
-        var property = new ValueProperty
-        {
-            Column = column,
-            Model = column.Table.Model,
-            CsName = name,
-            CsType = type,
-            CsTypeName = csTypeName,
-            CsSize = MetadataTypeConverter.CsTypeSize(csTypeName),
-            CsNullable = column.Nullable && MetadataTypeConverter.IsCsTypeNullable(csTypeName)
-        };
+        var property = new ValueProperty(name, new CsTypeDeclaration(type), column.Table.Model, GetAttributes(column));
+        property.SetCsSize(MetadataTypeConverter.CsTypeSize(csTypeName));
+        property.SetCsNullable(column.Nullable && MetadataTypeConverter.IsCsTypeNullable(csTypeName));
+        //property.SetAttributes(GetAttributes(property));
+        property.SetColumn(column);
 
-        property.Attributes = GetAttributes(property).ToList();
-        column.ValueProperty = property;
+        column.SetValueProperty(property);
         column.Table.Model.AddProperty(column.ValueProperty);
 
         return property;
@@ -269,13 +196,11 @@ public static class MetadataFactory
 
     public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, IEnumerable<(string name, int value)> csEnumValues, bool declaredInClass)
     {
-        property.EnumProperty = new EnumProperty(enumValues.ToList(), csEnumValues.ToList(), declaredInClass);
+        property.SetEnumProperty(new EnumProperty(enumValues.ToList(), csEnumValues.ToList(), declaredInClass));
     }
 
-    public static IEnumerable<Attribute> GetAttributes(ValueProperty property)
+    public static IEnumerable<Attribute> GetAttributes(ColumnDefinition column)
     {
-        var column = property.Column;
-
         if (column.PrimaryKey)
             yield return new PrimaryKeyAttribute();
 
@@ -290,15 +215,6 @@ public static class MetadataFactory
         foreach (var dbType in column.DbTypes)
         {
             yield return new TypeAttribute(dbType);
-
-            //if (dbType.Length.HasValue && dbType.Signed.HasValue)
-            //    yield return new TypeAttribute(dbType.DatabaseType, dbType.Name, column.Length.Value, column.Signed.Value);
-            //else if (column.Length.HasValue)
-            //    yield return new TypeAttribute(column.DbTypes, column.Length.Value);
-            //else if (column.Signed.HasValue)
-            //    yield return new TypeAttribute(column.DbTypes, column.Signed.Value);
-            //else
-            //    yield return new TypeAttribute(column.DbTypes);
         }
     }
 
@@ -325,27 +241,19 @@ public static class MetadataFactory
 
     public static ColumnDefinition ParseColumn(this TableDefinition table, ValueProperty property)
     {
-        var column = new ColumnDefinition
-        {
-            Table = table,
-            ValueProperty = property
-        };
-
-        if (property.PropertyInfo?.Name != null)
-            column.DbName = property.PropertyInfo.Name;
-
-        property.Column = column;
+        var column = new ColumnDefinition(property.PropertyName, table);
+        column.SetValueProperty(property);
 
         foreach (var attribute in property.Attributes)
         {
             if (attribute is ColumnAttribute columnAttribute)
-                column.DbName = columnAttribute.Name;
+                column.SetDbName(columnAttribute.Name);
 
             if (attribute is NullableAttribute)
-                column.Nullable = true;
+                column.SetNullable();
 
             if (attribute is AutoIncrementAttribute)
-                column.AutoIncrement = true;
+                column.SetAutoIncrement();
 
             if (attribute is PrimaryKeyAttribute)
                 column.SetPrimaryKey();
@@ -354,7 +262,7 @@ public static class MetadataFactory
                 column.SetForeignKey();
 
             if (attribute is TypeAttribute t)
-                column.AddDbType(new DatabaseColumnType(t.DatabaseType, t.Name, t.Length, t.Decimals, t.Signed)); 
+                column.AddDbType(new DatabaseColumnType(t.DatabaseType, t.Name, t.Length, t.Decimals, t.Signed));
         }
 
         return column;

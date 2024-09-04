@@ -84,19 +84,18 @@ public class MetadataTransformer
 
             if (srcProperty.EnumProperty != null)
             {
-                destProperty.EnumProperty = srcProperty.EnumProperty;
+                destProperty.SetEnumProperty(srcProperty.EnumProperty.Value);
             }
 
-            destProperty.CsName = srcProperty.CsName;
-            destProperty.CsType = srcProperty.CsType;
-            destProperty.CsTypeName = srcProperty.CsTypeName;
-            destProperty.CsNullable = srcProperty.CsNullable;
-            destProperty.CsSize = srcProperty.CsSize;
+            destProperty.SetPropertyName(srcProperty.PropertyName);
+            destProperty.SetCsType(srcProperty.CsType);
+            destProperty.SetCsNullable(srcProperty.CsNullable);
+            destProperty.SetCsSize(srcProperty.CsSize);
 
             foreach (var srcAttribute in srcProperty.Attributes.OfType<TypeAttribute>())
             {
                 if (!destProperty.Attributes.OfType<TypeAttribute>().Any(x => x.DatabaseType == srcAttribute.DatabaseType))
-                    destProperty.Attributes.Add(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Decimals, srcAttribute.Signed));
+                    destProperty.AddAttribute(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Decimals, srcAttribute.Signed));
             }
 
             foreach (var srcDbType in srcProperty.Column.DbTypes)
@@ -120,7 +119,7 @@ public class MetadataTransformer
                 continue;
             }
 
-            destProperty.CsName = srcProperty.CsName;
+            destProperty.SetPropertyName(srcProperty.PropertyName);
 
             if (!options.UpdateConstraintNames && srcProperty.RelationPart != null)
                 destProperty.RelationPart.Relation.ConstraintName = srcProperty.RelationPart.Relation.ConstraintName;

@@ -42,7 +42,7 @@ public static class KeyFactory
     {
         if (columns.Length == 1)
         {
-            var columnType = columns[0].ValueProperty.CsType;
+            var columnType = columns[0].ValueProperty.CsType.Type;
             if (columnType == typeof(int))
                 return CreateKeyFromValue(reader.GetInt32(0));
             else if (columnType == typeof(Guid))

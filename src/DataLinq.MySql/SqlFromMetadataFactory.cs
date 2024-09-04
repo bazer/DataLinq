@@ -98,7 +98,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .FirstOrDefault();
 
         if (type == null)
-            throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.CsName}'");
+            throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.PropertyName}'");
 
         return type;
     }
@@ -119,7 +119,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
     private static DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
     {
-        var type = ParseCsType(property.CsTypeName);
+        var type = ParseCsType(property.CsType.Name);
 
         return type == null
             ? null

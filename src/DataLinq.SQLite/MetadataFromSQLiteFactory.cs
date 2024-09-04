@@ -64,7 +64,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                     ? IndexCharacteristic.Unique
                     : IndexCharacteristic.Simple;
 
-                column.ValueProperty.Attributes.Add(new IndexAttribute(name, indexCharacteristic, indexType));
+                column.ValueProperty.AddAttribute(new IndexAttribute(name, indexCharacteristic, indexType));
             }
         }
     }
@@ -105,7 +105,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                     .Table.Columns.Single(x => x.DbName == fromColumn);
 
                 foreignKeyColumn.SetForeignKey();
-                foreignKeyColumn.ValueProperty.Attributes.Add(new ForeignKeyAttribute(tableName, toColumn, keyName));
+                foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumn, keyName));
 
                 var referencedColumn = database
                    .TableModels.SingleOrDefault(x => x.Table.DbName == tableName)?
@@ -177,16 +177,10 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             hasAutoIncrement = regex.IsMatch(createStatement);
         }
 
-        var column = new ColumnDefinition
-        {
-            Table = table,
-            DbName = dbName,
-            Nullable = reader.GetBoolean(3) == false, // For views, this seems to indicate all columns as Nullable
-            AutoIncrement = hasAutoIncrement
-        };
-
+        var column = new ColumnDefinition(dbName, table);
+        column.SetNullable(reader.GetBoolean(3) == false); // For views, this seems to indicate all columns as Nullable
+        column.SetAutoIncrement(hasAutoIncrement);
         column.SetPrimaryKey(reader.GetBoolean(5));
-
         column.AddDbType(dbType);
 
         var csType = ParseCsType(dbType.Name);

@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
 
@@ -24,21 +23,28 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, long? le
     public DatabaseColumnType Clone() => new(DatabaseType, Name, Length, Decimals, Signed);
 }
 
-public class ColumnDefinition
+public class ColumnDefinition(string dbName, TableDefinition table)
 {
-    public string DbName { get; set; }
+    public TableDefinition Table { get; } = table;
+    public string DbName { get; private set; } = dbName;
+    public void SetDbName(string value) => DbName = value;
     public DatabaseColumnType[] DbTypes { get; private set; } = [];
     public int Index { get; private set; }
     public bool ForeignKey { get; private set; }
     public void SetForeignKey(bool value = true) => ForeignKey = value;
     public bool PrimaryKey { get; private set; }
     public bool Unique => ColumnIndices.Any(x => x.Characteristic == Attributes.IndexCharacteristic.Unique);
-    public bool AutoIncrement { get; set; }
-    public bool Nullable { get; set; }
-    //public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
+    public bool AutoIncrement { get; private set; }
+    public void SetAutoIncrement(bool value = true) => AutoIncrement = value;
+    public bool Nullable { get; private set; }
+    public void SetNullable(bool value = true) => Nullable = value;
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
-    public TableDefinition Table { get; set; }
-    public ValueProperty ValueProperty { get; set; }
+    public ValueProperty ValueProperty { get; private set; }
+    public void SetValueProperty(ValueProperty value)
+    {
+        ValueProperty = value;
+        value.SetColumn(this);
+    }
 
     public void SetPrimaryKey(bool value = true)
     {
@@ -55,7 +61,7 @@ public class ColumnDefinition
         DbTypes = DbTypes.AsEnumerable().Append(columnType).ToArray();
     }
 
-    private ConcurrentDictionary<DatabaseType, DatabaseColumnType?> cachedDbTypes = new();
+    private readonly ConcurrentDictionary<DatabaseType, DatabaseColumnType?> cachedDbTypes = new();
     public DatabaseColumnType? GetDbTypeFor(DatabaseType databaseType)
     {
         if (cachedDbTypes.TryGetValue(databaseType, out DatabaseColumnType? result))
@@ -64,8 +70,5 @@ public class ColumnDefinition
             return cachedDbTypes.GetOrAdd(databaseType, type => DbTypes.FirstOrDefault(x => x.DatabaseType == type) ?? DbTypes.FirstOrDefault());
     }
 
-    public override string ToString()
-    {
-        return $"{Table.DbName}.{DbName} ({DbTypes.ToJoinedString(", ")})";
-    }
+    public override string ToString() => $"{Table.DbName}.{DbName} ({DbTypes.ToJoinedString(", ")})";
 }
