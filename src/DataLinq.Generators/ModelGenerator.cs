@@ -18,8 +18,6 @@ public class ModelGenerator : IIncrementalGenerator
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        //factory = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions());
-
         IncrementalValuesProvider<TypeDeclarationSyntax> modelDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (s, _) => IsModelDeclaration(s),
@@ -30,8 +28,14 @@ public class ModelGenerator : IIncrementalGenerator
             .Combine(modelDeclarations.Collect());
 
         // Add this line to cache the metadata
-        IncrementalValuesProvider<DatabaseDefinition> cachedMetadata = compilationAndClasses.SelectMany((source, _) => 
+        IncrementalValuesProvider<DatabaseDefinition> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
             metadataFactory.ReadSyntaxTrees(source.Item2));
+
+        // Check if nullable reference types are enabled
+        context.RegisterSourceOutput(context.CompilationProvider, (spc, compilation) =>
+        {
+            fileFactory.Options.UseNullableReferenceTypes = IsNullableEnabled(compilation);
+        });
 
         context.RegisterSourceOutput(cachedMetadata, (spc, metadata) => ExecuteForDatabase(metadata, spc));
     }
@@ -40,7 +44,7 @@ public class ModelGenerator : IIncrementalGenerator
     {
         if (node is not ClassDeclarationSyntax classDeclaration)
             return false;
-        
+
         return classDeclaration.BaseList?.Types.Any(t => SyntaxParser.IsModelInterface(t.ToString())) == true;
     }
 
@@ -53,5 +57,16 @@ public class ModelGenerator : IIncrementalGenerator
         {
             context.AddSource($"{db.Name}/{path}", contents);
         }
+    }
+
+    private static bool IsNullableEnabled(Compilation compilation)
+    {
+        return compilation.Options.NullableContextOptions switch
+        {
+            NullableContextOptions.Enable => true,
+            NullableContextOptions.Warnings => true,
+            NullableContextOptions.Annotations => true,
+            _ => false,
+        };
     }
 }

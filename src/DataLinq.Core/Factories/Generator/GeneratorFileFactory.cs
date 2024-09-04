@@ -14,18 +14,19 @@ public class GeneratorFileFactoryOptions
     public string Tab { get; set; } = "    ";
     public bool UseRecords { get; set; } = false;
     public bool UseFileScopedNamespaces { get; set; } = false;
+    public bool UseNullableReferenceTypes { get; set; } = false;
     public bool SeparateTablesAndViews { get; set; } = false;
     public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
 public class GeneratorFileFactory
 {
-    private readonly GeneratorFileFactoryOptions options;
+    public GeneratorFileFactoryOptions Options { get; }
 
     public GeneratorFileFactory(GeneratorFileFactoryOptions options)
     {
-        this.options = options;
-        this.options.UseRecords = false;
+        this.Options = options;
+        this.Options.UseRecords = false;
     }
 
     public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
@@ -36,11 +37,11 @@ public class GeneratorFileFactory
 
         foreach (var table in database.TableModels.Where(x => !x.IsStub))
         {
-            var namespaceName = options.NamespaceName ?? table.Model.CsType.Namespace;
+            var namespaceName = Options.NamespaceName ?? table.Model.CsType.Namespace;
             if (namespaceName == null)
                 throw new Exception($"Namespace is null for '{table.Model.CsType.Name}'");
 
-            var usings = options.Usings
+            var usings = Options.Usings
                 .Concat(table.Model.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>())
                 .Concat(table.Model.RelationProperties.Values
                     .Where(x => x.RelationPart.Type == RelationPartType.CandidateKey)
@@ -54,11 +55,11 @@ public class GeneratorFileFactory
                 .Select(x => x.name);
 
             var file =
-                FileHeader(namespaceName, options.UseFileScopedNamespaces, usings)
-                .Concat(ImmutableModelFileContents(table.Model, options))
-                .Concat(MutableModelFileContents(table.Model, options))
-                .Concat(ExtensionMethodsFileContents(table.Model, options))
-                .Concat(FileFooter(options.UseFileScopedNamespaces))
+                FileHeader(namespaceName, Options.UseFileScopedNamespaces, usings)
+                .Concat(ImmutableModelFileContents(table.Model, Options))
+                .Concat(MutableModelFileContents(table.Model, Options))
+                .Concat(ExtensionMethodsFileContents(table.Model, Options))
+                .Concat(FileFooter(Options.UseFileScopedNamespaces))
                 .ToJoinedString("\n");
 
             var path = GetFilePath(table);
@@ -71,7 +72,7 @@ public class GeneratorFileFactory
     {
         var path = $"{table.Model.CsType.Name}.cs";
 
-        if (options.SeparateTablesAndViews)
+        if (Options.SeparateTablesAndViews)
             return table.Table.Type == TableType.Table
                 ? $"Tables{Path.DirectorySeparatorChar}{path}"
                 : $"Views{Path.DirectorySeparatorChar}{path}";
@@ -285,7 +286,11 @@ public class GeneratorFileFactory
 
     private string GetFieldNullable(ValueProperty property)
     {
-        return property.CsNullable || property.EnumProperty.HasValue || MetadataTypeConverter.IsCsTypeNullable(property.CsType.Name) || !MetadataTypeConverter.IsKnownCsType(property.CsType.Name) ? "?" : "";
+        return Options.UseNullableReferenceTypes
+            || property.CsNullable
+            || property.EnumProperty.HasValue
+            || MetadataTypeConverter.IsCsTypeNullable(property.CsType.Name)
+            || !MetadataTypeConverter.IsKnownCsType(property.CsType.Name) ? "?" : "";
     }
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)
