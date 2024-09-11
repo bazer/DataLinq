@@ -231,6 +231,20 @@ public class TransactionTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
+    public void UpdateNoChanges(Database<EmployeesDb> employeesDb)
+    {
+        var emp_no = 999795;
+
+        var employee = helpers.GetEmployee(emp_no, employeesDb);
+        
+        var employeeMut = employee.Mutate();
+        Assert.Empty(employeeMut.GetChanges());
+        var dbEmployee = employeeMut.Update(employeesDb);
+        Assert.Equal(employee, dbEmployee);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
     public void UpdateImplicitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999998;

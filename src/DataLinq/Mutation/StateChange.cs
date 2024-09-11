@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Reflection;
 using DataLinq.Instances;
-using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Query;
 
@@ -58,6 +56,9 @@ public class StateChange
         if (type == TransactionChangeType.Update && model is not IMutableInstance)
             throw new InvalidOperationException("Cannot update a model that is not mutable.");
 
+        if (type == TransactionChangeType.Insert && model is not IMutableInstance)
+            throw new InvalidOperationException("Cannot insert a model that is not mutable.");
+
         Model = model;
         Table = table;
         Type = type;
@@ -65,24 +66,10 @@ public class StateChange
         PrimaryKeys = model.PrimaryKeys();
     }
 
-    public IEnumerable<KeyValuePair<ColumnDefinition, object>> GetValues() =>
-        GetValues(Table.Columns);
-
-    public IEnumerable<KeyValuePair<ColumnDefinition, object>> GetValues(IEnumerable<ColumnDefinition> columns)
-    {
-        if (Model is IModelInstance instance)
-            return instance.GetValues(columns);
-        else
-            return Model.GetValues(columns);
-    }
-
-    public IEnumerable<KeyValuePair<ColumnDefinition, object>> GetChanges()
-    {
-        if (Model is IMutableInstance instance)
-            return instance.GetChanges();
-        else
-            return GetValues();
-    }
+    public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges() =>
+        Model is IMutableInstance mutable
+        ? mutable.GetChanges()
+        : [];
 
     /// <summary>
     /// Executes the query associated with the state change on the given transaction.

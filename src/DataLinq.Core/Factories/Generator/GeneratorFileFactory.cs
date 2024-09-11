@@ -54,13 +54,20 @@ public class GeneratorFileFactory
                 .ThenBy(x => x.name)
                 .Select(x => x.name);
 
-            var file =
-                FileHeader(namespaceName, Options.UseFileScopedNamespaces, usings)
-                .Concat(ImmutableModelFileContents(table.Model, Options))
-                .Concat(MutableModelFileContents(table.Model, Options))
-                .Concat(ExtensionMethodsFileContents(table.Model, Options))
-                .Concat(FileFooter(Options.UseFileScopedNamespaces))
-                .ToJoinedString("\n");
+
+            var parts = FileHeader(namespaceName, Options.UseFileScopedNamespaces, usings)
+                    .Concat(ImmutableModelFileContents(table.Model, Options));
+
+            if (table.Table.Type == TableType.Table)
+            {
+                parts = parts
+                    .Concat(MutableModelFileContents(table.Model, Options))
+                    .Concat(ExtensionMethodsFileContents(table.Model, Options));
+            }
+
+            var file = parts
+                    .Concat(FileFooter(Options.UseFileScopedNamespaces))
+                    .ToJoinedString("\n");
 
             var path = GetFilePath(table);
 
@@ -128,7 +135,9 @@ public class GeneratorFileFactory
             yield return $"";
         }
 
-        yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsType.Name} Mutate() => new(this);";
+        if (table.Type == TableType.Table)
+            yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsType.Name} Mutate() => new(this);";
+        
         yield return namespaceTab + "}";
     }
 
@@ -227,7 +236,7 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(transaction));";
-        
+
         //InsertOrUpdate
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.InsertOrUpdate(changes, transaction));";

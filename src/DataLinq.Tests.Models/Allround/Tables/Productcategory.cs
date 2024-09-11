@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
-using DataLinq.Metadata;
 using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;

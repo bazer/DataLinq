@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using CommunityToolkit.HighPerformance;
+using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
-using DataLinq.Mutation;
 using DataLinq.Query;
 
 namespace DataLinq.Mutation;
@@ -161,7 +160,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         AddAndExecute(model, TransactionChangeType.Insert);
 
-        return GetModelFromCache(model);
+        return GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
     }
 
     /// <summary>
@@ -193,9 +192,13 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         if (model.IsNewModel())
             throw new ArgumentException("Model is a new row, unable to update");
 
+        // If there are no changes to save, skip saving and return the model from the cache directly.
+        if (!model.GetChanges().Any())
+            return GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
+
         AddAndExecute(model, TransactionChangeType.Update);
 
-        return GetModelFromCache(model);
+        return GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
     }
 
     /// <summary>

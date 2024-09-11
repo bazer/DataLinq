@@ -2,7 +2,7 @@
 
 namespace DataLinq.Exceptions;
 
-public class InvalidQueryException : System.Exception
+public class InvalidQueryException : Exception
 {
     private readonly string message;
 
@@ -11,19 +11,10 @@ public class InvalidQueryException : System.Exception
         this.message = message + " ";
     }
 
-    public InvalidQueryException() : base()
-    {
-    }
-
     public InvalidQueryException(string message, Exception innerException) : base(message, innerException)
     {
+        this.message = message;
     }
 
-    public override string Message
-    {
-        get
-        {
-            return "The client query is invalid: " + message;
-        }
-    }
+    public override string Message => "The client query is invalid: " + message;
 }
