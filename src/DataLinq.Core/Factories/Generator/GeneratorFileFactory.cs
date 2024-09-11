@@ -108,7 +108,7 @@ public class GeneratorFileFactory
             var c = valueProperty.Column;
 
             yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
-            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= GetValue<{c.ValueProperty.CsType.Name}>(nameof({c.ValueProperty.PropertyName}));";
+            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= {(IsPropertyNullable(valueProperty) ? "GetNullableValue" : "GetValue")}<{c.ValueProperty.CsType.Name}>(nameof({c.ValueProperty.PropertyName}));"; //{(!IsPropertyNullable(c.ValueProperty) ? $" ?? throw new ArgumentNullException(nameof({c.ValueProperty.PropertyName}))" : "")};";
             yield return $"";
         }
 
@@ -163,7 +163,7 @@ public class GeneratorFileFactory
             var c = valueProperty.Column;
 
             yield return $"";
-            yield return $"{namespaceTab}{tab}public virtual {GetCsTypeName(c.ValueProperty)}{GetPropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName}";
+            yield return $"{namespaceTab}{tab}public virtual {GetCsTypeName(c.ValueProperty)}{GetMutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName}";
             yield return $"{namespaceTab}{tab}{{";
             yield return $"{namespaceTab}{tab}{tab}get => GetValue<{GetCsTypeName(c.ValueProperty)}>(nameof({c.ValueProperty.PropertyName}));";
             yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.PropertyName}), value);";
@@ -279,9 +279,19 @@ public class GeneratorFileFactory
         return name;
     }
 
-    private string GetPropertyNullable(ValueProperty property)
+    private string GetImmutablePropertyNullable(ValueProperty property)
     {
-        return (property.CsNullable || property.Column.AutoIncrement) ? "?" : "";
+        return IsPropertyNullable(property) ? "?" : "";
+    }
+
+    private string GetMutablePropertyNullable(ValueProperty property)
+    {
+        return Options.UseNullableReferenceTypes || IsPropertyNullable(property) ? "?" : "";
+    }
+
+    private bool IsPropertyNullable(ValueProperty property)
+    {
+        return property.CsNullable || property.Column.AutoIncrement;
     }
 
     private string GetFieldNullable(ValueProperty property)

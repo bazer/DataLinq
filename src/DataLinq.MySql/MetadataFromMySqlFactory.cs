@@ -124,7 +124,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
                 .TableModels.SingleOrDefault(x => x.Table.DbName == key.TABLE_NAME)?
                 .Table.Columns.SingleOrDefault(x => x.DbName == key.COLUMN_NAME);
 
-            if (foreignKeyColumn == null)
+            if (foreignKeyColumn == null || key.REFERENCED_TABLE_NAME == null || key.REFERENCED_COLUMN_NAME == null)
                 continue;
 
             foreignKeyColumn.SetForeignKey();
@@ -191,12 +191,26 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             dbType.SetLength(dbColumns.NUMERIC_PRECISION);
             dbType.SetDecimals(dbColumns.NUMERIC_SCALE);
         }
+        else if (dbType.Name == "int" || dbType.Name == "tinyint" || dbType.Name == "smallint" || dbType.Name == "mediumint" || dbType.Name == "bigint")
+        {
+            // Parse length from COLUMN_TYPE string
+            var length = ParseLengthFromColumnType(dbColumns.COLUMN_TYPE);
+            dbType.SetLength(length);
+        }
         else if (dbType.Name != "enum")
         {
             dbType.SetLength(dbColumns.CHARACTER_MAXIMUM_LENGTH);
         }
 
         var column = new ColumnDefinition(dbColumns.COLUMN_NAME, table);
+        if (dbColumns.COLUMN_DEFAULT != null && !string.Equals(dbColumns.COLUMN_DEFAULT, "NULL", StringComparison.CurrentCultureIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(dbColumns.EXTRA))
+                column.AddDefaultValue(DatabaseType.MySQL, $"{dbColumns.COLUMN_DEFAULT} {dbColumns.EXTRA}");
+            else
+                column.AddDefaultValue(DatabaseType.MySQL, dbColumns.COLUMN_DEFAULT);
+        }
+
         column.SetNullable(dbColumns.IS_NULLABLE == "YES");
         column.SetPrimaryKey(dbColumns.COLUMN_KEY == "PRI");
         column.SetAutoIncrement(dbColumns.EXTRA.Contains("auto_increment"));
@@ -214,6 +228,22 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         }
 
         return column;
+    }
+
+    private int? ParseLengthFromColumnType(string columnType)
+    {
+        var startIndex = columnType.IndexOf('(') + 1;
+        var endIndex = columnType.IndexOf(')');
+        if (startIndex > 0 && endIndex > startIndex)
+        {
+            var lengthStr = columnType.Substring(startIndex, endIndex - startIndex);
+            if (int.TryParse(lengthStr, out var length))
+            {
+                return length;
+            }
+        }
+
+        return null; // Default length if parsing fails
     }
 
     private IEnumerable<(string name, int value)> ParseEnumType(string COLUMN_TYPE) =>

@@ -12,7 +12,7 @@ public abstract partial class Shippingcompany(RowData rowData, DataSourceAccess 
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("ShippingCompanyId")]
     public abstract int? ShippingCompanyId { get; }
 

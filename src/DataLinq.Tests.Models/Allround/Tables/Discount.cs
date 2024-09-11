@@ -12,7 +12,7 @@ public abstract partial class Discount(RowData rowData, DataSourceAccess dataSou
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("DiscountId")]
     public abstract int? DiscountId { get; }
 
@@ -28,12 +28,12 @@ public abstract partial class Discount(RowData rowData, DataSourceAccess dataSou
     public abstract decimal? DiscountPercentage { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("EndDate")]
     public abstract DateOnly? EndDate { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("StartDate")]
     public abstract DateOnly? StartDate { get; }
 

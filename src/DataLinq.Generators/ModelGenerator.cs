@@ -1,4 +1,5 @@
-﻿using System.Collections.Immutable;
+﻿using System;
+using System.Collections.Immutable;
 using System.Linq;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
@@ -11,7 +12,7 @@ namespace DataLinq.SourceGenerators;
 [Generator]
 public class ModelGenerator : IIncrementalGenerator
 {
-    private readonly MetadataFromInterfacesFactory metadataFactory = new(new MetadataFromInterfacesFactoryOptions());
+    private readonly MetadataFromModelsFactory metadataFactory = new(new MetadataFromInterfacesFactoryOptions());
     private readonly GeneratorFileFactory fileFactory = new(new GeneratorFileFactoryOptions());
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -52,9 +53,18 @@ public class ModelGenerator : IIncrementalGenerator
 
     private void ExecuteForDatabase(DatabaseDefinition db, SourceProductionContext context)
     {
-        foreach (var (path, contents) in fileFactory.CreateModelFiles(db))
+        try
         {
-            context.AddSource($"{db.Name}/{path}", contents);
+            foreach (var (path, contents) in fileFactory.CreateModelFiles(db))
+            {
+                context.AddSource($"{db.Name}/{path}", contents);
+            }
+        }
+        catch (Exception e)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                new DiagnosticDescriptor("DLG001", "Error", e.Message, "Error", DiagnosticSeverity.Error, true),
+                Location.None));
         }
     }
 

@@ -10,7 +10,7 @@ using DataLinq.Metadata;
 
 namespace DataLinq.Core.Factories.Models;
 
-public class InterfaceFileFactoryOptions
+public class ModelFileFactoryOptions
 {
     public string? NamespaceName { get; set; } = null; //"Models";
     public string Tab { get; set; } = "    ";
@@ -22,11 +22,11 @@ public class InterfaceFileFactoryOptions
     public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Instances", "DataLinq.Mutation" };
 }
 
-public class InterfaceFileFactory
+public class ModelFileFactory
 {
-    private readonly InterfaceFileFactoryOptions options;
+    private readonly ModelFileFactoryOptions options;
 
-    public InterfaceFileFactory(InterfaceFileFactoryOptions options)
+    public ModelFileFactory(ModelFileFactoryOptions options)
     {
         this.options = options;
     }
@@ -86,7 +86,7 @@ public class InterfaceFileFactory
         return path;
     }
 
-    private IEnumerable<string> DatabaseFileContents(DatabaseDefinition database, string dbName, InterfaceFileFactoryOptions settings)
+    private IEnumerable<string> DatabaseFileContents(DatabaseDefinition database, string dbName, ModelFileFactoryOptions settings)
     {
         var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
         var tab = settings.Tab;
@@ -114,7 +114,7 @@ public class InterfaceFileFactory
         yield return namespaceTab + "}";
     }
 
-    private IEnumerable<string> ModelFileContents(ModelDefinition model, InterfaceFileFactoryOptions options)
+    private IEnumerable<string> ModelFileContents(ModelDefinition model, ModelFileFactoryOptions options)
     {
         var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
         var tab = options.Tab;
@@ -205,6 +205,9 @@ public class InterfaceFileFactory
                     yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
             }
 
+            foreach (var defaultVal in c.DefaultValues)
+                yield return $"{namespaceTab}{tab}[Default(DatabaseType.{defaultVal.DatabaseType}, \"{defaultVal.Value}\")]";
+
             if (valueProperty.EnumProperty != null)
                 yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
 
@@ -236,7 +239,7 @@ public class InterfaceFileFactory
 
     private string GetPropertyNullable(ColumnDefinition column)
     {
-        return (options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement) ? "?" : "";
+        return (options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement || column.DefaultValues.Length != 0) ? "?" : "";
     }
 
     private IEnumerable<string> WriteEnum(ValueProperty property, string namespaceTab, string tab)

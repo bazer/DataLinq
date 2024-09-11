@@ -20,7 +20,7 @@ public abstract partial class Payment(RowData rowData, DataSourceAccess dataSour
     
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("PaymentId")]
     public abstract int? PaymentId { get; }
 
@@ -36,7 +36,7 @@ public abstract partial class Payment(RowData rowData, DataSourceAccess dataSour
     public abstract decimal? Amount { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("PaymentDate")]
     public abstract DateOnly? PaymentDate { get; }
 

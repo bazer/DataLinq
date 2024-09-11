@@ -1,9 +1,22 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
+
+public class DefaultValue(DatabaseType databaseType, string value)
+{
+    public DatabaseType DatabaseType { get; } = databaseType;
+    public string Value { get; } = value;
+
+    public override string ToString()
+    {
+        return $"\"{Value}\" [{DatabaseType}]";
+    }
+}
 
 public class DatabaseColumnType(DatabaseType databaseType, string name, long? length = null, int? decimals = null, bool? signed = null)
 {
@@ -11,7 +24,7 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, long? le
     public string Name { get; private set; } = name;
     public void SetName(string name) => Name = name;
     public long? Length { get; private set; } = length;
-    public void SetLength(long? length) => Length = length;
+    public void SetLength(long? length) => Length = length == 0 ? null : length;
     public int? Decimals { get; private set; } = decimals;
     public void SetDecimals(int? decimals) => Decimals = decimals;
     public void SetDecimals(long? decimals) => Decimals = (int?)decimals;
@@ -38,6 +51,8 @@ public class ColumnDefinition(string dbName, TableDefinition table)
     public void SetAutoIncrement(bool value = true) => AutoIncrement = value;
     public bool Nullable { get; private set; }
     public void SetNullable(bool value = true) => Nullable = value;
+    public DefaultValue[] DefaultValues { get; private set; } = [];
+    
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
     public ValueProperty ValueProperty { get; private set; }
     public void SetValueProperty(ValueProperty value)
@@ -55,6 +70,9 @@ public class ColumnDefinition(string dbName, TableDefinition table)
         else
             Table.RemovePrimaryKeyColumn(this);
     }
+
+    public void AddDefaultValue(DatabaseType dbType, string value) => AddDefaultValue(new(dbType, value));
+    public void AddDefaultValue(DefaultValue defaultValue) => DefaultValues = DefaultValues.AsEnumerable().Append(defaultValue).ToArray();
 
     public void AddDbType(DatabaseColumnType columnType)
     {

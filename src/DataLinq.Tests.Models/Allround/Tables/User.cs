@@ -24,7 +24,7 @@ public abstract partial class User(RowData rowData, DataSourceAccess dataSource)
     public abstract Guid UserId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("DateJoined")]
     public abstract DateOnly? DateJoined { get; }
 
@@ -34,17 +34,17 @@ public abstract partial class User(RowData rowData, DataSourceAccess dataSource)
     public abstract string Email { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "time", 0)]
+    [Type(DatabaseType.MySQL, "time")]
     [Column("LastLoginTime")]
     public abstract TimeOnly? LastLoginTime { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "tinyint", 0)]
+    [Type(DatabaseType.MySQL, "tinyint", 4)]
     [Column("UserAge")]
     public abstract int? UserAge { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "float", 0)]
+    [Type(DatabaseType.MySQL, "float")]
     [Column("UserHeight")]
     public abstract float? UserHeight { get; }
 

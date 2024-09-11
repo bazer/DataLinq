@@ -12,7 +12,7 @@ public abstract partial class Userhistory(RowData rowData, DataSourceAccess data
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("HistoryId")]
     public abstract int? HistoryId { get; }
 
@@ -28,7 +28,7 @@ public abstract partial class Userhistory(RowData rowData, DataSourceAccess data
     public abstract byte[] ActivityBlob { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("ActivityDate")]
     public abstract DateOnly? ActivityDate { get; }
 

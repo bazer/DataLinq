@@ -21,7 +21,6 @@ public class MetadataFromSQLiteFactoryCreator : IMetadataFromDatabaseFactoryCrea
 public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 {
     private readonly MetadataFromDatabaseFactoryOptions options;
-    private SQLiteDatabaseTransaction dbAccess;
 
     public MetadataFromSQLiteFactory(MetadataFromDatabaseFactoryOptions options)
     {
@@ -30,22 +29,22 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     public Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString)
     {
-        dbAccess = new SQLiteDatabaseTransaction(connectionString, Mutation.TransactionType.ReadOnly);
+        var dbAccess = new SQLiteDatabaseTransaction(connectionString, Mutation.TransactionType.ReadOnly);
 
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
         database.SetTableModels(dbAccess
             .ReadReader("SELECT *\r\nFROM sqlite_master m\r\nWHERE\r\nm.type <> 'index' AND\r\nm.tbl_name <> 'sqlite_sequence'")
-            .Select(x => ParseTable(database, x)));
+            .Select(x => ParseTable(database, x, dbAccess)));
 
-        ParseIndices(database);
-        ParseRelations(database);
+        ParseIndices(database, dbAccess);
+        ParseRelations(database, dbAccess);
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
 
         return database;
     }
 
-    private void ParseIndices(DatabaseDefinition database)
+    private void ParseIndices(DatabaseDefinition database, SQLiteDatabaseTransaction dbAccess)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
@@ -69,7 +68,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         }
     }
 
-    private void ParseRelations(DatabaseDefinition database)
+    private void ParseRelations(DatabaseDefinition database, SQLiteDatabaseTransaction dbAccess)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
@@ -99,7 +98,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         }
     }
 
-    private TableModel ParseTable(DatabaseDefinition database, IDataLinqDataReader reader)
+    private TableModel ParseTable(DatabaseDefinition database, IDataLinqDataReader reader, SQLiteDatabaseTransaction dbAccess)
     {
         var type = reader.GetString(0) == "table" ? TableType.Table : TableType.View; //sqlite_master.type
         var table = type == TableType.Table
@@ -117,7 +116,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         table.SetColumns(dbAccess
             .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
-            .Select(x => ParseColumn(table, x)));
+            .Select(x => ParseColumn(table, x, dbAccess)));
 
         return tableModel;
     }
@@ -136,7 +135,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return definition;
     }
 
-    private ColumnDefinition ParseColumn(TableDefinition table, IDataLinqDataReader reader)
+    private ColumnDefinition ParseColumn(TableDefinition table, IDataLinqDataReader reader, SQLiteDatabaseTransaction dbAccess)
     {
         var dbType = new DatabaseColumnType(DatabaseType.SQLite, reader.GetString(2).ToLower());
 

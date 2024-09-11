@@ -26,12 +26,12 @@ public class MetadataFromInterfacesFactoryOptions
     public bool RemoveInterfacePrefix { get; set; } = true;
 }
 
-public class MetadataFromInterfacesFactory
+public class MetadataFromModelsFactory
 {
     private readonly MetadataFromInterfacesFactoryOptions options;
     public Action<string>? Log { get; }
 
-    public MetadataFromInterfacesFactory(MetadataFromInterfacesFactoryOptions options, Action<string>? log = null)
+    public MetadataFromModelsFactory(MetadataFromInterfacesFactoryOptions options, Action<string>? log = null)
     {
         this.options = options;
         Log = log;

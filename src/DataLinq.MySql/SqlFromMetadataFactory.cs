@@ -56,14 +56,18 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             var dbType = GetDbType(column);
             //var dbType = column.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL);
 
-            sql.NewRow().Indent()
+            var row = sql.NewRow().Indent()
                 .ColumnName(column.DbName)
                 .Type(dbType.Name.ToUpper(), column.DbName, longestName);
+
+            var defaultValue = GetDefaultValue(column);
+            if (defaultValue != null)
+                row.DefaultValue(defaultValue.Value);
 
             if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
                 sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
 
-            if (!NoLengthTypes.Contains(dbType.Name.ToLower()))
+            if (!NoLengthTypes.Contains(dbType.Name.ToLower()) && dbType.Length.HasValue && dbType.Length != 0)
                 sql.TypeLength(dbType.Length, dbType.Decimals);
 
             sql.Unsigned(dbType.Signed);
@@ -101,6 +105,14 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.PropertyName}'");
 
         return type;
+    }
+
+    public static DefaultValue? GetDefaultValue(ColumnDefinition column)
+    {
+        if (column.DefaultValues.Any(x => x.DatabaseType == DatabaseType.MySQL))
+            return column.DefaultValues.First(x => x.DatabaseType == DatabaseType.MySQL);
+
+        return column.DefaultValues.FirstOrDefault();
     }
 
     private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)

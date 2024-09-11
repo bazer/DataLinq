@@ -12,7 +12,7 @@ public abstract partial class Userfeedback(RowData rowData, DataSourceAccess dat
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("FeedbackId")]
     public abstract int? FeedbackId { get; }
 

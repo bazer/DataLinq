@@ -126,6 +126,7 @@ public class SqlGeneration
         => Add(new string(' ', IndentationSpaces));
     public SqlGeneration NewLineComma()
         => Add(",").NewLine();
+    public SqlGeneration DefaultValue(string defaultValue) => Space().Add($"DEFAULT {defaultValue}");
     public SqlGeneration Nullable(bool nullable) => Space().Add(nullable ? "NULL" : "NOT NULL");
     public SqlGeneration Autoincrement(bool inc) => inc ? Space().Add("AUTO_INCREMENT") : this;
     public SqlGeneration Type(string type, string columnName, int longestColumnName) => Add(Align(longestColumnName, columnName) + type);

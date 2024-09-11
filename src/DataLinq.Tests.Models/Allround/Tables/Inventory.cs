@@ -12,7 +12,7 @@ public abstract partial class Inventory(RowData rowData, DataSourceAccess dataSo
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("InventoryId")]
     public abstract int? InventoryId { get; }
 
@@ -29,7 +29,7 @@ public abstract partial class Inventory(RowData rowData, DataSourceAccess dataSo
     public abstract Guid? ProductId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("Stock")]
     public abstract int? Stock { get; }
 

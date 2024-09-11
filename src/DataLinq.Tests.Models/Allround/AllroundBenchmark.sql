@@ -1,9 +1,9 @@
-﻿/* Generated 2023-10-15 20:51:11 by DataLinq */
+﻿/* Generated 2024-09-11 23:52:43 by DataLinq */
 
 CREATE TABLE IF NOT EXISTS `products` (
   `ProductId`      BINARY(16) NOT NULL,
-  `CategoryId`     INT NULL,
-  `ManufacturerId` INT NULL,
+  `CategoryId`     INT(11) NULL,
+  `ManufacturerId` INT(11) NULL,
   `Price`          DOUBLE NULL,
   `ProductName`    VARCHAR(255) NULL,
   PRIMARY KEY (`ProductId`),
@@ -22,10 +22,10 @@ CREATE TABLE IF NOT EXISTS `locations` (
 );
 
 CREATE TABLE IF NOT EXISTS `inventory` (
-  `InventoryId` INT NOT NULL AUTO_INCREMENT,
+  `InventoryId` INT(11) NOT NULL AUTO_INCREMENT,
   `LocationId`  BINARY(16) NULL,
   `ProductId`   BINARY(16) NULL,
-  `Stock`       INT NULL,
+  `Stock`       INT(11) NULL,
   PRIMARY KEY (`InventoryId`),
   CONSTRAINT `inventory_ibfk_2` FOREIGN KEY (`LocationId`) REFERENCES `locations` (`LocationId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`ProductId`) REFERENCES `products` (`ProductId`) ON UPDATE RESTRICT ON DELETE RESTRICT
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `locationshistory` (
 );
 
 CREATE TABLE IF NOT EXISTS `manufacturers` (
-  `ManufacturerId`   INT NOT NULL AUTO_INCREMENT,
+  `ManufacturerId`   INT(11) NOT NULL AUTO_INCREMENT,
   `Logo`             LONGBLOB NULL,
   `ManufacturerName` VARCHAR(255) NULL,
   PRIMARY KEY (`ManufacturerId`)
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `DateJoined`    DATE NULL,
   `Email`         VARCHAR(255) NULL,
   `LastLoginTime` TIME NULL,
-  `UserAge`       TINYINT NULL,
+  `UserAge`       TINYINT(4) NULL,
   `UserHeight`    FLOAT NULL,
   `UserName`      VARCHAR(255) NULL,
   `UserRole`      ENUM('Admin','User','Guest') NULL,
@@ -67,8 +67,8 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `UserId`            BINARY(16) NULL,
   `OrderDate`         DATE NULL,
   `OrderStatus`       ENUM('Placed','Shipped','Delivered','Cancelled') NULL,
-  `OrderTimestamp`    TIMESTAMP NOT NULL,
-  `ShippingCompanyId` INT NULL,
+  `OrderTimestamp`    TIMESTAMP DEFAULT current_timestamp() on update current_timestamp() NOT NULL,
+  `ShippingCompanyId` INT(11) NULL,
   PRIMARY KEY (`OrderId`),
   CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`ProductId`) REFERENCES `products` (`ProductId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
 );
 
 CREATE TABLE IF NOT EXISTS `payments` (
-  `PaymentId`      INT NOT NULL AUTO_INCREMENT,
+  `PaymentId`      INT(11) NOT NULL AUTO_INCREMENT,
   `OrderId`        BINARY(16) NULL,
   `Amount`         DECIMAL(10,2) NULL,
   `PaymentDate`    DATE NULL,
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS `productreviews` (
   `ReviewId`  BINARY(16) NOT NULL,
   `ProductId` BINARY(16) NULL,
   `UserId`    BINARY(16) NULL,
-  `Rating`    TINYINT NULL,
+  `Rating`    TINYINT(4) NULL,
   `Review`    MEDIUMTEXT NULL,
   PRIMARY KEY (`ReviewId`),
   CONSTRAINT `productreviews_ibfk_2` FOREIGN KEY (`ProductId`) REFERENCES `products` (`ProductId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS `productreviews` (
 );
 
 CREATE TABLE IF NOT EXISTS `discounts` (
-  `DiscountId`         INT NOT NULL AUTO_INCREMENT,
+  `DiscountId`         INT(11) NOT NULL AUTO_INCREMENT,
   `ProductId`          BINARY(16) NULL,
   `DiscountPercentage` DECIMAL(5,2) NULL,
   `EndDate`            DATE NULL,
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS `discounts` (
 );
 
 CREATE TABLE IF NOT EXISTS `producttags` (
-  `TagId`       INT NOT NULL AUTO_INCREMENT,
+  `TagId`       INT(11) NOT NULL AUTO_INCREMENT,
   `CategoryId`  BINARY(16) NULL,
   `Description` TEXT NULL,
   `TagName`     VARCHAR(255) NULL,
@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS `producttags` (
 );
 
 CREATE TABLE IF NOT EXISTS `shippingcompanies` (
-  `ShippingCompanyId` INT NOT NULL AUTO_INCREMENT,
+  `ShippingCompanyId` INT(11) NOT NULL AUTO_INCREMENT,
   `CompanyName`       VARCHAR(255) NULL,
   PRIMARY KEY (`ShippingCompanyId`)
 );
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS `userprofiles` (
 );
 
 CREATE TABLE IF NOT EXISTS `userfeedback` (
-  `FeedbackId` INT NOT NULL AUTO_INCREMENT,
+  `FeedbackId` INT(11) NOT NULL AUTO_INCREMENT,
   `ProductId`  BINARY(16) NULL,
   `UserId`     BINARY(16) NULL,
   `Feedback`   TEXT NULL,
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS `userfeedback` (
 );
 
 CREATE TABLE IF NOT EXISTS `userhistory` (
-  `HistoryId`    INT NOT NULL AUTO_INCREMENT,
+  `HistoryId`    INT(11) NOT NULL AUTO_INCREMENT,
   `UserId`       BINARY(16) NULL,
   `ActivityBlob` TINYBLOB NULL,
   `ActivityDate` DATE NULL,
@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS `userhistory` (
 );
 
 CREATE TABLE IF NOT EXISTS `usercontacts` (
-  `ContactId` INT NOT NULL AUTO_INCREMENT,
+  `ContactId` INT(11) NOT NULL AUTO_INCREMENT,
   `ProfileId` BINARY(16) NULL,
   `Phone`     CHAR(30) NULL,
   PRIMARY KEY (`ContactId`),
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS `orderdetails` (
   `OrderId`   BINARY(16) NULL,
   `ProductId` BINARY(16) NULL,
   `Discount`  DOUBLE NULL,
-  `Quantity`  INT NULL,
+  `Quantity`  INT(11) NULL,
   PRIMARY KEY (`DetailId`),
   CONSTRAINT `orderdetails_ibfk_1` FOREIGN KEY (`OrderId`) REFERENCES `orders` (`OrderId`) ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `orderdetails_ibfk_2` FOREIGN KEY (`ProductId`) REFERENCES `products` (`ProductId`) ON UPDATE RESTRICT ON DELETE RESTRICT

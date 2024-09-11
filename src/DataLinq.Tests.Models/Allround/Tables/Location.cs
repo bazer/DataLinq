@@ -33,12 +33,12 @@ public abstract partial class Location(RowData rowData, DataSourceAccess dataSou
     public abstract string Country { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "float", 0)]
+    [Type(DatabaseType.MySQL, "float")]
     [Column("Latitude")]
     public abstract float? Latitude { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "float", 0)]
+    [Type(DatabaseType.MySQL, "float")]
     [Column("Longitude")]
     public abstract float? Longitude { get; }
 

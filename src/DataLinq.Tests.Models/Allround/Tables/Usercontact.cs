@@ -12,7 +12,7 @@ public abstract partial class Usercontact(RowData rowData, DataSourceAccess data
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("ContactId")]
     public abstract int? ContactId { get; }
 

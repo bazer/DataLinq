@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DataLinq.Extensions.Helpers;
 using ThrowAway;
 
 namespace DataLinq.Config;
@@ -76,7 +77,7 @@ public record DataLinqConfig
     public Option<(DataLinqDatabaseConfig db, DataLinqDatabaseConnection connection)> GetConnection(string? dbName, DatabaseType? databaseType)
     {
         if (string.IsNullOrEmpty(dbName) && Databases.Count != 1)
-            return $"The config file has more than one database specified, you need to select which one to use";
+            return $"The config file has more than one database specified. Use (-a or --all) to use all configured databases, or name (-n or --name) one:\n{Databases.Select(x => x.Name).ToJoinedString()}";
 
         var db = string.IsNullOrEmpty(dbName)
             ? Databases.Single()
@@ -94,7 +95,7 @@ public record DataLinqConfig
 
         if (db.Connections.Count > 1 && databaseType == null)
         {
-            return $"Database '{db.Name}' has more than one type of connection to read from, you need to select which one (-t or --type)";
+            return $"Database '{db.Name}' has more than one type of connection to read from, you need to select which one (-t or --type):\n{db.Connections.Select(x => x.Type).ToJoinedString()}";
         }
 
         DataLinqDatabaseConnection? connection = null;

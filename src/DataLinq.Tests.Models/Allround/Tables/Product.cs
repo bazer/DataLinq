@@ -17,17 +17,17 @@ public abstract partial class Product(RowData rowData, DataSourceAccess dataSour
     public abstract Guid ProductId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("CategoryId")]
     public abstract int? CategoryId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("ManufacturerId")]
     public abstract int? ManufacturerId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "double", 0)]
+    [Type(DatabaseType.MySQL, "double")]
     [Column("Price")]
     public abstract double? Price { get; }
 

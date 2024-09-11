@@ -12,7 +12,7 @@ public abstract partial class Producttag(RowData rowData, DataSourceAccess dataS
 {
     [PrimaryKey]
     [AutoIncrement]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("TagId")]
     public abstract int? TagId { get; }
 

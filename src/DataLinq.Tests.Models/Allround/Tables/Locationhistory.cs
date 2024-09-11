@@ -23,7 +23,7 @@ public abstract partial class Locationhistory(RowData rowData, DataSourceAccess 
 
     [Index("idx_changedate", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("ChangeDate")]
     public abstract DateOnly? ChangeDate { get; }
 

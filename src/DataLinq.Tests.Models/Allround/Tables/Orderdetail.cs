@@ -28,12 +28,12 @@ public abstract partial class Orderdetail(RowData rowData, DataSourceAccess data
     public abstract Guid? ProductId { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "double", 0)]
+    [Type(DatabaseType.MySQL, "double")]
     [Column("Discount")]
     public abstract double? Discount { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("Quantity")]
     public abstract int? Quantity { get; }
 

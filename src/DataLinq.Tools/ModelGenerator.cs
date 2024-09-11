@@ -151,7 +151,7 @@ public class ModelGenerator : Generator
         }
 
 
-        var options = new InterfaceFileFactoryOptions
+        var options = new ModelFileFactoryOptions
         {
             NamespaceName = db.Namespace,
             UseRecords = db.UseRecord,
@@ -161,7 +161,7 @@ public class ModelGenerator : Generator
         };
 
         //log($"Writing models to:");
-        foreach (var file in new InterfaceFileFactory(options).CreateModelFiles(dbMetadata))
+        foreach (var file in new ModelFileFactory(options).CreateModelFiles(dbMetadata))
         {
             var filepath = $"{destDir}{Path.DirectorySeparatorChar}{file.path}";
             log($"Writing {filepath}");

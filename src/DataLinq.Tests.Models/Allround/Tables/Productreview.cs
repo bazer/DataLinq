@@ -29,7 +29,7 @@ public abstract partial class Productreview(RowData rowData, DataSourceAccess da
 
     [Index("idx_rating", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
-    [Type(DatabaseType.MySQL, "tinyint", 0)]
+    [Type(DatabaseType.MySQL, "tinyint", 4)]
     [Column("Rating")]
     public abstract int? Rating { get; }
 

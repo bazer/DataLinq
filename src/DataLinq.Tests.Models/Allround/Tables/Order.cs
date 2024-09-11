@@ -38,7 +38,7 @@ public abstract partial class Order(RowData rowData, DataSourceAccess dataSource
 
     [Index("idx_orderdate", IndexCharacteristic.Simple, IndexType.BTREE)]
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("OrderDate")]
     public abstract DateOnly? OrderDate { get; }
 
@@ -48,12 +48,13 @@ public abstract partial class Order(RowData rowData, DataSourceAccess dataSource
     [Column("OrderStatus")]
     public abstract OrderStatusValue? OrderStatus { get; }
 
-    [Type(DatabaseType.MySQL, "timestamp", 0)]
+    [Type(DatabaseType.MySQL, "timestamp")]
+    [Default(DatabaseType.MySQL, "current_timestamp() on update current_timestamp()")]
     [Column("OrderTimestamp")]
     public abstract DateTime OrderTimestamp { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("ShippingCompanyId")]
     public abstract int? ShippingCompanyId { get; }
 

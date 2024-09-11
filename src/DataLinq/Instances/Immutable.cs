@@ -53,7 +53,8 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
     }
 
 
-    protected V? GetValue<V>(string propertyName) => rowData.GetValue<V>(rowData.Table.Model.ValueProperties[propertyName].Column);
+    protected V GetValue<V>(string propertyName) => GetNullableValue<V>(propertyName) ?? throw new ArgumentNullException(propertyName);
+    protected V? GetNullableValue<V>(string propertyName) => rowData.GetValue<V>(rowData.Table.Model.ValueProperties[propertyName].Column);
     protected V? GetForeignKey<V>(string propertyName) where V : IImmutableInstance => GetRelation<V>(rowData.Table.Model.RelationProperties[propertyName]).SingleOrDefault();
     protected IEnumerable<V> GetRelation<V>(string propertyName) where V : IImmutableInstance => GetRelation<V>(rowData.Table.Model.RelationProperties[propertyName]);
 

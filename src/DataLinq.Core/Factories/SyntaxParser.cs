@@ -199,6 +199,18 @@ public static class SyntaxParser
             return new NullableAttribute();
         }
 
+        if (name == "Default")
+        {
+            if (arguments.Count != 2)
+                throw new ArgumentException($"Attribute '{name}' have too few arguments");
+
+            string enumValue = arguments[0].Split('.').Last();
+            if (!Enum.TryParse(enumValue, out DatabaseType dbType))
+                throw new ArgumentException($"Invalid DatabaseType value '{arguments[0]}'");
+
+            return new DefaultAttribute(dbType, arguments[1]);
+        }
+
         if (name == "Index")
         {
             if (arguments.Count < 2)
