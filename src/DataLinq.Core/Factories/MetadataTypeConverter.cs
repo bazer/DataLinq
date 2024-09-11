@@ -51,7 +51,7 @@ public static class MetadataTypeConverter
 
     public static Type GetType(string typeName) => Type.GetType(GetFullTypeName(typeName));
 
-    public static string GetFullTypeName(string typeName) => typeName switch
+    public static string GetFullTypeName(string typeName) => typeName.ToLower() switch
     {
         "sbyte" => "System.SByte",
         "byte" => "System.Byte",
@@ -66,11 +66,12 @@ public static class MetadataTypeConverter
         "double" => "System.Double",
         "bool" => "System.Boolean",
         "decimal" => "System.Decimal",
-        "DateTime" => "System.DateTime",
-        "DateOnly" => "System.DateOnly",
-        "TimeOnly" => "System.TimeOnly",
-        "Guid" => "System.Guid",
-        "String" => "System.String",
+        "datetime" => "System.DateTime",
+        "dateonly" => "System.DateOnly",
+        "timeonly" => "System.TimeOnly",
+        "guid" => "System.Guid",
+        "string" => "System.String",
+        "byte[]" => "System.Byte[]",
         _ => typeName,
     };
 

@@ -69,27 +69,6 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         }
     }
 
-
-    //private void ParseIndices(DatabaseMetadata database)
-    //{
-    //    foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
-    //    {
-    //        foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`partial`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l\r\nJOIN pragma_index_info(l.`name`) i WHERE\r\nl.`unique` = 1 AND\r\nl.`origin` <> 'pk'"))
-    //        {
-    //            var column = tableModel
-    //                .Table.Columns.Single(x => x.DbName == reader.GetString(4));
-
-    //            var name = reader.GetString(0);
-
-    //            if (name.StartsWith("sqlite_autoindex"))
-    //                name = column.DbName;
-
-    //            column.Unique = true;
-    //            column.ValueProperty.Attributes.Add(new IndexAttribute(name));
-    //        }
-    //    }
-    //}
-
     private void ParseRelations(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
@@ -127,6 +106,12 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
              ? new TableDefinition(reader.GetString(2))
              : new ViewDefinition(reader.GetString(2));
 
+        var csName = options.CapitaliseNames
+            ? table.DbName.FirstCharToUpper()
+            : table.DbName;
+
+        var tableModel = new TableModel(csName, database, table, csName);
+
         if (table is ViewDefinition view)
             view.SetDefinition(ParseViewDefinition(reader.GetString(4))); //sqlite_master.sql
 
@@ -134,11 +119,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
             .Select(x => ParseColumn(table, x)));
 
-        var csName = options.CapitaliseNames
-            ? table.DbName.FirstCharToUpper()
-            : table.DbName;
-
-        return new TableModel(table.Model.CsType.Name, database, table, csName);
+        return tableModel;
     }
 
     private static string ParseViewDefinition(string definition)

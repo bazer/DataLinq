@@ -155,6 +155,12 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             ? new TableDefinition(dbTables.TABLE_NAME)
             : new ViewDefinition(dbTables.TABLE_NAME);
 
+        var csName = options.CapitaliseNames
+            ? table.DbName.FirstCharToUpper()
+            : table.DbName;
+
+        var tableModel = new TableModel(csName, database, table, csName);
+
         if (table is ViewDefinition view)
         {
             view.SetDefinition(information_Schema
@@ -170,11 +176,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             .AsEnumerable()
             .Select(x => ParseColumn(table, x)));
 
-        var csName = options.CapitaliseNames
-            ? table.DbName.FirstCharToUpper()
-            : table.DbName;
-
-        return new TableModel(table.Model.CsType.Name, database, table, csName);
+        return tableModel;
     }
 
     private ColumnDefinition ParseColumn(TableDefinition table, COLUMNS dbColumns)

@@ -23,7 +23,7 @@ public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataS
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("COLUMN_NAME")]
-    public abstract string? COLUMN_NAME { get; }
+    public abstract string COLUMN_NAME { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 16)]
@@ -32,27 +32,27 @@ public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataS
 
     [Type(DatabaseType.MySQL, "varchar", 1024)]
     [Column("INDEX_COMMENT")]
-    public abstract string? INDEX_COMMENT { get; }
+    public abstract string INDEX_COMMENT { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("INDEX_NAME")]
-    public abstract string? INDEX_NAME { get; }
+    public abstract string INDEX_NAME { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("INDEX_SCHEMA")]
-    public abstract string? INDEX_SCHEMA { get; }
+    public abstract string INDEX_SCHEMA { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 16)]
     [Column("INDEX_TYPE")]
-    public abstract string? INDEX_TYPE { get; }
+    public abstract string INDEX_TYPE { get; }
 
     [Type(DatabaseType.MySQL, "bigint", 0)]
     [Column("NON_UNIQUE")]
-    public abstract long? NON_UNIQUE { get; }
+    public abstract long NON_UNIQUE { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 3)]
     [Column("NULLABLE")]
-    public abstract string? NULLABLE { get; }
+    public abstract string NULLABLE { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 10)]
@@ -61,7 +61,7 @@ public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataS
 
     [Type(DatabaseType.MySQL, "bigint", 0)]
     [Column("SEQ_IN_INDEX")]
-    public abstract long? SEQ_IN_INDEX { get; }
+    public abstract long SEQ_IN_INDEX { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint", 0)]
@@ -70,14 +70,14 @@ public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataS
 
     [Type(DatabaseType.MySQL, "varchar", 512)]
     [Column("TABLE_CATALOG")]
-    public abstract string? TABLE_CATALOG { get; }
+    public abstract string TABLE_CATALOG { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_NAME")]
-    public abstract string? TABLE_NAME { get; }
+    public abstract string TABLE_NAME { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_SCHEMA")]
-    public abstract string? TABLE_SCHEMA { get; }
+    public abstract string TABLE_SCHEMA { get; }
 
 }

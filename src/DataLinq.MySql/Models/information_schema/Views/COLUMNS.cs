@@ -33,7 +33,7 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
 
     [Type(DatabaseType.MySQL, "varchar", 1024)]
     [Column("COLUMN_COMMENT")]
-    public abstract string? COLUMN_COMMENT { get; }
+    public abstract string COLUMN_COMMENT { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "longtext", 4294967295)]
@@ -72,11 +72,11 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
 
     [Type(DatabaseType.MySQL, "varchar", 6)]
     [Column("IS_GENERATED")]
-    public abstract string? IS_GENERATED { get; }
+    public abstract string IS_GENERATED { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 3)]
     [Column("IS_NULLABLE")]
-    public abstract string? IS_NULLABLE { get; }
+    public abstract string IS_NULLABLE { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint", 0, false)]
@@ -90,22 +90,22 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
 
     [Type(DatabaseType.MySQL, "bigint", 0, false)]
     [Column("ORDINAL_POSITION")]
-    public abstract long? ORDINAL_POSITION { get; }
+    public abstract long ORDINAL_POSITION { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 80)]
     [Column("PRIVILEGES")]
-    public abstract string? PRIVILEGES { get; }
+    public abstract string PRIVILEGES { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 512)]
     [Column("TABLE_CATALOG")]
-    public abstract string? TABLE_CATALOG { get; }
+    public abstract string TABLE_CATALOG { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_NAME")]
-    public abstract string? TABLE_NAME { get; }
+    public abstract string TABLE_NAME { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_SCHEMA")]
-    public abstract string? TABLE_SCHEMA { get; }
+    public abstract string TABLE_SCHEMA { get; }
 
 }

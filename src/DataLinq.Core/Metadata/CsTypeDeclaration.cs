@@ -13,7 +13,10 @@ public enum ModelCsType
     Record,
     Interface,
     Struct,
-    Primitive
+    Primitive,
+    Enum,
+    Tuple,
+    Pointer
 }
 
 public class ModelUsing(string fullNamespaceName)

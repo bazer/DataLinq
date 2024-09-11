@@ -78,7 +78,7 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
 
     [Type(DatabaseType.MySQL, "varchar", 512)]
     [Column("TABLE_CATALOG")]
-    public abstract string? TABLE_CATALOG { get; }
+    public abstract string TABLE_CATALOG { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 32)]
@@ -87,11 +87,11 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
 
     [Type(DatabaseType.MySQL, "varchar", 2048)]
     [Column("TABLE_COMMENT")]
-    public abstract string? TABLE_COMMENT { get; }
+    public abstract string TABLE_COMMENT { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_NAME")]
-    public abstract string? TABLE_NAME { get; }
+    public abstract string TABLE_NAME { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint", 0, false)]
@@ -100,11 +100,11 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_SCHEMA")]
-    public abstract string? TABLE_SCHEMA { get; }
+    public abstract string TABLE_SCHEMA { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 64)]
     [Column("TABLE_TYPE")]
-    public abstract string? TABLE_TYPE { get; }
+    public abstract string TABLE_TYPE { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 1)]

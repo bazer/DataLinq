@@ -182,7 +182,22 @@ public static class MetadataFactory
 
         var type = MetadataTypeConverter.GetType(csTypeName);
 
-        var property = new ValueProperty(name, new CsTypeDeclaration(type), column.Table.Model, GetAttributes(column));
+        CsTypeDeclaration csType;
+
+        if (type == null)
+        {
+            if (csTypeName == "enum")
+                csType = new CsTypeDeclaration(csTypeName, "", ModelCsType.Enum);
+            else
+                throw new Exception($"Type {csTypeName} not found.");
+        }
+        else
+        {
+            csType = new CsTypeDeclaration(type);
+        }
+
+
+        var property = new ValueProperty(name, csType, column.Table.Model, GetAttributes(column));
         property.SetCsSize(MetadataTypeConverter.CsTypeSize(csTypeName));
         property.SetCsNullable(column.Nullable && MetadataTypeConverter.IsCsTypeNullable(csTypeName));
         //property.SetAttributes(GetAttributes(property));

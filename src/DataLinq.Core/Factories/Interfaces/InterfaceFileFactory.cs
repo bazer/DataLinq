@@ -209,7 +209,7 @@ public class InterfaceFileFactory
                 yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
 
             yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
-            yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{(options.UseNullableReferenceTypes || c.ValueProperty.CsNullable || c.AutoIncrement ? "?" : "")} {c.ValueProperty.PropertyName} {{ get; }}";
+            yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
             yield return $"";
         }
 
@@ -232,6 +232,11 @@ public class InterfaceFileFactory
 
 
         yield return namespaceTab + "}";
+    }
+
+    private string GetPropertyNullable(ColumnDefinition column)
+    {
+        return (options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement) ? "?" : "";
     }
 
     private IEnumerable<string> WriteEnum(ValueProperty property, string namespaceTab, string tab)
