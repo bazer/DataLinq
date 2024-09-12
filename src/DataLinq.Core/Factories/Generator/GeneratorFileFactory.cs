@@ -115,7 +115,7 @@ public class GeneratorFileFactory
             var c = valueProperty.Column;
 
             yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
-            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= {(IsPropertyNullable(valueProperty) ? "GetNullableValue" : "GetValue")}<{c.ValueProperty.CsType.Name}>(nameof({c.ValueProperty.PropertyName}));"; //{(!IsPropertyNullable(c.ValueProperty) ? $" ?? throw new ArgumentNullException(nameof({c.ValueProperty.PropertyName}))" : "")};";
+            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= {(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}<{c.ValueProperty.CsType.Name}>(nameof({c.ValueProperty.PropertyName}));";
             yield return $"";
         }
 
@@ -137,7 +137,7 @@ public class GeneratorFileFactory
 
         if (table.Type == TableType.Table)
             yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsType.Name} Mutate() => new(this);";
-        
+
         yield return namespaceTab + "}";
     }
 
@@ -298,18 +298,28 @@ public class GeneratorFileFactory
         return Options.UseNullableReferenceTypes || IsPropertyNullable(property) ? "?" : "";
     }
 
+    private string GetFieldNullable(ValueProperty property)
+    {
+        return IsFieldNullable(property) ? "?" : "";
+    }
+
     private bool IsPropertyNullable(ValueProperty property)
     {
         return property.CsNullable || property.Column.AutoIncrement;
     }
 
-    private string GetFieldNullable(ValueProperty property)
+    private bool IsImmutableGetterNullable(ValueProperty property)
+    {
+        return Options.UseNullableReferenceTypes ? IsPropertyNullable(property) : true;
+    }
+
+    private bool IsFieldNullable(ValueProperty property)
     {
         return Options.UseNullableReferenceTypes
             || property.CsNullable
             || property.EnumProperty.HasValue
             || MetadataTypeConverter.IsCsTypeNullable(property.CsType.Name)
-            || !MetadataTypeConverter.IsKnownCsType(property.CsType.Name) ? "?" : "";
+            || !MetadataTypeConverter.IsKnownCsType(property.CsType.Name);
     }
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)
