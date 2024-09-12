@@ -7,10 +7,10 @@ namespace DataLinq.Instances;
 
 public class MutableRowData : IRowData
 {
-    RowData? ImmutableRowData { get; }
+    RowData? ImmutableRowData { get; set; }
     Dictionary<ColumnDefinition, object?> MutatedData { get; } = new Dictionary<ColumnDefinition, object?>();
-
     public TableDefinition Table { get; }
+    public bool HasChanges() => MutatedData.Count > 0;
 
     public object? this[ColumnDefinition column] => GetValue(column);
 
@@ -23,6 +23,20 @@ public class MutableRowData : IRowData
     {
         this.ImmutableRowData = immutableRowData;
         this.Table = immutableRowData.Table;
+    }
+
+    public void Reset()
+    {
+        MutatedData.Clear();
+    }
+
+    public void Reset(RowData immutableRowData)
+    {
+        if (immutableRowData.Table != Table)
+            throw new InvalidOperationException("Cannot reset row data with different table definition.");
+
+        this.ImmutableRowData = immutableRowData;
+        MutatedData.Clear();
     }
 
     public T? GetValue<T>(ColumnDefinition column)

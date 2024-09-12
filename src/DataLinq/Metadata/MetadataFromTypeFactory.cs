@@ -49,9 +49,6 @@ public static class MetadataFromTypeFactory
         if (type.Namespace != null)
             model.SetUsings([new(type.Namespace)]);
 
-        model.SetImmutableType(FindType(type, $"{model.CsType.Namespace}.Immutable{model.CsType.Name}"));
-        model.SetMutableType(FindType(type, $"{model.CsType.Namespace}.Mutable{model.CsType.Name}"));
-
         type
             .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             .Select(x => ParseProperty(x, model))
@@ -68,6 +65,11 @@ public static class MetadataFromTypeFactory
             .OrderByDescending(x => x.Item1)
             .ThenBy(x => x.name)
             .Select(x => new ModelUsing(x.name)));
+
+        model.SetImmutableType(FindType(type, $"{model.CsType.Namespace}.Immutable{model.CsType.Name}"));
+
+        if (model.Interfaces.Any(x => x.Name.StartsWith("ITableModel")))
+            model.SetMutableType(FindType(type, $"{model.CsType.Namespace}.Mutable{model.CsType.Name}"));
 
         return model;
     }

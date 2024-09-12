@@ -155,12 +155,15 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         if (model == null)
             throw new ArgumentException("Model argument has null value");
 
-        if (!model.IsNewModel())
+        if (!model.IsNew())
             throw new ArgumentException("Model is not a new row, unable to insert");
 
         AddAndExecute(model, TransactionChangeType.Insert);
 
-        return GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
+        var immutable = GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
+        model.Reset(immutable);
+
+        return immutable;
     }
 
     /// <summary>
@@ -189,7 +192,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         if (model == null)
             throw new ArgumentException("Model argument has null value");
 
-        if (model.IsNewModel())
+        if (model.IsNew())
             throw new ArgumentException("Model is a new row, unable to update");
 
         // If there are no changes to save, skip saving and return the model from the cache directly.
@@ -198,7 +201,10 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         AddAndExecute(model, TransactionChangeType.Update);
 
-        return GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
+        var immutable = GetModelFromCache(model) ?? throw new ModelLoadFailureException(model.PrimaryKeys());
+        model.Reset(immutable);
+
+        return immutable;
     }
 
     /// <summary>
@@ -227,7 +233,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         if (model == null)
             throw new ArgumentException("Model argument has null value");
 
-        if (model.IsNewModel())
+        if (model.IsNew())
             return Insert(model);
         else
             return Update(model);
@@ -279,6 +285,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
             throw new ArgumentException("Model argument has null value");
 
         AddAndExecute(model, TransactionChangeType.Delete);
+
+        if (model is IMutableInstance mutable)
+            mutable.SetDeleted();
     }
 
     /// <summary>

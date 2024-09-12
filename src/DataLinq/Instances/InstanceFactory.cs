@@ -40,8 +40,12 @@ public interface IMutableInstance : IModelInstance
     new object? this[ColumnDefinition column] { get; set; }
 
     IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges();
-    bool IsNewModel();
+    bool IsNew();
     new MutableRowData GetRowData();
+    bool IsDeleted();
+    void SetDeleted();
+    void Reset();
+    void Reset(RowData rowData);
 }
 
 public interface IMutableInstance<T> : IMutableInstance, IModelInstance<T>

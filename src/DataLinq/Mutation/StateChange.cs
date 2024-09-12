@@ -59,6 +59,16 @@ public class StateChange
         if (type == TransactionChangeType.Insert && model is not IMutableInstance)
             throw new InvalidOperationException("Cannot insert a model that is not mutable.");
 
+        if (model is IMutableInstance mutable)
+        {
+            if (type == TransactionChangeType.Delete && mutable.IsNew())
+                throw new InvalidOperationException("Cannot delete a new model.");
+
+            if (mutable.IsDeleted())
+                throw new InvalidOperationException("Cannot change a deleted model.");
+        }
+
+
         Model = model;
         Table = table;
         Type = type;

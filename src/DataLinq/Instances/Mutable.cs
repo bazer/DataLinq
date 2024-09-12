@@ -10,8 +10,11 @@ public class Mutable<T> : IMutableInstance
     private readonly ModelDefinition metadata;
     public ModelDefinition Metadata() => metadata;
 
-    private readonly bool isNewModel;
-    public bool IsNewModel() => isNewModel;
+    private bool isNew;
+    public bool IsNew() => isNew;
+    private bool isDeleted;
+    public bool IsDeleted() => isDeleted;
+    public bool HasChanges() => mutableRowData.HasChanges();
 
     private MutableRowData mutableRowData;
     public MutableRowData GetRowData() => mutableRowData;
@@ -33,22 +36,37 @@ public class Mutable<T> : IMutableInstance
     {
         metadata = ModelDefinition.Find<T>() ?? throw new InvalidOperationException($"Model {typeof(T).Name} not found");
         this.mutableRowData = new MutableRowData(metadata.Table);
-        isNewModel = true;
+        isNew = true;
     }
 
     public Mutable(T model)
     {
         this.mutableRowData = new MutableRowData(model.GetRowData());
         this.metadata = model.Metadata();
-        this.isNewModel = false;
+        this.isNew = false;
     }
 
     public Mutable(RowData rowData)
     {
         this.mutableRowData = new MutableRowData(rowData);
         this.metadata = rowData.Table.Model;
-        this.isNewModel = false;
+        this.isNew = false;
     }
+
+    public void Reset() => mutableRowData.Reset();
+    public void Reset(T model)
+    {
+        mutableRowData.Reset(model.GetRowData());
+        isNew = false;
+    }
+
+    public void Reset(RowData rowData)
+    {
+        mutableRowData.Reset(rowData);
+        isNew = false;
+    }
+
+    public void SetDeleted() => isDeleted = true;
 
     public V? GetValue<V>(string propertyName) => mutableRowData.GetValue<V>(metadata.ValueProperties[propertyName].Column);
     public void SetValue<V>(string propertyName, V value) => mutableRowData.SetValue(metadata.ValueProperties[propertyName].Column, value);
