@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using DataLinq.Attributes;
@@ -18,6 +21,11 @@ namespace DataLinq;
 public abstract class DatabaseProvider<T> : DatabaseProvider
     where T : class, IDatabaseModel
 {
+    public static DatabaseProvider<T> GetPrimaryProvider()
+    {
+        return (DatabaseProvider<T>)GetPrimaryProvider(typeof(T));
+    }
+
     public ReadOnlyAccess<T> TypedReadOnlyAccess { get; set; }
 
     /// <summary>
@@ -48,6 +56,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
 public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
 {
     public string DatabaseName { get; protected set; }
+    public Type CsModelType { get; protected set; }
     public DatabaseType DatabaseType { get; }
     public DataLinqLoggingConfiguration LoggingConfiguration { get; }
     public abstract IDatabaseProviderConstants Constants { get; }
@@ -59,7 +68,38 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public State State { get; }
 
     private static readonly object lockObject = new();
-    
+
+    private static ConcurrentDictionary<Type, List<DatabaseProvider>> LoadedDatabaseProviders { get; } = new();
+    public bool IsPrimaryProvider { get; private set; }
+    public void SetAsPrimaryProvider(bool value = true)
+    {
+        if (LoadedDatabaseProviders.TryGetValue(CsModelType, out var providers))
+        {
+            foreach (var provider in providers.Where(x => x != this))
+                provider.IsPrimaryProvider = false;
+        }
+        else
+            throw new Exception($"Found no loaded DatabaseProviders");
+            
+        IsPrimaryProvider = value;
+    }
+
+    public static DatabaseProvider GetPrimaryProvider(Type databaseType)
+    {
+        var providers = DatabaseProvider.GetLoadedDatabases(databaseType);
+        if (providers.Count() == 1 || providers.Any(x => x.IsPrimaryProvider))
+            return providers.SingleOrDefault(x => x.IsPrimaryProvider) ?? providers.Single();
+
+        if (!providers.Any())
+            throw new Exception($"Found no loaded DatabaseProvider for database type '{databaseType}'");
+        else
+            throw new Exception($"Found more than one loaded DatabaseProviders for database type '{databaseType}' and no primary provider");
+    }
+
+    public static IEnumerable<DatabaseProvider> GetLoadedDatabases(Type databaseType) =>
+        LoadedDatabaseProviders.TryGetValue(databaseType, out var loadedDatabases)
+        ? loadedDatabases
+        : [];
 
     /// <summary>
     /// Retrieves the table cache for a given table metadata.
@@ -109,6 +149,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
             }
         }
 
+        CsModelType = type;
         DatabaseType = databaseType;
         LoggingConfiguration = loggingConfiguration;
         DatabaseName = databaseName ?? Metadata.DbName;
@@ -116,6 +157,11 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         State = new State(this, loggingConfiguration);
 
         this.ReadOnlyAccess = new ReadOnlyAccess(this);
+
+        if (LoadedDatabaseProviders.TryGetValue(type, out var providers))
+            providers.Add(this);
+        else
+            LoadedDatabaseProviders.TryAdd(type, [this]);
     }
 
     
@@ -178,7 +224,9 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// </summary>
     public void Dispose()
     {
+        if (LoadedDatabaseProviders.TryGetValue(this.CsModelType, out var providers))
+            providers.Remove(this);
+
         State.Dispose();
     }
-
 }

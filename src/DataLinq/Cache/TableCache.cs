@@ -304,16 +304,16 @@ public class TableCache
         return newKeys;
     }
 
-    public IEnumerable<IImmutableInstance> GetRows(IKey foreignKey, RelationProperty otherSide, DataSourceAccess transaction)
+    public IEnumerable<IImmutableInstance> GetRows(IKey foreignKey, RelationProperty otherSide, DataSourceAccess dataSource)
     {
         if (foreignKey is NullKey)
             return [];
 
-        return GetRows(GetKeys(foreignKey, otherSide, transaction), transaction);
+        return GetRows(GetKeys(foreignKey, otherSide, dataSource), dataSource);
     }
 
-    public IImmutableInstance? GetRow(IKey primaryKeys, Transaction transaction) =>
-        GetRows([primaryKeys], transaction).SingleOrDefault();
+    public IImmutableInstance? GetRow(IKey primaryKeys, DataSourceAccess dataSource) =>
+        GetRows([primaryKeys], dataSource).SingleOrDefault();
 
     public IEnumerable<IImmutableInstance> GetRows(IKey[] primaryKeys, DataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {

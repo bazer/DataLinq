@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Instances;
 using DataLinq.Tests.Models;
 using DataLinq.Tests.Models.Employees;
 using Xunit;
@@ -44,6 +45,37 @@ public class QueryTests : BaseTests
     {
         Assert.NotEqual(0, employeesDb.Query().dept_emp_latest_date.Count());
     }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void StaticGet(Database<EmployeesDb> employeesDb)
+    {
+        employeesDb.Provider.SetAsPrimaryProvider();
+        var dep = Department.Get(new StringKey("d005"));
+        Assert.NotNull(dep);
+        Assert.Equal("d005", dep.DeptNo);
+        Assert.Same(employeesDb.Provider, dep.GetDataSource().Provider);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void StaticGetNotFound(Database<EmployeesDb> employeesDb)
+    {
+        employeesDb.Provider.SetAsPrimaryProvider();
+        var dep = Department.Get(new StringKey("xxxx"));
+        Assert.Null(dep);
+    }
+
+    //[Theory]
+    //[MemberData(nameof(GetEmployees))]
+    //public void StaticQuery(Database<EmployeesDb> employeesDb)
+    //{
+    //    employeesDb.Provider.SetAsPrimaryProvider();
+    //    var where = Department.Query().Where(x => x.DeptNo == "d005").ToList();
+    //    Assert.Single(where);
+    //    Assert.Equal("d005", where[0].DeptNo);
+    //    Assert.Same(employeesDb.Provider, where[0].GetDataSource().Provider);
+    //}
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
