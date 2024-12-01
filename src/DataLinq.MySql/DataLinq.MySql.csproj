@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net6.0;net8.0</TargetFrameworks>
-		<LangVersion>12.0</LangVersion>
+		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+		<LangVersion>13.0</LangVersion>
 		<Nullable>enable</Nullable>
 		<Authors>Sebastian Öberg</Authors>
 		<Copyright>Sebastian Öberg</Copyright>
@@ -30,7 +30,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MySqlConnector" Version="2.3.7" />
+		<PackageReference Include="MySqlConnector" Version="2.4.0" />
 	</ItemGroup>
 
 	<ItemGroup>
