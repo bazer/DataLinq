@@ -63,6 +63,11 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
         return (V?)value;
     }
 
+    protected ImmutableRelation<V> GetImmutableRelation<V>(string propertyName) where V : IImmutableInstance
+    {
+        var property = rowData.Table.Model.RelationProperties[propertyName];
+        return new ImmutableRelation<V>(relationKeys[property], GetDataSource(), property);
+    }
 
     protected V GetValue<V>(string propertyName) => GetNullableValue<V>(propertyName) ?? throw new ArgumentNullException(propertyName);
     protected V? GetNullableValue<V>(string propertyName) => rowData.GetValue<V>(rowData.Table.Model.ValueProperties[propertyName].Column);

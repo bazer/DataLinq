@@ -129,7 +129,8 @@ public class GeneratorFileFactory
             }
             else
             {
-                yield return $"{namespaceTab}{tab}public override IEnumerable<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => GetRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
+                yield return $"{namespaceTab}{tab}private ImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
+                yield return $"{namespaceTab}{tab}public override ImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= GetImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
             }
 
             yield return $"";
@@ -301,6 +302,11 @@ public class GeneratorFileFactory
     private string GetFieldNullable(ValueProperty property)
     {
         return IsFieldNullable(property) ? "?" : "";
+    }
+
+    private string GetUseNullableReferenceTypes()
+    {
+        return Options.UseNullableReferenceTypes ? "?" : "";
     }
 
     private bool IsPropertyNullable(ValueProperty property)
