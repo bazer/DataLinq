@@ -93,7 +93,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         if (!providers.Any())
             throw new Exception($"Found no loaded DatabaseProvider for database type '{databaseType}'");
         else
-            throw new Exception($"Found more than one loaded DatabaseProviders for database type '{databaseType}' and no primary provider");
+            throw new Exception($"Found more than one loaded DatabaseProviders for database type '{databaseType}' and no primary provider. Call 'SetAsPrimaryProvider' to select a primary DatabaseProvider.");
     }
 
     public static IEnumerable<DatabaseProvider> GetLoadedDatabases(Type databaseType) =>
