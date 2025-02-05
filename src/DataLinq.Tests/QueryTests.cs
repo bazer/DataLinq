@@ -50,32 +50,14 @@ public class QueryTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void StaticGet(Database<EmployeesDb> employeesDb)
     {
-        employeesDb.Provider.SetAsPrimaryProvider();
-        var dep = Department.Get(new StringKey("d005"));
+        var dep = employeesDb.Get<Department>(new StringKey("d005"));
         Assert.NotNull(dep);
         Assert.Equal("d005", dep.DeptNo);
         Assert.Same(employeesDb.Provider, dep.GetDataSource().Provider);
-    }
 
-    [Theory]
-    [MemberData(nameof(GetEmployees))]
-    public void StaticGetNotFound(Database<EmployeesDb> employeesDb)
-    {
-        employeesDb.Provider.SetAsPrimaryProvider();
-        var dep = Department.Get(new StringKey("xxxx"));
+        dep = employeesDb.Get<Department>(new StringKey("xxxx"));
         Assert.Null(dep);
     }
-
-    //[Theory]
-    //[MemberData(nameof(GetEmployees))]
-    //public void StaticQuery(Database<EmployeesDb> employeesDb)
-    //{
-    //    employeesDb.Provider.SetAsPrimaryProvider();
-    //    var where = Department.Query().Where(x => x.DeptNo == "d005").ToList();
-    //    Assert.Single(where);
-    //    Assert.Equal("d005", where[0].DeptNo);
-    //    Assert.Same(employeesDb.Provider, where[0].GetDataSource().Provider);
-    //}
 
     [Theory]
     [MemberData(nameof(GetEmployees))]

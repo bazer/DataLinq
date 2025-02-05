@@ -124,12 +124,17 @@ public abstract class Database<T> : IDisposable
     }
 
     /// <summary>
-    /// Inserts a new model into the database.
+    /// Retrieves a model from the database using the specified key.
     /// </summary>
     /// <typeparam name="M">The type of the model.</typeparam>
-    /// <param name="model">The model to insert.</param>
-    /// <param name="transactionType">The type of the transaction.</param>
-    /// <returns>The inserted model.</returns>
+    /// <param name="key">The key to identify the model.</param>
+    /// <returns>The model if found; otherwise, <c>null</c>.</returns>
+    public M? Get<M>(IKey key) where M : IImmutableInstance
+    {
+        return IImmutable<M>.Get(key, Provider.TypedReadOnlyAccess);
+    }
+
+    
     public M Insert<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
     {
         return Commit(transaction => transaction.Insert(model), transactionType);

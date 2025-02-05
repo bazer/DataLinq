@@ -8,7 +8,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSource) : IImmutableInstance<M>, IEquatable<Immutable<T, M>>
+public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSource) : IImmutable<T>, IImmutableInstance<M>, IEquatable<Immutable<T, M>>
     where T : IModel
     where M : class, IDatabaseModel
 {
@@ -16,17 +16,6 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
         .ToDictionary(x => x.Value, x => KeyFactory.CreateKeyFromValues(rowData.GetValues(x.Value.RelationPart.ColumnIndex.Columns)));
 
     protected ConcurrentDictionary<string, object?>? lazyValues = null;
-
-    public static T? Get(IKey key)
-    {
-        var provider = DatabaseProvider.GetPrimaryProvider(typeof(M));
-
-        var tableModel = provider.Metadata.TableModels.SingleOrDefault(x => x.Model.CsType.Type == typeof(T));
-        if (tableModel == null)
-            throw new Exception($"Found no TableDefinition for model '{typeof(T)}'");
-
-        return (T?)provider.GetTableCache(tableModel.Table).GetRow(key, provider.ReadOnlyAccess);
-    }
 
     public object? this[ColumnDefinition column] => rowData[column];
     public object? this[string propertyName] => rowData.GetValue(rowData.Table.Model.ValueProperties[propertyName].Column);

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -33,6 +34,20 @@ public interface IImmutableInstance<T> : IImmutableInstance, IModelInstance<T>
     where T : IDatabaseModel
 {
 }
+
+public interface IImmutable<T>
+    where T : IModel
+{
+    static T? Get(IKey key, DataSourceAccess dataSource)
+    {
+        var tableModel = dataSource.Provider.Metadata.TableModels.SingleOrDefault(x => x.Model.CsType.Type == typeof(T));
+        if (tableModel == null)
+            throw new Exception($"Found no TableDefinition for model '{typeof(T)}'");
+
+        return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource.Provider.ReadOnlyAccess);
+    }
+}
+
 
 public interface IMutableInstance : IModelInstance
 {
