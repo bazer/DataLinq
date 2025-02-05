@@ -13,6 +13,11 @@ using DataLinq.Query;
 
 namespace DataLinq.Cache;
 
+public class RowChangeEventArgs : EventArgs
+{
+    // For now, we can keep this empty since a full clear is acceptable.
+}
+
 public class TableCache
 {
     protected Dictionary<ColumnIndex, IndexCache> IndexCaches;
@@ -24,6 +29,8 @@ public class TableCache
     protected List<ColumnIndex> indices;
     protected (IndexCacheType type, int? amount) indexCachePolicy;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+
+    public event EventHandler<RowChangeEventArgs>? RowChanged;
 
     public TableCache(TableDefinition table, DatabaseCache databaseCache, DataLinqLoggingConfiguration loggingConfiguration)
     {
@@ -97,6 +104,10 @@ public class TableCache
             }
         }
 
+        // At this point, all cache changes have been applied.
+        // Raise the event to notify any observers that a change has occurred.
+        OnRowChanged(new RowChangeEventArgs());
+
         return numRows;
 
         int RemoveIndexOnBothSides(ColumnIndex columnIndex, IModelInstance model)
@@ -112,6 +123,11 @@ public class TableCache
 
             return numRows;
         }
+    }
+
+    protected virtual void OnRowChanged(RowChangeEventArgs e)
+    {
+        RowChanged?.Invoke(this, e);
     }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
