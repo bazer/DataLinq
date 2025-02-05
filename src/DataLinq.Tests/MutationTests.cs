@@ -86,11 +86,11 @@ public class MutationTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void TestMutationSave_Should_ResetChanges(Database<EmployeesDb> employeesDb)
+    public void TestMutationSave_Should_NotHaveChanges(Database<EmployeesDb> employeesDb)
     {
         // Arrange
         var emp_no = 998999;
-        var newBirthDate = DateOnly.FromDateTime(DateTime.Now.AddYears(-30));
+        var newBirthDate = DateOnly.FromDateTime(DateTime.Now.AddYears(Random.Shared.Next(0, 50) * -1).AddDays(Random.Shared.Next(0, 365) * -1));
         var employee = helpers.GetEmployee(emp_no, employeesDb);
         var mutable = employee.Mutate();
 
