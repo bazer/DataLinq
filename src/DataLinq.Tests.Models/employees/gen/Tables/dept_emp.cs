@@ -19,17 +19,17 @@ public abstract partial class Dept_emp(RowData rowData, DataSourceAccess dataSou
 
     [PrimaryKey]
     [ForeignKey("employees", "emp_no", "dept_emp_ibfk_1")]
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Type(DatabaseType.SQLite, "integer")]
     [Column("emp_no")]
     public abstract int emp_no { get; }
 
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Type(DatabaseType.SQLite, "text")]
     [Column("from_date")]
     public abstract DateOnly from_date { get; }
 
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Type(DatabaseType.SQLite, "text")]
     [Column("to_date")]
     public abstract DateOnly to_date { get; }

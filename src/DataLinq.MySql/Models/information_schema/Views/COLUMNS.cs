@@ -12,12 +12,12 @@ namespace DataLinq.MySql.Models;
 public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSource) : Immutable<COLUMNS, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("CHARACTER_MAXIMUM_LENGTH")]
     public abstract long? CHARACTER_MAXIMUM_LENGTH { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("CHARACTER_OCTET_LENGTH")]
     public abstract long? CHARACTER_OCTET_LENGTH { get; }
 
@@ -57,7 +57,7 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
     public abstract string DATA_TYPE { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("DATETIME_PRECISION")]
     public abstract long? DATETIME_PRECISION { get; }
 
@@ -79,16 +79,16 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
     public abstract string IS_NULLABLE { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("NUMERIC_PRECISION")]
     public abstract long? NUMERIC_PRECISION { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("NUMERIC_SCALE")]
     public abstract long? NUMERIC_SCALE { get; }
 
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("ORDINAL_POSITION")]
     public abstract long ORDINAL_POSITION { get; }
 

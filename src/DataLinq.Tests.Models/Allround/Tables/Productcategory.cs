@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -21,6 +22,6 @@ public abstract partial class Productcategory(RowData rowData, DataSourceAccess 
     public abstract string CategoryName { get; }
 
     [Relation("producttags", "CategoryId", "producttags_ibfk_1")]
-    public abstract IEnumerable<Producttag> producttags { get; }
+    public abstract ImmutableRelation<Producttag> producttags { get; }
 
 }

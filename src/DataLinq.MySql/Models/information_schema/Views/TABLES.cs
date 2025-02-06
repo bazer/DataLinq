@@ -12,22 +12,22 @@ namespace DataLinq.MySql.Models;
 public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSource) : Immutable<TABLES, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("AUTO_INCREMENT")]
     public abstract long? AUTO_INCREMENT { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("AVG_ROW_LENGTH")]
     public abstract long? AVG_ROW_LENGTH { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "datetime", 0)]
+    [Type(DatabaseType.MySQL, "datetime")]
     [Column("CHECK_TIME")]
     public abstract DateTime? CHECK_TIME { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("CHECKSUM")]
     public abstract long? CHECKSUM { get; }
 
@@ -37,17 +37,17 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
     public abstract string? CREATE_OPTIONS { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "datetime", 0)]
+    [Type(DatabaseType.MySQL, "datetime")]
     [Column("CREATE_TIME")]
     public abstract DateTime? CREATE_TIME { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("DATA_FREE")]
     public abstract long? DATA_FREE { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("DATA_LENGTH")]
     public abstract long? DATA_LENGTH { get; }
 
@@ -57,17 +57,17 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
     public abstract string? ENGINE { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("INDEX_LENGTH")]
     public abstract long? INDEX_LENGTH { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("MAX_DATA_LENGTH")]
     public abstract long? MAX_DATA_LENGTH { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("MAX_INDEX_LENGTH")]
     public abstract long? MAX_INDEX_LENGTH { get; }
 
@@ -94,7 +94,7 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
     public abstract string TABLE_NAME { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("TABLE_ROWS")]
     public abstract long? TABLE_ROWS { get; }
 
@@ -112,12 +112,12 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
     public abstract string? TEMPORARY { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "datetime", 0)]
+    [Type(DatabaseType.MySQL, "datetime")]
     [Column("UPDATE_TIME")]
     public abstract DateTime? UPDATE_TIME { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0, false)]
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
     [Column("VERSION")]
     public abstract long? VERSION { get; }
 

@@ -38,24 +38,24 @@ public abstract partial class Product(RowData rowData, DataSourceAccess dataSour
     public abstract string ProductName { get; }
 
     [Relation("discounts", "ProductId", "discounts_ibfk_1")]
-    public abstract IEnumerable<Discount> discounts { get; }
+    public abstract ImmutableRelation<Discount> discounts { get; }
 
     [Relation("inventory", "ProductId", "inventory_ibfk_1")]
-    public abstract IEnumerable<Inventory> inventory { get; }
+    public abstract ImmutableRelation<Inventory> inventory { get; }
 
     [Relation("orderdetails", "ProductId", "orderdetails_ibfk_2")]
-    public abstract IEnumerable<Orderdetail> orderdetails { get; }
+    public abstract ImmutableRelation<Orderdetail> orderdetails { get; }
 
     [Relation("orders", "ProductId", "orders_ibfk_2")]
-    public abstract IEnumerable<Order> orders { get; }
+    public abstract ImmutableRelation<Order> orders { get; }
 
     [Relation("productimages", "ProductId", "productimages_ibfk_1")]
-    public abstract IEnumerable<Productimage> productimages { get; }
+    public abstract ImmutableRelation<Productimage> productimages { get; }
 
     [Relation("productreviews", "ProductId", "productreviews_ibfk_2")]
-    public abstract IEnumerable<Productreview> productreviews { get; }
+    public abstract ImmutableRelation<Productreview> productreviews { get; }
 
     [Relation("userfeedback", "ProductId", "userfeedback_ibfk_2")]
-    public abstract IEnumerable<Userfeedback> userfeedback { get; }
+    public abstract ImmutableRelation<Userfeedback> userfeedback { get; }
 
 }

@@ -59,10 +59,10 @@ public abstract partial class Order(RowData rowData, DataSourceAccess dataSource
     public abstract int? ShippingCompanyId { get; }
 
     [Relation("orderdetails", "OrderId", "orderdetails_ibfk_1")]
-    public abstract IEnumerable<Orderdetail> orderdetails { get; }
+    public abstract ImmutableRelation<Orderdetail> orderdetails { get; }
 
     [Relation("payments", "OrderId", "payments_ibfk_1")]
-    public abstract IEnumerable<Payment> payments { get; }
+    public abstract ImmutableRelation<Payment> payments { get; }
 
     [Relation("products", "ProductId", "orders_ibfk_2")]
     public abstract Product products { get; }

@@ -12,7 +12,7 @@ namespace DataLinq.MySql.Models;
 public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataSource) : Immutable<STATISTICS, information_schema>(rowData, dataSource), IViewModel<information_schema>
 {
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0)]
+    [Type(DatabaseType.MySQL, "bigint", 21)]
     [Column("CARDINALITY")]
     public abstract long? CARDINALITY { get; }
 
@@ -46,7 +46,7 @@ public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataS
     [Column("INDEX_TYPE")]
     public abstract string INDEX_TYPE { get; }
 
-    [Type(DatabaseType.MySQL, "bigint", 0)]
+    [Type(DatabaseType.MySQL, "bigint", 1)]
     [Column("NON_UNIQUE")]
     public abstract long NON_UNIQUE { get; }
 
@@ -59,12 +59,12 @@ public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataS
     [Column("PACKED")]
     public abstract string? PACKED { get; }
 
-    [Type(DatabaseType.MySQL, "bigint", 0)]
+    [Type(DatabaseType.MySQL, "bigint", 2)]
     [Column("SEQ_IN_INDEX")]
     public abstract long SEQ_IN_INDEX { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0)]
+    [Type(DatabaseType.MySQL, "bigint", 3)]
     [Column("SUB_PART")]
     public abstract long? SUB_PART { get; }
 

@@ -15,6 +15,18 @@ namespace DataLinq.Tests;
 
 public class CoreTests : BaseTests
 {
+    private static DatabaseDefinition GetDatabaseDefinitionFromFiles(string databaseName, string dir = "DataLinq.Tests.Models")
+    {
+        var projectRoot = Path.Combine(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.Parent.FullName, dir);
+        var srcPaths = DatabaseFixture.DataLinqConfig.Databases.Single(x => x.Name == databaseName).SourceDirectories
+            .Select(x => Path.Combine(projectRoot, x))
+            .ToList();
+
+        var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths);
+
+        return metadata;
+    }
+
     [Fact]
     public void TestMetadataFromFixture()
     {
@@ -23,17 +35,10 @@ public class CoreTests : BaseTests
         Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(information_schema));
     }
 
-
     [Fact]
     public void TestMetadataFromFilesFactory()
     {
-        var projectRoot = Path.Combine(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.Parent.FullName, "DataLinq.Tests.Models");
-        var srcPaths = DatabaseFixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories
-            .Select(x => Path.Combine(projectRoot, x))
-            .ToList();
-
-        //var srcPaths = Fixture.DataLinqConfig.Databases.Single(x => x.Name == "employees").SourceDirectories.Select(x => Path.GetFullPath(x)).ToList();
-        var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths);
+        var metadata = GetDatabaseDefinitionFromFiles("employees");
 
         TestDatabaseAttributes(metadata);
         TestDatabase(metadata, false);
@@ -57,6 +62,26 @@ public class CoreTests : BaseTests
 
         var metadata = factory.ParseDatabase("employees", "Employees", "DataLinq.Tests.Models.Employees", connection.DataSourceName, connection.ConnectionString.Original);
         TestDatabase(metadata, false);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployeeConnections))]
+    public void TestMetadataFromSqlAndMergeWithFiles(DataLinqDatabaseConnection connection)
+    {
+        var factory = PluginHook.MetadataFromSqlFactories[connection.Type]
+            .GetMetadataFromSqlFactory(new MetadataFromDatabaseFactoryOptions());
+
+        var metadataDB = factory.ParseDatabase("employees", "Employees", "DataLinq.Tests.Models.Employees", connection.DataSourceName, connection.ConnectionString.Original).Value;
+
+        var metadataFiles = GetDatabaseDefinitionFromFiles("employees");
+
+        var transformer = new MetadataTransformer(new MetadataTransformerOptions());
+        transformer.TransformDatabase(metadataFiles, metadataDB);
+
+        Assert.Equal("EmployeesDb", metadataDB.CsType.Name);
+        Assert.Equal("Department", metadataDB.TableModels.Single(x => x.CsPropertyName == "Departments").Model.CsType.Name);
+
+        TestDatabase(metadataDB, false);
     }
 
     private void TestDatabaseAttributes(DatabaseDefinition database)

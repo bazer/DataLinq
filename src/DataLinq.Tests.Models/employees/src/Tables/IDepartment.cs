@@ -5,7 +5,7 @@ using DataLinq.Interfaces;
 namespace DataLinq.Tests.Models.Employees;
 
 [Table("departments")]
-public interface ICustomDepartment : ICustomTableModel
+public interface IDepartment : ICustomTableModel
 {
     [Column("dept_no")]
     public string DeptNo { get; set; }
@@ -14,7 +14,7 @@ public interface ICustomDepartment : ICustomTableModel
     public IEnumerable<Dept_emp> DepartmentEmployees { get; }
 
     [Relation("dept_manager", "dept_fk")]
-    public IEnumerable<ICustomManager> Managers { get; }
+    public IEnumerable<IManager> Managers { get; }
 
     [Column("dept_name")]
     public string Name { get; set; }

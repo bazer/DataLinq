@@ -11,17 +11,17 @@ namespace DataLinq.Tests.Models.Employees;
 [View("dept_emp_latest_date")]
 public abstract partial class dept_emp_latest_date(RowData rowData, DataSourceAccess dataSource) : Immutable<dept_emp_latest_date, EmployeesDb>(rowData, dataSource), IViewModel<EmployeesDb>
 {
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("emp_no")]
     public abstract int emp_no { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("from_date")]
     public abstract DateOnly? from_date { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("to_date")]
     public abstract DateOnly? to_date { get; }
 

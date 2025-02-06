@@ -27,12 +27,12 @@ public abstract partial class KEY_COLUMN_USAGE(RowData rowData, DataSourceAccess
     [Column("CONSTRAINT_SCHEMA")]
     public abstract string CONSTRAINT_SCHEMA { get; }
 
-    [Type(DatabaseType.MySQL, "bigint", 0)]
+    [Type(DatabaseType.MySQL, "bigint", 10)]
     [Column("ORDINAL_POSITION")]
     public abstract long ORDINAL_POSITION { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bigint", 0)]
+    [Type(DatabaseType.MySQL, "bigint", 10)]
     [Column("POSITION_IN_UNIQUE_CONSTRAINT")]
     public abstract long? POSITION_IN_UNIQUE_CONSTRAINT { get; }
 

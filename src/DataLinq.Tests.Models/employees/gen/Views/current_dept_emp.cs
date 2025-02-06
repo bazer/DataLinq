@@ -15,17 +15,17 @@ public abstract partial class current_dept_emp(RowData rowData, DataSourceAccess
     [Column("dept_no")]
     public abstract string dept_no { get; }
 
-    [Type(DatabaseType.MySQL, "int", 0)]
+    [Type(DatabaseType.MySQL, "int", 11)]
     [Column("emp_no")]
     public abstract int emp_no { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("from_date")]
     public abstract DateOnly? from_date { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "date", 0)]
+    [Type(DatabaseType.MySQL, "date")]
     [Column("to_date")]
     public abstract DateOnly? to_date { get; }
 

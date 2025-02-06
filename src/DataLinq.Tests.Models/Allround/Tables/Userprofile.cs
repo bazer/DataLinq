@@ -33,7 +33,7 @@ public abstract partial class Userprofile(RowData rowData, DataSourceAccess data
     public abstract byte[] ProfileImage { get; }
 
     [Relation("usercontacts", "ProfileId", "usercontacts_ibfk_1")]
-    public abstract IEnumerable<Usercontact> usercontacts { get; }
+    public abstract ImmutableRelation<Usercontact> usercontacts { get; }
 
     [Relation("users", "UserId", "userprofiles_ibfk_1")]
     public abstract User users { get; }

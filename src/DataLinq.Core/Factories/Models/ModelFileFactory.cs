@@ -228,7 +228,7 @@ public class ModelFileFactory
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
                 yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{(options.UseNullableReferenceTypes ? "?" : "")} {relationProperty.PropertyName} {{ get; }}";
             else
-                yield return $"{namespaceTab}{tab}public abstract IEnumerable<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} {{ get; }}";
+                yield return $"{namespaceTab}{tab}public abstract ImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} {{ get; }}";
 
             yield return $"";
         }

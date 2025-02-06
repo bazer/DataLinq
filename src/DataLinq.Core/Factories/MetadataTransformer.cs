@@ -27,6 +27,22 @@ public class MetadataTransformer
         this.options = options;
     }
 
+    private static CsTypeDeclaration TransformCsType(CsTypeDeclaration srcCsType, CsTypeDeclaration destCsType, bool removeInterfacePrefix = true)
+    {
+        var modelCsTypeName = srcCsType.Name;
+
+        if (removeInterfacePrefix && srcCsType.ModelCsType == ModelCsType.Interface)
+        {
+            if (modelCsTypeName.StartsWith("I") && !char.IsLower(modelCsTypeName[1]))
+                modelCsTypeName = modelCsTypeName.Substring(1);
+        }
+
+        if (destCsType.Name != modelCsTypeName)
+            return destCsType.MutateName(modelCsTypeName);
+
+        return destCsType;
+    }
+
     public void TransformDatabase(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
         destMetadata.SetAttributes(srcMetadata.Attributes);
@@ -37,6 +53,8 @@ public class MetadataTransformer
         destMetadata.IndexCache.AddRange(srcMetadata.IndexCache);
         destMetadata.CacheCleanup.Clear();
         destMetadata.CacheCleanup.AddRange(srcMetadata.CacheCleanup);
+
+        destMetadata.SetCsType(TransformCsType(srcMetadata.CsType, destMetadata.CsType));
 
         foreach (var srcTable in srcMetadata.TableModels)
         {
@@ -55,19 +73,7 @@ public class MetadataTransformer
 
     public void TransformTable(TableModel srcTable, TableModel destTable)
     {
-        //log($"Transforming model '{srcTable.Table.DbName}'");
-        var modelCsTypeName = srcTable.Model.CsType.Name;
-
-        if (options.RemoveInterfacePrefix && srcTable.Model.CsType.ModelCsType == ModelCsType.Interface)
-        {
-            if (modelCsTypeName.StartsWith("I") && !char.IsLower(modelCsTypeName[1]))
-                modelCsTypeName = modelCsTypeName.Substring(1);
-        }
-
-        if (destTable.Model.CsType.Name != modelCsTypeName)
-        {
-            destTable.Model.SetCsType(destTable.Model.CsType.MutateName(modelCsTypeName));
-        }
+        destTable.Model.SetCsType(TransformCsType(srcTable.Model.CsType, destTable.Model.CsType));
 
         //destTable.Model.SetInterfaces([srcTable.Model.CsType]); //TODO: Investigate if this is needed
         destTable.Model.SetUsings(srcTable.Model.Usings);

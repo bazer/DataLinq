@@ -219,49 +219,49 @@ public class QueryTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereValueEnumTypeEquals(Database<EmployeesDb> employeesDb)
     {
-        var where = employeesDb.Query().Employees.Where(x => x.gender.Value == Employee.Employeegender.M).ToList();
-        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender.Value == Employee.Employeegender.M).Count(), where.Count);
+        var where = employeesDb.Query().Employees.Where(x => x.gender == Employee.Employeegender.M).ToList();
+        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender == Employee.Employeegender.M).Count(), where.Count);
     }
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereValueEnumTypeNotEquals(Database<EmployeesDb> employeesDb)
     {
-        var where = employeesDb.Query().Employees.Where(x => x.gender.Value != Employee.Employeegender.M).ToList();
-        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender.Value != Employee.Employeegender.M).Count(), where.Count);
+        var where = employeesDb.Query().Employees.Where(x => x.gender != Employee.Employeegender.M).ToList();
+        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender != Employee.Employeegender.M).Count(), where.Count);
     }
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereValueEqualsNegated(Database<EmployeesDb> employeesDb)
     {
-        var where = employeesDb.Query().Employees.Where(x => !(x.gender.Value == Employee.Employeegender.F)).ToList();
-        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !(x.gender.Value == Employee.Employeegender.F)).Count(), where.Count);
+        var where = employeesDb.Query().Employees.Where(x => !(x.gender == Employee.Employeegender.F)).ToList();
+        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !(x.gender == Employee.Employeegender.F)).Count(), where.Count);
     }
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
     public void SimpleWhereValueNotEqualsNegated(Database<EmployeesDb> employeesDb)
     {
-        var where = employeesDb.Query().Employees.Where(x => !(x.gender.Value != Employee.Employeegender.F)).ToList();
-        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !(x.gender.Value != Employee.Employeegender.F)).Count(), where.Count);
+        var where = employeesDb.Query().Employees.Where(x => !(x.gender != Employee.Employeegender.F)).ToList();
+        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !(x.gender != Employee.Employeegender.F)).Count(), where.Count);
     }
 
-    [Theory]
-    [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereHasValue(Database<EmployeesDb> employeesDb)
-    {
-        var where = employeesDb.Query().Employees.Where(x => x.gender.HasValue).ToList();
-        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender.HasValue).Count(), where.Count);
-    }
+    //[Theory]
+    //[MemberData(nameof(GetEmployees))]
+    //public void SimpleWhereHasValue(Database<EmployeesDb> employeesDb)
+    //{
+    //    var where = employeesDb.Query().Employees.Where(x => x.gender.HasValue).ToList();
+    //    Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => x.gender.HasValue).Count(), where.Count);
+    //}
 
-    [Theory]
-    [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereNotHasValue(Database<EmployeesDb> employeesDb)
-    {
-        var where = employeesDb.Query().Employees.Where(x => !x.gender.HasValue).ToList();
-        Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !x.gender.HasValue).Count(), where.Count);
-    }
+    //[Theory]
+    //[MemberData(nameof(GetEmployees))]
+    //public void SimpleWhereNotHasValue(Database<EmployeesDb> employeesDb)
+    //{
+    //    var where = employeesDb.Query().Employees.Where(x => !x.gender.HasValue).ToList();
+    //    Assert.Equal(employeesDb.Query().Employees.ToList().Where(x => !x.gender.HasValue).Count(), where.Count);
+    //}
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
