@@ -45,6 +45,7 @@ public static class MetadataFromTypeFactory
 
         model.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
         model.SetInterfaces(type.GetInterfaces().Select(x => new CsTypeDeclaration(x)));
+        model.SetModelInstanceInterfaces(type.GetInterfaces().Where(x => x.Namespace?.StartsWith("DataLinq.Instance") == false && x.GetInterfaces().Any(x => x.Name.StartsWith("IModelInstance"))).Select(x => new CsTypeDeclaration(x)));
 
         if (type.Namespace != null)
             model.SetUsings([new(type.Namespace)]);
@@ -68,7 +69,7 @@ public static class MetadataFromTypeFactory
 
         model.SetImmutableType(FindType(type, $"{model.CsType.Namespace}.Immutable{model.CsType.Name}"));
 
-        if (model.Interfaces.Any(x => x.Name.StartsWith("ITableModel")))
+        if (model.AllInterfaces.Any(x => x.Name.StartsWith("ITableModel")))
             model.SetMutableType(FindType(type, $"{model.CsType.Namespace}.Mutable{model.CsType.Name}"));
 
         return model;

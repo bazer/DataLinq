@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -56,13 +57,15 @@ public class MetadataFromFileFactory
             .Where(x => x.HasCompilationUnitRoot)
             .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
                     .Where(cls => cls.BaseList?.Types.Any(baseType => SyntaxParser.IsModelInterface(baseType.ToString()) || SyntaxParser.IsCustomModelInterface(baseType.ToString())) == true))
-            .ToList();
+            .ToImmutableArray();
 
         return ReadSyntaxTrees(modelSyntaxes);
     }
 
-    public DatabaseDefinition ReadSyntaxTrees(List<TypeDeclarationSyntax> modelSyntaxes)
+    public DatabaseDefinition ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     {
+        var syntaxParser = new SyntaxParser(modelSyntaxes);
+
         // Identify classes implementing the interfaces of interest
         var dbModelClasses = modelSyntaxes
             .Where(cls => cls.BaseList?.Types
@@ -88,7 +91,7 @@ public class MetadataFromFileFactory
             .ToList();
 
         var customModels = customModelClasses
-            .Select(cls => SyntaxParser.ParseTableModel(database, cls, cls.Identifier.Text))
+            .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text))
             .ToList();
 
 
@@ -101,16 +104,16 @@ public class MetadataFromFileFactory
         {
             database.SetTableModels(dbType.Members.OfType<PropertyDeclarationSyntax>()
                 .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
-                .Select(prop => SyntaxParser.GetTableType(prop, modelClasses))
-                .Select(t => SyntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)));
+                .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
+                .Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)));
 
-            database.SetAttributes(dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => SyntaxParser.ParseAttribute(x)));
+            database.SetAttributes(dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x)));
             database.ParseAttributes();
         }
         else
         {
             database.SetTableModels(modelClasses
-                .Select(cls => SyntaxParser.ParseTableModel(database, cls, cls.Identifier.Text)));
+                .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text)));
         }
 
         var transformer = new MetadataTransformer(new MetadataTransformerOptions(options.RemoveInterfacePrefix));

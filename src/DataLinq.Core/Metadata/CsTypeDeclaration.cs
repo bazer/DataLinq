@@ -45,26 +45,33 @@ public readonly record struct CsTypeDeclaration
 
     public CsTypeDeclaration(TypeDeclarationSyntax typeSyntax)
     {
-        Name = MetadataTypeConverter.GetKeywordName(typeSyntax.Identifier.Text);
+        string genericPart = typeSyntax.TypeParameterList != null
+            ? typeSyntax.TypeParameterList.ToString()
+            : string.Empty;
+
+        Name = MetadataTypeConverter.GetKeywordName(typeSyntax.Identifier.Text + genericPart);
         Namespace = GetNamespace(typeSyntax);
         ModelCsType = ParseModelCsType(typeSyntax);
     }
 
     public CsTypeDeclaration(PropertyDeclarationSyntax propertyDeclarationSyntax)
     {
-        var typeSyntax = propertyDeclarationSyntax.Type;
-        Name = MetadataTypeConverter.GetKeywordName(typeSyntax.ToString().Trim('?', '"', '\"'));
+        Name = MetadataTypeConverter.GetKeywordName(ParseTypeName(propertyDeclarationSyntax.Type) ?? string.Empty);
+
+        //var typeSyntax = propertyDeclarationSyntax.Type;
+        //Name = MetadataTypeConverter.GetKeywordName(typeSyntax.ToString().Trim('?', '"', '\"'));
         Namespace = GetNamespace(propertyDeclarationSyntax);
-        ModelCsType = ParseModelCsType(typeSyntax);
+        ModelCsType = ParseModelCsType(propertyDeclarationSyntax.Type);
     }
 
     public CsTypeDeclaration(BaseTypeSyntax baseTypeSyntax)
     {
-        var typeSyntax = baseTypeSyntax.Type as SimpleNameSyntax;
-        Name = MetadataTypeConverter.GetKeywordName(typeSyntax?.Identifier.Text ?? string.Empty);
+
+        Name = MetadataTypeConverter.GetKeywordName(ParseTypeName(baseTypeSyntax.Type) ?? string.Empty);
         Namespace = GetNamespace(baseTypeSyntax);
         ModelCsType = ParseModelCsType(baseTypeSyntax.Type);
     }
+
 
     public CsTypeDeclaration(string name, string @namespace, ModelCsType modelCsType)
     {
@@ -76,6 +83,16 @@ public readonly record struct CsTypeDeclaration
     public CsTypeDeclaration MutateName(string name) => new(name, Namespace, ModelCsType);
 
     //public CsTypeDeclaration Clone() => new(Name, Namespace, ModelCsType);
+
+    private static string ParseTypeName(TypeSyntax baseTypeSyntax)
+    {
+        return baseTypeSyntax switch
+        {
+            GenericNameSyntax genericName => genericName.ToString(),
+            SimpleNameSyntax simpleName => simpleName.Identifier.Text,
+            _ => baseTypeSyntax.ToString().Trim('?', '"', '\"')
+        };
+    }
 
     public static ModelCsType ParseModelCsType(Type type)
     {

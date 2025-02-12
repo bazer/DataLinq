@@ -40,6 +40,21 @@ public class CoreTests : BaseTests
     {
         var metadata = GetDatabaseDefinitionFromFiles("employees");
 
+        var employees = metadata.TableModels.Single(x => x.Table.DbName == "employees").Table;
+        Assert.Equal("Employee", employees.Model.CsType.Name);
+        Assert.True(employees.Model.AllInterfaces.Length >= 2);
+        Assert.Contains(employees.Model.AllInterfaces, x => x.Name == "IEmployee");
+        Assert.Contains(employees.Model.AllInterfaces, x => x.Name == "ITableModel<EmployeesDb>");
+        Assert.DoesNotContain(employees.Model.AllInterfaces, x => x.Name.StartsWith("Immutable"));
+
+        Assert.Single(employees.Model.ModelInstanceInterfaces);
+        Assert.Equal("IEmployee", employees.Model.ModelInstanceInterfaces.Single().Name);
+
+        var departments = metadata.TableModels.Single(x => x.Table.DbName == "departments").Table;
+        Assert.Equal("Department", departments.Model.CsType.Name);
+        Assert.Single(departments.Model.ModelInstanceInterfaces);
+        Assert.Equal("IDepartmentWithChangedName", departments.Model.ModelInstanceInterfaces.Single().Name);
+
         TestDatabaseAttributes(metadata);
         TestDatabase(metadata, false);
     }
@@ -48,6 +63,21 @@ public class CoreTests : BaseTests
     public void TestMetadataFromInterfaceFactory()
     {
         var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb));
+
+        var employees = metadata.TableModels.Single(x => x.Table.DbName == "employees").Table;
+        Assert.Equal("Employee", employees.Model.CsType.Name);
+        Assert.True(employees.Model.AllInterfaces.Length >= 2);
+        Assert.Contains(employees.Model.AllInterfaces, x => x.Name == "IEmployee");
+        Assert.Contains(employees.Model.AllInterfaces, x => x.Name == "ITableModel<EmployeesDb>");
+        Assert.DoesNotContain(employees.Model.AllInterfaces, x => x.Name.StartsWith("Immutable"));
+
+        Assert.Single(employees.Model.ModelInstanceInterfaces);
+        Assert.Equal("IEmployee", employees.Model.ModelInstanceInterfaces.Single().Name);
+
+        //var departments = metadata.TableModels.Single(x => x.Table.DbName == "departments").Table;
+        //Assert.Equal("Department", departments.Model.CsType.Name);
+        //Assert.Single(departments.Model.ModelInstanceInterfaces);
+        //Assert.Equal("IDepartmentWithChangedName", departments.Model.ModelInstanceInterfaces.Single().Name);
 
         TestDatabaseAttributes(metadata);
         TestDatabase(metadata, true);
@@ -60,7 +90,11 @@ public class CoreTests : BaseTests
         var factory = PluginHook.MetadataFromSqlFactories[connection.Type]
             .GetMetadataFromSqlFactory(new MetadataFromDatabaseFactoryOptions());
 
-        var metadata = factory.ParseDatabase("employees", "Employees", "DataLinq.Tests.Models.Employees", connection.DataSourceName, connection.ConnectionString.Original);
+        var metadata = factory.ParseDatabase("employees", "Employees", "DataLinq.Tests.Models.Employees", connection.DataSourceName, connection.ConnectionString.Original).Value;
+
+        var employees = metadata.TableModels.Single(x => x.Table.DbName == "employees").Table;
+        Assert.Equal("employees", employees.Model.CsType.Name);
+
         TestDatabase(metadata, false);
     }
 
@@ -80,6 +114,9 @@ public class CoreTests : BaseTests
 
         Assert.Equal("EmployeesDb", metadataDB.CsType.Name);
         Assert.Equal("Department", metadataDB.TableModels.Single(x => x.CsPropertyName == "Departments").Model.CsType.Name);
+
+        var employees = metadataDB.TableModels.Single(x => x.Table.DbName == "employees").Table;
+        Assert.Equal("Employee", employees.Model.CsType.Name);
 
         TestDatabase(metadataDB, false);
     }
@@ -109,18 +146,22 @@ public class CoreTests : BaseTests
 
         var employees = database.TableModels.Single(x => x.Table.DbName == "employees").Table;
         Assert.Same(employees, employees.Model.Table);
+        Assert.Equal("employees", employees.DbName);
         Assert.Equal(7, employees.Columns.Length);
+        Assert.Equal(1, employees.Columns.Count(x => x.PrimaryKey));
+        Assert.Equal(1, employees.Columns.Count(x => x.AutoIncrement));
+
 
         var emp_no = employees.Columns.Single(x => x.DbName == "emp_no");
         Assert.True(emp_no.PrimaryKey);
         Assert.True(emp_no.AutoIncrement);
 
         Assert.NotEmpty(emp_no.DbTypes);
-        
-        if (emp_no.DbTypes.Any(x=> x.DatabaseType == DatabaseType.MySQL))
+
+        if (emp_no.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
             Assert.Equal("int", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.MySQL).Name);
-        
-        if (emp_no.DbTypes.Any(x=> x.DatabaseType == DatabaseType.SQLite))
+
+        if (emp_no.DbTypes.Any(x => x.DatabaseType == DatabaseType.SQLite))
             Assert.Equal("integer", emp_no.DbTypes.Single(x => x.DatabaseType == DatabaseType.SQLite).Name);
 
         Assert.Equal("int", emp_no.ValueProperty.CsType.Name);

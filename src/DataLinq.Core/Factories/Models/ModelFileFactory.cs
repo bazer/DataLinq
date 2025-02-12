@@ -22,6 +22,12 @@ public class ModelFileFactoryOptions
     public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Instances", "DataLinq.Mutation" };
 }
 
+public enum ModelType
+{
+    classType,
+    interfaceType
+}
+
 public class ModelFileFactory
 {
     private readonly ModelFileFactoryOptions options;
@@ -116,10 +122,6 @@ public class ModelFileFactory
 
     private IEnumerable<string> ModelFileContents(ModelDefinition model, ModelFileFactoryOptions options)
     {
-        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
-        var tab = options.Tab;
-        var table = model.Table;
-
         var valueProps = model.ValueProperties.Values
             .OrderBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
@@ -134,8 +136,22 @@ public class ModelFileFactory
             .ThenBy(x => x.PropertyName)
             .ToList();
 
-        foreach (var row in valueProps.Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
+        foreach (var row in valueProps.Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
             yield return row;
+        
+        
+        
+        foreach (var row in WriteClass(model, options, valueProps, relationProps))
+            yield return row;
+    }
+
+    
+
+    private IEnumerable<string> WriteClass(ModelDefinition model, ModelFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
+    {
+        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
+        var tab = options.Tab;
+        var table = model.Table;
 
         if (table is ViewDefinition view)
         {
@@ -150,19 +166,22 @@ public class ModelFileFactory
         var interfaces = table.Type == TableType.Table ? "ITableModel" : "IViewModel";
 
         interfaces += $"<{model.Database.CsType.Name}>";
+        //interfaces += $", I{table.Model.CsType.Name}";
         //if (model.Interfaces?.Length > 0)
         //    interfaces += ", " + model.Interfaces.Select(x => x.Name).ToJoinedString(", ");
 
         yield return $"{namespaceTab}public abstract partial class {table.Model.CsType.Name}(RowData rowData, DataSourceAccess dataSource) : Immutable<{table.Model.CsType.Name}, {model.Database.CsType.Name}>(rowData, dataSource), {interfaces}";
         //yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} {table.Model.CsTypeName} : {interfaces}";
+
         yield return namespaceTab + "{";
 
-        foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(x, namespaceTab, tab)))
+        foreach (var row in valueProps.Where(x => x.EnumProperty != null && x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
             yield return tab + row;
 
         foreach (var valueProperty in valueProps)
         {
             var c = valueProperty.Column;
+
             if (c.PrimaryKey)
                 yield return $"{namespaceTab}{tab}[PrimaryKey]";
 
@@ -233,7 +252,6 @@ public class ModelFileFactory
             yield return $"";
         }
 
-
         yield return namespaceTab + "}";
     }
 
@@ -242,8 +260,11 @@ public class ModelFileFactory
         return (options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement || column.DefaultValues.Length != 0) ? "?" : "";
     }
 
-    private IEnumerable<string> WriteEnum(ValueProperty property, string namespaceTab, string tab)
+    private IEnumerable<string> WriteEnum(ModelFileFactoryOptions options, ValueProperty property)
     {
+        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
+        var tab = options.Tab;
+
         yield return $"{namespaceTab}public enum {property.CsType.Name}";
         yield return namespaceTab + "{";
         //yield return $"{tab}{tab}Empty,";

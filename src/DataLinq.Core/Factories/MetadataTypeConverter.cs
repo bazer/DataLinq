@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace DataLinq.Core.Factories;
 
@@ -28,7 +29,9 @@ public static class MetadataTypeConverter
         _ => null
     };
 
-    public static string GetKeywordName(Type type) => GetKeywordName(type.Name);
+    public static string GetKeywordName(Type type) => type.IsGenericType
+        ? GetFriendlyTypeName(type)
+        : GetKeywordName(type.Name);
 
     public static string GetKeywordName(string typeName) => typeName switch
     {
@@ -149,4 +152,26 @@ public static class MetadataTypeConverter
         interfaceName.StartsWith("I") && interfaceName.Length > 1 && char.IsUpper(interfaceName[1])
             ? interfaceName.Substring(1)
             : interfaceName;
+
+    private static string GetFriendlyTypeName(Type type)
+    {
+        if (type.IsGenericType)
+        {
+            // Get the base name without the trailing `N part.
+            var baseName = type.Name;
+            int index = baseName.IndexOf('`');
+            if (index > 0)
+            {
+                baseName = baseName.Substring(0, index);
+            }
+            // Process each generic argument recursively (if necessary)
+            var genericArgs = type.GetGenericArguments();
+            var genericArgNames = genericArgs.Select(GetFriendlyTypeName);
+            return $"{baseName}<{string.Join(", ", genericArgNames)}>";
+        }
+        else
+        {
+            return type.Name;
+        }
+    }
 }

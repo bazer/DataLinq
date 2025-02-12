@@ -37,33 +37,35 @@ public class MetadataFromModelsFactory
         Log = log;
     }
 
-    public IEnumerable<DatabaseDefinition> ReadFiles(string csType, IEnumerable<string> srcPaths)
-    {
-        var trees = new List<SyntaxTree>();
+    //public IEnumerable<DatabaseDefinition> ReadFiles(string csType, IEnumerable<string> srcPaths)
+    //{
+    //    var trees = new List<SyntaxTree>();
 
-        foreach (var path in srcPaths)
-        {
-            var sourceFiles = Directory.Exists(path)
-                ? new DirectoryInfo(path)
-                    .EnumerateFiles("*.cs", SearchOption.AllDirectories)
-                    .Select(a => a.FullName)
-                : new FileInfo(path).FullName.Yield();
+    //    foreach (var path in srcPaths)
+    //    {
+    //        var sourceFiles = Directory.Exists(path)
+    //            ? new DirectoryInfo(path)
+    //                .EnumerateFiles("*.cs", SearchOption.AllDirectories)
+    //                .Select(a => a.FullName)
+    //            : new FileInfo(path).FullName.Yield();
 
-            foreach (string file in sourceFiles)
-                trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file, options.FileEncoding)));
-        }
+    //        foreach (string file in sourceFiles)
+    //            trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file, options.FileEncoding)));
+    //    }
 
-        var modelSyntaxes = trees
-            .Where(x => x.HasCompilationUnitRoot)
-            .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
-                    .Where(cls => cls.BaseList?.Types.Any(baseType => SyntaxParser.IsModelInterface(baseType.ToString())) == true))
-            .ToImmutableArray();
+    //    var modelSyntaxes = trees
+    //        .Where(x => x.HasCompilationUnitRoot)
+    //        .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
+    //                .Where(cls => cls.BaseList?.Types.Any(baseType => SyntaxParser.IsModelInterface(baseType.ToString())) == true))
+    //        .ToImmutableArray();
 
-        return ReadSyntaxTrees(modelSyntaxes);
-    }
+    //    return ReadSyntaxTrees(modelSyntaxes);
+    //}
 
     public IEnumerable<DatabaseDefinition> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     {
+        var syntaxParser = new SyntaxParser(modelSyntaxes);
+
         // Identify classes implementing the interfaces of interest
         var dbModelClasses = modelSyntaxes
             .Where(cls => cls.BaseList != null && cls.BaseList.Types
@@ -90,10 +92,10 @@ public class MetadataFromModelsFactory
 
             database.SetTableModels(dbType.Members.OfType<PropertyDeclarationSyntax>()
                 .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
-                .Select(prop => SyntaxParser.GetTableType(prop, modelClasses))
-                .Select(t => SyntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)));
+                .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
+                .Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)));
 
-            database.SetAttributes(dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => SyntaxParser.ParseAttribute(x)));
+            database.SetAttributes(dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x)));
             database.ParseAttributes();
 
             MetadataFactory.ParseIndices(database);

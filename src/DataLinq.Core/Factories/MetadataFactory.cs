@@ -23,7 +23,7 @@ public static class MetadataFactory
 {
     public static TableDefinition ParseTable(ModelDefinition model)
     {
-        var table = model.Interfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
+        var table = model.AllInterfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
             ? new TableDefinition(model.CsType.Name)
             : new ViewDefinition(model.CsType.Name);
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
@@ -7,10 +8,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace DataLinq.Core.Factories;
 
-public static class SyntaxParser
+public class SyntaxParser
 {
-    private static readonly string[] modelInterfaceNames = ["IDatabaseModel", "ITableModel", "IViewModel"];
+    private static readonly string[] modelInterfaceNames = ["IDatabaseModel", "ITableModel", "IViewModel", "IModelInstance"];
     private static readonly string[] customModelInterfaceName = ["ICustomDatabaseModel", "ICustomTableModel", "ICustomViewModel"];
+    private readonly ImmutableArray<TypeDeclarationSyntax> modelSyntaxes;
 
     public static bool IsModelInterface(string interfaceName) =>
         modelInterfaceNames.Any(interfaceName.StartsWith);
@@ -18,22 +20,47 @@ public static class SyntaxParser
     public static bool IsCustomModelInterface(string interfaceName) =>
         customModelInterfaceName.Any(interfaceName.StartsWith);
 
-    public static TableModel ParseTableModel(DatabaseDefinition database, TypeDeclarationSyntax typeSyntax, string csPropertyName)
+    public SyntaxParser(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    {
+        this.modelSyntaxes = modelSyntaxes;
+    }
+
+    public TableModel ParseTableModel(DatabaseDefinition database, TypeDeclarationSyntax typeSyntax, string csPropertyName)
     {
         var model = typeSyntax == null
             ? new ModelDefinition(new CsTypeDeclaration(csPropertyName, database.CsType.Namespace, ModelCsType.Interface))
-            : typeSyntax.ParseModel();
+            : ParseModel(typeSyntax);
 
         return new TableModel(csPropertyName, database, model, typeSyntax == null);
     }
 
-    private static ModelDefinition ParseModel(this TypeDeclarationSyntax typeSyntax)
+    private ModelDefinition ParseModel(TypeDeclarationSyntax typeSyntax)
     {
         var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
 
         model.SetAttributes(typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(ParseAttribute));
         if (typeSyntax.BaseList != null)
-            model.SetInterfaces(typeSyntax.BaseList.Types.Select(baseType => new CsTypeDeclaration(baseType)));
+        {
+            // Build all interfaces from the BaseList.
+            var interfaces = typeSyntax.BaseList.Types
+                .Select(baseType => new CsTypeDeclaration(baseType))
+                .Where(x => !x.Name.StartsWith("Immutable<"))
+                .ToList();
+
+            var modelInstanceInterfaces = interfaces
+                .Where(x => InheritsFrom(x, "IModelInstance"))
+                .ToList();
+
+            if (!modelInstanceInterfaces.Any())
+            {
+                var newInterface = new CsTypeDeclaration($"I{model.CsType.Name}", model.CsType.Namespace, ModelCsType.Interface);
+                interfaces.Add(newInterface);
+                modelInstanceInterfaces.Add(newInterface);
+            }
+
+            model.SetInterfaces(interfaces);
+            model.SetModelInstanceInterfaces(modelInstanceInterfaces);
+        }
 
         if (model.CsType.ModelCsType == ModelCsType.Interface)
             model.SetCsType(model.CsType.MutateName(MetadataTypeConverter.RemoveInterfacePrefix(model.CsType.Name)));
@@ -58,7 +85,7 @@ public static class SyntaxParser
         return model;
     }
 
-    public static Attribute ParseAttribute(AttributeSyntax attributeSyntax)
+    public Attribute ParseAttribute(AttributeSyntax attributeSyntax)
     {
         var name = attributeSyntax.Name.ToString();
         var arguments = attributeSyntax.ArgumentList?.Arguments
@@ -276,7 +303,7 @@ public static class SyntaxParser
         throw new NotImplementedException($"Attribute '{name}' not implemented");
     }
 
-    public static PropertyDefinition ParseProperty(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
+    public PropertyDefinition ParseProperty(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
     {
         var attributes = propSyntax.AttributeLists
             .SelectMany(attrList => attrList.Attributes)
@@ -307,7 +334,7 @@ public static class SyntaxParser
         return property;
     }
 
-    public static (string csPropertyName, TypeDeclarationSyntax classSyntax) GetTableType(PropertyDeclarationSyntax property, List<TypeDeclarationSyntax> modelTypeSyntaxes)
+    public (string csPropertyName, TypeDeclarationSyntax classSyntax) GetTableType(PropertyDeclarationSyntax property, List<TypeDeclarationSyntax> modelTypeSyntaxes)
     {
         var propType = property.Type;
 
@@ -321,5 +348,31 @@ public static class SyntaxParser
             }
         }
         throw new NotImplementedException();
+    }
+
+    private bool InheritsFrom(CsTypeDeclaration decl, string typeName)
+    {
+        var matchingSyntax = modelSyntaxes.FirstOrDefault(ts => ts.Identifier.Text == decl.Name);
+        if (matchingSyntax == null)
+            return false;
+
+        // If the matching syntax has a BaseList, check each base type.
+        if (matchingSyntax.BaseList != null)
+        {
+            foreach (var baseTypeSyntax in matchingSyntax.BaseList.Types)
+            {
+                // Create a CsTypeDeclaration for the base type.
+                var baseDecl = new CsTypeDeclaration(baseTypeSyntax);
+
+                // Direct match: if the baseDecl's name is the type of interest.
+                if (baseDecl.Name == typeName || baseDecl.Name.StartsWith(typeName + "<"))
+                    return true;
+
+                // Recursively check if the base type inherits from the type.
+                if (InheritsFrom(baseDecl, typeName))
+                    return true;
+            }
+        }
+        return false;
     }
 }

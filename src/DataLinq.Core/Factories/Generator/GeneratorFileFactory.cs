@@ -5,6 +5,7 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Extensions.Helpers;
+using Microsoft.CodeAnalysis;
 
 namespace DataLinq.Metadata;
 
@@ -21,12 +22,18 @@ public class GeneratorFileFactoryOptions
 
 public class GeneratorFileFactory
 {
+    private string namespaceTab;
+    private string tab;
+
     public GeneratorFileFactoryOptions Options { get; }
 
     public GeneratorFileFactory(GeneratorFileFactoryOptions options)
     {
         this.Options = options;
         this.Options.UseRecords = false;
+
+        namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
+        tab = options.Tab;
     }
 
     public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
@@ -55,23 +62,52 @@ public class GeneratorFileFactory
                 .Select(x => x.name);
 
 
-            var parts = FileHeader(namespaceName, Options.UseFileScopedNamespaces, usings)
-                    .Concat(ImmutableModelFileContents(table.Model, Options));
-
-            if (table.Table.Type == TableType.Table)
-            {
-                parts = parts
-                    .Concat(MutableModelFileContents(table.Model, Options))
-                    .Concat(ExtensionMethodsFileContents(table.Model, Options));
-            }
-
-            var file = parts
-                    .Concat(FileFooter(Options.UseFileScopedNamespaces))
-                    .ToJoinedString("\n");
+            var file =
+                FileHeader(namespaceName, Options.UseFileScopedNamespaces, usings)
+                .Concat(ModelFileContents(table.Model, Options))
+                .Concat(FileFooter(Options.UseFileScopedNamespaces))
+                .ToJoinedString("\n");
 
             var path = GetFilePath(table);
 
             yield return (path, file);
+        }
+    }
+
+    private IEnumerable<string> ModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options)
+    {
+        var valueProps = model.ValueProperties.Values
+            .OrderBy(x => x.Type)
+            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
+            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
+            .ThenBy(x => x.PropertyName)
+            .ToList();
+
+        var relationProps = model.RelationProperties.Values
+            .OrderBy(x => x.Type)
+            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
+            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
+            .ThenBy(x => x.PropertyName)
+            .ToList();
+
+        foreach (var modelInterface in model.ModelInstanceInterfaces)
+            foreach (var row in WriteInterface(model, modelInterface, options, valueProps))
+                yield return row;
+
+        if (model.ModelInstanceInterfaces.Any())
+            foreach (var row in WriteBaseClassPartial(model, model.ModelInstanceInterfaces, options))
+                yield return row;
+
+        foreach (var row in ImmutableModelFileContents(model, Options, valueProps, relationProps))
+            yield return row;
+
+        if (model.Table.Type == TableType.Table)
+        {
+            foreach (var row in MutableModelFileContents(model, Options, valueProps, relationProps))
+                yield return row;
+
+            foreach (var row in ExtensionMethodsFileContents(model, Options))
+                yield return row;
         }
     }
 
@@ -87,27 +123,70 @@ public class GeneratorFileFactory
         return path;
     }
 
-    private IEnumerable<string> ImmutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options)
+    private IEnumerable<string> WriteInterface(ModelDefinition model, CsTypeDeclaration modelInterface, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps)
     {
-        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
-        var tab = options.Tab;
-        var table = model.Table;
+        yield return $"{namespaceTab}public partial interface {modelInterface.Name}: IModelInstance<{model.Database.CsType.Name}>";
+        yield return namespaceTab + "{";
 
-        var valueProps = model.ValueProperties.Values
-            .OrderBy(x => x.Type)
-            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
-            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.PropertyName)
-            .ToList();
+        foreach (var valueProperty in valueProps)
+        {
+            var c = valueProperty.Column;
+            var prefix = "";
 
-        var relationProps = model.RelationProperties.Values
-            .OrderBy(x => x.Type)
-            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
-            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.PropertyName)
-            .ToList();
+            if (valueProperty.EnumProperty != null && valueProperty.EnumProperty.Value.DeclaredInClass)
+                prefix = $"{model.CsType.Name}.";
 
-        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{table.Model.CsType.Name}(RowData rowData, DataSourceAccess dataSource) : {table.Model.CsType.Name}(rowData, dataSource)";
+            yield return $"{namespaceTab}{tab}{prefix}{c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
+        }
+
+        if (model.Table.Type == TableType.Table)
+        {
+            yield return "";
+            yield return $"{namespaceTab}{tab}Mutable{model.CsType.Name} Mutate() => this switch";
+            yield return $"{namespaceTab}{tab}{{";
+            yield return $"{namespaceTab}{tab}{tab}Mutable{model.CsType.Name} mutable => mutable,";
+            yield return $"{namespaceTab}{tab}{tab}Immutable{model.CsType.Name} immutable => immutable.Mutate(),";
+            yield return $"{namespaceTab}{tab}{tab}_ => throw new NotSupportedException($\"Call to 'Mutate' not supported for type '{{GetType()}}'\")";
+            yield return $"{namespaceTab}{tab}}};";
+            yield return "";
+            yield return $"{namespaceTab}{tab}Mutable{model.CsType.Name} Mutate(Action<Mutable{model.CsType.Name}> changes) => this switch";
+            yield return $"{namespaceTab}{tab}{{";
+            yield return $"{namespaceTab}{tab}{tab}Mutable{model.CsType.Name} mutable => mutable.Mutate(changes),";
+            yield return $"{namespaceTab}{tab}{tab}Immutable{model.CsType.Name} immutable => immutable.Mutate(changes),";
+            yield return $"{namespaceTab}{tab}{tab}_ => throw new NotSupportedException($\"Call to 'Mutate' not supported for type '{{GetType()}}'\")";
+            yield return $"{namespaceTab}{tab}}};";
+        }
+
+        yield return namespaceTab + "}";
+        yield return "";
+    }
+
+    private IEnumerable<string> WriteBaseClassPartial(ModelDefinition model, IEnumerable<CsTypeDeclaration> modelInterfaces, GeneratorFileFactoryOptions options)
+    {
+        yield return $"{namespaceTab}public abstract partial {(options.UseRecords ? "record" : "class")} {model.CsType.Name}: {modelInterfaces.Select(x => x.Name).ToJoinedString(", ")}";
+        yield return namespaceTab + "{";
+
+        if (model.Table.Type == TableType.Table)
+        {
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate() => new();";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate(Action<Mutable{model.CsType.Name}> changes) => new Mutable{model.CsType.Name}().Mutate(changes);";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.CsType.Name} model) => new(model);";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) => new Mutable{model.CsType.Name}(model).Mutate(changes);";
+
+            foreach (var modelInterface in modelInterfaces)
+            {
+                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({modelInterface.Name} model) => model.Mutate();";
+                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({modelInterface.Name} model, Action<Mutable{model.CsType.Name}> changes) => model.Mutate(changes);";
+            }
+        }
+
+        yield return namespaceTab + "}";
+        yield return "";
+    }
+
+    private IEnumerable<string> ImmutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
+    {
+        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{model.CsType.Name}(RowData rowData, DataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
         yield return namespaceTab + "{";
 
         foreach (var valueProperty in valueProps)
@@ -136,37 +215,22 @@ public class GeneratorFileFactory
             yield return $"";
         }
 
-        if (table.Type == TableType.Table)
-            yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsType.Name} Mutate() => new(this);";
+        //if (model.Table.Type == TableType.Table)
+        //    yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name} Mutate() => new(this);";
 
         yield return namespaceTab + "}";
     }
 
-    private IEnumerable<string> MutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options)
+    private IEnumerable<string> MutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
     {
-        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
-        var tab = options.Tab;
-        var table = model.Table;
+        List<string> interfaces = [$"IMutableInstance<{model.Database.CsType.Name}>"];
+        interfaces.AddRange(model.ModelInstanceInterfaces.Select(x => x.Name));
 
-        var valueProps = model.ValueProperties.Values
-            .OrderBy(x => x.Type)
-            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
-            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.PropertyName)
-            .ToList();
-
-        var relationProps = model.RelationProperties.Values
-            .OrderBy(x => x.Type)
-            .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
-            .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
-            .ThenBy(x => x.PropertyName)
-            .ToList();
-
-        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{table.Model.CsType.Name}: Mutable<{table.Model.CsType.Name}>, IMutableInstance<{model.Database.CsType.Name}>";
+        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{model.CsType.Name}: Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}"; //IMutableInstance<{model.Database.CsType.Name}>, I{model.Database.CsType.Name}";
         yield return namespaceTab + "{";
 
-        yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsType.Name}(): base() {{}}";
-        yield return $"{namespaceTab}{tab}public Mutable{table.Model.CsType.Name}({table.Model.CsType.Name} immutable{table.Model.CsType.Name}): base(immutable{table.Model.CsType.Name}) {{}}";
+        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}(): base() {{}}";
+        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}({model.CsType.Name} immutable{model.CsType.Name}): base(immutable{model.CsType.Name}) {{}}";
 
         foreach (var valueProperty in valueProps)
         {
@@ -185,9 +249,6 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> ExtensionMethodsFileContents(ModelDefinition model, GeneratorFileFactoryOptions options)
     {
-        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
-        var tab = options.Tab;
-
         yield return $"{namespaceTab}public static class {model.CsType.Name}Extensions";
         yield return namespaceTab + "{";
 
@@ -307,6 +368,11 @@ public class GeneratorFileFactory
     private string GetUseNullableReferenceTypes()
     {
         return Options.UseNullableReferenceTypes ? "?" : "";
+    }
+
+    private string GetPropertyNullable(ColumnDefinition column)
+    {
+        return (Options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement || column.DefaultValues.Length != 0) ? "?" : "";
     }
 
     private bool IsPropertyNullable(ValueProperty property)

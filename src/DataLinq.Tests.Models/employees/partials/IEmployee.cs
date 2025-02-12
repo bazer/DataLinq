@@ -1,4 +1,6 @@
-﻿namespace DataLinq.Tests.Models.Employees;
+﻿using DataLinq.Instances;
+
+namespace DataLinq.Tests.Models.Employees;
 
 public partial class Employee
 {

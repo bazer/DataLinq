@@ -9,7 +9,7 @@ using DataLinq.Mutation;
 namespace DataLinq.Tests.Models.Employees;
 
 [Table("departments")]
-public abstract partial class Department(RowData rowData, DataSourceAccess dataSource) : Immutable<Department, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
+public abstract partial class Department(RowData rowData, DataSourceAccess dataSource) : Immutable<Department, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>, IDepartmentWithChangedName
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "char", 4)]

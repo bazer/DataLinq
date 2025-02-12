@@ -17,8 +17,10 @@ public class ModelDefinition(CsTypeDeclaration csType)
     public void SetImmutableType(CsTypeDeclaration immutableType) => ImmutableType = immutableType;
     public CsTypeDeclaration? MutableType { get; private set; }
     public void SetMutableType(CsTypeDeclaration mutableType) => MutableType = mutableType;
-    public CsTypeDeclaration[] Interfaces { get; private set; } = [];
-    public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => Interfaces = interfaces.ToArray();
+    public CsTypeDeclaration[] ModelInstanceInterfaces { get; private set; } = [];
+    public void SetModelInstanceInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => ModelInstanceInterfaces = interfaces.ToArray();
+    public CsTypeDeclaration[] AllInterfaces { get; private set; } = [];
+    public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => AllInterfaces = interfaces.ToArray();
     public ModelUsing[] Usings { get; private set; } = [];
     public void SetUsings(IEnumerable<ModelUsing> usings) => Usings = usings.ToArray();
     public Dictionary<string, RelationProperty> RelationProperties { get; } = new();
@@ -57,6 +59,6 @@ public class ModelDefinition(CsTypeDeclaration csType)
 
     public override string ToString()
     {
-        return $"{CsType.Name} ({Database.DbName}.{Table.DbName})";
+        return $"{CsType.Name} ({Database?.DbName}.{Table?.DbName})";
     }
 }

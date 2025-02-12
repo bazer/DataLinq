@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using DataLinq.Metadata;
 
@@ -9,6 +10,10 @@ public class Mutable<T> : IMutableInstance
 {
     private readonly ModelDefinition metadata;
     public ModelDefinition Metadata() => metadata;
+
+    protected ConcurrentDictionary<string, object?>? lazyValues = null;
+    private T? immutableInstance;
+    public T? GetImmutableInstance() => immutableInstance;
 
     private bool isNew;
     public bool IsNew() => isNew;
@@ -41,6 +46,7 @@ public class Mutable<T> : IMutableInstance
 
     public Mutable(T model)
     {
+        this.immutableInstance = model;
         this.mutableRowData = new MutableRowData(model.GetRowData());
         this.metadata = model.Metadata();
         this.isNew = false;
@@ -79,4 +85,25 @@ public class Mutable<T> : IMutableInstance
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues() => mutableRowData.GetColumnAndValues();
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns) => mutableRowData.GetColumnAndValues(columns);
+
+    public void ClearLazy() => lazyValues?.Clear();
+
+    public void SetLazy<V>(string name, V value)
+    {
+        lazyValues ??= new ConcurrentDictionary<string, object?>();
+        lazyValues[name] = value;
+    }
+
+    public V? GetLazy<V>(string name, Func<V> fetchCode)
+    {
+        lazyValues ??= new ConcurrentDictionary<string, object?>();
+
+        if (!lazyValues.TryGetValue(name, out var value) || value == null)
+        {
+            value = fetchCode();
+            lazyValues[name] = value;
+        }
+
+        return (V?)value;
+    }
 }

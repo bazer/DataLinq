@@ -31,15 +31,8 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns) => rowData.GetColumnAndValues(columns);
 
 
-    protected void ClearLazy() => lazyValues?.Clear();
-
-    protected void SetLazy<V>(string name, V value)
-    {
-        lazyValues ??= new ConcurrentDictionary<string, object?>();
-        lazyValues[name] = value;
-    }
-
-    protected V? GetLazy<V>(string name, Func<V> fetchCode)
+    public void ClearLazy() => lazyValues?.Clear();
+    public V? GetLazy<V>(string name, Func<V> fetchCode)
     {
         lazyValues ??= new ConcurrentDictionary<string, object?>();
 

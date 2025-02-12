@@ -17,6 +17,8 @@ public interface IModelInstance : IModel
     ModelDefinition Metadata();
     IKey PrimaryKeys();
     IRowData GetRowData();
+    void ClearLazy();
+    V? GetLazy<V>(string name, Func<V> fetchCode);
 }
 
 public interface IModelInstance<T> : IModelInstance
@@ -61,6 +63,7 @@ public interface IMutableInstance : IModelInstance
     void SetDeleted();
     void Reset();
     void Reset(RowData rowData);
+    void SetLazy<V>(string name, V value);
 }
 
 public interface IMutableInstance<T> : IMutableInstance, IModelInstance<T>

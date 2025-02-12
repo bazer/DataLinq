@@ -1,7 +1,7 @@
-﻿using DataLinq.Attributes;
-using DataLinq.Interfaces;
+﻿//using DataLinq.Attributes;
+//using DataLinq.Interfaces;
 
-namespace DataLinq.Tests.Models.Employees;
+//namespace DataLinq.Tests.Models.Employees;
 
 public enum ManagerType
 {
@@ -12,9 +12,9 @@ public enum ManagerType
 }
 
 
-[Table("dept_manager")]
-public interface IManager : ICustomTableModel
-{
-    [Relation("departments", "dept_no")]
-    public IDepartment Department { get; }
-}
+//[Table("dept_manager")]
+//public interface IManager : ICustomTableModel
+//{
+//    [Relation("departments", "dept_no")]
+//    public IDepartment Department { get; }
+//}
