@@ -94,9 +94,8 @@ public class GeneratorFileFactory
             foreach (var row in WriteInterface(model, modelInterface, options, valueProps))
                 yield return row;
 
-        if (model.ModelInstanceInterfaces.Any())
-            foreach (var row in WriteBaseClassPartial(model, model.ModelInstanceInterfaces, options))
-                yield return row;
+        foreach (var row in WriteBaseClassPartial(model, model.ModelInstanceInterfaces, options))
+            yield return row;
 
         foreach (var row in ImmutableModelFileContents(model, Options, valueProps, relationProps))
             yield return row;
@@ -163,7 +162,7 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> WriteBaseClassPartial(ModelDefinition model, IEnumerable<CsTypeDeclaration> modelInterfaces, GeneratorFileFactoryOptions options)
     {
-        yield return $"{namespaceTab}public abstract partial {(options.UseRecords ? "record" : "class")} {model.CsType.Name}: {modelInterfaces.Select(x => x.Name).ToJoinedString(", ")}";
+        yield return $"{namespaceTab}public abstract partial {(options.UseRecords ? "record" : "class")} {model.CsType.Name}{(modelInterfaces.Any() ? $": {modelInterfaces.Select(x => x.Name).ToJoinedString(", ")}" : "")}";
         yield return namespaceTab + "{";
 
         if (model.Table.Type == TableType.Table)
@@ -208,8 +207,8 @@ public class GeneratorFileFactory
             }
             else
             {
-                yield return $"{namespaceTab}{tab}private ImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
-                yield return $"{namespaceTab}{tab}public override ImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= GetImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
+                yield return $"{namespaceTab}{tab}private IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
+                yield return $"{namespaceTab}{tab}public override IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= GetImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
             }
 
             yield return $"";

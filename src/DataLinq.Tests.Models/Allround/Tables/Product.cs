@@ -38,24 +38,24 @@ public abstract partial class Product(RowData rowData, DataSourceAccess dataSour
     public abstract string ProductName { get; }
 
     [Relation("discounts", "ProductId", "discounts_ibfk_1")]
-    public abstract ImmutableRelation<Discount> discounts { get; }
+    public abstract IImmutableRelation<Discount> discounts { get; }
 
     [Relation("inventory", "ProductId", "inventory_ibfk_1")]
-    public abstract ImmutableRelation<Inventory> inventory { get; }
+    public abstract IImmutableRelation<Inventory> inventory { get; }
 
     [Relation("orderdetails", "ProductId", "orderdetails_ibfk_2")]
-    public abstract ImmutableRelation<Orderdetail> orderdetails { get; }
+    public abstract IImmutableRelation<Orderdetail> orderdetails { get; }
 
     [Relation("orders", "ProductId", "orders_ibfk_2")]
-    public abstract ImmutableRelation<Order> orders { get; }
+    public abstract IImmutableRelation<Order> orders { get; }
 
     [Relation("productimages", "ProductId", "productimages_ibfk_1")]
-    public abstract ImmutableRelation<Productimage> productimages { get; }
+    public abstract IImmutableRelation<Productimage> productimages { get; }
 
     [Relation("productreviews", "ProductId", "productreviews_ibfk_2")]
-    public abstract ImmutableRelation<Productreview> productreviews { get; }
+    public abstract IImmutableRelation<Productreview> productreviews { get; }
 
     [Relation("userfeedback", "ProductId", "userfeedback_ibfk_2")]
-    public abstract ImmutableRelation<Userfeedback> userfeedback { get; }
+    public abstract IImmutableRelation<Userfeedback> userfeedback { get; }
 
 }

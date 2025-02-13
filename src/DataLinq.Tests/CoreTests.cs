@@ -42,10 +42,10 @@ public class CoreTests : BaseTests
 
         var employees = metadata.TableModels.Single(x => x.Table.DbName == "employees").Table;
         Assert.Equal("Employee", employees.Model.CsType.Name);
-        Assert.True(employees.Model.AllInterfaces.Length >= 2);
-        Assert.Contains(employees.Model.AllInterfaces, x => x.Name == "IEmployee");
-        Assert.Contains(employees.Model.AllInterfaces, x => x.Name == "ITableModel<EmployeesDb>");
-        Assert.DoesNotContain(employees.Model.AllInterfaces, x => x.Name.StartsWith("Immutable"));
+        Assert.Single(employees.Model.OriginalInterfaces);
+        Assert.DoesNotContain(employees.Model.OriginalInterfaces, x => x.Name == "IEmployee");
+        Assert.Contains(employees.Model.OriginalInterfaces, x => x.Name == "ITableModel<EmployeesDb>");
+        Assert.DoesNotContain(employees.Model.OriginalInterfaces, x => x.Name.StartsWith("Immutable"));
 
         Assert.Single(employees.Model.ModelInstanceInterfaces);
         Assert.Equal("IEmployee", employees.Model.ModelInstanceInterfaces.Single().Name);
@@ -66,10 +66,10 @@ public class CoreTests : BaseTests
 
         var employees = metadata.TableModels.Single(x => x.Table.DbName == "employees").Table;
         Assert.Equal("Employee", employees.Model.CsType.Name);
-        Assert.True(employees.Model.AllInterfaces.Length >= 2);
-        Assert.Contains(employees.Model.AllInterfaces, x => x.Name == "IEmployee");
-        Assert.Contains(employees.Model.AllInterfaces, x => x.Name == "ITableModel<EmployeesDb>");
-        Assert.DoesNotContain(employees.Model.AllInterfaces, x => x.Name.StartsWith("Immutable"));
+        Assert.True(employees.Model.OriginalInterfaces.Length > 1);
+        Assert.DoesNotContain(employees.Model.OriginalInterfaces, x => x.Name == "IEmployee");
+        Assert.Contains(employees.Model.OriginalInterfaces, x => x.Name == "ITableModel<EmployeesDb>");
+        Assert.DoesNotContain(employees.Model.OriginalInterfaces, x => x.Name.StartsWith("Immutable"));
 
         Assert.Single(employees.Model.ModelInstanceInterfaces);
         Assert.Equal("IEmployee", employees.Model.ModelInstanceInterfaces.Single().Name);

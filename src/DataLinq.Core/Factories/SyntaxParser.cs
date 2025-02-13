@@ -39,6 +39,19 @@ public class SyntaxParser
         var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
 
         model.SetAttributes(typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(ParseAttribute));
+
+        var modelInstanceInterfaces = model.Attributes
+            .Where(x => x is GenerateInterfaceAttribute interfaceAttribute && interfaceAttribute.GenerateInterface)
+            .Select(x => x as GenerateInterfaceAttribute)
+            .Select(x => new CsTypeDeclaration(x?.Name ?? $"I{model.CsType.Name}", model.CsType.Namespace, ModelCsType.Interface))
+            .ToList();
+        
+        if (modelInstanceInterfaces.GroupBy(x => x.Name).Any(x => x.Count() > 1))
+            throw new ArgumentException($"Duplicate interface names in model '{model.CsType.Name}'");
+
+        if (modelInstanceInterfaces.Any())
+            model.SetModelInstanceInterfaces(modelInstanceInterfaces);
+
         if (typeSyntax.BaseList != null)
         {
             // Build all interfaces from the BaseList.
@@ -47,19 +60,7 @@ public class SyntaxParser
                 .Where(x => !x.Name.StartsWith("Immutable<"))
                 .ToList();
 
-            var modelInstanceInterfaces = interfaces
-                .Where(x => InheritsFrom(x, "IModelInstance"))
-                .ToList();
-
-            if (!modelInstanceInterfaces.Any())
-            {
-                var newInterface = new CsTypeDeclaration($"I{model.CsType.Name}", model.CsType.Namespace, ModelCsType.Interface);
-                interfaces.Add(newInterface);
-                modelInstanceInterfaces.Add(newInterface);
-            }
-
             model.SetInterfaces(interfaces);
-            model.SetModelInstanceInterfaces(modelInstanceInterfaces);
         }
 
         if (model.CsType.ModelCsType == ModelCsType.Interface)
@@ -298,6 +299,16 @@ public class SyntaxParser
             }
 
             throw new NotImplementedException($"Attribute 'TypeAttribute' with {arguments.Count} arguments not implemented");
+        }
+
+        if (name == "GenerateInterface")
+        {
+            if (arguments.Count == 1)
+                return new GenerateInterfaceAttribute(arguments[0]);
+            else if (arguments.Count == 2)
+                return new GenerateInterfaceAttribute(arguments[0], bool.Parse(arguments[1]));
+            else
+                return new GenerateInterfaceAttribute();
         }
 
         throw new NotImplementedException($"Attribute '{name}' not implemented");

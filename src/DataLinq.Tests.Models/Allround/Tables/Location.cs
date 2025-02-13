@@ -43,9 +43,9 @@ public abstract partial class Location(RowData rowData, DataSourceAccess dataSou
     public abstract float? Longitude { get; }
 
     [Relation("inventory", "LocationId", "inventory_ibfk_2")]
-    public abstract ImmutableRelation<Inventory> inventory { get; }
+    public abstract IImmutableRelation<Inventory> inventory { get; }
 
     [Relation("locationshistory", "LocationId", "locationshistory_ibfk_1")]
-    public abstract ImmutableRelation<Locationhistory> locationshistory { get; }
+    public abstract IImmutableRelation<Locationhistory> locationshistory { get; }
 
 }

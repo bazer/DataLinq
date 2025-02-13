@@ -8,6 +8,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Employees;
 
+[GenerateInterface]
 [Table("employees")]
 public abstract partial class Employee(RowData rowData, DataSourceAccess dataSource) : Immutable<Employee, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
@@ -57,15 +58,15 @@ public abstract partial class Employee(RowData rowData, DataSourceAccess dataSou
     public abstract string last_name { get; }
 
     [Relation("dept-emp", "emp_no", "dept_emp_ibfk_1")]
-    public abstract ImmutableRelation<Dept_emp> dept_emp { get; }
+    public abstract IImmutableRelation<Dept_emp> dept_emp { get; }
 
     [Relation("dept_manager", "emp_no", "dept_manager_ibfk_1")]
-    public abstract ImmutableRelation<Manager> dept_manager { get; }
+    public abstract IImmutableRelation<Manager> dept_manager { get; }
 
     [Relation("salaries", "emp_no", "salaries_ibfk_1")]
-    public abstract ImmutableRelation<Salaries> salaries { get; }
+    public abstract IImmutableRelation<Salaries> salaries { get; }
 
     [Relation("titles", "emp_no", "titles_ibfk_1")]
-    public abstract ImmutableRelation<Titles> titles { get; }
+    public abstract IImmutableRelation<Titles> titles { get; }
 
 }

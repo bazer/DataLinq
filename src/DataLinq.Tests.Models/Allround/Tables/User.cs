@@ -61,18 +61,18 @@ public abstract partial class User(RowData rowData, DataSourceAccess dataSource)
     public abstract UserRoleValue? UserRole { get; }
 
     [Relation("orders", "UserId", "orders_ibfk_1")]
-    public abstract ImmutableRelation<Order> orders { get; }
+    public abstract IImmutableRelation<Order> orders { get; }
 
     [Relation("productreviews", "UserId", "productreviews_ibfk_1")]
-    public abstract ImmutableRelation<Productreview> productreviews { get; }
+    public abstract IImmutableRelation<Productreview> productreviews { get; }
 
     [Relation("userfeedback", "UserId", "userfeedback_ibfk_1")]
-    public abstract ImmutableRelation<Userfeedback> userfeedback { get; }
+    public abstract IImmutableRelation<Userfeedback> userfeedback { get; }
 
     [Relation("userhistory", "UserId", "userhistory_ibfk_1")]
-    public abstract ImmutableRelation<Userhistory> userhistory { get; }
+    public abstract IImmutableRelation<Userhistory> userhistory { get; }
 
     [Relation("userprofiles", "UserId", "userprofiles_ibfk_1")]
-    public abstract ImmutableRelation<Userprofile> userprofiles { get; }
+    public abstract IImmutableRelation<Userprofile> userprofiles { get; }
 
 }

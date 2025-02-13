@@ -8,8 +8,9 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Employees;
 
+[GenerateInterface("IDepartmentWithChangedName")]
 [Table("departments")]
-public abstract partial class Department(RowData rowData, DataSourceAccess dataSource) : Immutable<Department, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>, IDepartmentWithChangedName
+public abstract partial class Department(RowData rowData, DataSourceAccess dataSource) : Immutable<Department, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "char", 4)]
@@ -24,9 +25,9 @@ public abstract partial class Department(RowData rowData, DataSourceAccess dataS
     public abstract string Name { get; }
 
     [Relation("dept-emp", "dept_no", "dept_emp_ibfk_2")]
-    public abstract ImmutableRelation<Dept_emp> DepartmentEmployees { get; }
+    public abstract IImmutableRelation<Dept_emp> DepartmentEmployees { get; }
 
     [Relation("dept_manager", "dept_fk", "dept_manager_ibfk_2")]
-    public abstract ImmutableRelation<Manager> Managers { get; }
+    public abstract IImmutableRelation<Manager> Managers { get; }
 
 }

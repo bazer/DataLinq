@@ -19,8 +19,8 @@ public class ModelDefinition(CsTypeDeclaration csType)
     public void SetMutableType(CsTypeDeclaration mutableType) => MutableType = mutableType;
     public CsTypeDeclaration[] ModelInstanceInterfaces { get; private set; } = [];
     public void SetModelInstanceInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => ModelInstanceInterfaces = interfaces.ToArray();
-    public CsTypeDeclaration[] AllInterfaces { get; private set; } = [];
-    public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => AllInterfaces = interfaces.ToArray();
+    public CsTypeDeclaration[] OriginalInterfaces { get; private set; } = [];
+    public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => OriginalInterfaces = interfaces.ToArray();
     public ModelUsing[] Usings { get; private set; } = [];
     public void SetUsings(IEnumerable<ModelUsing> usings) => Usings = usings.ToArray();
     public Dictionary<string, RelationProperty> RelationProperties { get; } = new();

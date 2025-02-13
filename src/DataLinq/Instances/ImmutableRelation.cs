@@ -8,7 +8,77 @@ using DataLinq.Metadata;
 using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
-public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, RelationProperty property) : IEnumerable<T> where T : IImmutableInstance
+
+public interface IImmutableRelation<T>: IEnumerable<T> where T : IModelInstance
+{
+    T? this[IKey key] { get; }
+
+    int Count { get; }
+    ImmutableArray<IKey> Keys { get; }
+    ImmutableArray<T> Values { get; }
+
+    IEnumerable<KeyValuePair<IKey, T>> AsEnumerable();
+    void Clear();
+    bool ContainsKey(IKey key);
+    T? Get(IKey key);
+    IEnumerator<T> GetEnumerator();
+    FrozenDictionary<IKey, T> ToFrozenDictionary();
+}
+
+public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelInstance
+{
+    private readonly IEnumerable<T> list;
+
+    public ImmutableRelationMock(IEnumerable<T> list)
+    {
+        this.list = list;
+    }
+
+    public T? this[IKey key] => throw new System.NotImplementedException();
+
+    public int Count => throw new System.NotImplementedException();
+
+    public ImmutableArray<IKey> Keys => throw new System.NotImplementedException();
+
+    public ImmutableArray<T> Values => throw new System.NotImplementedException();
+
+    public IEnumerable<KeyValuePair<IKey, T>> AsEnumerable()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public void Clear()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public bool ContainsKey(IKey key)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public T? Get(IKey key)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public FrozenDictionary<IKey, T> ToFrozenDictionary()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
+}
+
+public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T> where T : IImmutableInstance
 {
     protected FrozenDictionary<IKey, T>? relationInstances;
     // Flag to ensure we only attach our listener once.

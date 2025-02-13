@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Instances;
 
 namespace DataLinq.Metadata;
 
@@ -44,8 +45,9 @@ public static class MetadataFromTypeFactory
         var model = new ModelDefinition(new CsTypeDeclaration(type));
 
         model.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
-        model.SetInterfaces(type.GetInterfaces().Select(x => new CsTypeDeclaration(x)));
-        model.SetModelInstanceInterfaces(type.GetInterfaces().Where(x => x.Namespace?.StartsWith("DataLinq.Instance") == false && x.GetInterfaces().Any(x => x.Name.StartsWith("IModelInstance"))).Select(x => new CsTypeDeclaration(x)));
+
+        model.SetInterfaces(type.GetInterfaces().Where(x => !IsModelInstanceInterface(x)).Select(x => new CsTypeDeclaration(x)));
+        model.SetModelInstanceInterfaces(type.GetInterfaces().Where(IsModelInstanceInterface).Select(x => new CsTypeDeclaration(x)));
 
         if (type.Namespace != null)
             model.SetUsings([new(type.Namespace)]);
@@ -69,10 +71,20 @@ public static class MetadataFromTypeFactory
 
         model.SetImmutableType(FindType(type, $"{model.CsType.Namespace}.Immutable{model.CsType.Name}"));
 
-        if (model.AllInterfaces.Any(x => x.Name.StartsWith("ITableModel")))
+        if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel")))
             model.SetMutableType(FindType(type, $"{model.CsType.Namespace}.Mutable{model.CsType.Name}"));
 
         return model;
+    }
+
+    private static bool IsModelInstanceInterface(Type type)
+    {
+        if (type.Namespace?.StartsWith("System") == true ||
+            type.Namespace?.StartsWith("DataLinq.Instance") == true ||
+            type.Namespace?.StartsWith("DataLinq.Interfaces") == true)
+            return false;
+
+        return type.GetInterfaces().Any(x => x.Name.StartsWith("IModelInstance"));
     }
 
     private static CsTypeDeclaration FindType(Type modelType, string name)
