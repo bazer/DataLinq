@@ -74,7 +74,7 @@ public class Mutable<T> : IMutableInstance
 
     public void SetDeleted() => isDeleted = true;
 
-    public V? GetValue<V>(string propertyName) => mutableRowData.GetValue<V>(metadata.ValueProperties[propertyName].Column);
+    public object? GetValue(string propertyName) => mutableRowData.GetValue(metadata.ValueProperties[propertyName].Column);
     public void SetValue<V>(string propertyName, V value) => mutableRowData.SetValue(metadata.ValueProperties[propertyName].Column, value);
 
     public IKey PrimaryKeys() => KeyFactory.CreateKeyFromValues(mutableRowData.GetValues(metadata.Table.PrimaryKeyColumns));

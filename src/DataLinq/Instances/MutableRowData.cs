@@ -39,16 +39,6 @@ public class MutableRowData : IRowData
         MutatedData.Clear();
     }
 
-    public T? GetValue<T>(ColumnDefinition column)
-    {
-        var val = GetValue(column);
-
-        if (val is null)
-            return default;
-
-        return (T?)val;
-    }
-
     public object? GetValue(ColumnDefinition column)
     {
         if (MutatedData.TryGetValue(column, out var value))

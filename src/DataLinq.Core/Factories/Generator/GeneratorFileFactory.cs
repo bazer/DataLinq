@@ -193,7 +193,7 @@ public class GeneratorFileFactory
             var c = valueProperty.Column;
 
             yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
-            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= {(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}<{c.ValueProperty.CsType.Name}>(nameof({c.ValueProperty.PropertyName}));";
+            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= ({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}(nameof({c.ValueProperty.PropertyName}));";
             yield return $"";
         }
 
@@ -238,7 +238,7 @@ public class GeneratorFileFactory
             yield return $"";
             yield return $"{namespaceTab}{tab}public virtual {GetCsTypeName(c.ValueProperty)}{GetMutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName}";
             yield return $"{namespaceTab}{tab}{{";
-            yield return $"{namespaceTab}{tab}{tab}get => GetValue<{GetCsTypeName(c.ValueProperty)}>(nameof({c.ValueProperty.PropertyName}));";
+            yield return $"{namespaceTab}{tab}{tab}get => ({GetCsTypeName(c.ValueProperty)}{GetMutablePropertyNullable(c.ValueProperty)})GetValue(nameof({c.ValueProperty.PropertyName}));";
             yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.PropertyName}), value);";
             yield return $"{namespaceTab}{tab}}}";
         }

@@ -13,8 +13,6 @@ public interface IRowData
 
     object? GetValue(ColumnDefinition column);
 
-    T? GetValue<T>(ColumnDefinition column);
-
     IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns);
 
     IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues();
@@ -44,16 +42,6 @@ public class RowData : IRowData, IEquatable<RowData>
             throw new InvalidOperationException($"Data dictionary is not initialized or column '{column.DbName}' key does not exist.");
 
         return value;
-    }
-
-    public T? GetValue<T>(ColumnDefinition column)
-    {
-        if (Data == null || !Data.TryGetValue(column, out var value))
-            throw new InvalidOperationException($"Data dictionary is not initialized or column '{column.DbName}' key does not exist.");
-
-        return value == null
-            ? default
-            : (T?)value;
     }
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()
