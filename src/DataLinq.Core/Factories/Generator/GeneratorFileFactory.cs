@@ -17,7 +17,7 @@ public class GeneratorFileFactoryOptions
     public bool UseFileScopedNamespaces { get; set; } = false;
     public bool UseNullableReferenceTypes { get; set; } = false;
     public bool SeparateTablesAndViews { get; set; } = false;
-    public List<string> Usings { get; set; } = new List<string> { "System", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Mutation" };
+    public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
 public class GeneratorFileFactory
@@ -129,13 +129,11 @@ public class GeneratorFileFactory
 
         foreach (var valueProperty in valueProps)
         {
-            var c = valueProperty.Column;
-            var prefix = "";
+            var prefix = valueProperty.EnumProperty != null && valueProperty.EnumProperty.Value.DeclaredInClass
+                ? $"{model.CsType.Name}."
+                : "";
 
-            if (valueProperty.EnumProperty != null && valueProperty.EnumProperty.Value.DeclaredInClass)
-                prefix = $"{model.CsType.Name}.";
-
-            yield return $"{namespaceTab}{tab}{prefix}{c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
+            yield return $"{namespaceTab}{tab}{prefix}{valueProperty.CsType.Name}{GetInterfacePropertyNullable(valueProperty)} {valueProperty.PropertyName} {{ get; }}";
         }
 
         if (model.Table.Type == TableType.Table)
@@ -167,9 +165,23 @@ public class GeneratorFileFactory
 
         if (model.Table.Type == TableType.Table)
         {
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate() => new();";
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate(Action<Mutable{model.CsType.Name}> changes) => new Mutable{model.CsType.Name}().Mutate(changes);";
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.CsType.Name} model) => new(model);";
+            var requiredProps = GetRequiredValueProperties(model);
+
+            if (requiredProps.Any())
+            {
+                var constructorParams = requiredProps.Select(GetConstructorParam).ToJoinedString(", ");
+                var constructorArgs = requiredProps.Select(v => ToCamelCase(v.Column.ValueProperty.PropertyName)).ToJoinedString(", ");
+
+                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({constructorParams}) => new({constructorArgs});";
+                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({constructorParams}, Action<Mutable{model.CsType.Name}> changes) => new Mutable{model.CsType.Name}({constructorArgs}).Mutate(changes);";
+            }
+            else
+            {
+                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate() => new();";
+                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate(Action<Mutable{model.CsType.Name}> changes) => new Mutable{model.CsType.Name}().Mutate(changes);";
+            }
+
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.CsType.Name} model) => new Mutable{model.CsType.Name}(model);";
             yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) => new Mutable{model.CsType.Name}(model).Mutate(changes);";
 
             foreach (var modelInterface in modelInterfaces)
@@ -192,7 +204,7 @@ public class GeneratorFileFactory
         {
             var c = valueProperty.Column;
 
-            yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
+            yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetImmutableFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
             yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= ({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}(nameof({c.ValueProperty.PropertyName}));";
             yield return $"";
         }
@@ -222,25 +234,47 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> MutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
     {
-        List<string> interfaces = [$"IMutableInstance<{model.Database.CsType.Name}>"];
-        interfaces.AddRange(model.ModelInstanceInterfaces.Select(x => x.Name));
-
-        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{model.CsType.Name}: Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}"; //IMutableInstance<{model.Database.CsType.Name}>, I{model.Database.CsType.Name}";
+        List<string> interfaces = [$"IMutableInstance<{model.Database.CsType.Name}>", .. model.ModelInstanceInterfaces.Select(x => x.Name)];
+        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{model.CsType.Name} : Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}";
         yield return namespaceTab + "{";
 
-        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}(): base() {{}}";
-        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}({model.CsType.Name} immutable{model.CsType.Name}): base(immutable{model.CsType.Name}) {{}}";
+        // Parameterless constructor for users who prefer setting properties via setters.
+        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}() : base() {{}}";
 
+        // Constructor with required properties.
+        var requiredProps = GetRequiredValueProperties(model);
+        if (requiredProps.Any())
+        {
+            var paramList = requiredProps.Select(GetConstructorParam).ToJoinedString(", ");
+
+            // Decorate this constructor with the SetsRequiredMembers attribute.
+            yield return $"";
+            yield return $"{namespaceTab}{tab}[SetsRequiredMembers]";
+            yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}({paramList}) : this()";
+            yield return $"{namespaceTab}{tab}" + "{";
+
+            // For each required property, assign the passed parameter to the property.
+            foreach (var v in requiredProps)
+                yield return $"{namespaceTab}{tab}{tab}this.{v.Column.ValueProperty.PropertyName} = {ToCamelCase(v.Column.ValueProperty.PropertyName)};";
+
+            yield return $"{namespaceTab}{tab}" + "}";
+        }
+
+        // Constructor that accepts an immutable instance.
+        yield return $"";
+        yield return $"{namespaceTab}{tab}[SetsRequiredMembers]";
+        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}({model.CsType.Name} immutable{model.CsType.Name}) : base(immutable{model.CsType.Name}) {{}}";
+
+        // Generate the properties as before.
         foreach (var valueProperty in valueProps)
         {
             var c = valueProperty.Column;
-
-            yield return $"";
-            yield return $"{namespaceTab}{tab}public virtual {GetCsTypeName(c.ValueProperty)}{GetMutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName}";
-            yield return $"{namespaceTab}{tab}{{";
+            yield return "";
+            yield return $"{namespaceTab}{tab}public virtual {GetMutablePropertyRequired(c.ValueProperty)}{GetCsTypeName(c.ValueProperty)}{GetMutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName}";
+            yield return $"{namespaceTab}{tab}" + "{";
             yield return $"{namespaceTab}{tab}{tab}get => ({GetCsTypeName(c.ValueProperty)}{GetMutablePropertyNullable(c.ValueProperty)})GetValue(nameof({c.ValueProperty.PropertyName}));";
             yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.PropertyName}), value);";
-            yield return $"{namespaceTab}{tab}}}";
+            yield return $"{namespaceTab}{tab}" + "}";
         }
 
         yield return namespaceTab + "}";
@@ -269,12 +303,24 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}{tab}changes(model);";
         yield return $"{namespaceTab}{tab}{tab}return model;";
         yield return $"{namespaceTab}{tab}}}";
-        yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model) => model is null";
-        yield return $"{namespaceTab}{tab}{tab}? new()";
-        yield return $"{namespaceTab}{tab}{tab}: new(model);";
-        yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) => model is null";
-        yield return $"{namespaceTab}{tab}{tab}? new Mutable{model.CsType.Name}().Mutate(changes)";
-        yield return $"{namespaceTab}{tab}{tab}: new Mutable{model.CsType.Name}(model).Mutate(changes);";
+
+        // First, compute the required constructor parameters and argument list.
+        var requiredProps = GetRequiredValueProperties(model);
+
+        // MutateOrNew
+        if (requiredProps.Any())
+        {
+            var constructorParams = requiredProps.Select(GetConstructorParam).ToJoinedString(", ");
+            var constructorArgs = requiredProps.Select(v => ToCamelCase(v.Column.ValueProperty.PropertyName)).ToJoinedString(", ");
+
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, {constructorParams}) => model is null ? new Mutable{model.CsType.Name}({constructorArgs}) : new Mutable{model.CsType.Name}(model);";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, {constructorParams}, Action<Mutable{model.CsType.Name}> changes) => model is null ? new Mutable{model.CsType.Name}({constructorArgs}).Mutate(changes) : new Mutable{model.CsType.Name}(model).Mutate(changes);";
+        }
+        else
+        {
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model) => model is null ? new() : new(model);";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) => model is null ? new Mutable{model.CsType.Name}().Mutate(changes) : new Mutable{model.CsType.Name}(model).Mutate(changes);";
+        }
 
         //Insert
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel =>";
@@ -337,6 +383,34 @@ public class GeneratorFileFactory
         yield return namespaceTab + "}";
     }
 
+    private string GetConstructorParam(ValueProperty property)
+    {
+        var typeName = GetCsTypeName(property);
+        var nullable = GetMutablePropertyNullable(property);
+        var paramName = ToCamelCase(property.PropertyName);
+
+        return $"{typeName}{nullable} {paramName}";
+    }
+
+    private List<ValueProperty> GetRequiredValueProperties(ModelDefinition model)
+    {
+        // Gather the required value properties for the mutable constructor.
+        return model.ValueProperties.Values
+            .OrderBy(x => x.Type)
+            .ThenByDescending(x => x.Attributes.Any(a => a is PrimaryKeyAttribute))
+            .ThenByDescending(x => x.Attributes.Any(a => a is ForeignKeyAttribute))
+            .ThenBy(x => x.PropertyName)
+            .Where(v => IsMutablePropertyRequired(v.Column.ValueProperty))
+            .ToList();
+    }
+
+    private string ToCamelCase(string s)
+    {
+        if (string.IsNullOrEmpty(s))
+            return s;
+        return char.ToLowerInvariant(s[0]) + s.Substring(1);
+    }
+
     private string GetCsTypeName(ValueProperty property)
     {
         string name = string.Empty;
@@ -351,17 +425,22 @@ public class GeneratorFileFactory
 
     private string GetImmutablePropertyNullable(ValueProperty property)
     {
-        return IsPropertyNullable(property) ? "?" : "";
+        return IsImmutablePropertyNullable(property) ? "?" : "";
     }
 
     private string GetMutablePropertyNullable(ValueProperty property)
     {
-        return Options.UseNullableReferenceTypes || IsPropertyNullable(property) ? "?" : "";
+        return IsInterfacePropertyNullable(property) ? "?" : "";
     }
 
-    private string GetFieldNullable(ValueProperty property)
+    private string GetMutablePropertyRequired(ValueProperty property)
     {
-        return IsFieldNullable(property) ? "?" : "";
+        return IsMutablePropertyRequired(property) ? "required " : "";
+    }
+
+    private string GetImmutableFieldNullable(ValueProperty property)
+    {
+        return IsImmutableFieldNullable(property) ? "?" : "";
     }
 
     private string GetUseNullableReferenceTypes()
@@ -369,22 +448,37 @@ public class GeneratorFileFactory
         return Options.UseNullableReferenceTypes ? "?" : "";
     }
 
-    private string GetPropertyNullable(ColumnDefinition column)
+    private string GetInterfacePropertyNullable(ValueProperty property)
     {
-        return (Options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement || column.DefaultValues.Length != 0) ? "?" : "";
+        return IsInterfacePropertyNullable(property) ? "?" : "";
     }
 
-    private bool IsPropertyNullable(ValueProperty property)
+    private bool IsInterfacePropertyNullable(ValueProperty property)
+    {
+        return (Options.UseNullableReferenceTypes || property.CsNullable) &&
+            (property.Column.Nullable || property.Column.AutoIncrement || property.Column.DefaultValues.Length != 0);
+    }
+
+    private bool IsMutablePropertyRequired(ValueProperty property)
+    {
+        return !property.CsNullable &&
+               !property.Column.Nullable &&
+               !property.Column.AutoIncrement &&
+               !property.Column.ForeignKey &&
+               property.Column.DefaultValues.Length == 0;
+    }
+
+    private bool IsImmutablePropertyNullable(ValueProperty property)
     {
         return property.CsNullable || property.Column.AutoIncrement;
     }
 
     private bool IsImmutableGetterNullable(ValueProperty property)
     {
-        return Options.UseNullableReferenceTypes ? IsPropertyNullable(property) : true;
+        return !Options.UseNullableReferenceTypes || IsImmutablePropertyNullable(property);
     }
 
-    private bool IsFieldNullable(ValueProperty property)
+    private bool IsImmutableFieldNullable(ValueProperty property)
     {
         return Options.UseNullableReferenceTypes
             || property.CsNullable
