@@ -1,21 +1,26 @@
 ﻿using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SGF;
+using ThrowAway;
+
+[assembly: InternalsVisibleTo("DataLinq.Generators.Tests")]
 
 namespace DataLinq.SourceGenerators;
 
-[Generator]
-public class ModelGenerator : IIncrementalGenerator
+[IncrementalGenerator]
+public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
 {
     private readonly MetadataFromModelsFactory metadataFactory = new(new MetadataFromInterfacesFactoryOptions());
     private readonly GeneratorFileFactory fileFactory = new(new GeneratorFileFactoryOptions());
 
-    public void Initialize(IncrementalGeneratorInitializationContext context)
+    public override void OnInitialize(SgfInitializationContext context)
     {
         // Create a provider for model declarations
         IncrementalValuesProvider<TypeDeclarationSyntax> modelDeclarations = context.SyntaxProvider
@@ -29,8 +34,29 @@ public class ModelGenerator : IIncrementalGenerator
             .Combine(modelDeclarations.Collect());
 
         // Cache the metadata
-        IncrementalValuesProvider<DatabaseDefinition> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
-            metadataFactory.ReadSyntaxTrees(source.Item2));
+        //IncrementalValuesProvider<DatabaseDefinition> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
+        //    metadataFactory.ReadSyntaxTrees(source.Item2));
+
+        IncrementalValuesProvider<Option<DatabaseDefinition>> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
+        {
+            try
+            {
+                return metadataFactory.ReadSyntaxTrees(source.Item2);
+            }
+            catch (Exception e)
+            {
+                return [Option.Fail<DatabaseDefinition>(e.Message)];
+                //context.ReportDiagnostic(Diagnostic.Create(
+                //new DiagnosticDescriptor("DLG001", "Error", e.Message, "Error", DiagnosticSeverity.Error, true),
+                //Location.None));
+
+                // If you have access to a SourceProductionContext here, report a diagnostic.
+                // If not, consider moving this try–catch into the ReadSyntaxTrees method itself.
+                // For now, we'll return an empty array so that the pipeline doesn't break.
+                //return ImmutableArray<Option<DatabaseDefinition>>.Empty;
+            }
+        });
+
 
         // Check if nullable reference types are enabled and set the option
         context.RegisterSourceOutput(context.CompilationProvider, (spc, compilation) =>
@@ -51,19 +77,26 @@ public class ModelGenerator : IIncrementalGenerator
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;
 
-    private void ExecuteForDatabase(DatabaseDefinition db, SourceProductionContext context)
+    private void ExecuteForDatabase(Option<DatabaseDefinition> db, SgfSourceProductionContext context)
     {
         try
         {
+            if (db.HasFailed)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+         new DiagnosticDescriptor("DLG001", "Error", db.Failure, "Error", DiagnosticSeverity.Error, true), Location.None));
+                return;
+            }
+
             foreach (var (path, contents) in fileFactory.CreateModelFiles(db))
             {
-                context.AddSource($"{db.Name}/{path}", contents);
+                context.AddSource($"{db.Value.Name}/{path}", contents);
             }
         }
         catch (Exception e)
         {
             context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor("DLG001", "Error", e.Message, "Error", DiagnosticSeverity.Error, true),
+                new DiagnosticDescriptor("DLG002", "Error", e.Message, "Error", DiagnosticSeverity.Error, true),
                 Location.None));
         }
     }

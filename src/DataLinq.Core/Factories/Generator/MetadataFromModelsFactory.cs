@@ -9,6 +9,7 @@ using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using ThrowAway;
 
 namespace DataLinq.Core.Factories.Models;
 
@@ -62,7 +63,7 @@ public class MetadataFromModelsFactory
     //    return ReadSyntaxTrees(modelSyntaxes);
     //}
 
-    public IEnumerable<DatabaseDefinition> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    public List<Option<DatabaseDefinition>> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     {
         var syntaxParser = new SyntaxParser(modelSyntaxes);
 
@@ -72,39 +73,47 @@ public class MetadataFromModelsFactory
                 .Any(baseType => baseType.ToString() == "IDatabaseModel"))
             .ToList();
 
+        return ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses).ToList();
+    }
+
+    private static IEnumerable<Option<DatabaseDefinition>> ParseDatabaseModels(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, List<TypeDeclarationSyntax> dbModelClasses)
+    {
         foreach (var dbType in dbModelClasses)
-        {
-            if (dbType == null)
-                throw new ArgumentException("Database model class not found");
+            yield return ParseDbModel(modelSyntaxes, syntaxParser, dbType);
+    }
 
-            if (dbType.Identifier.Text == null)
-                throw new ArgumentException("Database model class must have a name");
+    private static Option<DatabaseDefinition> ParseDbModel(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, TypeDeclarationSyntax dbType)
+    {
+        if (dbType == null)
+            throw new ArgumentException("Database model class not found");
 
-            var name = MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
-            var database = new DatabaseDefinition(name, new CsTypeDeclaration(dbType));
+        if (dbType.Identifier.Text == null)
+            throw new ArgumentException("Database model class must have a name");
 
-            var modelClasses = modelSyntaxes
-                .Where(cls => cls.BaseList != null && cls.BaseList.Types
-                    .Any(baseType => (baseType.ToString().StartsWith("ITableModel") || baseType.ToString().StartsWith("IViewModel"))))
-                .Where(cls => cls.BaseList != null && cls.BaseList.Types
-                    .Any(baseType => baseType.ToString().Contains($"<{dbType.Identifier.Text}>")))
-                .ToList();
+        var name = MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
+        var database = new DatabaseDefinition(name, new CsTypeDeclaration(dbType));
 
-            database.SetTableModels(dbType.Members.OfType<PropertyDeclarationSyntax>()
-                .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
-                .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
-                .Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)));
+        var modelClasses = modelSyntaxes
+            .Where(cls => cls.BaseList != null && cls.BaseList.Types
+                .Any(baseType => (baseType.ToString().StartsWith("ITableModel") || baseType.ToString().StartsWith("IViewModel"))))
+            .Where(cls => cls.BaseList != null && cls.BaseList.Types
+                .Any(baseType => baseType.ToString().Contains($"<{dbType.Identifier.Text}>")))
+            .ToList();
 
-            database.SetAttributes(dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x)));
-            database.ParseAttributes();
+        database.SetTableModels(dbType.Members.OfType<PropertyDeclarationSyntax>()
+            .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
+            .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
+            .Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)));
 
-            MetadataFactory.ParseIndices(database);
-            MetadataFactory.ParseRelations(database);
+        database.SetAttributes(dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x)));
+        database.ParseAttributes();
 
-            if (database.TableModels.Any(x => x.CsPropertyName == database.CsType.Name))
-                database.SetCsType(database.CsType.MutateName($"{database.CsType.Name}Db"));
+        MetadataFactory.ParseIndices(database);
+        MetadataFactory.ParseRelations(database);
 
-            yield return database;
-        }
+        if (database.TableModels.Any(x => x.CsPropertyName == database.CsType.Name))
+            database.SetCsType(database.CsType.MutateName($"{database.CsType.Name}Db"));
+
+        return database;
     }
 }

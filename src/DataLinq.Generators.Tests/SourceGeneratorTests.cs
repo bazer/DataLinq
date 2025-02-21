@@ -53,7 +53,9 @@ public class SourceGeneratorTests
 
         // Create the generator driver
         var generator = new ModelGenerator();
-        var driver = CSharpGeneratorDriver.Create(generator);
+        ModelGeneratorHoist host = new(generator);
+
+        var driver = CSharpGeneratorDriver.Create(host);
 
         // Run the generator
         driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);

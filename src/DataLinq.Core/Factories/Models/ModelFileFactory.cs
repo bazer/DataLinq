@@ -225,7 +225,17 @@ public class ModelFileFactory
             }
 
             foreach (var defaultVal in c.DefaultValues)
-                yield return $"{namespaceTab}{tab}[Default(DatabaseType.{defaultVal.DatabaseType}, \"{defaultVal.Value}\")]";
+            {
+                if (defaultVal.Value is DynamicFunctions df)
+                {
+                    if (df == DynamicFunctions.CurrentTimestamp)
+                        yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
+                    else
+                        throw new NotImplementedException($"Unknown DynamicFunctions value: {df}");
+                }
+                else
+                    yield return $"{namespaceTab}{tab}[Default({FormatDefaultValue(defaultVal.Value)})]";
+            }
 
             if (valueProperty.EnumProperty != null)
                 yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
@@ -253,6 +263,26 @@ public class ModelFileFactory
         }
 
         yield return namespaceTab + "}";
+    }
+
+    private string FormatDefaultValue(object value)
+    {
+        if (value is string str)
+            return $"\"{str}\"";
+
+        if (value is bool b)
+            return b ? "true" : "false";
+
+        if (value is DateTime dt)
+            return $"DateTime.Parse(\"{dt:yyyy-MM-dd HH:mm:ss}\")";
+
+        if (value is DateTimeOffset dto)
+            return $"DateTimeOffset.Parse(\"{dto:yyyy-MM-dd HH:mm:ss}\")";
+
+        if (value is TimeSpan ts)
+            return $"TimeSpan.Parse(\"{ts:hh\\:mm\\:ss}\")";
+
+        return value.ToString();
     }
 
     private string GetPropertyNullable(ColumnDefinition column)

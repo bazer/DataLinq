@@ -62,7 +62,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
             var defaultValue = GetDefaultValue(column);
             if (defaultValue != null)
-                row.DefaultValue(defaultValue.Value);
+                row.DefaultValue(defaultValue.Value.ToString());
 
             if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
                 sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
@@ -109,8 +109,8 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
     public static DefaultValue? GetDefaultValue(ColumnDefinition column)
     {
-        if (column.DefaultValues.Any(x => x.DatabaseType == DatabaseType.MySQL))
-            return column.DefaultValues.First(x => x.DatabaseType == DatabaseType.MySQL);
+        //if (column.DefaultValues.Any(x => x.DatabaseType == DatabaseType.MySQL))
+        //    return column.DefaultValues.First(x => x.DatabaseType == DatabaseType.MySQL);
 
         return column.DefaultValues.FirstOrDefault();
     }

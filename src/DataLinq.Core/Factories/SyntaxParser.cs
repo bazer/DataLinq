@@ -229,14 +229,26 @@ public class SyntaxParser
 
         if (name == "Default")
         {
-            if (arguments.Count != 2)
+            if (arguments.Count != 1)
                 throw new ArgumentException($"Attribute '{name}' have too few arguments");
 
-            string enumValue = arguments[0].Split('.').Last();
-            if (!Enum.TryParse(enumValue, out DatabaseType dbType))
-                throw new ArgumentException($"Invalid DatabaseType value '{arguments[0]}'");
+            //string enumValue = arguments[0].Split('.').Last();
+            //if (!Enum.TryParse(enumValue, out DatabaseType dbType))
+            //    throw new ArgumentException($"Invalid DatabaseType value '{arguments[0]}'");
 
-            return new DefaultAttribute(dbType, arguments[1]);
+            return new DefaultAttribute(arguments[0]);
+        }
+
+        if (name == "DefaultCurrentTimestamp")
+        {
+            if (arguments.Count != 0)
+                throw new ArgumentException($"Attribute '{name}' have too many arguments");
+
+            //string enumValue = arguments[0].Split('.').Last();
+            //if (!Enum.TryParse(enumValue, out DatabaseType dbType))
+            //    throw new ArgumentException($"Invalid DatabaseType value '{arguments[0]}'");
+
+            return new DefaultCurrentTimestampAttribute();
         }
 
         if (name == "Index")

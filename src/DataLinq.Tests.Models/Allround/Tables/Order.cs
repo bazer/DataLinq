@@ -49,13 +49,14 @@ public abstract partial class Order(RowData rowData, DataSourceAccess dataSource
     public abstract OrderStatusValue? OrderStatus { get; }
 
     [Type(DatabaseType.MySQL, "timestamp")]
-    [Default(DatabaseType.MySQL, "current_timestamp() on update current_timestamp()")]
+    [DefaultCurrentTimestamp()]
     [Column("OrderTimestamp")]
     public abstract DateTime OrderTimestamp { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "int", 11)]
     [Column("ShippingCompanyId")]
+    [Default(0)]
     public abstract int? ShippingCompanyId { get; }
 
     [Relation("orderdetails", "OrderId", "orderdetails_ibfk_1")]

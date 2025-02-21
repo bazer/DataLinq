@@ -268,7 +268,7 @@ public static class MetadataFactory
                 column.SetNullable();
 
             if (attribute is DefaultAttribute defaultAttribute)
-                column.AddDefaultValue(defaultAttribute.DatabaseType, defaultAttribute.Value);
+                column.AddDefaultValue(defaultAttribute.Value);
 
             if (attribute is AutoIncrementAttribute)
                 column.SetAutoIncrement();

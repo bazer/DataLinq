@@ -1,20 +1,17 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
 
-public class DefaultValue(DatabaseType databaseType, string value)
+public class DefaultValue(object value)
 {
-    public DatabaseType DatabaseType { get; } = databaseType;
-    public string Value { get; } = value;
+    public object Value { get; } = value;
 
     public override string ToString()
     {
-        return $"\"{Value}\" [{DatabaseType}]";
+        return Value.ToString();
     }
 }
 
@@ -71,7 +68,7 @@ public class ColumnDefinition(string dbName, TableDefinition table)
             Table.RemovePrimaryKeyColumn(this);
     }
 
-    public void AddDefaultValue(DatabaseType dbType, string value) => AddDefaultValue(new(dbType, value));
+    public void AddDefaultValue(object value) => AddDefaultValue(new(value));
     public void AddDefaultValue(DefaultValue defaultValue) => DefaultValues = DefaultValues.AsEnumerable().Append(defaultValue).ToArray();
 
     public void AddDbType(DatabaseColumnType columnType)

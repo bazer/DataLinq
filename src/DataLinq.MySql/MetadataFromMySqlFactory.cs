@@ -206,9 +206,9 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         if (dbColumns.COLUMN_DEFAULT != null && !string.Equals(dbColumns.COLUMN_DEFAULT, "NULL", StringComparison.CurrentCultureIgnoreCase))
         {
             if (!string.IsNullOrWhiteSpace(dbColumns.EXTRA))
-                column.AddDefaultValue(DatabaseType.MySQL, $"{dbColumns.COLUMN_DEFAULT} {dbColumns.EXTRA}");
+                column.AddDefaultValue($"{dbColumns.COLUMN_DEFAULT} {dbColumns.EXTRA}");
             else
-                column.AddDefaultValue(DatabaseType.MySQL, dbColumns.COLUMN_DEFAULT);
+                column.AddDefaultValue(dbColumns.COLUMN_DEFAULT);
         }
 
         column.SetNullable(dbColumns.IS_NULLABLE == "YES");
