@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Exceptions;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.Query;
@@ -14,7 +14,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
     private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob" };
 
-    public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
+    public Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
     {
         using var connection = new MySqlConnection(connectionString);
         connection.Open();
@@ -27,7 +27,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return command.ExecuteNonQuery();
     }
 
-    public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
+    public Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
         var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
         //sql.CreateDatabase(metadata.DbName);

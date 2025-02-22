@@ -28,6 +28,12 @@ public class ModelDefinition(CsTypeDeclaration csType)
     public Attribute[] Attributes { get; private set; } = [];
     public void SetAttributes(IEnumerable<Attribute> attributes) => Attributes = attributes.ToArray();
 
+    public void AddProperties(IEnumerable<PropertyDefinition> properties)
+    {
+        foreach (var property in properties)
+            AddProperty(property);
+    }
+
     public void AddProperty(PropertyDefinition property)
     { 
         if (property is RelationProperty relationProperty)

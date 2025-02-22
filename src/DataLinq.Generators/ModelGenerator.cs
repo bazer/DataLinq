@@ -1,14 +1,18 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using DataLinq.Core.ErrorHandling;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
+using DataLinq.Exceptions;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SGF;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 [assembly: InternalsVisibleTo("DataLinq.Generators.Tests")]
 
@@ -37,23 +41,21 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
         //IncrementalValuesProvider<DatabaseDefinition> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
         //    metadataFactory.ReadSyntaxTrees(source.Item2));
 
-        IncrementalValuesProvider<Option<DatabaseDefinition>> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
+        IncrementalValuesProvider<Option<DatabaseDefinition, IDLOptionFailure>> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
         {
             try
             {
                 return metadataFactory.ReadSyntaxTrees(source.Item2);
+
+                //if (Option.CatchAll<List<Option<DatabaseDefinition, IDataLinqOptionFailure>>>(() => metadataFactory.ReadSyntaxTrees(source.Item2))
+                //    .TryUnwrap(out var value, out var failure))
+                //    return value;
+                //else
+                //    return [failure];
             }
             catch (Exception e)
             {
-                return [Option.Fail<DatabaseDefinition>(e.Message)];
-                //context.ReportDiagnostic(Diagnostic.Create(
-                //new DiagnosticDescriptor("DLG001", "Error", e.Message, "Error", DiagnosticSeverity.Error, true),
-                //Location.None));
-
-                // If you have access to a SourceProductionContext here, report a diagnostic.
-                // If not, consider moving this try–catch into the ReadSyntaxTrees method itself.
-                // For now, we'll return an empty array so that the pipeline doesn't break.
-                //return ImmutableArray<Option<DatabaseDefinition>>.Empty;
+                return [DLOptionFailure.Fail(e)];
             }
         });
 
@@ -77,14 +79,14 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;
 
-    private void ExecuteForDatabase(Option<DatabaseDefinition> db, SgfSourceProductionContext context)
+    private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, SgfSourceProductionContext context)
     {
         try
         {
             if (db.HasFailed)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
-         new DiagnosticDescriptor("DLG001", "Error", db.Failure, "Error", DiagnosticSeverity.Error, true), Location.None));
+         new DiagnosticDescriptor("DLG001", "Error", db.Failure.ToString(), "Error", DiagnosticSeverity.Error, true), Location.None));
                 return;
             }
 

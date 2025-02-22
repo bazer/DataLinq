@@ -1,15 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.IO;
 using System.Linq;
 using System.Text;
-using DataLinq.Extensions.Helpers;
+using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Core.Factories.Models;
 
@@ -38,32 +37,7 @@ public class MetadataFromModelsFactory
         Log = log;
     }
 
-    //public IEnumerable<DatabaseDefinition> ReadFiles(string csType, IEnumerable<string> srcPaths)
-    //{
-    //    var trees = new List<SyntaxTree>();
-
-    //    foreach (var path in srcPaths)
-    //    {
-    //        var sourceFiles = Directory.Exists(path)
-    //            ? new DirectoryInfo(path)
-    //                .EnumerateFiles("*.cs", SearchOption.AllDirectories)
-    //                .Select(a => a.FullName)
-    //            : new FileInfo(path).FullName.Yield();
-
-    //        foreach (string file in sourceFiles)
-    //            trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file, options.FileEncoding)));
-    //    }
-
-    //    var modelSyntaxes = trees
-    //        .Where(x => x.HasCompilationUnitRoot)
-    //        .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
-    //                .Where(cls => cls.BaseList?.Types.Any(baseType => SyntaxParser.IsModelInterface(baseType.ToString())) == true))
-    //        .ToImmutableArray();
-
-    //    return ReadSyntaxTrees(modelSyntaxes);
-    //}
-
-    public List<Option<DatabaseDefinition>> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    public List<Option<DatabaseDefinition, IDLOptionFailure>> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     {
         var syntaxParser = new SyntaxParser(modelSyntaxes);
 
@@ -76,19 +50,19 @@ public class MetadataFromModelsFactory
         return ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses).ToList();
     }
 
-    private static IEnumerable<Option<DatabaseDefinition>> ParseDatabaseModels(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, List<TypeDeclarationSyntax> dbModelClasses)
+    private static IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseModels(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, List<TypeDeclarationSyntax> dbModelClasses)
     {
         foreach (var dbType in dbModelClasses)
-            yield return ParseDbModel(modelSyntaxes, syntaxParser, dbType);
+            yield return ParseDatabaseModel(modelSyntaxes, syntaxParser, dbType);
     }
 
-    private static Option<DatabaseDefinition> ParseDbModel(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, TypeDeclarationSyntax dbType)
+    private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseModel(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, TypeDeclarationSyntax dbType)
     {
         if (dbType == null)
-            throw new ArgumentException("Database model class not found");
+            return DLOptionFailure.Fail("Database model class not found");
 
         if (dbType.Identifier.Text == null)
-            throw new ArgumentException("Database model class must have a name");
+            return DLOptionFailure.Fail("Database model class must have a name");
 
         var name = MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(dbType));
@@ -100,12 +74,23 @@ public class MetadataFromModelsFactory
                 .Any(baseType => baseType.ToString().Contains($"<{dbType.Identifier.Text}>")))
             .ToList();
 
-        database.SetTableModels(dbType.Members.OfType<PropertyDeclarationSyntax>()
+        if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
             .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
-            .Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)));
+            .Transpose()
+            .Map(x => x.Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)))
+            .FlatMap(x => x.Transpose())
+            .TryUnwrap(out var models, out var modelFailures))
+            return modelFailures;
 
-        database.SetAttributes(dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x)));
+        database.SetTableModels(models);
+
+        if (!dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x))
+            .Transpose()
+            .TryUnwrap(out var attributes, out var attrFailures))
+            return attrFailures;
+
+        database.SetAttributes(attributes);
         database.ParseAttributes();
 
         MetadataFactory.ParseIndices(database);

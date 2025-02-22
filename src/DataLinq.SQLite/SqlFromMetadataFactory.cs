@@ -3,6 +3,7 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Core.ErrorHandling;
 using DataLinq.Exceptions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
@@ -14,7 +15,7 @@ namespace DataLinq.SQLite;
 
 public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
-    public Option<Sql, IDataLinqOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
+    public Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
         var sql = new SQLiteGeneration(2, '"', "/* Generated %datetime% by DataLinq */\n\n");
         foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.Table).ToList()))
@@ -56,7 +57,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.View).Cast<ViewDefinition>().ToList()))
         {
             if (string.IsNullOrWhiteSpace(view.Definition))
-                return DataLinqOptionFailure.Fail($"View '{view.DbName}' does not have a Definition, can't create view. Add the 'DefinitionAttribute' to the view.");
+                return DLOptionFailure.Fail($"View '{view.DbName}' does not have a Definition, can't create view. Add the 'DefinitionAttribute' to the view.");
 
             sql.CreateView(view.DbName, view.Definition);
         }
@@ -64,7 +65,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return sql.sql;
     }
 
-    public Option<int, IDataLinqOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
+    public Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
     {
         var builder = new SqliteConnectionStringBuilder(connectionString);
         var file = builder.DataSource;
@@ -72,7 +73,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         if (file != "memory")
         {
             if (File.Exists(file))
-                return DataLinqOptionFailure.Fail($"Failed to create new SQLite database file '{file}', it already exists.");
+                return DLOptionFailure.Fail($"Failed to create new SQLite database file '{file}', it already exists.");
 
             File.WriteAllBytes(file, []);
         }
