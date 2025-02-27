@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -64,7 +65,13 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
         });
 
         // Generate source files based on the cached metadata
-        context.RegisterSourceOutput(cachedMetadata, (spc, metadata) => ExecuteForDatabase(metadata, spc));
+        context.RegisterSourceOutput(cachedMetadata, (spc, metadata) =>
+        {
+            if (spc.CancellationToken.IsCancellationRequested)
+                return;
+
+            ExecuteForDatabase(metadata, spc);
+        });
     }
 
     private static bool IsModelDeclaration(SyntaxNode node)
@@ -73,21 +80,32 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
                classDeclaration.BaseList?.Types.Any(t => SyntaxParser.IsModelInterface(t.ToString())) == true;
     }
 
+
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;
 
     private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, SgfSourceProductionContext context)
     {
+        if (db.HasFailed)
+        {
+            // Create more detailed diagnostics with error location if available
+            var failure = db.Failure;
+            var location = Location.None;
+            context.ReportDiagnostic(Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    "DLG001",
+                    "Database Metadata Generation Failed",
+                    $"{failure.Value}",
+                    "DataLinq.Generators",
+                    DiagnosticSeverity.Error,
+                    true),
+                location));
+            return;
+        }
+
         try
         {
-            if (db.HasFailed)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-         new DiagnosticDescriptor("DLG001", "Error", db.Failure.ToString(), "Error", DiagnosticSeverity.Error, true), Location.None));
-                return;
-            }
-
-            foreach (var (path, contents) in fileFactory.CreateModelFiles(db))
+            foreach (var (path, contents) in fileFactory.CreateModelFiles(db.Value))
             {
                 context.AddSource($"{db.Value.Name}/{path}", contents);
             }
@@ -95,7 +113,13 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
         catch (Exception e)
         {
             context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor("DLG002", "Error", e.Message, "Error", DiagnosticSeverity.Error, true),
+                new DiagnosticDescriptor(
+                    "DLG002",
+                    "Model File Generation Failed",
+                    $"{e.Message}\n{e.StackTrace}",
+                    "DataLinq.Generators",
+                    DiagnosticSeverity.Error,
+                    true),
                 Location.None));
         }
     }
@@ -110,4 +134,20 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
             _ => false,
         };
     }
+
+    private void LogInfo(SgfSourceProductionContext context, string message)
+    {
+#if DEBUG
+        context.ReportDiagnostic(Diagnostic.Create(
+            new DiagnosticDescriptor(
+                "DLG999",
+                "Info",
+                message,
+                "DataLinq.Generators",
+                DiagnosticSeverity.Info,
+                true),
+            Location.None));
+#endif
+    }
+
 }
