@@ -1,18 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using DataLinq.Core.ErrorHandling;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
-using DataLinq.Exceptions;
+using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SGF;
 using ThrowAway;
-using ThrowAway.Extensions;
 
 [assembly: InternalsVisibleTo("DataLinq.Generators.Tests")]
 

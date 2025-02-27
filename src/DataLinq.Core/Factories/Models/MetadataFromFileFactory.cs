@@ -4,11 +4,14 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Core.Factories.Models;
 
@@ -62,7 +65,7 @@ public class MetadataFromFileFactory
         return ReadSyntaxTrees(modelSyntaxes);
     }
 
-    public DatabaseDefinition ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    public Option<DatabaseDefinition, IDLOptionFailure> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     {
         var syntaxParser = new SyntaxParser(modelSyntaxes);
 
@@ -90,10 +93,11 @@ public class MetadataFromFileFactory
                 .Any(baseType => baseType.ToString().StartsWith("ICustomTableModel") || baseType.ToString().StartsWith("ICustomViewModel")) == true)
             .ToList();
 
-        var customModels = customModelClasses
+        if(!customModelClasses
             .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text))
-            .ToList();
-
+            .Transpose()
+            .TryUnwrap(out var customModels, out var customModelFailures))
+            return DLOptionFailure.AggregateFail(customModelFailures);
 
         var modelClasses = modelSyntaxes
             .Where(cls => cls.BaseList?.Types
@@ -102,18 +106,38 @@ public class MetadataFromFileFactory
 
         if (dbType != null)
         {
-            database.SetTableModels(dbType.Members.OfType<PropertyDeclarationSyntax>()
+            if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
                 .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
                 .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
-                .Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)));
+                .Transpose()
+                .FlatMap(x => 
+                    x.Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName))
+                    .Transpose())
+                .TryUnwrap(out var models, out var modelFailures))
+                return DLOptionFailure.AggregateFail(modelFailures);
 
-            database.SetAttributes(dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x)));
+            database.SetTableModels(models);
+
+
+            if (!dbType.AttributeLists
+                .SelectMany(attrList => attrList.Attributes)
+                .Select(x => syntaxParser.ParseAttribute(x))
+                .Transpose()
+                .TryUnwrap(out var attributes, out var attrFailures))
+                return DLOptionFailure.AggregateFail(attrFailures);
+
+            database.SetAttributes(attributes);
             database.ParseAttributes();
         }
         else
         {
-            database.SetTableModels(modelClasses
-                .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text)));
+            if (!modelClasses
+                .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text))
+                .Transpose()
+                .TryUnwrap(out var models, out var modelFailures))
+                return DLOptionFailure.AggregateFail(modelFailures);
+
+            database.SetTableModels(models);
         }
 
         var transformer = new MetadataTransformer(new MetadataTransformerOptions(options.RemoveInterfacePrefix));

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
+using ThrowAway;
 
 namespace DataLinq.ErrorHandling;
 
@@ -25,7 +26,11 @@ public abstract class IDLOptionFailure
     public static implicit operator IDLOptionFailure(string failure) =>
         DLOptionFailure.Fail(failure);
 
-    
+    public static implicit operator IDLOptionFailure(List<IDLOptionFailure> optionFailures) =>
+        DLOptionFailure.AggregateFail(optionFailures);
+
+    //public static implicit operator Option<T, IDLOptionFailure>(List<IDLOptionFailure> optionFailures) =>
+    //    Option.Fail<T, IDLOptionFailure>(DLOptionFailure.AggregateFail(optionFailures));
 }
 
 public static class DLOptionFailure
@@ -35,6 +40,9 @@ public static class DLOptionFailure
 
     public static DLOptionFailure<T> Fail<T>(DLFailureType type, T failure) =>
         new(type, failure);
+
+    public static DLOptionFailure<string> AggregateFail(IEnumerable<IDLOptionFailure> innerFailures) =>
+        new("Aggregate failure", innerFailures);
 
     public static DLOptionFailure<T> Fail<T>(T failure, IEnumerable<IDLOptionFailure> innerFailures) =>
         new(failure, innerFailures);
@@ -86,6 +94,7 @@ public class DLOptionFailure<T> : IDLOptionFailure
     public static implicit operator DLOptionFailure<T>(T failure) =>
         DLOptionFailure.Fail(failure);
 
-    public static implicit operator DLOptionFailure<string>(IEnumerable<IDLOptionFailure> optionFailures) =>
-        new DLOptionFailure<string>(DLFailureType.Aggregation, "Aggregated failure", optionFailures);
+
+    
+    //new DLOptionFailure<string>(DLFailureType.Aggregation, "Aggregated failure", optionFailures);
 }

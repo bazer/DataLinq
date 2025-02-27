@@ -81,14 +81,14 @@ public class MetadataFromModelsFactory
             .Map(x => x.Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)))
             .FlatMap(x => x.Transpose())
             .TryUnwrap(out var models, out var modelFailures))
-            return modelFailures;
+            return DLOptionFailure.AggregateFail(modelFailures);
 
         database.SetTableModels(models);
 
         if (!dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x))
             .Transpose()
             .TryUnwrap(out var attributes, out var attrFailures))
-            return attrFailures;
+            return DLOptionFailure.AggregateFail(attrFailures);
 
         database.SetAttributes(attributes);
         database.ParseAttributes();
