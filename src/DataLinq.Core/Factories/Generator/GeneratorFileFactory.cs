@@ -238,8 +238,16 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{model.CsType.Name} : Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}";
         yield return namespaceTab + "{";
 
+        var defaultProps = GetDefaultValueProperties(model);
+
         // Parameterless constructor for users who prefer setting properties via setters.
-        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}() : base() {{}}";
+        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}() : base()";
+        yield return $"{namespaceTab}{tab}" + "{";
+
+        foreach (var v in defaultProps)
+            yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {GetDefaultValue(v)};";
+
+        yield return $"{namespaceTab}{tab}" + "}";
 
         // Constructor with required properties.
         var requiredProps = GetRequiredValueProperties(model);
@@ -253,9 +261,12 @@ public class GeneratorFileFactory
             yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}({paramList}) : this()";
             yield return $"{namespaceTab}{tab}" + "{";
 
+            foreach (var v in defaultProps)
+                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {GetDefaultValue(v)};";
+
             // For each required property, assign the passed parameter to the property.
             foreach (var v in requiredProps)
-                yield return $"{namespaceTab}{tab}{tab}this.{v.Column.ValueProperty.PropertyName} = {ToCamelCase(v.Column.ValueProperty.PropertyName)};";
+                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {ToCamelCase(v.PropertyName)};";
 
             yield return $"{namespaceTab}{tab}" + "}";
         }
@@ -402,6 +413,39 @@ public class GeneratorFileFactory
             .ThenBy(x => x.PropertyName)
             .Where(v => IsMutablePropertyRequired(v.Column.ValueProperty))
             .ToList();
+    }
+
+    private List<ValueProperty> GetDefaultValueProperties(ModelDefinition model)
+    {
+        // Gather the required value properties for the mutable constructor.
+        return model.ValueProperties.Values
+            .OrderBy(x => x.Type)
+            .ThenByDescending(x => x.Attributes.Any(a => a is PrimaryKeyAttribute))
+            .ThenByDescending(x => x.Attributes.Any(a => a is ForeignKeyAttribute))
+            .ThenBy(x => x.PropertyName)
+            .Where(x => x.Column.ValueProperty.Attributes.Any(a => a is DefaultAttribute))
+            .ToList();
+    }
+
+    private string GetDefaultValue(ValueProperty property)
+    {
+        var defaultAttr = property.Attributes
+            .Where(x => x is DefaultAttribute)
+            .Select(x => x as DefaultAttribute)
+            .FirstOrDefault();
+
+        if (defaultAttr is DefaultCurrentTimestampAttribute)
+        {
+            return property.CsType.Name switch
+            {
+                "DateOnly" => "DateOnly.FromDateTime(DateTime.Now)",
+                "TimeOnly" => "TimeOnly.FromDateTime(DateTime.Now)",
+                "DateTime" => "DateTime.Now",
+                _ => "DateTime.Now"
+            };
+        }
+
+        return defaultAttr?.Value.ToString() ?? "null";
     }
 
     private string ToCamelCase(string s)
