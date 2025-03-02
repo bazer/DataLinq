@@ -224,17 +224,15 @@ public class ModelFileFactory
                     yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
             }
 
-            foreach (var defaultVal in c.DefaultValues)
+            if (valueProperty.HasDefaultValue())
             {
-                if (defaultVal.Value is DynamicFunctions df)
+                var defaultAttr = valueProperty.GetDefaultAttribute();
+                if (defaultAttr is DefaultCurrentTimestampAttribute)
                 {
-                    if (df == DynamicFunctions.CurrentTimestamp)
-                        yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
-                    else
-                        throw new NotImplementedException($"Unknown DynamicFunctions value: {df}");
+                    yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
                 }
-                else
-                    yield return $"{namespaceTab}{tab}[Default({FormatDefaultValue(defaultVal.Value)})]";
+                else if (defaultAttr != null)
+                    yield return $"{namespaceTab}{tab}[Default({FormatDefaultValue(defaultAttr.Value)})]";
             }
 
             if (valueProperty.EnumProperty != null)
@@ -287,7 +285,7 @@ public class ModelFileFactory
 
     private string GetPropertyNullable(ColumnDefinition column)
     {
-        return (options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement || column.DefaultValues.Length != 0) ? "?" : "";
+        return (options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement || column.ValueProperty.HasDefaultValue()) ? "?" : "";
     }
 
     private IEnumerable<string> WriteEnum(ModelFileFactoryOptions options, ValueProperty property)

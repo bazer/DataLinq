@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Attributes;
 
 namespace DataLinq.Metadata;
 
@@ -38,6 +39,31 @@ public class ValueProperty : PropertyDefinition
     public ValueProperty(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : base(propertyName, csType, model, attributes)
     {
         Type = PropertyType.Value;
+    }
+
+    public bool HasDefaultValue() => Attributes.Any(x => x is DefaultAttribute);
+
+    public DefaultAttribute? GetDefaultAttribute() => Attributes
+            .Where(x => x is DefaultAttribute)
+            .Select(x => x as DefaultAttribute)
+            .FirstOrDefault();
+
+    public string? GetDefaultValue()
+    {
+        var defaultAttr = GetDefaultAttribute();
+
+        if (defaultAttr is DefaultCurrentTimestampAttribute)
+        {
+            return CsType.Name switch
+            {
+                "DateOnly" => "DateOnly.FromDateTime(DateTime.Now)",
+                "TimeOnly" => "TimeOnly.FromDateTime(DateTime.Now)",
+                "DateTime" => "DateTime.Now",
+                _ => "DateTime.Now"
+            };
+        }
+
+        return defaultAttr?.Value.ToString();
     }
 }
 

@@ -5,16 +5,6 @@ using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Metadata;
 
-public class DefaultValue(object value)
-{
-    public object Value { get; } = value;
-
-    public override string ToString()
-    {
-        return Value.ToString();
-    }
-}
-
 public class DatabaseColumnType(DatabaseType databaseType, string name, long? length = null, int? decimals = null, bool? signed = null)
 {
     public DatabaseType DatabaseType { get; } = databaseType;
@@ -48,7 +38,6 @@ public class ColumnDefinition(string dbName, TableDefinition table)
     public void SetAutoIncrement(bool value = true) => AutoIncrement = value;
     public bool Nullable { get; private set; }
     public void SetNullable(bool value = true) => Nullable = value;
-    public DefaultValue[] DefaultValues { get; private set; } = [];
     
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
     public ValueProperty ValueProperty { get; private set; }
@@ -67,9 +56,6 @@ public class ColumnDefinition(string dbName, TableDefinition table)
         else
             Table.RemovePrimaryKeyColumn(this);
     }
-
-    public void AddDefaultValue(object value) => AddDefaultValue(new(value));
-    public void AddDefaultValue(DefaultValue defaultValue) => DefaultValues = DefaultValues.AsEnumerable().Append(defaultValue).ToArray();
 
     public void AddDbType(DatabaseColumnType columnType)
     {

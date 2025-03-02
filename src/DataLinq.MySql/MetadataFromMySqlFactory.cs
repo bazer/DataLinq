@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
@@ -203,13 +205,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         }
 
         var column = new ColumnDefinition(dbColumns.COLUMN_NAME, table);
-        if (dbColumns.COLUMN_DEFAULT != null && !string.Equals(dbColumns.COLUMN_DEFAULT, "NULL", StringComparison.CurrentCultureIgnoreCase))
-        {
-            if (!string.IsNullOrWhiteSpace(dbColumns.EXTRA))
-                column.AddDefaultValue($"{dbColumns.COLUMN_DEFAULT} {dbColumns.EXTRA}");
-            else
-                column.AddDefaultValue(dbColumns.COLUMN_DEFAULT);
-        }
+        
 
         column.SetNullable(dbColumns.IS_NULLABLE == "YES");
         column.SetPrimaryKey(dbColumns.COLUMN_KEY == "PRI");
@@ -227,7 +223,33 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             //valueProp.CsTypeName = valueProp.CsTypeName == "enum" ? valueProp.PropertyName + "Value" : valueProp.CsTypeName;
         }
 
+        var defaultAttr = ParseDefaultValue(dbColumns, valueProp);
+        if (defaultAttr != null)
+            valueProp.AddAttribute(defaultAttr);
+
         return column;
+    }
+
+    private static DefaultAttribute? ParseDefaultValue(COLUMNS dbColumns, ValueProperty property)
+    {
+        if (dbColumns.COLUMN_DEFAULT != null && !string.Equals(dbColumns.COLUMN_DEFAULT, "NULL", StringComparison.CurrentCultureIgnoreCase))
+        {
+            if (dbColumns.COLUMN_DEFAULT.StartsWith("CURRENT_TIMESTAMP", StringComparison.CurrentCultureIgnoreCase))
+                return new DefaultCurrentTimestampAttribute();
+
+            var value = property.CsType.Type != null ?
+                Convert.ChangeType(dbColumns.COLUMN_DEFAULT, property.CsType.Type)
+                : dbColumns.COLUMN_DEFAULT;
+
+            return new DefaultAttribute(value);
+
+            //if (!string.IsNullOrWhiteSpace(dbColumns.EXTRA))
+            //    column.SetDefaultValue($"{dbColumns.COLUMN_DEFAULT} {dbColumns.EXTRA}");
+            //else
+            //    column.SetDefaultValue(dbColumns.COLUMN_DEFAULT);
+        }
+
+        return null;
     }
 
     private int? ParseLengthFromColumnType(string columnType)

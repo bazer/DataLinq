@@ -60,15 +60,15 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
                 .ColumnName(column.DbName)
                 .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
-            var defaultValue = GetDefaultValue(column);
-            if (defaultValue != null)
-                row.DefaultValue(defaultValue.Value.ToString());
-
             if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
                 sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
 
             if (!NoLengthTypes.Contains(dbType.Name.ToLower()) && dbType.Length.HasValue && dbType.Length != 0)
                 sql.TypeLength(dbType.Length, dbType.Decimals);
+
+            var defaultValue = GetDefaultValue(column);
+            if (defaultValue != null)
+                row.DefaultValue(defaultValue);
 
             sql.Unsigned(dbType.Signed);
             sql.Nullable(column.Nullable)
@@ -107,12 +107,17 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return type;
     }
 
-    public static DefaultValue? GetDefaultValue(ColumnDefinition column)
+    public static string? GetDefaultValue(ColumnDefinition column)
     {
-        //if (column.DefaultValues.Any(x => x.DatabaseType == DatabaseType.MySQL))
-        //    return column.DefaultValues.First(x => x.DatabaseType == DatabaseType.MySQL);
+        var defaultAttr = column.ValueProperty.Attributes
+            .Where(x => x is DefaultAttribute)
+            .Select(x => x as DefaultAttribute)
+            .FirstOrDefault();
 
-        return column.DefaultValues.FirstOrDefault();
+        if (defaultAttr is DefaultCurrentTimestampAttribute)
+            return "CURRENT_TIMESTAMP";
+
+        return defaultAttr?.Value.ToString();
     }
 
     private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)

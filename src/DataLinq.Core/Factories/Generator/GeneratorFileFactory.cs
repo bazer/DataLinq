@@ -245,7 +245,7 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}" + "{";
 
         foreach (var v in defaultProps)
-            yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {GetDefaultValue(v)};";
+            yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValue()};";
 
         yield return $"{namespaceTab}{tab}" + "}";
 
@@ -262,7 +262,7 @@ public class GeneratorFileFactory
             yield return $"{namespaceTab}{tab}" + "{";
 
             foreach (var v in defaultProps)
-                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {GetDefaultValue(v)};";
+                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValue()};";
 
             // For each required property, assign the passed parameter to the property.
             foreach (var v in requiredProps)
@@ -427,27 +427,6 @@ public class GeneratorFileFactory
             .ToList();
     }
 
-    private string GetDefaultValue(ValueProperty property)
-    {
-        var defaultAttr = property.Attributes
-            .Where(x => x is DefaultAttribute)
-            .Select(x => x as DefaultAttribute)
-            .FirstOrDefault();
-
-        if (defaultAttr is DefaultCurrentTimestampAttribute)
-        {
-            return property.CsType.Name switch
-            {
-                "DateOnly" => "DateOnly.FromDateTime(DateTime.Now)",
-                "TimeOnly" => "TimeOnly.FromDateTime(DateTime.Now)",
-                "DateTime" => "DateTime.Now",
-                _ => "DateTime.Now"
-            };
-        }
-
-        return defaultAttr?.Value.ToString() ?? "null";
-    }
-
     private string ToCamelCase(string s)
     {
         if (string.IsNullOrEmpty(s))
@@ -500,7 +479,7 @@ public class GeneratorFileFactory
     private bool IsInterfacePropertyNullable(ValueProperty property)
     {
         return (Options.UseNullableReferenceTypes || property.CsNullable) &&
-            (property.Column.Nullable || property.Column.AutoIncrement || property.Column.DefaultValues.Length != 0);
+            (property.Column.Nullable || property.Column.AutoIncrement || property.HasDefaultValue());
     }
 
     private bool IsMutablePropertyRequired(ValueProperty property)
@@ -509,7 +488,7 @@ public class GeneratorFileFactory
                !property.Column.Nullable &&
                !property.Column.AutoIncrement &&
                !property.Column.ForeignKey &&
-               property.Column.DefaultValues.Length == 0;
+               !property.HasDefaultValue();
     }
 
     private bool IsImmutablePropertyNullable(ValueProperty property)
