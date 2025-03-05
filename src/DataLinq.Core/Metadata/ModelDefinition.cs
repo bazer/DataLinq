@@ -5,10 +5,12 @@ using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
 
-public class ModelDefinition(CsTypeDeclaration csType)
+public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 {
     public CsTypeDeclaration CsType { get; private set; } = csType;
     public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
+    public CsFileDeclaration? CsFile { get; private set; }
+    public void SetCsFile(CsFileDeclaration csFile) => CsFile = csFile;
     public TableModel TableModel { get; private set; }
     internal void SetTableModel(TableModel tableModel) => TableModel = tableModel;
     public DatabaseDefinition Database => TableModel.Database;
@@ -35,7 +37,7 @@ public class ModelDefinition(CsTypeDeclaration csType)
     }
 
     public void AddProperty(PropertyDefinition property)
-    { 
+    {
         if (property is RelationProperty relationProperty)
             RelationProperties.Add(relationProperty.PropertyName, relationProperty);
         else if (property is ValueProperty valueProperty)
@@ -65,6 +67,9 @@ public class ModelDefinition(CsTypeDeclaration csType)
 
     public override string ToString()
     {
-        return $"{CsType.Name} ({Database?.DbName}.{Table?.DbName})";
+        if (TableModel == null)
+            return $"{CsType.Name}";
+        else
+            return $"{CsType.Name} ({Database?.DbName}.{Table?.DbName})";
     }
 }

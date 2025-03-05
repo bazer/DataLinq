@@ -49,8 +49,11 @@ public class SyntaxParser
     {
         var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
 
+        if (!string.IsNullOrEmpty(typeSyntax.SyntaxTree.FilePath))
+            model.SetCsFile(new CsFileDeclaration(typeSyntax.SyntaxTree.FilePath));
+
         if (!typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(ParseAttribute).Transpose().TryUnwrap(out var attributes, out var failures))
-            return DLOptionFailure.Fail($"Error parsing attributes for {model}", failures);
+            return DLOptionFailure.Fail($"Parsing attributes", model, failures);
 
         model.SetAttributes(attributes);
 
@@ -87,7 +90,7 @@ public class SyntaxParser
             .Select(prop => ParseProperty(prop, model))
             .Transpose()
             .TryUnwrap(out var properties, out var propFailures))
-            return DLOptionFailure.Fail($"Error parsing properties in {model}", propFailures);
+            return DLOptionFailure.Fail($"Parsing properties", model, propFailures);
 
         model.AddProperties(properties);
 
@@ -343,7 +346,7 @@ public class SyntaxParser
             .Select(ParseAttribute)
             .Transpose()
             .TryUnwrap(out var attributes, out var failures))
-            return DLOptionFailure.Fail($"Error parsing attributes for {model}", failures);
+            return DLOptionFailure.Fail($"Parsing attributes for {propSyntax.Identifier.Text}", model, failures);
 
         PropertyDefinition property = attributes.Any(attribute => attribute is RelationAttribute)
             ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes)

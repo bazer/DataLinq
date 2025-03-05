@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
 
@@ -11,7 +12,7 @@ public enum PropertyType
     Relation
 }
 
-public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes)
+public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : IDefinition
 {
     public Attribute[] Attributes { get; private set; } = attributes.ToArray();
     public void SetAttributes(IEnumerable<Attribute> attributes) => Attributes = attributes.ToArray();
@@ -22,6 +23,9 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
     public ModelDefinition Model { get; private set; } = model;
     public PropertyType Type { get; protected private set; }
+
+    public CsFileDeclaration? CsFile => Model?.CsFile;
+
     public override string ToString() => $"Property: {CsType.Name} {PropertyName}";
 }
 

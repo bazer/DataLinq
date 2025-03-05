@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
@@ -237,16 +238,14 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             if (dbColumns.COLUMN_DEFAULT.StartsWith("CURRENT_TIMESTAMP", StringComparison.CurrentCultureIgnoreCase))
                 return new DefaultCurrentTimestampAttribute();
 
+            if (property.CsType.Type == typeof(bool) && dbColumns.COLUMN_DEFAULT.StartsWith("b'"))
+                return new DefaultAttribute(dbColumns.COLUMN_DEFAULT == "b'1'");
+
             var value = property.CsType.Type != null ?
-                Convert.ChangeType(dbColumns.COLUMN_DEFAULT, property.CsType.Type)
-                : dbColumns.COLUMN_DEFAULT;
+                    Convert.ChangeType(dbColumns.COLUMN_DEFAULT, property.CsType.Type, CultureInfo.InvariantCulture)
+                    : dbColumns.COLUMN_DEFAULT;
 
             return new DefaultAttribute(value);
-
-            //if (!string.IsNullOrWhiteSpace(dbColumns.EXTRA))
-            //    column.SetDefaultValue($"{dbColumns.COLUMN_DEFAULT} {dbColumns.EXTRA}");
-            //else
-            //    column.SetDefaultValue(dbColumns.COLUMN_DEFAULT);
         }
 
         return null;

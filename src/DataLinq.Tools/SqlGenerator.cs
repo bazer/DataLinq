@@ -11,6 +11,7 @@ using DataLinq.MySql;
 using DataLinq.Query;
 using DataLinq.SQLite;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tools;
 
@@ -63,7 +64,11 @@ public class SqlGenerator : Generator
         //}
 
         var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-        var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList());
+        if (!new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList()).TryUnwrap(out var dbMetadata, out var metaDataFailure))
+        {
+            log(metaDataFailure);
+            return SqlGeneratorError.UnableToParseModelFiles;
+        }
         //if (dbMetadata.HasFailed)
         //{
         //    log("Error: Unable to parse model files.");

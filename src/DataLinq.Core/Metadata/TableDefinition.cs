@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
 
@@ -10,7 +11,7 @@ public enum TableType
     View
 }
 
-public class TableDefinition(string dbName)
+public class TableDefinition(string dbName) : IDefinition
 {
     public string DbName { get; private set; } = dbName;
     public void SetDbName(string dbName) => DbName = dbName;
@@ -27,7 +28,7 @@ public class TableDefinition(string dbName)
     public TableType Type { get; protected set; } = TableType.Table;
     public List<(CacheLimitType limitType, long amount)> CacheLimits { get; } = [];
     public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; } = [];
-
+    public CsFileDeclaration? CsFile => Model?.CsFile;
 
     internal bool? explicitUseCache;
     public bool UseCache
@@ -35,6 +36,7 @@ public class TableDefinition(string dbName)
         get => explicitUseCache ?? Database.UseCache;
         set => explicitUseCache = value;
     }
+
 
     public void AddPrimaryKeyColumn(ColumnDefinition column)
     {

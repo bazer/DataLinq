@@ -5,8 +5,10 @@ using System.Linq;
 using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
+using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tools;
 
@@ -20,14 +22,26 @@ public class Generator
         this.log = log;
     }
 
-    protected IEnumerable<Option<string>> ParseExistingFilesAndDirs(string basePath, List<string> paths)
+    protected IEnumerable<Option<string, IDLOptionFailure>> ParseExistingFilesAndDirs(string basePath, List<string> paths)
     {
-        foreach (var srcPath in paths.Select(path => basePath + Path.DirectorySeparatorChar + path))
+        foreach (var relativePath in paths)
         {
-            if (!Directory.Exists(srcPath) && !File.Exists(srcPath))
-                yield return Option.Fail($"Couldn't find path '{srcPath}'");
+            // Use Path.Combine to properly join paths instead of manual concatenation
+            var srcPath = Path.GetFullPath(Path.Combine(basePath, relativePath));
+
+            // Get the normalized path with correct case
+            if (Directory.Exists(srcPath))
+            {
+                yield return new DirectoryInfo(srcPath).FullName;
+            }
+            else if (File.Exists(srcPath))
+            {
+                yield return new FileInfo(srcPath).FullName;
+            }
             else
-                yield return Option.Some(srcPath);
+            {
+                yield return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Couldn't find path '{srcPath}'");
+            }
         }
     }
 }
@@ -61,7 +75,7 @@ public class ModelGenerator : Generator
         this.options = options;
     }
 
-    public Option<DatabaseDefinition> CreateModels(DataLinqDatabaseConnection connection, string basePath, string databaseName)
+    public Option<DatabaseDefinition, IDLOptionFailure> CreateModels(DataLinqDatabaseConnection connection, string basePath, string databaseName)
     {
         var db = connection.DatabaseConfig;
 
@@ -89,12 +103,11 @@ public class ModelGenerator : Generator
         log($"Reading from database: {databaseName}");
         log($"Type: {connection.Type}");
 
-        var dbMetadata = PluginHook.MetadataFromSqlFactories[connection.Type]
+        if (!PluginHook.MetadataFromSqlFactories[connection.Type]
             .GetMetadataFromSqlFactory(sqlOptions)
-            .ParseDatabase(db.Name, db.CsType, db.Namespace, databaseName, connectionString.Original);
-
-        if (dbMetadata.HasFailed)
-            return dbMetadata.Failure;
+            .ParseDatabase(db.Name, db.CsType, db.Namespace, databaseName, connectionString.Original)
+            .TryUnwrap(out var dbMetadata, out var dbFailure))
+            return DLOptionFailure.Fail(dbFailure);
 
         //var dbMetadata = connection.ParsedType switch
         //{
@@ -104,7 +117,7 @@ public class ModelGenerator : Generator
         //        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, $"Data Source={databaseName};Cache=Shared;")
         //};
 
-        log($"Tables read from database: {dbMetadata.Value.TableModels.Length}");
+        log($"Tables read from database: {dbMetadata.TableModels.Length}");
         log("");
 
         var destDir = basePath + Path.DirectorySeparatorChar + db.DestinationDirectory;
@@ -116,12 +129,14 @@ public class ModelGenerator : Generator
             }
             else
             {
-                var srcPathsExists = ParseExistingFilesAndDirs(basePath, db.SourceDirectories).ToList();
+                if (!ParseExistingFilesAndDirs(basePath, db.SourceDirectories).Transpose().TryUnwrap(out var srcPathsExists, out var srcPathsFailures))
+                    return DLOptionFailure.AggregateFail(srcPathsFailures);
+
                 log($"Reading models from:");
                 foreach (var srcPath in srcPathsExists)
                 {
-                    if (srcPath.HasFailed)
-                        return $"Error: {srcPath.Failure}";
+                    //if (srcPath.HasFailed)
+                    //    return DLOptionFailure.Fail($"Error: {srcPath.Failure}");
 
                     log($"{srcPath}");
                 }
@@ -135,7 +150,8 @@ public class ModelGenerator : Generator
                 //}
 
                 var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-                var srcMetadata = new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, srcPathsExists.Select(x => x.Value));
+                if (!new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, srcPathsExists).TryUnwrap(out var srcMetadata, out var srcFailure))
+                    return srcFailure;
                 //if (srcMetadata.HasFailed)
                 //{
                 //    //log("Error: Unable to parse source files.");

@@ -3,12 +3,14 @@ using System.IO;
 using System.Linq;
 using DataLinq.Config;
 using DataLinq.Core.Factories.Models;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tools;
 
@@ -39,7 +41,7 @@ public class DatabaseCreator : Generator
         this.options = options;
     }
 
-    public Option<int, DatabaseCreatorError> Create(DataLinqDatabaseConnection connection, string basePath, string databaseName)
+    public Option<int, IDLOptionFailure> Create(DataLinqDatabaseConnection connection, string basePath, string databaseName)
     {
         log($"Type: {connection.Type}");
 
@@ -50,7 +52,7 @@ public class DatabaseCreator : Generator
         if (!Directory.Exists(destDir))
         {
             log($"Couldn't find dir: {destDir}");
-            return DatabaseCreatorError.DestDirectoryNotFound;
+            return DLOptionFailure.Fail(DatabaseCreatorError.DestDirectoryNotFound);
         }
 
         //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
@@ -62,7 +64,9 @@ public class DatabaseCreator : Generator
         //}
 
         var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-        var dbMetadata = new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList());
+        if (!new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList()).TryUnwrap(out var dbMetadata, out var metaDataFailure))
+            return metaDataFailure;
+
         //if (dbMetadata.HasFailed)
         //{
         //    log("Error: Unable to parse model files.");
@@ -81,7 +85,7 @@ public class DatabaseCreator : Generator
         if (sql.HasFailed)
         {
             log(sql.Failure.ToString());
-            return DatabaseCreatorError.CouldNotCreateDatabase;
+            return DLOptionFailure.Fail(DatabaseCreatorError.CouldNotCreateDatabase);
         }
 
         return sql.Value;

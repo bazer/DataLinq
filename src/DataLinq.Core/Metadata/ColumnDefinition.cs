@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
+using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
 
@@ -23,7 +24,7 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, long? le
     public DatabaseColumnType Clone() => new(DatabaseType, Name, Length, Decimals, Signed);
 }
 
-public class ColumnDefinition(string dbName, TableDefinition table)
+public class ColumnDefinition(string dbName, TableDefinition table) : IDefinition
 {
     public TableDefinition Table { get; } = table;
     public string DbName { get; private set; } = dbName;
@@ -41,6 +42,9 @@ public class ColumnDefinition(string dbName, TableDefinition table)
     
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
     public ValueProperty ValueProperty { get; private set; }
+
+    public CsFileDeclaration? CsFile => Table?.Model?.CsFile;
+
     public void SetValueProperty(ValueProperty value)
     {
         ValueProperty = value;

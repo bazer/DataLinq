@@ -7,7 +7,7 @@ using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
 
-public class DatabaseDefinition
+public class DatabaseDefinition : IDefinition
 {
     public static ConcurrentDictionary<Type, DatabaseDefinition> LoadedDatabases { get; } = new();
 
@@ -24,6 +24,8 @@ public class DatabaseDefinition
     public void SetDbName(string dbName) => DbName = dbName;
     public CsTypeDeclaration CsType { get; private set; }
     public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
+    public CsFileDeclaration? CsFile { get; private set; }
+    public void SetCsFile(CsFileDeclaration csFile) => CsFile = csFile;
     public bool UseCache { get; private set; }
     public void SetCache(bool useCache) => UseCache = useCache;
     public Attribute[] Attributes { get; private set; } = [];

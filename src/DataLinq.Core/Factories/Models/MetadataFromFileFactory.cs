@@ -40,26 +40,69 @@ public class MetadataFromFileFactory
         Log = log;
     }
 
-    public DatabaseDefinition ReadFiles(string csType, IEnumerable<string> srcPaths)
+    public Option<DatabaseDefinition, IDLOptionFailure> ReadFiles(string csType, IEnumerable<string> srcPaths)
     {
         var trees = new List<SyntaxTree>();
 
         foreach (var path in srcPaths)
         {
-            var sourceFiles = Directory.Exists(path)
-                ? new DirectoryInfo(path)
-                    .EnumerateFiles("*.cs", SearchOption.AllDirectories)
-                    .Select(a => a.FullName)
-                : new FileInfo(path).FullName.Yield();
+            try
+            {
+                // Process directories
+                if (Directory.Exists(path))
+                {
+                    var directoryInfo = new DirectoryInfo(path);
+                    var files = directoryInfo.EnumerateFiles("*.cs", SearchOption.AllDirectories);
 
-            foreach (string file in sourceFiles)
-                trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file, options.FileEncoding)));
+                    foreach (var fileInfo in files)
+                    {
+                        // Use FileInfo.FullName to get the correct case-preserved path
+                        var fullPath = fileInfo.FullName;
+                        var sourceText = File.ReadAllText(fullPath, this.options.FileEncoding);
+
+                        var syntaxTree = CSharpSyntaxTree.ParseText(
+                            sourceText,
+                            CSharpParseOptions.Default,
+                            path: fullPath // Use the case-preserved file path
+                        );
+
+                        trees.Add(syntaxTree);
+                        //Log?.Invoke($"Parsed file: {fullPath}");
+                    }
+                }
+                // Process individual files
+                else if (File.Exists(path))
+                {
+                    var fileInfo = new FileInfo(path);
+                    var fullPath = fileInfo.FullName; // Get proper case
+                    var sourceText = File.ReadAllText(fullPath, this.options.FileEncoding);
+
+                    var syntaxTree = CSharpSyntaxTree.ParseText(
+                        sourceText,
+                        CSharpParseOptions.Default,
+                        path: fullPath // Use the case-preserved file path
+                    );
+
+                    trees.Add(syntaxTree);
+                    //Log?.Invoke($"Parsed file: {fullPath}");
+                }
+                else
+                {
+                    return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Path not found: {path}");
+                }
+            }
+            catch (Exception ex)
+            {
+                return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Error processing path '{path}': {ex.Message}");
+            }
         }
 
         var modelSyntaxes = trees
             .Where(x => x.HasCompilationUnitRoot)
             .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
-                    .Where(cls => cls.BaseList?.Types.Any(baseType => SyntaxParser.IsModelInterface(baseType.ToString()) || SyntaxParser.IsCustomModelInterface(baseType.ToString())) == true))
+                    .Where(cls => cls.BaseList?.Types.Any(baseType =>
+                        SyntaxParser.IsModelInterface(baseType.ToString()) ||
+                        SyntaxParser.IsCustomModelInterface(baseType.ToString())) == true))
             .ToImmutableArray();
 
         return ReadSyntaxTrees(modelSyntaxes);
@@ -87,6 +130,9 @@ public class MetadataFromFileFactory
             : new CsTypeDeclaration(MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text), CsTypeDeclaration.GetNamespace(dbType), ModelCsType.Class);
 
         var database = new DatabaseDefinition(csType.Name, csType);
+
+        if (!string.IsNullOrEmpty(dbType?.SyntaxTree.FilePath))
+            database.SetCsFile(new CsFileDeclaration(dbType!.SyntaxTree.FilePath));
 
         var customModelClasses = modelSyntaxes
             .Where(cls => cls.BaseList?.Types
