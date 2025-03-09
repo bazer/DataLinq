@@ -58,17 +58,21 @@ public class SyntaxParser
         model.SetAttributes(attributes);
 
         var modelInstanceInterfaces = model.Attributes
-            .Where(x => x is GenerateInterfaceAttribute interfaceAttribute && interfaceAttribute.GenerateInterface)
-            .Select(x => x as GenerateInterfaceAttribute)
+            .Where(x => x is InterfaceAttribute interfaceAttribute && interfaceAttribute.GenerateInterface)
+            .Select(x => x as InterfaceAttribute)
             .Select(x => new CsTypeDeclaration(x?.Name ?? $"I{model.CsType.Name}", model.CsType.Namespace, ModelCsType.Interface))
             .ToList();
 
-        if (modelInstanceInterfaces.GroupBy(x => x.Name).Any(x => x.Count() > 1))
+        if (modelInstanceInterfaces.Count > 1)
             return DLOptionFailure.Fail(DLFailureType.InvalidArgument,
-                $"Duplicate interface names {modelInstanceInterfaces.GroupBy(x => x.Name).Where(x => x.Count() > 1).ToJoinedString()} in model '{model.CsType.Name}'");
+                $"Multiple model instance interfaces ({modelInstanceInterfaces.Select(x => x.Name).ToJoinedString(", ")}) found in model", model);
+
+        //if (modelInstanceInterfaces.GroupBy(x => x.Name).Any(x => x.Count() > 1))
+        //    return DLOptionFailure.Fail(DLFailureType.InvalidArgument,
+        //        $"Duplicate interface names {modelInstanceInterfaces.GroupBy(x => x.Name).Where(x => x.Count() > 1).ToJoinedString()} in model '{model.CsType.Name}'");
 
         if (modelInstanceInterfaces.Any())
-            model.SetModelInstanceInterfaces(modelInstanceInterfaces);
+            model.SetModelInstanceInterface(modelInstanceInterfaces.First());
 
         if (typeSyntax.BaseList != null)
         {
@@ -110,6 +114,7 @@ public class SyntaxParser
     public Option<Attribute, IDLOptionFailure> ParseAttribute(AttributeSyntax attributeSyntax)
     {
         var name = attributeSyntax.Name.ToString();
+        var generictype = attributeSyntax.Name as GenericNameSyntax;
         var arguments = attributeSyntax.ArgumentList?.Arguments
             .Select(x => x.Expression.ToString().Trim('"'))
             .ToList() ?? [];
@@ -326,14 +331,25 @@ public class SyntaxParser
             return DLOptionFailure.Fail(DLFailureType.NotImplemented, $"Attribute 'TypeAttribute' with {arguments.Count} arguments not implemented");
         }
 
-        if (name == "GenerateInterface")
+        if (name.StartsWith("Interface"))
         {
+            // Handle generic InterfaceAttribute<T>
+            if (generictype != null)
+            {
+                if (arguments.Count > 1)
+                    return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
+
+                // Extract the type argument from the generic type
+                var typeArgument = generictype.TypeArgumentList.Arguments[0].ToString();
+                return new InterfaceAttribute(typeArgument, arguments.Count == 0 || bool.Parse(arguments[0]));
+            }
+
             if (arguments.Count == 1)
-                return new GenerateInterfaceAttribute(arguments[0]);
+                return new InterfaceAttribute(arguments[0]);
             else if (arguments.Count == 2)
-                return new GenerateInterfaceAttribute(arguments[0], bool.Parse(arguments[1]));
+                return new InterfaceAttribute(arguments[0], bool.Parse(arguments[1]));
             else
-                return new GenerateInterfaceAttribute();
+                return new InterfaceAttribute();
         }
 
         return DLOptionFailure.Fail(DLFailureType.NotImplemented, $"Attribute '{name}' not implemented");

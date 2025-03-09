@@ -19,8 +19,8 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     public void SetImmutableType(CsTypeDeclaration immutableType) => ImmutableType = immutableType;
     public CsTypeDeclaration? MutableType { get; private set; }
     public void SetMutableType(CsTypeDeclaration mutableType) => MutableType = mutableType;
-    public CsTypeDeclaration[] ModelInstanceInterfaces { get; private set; } = [];
-    public void SetModelInstanceInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => ModelInstanceInterfaces = interfaces.ToArray();
+    public CsTypeDeclaration? ModelInstanceInterface { get; private set; }
+    public void SetModelInstanceInterface(CsTypeDeclaration? interfaceType) => ModelInstanceInterface = interfaceType;
     public CsTypeDeclaration[] OriginalInterfaces { get; private set; } = [];
     public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => OriginalInterfaces = interfaces.ToArray();
     public ModelUsing[] Usings { get; private set; } = [];
@@ -64,6 +64,8 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         .Select(x => Array.Find(x.TableModels, y => y.Model.IsOfType(typeof(T))))
         .FirstOrDefault(x => x != null)
         ?.Model;
+
+    public CsTypeDeclaration CsTypeOrInterface => ModelInstanceInterface ?? CsType;
 
     public override string ToString()
     {

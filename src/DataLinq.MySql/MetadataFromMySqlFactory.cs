@@ -50,6 +50,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         ParseRelations(database, information_Schema);
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
+        MetadataFactory.ParseInterfaces(database);
 
         return database;
     }

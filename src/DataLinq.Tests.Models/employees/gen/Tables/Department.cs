@@ -8,8 +8,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Employees;
 
-[GenerateInterface("IDepartmentWithChangedName")]
+public partial interface IDepartmentWithChangedName
+{
+}
+
 [Table("departments")]
+[Interface<IDepartmentWithChangedName>]
 public abstract partial class Department(RowData rowData, DataSourceAccess dataSource) : Immutable<Department, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]

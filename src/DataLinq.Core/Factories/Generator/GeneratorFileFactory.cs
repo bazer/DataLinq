@@ -90,11 +90,11 @@ public class GeneratorFileFactory
             .ThenBy(x => x.PropertyName)
             .ToList();
 
-        foreach (var modelInterface in model.ModelInstanceInterfaces)
-            foreach (var row in WriteInterface(model, modelInterface, options, valueProps))
+        if (model.ModelInstanceInterface != null)
+            foreach (var row in WriteInterface(model, model.ModelInstanceInterface.Value, options, valueProps))
                 yield return row;
 
-        foreach (var row in WriteBaseClassPartial(model, model.ModelInstanceInterfaces, options))
+        foreach (var row in WriteBaseClassPartial(model, options))
             yield return row;
 
         foreach (var row in ImmutableModelFileContents(model, Options, valueProps, relationProps))
@@ -158,9 +158,9 @@ public class GeneratorFileFactory
         yield return "";
     }
 
-    private IEnumerable<string> WriteBaseClassPartial(ModelDefinition model, IEnumerable<CsTypeDeclaration> modelInterfaces, GeneratorFileFactoryOptions options)
+    private IEnumerable<string> WriteBaseClassPartial(ModelDefinition model, GeneratorFileFactoryOptions options)
     {
-        yield return $"{namespaceTab}public abstract partial {(options.UseRecords ? "record" : "class")} {model.CsType.Name}{(modelInterfaces.Any() ? $": {modelInterfaces.Select(x => x.Name).ToJoinedString(", ")}" : "")}";
+        yield return $"{namespaceTab}public abstract partial {(options.UseRecords ? "record" : "class")} {model.CsType.Name}{(model.ModelInstanceInterface != null ? $": {model.ModelInstanceInterface.Value.Name}" : "")}";
         yield return namespaceTab + "{";
 
         if (model.Table.Type == TableType.Table)
@@ -184,10 +184,10 @@ public class GeneratorFileFactory
             yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.CsType.Name} model) => new Mutable{model.CsType.Name}(model);";
             yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) => new Mutable{model.CsType.Name}(model).Mutate(changes);";
 
-            foreach (var modelInterface in modelInterfaces)
+            if (model.ModelInstanceInterface != null)
             {
-                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({modelInterface.Name} model) => model.Mutate();";
-                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({modelInterface.Name} model, Action<Mutable{model.CsType.Name}> changes) => model.Mutate(changes);";
+                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.ModelInstanceInterface.Value.Name} model) => model.Mutate();";
+                yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({model.ModelInstanceInterface.Value.Name} model, Action<Mutable{model.CsType.Name}> changes) => model.Mutate(changes);";
             }
         }
 
@@ -234,7 +234,11 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> MutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
     {
-        List<string> interfaces = [$"IMutableInstance<{model.Database.CsType.Name}>", .. model.ModelInstanceInterfaces.Select(x => x.Name)];
+        List<string> interfaces = [$"IMutableInstance<{model.Database.CsType.Name}>"];
+
+        if (model.ModelInstanceInterface != null)
+            interfaces.Add(model.ModelInstanceInterface.Value.Name);
+
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{model.CsType.Name} : Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}";
         yield return namespaceTab + "{";
 

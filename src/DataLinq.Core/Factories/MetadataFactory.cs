@@ -21,6 +21,20 @@ public struct MetadataFromDatabaseFactoryOptions
 
 public static class MetadataFactory
 {
+    public static void ParseInterfaces(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels)
+        {
+            var model = tableModel.Model;
+            
+            if (model.ModelInstanceInterface == null)
+            {
+                var interfaceName = $"I{model.CsType.Name}";
+                model.SetModelInstanceInterface(new CsTypeDeclaration(interfaceName, model.CsType.Namespace, ModelCsType.Interface));
+            }
+        }
+    }
+
     public static TableDefinition ParseTable(ModelDefinition model)
     {
         var table = model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))

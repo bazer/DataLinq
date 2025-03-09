@@ -47,13 +47,13 @@ public class CoreTests : BaseTests
         Assert.Contains(employees.Model.OriginalInterfaces, x => x.Name == "ITableModel<EmployeesDb>");
         Assert.DoesNotContain(employees.Model.OriginalInterfaces, x => x.Name.StartsWith("Immutable"));
 
-        Assert.Single(employees.Model.ModelInstanceInterfaces);
-        Assert.Equal("IEmployee", employees.Model.ModelInstanceInterfaces.Single().Name);
+        Assert.NotNull(employees.Model.ModelInstanceInterface);
+        Assert.Equal("IEmployee", employees.Model.ModelInstanceInterface.Value.Name);
 
         var departments = metadata.TableModels.Single(x => x.Table.DbName == "departments").Table;
         Assert.Equal("Department", departments.Model.CsType.Name);
-        Assert.Single(departments.Model.ModelInstanceInterfaces);
-        Assert.Equal("IDepartmentWithChangedName", departments.Model.ModelInstanceInterfaces.Single().Name);
+        Assert.NotNull(departments.Model.ModelInstanceInterface);
+        Assert.Equal("IDepartmentWithChangedName", departments.Model.ModelInstanceInterface.Value.Name);
 
         TestDatabaseAttributes(metadata);
         TestDatabase(metadata, false);
@@ -71,8 +71,8 @@ public class CoreTests : BaseTests
         Assert.Contains(employees.Model.OriginalInterfaces, x => x.Name == "ITableModel<EmployeesDb>");
         Assert.DoesNotContain(employees.Model.OriginalInterfaces, x => x.Name.StartsWith("Immutable"));
 
-        Assert.Single(employees.Model.ModelInstanceInterfaces);
-        Assert.Equal("IEmployee", employees.Model.ModelInstanceInterfaces.Single().Name);
+        Assert.NotNull(employees.Model.ModelInstanceInterface);
+        Assert.Equal("IEmployee", employees.Model.ModelInstanceInterface.Value.Name);
 
         //var departments = metadata.TableModels.Single(x => x.Table.DbName == "departments").Table;
         //Assert.Equal("Department", departments.Model.CsType.Name);

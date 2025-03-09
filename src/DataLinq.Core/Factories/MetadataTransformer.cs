@@ -75,6 +75,15 @@ public class MetadataTransformer
     {
         destTable.Model.SetCsType(TransformCsType(srcTable.Model.CsType, destTable.Model.CsType));
 
+        if (srcTable.Model.ModelInstanceInterface != null)
+            destTable.Model.SetModelInstanceInterface(srcTable.Model.ModelInstanceInterface);
+        else
+        {
+            var interfaceName = $"I{destTable.Model.CsType.Name}";
+            destTable.Model.SetModelInstanceInterface(new CsTypeDeclaration(interfaceName, destTable.Model.CsType.Namespace, ModelCsType.Interface));
+        }
+
+
         //destTable.Model.SetInterfaces([srcTable.Model.CsType]); //TODO: Investigate if this is needed
         destTable.Model.SetUsings(srcTable.Model.Usings);
 

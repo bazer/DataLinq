@@ -40,6 +40,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         ParseRelations(database, dbAccess);
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
+        MetadataFactory.ParseInterfaces(database);
 
         return database;
     }

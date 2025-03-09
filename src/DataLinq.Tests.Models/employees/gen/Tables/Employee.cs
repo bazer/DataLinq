@@ -8,8 +8,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Employees;
 
-[GenerateInterface]
+public partial interface IEmployee
+{
+}
+
 [Table("employees")]
+[Interface<IEmployee>]
 public abstract partial class Employee(RowData rowData, DataSourceAccess dataSource) : Immutable<Employee, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     public enum Employeegender
@@ -47,7 +51,7 @@ public abstract partial class Employee(RowData rowData, DataSourceAccess dataSou
     public abstract DateOnly hire_date { get; }
 
     [Nullable]
-    [Type(DatabaseType.MySQL, "bit", 1, 0)]
+    [Type(DatabaseType.MySQL, "bit", 1)]
     [Type(DatabaseType.SQLite, "integer")]
     [Column("IsDeleted")]
     public abstract bool? IsDeleted { get; }

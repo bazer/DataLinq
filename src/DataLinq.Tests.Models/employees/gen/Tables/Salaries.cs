@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Employees;
 
+public partial interface Isalaries
+{
+}
+
 [Table("salaries")]
+[Interface<Isalaries>]
 public abstract partial class Salaries(RowData rowData, DataSourceAccess dataSource) : Immutable<Salaries, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]

@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.IO;
 using System.Linq;
-using System.Runtime;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
@@ -30,11 +28,17 @@ public enum ModelType
 
 public class ModelFileFactory
 {
+    private string namespaceTab;
+    private string tab;
+
     private readonly ModelFileFactoryOptions options;
 
     public ModelFileFactory(ModelFileFactoryOptions options)
     {
         this.options = options;
+
+        namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
+        tab = options.Tab;
     }
 
     public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
@@ -138,19 +142,25 @@ public class ModelFileFactory
 
         foreach (var row in valueProps.Where(x => x.EnumProperty != null && !x.EnumProperty.Value.DeclaredInClass).SelectMany(x => WriteEnum(options, x)))
             yield return row;
-        
-        
-        
+
+        if (model.ModelInstanceInterface != null)
+            foreach (var row in WriteInterface(model.ModelInstanceInterface.Value))
+                yield return row;
+
         foreach (var row in WriteClass(model, options, valueProps, relationProps))
             yield return row;
     }
 
-    
+    private IEnumerable<string> WriteInterface(CsTypeDeclaration modelInterface)
+    {
+        yield return $"{namespaceTab}public partial interface {modelInterface.Name}";
+        yield return namespaceTab + "{";
+        yield return namespaceTab + "}";
+        yield return "";
+    }
 
     private IEnumerable<string> WriteClass(ModelDefinition model, ModelFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
     {
-        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
-        var tab = options.Tab;
         var table = model.Table;
 
         if (table is ViewDefinition view)
@@ -162,6 +172,9 @@ public class ModelFileFactory
         {
             yield return $"{namespaceTab}[Table(\"{table.DbName}\")]";
         }
+
+        if (model.ModelInstanceInterface != null)
+            yield return $"{namespaceTab}[Interface<{model.ModelInstanceInterface.Value.Name}>]";
 
         var interfaces = table.Type == TableType.Table ? "ITableModel" : "IViewModel";
 
@@ -290,9 +303,6 @@ public class ModelFileFactory
 
     private IEnumerable<string> WriteEnum(ModelFileFactoryOptions options, ValueProperty property)
     {
-        var namespaceTab = options.UseFileScopedNamespaces ? "" : options.Tab;
-        var tab = options.Tab;
-
         yield return $"{namespaceTab}public enum {property.CsType.Name}";
         yield return namespaceTab + "{";
         //yield return $"{tab}{tab}Empty,";

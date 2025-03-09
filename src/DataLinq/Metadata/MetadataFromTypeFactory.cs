@@ -47,7 +47,7 @@ public static class MetadataFromTypeFactory
         model.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
 
         model.SetInterfaces(type.GetInterfaces().Where(x => !IsModelInstanceInterface(x)).Select(x => new CsTypeDeclaration(x)));
-        model.SetModelInstanceInterfaces(type.GetInterfaces().Where(IsModelInstanceInterface).Select(x => new CsTypeDeclaration(x)));
+        model.SetModelInstanceInterface(type.GetInterfaces().Where(IsModelInstanceInterface).Select(x => new CsTypeDeclaration(x)).FirstOrDefault());
 
         if (type.Namespace != null)
             model.SetUsings([new(type.Namespace)]);
