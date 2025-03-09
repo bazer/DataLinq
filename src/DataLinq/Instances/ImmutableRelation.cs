@@ -21,7 +21,6 @@ public interface IImmutableRelation<T>: IEnumerable<T> where T : IModelInstance
     void Clear();
     bool ContainsKey(IKey key);
     T? Get(IKey key);
-    IEnumerator<T> GetEnumerator();
     FrozenDictionary<IKey, T> ToFrozenDictionary();
 }
 
