@@ -328,8 +328,12 @@ public class GeneratorFileFactory
             var constructorParams = requiredProps.Select(GetConstructorParam).ToJoinedString(", ");
             var constructorArgs = requiredProps.Select(v => ToCamelCase(v.Column.ValueProperty.PropertyName)).ToJoinedString(", ");
 
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, {constructorParams}) => model is null ? new Mutable{model.CsType.Name}({constructorArgs}) : new Mutable{model.CsType.Name}(model);";
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, {constructorParams}, Action<Mutable{model.CsType.Name}> changes) => model is null ? new Mutable{model.CsType.Name}({constructorArgs}).Mutate(changes) : new Mutable{model.CsType.Name}(model).Mutate(changes);";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, {constructorParams}) => model is null ? new Mutable{model.CsType.Name}({constructorArgs}) : model.Mutate(x =>";
+            yield return $"{namespaceTab}{tab}{{";
+            foreach (var v in requiredProps)
+                yield return $"{namespaceTab}{tab}{tab}x.{v.PropertyName} = {ToCamelCase(v.Column.ValueProperty.PropertyName)};";
+            yield return $"{namespaceTab}{tab}}});";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, {constructorParams}, Action<Mutable{model.CsType.Name}> changes) => model.MutateOrNew({constructorArgs}).Mutate(changes);";
         }
         else
         {
@@ -359,24 +363,6 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(transaction));";
 
-        //InsertOrUpdate
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
-        yield return $"{namespaceTab}{tab}{tab}transaction.InsertOrUpdate(model.Mutate(changes));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate<T>(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel =>";
-        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate(this Transaction transaction, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel =>";
-        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
-        yield return $"{namespaceTab}{tab}{tab}transaction.InsertOrUpdate(model.Mutate(changes));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel =>";
-        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.InsertOrUpdate(changes, transaction));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} InsertOrUpdate(this Transaction transaction, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
-
         //Save
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes);";
@@ -386,14 +372,19 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}{tab}database.Update(model, changes);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Transaction transaction, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(changes, transaction));";
+
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(database);";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+        yield return $"{namespaceTab}{tab}{tab}transaction.Save(model.Mutate(changes));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, database);";
+        yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(changes, transaction));";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Mutable{model.CsType.Name} model, Transaction transaction) =>";
+        yield return $"{namespaceTab}{tab}{tab}transaction.Save(model);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Transaction transaction, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
-        yield return $"{namespaceTab}{tab}{tab}model.InsertOrUpdate(changes, transaction);";
+        yield return $"{namespaceTab}{tab}{tab}model.Save(changes, transaction);";
 
         yield return namespaceTab + "}";
     }
@@ -435,6 +426,12 @@ public class GeneratorFileFactory
     {
         if (string.IsNullOrEmpty(s))
             return s;
+
+        // Check if the string is all uppercase
+        if (s.ToUpperInvariant() == s)
+            return s.ToLowerInvariant();
+
+        // Regular camel casing for mixed-case strings
         return char.ToLowerInvariant(s[0]) + s.Substring(1);
     }
 

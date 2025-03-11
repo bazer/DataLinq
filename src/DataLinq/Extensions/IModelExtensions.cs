@@ -11,8 +11,8 @@ public static class IModelExtensions
     public static T Update<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance =>
         transaction.Update(model);
 
-    public static T InsertOrUpdate<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance =>
-        transaction.InsertOrUpdate(model);
+    public static T Save<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance =>
+        transaction.Save(model);
 
     public static void Delete<T>(this T model) where T : IImmutableInstance => 
         model.GetDataSource().Provider.Commit(transaction => model.Delete(transaction));

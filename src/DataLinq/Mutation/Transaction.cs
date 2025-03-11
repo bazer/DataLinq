@@ -228,7 +228,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="model">The model to insert or update.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T InsertOrUpdate<T>(Mutable<T> model) where T : IImmutableInstance
+    public T Save<T>(Mutable<T> model) where T : IImmutableInstance
     {
         if (model == null)
             throw new ArgumentException("Model argument has null value");
@@ -246,7 +246,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T InsertOrUpdate<T>(T model, Action<Mutable<T>> changes) where T : IImmutableInstance
+    public T Save<T>(T model, Action<Mutable<T>> changes) where T : IImmutableInstance
     {
         var mut = model == null
             ? new Mutable<T>()
@@ -254,7 +254,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         changes(mut);
 
-        return InsertOrUpdate(mut);
+        return Save(mut);
     }
 
     /// <summary>
@@ -264,13 +264,13 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T InsertOrUpdate<T>(Mutable<T> model, Action<Mutable<T>> changes) where T : IImmutableInstance
+    public T Save<T>(Mutable<T> model, Action<Mutable<T>> changes) where T : IImmutableInstance
     {
         var mut = model ?? new Mutable<T>();
 
         changes(mut);
 
-        return InsertOrUpdate(mut);
+        return Save(mut);
     }
 
     /// <summary>

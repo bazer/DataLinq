@@ -159,9 +159,9 @@ public abstract class Database<T> : IDisposable
     /// <param name="model">The model to insert or update.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The inserted or updated model.</returns>
-    public M InsertOrUpdate<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
+    public M Save<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
     {
-        return Commit(transaction => transaction.InsertOrUpdate(model), transactionType);
+        return Commit(transaction => transaction.Save(model), transactionType);
     }
 
     /// <summary>
