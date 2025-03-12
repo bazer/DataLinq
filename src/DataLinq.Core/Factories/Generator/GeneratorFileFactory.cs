@@ -215,7 +215,8 @@ public class GeneratorFileFactory
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
             {
-                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name} {relationProperty.PropertyName} => GetForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
+                yield return $"{namespaceTab}{tab}private ImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
+                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name} {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= GetImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
             }
             else
             {

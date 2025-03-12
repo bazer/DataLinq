@@ -9,7 +9,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public interface IImmutableRelation<T>: IEnumerable<T> where T : IModelInstance
+public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
 {
     T? this[IKey key] { get; }
 
@@ -120,11 +120,7 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
     }
 
     // Event handler that clears the cached relation when any change occurs.
-    private void OnRowChanged(object? sender, RowChangeEventArgs e)
-    {
-        // Clear the cached relation immediately.
-        Clear();
-    }
+    private void OnRowChanged(object? sender, RowChangeEventArgs e) => Clear();
 
     protected DataSourceAccess GetDataSource()
     {

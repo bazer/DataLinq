@@ -45,6 +45,12 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
         return (V?)value;
     }
 
+    protected ImmutableForeignKey<V> GetImmutableForeignKey<V>(string propertyName) where V : IImmutableInstance
+    {
+        var property = rowData.Table.Model.RelationProperties[propertyName];
+        return new ImmutableForeignKey<V>(relationKeys[property], GetDataSource(), property);
+    }
+
     protected ImmutableRelation<V> GetImmutableRelation<V>(string propertyName) where V : IImmutableInstance
     {
         var property = rowData.Table.Model.RelationProperties[propertyName];
