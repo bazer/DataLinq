@@ -303,7 +303,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         return DatabaseAccess
             .ReadReader(query)
             .Select(x => new RowData(x, table, table.Columns.AsSpan()))
-            .Select(x => InstanceFactory.NewImmutableRow<T>(x, Provider, this));
+            .Select(x => InstanceFactory.NewImmutableRow<T>(x, this));
     }
 
     /// <summary>
@@ -319,7 +319,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         return DatabaseAccess
             .ReadReader(dbCommand)
             .Select(x => new RowData(x, table, table.Columns.AsSpan()))
-            .Select(x => InstanceFactory.NewImmutableRow<T>(x, Provider, this));
+            .Select(x => InstanceFactory.NewImmutableRow<T>(x, this));
     }
 
     private void AddAndExecute(IModelInstance model, TransactionChangeType type)

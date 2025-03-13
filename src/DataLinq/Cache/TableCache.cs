@@ -474,7 +474,7 @@ public class TableCache
 
     private bool TryAddRow(RowData rowData, DataSourceAccess dataSource, out IImmutableInstance row)
     {
-        row = InstanceFactory.NewImmutableRow(rowData, dataSource.Provider, dataSource);
+        row = InstanceFactory.NewImmutableRow(rowData, dataSource);
         var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
 
         return (dataSource is ReadOnlyAccess && (!Table.UseCache || RowCache.TryAddRow(keys, rowData, row)))

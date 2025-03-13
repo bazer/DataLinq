@@ -108,7 +108,7 @@ public class Select<T> : IQuery
         {
             var rows = this
                 .ReadRows()
-                .Select(x => InstanceFactory.NewImmutableRow(x, query.DataSource.Provider, query.DataSource));
+                .Select(x => InstanceFactory.NewImmutableRow(x, query.DataSource));
 
             foreach (var row in rows)
                 yield return row;
