@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class SQLiteDatabaseTransaction | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class SQLiteDatabaseTransaction | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ApiPage">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction' data-commentid='T:DataLinq.SQLite.SQLiteDatabaseTransaction' id='DataLinq_SQLite_SQLiteDatabaseTransaction'>Class SQLiteDatabaseTransaction    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L8'><i class='bi bi-code-slash'></i></a></h1>
+ <div class="facts text-secondary">
+<dl><dt>Namespace</dt><dd><a href='DataLinq.SQLite.html'>DataLinq.SQLite</a></dd></dl><dl><dt>Assembly</dt><dd>DataLinq.SQLite.dll</dd></dl>
+</div><pre><code class='lang-csharp'>public class SQLiteDatabaseTransaction : DatabaseTransaction, IDisposable</code></pre><h4 class='section'>Inheritance</h4><dl class="typelist inheritance"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html'>DatabaseAccess</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseTransaction.html'>DatabaseTransaction</a>
+</div>
+<div>
+<a href='DataLinq.SQLite.SQLiteDatabaseTransaction.html'>SQLiteDatabaseTransaction</a>
+</div>
+
+</dd></dl><h4 class='section'>Implements</h4><dl class="typelist"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.idisposable'>IDisposable</a>
+</div>
+
+</dd></dl><h4 class='section'>Inherited Members</h4><dl class="typelist"><dd>
+<div>
+<a href='DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Status'>DatabaseTransaction.Status</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_OnStatusChanged'>DatabaseTransaction.OnStatusChanged</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_DbTransaction'>DatabaseTransaction.DbTransaction</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Type'>DatabaseTransaction.Type</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_SetStatus_DataLinq_DatabaseTransactionStatus_'>DatabaseTransaction.SetStatus(DatabaseTransactionStatus)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Rollback'>DatabaseTransaction.Rollback()</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Commit'>DatabaseTransaction.Commit()</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Dispose'>DatabaseTransaction.Dispose()</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteReader_System_Data_IDbCommand_'>DatabaseAccess.ExecuteReader(IDbCommand)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteReader_System_String_'>DatabaseAccess.ExecuteReader(string)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar_System_Data_IDbCommand_'>DatabaseAccess.ExecuteScalar(IDbCommand)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar__1_System_Data_IDbCommand_'>DatabaseAccess.ExecuteScalar&lt;T&gt;(IDbCommand)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar_System_String_'>DatabaseAccess.ExecuteScalar(string)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar__1_System_String_'>DatabaseAccess.ExecuteScalar&lt;T&gt;(string)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteNonQuery_System_Data_IDbCommand_'>DatabaseAccess.ExecuteNonQuery(IDbCommand)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteNonQuery_System_String_'>DatabaseAccess.ExecuteNonQuery(string)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ReadReader_System_Data_IDbCommand_'>DatabaseAccess.ReadReader(IDbCommand)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ReadReader_System_String_'>DatabaseAccess.ReadReader(string)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)'>object.Equals(object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)'>object.Equals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gethashcode'>object.GetHashCode()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gettype'>object.GetType()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone'>object.MemberwiseClone()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.referenceequals'>object.ReferenceEquals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.tostring'>object.ToString()</a>
+</div>
+
+</dd></dl><h2 class='section'>Constructors</h2><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.#ctor(System.String,DataLinq.Mutation.TransactionType)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.#ctor(System.String,DataLinq.Mutation.TransactionType)' id='DataLinq_SQLite_SQLiteDatabaseTransaction__ctor_System_String_DataLinq_Mutation_TransactionType_'>SQLiteDatabaseTransaction(string, TransactionType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L15'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SQLiteDatabaseTransaction(string connectionString, TransactionType type)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>connectionString</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>type</code> <a href='DataLinq.Mutation.TransactionType.html'>TransactionType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.#ctor(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.#ctor(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)' id='DataLinq_SQLite_SQLiteDatabaseTransaction__ctor_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_'>SQLiteDatabaseTransaction(IDbTransaction, TransactionType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L20'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SQLiteDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>dbTransaction</code> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbtransaction'>IDbTransaction</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>type</code> <a href='DataLinq.Mutation.TransactionType.html'>TransactionType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Methods</h2><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.Commit' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.Commit' id='DataLinq_SQLite_SQLiteDatabaseTransaction_Commit'>Commit()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L140'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override void Commit()</code></pre><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.Dispose' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.Dispose' id='DataLinq_SQLite_SQLiteDatabaseTransaction_Dispose'>Dispose()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L181'><i class='bi bi-code-slash'></i></a></h3>
+ <p>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.</p>
+<pre><code class='lang-csharp'>public override void Dispose()</code></pre><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteNonQuery(System.Data.IDbCommand)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteNonQuery(System.Data.IDbCommand)' id='DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteNonQuery_System_Data_IDbCommand_'>ExecuteNonQuery(IDbCommand)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L73'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override int ExecuteNonQuery(IDbCommand command)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>command</code> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbcommand'>IDbCommand</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteNonQuery(System.String)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteNonQuery(System.String)' id='DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteNonQuery_System_String_'>ExecuteNonQuery(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L87'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override int ExecuteNonQuery(string query)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>query</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteReader(System.String)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteReader(System.String)' id='DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteReader_System_String_'>ExecuteReader(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L113'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override IDataLinqDataReader ExecuteReader(string query)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>query</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.IDataLinqDataReader.html'>IDataLinqDataReader</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteReader(System.Data.IDbCommand)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteReader(System.Data.IDbCommand)' id='DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteReader_System_Data_IDbCommand_'>ExecuteReader(IDbCommand)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L123'><i class='bi bi-code-slash'></i></a></h3>
+ <p>Close this reader when done! (or use a using-statement)</p>
+<pre><code class='lang-csharp'>public override IDataLinqDataReader ExecuteReader(IDbCommand command)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>command</code> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbcommand'>IDbCommand</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.IDataLinqDataReader.html'>IDataLinqDataReader</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar(System.String)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar(System.String)' id='DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteScalar_System_String_'>ExecuteScalar(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L90'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override object ExecuteScalar(string query)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>query</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar``1(System.String)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar``1(System.String)' id='DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteScalar__1_System_String_'>ExecuteScalar&lt;T&gt;(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L93'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override T ExecuteScalar&lt;T&gt;(string query)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>query</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> T  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Type Parameters</h4><dl class='parameters'><dt><code>T</code>   </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar``1(System.Data.IDbCommand)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar``1(System.Data.IDbCommand)' id='DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteScalar__1_System_Data_IDbCommand_'>ExecuteScalar&lt;T&gt;(IDbCommand)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L96'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override T ExecuteScalar&lt;T&gt;(IDbCommand command)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>command</code> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbcommand'>IDbCommand</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> T  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Type Parameters</h4><dl class='parameters'><dt><code>T</code>   </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar(System.Data.IDbCommand)' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar(System.Data.IDbCommand)' id='DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteScalar_System_Data_IDbCommand_'>ExecuteScalar(IDbCommand)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L99'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override object ExecuteScalar(IDbCommand command)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>command</code> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbcommand'>IDbCommand</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.SQLite.SQLiteDatabaseTransaction.Rollback' data-commentid='M:DataLinq.SQLite.SQLiteDatabaseTransaction.Rollback' id='DataLinq_SQLite_SQLiteDatabaseTransaction_Rollback'>Rollback()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L153'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override void Rollback()</code></pre>
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

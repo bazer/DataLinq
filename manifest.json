@@ -1,0 +1,2903 @@
+{
+  "sitemap": {
+    "baseUrl": "https://bazer.github.io/datalinq/",
+    "changefreq": "daily",
+    "priority": 0.5
+  },
+  "source_base_path": "D:/git/DataLinq",
+  "xrefmap": "xrefmap.yml",
+  "files": [
+    {
+      "type": "Resource",
+      "output": {
+        "resource": {
+          "relative_path": "index.json"
+        }
+      }
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "LICENSE.md",
+      "output": {
+        ".html": {
+          "relative_path": "LICENSE.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "README.md",
+      "output": {
+        ".html": {
+          "relative_path": "README.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.AutoIncrementAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.AutoIncrementAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.CacheCleanupAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.CacheCleanupAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.CacheCleanupType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.CacheCleanupType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.CacheLimitAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.CacheLimitAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.CacheLimitType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.CacheLimitType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.ColumnAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.ColumnAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.DatabaseAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.DatabaseAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.DefaultAttribute-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.DefaultAttribute-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.DefaultAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.DefaultAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.DefaultCurrentTimestampAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.DefaultCurrentTimestampAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.DefinitionAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.DefinitionAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.DynamicFunctions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.DynamicFunctions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.EnumAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.EnumAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.ForeignKeyAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.ForeignKeyAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.IndexAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.IndexAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.IndexCacheAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.IndexCacheAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.IndexCacheType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.IndexCacheType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.IndexCharacteristic.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.IndexCharacteristic.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.IndexType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.IndexType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.InterfaceAttribute-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.InterfaceAttribute-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.InterfaceAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.InterfaceAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.NullableAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.NullableAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.PrimaryKeyAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.PrimaryKeyAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.RelationAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.RelationAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.TableAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.TableAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.TypeAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.TypeAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.UseCacheAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.UseCacheAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.ViewAttribute.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.ViewAttribute.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Attributes.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Attributes.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.CacheHistory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.CacheHistory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.DatabaseCache.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.DatabaseCache.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.DatabaseCacheSnapshot.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.DatabaseCacheSnapshot.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.IndexCache.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.IndexCache.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.KeyCache-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.KeyCache-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.RowCache.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.RowCache.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.RowChangeEventArgs.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.RowChangeEventArgs.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.TableCache.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.TableCache.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.TableCacheSnapshot.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.TableCacheSnapshot.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Cache.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Cache.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.ConfigFile.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.ConfigFile.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.ConfigFileDatabase.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.ConfigFileDatabase.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.ConfigFileDatabaseConnection.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.ConfigFileDatabaseConnection.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.ConfigReader.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.ConfigReader.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.DataLinqConfig.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.DataLinqConfig.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.DataLinqConnectionString.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.DataLinqConnectionString.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.DataLinqDatabaseConfig.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.DataLinqDatabaseConfig.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.DataLinqDatabaseConnection.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.DataLinqDatabaseConnection.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Config.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Config.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.MetadataFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.MetadataFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.MetadataFromDatabaseFactoryOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.MetadataFromDatabaseFactoryOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.MetadataTransformer.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.MetadataTransformer.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.MetadataTransformerOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.MetadataTransformerOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.MetadataTypeConverter.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.MetadataTypeConverter.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromFileFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromFileFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromFileFactoryError.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromFileFactoryError.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromFileFactoryOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromFileFactoryOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromInterfacesFactoryError.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromInterfacesFactoryError.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromInterfacesFactoryOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromInterfacesFactoryOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromModelsFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.MetadataFromModelsFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.ModelFileFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.ModelFileFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.ModelFileFactoryOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.ModelFileFactoryOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.ModelType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.ModelType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.Models.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.Models.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.SyntaxParser.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.SyntaxParser.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Core.Factories.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Core.Factories.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DataReader.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DataReader.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DataWriter.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DataWriter.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Database-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Database-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DatabaseAccess.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DatabaseAccess.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DatabaseProvider-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DatabaseProvider-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DatabaseProvider.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DatabaseProvider.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DatabaseTransaction.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DatabaseTransaction.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DatabaseTransactionStatus.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DatabaseTransactionStatus.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DatabaseTransactionStatusChangeEventArgs.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DatabaseTransactionStatusChangeEventArgs.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DatabaseType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DatabaseType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.DbRead-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.DbRead-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.ErrorHandling.DLFailureType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.ErrorHandling.DLFailureType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.ErrorHandling.DLOptionFailure-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.ErrorHandling.DLOptionFailure-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.ErrorHandling.DLOptionFailure.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.ErrorHandling.DLOptionFailure.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.ErrorHandling.FailureWithDefinition-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.ErrorHandling.FailureWithDefinition-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.ErrorHandling.IDLOptionFailure.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.ErrorHandling.IDLOptionFailure.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.ErrorHandling.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.ErrorHandling.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Exceptions.InvalidMutationObjectException.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Exceptions.InvalidMutationObjectException.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Exceptions.InvalidQueryException.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Exceptions.InvalidQueryException.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Exceptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Exceptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.IDataLinqDataReader.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.IDataLinqDataReader.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.IDataLinqDataWriter.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.IDataLinqDataWriter.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.IModelExtensions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.IModelExtensions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.CompositeKey.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.CompositeKey.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.GuidKey.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.GuidKey.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IImmutable-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IImmutable-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IImmutableInstance-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IImmutableInstance-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IImmutableInstance.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IImmutableInstance.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IImmutableRelation-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IImmutableRelation-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IKey.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IKey.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IModelInstance-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IModelInstance-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IModelInstance.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IModelInstance.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IMutableInstance-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IMutableInstance-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IMutableInstance.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IMutableInstance.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IRowData.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IRowData.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.Immutable-2.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.Immutable-2.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.ImmutableRelation-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.ImmutableRelation-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.ImmutableRelationMock-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.ImmutableRelationMock-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.InstanceFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.InstanceFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.Int64Key.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.Int64Key.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.IntKey.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.IntKey.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.KeyFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.KeyFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.Mutable-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.Mutable-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.MutableRowData.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.MutableRowData.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.NullKey.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.NullKey.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.ObjectKey.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.ObjectKey.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.RowData.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.RowData.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.StringKey.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.StringKey.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.UInt64Key.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.UInt64Key.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Instances.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Instances.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IDataSourceAccess.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IDataSourceAccess.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IDatabaseModel.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IDatabaseModel.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IDatabaseProvider.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IDatabaseProvider.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IDatabaseProviderConstants.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IDatabaseProviderConstants.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IDatabaseProviderRegister.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IDatabaseProviderRegister.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IDefinition.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IDefinition.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IModel-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IModel-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IModel.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IModel.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IReadableView.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IReadableView.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.ITableModel-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.ITableModel-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.ITableModel.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.ITableModel.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IView.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IView.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IViewModel-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IViewModel-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IViewModel.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IViewModel.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.IWritableView.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.IWritableView.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Interfaces.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Interfaces.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Logging.DataLinqLogLevel.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Logging.DataLinqLogLevel.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Logging.DataLinqLoggingConfiguration.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Logging.DataLinqLoggingConfiguration.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Logging.DbCommandExtensions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Logging.DbCommandExtensions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Logging.Log.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Logging.Log.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Logging.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Logging.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.ColumnDefinition.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.ColumnDefinition.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.ColumnIndex.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.ColumnIndex.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.CsFileDeclaration.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.CsFileDeclaration.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.CsTypeDeclaration.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.CsTypeDeclaration.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.DatabaseColumnType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.DatabaseColumnType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.DatabaseDefinition.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.DatabaseDefinition.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.EnumProperty.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.EnumProperty.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.GeneratorFileFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.GeneratorFileFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.GeneratorFileFactoryOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.GeneratorFileFactoryOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.IDatabaseProviderCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.IDatabaseProviderCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.IMetadataFromDatabaseFactoryCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.IMetadataFromDatabaseFactoryCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.IMetadataFromSqlFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.IMetadataFromSqlFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.ISqlFromMetadataFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.ISqlFromMetadataFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.MetadataFromTypeFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.MetadataFromTypeFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.ModelCsType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.ModelCsType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.ModelDefinition.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.ModelDefinition.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.ModelUsing.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.ModelUsing.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.PluginHook.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.PluginHook.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.PropertyDefinition.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.PropertyDefinition.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.PropertyType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.PropertyType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.RelationDefinition.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.RelationDefinition.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.RelationPart.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.RelationPart.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.RelationPartType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.RelationPartType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.RelationProperty.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.RelationProperty.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.RelationType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.RelationType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.SqlGeneration.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.SqlGeneration.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.TableDefinition.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.TableDefinition.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.TableModel.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.TableModel.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.TableType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.TableType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.ValueProperty.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.ValueProperty.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.ViewDefinition.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.ViewDefinition.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Metadata.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Metadata.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.DataSourceAccess.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.DataSourceAccess.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.History.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.History.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.ReadOnlyAccess-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.ReadOnlyAccess-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.ReadOnlyAccess.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.ReadOnlyAccess.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.State.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.State.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.StateChange.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.StateChange.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.Transaction-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.Transaction-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.Transaction.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.Transaction.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.TransactionChangeType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.TransactionChangeType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.TransactionStatusChangeEventArgs.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.TransactionStatusChangeEventArgs.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.TransactionType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.TransactionType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Mutation.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Mutation.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MetadataFromMySqlFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MetadataFromMySqlFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MetadataFromMySqlFactoryCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MetadataFromMySqlFactoryCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.COLUMNS.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.COLUMNS.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.ImmutableCOLUMNS.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.ImmutableCOLUMNS.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.ImmutableSTATISTICS.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.ImmutableSTATISTICS.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.ImmutableTABLES.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.ImmutableTABLES.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.ImmutableVIEWS.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.ImmutableVIEWS.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.KEY_COLUMN_USAGE.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.KEY_COLUMN_USAGE.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.STATISTICS.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.STATISTICS.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.TABLES.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.TABLES.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.VIEWS.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.VIEWS.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.information_schema.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.information_schema.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.Models.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.Models.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySQLProvider-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySQLProvider-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySQLProvider.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySQLProvider.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySQLProviderConstants.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySQLProviderConstants.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySqlDataLinqDataReader.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySqlDataLinqDataReader.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySqlDataLinqDataWriter.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySqlDataLinqDataWriter.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySqlDatabase-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySqlDatabase-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySqlDatabaseCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySqlDatabaseCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySqlDatabaseTransaction.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySqlDatabaseTransaction.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.MySqlDbAccess.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.MySqlDbAccess.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.SqlFromMetadataFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.SqlFromMetadataFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.MySql.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.MySql.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.BooleanType.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.BooleanType.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Delete-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Delete-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.IQuery.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.IQuery.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.IQueryPart.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.IQueryPart.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.IWhere-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.IWhere-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Insert-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Insert-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Join-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Join-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Literal.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Literal.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.OrderBy.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.OrderBy.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.QueryResult.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.QueryResult.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.QueryUtils.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.QueryUtils.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Relation.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Relation.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Select-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Select-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Sql.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Sql.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.SqlQuery-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.SqlQuery-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.SqlQuery.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.SqlQuery.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Update-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Update-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.Where-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.Where-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.WhereGroup-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.WhereGroup-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Query.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Query.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Queryable-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Queryable-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.MetadataFromSQLiteFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.MetadataFromSQLiteFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.MetadataFromSQLiteFactoryCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.MetadataFromSQLiteFactoryCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteDataLinqDataReader.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteDataLinqDataReader.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteDataLinqDataWriter.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteDataLinqDataWriter.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteDatabase-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteDatabase-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteDatabaseCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteDatabaseCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteDatabaseTransaction.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteDatabaseTransaction.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteDbAccess.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteDbAccess.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteGeneration.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteGeneration.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteJournalMode.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteJournalMode.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteProvider-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteProvider-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteProvider.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteProvider.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SQLiteProviderConstants.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SQLiteProviderConstants.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.SqlFromMetadataFactory.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.SqlFromMetadataFactory.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SQLite.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SQLite.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SourceGenerators.ModelGenerator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SourceGenerators.ModelGenerator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.SourceGenerators.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.SourceGenerators.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.DatabaseCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.DatabaseCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.DatabaseCreatorError.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.DatabaseCreatorError.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.DatabaseCreatorOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.DatabaseCreatorOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.Generator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.Generator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.ModelGenerator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.ModelGenerator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.ModelGeneratorError.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.ModelGeneratorError.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.ModelGeneratorOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.ModelGeneratorOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.ModelReader.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.ModelReader.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.SqlGenerator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.SqlGenerator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.SqlGeneratorError.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.SqlGeneratorError.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.SqlGeneratorOptions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.SqlGeneratorOptions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Tools.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Tools.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Utils.FileSizeExtensions.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Utils.FileSizeExtensions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Utils.FileSizeFormatProvider.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Utils.FileSizeFormatProvider.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Utils.NonNegativeInt.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Utils.NonNegativeInt.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Utils.TypeUtils.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Utils.TypeUtils.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Utils.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Utils.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Workers.CleanCacheWorker.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Workers.CleanCacheWorker.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Workers.IThreadCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Workers.IThreadCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Workers.IWorkQueue-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Workers.IWorkQueue-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Workers.LongRunningTaskCreator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Workers.LongRunningTaskCreator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Workers.ThreadWorker-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Workers.ThreadWorker-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Workers.WorkQueue-1.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Workers.WorkQueue-1.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Workers.WorkerStatus.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Workers.WorkerStatus.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.Workers.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.Workers.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "ApiPage",
+      "source_relative_path": "api/DataLinq.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/DataLinq.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "api/index.md",
+      "output": {
+        ".html": {
+          "relative_path": "api/index.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Toc",
+      "source_relative_path": "api/toc.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/toc.html"
+        },
+        ".json": {
+          "relative_path": "api/toc.json"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/CLI Documentation.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/CLI Documentation.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Caching and Mutation.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Caching and Mutation.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Configuration files.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Configuration files.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Contributing.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Contributing.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Implementing a new backend.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Implementing a new backend.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Index.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Index.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Metadata Structure.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Metadata Structure.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Project Specification.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Project Specification.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Query Translator.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Query Translator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Source Generator.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Source Generator.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/Technical documentation.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/Technical documentation.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Toc",
+      "source_relative_path": "docs/toc.yml",
+      "output": {
+        ".html": {
+          "relative_path": "docs/toc.html"
+        },
+        ".json": {
+          "relative_path": "docs/toc.json"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Redirection",
+      "source_relative_path": "index.md",
+      "output": {
+        ".html": {
+          "relative_path": "index.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Toc",
+      "source_relative_path": "toc.yml",
+      "output": {
+        ".html": {
+          "relative_path": "toc.html"
+        },
+        ".json": {
+          "relative_path": "toc.json"
+        }
+      },
+      "version": ""
+    }
+  ],
+  "groups": [
+    {
+      "xrefmap": "xrefmap.yml"
+    }
+  ]
+}

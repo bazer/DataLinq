@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class SqlQuery&lt;T&gt; | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class SqlQuery&lt;T&gt; | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ApiPage">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 class='section api' data-uid='DataLinq.Query.SqlQuery`1' data-commentid='T:DataLinq.Query.SqlQuery`1' id='DataLinq_Query_SqlQuery_1'>Class SqlQuery&lt;T&gt;    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L51'><i class='bi bi-code-slash'></i></a></h1>
+ <div class="facts text-secondary">
+<dl><dt>Namespace</dt><dd><a href='DataLinq.Query.html'>DataLinq.Query</a></dd></dl><dl><dt>Assembly</dt><dd>DataLinq.dll</dd></dl>
+</div><pre><code class='lang-csharp'>public class SqlQuery&lt;T&gt;</code></pre><h4 class='section'>Type Parameters</h4><dl class='parameters'><dt><code>T</code>   </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Inheritance</h4><dl class="typelist inheritance"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>
+</div>
+<div>
+<a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery&lt;T&gt;</a>
+</div>
+
+</dd></dl><h4 class='section'>Inherited Members</h4><dl class="typelist"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)'>object.Equals(object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)'>object.Equals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gethashcode'>object.GetHashCode()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gettype'>object.GetType()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone'>object.MemberwiseClone()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.referenceequals'>object.ReferenceEquals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.tostring'>object.ToString()</a>
+</div>
+
+</dd></dl><h2 class='section'>Constructors</h2><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.#ctor(DataLinq.Mutation.DataSourceAccess,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.#ctor(DataLinq.Mutation.DataSourceAccess,System.String)' id='DataLinq_Query_SqlQuery_1__ctor_DataLinq_Mutation_DataSourceAccess_System_String_'>SqlQuery(DataSourceAccess, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L68'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery(DataSourceAccess dataSource, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>dataSource</code> <a href='DataLinq.Mutation.DataSourceAccess.html'>DataSourceAccess</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.#ctor(DataLinq.Metadata.TableDefinition,DataLinq.Mutation.DataSourceAccess,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.#ctor(DataLinq.Metadata.TableDefinition,DataLinq.Mutation.DataSourceAccess,System.String)' id='DataLinq_Query_SqlQuery_1__ctor_DataLinq_Metadata_TableDefinition_DataLinq_Mutation_DataSourceAccess_System_String_'>SqlQuery(TableDefinition, DataSourceAccess, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L77'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery(TableDefinition table, DataSourceAccess transaction, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>table</code> TableDefinition  </dt>
+<dd>
+
+
+
+</dd><dt><code>transaction</code> <a href='DataLinq.Mutation.DataSourceAccess.html'>DataSourceAccess</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.#ctor(System.String,DataLinq.Mutation.DataSourceAccess,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.#ctor(System.String,DataLinq.Mutation.DataSourceAccess,System.String)' id='DataLinq_Query_SqlQuery_1__ctor_System_String_DataLinq_Mutation_DataSourceAccess_System_String_'>SqlQuery(string, DataSourceAccess, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L86'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery(string tableName, DataSourceAccess transaction, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>tableName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>transaction</code> <a href='DataLinq.Mutation.DataSourceAccess.html'>DataSourceAccess</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Fields</h2><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.JoinList' data-commentid='F:DataLinq.Query.SqlQuery`1.JoinList' id='DataLinq_Query_SqlQuery_1_JoinList'>JoinList    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L55'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>protected List&lt;Join&lt;T&gt;&gt; JoinList</code></pre><h4 class='section'>Field Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1'>List</a>&lt;<a href='DataLinq.Query.Join-1.html'>Join</a>&lt;T&gt;&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.WhereGroup' data-commentid='F:DataLinq.Query.SqlQuery`1.WhereGroup' id='DataLinq_Query_SqlQuery_1_WhereGroup'>WhereGroup    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L53'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>protected WhereGroup&lt;T&gt; WhereGroup</code></pre><h4 class='section'>Field Value</h4><dl class='parameters'><dt> <a href='DataLinq.Query.WhereGroup-1.html'>WhereGroup</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.limit' data-commentid='F:DataLinq.Query.SqlQuery`1.limit' id='DataLinq_Query_SqlQuery_1_limit'>limit    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L58'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>protected int? limit</code></pre><h4 class='section'>Field Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.offset' data-commentid='F:DataLinq.Query.SqlQuery`1.offset' id='DataLinq_Query_SqlQuery_1_offset'>offset    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L59'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>protected int? offset</code></pre><h4 class='section'>Field Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Properties</h2><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Alias' data-commentid='P:DataLinq.Query.SqlQuery`1.Alias' id='DataLinq_Query_SqlQuery_1_Alias'>Alias    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L64'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string? Alias { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.DataSource' data-commentid='P:DataLinq.Query.SqlQuery`1.DataSource' id='DataLinq_Query_SqlQuery_1_DataSource'>DataSource    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L61'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public DataSourceAccess DataSource { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='DataLinq.Mutation.DataSourceAccess.html'>DataSourceAccess</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.LastIdQuery' data-commentid='P:DataLinq.Query.SqlQuery`1.LastIdQuery' id='DataLinq_Query_SqlQuery_1_LastIdQuery'>LastIdQuery    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L60'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public bool LastIdQuery { get; protected set; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Table' data-commentid='P:DataLinq.Query.SqlQuery`1.Table' id='DataLinq_Query_SqlQuery_1_Table'>Table    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L63'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public TableDefinition Table { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> TableDefinition  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Methods</h2><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.AddLastIdQuery' data-commentid='M:DataLinq.Query.SqlQuery`1.AddLastIdQuery' id='DataLinq_Query_SqlQuery_1_AddLastIdQuery'>AddLastIdQuery()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L448'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; AddLastIdQuery()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.AddWhereGroup(DataLinq.Query.BooleanType)' data-commentid='M:DataLinq.Query.SqlQuery`1.AddWhereGroup(DataLinq.Query.BooleanType)' id='DataLinq_Query_SqlQuery_1_AddWhereGroup_DataLinq_Query_BooleanType_'>AddWhereGroup(BooleanType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L187'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public WhereGroup&lt;T&gt; AddWhereGroup(BooleanType type = BooleanType.And)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>type</code> <a href='DataLinq.Query.BooleanType.html'>BooleanType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.WhereGroup-1.html'>WhereGroup</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.AddWhereNotGroup(DataLinq.Query.BooleanType)' data-commentid='M:DataLinq.Query.SqlQuery`1.AddWhereNotGroup(DataLinq.Query.BooleanType)' id='DataLinq_Query_SqlQuery_1_AddWhereNotGroup_DataLinq_Query_BooleanType_'>AddWhereNotGroup(BooleanType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L195'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public WhereGroup&lt;T&gt; AddWhereNotGroup(BooleanType type = BooleanType.And)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>type</code> <a href='DataLinq.Query.BooleanType.html'>BooleanType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.WhereGroup-1.html'>WhereGroup</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Delete' data-commentid='M:DataLinq.Query.SqlQuery`1.Delete' id='DataLinq_Query_SqlQuery_1_Delete'>Delete()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L106'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public QueryResult Delete()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.QueryResult.html'>QueryResult</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.DeleteQuery' data-commentid='M:DataLinq.Query.SqlQuery`1.DeleteQuery' id='DataLinq_Query_SqlQuery_1_DeleteQuery'>DeleteQuery()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L126'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Delete&lt;T&gt; DeleteQuery()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Delete-1.html'>Delete</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.GetBaseWhereGroup(DataLinq.Query.BooleanType)' data-commentid='M:DataLinq.Query.SqlQuery`1.GetBaseWhereGroup(DataLinq.Query.BooleanType)' id='DataLinq_Query_SqlQuery_1_GetBaseWhereGroup_DataLinq_Query_BooleanType_'>GetBaseWhereGroup(BooleanType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L203'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public WhereGroup&lt;T&gt; GetBaseWhereGroup(BooleanType type = BooleanType.And)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>type</code> <a href='DataLinq.Query.BooleanType.html'>BooleanType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.WhereGroup-1.html'>WhereGroup</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Insert' data-commentid='M:DataLinq.Query.SqlQuery`1.Insert' id='DataLinq_Query_SqlQuery_1_Insert'>Insert()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L111'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public QueryResult Insert()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.QueryResult.html'>QueryResult</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.InsertQuery' data-commentid='M:DataLinq.Query.SqlQuery`1.InsertQuery' id='DataLinq_Query_SqlQuery_1_InsertQuery'>InsertQuery()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L131'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Insert&lt;T&gt; InsertQuery()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Insert-1.html'>Insert</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Join(System.String,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.Join(System.String,System.String)' id='DataLinq_Query_SqlQuery_1_Join_System_String_System_String_'>Join(string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L288'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Join&lt;T&gt; Join(string tableName, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>tableName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Join-1.html'>Join</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.LeftJoin(System.String,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.LeftJoin(System.String,System.String)' id='DataLinq_Query_SqlQuery_1_LeftJoin_System_String_System_String_'>LeftJoin(string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L293'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Join&lt;T&gt; LeftJoin(string tableName, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>tableName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Join-1.html'>Join</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Limit(System.Int32)' data-commentid='M:DataLinq.Query.SqlQuery`1.Limit(System.Int32)' id='DataLinq_Query_SqlQuery_1_Limit_System_Int32_'>Limit(int)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L366'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; Limit(int limit)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>limit</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Limit(System.Int32,System.Int32)' data-commentid='M:DataLinq.Query.SqlQuery`1.Limit(System.Int32,System.Int32)' id='DataLinq_Query_SqlQuery_1_Limit_System_Int32_System_Int32_'>Limit(int, int)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L376'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; Limit(int limit, int offset)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>limit</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>offset</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Offset(System.Int32)' data-commentid='M:DataLinq.Query.SqlQuery`1.Offset(System.Int32)' id='DataLinq_Query_SqlQuery_1_Offset_System_Int32_'>Offset(int)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L387'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; Offset(int offset)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>offset</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.OrderBy(Remotion.Linq.Clauses.OrderByClause)' data-commentid='M:DataLinq.Query.SqlQuery`1.OrderBy(Remotion.Linq.Clauses.OrderByClause)' id='DataLinq_Query_SqlQuery_1_OrderBy_Remotion_Linq_Clauses_OrderByClause_'>OrderBy(OrderByClause)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L218'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; OrderBy(OrderByClause orderBy)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>orderBy</code> OrderByClause  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.OrderBy(System.String,System.String,System.Boolean)' data-commentid='M:DataLinq.Query.SqlQuery`1.OrderBy(System.String,System.String,System.Boolean)' id='DataLinq_Query_SqlQuery_1_OrderBy_System_String_System_String_System_Boolean_'>OrderBy(string, string?, bool)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L330'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; OrderBy(string columnName, string? alias = null, bool ascending = true)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>columnName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd><dt><code>ascending</code> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.OrderBy(DataLinq.Metadata.ColumnDefinition,System.String,System.Boolean)' data-commentid='M:DataLinq.Query.SqlQuery`1.OrderBy(DataLinq.Metadata.ColumnDefinition,System.String,System.Boolean)' id='DataLinq_Query_SqlQuery_1_OrderBy_DataLinq_Metadata_ColumnDefinition_System_String_System_Boolean_'>OrderBy(ColumnDefinition, string?, bool)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L338'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>column</code> ColumnDefinition  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd><dt><code>ascending</code> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.OrderByDesc(System.String,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.OrderByDesc(System.String,System.String)' id='DataLinq_Query_SqlQuery_1_OrderByDesc_System_String_System_String_'>OrderByDesc(string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L348'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; OrderByDesc(string columnName, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>columnName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.OrderByDesc(DataLinq.Metadata.ColumnDefinition,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.OrderByDesc(DataLinq.Metadata.ColumnDefinition,System.String)' id='DataLinq_Query_SqlQuery_1_OrderByDesc_DataLinq_Metadata_ColumnDefinition_System_String_'>OrderByDesc(ColumnDefinition, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L356'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; OrderByDesc(ColumnDefinition column, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>column</code> ColumnDefinition  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.RightJoin(System.String,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.RightJoin(System.String,System.String)' id='DataLinq_Query_SqlQuery_1_RightJoin_System_String_System_String_'>RightJoin(string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L298'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Join&lt;T&gt; RightJoin(string tableName, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>tableName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Join-1.html'>Join</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Select' data-commentid='M:DataLinq.Query.SqlQuery`1.Select' id='DataLinq_Query_SqlQuery_1_Select'>Select()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L101'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public IEnumerable&lt;T&gt; Select()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1'>IEnumerable</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.SelectQuery' data-commentid='M:DataLinq.Query.SqlQuery`1.SelectQuery' id='DataLinq_Query_SqlQuery_1_SelectQuery'>SelectQuery()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L121'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public virtual Select&lt;T&gt; SelectQuery()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Select-1.html'>Select</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Set``1(System.String,``0)' data-commentid='M:DataLinq.Query.SqlQuery`1.Set``1(System.String,``0)' id='DataLinq_Query_SqlQuery_1_Set__1_System_String___0_'>Set&lt;V&gt;(string, V)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L423'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; Set&lt;V&gt;(string key, V value)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>key</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>value</code> V  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Type Parameters</h4><dl class='parameters'><dt><code>V</code>   </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Update' data-commentid='M:DataLinq.Query.SqlQuery`1.Update' id='DataLinq_Query_SqlQuery_1_Update'>Update()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L116'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public QueryResult Update()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.QueryResult.html'>QueryResult</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.UpdateQuery' data-commentid='M:DataLinq.Query.SqlQuery`1.UpdateQuery' id='DataLinq_Query_SqlQuery_1_UpdateQuery'>UpdateQuery()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L136'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Update&lt;T&gt; UpdateQuery()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Update-1.html'>Update</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.What(System.Collections.Generic.IEnumerable{DataLinq.Metadata.ColumnDefinition})' data-commentid='M:DataLinq.Query.SqlQuery`1.What(System.Collections.Generic.IEnumerable{DataLinq.Metadata.ColumnDefinition})' id='DataLinq_Query_SqlQuery_1_What_System_Collections_Generic_IEnumerable_DataLinq_Metadata_ColumnDefinition__'>What(IEnumerable&lt;ColumnDefinition&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L430'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; What(IEnumerable&lt;ColumnDefinition&gt; columns)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>columns</code> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1'>IEnumerable</a>&lt;ColumnDefinition&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.What(System.Collections.Generic.IEnumerable{System.String})' data-commentid='M:DataLinq.Query.SqlQuery`1.What(System.Collections.Generic.IEnumerable{System.String})' id='DataLinq_Query_SqlQuery_1_What_System_Collections_Generic_IEnumerable_System_String__'>What(IEnumerable&lt;string&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L435'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; What(IEnumerable&lt;string&gt; selectors)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>selectors</code> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1'>IEnumerable</a>&lt;<a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.What(System.String[])' data-commentid='M:DataLinq.Query.SqlQuery`1.What(System.String[])' id='DataLinq_Query_SqlQuery_1_What_System_String___'>What(params string[])    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L443'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; What(params string[] selectors)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>selectors</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>[]  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Where(System.String,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.Where(System.String,System.String)' id='DataLinq_Query_SqlQuery_1_Where_System_String_System_String_'>Where(string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L141'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Where&lt;T&gt; Where(string columnName, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>columnName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Where-1.html'>Where</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Where(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Object}},DataLinq.Query.BooleanType,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.Where(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Object}},DataLinq.Query.BooleanType,System.String)' id='DataLinq_Query_SqlQuery_1_Where_System_Collections_Generic_IEnumerable_System_ValueTuple_System_String_System_Object___DataLinq_Query_BooleanType_System_String_'>Where(IEnumerable&lt;(string columnName, object? value)&gt;, BooleanType, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L149'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public WhereGroup&lt;T&gt; Where(IEnumerable&lt;(string columnName, object? value)&gt; wheres, BooleanType type = BooleanType.And, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>wheres</code> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1'>IEnumerable</a>&lt;(<a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a> <a href='https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.object-.columnname'>columnName</a>, <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>? <a href='https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.object-.value'>value</a>)&gt;  </dt>
+<dd>
+
+
+
+</dd><dt><code>type</code> <a href='DataLinq.Query.BooleanType.html'>BooleanType</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.WhereGroup-1.html'>WhereGroup</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Where(System.Func{System.Func{System.String,DataLinq.Query.Where{`0}},DataLinq.Query.WhereGroup{`0}})' data-commentid='M:DataLinq.Query.SqlQuery`1.Where(System.Func{System.Func{System.String,DataLinq.Query.Where{`0}},DataLinq.Query.WhereGroup{`0}})' id='DataLinq_Query_SqlQuery_1_Where_System_Func_System_Func_System_String_DataLinq_Query_Where__0___DataLinq_Query_WhereGroup__0___'>Where(Func&lt;Func&lt;string, Where&lt;T&gt;&gt;, WhereGroup&lt;T&gt;&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L160'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public WhereGroup&lt;T&gt; Where(Func&lt;Func&lt;string, Where&lt;T&gt;&gt;, WhereGroup&lt;T&gt;&gt; func)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>func</code> <a href='https://learn.microsoft.com/dotnet/api/system.func-2'>Func</a>&lt;<a href='https://learn.microsoft.com/dotnet/api/system.func-2'>Func</a>&lt;<a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>, <a href='DataLinq.Query.Where-1.html'>Where</a>&lt;T&gt;&gt;, <a href='DataLinq.Query.WhereGroup-1.html'>WhereGroup</a>&lt;T&gt;&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.WhereGroup-1.html'>WhereGroup</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.Where(Remotion.Linq.Clauses.WhereClause)' data-commentid='M:DataLinq.Query.SqlQuery`1.Where(Remotion.Linq.Clauses.WhereClause)' id='DataLinq_Query_SqlQuery_1_Where_Remotion_Linq_Clauses_WhereClause_'>Where(WhereClause)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L211'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlQuery&lt;T&gt; Where(WhereClause where)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>where</code> WhereClause  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.SqlQuery-1.html'>SqlQuery</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.WhereNot(System.String,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.WhereNot(System.String,System.String)' id='DataLinq_Query_SqlQuery_1_WhereNot_System_String_System_String_'>WhereNot(string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L168'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Where&lt;T&gt; WhereNot(string columnName, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>columnName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Where-1.html'>Where</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Query.SqlQuery`1.WhereNot(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Object}},DataLinq.Query.BooleanType,System.String)' data-commentid='M:DataLinq.Query.SqlQuery`1.WhereNot(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Object}},DataLinq.Query.BooleanType,System.String)' id='DataLinq_Query_SqlQuery_1_WhereNot_System_Collections_Generic_IEnumerable_System_ValueTuple_System_String_System_Object___DataLinq_Query_BooleanType_System_String_'>WhereNot(IEnumerable&lt;(string columnName, object? value)&gt;, BooleanType, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L176'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public WhereGroup&lt;T&gt; WhereNot(IEnumerable&lt;(string columnName, object? value)&gt; wheres, BooleanType type = BooleanType.And, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>wheres</code> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1'>IEnumerable</a>&lt;(<a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a> <a href='https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.object-.columnname'>columnName</a>, <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>? <a href='https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.object-.value'>value</a>)&gt;  </dt>
+<dd>
+
+
+
+</dd><dt><code>type</code> <a href='DataLinq.Query.BooleanType.html'>BooleanType</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.WhereGroup-1.html'>WhereGroup</a>&lt;T&gt;  </dt>
+<dd>
+
+
+
+</dd></dl>
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

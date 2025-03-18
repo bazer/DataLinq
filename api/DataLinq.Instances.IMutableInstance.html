@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Interface IMutableInstance | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Interface IMutableInstance | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ApiPage">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 class='section api' data-uid='DataLinq.Instances.IMutableInstance' data-commentid='T:DataLinq.Instances.IMutableInstance' id='DataLinq_Instances_IMutableInstance'>Interface IMutableInstance    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L58'><i class='bi bi-code-slash'></i></a></h1>
+ <div class="facts text-secondary">
+<dl><dt>Namespace</dt><dd><a href='DataLinq.Instances.html'>DataLinq.Instances</a></dd></dl><dl><dt>Assembly</dt><dd>DataLinq.dll</dd></dl>
+</div><pre><code class='lang-csharp'>public interface IMutableInstance : IModelInstance, IModel</code></pre><h4 class='section'>Implements</h4><dl class="typelist"><dd>
+<div>
+<a href='DataLinq.Instances.IModelInstance.html'>IModelInstance</a>
+</div>
+<div>
+IModel
+</div>
+
+</dd></dl><h4 class='section'>Extension Methods</h4><dl class="typelist"><dd>
+<div>
+<a href='DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_DataLinq_Mutation_Transaction_'>IModelExtensions.Delete&lt;IMutableInstance&gt;(IMutableInstance, Transaction)</a>
+</div>
+
+</dd></dl><h2 class='section'>Properties</h2><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.Item(System.String)' data-commentid='P:DataLinq.Instances.IMutableInstance.Item(System.String)' id='DataLinq_Instances_IMutableInstance_Item_System_String_'>this[string]    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L60'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>object? this[string propertyName] { get; set; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.Item(DataLinq.Metadata.ColumnDefinition)' data-commentid='P:DataLinq.Instances.IMutableInstance.Item(DataLinq.Metadata.ColumnDefinition)' id='DataLinq_Instances_IMutableInstance_Item_DataLinq_Metadata_ColumnDefinition_'>this[ColumnDefinition]    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L61'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>object? this[ColumnDefinition column] { get; set; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Methods</h2><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.GetChanges' data-commentid='M:DataLinq.Instances.IMutableInstance.GetChanges' id='DataLinq_Instances_IMutableInstance_GetChanges'>GetChanges()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L63'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>IEnumerable&lt;KeyValuePair&lt;ColumnDefinition, object?&gt;&gt; GetChanges()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1'>IEnumerable</a>&lt;<a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.keyvaluepair-2'>KeyValuePair</a>&lt;ColumnDefinition, <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>?&gt;&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.GetRowData' data-commentid='M:DataLinq.Instances.IMutableInstance.GetRowData' id='DataLinq_Instances_IMutableInstance_GetRowData'>GetRowData()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L65'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>MutableRowData GetRowData()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Instances.MutableRowData.html'>MutableRowData</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.IsDeleted' data-commentid='M:DataLinq.Instances.IMutableInstance.IsDeleted' id='DataLinq_Instances_IMutableInstance_IsDeleted'>IsDeleted()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L66'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>bool IsDeleted()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.IsNew' data-commentid='M:DataLinq.Instances.IMutableInstance.IsNew' id='DataLinq_Instances_IMutableInstance_IsNew'>IsNew()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L64'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>bool IsNew()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.Reset' data-commentid='M:DataLinq.Instances.IMutableInstance.Reset' id='DataLinq_Instances_IMutableInstance_Reset'>Reset()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L68'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>void Reset()</code></pre><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.Reset(DataLinq.Instances.RowData)' data-commentid='M:DataLinq.Instances.IMutableInstance.Reset(DataLinq.Instances.RowData)' id='DataLinq_Instances_IMutableInstance_Reset_DataLinq_Instances_RowData_'>Reset(RowData)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L69'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>void Reset(RowData rowData)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>rowData</code> <a href='DataLinq.Instances.RowData.html'>RowData</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.SetDeleted' data-commentid='M:DataLinq.Instances.IMutableInstance.SetDeleted' id='DataLinq_Instances_IMutableInstance_SetDeleted'>SetDeleted()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L67'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>void SetDeleted()</code></pre><h3 class='section api' data-uid='DataLinq.Instances.IMutableInstance.SetLazy``1(System.String,``0)' data-commentid='M:DataLinq.Instances.IMutableInstance.SetLazy``1(System.String,``0)' id='DataLinq_Instances_IMutableInstance_SetLazy__1_System_String___0_'>SetLazy&lt;V&gt;(string, V)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L70'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>void SetLazy&lt;V&gt;(string name, V value)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>name</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>value</code> V  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Type Parameters</h4><dl class='parameters'><dt><code>V</code>   </dt>
+<dd>
+
+
+
+</dd></dl>
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

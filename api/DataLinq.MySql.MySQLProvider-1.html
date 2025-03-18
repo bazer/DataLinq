@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class MySQLProvider&lt;T&gt; | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class MySQLProvider&lt;T&gt; | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ApiPage">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1' data-commentid='T:DataLinq.MySql.MySQLProvider`1' id='DataLinq_MySql_MySQLProvider_1'>Class MySQLProvider&lt;T&gt;    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L42'><i class='bi bi-code-slash'></i></a></h1>
+ <div class="facts text-secondary">
+<dl><dt>Namespace</dt><dd><a href='DataLinq.MySql.html'>DataLinq.MySql</a></dd></dl><dl><dt>Assembly</dt><dd>DataLinq.MySql.dll</dd></dl>
+</div><pre><code class='lang-csharp'>public class MySQLProvider&lt;T&gt; : DatabaseProvider&lt;T&gt;, IDatabaseProvider, IDisposable where T : class, IDatabaseModel</code></pre><h4 class='section'>Type Parameters</h4><dl class='parameters'><dt><code>T</code>   </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Inheritance</h4><dl class="typelist inheritance"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html'>DatabaseProvider</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider-1.html'>DatabaseProvider&lt;T&gt;</a>
+</div>
+<div>
+<a href='DataLinq.MySql.MySQLProvider-1.html'>MySQLProvider&lt;T&gt;</a>
+</div>
+
+</dd></dl><h4 class='section'>Implements</h4><dl class="typelist"><dd>
+<div>
+<a href='DataLinq.Interfaces.IDatabaseProvider.html'>IDatabaseProvider</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.idisposable'>IDisposable</a>
+</div>
+
+</dd></dl><h4 class='section'>Inherited Members</h4><dl class="typelist"><dd>
+<div>
+<a href='DataLinq.DatabaseProvider-1.html#DataLinq_DatabaseProvider_1_TypedReadOnlyAccess'>DatabaseProvider&lt;T&gt;.TypedReadOnlyAccess</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_DatabaseName'>DatabaseProvider.DatabaseName</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_CsModelType'>DatabaseProvider.CsModelType</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_DatabaseType'>DatabaseProvider.DatabaseType</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_LoggingConfiguration'>DatabaseProvider.LoggingConfiguration</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Constants'>DatabaseProvider.Constants</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_ConnectionString'>DatabaseProvider.ConnectionString</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_DatabaseAccess'>DatabaseProvider.DatabaseAccess</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_ReadOnlyAccess'>DatabaseProvider.ReadOnlyAccess</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Metadata'>DatabaseProvider.Metadata</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_State'>DatabaseProvider.State</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetTableCache_DataLinq_Metadata_TableDefinition_'>DatabaseProvider.GetTableCache(TableDefinition)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_StartTransaction_DataLinq_Mutation_TransactionType_'>DatabaseProvider.StartTransaction(TransactionType)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Commit__1_System_Func_DataLinq_Mutation_Transaction___0__'>DatabaseProvider.Commit&lt;M&gt;(Func&lt;Transaction, M&gt;)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Commit_System_Action_DataLinq_Mutation_Transaction__'>DatabaseProvider.Commit(Action&lt;Transaction&gt;)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_AttachTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_'>DatabaseProvider.AttachTransaction(IDbTransaction, TransactionType)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_ToDbCommand_DataLinq_Query_IQuery_'>DatabaseProvider.ToDbCommand(IQuery)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetLastIdQuery'>DatabaseProvider.GetLastIdQuery()</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetParameter_DataLinq_Query_Sql_System_String_System_Object_'>DatabaseProvider.GetParameter(Sql, string, object?)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetParameterValue_DataLinq_Query_Sql_System_String_'>DatabaseProvider.GetParameterValue(Sql, string)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetParameterComparison_DataLinq_Query_Sql_System_String_DataLinq_Query_Relation_System_String___'>DatabaseProvider.GetParameterComparison(Sql, string, Relation, string[])</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetLimitOffset_DataLinq_Query_Sql_System_Nullable_System_Int32__System_Nullable_System_Int32__'>DatabaseProvider.GetLimitOffset(Sql, int?, int?)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetTableName_DataLinq_Query_Sql_System_String_System_String_'>DatabaseProvider.GetTableName(Sql, string, string?)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetCreateSql'>DatabaseProvider.GetCreateSql()</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetNewDatabaseTransaction_DataLinq_Mutation_TransactionType_'>DatabaseProvider.GetNewDatabaseTransaction(TransactionType)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_AttachDatabaseTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_'>DatabaseProvider.AttachDatabaseTransaction(IDbTransaction, TransactionType)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_DatabaseExists_System_String_'>DatabaseProvider.DatabaseExists(string?)</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_FileOrServerExists'>DatabaseProvider.FileOrServerExists()</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetWriter'>DatabaseProvider.GetWriter()</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Dispose'>DatabaseProvider.Dispose()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)'>object.Equals(object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)'>object.Equals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gethashcode'>object.GetHashCode()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gettype'>object.GetType()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone'>object.MemberwiseClone()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.referenceequals'>object.ReferenceEquals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.tostring'>object.ToString()</a>
+</div>
+
+</dd></dl><h2 class='section'>Constructors</h2><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.#ctor(System.String)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.#ctor(System.String)' id='DataLinq_MySql_MySQLProvider_1__ctor_System_String_'>MySQLProvider(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L57'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public MySQLProvider(string connectionString)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>connectionString</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.#ctor(System.String,DataLinq.Logging.DataLinqLoggingConfiguration)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.#ctor(System.String,DataLinq.Logging.DataLinqLoggingConfiguration)' id='DataLinq_MySql_MySQLProvider_1__ctor_System_String_DataLinq_Logging_DataLinqLoggingConfiguration_'>MySQLProvider(string, DataLinqLoggingConfiguration)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L61'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public MySQLProvider(string connectionString, DataLinqLoggingConfiguration loggingConfiguration)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>connectionString</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>loggingConfiguration</code> <a href='DataLinq.Logging.DataLinqLoggingConfiguration.html'>DataLinqLoggingConfiguration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.#ctor(System.String,System.String)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.#ctor(System.String,System.String)' id='DataLinq_MySql_MySQLProvider_1__ctor_System_String_System_String_'>MySQLProvider(string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L71'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public MySQLProvider(string connectionString, string? databaseName)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>connectionString</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>databaseName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.#ctor(System.String,System.String,DataLinq.Logging.DataLinqLoggingConfiguration)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.#ctor(System.String,System.String,DataLinq.Logging.DataLinqLoggingConfiguration)' id='DataLinq_MySql_MySQLProvider_1__ctor_System_String_System_String_DataLinq_Logging_DataLinqLoggingConfiguration_'>MySQLProvider(string, string?, DataLinqLoggingConfiguration)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L75'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public MySQLProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration loggingConfiguration)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>connectionString</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>databaseName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd><dt><code>loggingConfiguration</code> <a href='DataLinq.Logging.DataLinqLoggingConfiguration.html'>DataLinqLoggingConfiguration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Properties</h2><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.Constants' data-commentid='P:DataLinq.MySql.MySQLProvider`1.Constants' id='DataLinq_MySql_MySQLProvider_1_Constants'>Constants    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L49'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override IDatabaseProviderConstants Constants { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='DataLinq.Interfaces.IDatabaseProviderConstants.html'>IDatabaseProviderConstants</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.DatabaseAccess' data-commentid='P:DataLinq.MySql.MySQLProvider`1.DatabaseAccess' id='DataLinq_MySql_MySQLProvider_1_DatabaseAccess'>DatabaseAccess    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L50'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override DatabaseAccess DatabaseAccess { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='DataLinq.DatabaseAccess.html'>DatabaseAccess</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Methods</h2><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.AttachDatabaseTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.AttachDatabaseTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)' id='DataLinq_MySql_MySQLProvider_1_AttachDatabaseTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_'>AttachDatabaseTransaction(IDbTransaction, TransactionType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L110'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>dbTransaction</code> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbtransaction'>IDbTransaction</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>type</code> <a href='DataLinq.Mutation.TransactionType.html'>TransactionType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.DatabaseTransaction.html'>DatabaseTransaction</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.DatabaseExists(System.String)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.DatabaseExists(System.String)' id='DataLinq_MySql_MySQLProvider_1_DatabaseExists_System_String_'>DatabaseExists(string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L115'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override bool DatabaseExists(string? databaseName = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>databaseName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.FileOrServerExists' data-commentid='M:DataLinq.MySql.MySQLProvider`1.FileOrServerExists' id='DataLinq_MySql_MySQLProvider_1_FileOrServerExists'>FileOrServerExists()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L125'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override bool FileOrServerExists()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetCreateSql' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetCreateSql' id='DataLinq_MySql_MySQLProvider_1_GetCreateSql'>GetCreateSql()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L222'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override Sql GetCreateSql()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetLastIdQuery' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetLastIdQuery' id='DataLinq_MySql_MySQLProvider_1_GetLastIdQuery'>GetLastIdQuery()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L137'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override string GetLastIdQuery()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetLimitOffset(DataLinq.Query.Sql,System.Nullable{System.Int32},System.Nullable{System.Int32})' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetLimitOffset(DataLinq.Query.Sql,System.Nullable{System.Int32},System.Nullable{System.Int32})' id='DataLinq_MySql_MySQLProvider_1_GetLimitOffset_DataLinq_Query_Sql_System_Nullable_System_Int32__System_Nullable_System_Int32__'>GetLimitOffset(Sql, int?, int?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L186'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override Sql GetLimitOffset(Sql sql, int? limit, int? offset)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>limit</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>?  </dt>
+<dd>
+
+
+
+</dd><dt><code>offset</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetNewDatabaseTransaction(DataLinq.Mutation.TransactionType)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetNewDatabaseTransaction(DataLinq.Mutation.TransactionType)' id='DataLinq_MySql_MySQLProvider_1_GetNewDatabaseTransaction_DataLinq_Mutation_TransactionType_'>GetNewDatabaseTransaction(TransactionType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L104'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>type</code> <a href='DataLinq.Mutation.TransactionType.html'>TransactionType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.DatabaseTransaction.html'>DatabaseTransaction</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetParameter(DataLinq.Query.Sql,System.String,System.Object)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetParameter(DataLinq.Query.Sql,System.String,System.Object)' id='DataLinq_MySql_MySQLProvider_1_GetParameter_DataLinq_Query_Sql_System_String_System_Object_'>GetParameter(Sql, string, object?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L181'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override Sql GetParameter(Sql sql, string key, object? value)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>key</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>value</code> <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetParameterComparison(DataLinq.Query.Sql,System.String,DataLinq.Query.Relation,System.String[])' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetParameterComparison(DataLinq.Query.Sql,System.String,DataLinq.Query.Relation,System.String[])' id='DataLinq_MySql_MySQLProvider_1_GetParameterComparison_DataLinq_Query_Sql_System_String_DataLinq_Query_Relation_System_String___'>GetParameterComparison(Sql, string, Relation, string[])    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L147'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override Sql GetParameterComparison(Sql sql, string field, Relation relation, string[] key)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>field</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>relation</code> <a href='DataLinq.Query.Relation.html'>Relation</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>key</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>[]  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetParameterValue(DataLinq.Query.Sql,System.String)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetParameterValue(DataLinq.Query.Sql,System.String)' id='DataLinq_MySql_MySQLProvider_1_GetParameterValue_DataLinq_Query_Sql_System_String_'>GetParameterValue(Sql, string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L142'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override Sql GetParameterValue(Sql sql, string key)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>key</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetTableName(DataLinq.Query.Sql,System.String,System.String)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetTableName(DataLinq.Query.Sql,System.String,System.String)' id='DataLinq_MySql_MySQLProvider_1_GetTableName_DataLinq_Query_Sql_System_String_System_String_'>GetTableName(Sql, string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L201'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override Sql GetTableName(Sql sql, string tableName, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>tableName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.GetWriter' data-commentid='M:DataLinq.MySql.MySQLProvider`1.GetWriter' id='DataLinq_MySql_MySQLProvider_1_GetWriter'>GetWriter()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L224'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override IDataLinqDataWriter GetWriter()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.IDataLinqDataWriter.html'>IDataLinqDataWriter</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.MySql.MySQLProvider`1.ToDbCommand(DataLinq.Query.IQuery)' data-commentid='M:DataLinq.MySql.MySQLProvider`1.ToDbCommand(DataLinq.Query.IQuery)' id='DataLinq_MySql_MySQLProvider_1_ToDbCommand_DataLinq_Query_IQuery_'>ToDbCommand(IQuery)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySQLProvider.cs#L212'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public override IDbCommand ToDbCommand(IQuery query)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>query</code> <a href='DataLinq.Query.IQuery.html'>IQuery</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbcommand'>IDbCommand</a>  </dt>
+<dd>
+
+
+
+</dd></dl>
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

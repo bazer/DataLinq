@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Contributing to DataLinq | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Contributing to DataLinq | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/bazer/DataLinq/blob/master/docs/Contributing.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="contributing-to-datalinq">Contributing to DataLinq</h1>
+
+<p>Thank you for your interest in contributing to DataLinq! We welcome improvements of all kinds—from bug fixes and documentation updates to entirely new features. This guide will walk you through the contribution process and provide best practices for working with the DataLinq codebase.</p>
+<hr>
+<h2 id="1-getting-started">1. Getting Started</h2>
+<h3 id="11-fork-and-clone">1.1 Fork and Clone</h3>
+<ol>
+<li><p><strong>Fork the Repository:</strong><br>
+Click the <strong>Fork</strong> button on the project’s GitHub page to create a personal copy of the repository.</p>
+</li>
+<li><p><strong>Clone Your Fork Locally:</strong></p>
+<pre><code class="lang-bash">git clone https://github.com/YourUsername/DataLinq.git
+cd DataLinq
+</code></pre>
+</li>
+<li><p><strong>Add Upstream Remote (Optional but Recommended):</strong></p>
+<pre><code class="lang-bash">git remote add upstream https://github.com/DataLinqOrg/DataLinq.git
+</code></pre>
+<p>This helps you keep your fork in sync with the official repository.</p>
+</li>
+</ol>
+<h3 id="12-setting-up-your-environment">1.2 Setting Up Your Environment</h3>
+<ol>
+<li><p><strong>Install .NET SDK:</strong><br>
+DataLinq targets .NET 6 or higher. Make sure you have the corresponding .NET SDK installed.</p>
+</li>
+<li><p><strong>Restore NuGet Packages:</strong><br>
+From the root directory, run:</p>
+<pre><code class="lang-bash">dotnet restore
+</code></pre>
+</li>
+<li><p><strong>Build the Solution:</strong></p>
+<pre><code class="lang-bash">dotnet build
+</code></pre>
+<p>Ensure the solution builds without errors before proceeding.</p>
+</li>
+</ol>
+<h3 id="13-exploring-the-codebase">1.3 Exploring the Codebase</h3>
+<ul>
+<li><strong>src</strong><br>
+Contains the main DataLinq libraries (e.g., <code>DataLinq.Core</code>, <code>DataLinq.MySql</code>, <code>DataLinq.SQLite</code>, etc.).</li>
+<li><strong>docs</strong><br>
+Holds the project’s documentation, including this contributing guide.</li>
+<li><strong>tests</strong><br>
+(If present) Contains unit and integration tests. Some test projects may also live under <code>src/DataLinq.Tests</code> or similar directories.</li>
+</ul>
+<hr>
+<h2 id="2-coding-guidelines">2. Coding Guidelines</h2>
+<ol>
+<li><p><strong>Style and Conventions:</strong></p>
+<ul>
+<li>Use <strong>.NET naming conventions</strong> (PascalCase for classes and methods, camelCase for private fields, etc.).</li>
+<li>Keep lines reasonably short (e.g., under 120 characters).</li>
+<li>Avoid overly long methods; aim for clear, maintainable functions.</li>
+</ul>
+</li>
+<li><p><strong>Comments and Documentation:</strong></p>
+<ul>
+<li>Document complex logic or non-obvious decisions using <code>///</code> XML doc comments or inline comments.</li>
+<li>If you’re adding a new public API, consider adding or updating doc comments to explain usage.</li>
+</ul>
+</li>
+<li><p><strong>Commit Messages:</strong></p>
+<ul>
+<li>Use short, descriptive commit messages.</li>
+<li>Include references to issues or pull requests when applicable (e.g., “Fix #123: Add caching for user profiles”).</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="3-testing">3. Testing</h2>
+<h3 id="31-running-tests">3.1 Running Tests</h3>
+<p>DataLinq includes unit and integration tests to ensure reliability and prevent regressions:</p>
+<pre><code class="lang-bash">dotnet test
+</code></pre>
+<ul>
+<li><strong>Unit Tests:</strong> Focus on isolated components (e.g., caching, query parsing).</li>
+<li><strong>Integration Tests:</strong> Validate end-to-end scenarios, often requiring a running database (e.g., MySQL or SQLite).</li>
+</ul>
+<h3 id="32-adding-new-tests">3.2 Adding New Tests</h3>
+<p>Whenever you fix a bug or add a feature:</p>
+<ol>
+<li><strong>Write or Update Tests:</strong> Confirm that your changes work as intended and do not break existing functionality.</li>
+<li><strong>Test Locally:</strong> Ensure all tests pass before pushing your changes.</li>
+</ol>
+<hr>
+<h2 id="4-submitting-a-pull-request">4. Submitting a Pull Request</h2>
+<ol>
+<li><strong>Create a Feature Branch:</strong>
+<pre><code class="lang-bash">git checkout -b feature/my-new-feature
+</code></pre>
+</li>
+<li><strong>Make Your Changes:</strong><br>
+Commit early and often. Keep commits atomic and focused on a single topic.</li>
+<li><strong>Push to Your Fork:</strong>
+<pre><code class="lang-bash">git push origin feature/my-new-feature
+</code></pre>
+</li>
+<li><strong>Open a Pull Request:</strong><br>
+On GitHub, open a PR from your feature branch to the <code>main</code> (or relevant) branch in the official DataLinq repository.</li>
+<li><strong>Review Process:</strong>
+<ul>
+<li>A maintainer or community member may review your changes.</li>
+<li>Be prepared to address comments or requested revisions.</li>
+<li>Once approved, the PR is merged into the main repository.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="5-communication">5. Communication</h2>
+<ol>
+<li><strong>Issues:</strong>
+<ul>
+<li>Use GitHub Issues for bug reports, feature requests, and discussion.</li>
+<li>Provide clear steps to reproduce bugs or rationale for new features.</li>
+</ul>
+</li>
+<li><strong>Discussions / Forum (If Available):</strong><br>
+If the project maintains a separate discussion board, consider posting general or open-ended questions there.</li>
+</ol>
+<hr>
+<h2 id="6-code-of-conduct">6. Code of Conduct</h2>
+<p>We strive to maintain a friendly, respectful community. By participating in this project, you agree to uphold a <a href="https://example.com/code-of-conduct">Code of Conduct</a> that fosters a welcoming environment for all contributors.</p>
+<hr>
+<h2 id="7-license">7. License</h2>
+<p>DataLinq is open source software, released under the <a href="../LICENSE.html">MIT License</a>. By contributing, you agree that your contributions will be licensed under the same license.</p>
+<hr>
+<h2 id="8-thank-you">8. Thank You!</h2>
+<p>Your contributions make DataLinq a better tool for everyone. Whether you’re fixing a typo, adding a new feature, or improving test coverage, we appreciate your effort. Feel free to reach out if you have any questions about contributing.</p>
+<hr>
+<p><strong>Happy coding!</strong></p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/bazer/DataLinq/blob/master/docs/Contributing.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

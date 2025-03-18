@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title> | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content=" | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/bazer/DataLinq/blob/master/docs/Metadata Structure.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+
+<h2 id="metadata-structure">Metadata Structure</h2>
+<p>DataLinq’s source generator relies on a rich metadata model to describe both the database schema and the corresponding object models. This metadata serves as the foundation for generating the strongly typed immutable and mutable classes, as well as their related interfaces and extension methods. The key components of this metadata structure are outlined below.</p>
+<h3 id="1-databasedefinition">1. <strong>DatabaseDefinition</strong></h3>
+<ul>
+<li><p><strong>Purpose:</strong><br>
+Represents an entire database, including its name, caching policies, and the collection of tables/views (encapsulated as TableModels).</p>
+</li>
+<li><p><strong>Key Points:</strong></p>
+<ul>
+<li>Holds global attributes (such as caching limits and cleanup settings) that apply to the database.</li>
+<li>Contains a set of <code>TableModels</code> which tie together table definitions and their associated model definitions.</li>
+<li>Maintains a C# type declaration that is used to generate the main database class.</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-tablemodel-and-tabledefinition">2. <strong>TableModel and TableDefinition</strong></h3>
+<ul>
+<li><p><strong>TableModel:</strong><br>
+Acts as the bridge between the database and the model. It links:</p>
+<ul>
+<li><strong>ModelDefinition:</strong> The description of the C# model.</li>
+<li><strong>TableDefinition:</strong> The structure of the underlying table or view.</li>
+<li>A designated property name (used in generated code) that represents the table within the database class.</li>
+</ul>
+</li>
+<li><p><strong>TableDefinition:</strong><br>
+Describes a single database table or view.</p>
+<ul>
+<li>Contains the database table name (<code>DbName</code>), a collection of <code>ColumnDefinition</code> objects, and an array of primary key columns.</li>
+<li>Supports indices via a collection of <code>ColumnIndex</code> objects, which are later used for relation mapping and performance optimizations.</li>
+<li>Indicates whether the definition represents a table or a view, and holds any caching configuration specific to the table.</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-columndefinition-and-columnindex">3. <strong>ColumnDefinition and ColumnIndex</strong></h3>
+<ul>
+<li><p><strong>ColumnDefinition:</strong><br>
+Represents a single column in a table.</p>
+<ul>
+<li>Specifies the column’s database name, the associated database types (through <code>DatabaseColumnType</code>), and flags such as whether the column is a primary key, auto-incremented, nullable, or part of a foreign key.</li>
+<li>Links to a <code>ValueProperty</code> that holds the C# type information and additional attributes (e.g., default values).</li>
+</ul>
+</li>
+<li><p><strong>ColumnIndex:</strong><br>
+Describes an index over one or more columns.</p>
+<ul>
+<li>Records the index name, type (such as BTREE, FULLTEXT, etc.), and its characteristic (e.g., primary key, unique).</li>
+<li>Aggregates columns that participate in the index and supports relation mapping by storing associated <code>RelationPart</code> objects.</li>
+</ul>
+</li>
+</ul>
+<h3 id="4-cstypedeclaration">4. <strong>CsTypeDeclaration</strong></h3>
+<ul>
+<li><p><strong>Purpose:</strong><br>
+Encapsulates C# type information for models and properties.</p>
+</li>
+<li><p><strong>Key Points:</strong></p>
+<ul>
+<li>Stores the type’s name, namespace, and categorizes it (e.g., Class, Record, Interface, Primitive).</li>
+<li>Used extensively during source generation to ensure that generated code uses the correct type names and that interface prefixes are removed as needed.</li>
+<li>Supports both runtime types (via reflection) and syntax-based types (from Roslyn), ensuring consistency between the defined models and the generated output.</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-modeldefinition-and-propertydefinition">5. <strong>ModelDefinition and PropertyDefinition</strong></h3>
+<ul>
+<li><p><strong>ModelDefinition:</strong><br>
+Captures the definition of a model class.</p>
+<ul>
+<li>Includes its C# type declaration, a collection of using directives, and a list of properties.</li>
+<li>Differentiates between value properties and relation properties, and records any model-level attributes.</li>
+<li>Serves as the blueprint for generating the immutable and mutable classes.</li>
+</ul>
+</li>
+<li><p><strong>PropertyDefinition:</strong><br>
+The base abstraction for model properties.</p>
+<ul>
+<li><strong>ValueProperty:</strong> Represents a simple column mapping, including type information, nullability, size, and any default values or enumeration details.</li>
+<li><strong>RelationProperty:</strong> Represents relationships between models (foreign key associations), holding a reference to a <code>RelationPart</code> that links the property to the corresponding column index and relation definition.</li>
+</ul>
+</li>
+</ul>
+<h3 id="6-relationdefinition-and-relationpart">6. <strong>RelationDefinition and RelationPart</strong></h3>
+<ul>
+<li><p><strong>RelationDefinition:</strong><br>
+Defines a relationship between two tables.</p>
+<ul>
+<li>Typically represents a one-to-many relationship, specifying the constraint name and linking the foreign key side to the candidate key side.</li>
+</ul>
+</li>
+<li><p><strong>RelationPart:</strong><br>
+Describes one side of a relationship (either the foreign key or candidate key).</p>
+<ul>
+<li>Associates with a <code>ColumnIndex</code> and includes a C# name that is used in the generated model to reference the relationship.</li>
+<li>Provides helper methods to navigate to the “other side” of the relation, enabling bidirectional navigation in the ORM.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3 id="summary">Summary</h3>
+<p>The metadata structure in DataLinq forms a comprehensive representation of the database schema and its corresponding C# models. It is divided into:</p>
+<ul>
+<li><strong>Database and Table Definitions:</strong> Which capture the overall database and its individual tables or views.</li>
+<li><strong>Column and Index Definitions:</strong> Which detail the structure of each table and support the mapping of relations.</li>
+<li><strong>Model and Property Definitions:</strong> Which describe the C# representations of the data, including type details, attributes, and relationships.</li>
+<li><strong>Relation Structures:</strong> Which define how tables are linked through foreign keys and candidate keys.</li>
+</ul>
+<p>This metadata is then consumed by the source generator to produce consistent, strongly typed model classes that adhere to DataLinq’s design principles of immutability, efficient caching, and seamless querying.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/bazer/DataLinq/blob/master/docs/Metadata Structure.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

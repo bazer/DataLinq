@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Implementing a New Backend for DataLinq | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Implementing a New Backend for DataLinq | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/bazer/DataLinq/blob/master/docs/Implementing a new backend.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="implementing-a-new-backend-for-datalinq">Implementing a New Backend for DataLinq</h1>
+
+<p>DataLinq’s architecture is designed to be backend agnostic by isolating database-specific functionality behind well-defined interfaces and adapter classes. To implement a new backend, you must address three key areas:</p>
+<ol>
+<li><strong>Reading Metadata Definitions</strong></li>
+<li><strong>Generating SQL Scripts from Models</strong></li>
+<li><strong>Reading and Writing Data to the Backend</strong></li>
+</ol>
+<p>Below is a breakdown of what each area entails and how existing providers (e.g., MySQL and SQLite) implement these features.</p>
+<hr>
+<h2 id="1-reading-metadata-definitions">1. Reading Metadata Definitions</h2>
+<h3 id="purpose">Purpose</h3>
+<p>The first step in integrating a new backend is to read and interpret the database’s schema. This process converts system-specific metadata (often stored in system tables like <code>information_schema</code>) into DataLinq’s internal representations (such as <code>DatabaseDefinition</code>, <code>TableDefinition</code>, and <code>ColumnDefinition</code>).</p>
+<h3 id="how-its-done-in-datalinq">How It’s Done in DataLinq</h3>
+<ul>
+<li><p><strong>Metadata Factories:</strong><br>
+DataLinq uses specialized factories (e.g., <code>MetadataFromMySqlFactory</code> and <code>MetadataFromSQLiteFactory</code>) to connect to the database, query system tables, and build metadata objects. These factories map database-specific types to C# types and determine properties like primary keys, foreign keys, and indices.</p>
+</li>
+<li><p><strong>Core Methods:</strong><br>
+The factory methods parse table structures, extract column information, and apply attributes (such as <code>[Table]</code>, <code>[Column]</code>, and <code>[Relation]</code>) to construct a complete metadata model. This model then drives both code generation and SQL script creation.</p>
+</li>
+</ul>
+<h3 id="steps-to-implement">Steps to Implement</h3>
+<ol>
+<li><p><strong>Create a New Metadata Factory:</strong></p>
+<ul>
+<li>Implement a factory class similar to <code>MetadataFromMySqlFactory</code> that connects to your new backend.</li>
+<li>Query the backend’s system tables to retrieve schema information.</li>
+<li>Map the retrieved metadata to DataLinq’s internal types (e.g., creating instances of <code>TableDefinition</code> and <code>ColumnDefinition</code>).</li>
+</ul>
+</li>
+<li><p><strong>Type Mapping:</strong></p>
+<ul>
+<li>Implement logic to convert your database’s native data types into C# types using a helper similar to <code>MetadataTypeConverter</code>.</li>
+</ul>
+</li>
+<li><p><strong>Testing:</strong></p>
+<ul>
+<li>Ensure that the factory properly handles edge cases (e.g., composite primary keys, nullable columns) and that the resulting metadata accurately reflects the database schema.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="2-generating-sql-scripts-from-models">2. Generating SQL Scripts from Models</h2>
+<h3 id="purpose-1">Purpose</h3>
+<p>For SQL-based databases, it’s essential to generate database schema creation scripts based on the metadata extracted from your models. This script ensures that your database schema aligns with the definitions in your code.</p>
+<h3 id="how-its-done-in-datalinq-1">How It’s Done in DataLinq</h3>
+<ul>
+<li><strong>SQL Generation Factories:</strong><br>
+Providers like MySQL and SQLite include classes such as <code>SqlFromMetadataFactory</code> that take a <code>DatabaseDefinition</code> object and produce a complete SQL script.</li>
+<li><strong>Script Components:</strong><br>
+The generator constructs SQL commands for creating tables, indices, and constraints. It leverages the metadata information (table names, column definitions, indices) to produce the necessary DDL statements.</li>
+</ul>
+<h3 id="steps-to-implement-1">Steps to Implement</h3>
+<ol>
+<li><p><strong>Develop a SQL Generator Class:</strong></p>
+<ul>
+<li>Create a class similar to <code>SqlFromMetadataFactory</code> that accepts the metadata and outputs SQL commands.</li>
+<li>Handle database-specific syntax, including differences in data types, quoting, and command structure.</li>
+</ul>
+</li>
+<li><p><strong>Integration with Metadata:</strong></p>
+<ul>
+<li>Ensure that your generator reads from the same metadata produced by your new metadata factory.</li>
+<li>Verify that table definitions, columns (with attributes like <code>NOT NULL</code>, <code>AUTO_INCREMENT</code>), primary keys, foreign keys, and indices are correctly translated into SQL.</li>
+</ul>
+</li>
+<li><p><strong>Output Options:</strong></p>
+<ul>
+<li>Provide options for writing the script to a file or returning it as a string for further processing.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="3-reading-and-writing-data-to-the-backend">3. Reading and Writing Data to the Backend</h2>
+<h3 id="purpose-2">Purpose</h3>
+<p>Beyond schema management, the new backend must support data operations such as querying, inserting, updating, and deleting records. DataLinq abstracts these operations into a set of classes and interfaces to maintain consistency across backends.</p>
+<h3 id="how-its-done-in-datalinq-2">How It’s Done in DataLinq</h3>
+<ul>
+<li><p><strong>Data Access Classes:</strong><br>
+Each provider implements classes for data reading and writing. For example, MySQL has <code>MySqlDataLinqDataReader</code> and <code>MySqlDataLinqDataWriter</code> that wrap native ADO.NET objects.</p>
+</li>
+<li><p><strong>Connection and Transaction Management:</strong><br>
+Providers include classes such as <code>MySqlDatabase</code> and <code>MySqlDatabaseTransaction</code> that implement operations defined in the common interfaces (e.g., <code>IDatabaseProvider</code>, <code>IDataSourceAccess</code>).</p>
+</li>
+<li><p><strong>Query Execution:</strong><br>
+The LINQ query translator works with the backend provider to execute queries. The provider must support:</p>
+<ul>
+<li>Executing parameterized queries.</li>
+<li>Returning results as DataReaders that can be mapped to immutable objects.</li>
+<li>Handling batch operations for efficient bulk fetches (such as fetching missing rows based on primary key lists).</li>
+</ul>
+</li>
+</ul>
+<h3 id="steps-to-implement-2">Steps to Implement</h3>
+<ol>
+<li><p><strong>Implement the Provider Interface:</strong></p>
+<ul>
+<li>Create a new provider class (e.g., <code>NewBackendProvider</code>) that implements required interfaces like <code>IDatabaseProvider</code>.</li>
+<li>Define methods for opening connections, executing queries, and managing transactions.</li>
+</ul>
+</li>
+<li><p><strong>Data Reader and Writer Classes:</strong></p>
+<ul>
+<li>Develop classes that wrap the new backend’s native data reader/writer objects.</li>
+<li>Ensure these classes support efficient reading (e.g., supporting the “primary key-first” approach) and writing of data.</li>
+</ul>
+</li>
+<li><p><strong>Transaction Handling:</strong></p>
+<ul>
+<li>Implement a transaction class to support commit and rollback operations.</li>
+<li>Make sure that updates to the Global Cache and relation caches occur only after successful commits.</li>
+</ul>
+</li>
+<li><p><strong>Error Handling and Logging:</strong></p>
+<ul>
+<li>Integrate robust exception management and logging similar to what is present in the MySQL/SQLite implementations.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="4-registering-the-new-backend">4. Registering the New Backend</h2>
+<p>Once the new backend classes are implemented, you must register the provider with DataLinq. This is typically done in your application’s startup code:</p>
+<pre><code class="lang-csharp">// Register the new backend provider
+NewBackendProvider.RegisterProvider();
+</code></pre>
+<p>The <code>RegisterProvider</code> method should add your provider to DataLinq’s internal registry so that it can be selected via the configuration file (e.g., in <code>datalinq.json</code>, specify <code>&quot;Type&quot;: &quot;NewBackend&quot;</code>).</p>
+<hr>
+<h2 id="5-summary">5. Summary</h2>
+<p>To implement a new backend in DataLinq, follow these key steps:</p>
+<ul>
+<li><p><strong>Metadata Reading:</strong><br>
+Develop a metadata factory to query system tables, map types, and construct a complete schema definition.</p>
+</li>
+<li><p><strong>SQL Script Generation:</strong><br>
+Create a SQL generator class that translates metadata into DDL statements tailored to your backend’s syntax.</p>
+</li>
+<li><p><strong>Data Access:</strong><br>
+Implement provider classes for opening connections, executing queries, and managing transactions. Develop data reader and writer classes to support efficient data operations.</p>
+</li>
+<li><p><strong>Registration:</strong><br>
+Register your new backend so that it becomes available for configuration and use within the DataLinq framework.</p>
+</li>
+</ul>
+<p>This modular approach—demonstrated by the existing MySQL and SQLite implementations—ensures that new backends can be added with minimal impact on the core architecture while offering all the benefits of DataLinq’s caching, mutation, and query optimization strategies.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/bazer/DataLinq/blob/master/docs/Implementing a new backend.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

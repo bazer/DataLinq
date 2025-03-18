@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class DatabaseProvider | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class DatabaseProvider | DataLinq ">
+      
+      <meta name="description" content="Abstract base class for database providers, encapsulating common database operations and properties.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ApiPage">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 class='section api' data-uid='DataLinq.DatabaseProvider' data-commentid='T:DataLinq.DatabaseProvider' id='DataLinq_DatabaseProvider'>Class DatabaseProvider    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L56'><i class='bi bi-code-slash'></i></a></h1>
+ <div class="facts text-secondary">
+<dl><dt>Namespace</dt><dd><a href='DataLinq.html'>DataLinq</a></dd></dl><dl><dt>Assembly</dt><dd>DataLinq.dll</dd></dl>
+</div><p>Abstract base class for database providers, encapsulating common database operations and properties.</p>
+<pre><code class='lang-csharp'>public abstract class DatabaseProvider : IDatabaseProvider, IDisposable</code></pre><h4 class='section'>Inheritance</h4><dl class="typelist inheritance"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>
+</div>
+<div>
+<a href='DataLinq.DatabaseProvider.html'>DatabaseProvider</a>
+</div>
+
+</dd></dl><h4 class='section'>Derived</h4><dl class="typelist"><dd>
+<div>
+<a href='DataLinq.DatabaseProvider-1.html'>DatabaseProvider&lt;T&gt;</a>
+</div>
+
+</dd></dl><h4 class='section'>Implements</h4><dl class="typelist"><dd>
+<div>
+<a href='DataLinq.Interfaces.IDatabaseProvider.html'>IDatabaseProvider</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.idisposable'>IDisposable</a>
+</div>
+
+</dd></dl><h4 class='section'>Inherited Members</h4><dl class="typelist"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)'>object.Equals(object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)'>object.Equals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gethashcode'>object.GetHashCode()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gettype'>object.GetType()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone'>object.MemberwiseClone()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.referenceequals'>object.ReferenceEquals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.tostring'>object.ToString()</a>
+</div>
+
+</dd></dl><h2 class='section'>Constructors</h2><h3 class='section api' data-uid='DataLinq.DatabaseProvider.#ctor(System.String,System.Type,DataLinq.DatabaseType,DataLinq.Logging.DataLinqLoggingConfiguration,System.String)' data-commentid='M:DataLinq.DatabaseProvider.#ctor(System.String,System.Type,DataLinq.DatabaseType,DataLinq.Logging.DataLinqLoggingConfiguration,System.String)' id='DataLinq_DatabaseProvider__ctor_System_String_System_Type_DataLinq_DatabaseType_DataLinq_Logging_DataLinqLoggingConfiguration_System_String_'>DatabaseProvider(string, Type, DatabaseType, DataLinqLoggingConfiguration, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L86'><i class='bi bi-code-slash'></i></a></h3>
+ <p>Initializes a new instance of the DatabaseProvider class with the specified connection string, type of the model, database type, and optional database name.</p>
+<pre><code class='lang-csharp'>protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>connectionString</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+<p>The connection string to the database.</p>
+
+</dd><dt><code>type</code> <a href='https://learn.microsoft.com/dotnet/api/system.type'>Type</a>  </dt>
+<dd>
+
+
+<p>The type of the model that the database contains.</p>
+
+</dd><dt><code>databaseType</code> DatabaseType  </dt>
+<dd>
+
+
+<p>The type of the database.</p>
+
+</dd><dt><code>loggingConfiguration</code> <a href='DataLinq.Logging.DataLinqLoggingConfiguration.html'>DataLinqLoggingConfiguration</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>databaseName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+<p>The name of the database (optional).</p>
+
+</dd></dl><h2 class='section'>Properties</h2><h3 class='section api' data-uid='DataLinq.DatabaseProvider.ConnectionString' data-commentid='P:DataLinq.DatabaseProvider.ConnectionString' id='DataLinq_DatabaseProvider_ConnectionString'>ConnectionString    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L64'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string ConnectionString { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.Constants' data-commentid='P:DataLinq.DatabaseProvider.Constants' id='DataLinq_DatabaseProvider_Constants'>Constants    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L62'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract IDatabaseProviderConstants Constants { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='DataLinq.Interfaces.IDatabaseProviderConstants.html'>IDatabaseProviderConstants</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.CsModelType' data-commentid='P:DataLinq.DatabaseProvider.CsModelType' id='DataLinq_DatabaseProvider_CsModelType'>CsModelType    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L59'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Type CsModelType { get; protected set; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.type'>Type</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.DatabaseAccess' data-commentid='P:DataLinq.DatabaseProvider.DatabaseAccess' id='DataLinq_DatabaseProvider_DatabaseAccess'>DatabaseAccess    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L65'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract DatabaseAccess DatabaseAccess { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='DataLinq.DatabaseAccess.html'>DatabaseAccess</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.DatabaseName' data-commentid='P:DataLinq.DatabaseProvider.DatabaseName' id='DataLinq_DatabaseProvider_DatabaseName'>DatabaseName    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L58'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string DatabaseName { get; protected set; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.DatabaseType' data-commentid='P:DataLinq.DatabaseProvider.DatabaseType' id='DataLinq_DatabaseProvider_DatabaseType'>DatabaseType    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L60'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public DatabaseType DatabaseType { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> DatabaseType  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.LoggingConfiguration' data-commentid='P:DataLinq.DatabaseProvider.LoggingConfiguration' id='DataLinq_DatabaseProvider_LoggingConfiguration'>LoggingConfiguration    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L61'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public DataLinqLoggingConfiguration LoggingConfiguration { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='DataLinq.Logging.DataLinqLoggingConfiguration.html'>DataLinqLoggingConfiguration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.Metadata' data-commentid='P:DataLinq.DatabaseProvider.Metadata' id='DataLinq_DatabaseProvider_Metadata'>Metadata    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L67'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public DatabaseDefinition Metadata { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> DatabaseDefinition  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.ReadOnlyAccess' data-commentid='P:DataLinq.DatabaseProvider.ReadOnlyAccess' id='DataLinq_DatabaseProvider_ReadOnlyAccess'>ReadOnlyAccess    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L66'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public virtual ReadOnlyAccess ReadOnlyAccess { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='DataLinq.Mutation.ReadOnlyAccess.html'>ReadOnlyAccess</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.State' data-commentid='P:DataLinq.DatabaseProvider.State' id='DataLinq_DatabaseProvider_State'>State    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L68'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public State State { get; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='DataLinq.Mutation.State.html'>State</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Methods</h2><h3 class='section api' data-uid='DataLinq.DatabaseProvider.AttachDatabaseTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)' data-commentid='M:DataLinq.DatabaseProvider.AttachDatabaseTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)' id='DataLinq_DatabaseProvider_AttachDatabaseTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_'>AttachDatabaseTransaction(IDbTransaction, TransactionType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L179'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>dbTransaction</code> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbtransaction'>IDbTransaction</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>type</code> <a href='DataLinq.Mutation.TransactionType.html'>TransactionType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.DatabaseTransaction.html'>DatabaseTransaction</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.AttachTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)' data-commentid='M:DataLinq.DatabaseProvider.AttachTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)' id='DataLinq_DatabaseProvider_AttachTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_'>AttachTransaction(IDbTransaction, TransactionType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L164'><i class='bi bi-code-slash'></i></a></h3>
+ <p>Attaches an existing database transaction to this provider with the specified transaction type.</p>
+<pre><code class='lang-csharp'>public Transaction AttachTransaction(IDbTransaction dbTransaction, TransactionType transactionType = TransactionType.ReadAndWrite)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>dbTransaction</code> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbtransaction'>IDbTransaction</a>  </dt>
+<dd>
+
+
+<p>The existing database transaction.</p>
+
+</dd><dt><code>transactionType</code> <a href='DataLinq.Mutation.TransactionType.html'>TransactionType</a>  </dt>
+<dd>
+
+
+<p>The type of the transaction.</p>
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Mutation.Transaction.html'>Transaction</a>  </dt>
+<dd>
+
+
+<p>A new Transaction object that wraps the provided IDbTransaction.</p>
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.Commit``1(System.Func{DataLinq.Mutation.Transaction,``0})' data-commentid='M:DataLinq.DatabaseProvider.Commit``1(System.Func{DataLinq.Mutation.Transaction,``0})' id='DataLinq_DatabaseProvider_Commit__1_System_Func_DataLinq_Mutation_Transaction___0__'>Commit&lt;M&gt;(Func&lt;Transaction, M&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L142'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public M Commit&lt;M&gt;(Func&lt;Transaction, M&gt; func)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>func</code> <a href='https://learn.microsoft.com/dotnet/api/system.func-2'>Func</a>&lt;<a href='DataLinq.Mutation.Transaction.html'>Transaction</a>, M&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> M  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Type Parameters</h4><dl class='parameters'><dt><code>M</code>   </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.Commit(System.Action{DataLinq.Mutation.Transaction})' data-commentid='M:DataLinq.DatabaseProvider.Commit(System.Action{DataLinq.Mutation.Transaction})' id='DataLinq_DatabaseProvider_Commit_System_Action_DataLinq_Mutation_Transaction__'>Commit(Action&lt;Transaction&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L151'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public void Commit(Action&lt;Transaction&gt; action)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>action</code> <a href='https://learn.microsoft.com/dotnet/api/system.action-1'>Action</a>&lt;<a href='DataLinq.Mutation.Transaction.html'>Transaction</a>&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.DatabaseExists(System.String)' data-commentid='M:DataLinq.DatabaseProvider.DatabaseExists(System.String)' id='DataLinq_DatabaseProvider_DatabaseExists_System_String_'>DatabaseExists(string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L180'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract bool DatabaseExists(string? databaseName = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>databaseName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.Dispose' data-commentid='M:DataLinq.DatabaseProvider.Dispose' id='DataLinq_DatabaseProvider_Dispose'>Dispose()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L188'><i class='bi bi-code-slash'></i></a></h3>
+ <p>Releases all resources used by the DatabaseProvider.</p>
+<pre><code class='lang-csharp'>public void Dispose()</code></pre><h3 class='section api' data-uid='DataLinq.DatabaseProvider.FileOrServerExists' data-commentid='M:DataLinq.DatabaseProvider.FileOrServerExists' id='DataLinq_DatabaseProvider_FileOrServerExists'>FileOrServerExists()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L181'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract bool FileOrServerExists()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetCreateSql' data-commentid='M:DataLinq.DatabaseProvider.GetCreateSql' id='DataLinq_DatabaseProvider_GetCreateSql'>GetCreateSql()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L177'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract Sql GetCreateSql()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetLastIdQuery' data-commentid='M:DataLinq.DatabaseProvider.GetLastIdQuery' id='DataLinq_DatabaseProvider_GetLastIdQuery'>GetLastIdQuery()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L171'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract string GetLastIdQuery()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetLimitOffset(DataLinq.Query.Sql,System.Nullable{System.Int32},System.Nullable{System.Int32})' data-commentid='M:DataLinq.DatabaseProvider.GetLimitOffset(DataLinq.Query.Sql,System.Nullable{System.Int32},System.Nullable{System.Int32})' id='DataLinq_DatabaseProvider_GetLimitOffset_DataLinq_Query_Sql_System_Nullable_System_Int32__System_Nullable_System_Int32__'>GetLimitOffset(Sql, int?, int?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L175'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract Sql GetLimitOffset(Sql sql, int? limit, int? offset)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>limit</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>?  </dt>
+<dd>
+
+
+
+</dd><dt><code>offset</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetNewDatabaseTransaction(DataLinq.Mutation.TransactionType)' data-commentid='M:DataLinq.DatabaseProvider.GetNewDatabaseTransaction(DataLinq.Mutation.TransactionType)' id='DataLinq_DatabaseProvider_GetNewDatabaseTransaction_DataLinq_Mutation_TransactionType_'>GetNewDatabaseTransaction(TransactionType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L178'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>type</code> <a href='DataLinq.Mutation.TransactionType.html'>TransactionType</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.DatabaseTransaction.html'>DatabaseTransaction</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetParameter(DataLinq.Query.Sql,System.String,System.Object)' data-commentid='M:DataLinq.DatabaseProvider.GetParameter(DataLinq.Query.Sql,System.String,System.Object)' id='DataLinq_DatabaseProvider_GetParameter_DataLinq_Query_Sql_System_String_System_Object_'>GetParameter(Sql, string, object?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L172'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract Sql GetParameter(Sql sql, string key, object? value)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>key</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>value</code> <a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetParameterComparison(DataLinq.Query.Sql,System.String,DataLinq.Query.Relation,System.String[])' data-commentid='M:DataLinq.DatabaseProvider.GetParameterComparison(DataLinq.Query.Sql,System.String,DataLinq.Query.Relation,System.String[])' id='DataLinq_DatabaseProvider_GetParameterComparison_DataLinq_Query_Sql_System_String_DataLinq_Query_Relation_System_String___'>GetParameterComparison(Sql, string, Relation, string[])    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L174'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract Sql GetParameterComparison(Sql sql, string field, Relation relation, string[] key)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>field</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>relation</code> <a href='DataLinq.Query.Relation.html'>Relation</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>key</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>[]  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetParameterValue(DataLinq.Query.Sql,System.String)' data-commentid='M:DataLinq.DatabaseProvider.GetParameterValue(DataLinq.Query.Sql,System.String)' id='DataLinq_DatabaseProvider_GetParameterValue_DataLinq_Query_Sql_System_String_'>GetParameterValue(Sql, string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L173'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract Sql GetParameterValue(Sql sql, string key)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>key</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetTableCache(DataLinq.Metadata.TableDefinition)' data-commentid='M:DataLinq.DatabaseProvider.GetTableCache(DataLinq.Metadata.TableDefinition)' id='DataLinq_DatabaseProvider_GetTableCache_DataLinq_Metadata_TableDefinition_'>GetTableCache(TableDefinition)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L77'><i class='bi bi-code-slash'></i></a></h3>
+ <p>Retrieves the table cache for a given table metadata.</p>
+<pre><code class='lang-csharp'>public TableCache GetTableCache(TableDefinition table)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>table</code> TableDefinition  </dt>
+<dd>
+
+
+<p>The metadata of the table to retrieve the cache for.</p>
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Cache.TableCache.html'>TableCache</a>  </dt>
+<dd>
+
+
+<p>The table cache for the specified table.</p>
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetTableName(DataLinq.Query.Sql,System.String,System.String)' data-commentid='M:DataLinq.DatabaseProvider.GetTableName(DataLinq.Query.Sql,System.String,System.String)' id='DataLinq_DatabaseProvider_GetTableName_DataLinq_Query_Sql_System_String_System_String_'>GetTableName(Sql, string, string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L176'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract Sql GetTableName(Sql sql, string tableName, string? alias = null)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>sql</code> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>tableName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>alias</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.GetWriter' data-commentid='M:DataLinq.DatabaseProvider.GetWriter' id='DataLinq_DatabaseProvider_GetWriter'>GetWriter()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L183'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract IDataLinqDataWriter GetWriter()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.IDataLinqDataWriter.html'>IDataLinqDataWriter</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.StartTransaction(DataLinq.Mutation.TransactionType)' data-commentid='M:DataLinq.DatabaseProvider.StartTransaction(DataLinq.Mutation.TransactionType)' id='DataLinq_DatabaseProvider_StartTransaction_DataLinq_Mutation_TransactionType_'>StartTransaction(TransactionType)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L137'><i class='bi bi-code-slash'></i></a></h3>
+ <p>Starts a new database transaction with the specified transaction type.</p>
+<pre><code class='lang-csharp'>public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>transactionType</code> <a href='DataLinq.Mutation.TransactionType.html'>TransactionType</a>  </dt>
+<dd>
+
+
+<p>The type of the transaction.</p>
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Mutation.Transaction.html'>Transaction</a>  </dt>
+<dd>
+
+
+<p>A new Transaction object.</p>
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.DatabaseProvider.ToDbCommand(DataLinq.Query.IQuery)' data-commentid='M:DataLinq.DatabaseProvider.ToDbCommand(DataLinq.Query.IQuery)' id='DataLinq_DatabaseProvider_ToDbCommand_DataLinq_Query_IQuery_'>ToDbCommand(IQuery)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseProvider.cs#L170'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public abstract IDbCommand ToDbCommand(IQuery query)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>query</code> <a href='DataLinq.Query.IQuery.html'>IQuery</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.data.idbcommand'>IDbCommand</a>  </dt>
+<dd>
+
+
+
+</dd></dl>
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

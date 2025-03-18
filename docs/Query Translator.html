@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title> | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content=" | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/bazer/DataLinq/blob/master/docs/Query Translator.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+
+<h2 id="query-translation-and-execution">Query Translation and Execution</h2>
+<p>DataLinq’s query translation subsystem transforms LINQ expressions into SQL commands tailored to the underlying database. This process is multi-staged, ensuring that the query is both optimized and fully parameterized before execution. The following subsections describe the key components and their roles.</p>
+<h3 id="1-expression-simplification-and-evaluation">1. Expression Simplification and Evaluation</h3>
+<p><strong>Evaluator.cs</strong></p>
+<ul>
+<li><strong>Purpose:</strong> Before translation begins, DataLinq partially evaluates the expression tree to simplify constant sub-expressions.</li>
+<li><strong>Key Components:</strong>
+<ul>
+<li><strong>Nominator:</strong> Traverses the tree to determine which nodes can be evaluated locally. Parameters are explicitly excluded so that only independent expressions are replaced.</li>
+<li><strong>SubtreeEvaluator:</strong> Replaces nominated subtrees with constant expressions by compiling and invoking them.</li>
+</ul>
+</li>
+<li><strong>Outcome:</strong> This reduces the complexity of the expression tree and ensures that only the relevant, variable-dependent parts are translated into SQL.</li>
+</ul>
+<h3 id="2-queryable-interface-and-integration">2. Queryable Interface and Integration</h3>
+<p><strong>Queryable.cs</strong></p>
+<ul>
+<li><strong>Role:</strong> This class provides the entry point for LINQ queries on DataLinq. It integrates with Remotion.Linq—a powerful query parsing framework—to interpret the LINQ expression trees.</li>
+<li><strong>Mechanism:</strong>
+<ul>
+<li>The default query parser is used to generate a QueryModel.</li>
+<li>The Queryable then hands off the QueryModel to our custom query executor.</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-query-execution-via-queryexecutor">3. Query Execution via QueryExecutor</h3>
+<p><strong>QueryExecutor.cs</strong></p>
+<ul>
+<li><strong>Overview:</strong>
+<ul>
+<li>The QueryExecutor is central to transforming a QueryModel (obtained from Remotion.Linq) into a complete SQL statement.</li>
+</ul>
+</li>
+<li><strong>Steps in Query Translation:</strong>
+<ul>
+<li><strong>Extract QueryModel:</strong>
+<ul>
+<li>The executor recursively examines the expression tree to extract the QueryModel, handling subqueries, member accesses, method calls, and unary expressions.</li>
+</ul>
+</li>
+<li><strong>Parse Body Clauses:</strong>
+<ul>
+<li>Iterates over the query’s body clauses (such as <code>WhereClause</code> and <code>OrderByClause</code>).</li>
+<li>Uses specialized visitors (described below) to translate these clauses into SQL fragments.</li>
+</ul>
+</li>
+<li><strong>Result Operators:</strong>
+<ul>
+<li>Recognizes operators such as <code>Take</code>, <code>Skip</code>, <code>First()</code>, <code>Single()</code>, etc.</li>
+<li>These operators adjust the SQL query by setting LIMIT, OFFSET, or ensuring only a specific number of rows are returned.</li>
+</ul>
+</li>
+<li><strong>Projection:</strong>
+<ul>
+<li>The method <code>GetSelectFunc&lt;T&gt;</code> builds a selector function from the QueryModel’s <code>SelectClause</code>, handling both simple member accesses and more complex constructions (via anonymous types).</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Execution:</strong>
+<ul>
+<li>After building the SQL query using the translator, the QueryExecutor calls the provider’s execution methods to retrieve data.</li>
+<li>Retrieved rows are mapped back to immutable model instances using the <code>InstanceFactory</code>.</li>
+</ul>
+</li>
+</ul>
+<h3 id="4-type-system-and-dynamic-determination">4. Type System and Dynamic Determination</h3>
+<p><strong>TypeSystem.cs</strong></p>
+<ul>
+<li><strong>Function:</strong>
+<ul>
+<li>Determines the element type of a sequence, especially when dealing with generic <code>IEnumerable&lt;T&gt;</code> types.</li>
+<li>This utility is critical when processing LINQ queries that return collections, ensuring that the correct model type is used during projection.</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-clause-visitors">5. Clause Visitors</h3>
+<p><strong>OrderByVisitor.cs</strong></p>
+<ul>
+<li><strong>Functionality:</strong>
+<ul>
+<li>Walks through the expression tree for <code>OrderBy</code> clauses.</li>
+<li>Extracts column information from member expressions and instructs the SQL query to apply ordering (ascending or descending) accordingly.</li>
+</ul>
+</li>
+</ul>
+<p><strong>WhereVisitor.cs</strong></p>
+<ul>
+<li><strong>Responsibilities:</strong>
+<ul>
+<li>Traverses the expression tree representing a <code>Where</code> clause.</li>
+<li>Handles binary expressions (e.g., comparisons), method calls (for operations such as <code>Contains</code>, <code>StartsWith</code>, etc.), and logical operators (AND, OR, NOT).</li>
+<li>Converts each operation into its SQL equivalent by invoking helper methods that add SQL predicates.</li>
+</ul>
+</li>
+</ul>
+<h3 id="6-building-where-clauses">6. Building WHERE Clauses</h3>
+<p><strong>Where.cs and WhereGroup.cs</strong></p>
+<ul>
+<li><strong>Where.cs:</strong>
+<ul>
+<li>Represents individual conditions.</li>
+<li>Supports operations like equality, inequality, LIKE, IN, and range comparisons.</li>
+<li>Generates parameterized SQL snippets to ensure safety and performance.</li>
+</ul>
+</li>
+<li><strong>WhereGroup.cs:</strong>
+<ul>
+<li>Allows grouping of multiple conditions using Boolean logic (AND/OR).</li>
+<li>Provides methods to combine conditions, add parentheses, and support nested groups.</li>
+<li>Works in tandem with the WhereVisitor to build the full WHERE clause.</li>
+</ul>
+</li>
+</ul>
+<h3 id="7-sql-query-construction">7. SQL Query Construction</h3>
+<p><strong>SqlQuery.cs</strong></p>
+<ul>
+<li><strong>Purpose:</strong>
+<ul>
+<li>Aggregates the different parts of a query—SELECT, FROM, JOIN, WHERE, ORDER BY, LIMIT, and OFFSET—into a complete SQL statement.</li>
+</ul>
+</li>
+<li><strong>Features:</strong>
+<ul>
+<li>Handles aliasing, table naming, and column selection.</li>
+<li>Delegates parts of the SQL construction to helper methods and visitors.</li>
+<li>Integrates with the provider to ensure that database-specific syntax is respected (e.g., escape characters, parameter prefixes).</li>
+</ul>
+</li>
+</ul>
+<p><strong>Sql.cs</strong></p>
+<ul>
+<li><strong>Role:</strong>
+<ul>
+<li>Acts as a mutable string builder for SQL commands.</li>
+<li>Maintains a list of parameters and manages parameter indexing.</li>
+<li>Provides methods to add text, format strings, join multiple clauses, and produce the final SQL command text.</li>
+</ul>
+</li>
+</ul>
+<h3 id="8-dml-operations-insert-update-and-delete">8. DML Operations: Insert, Update, and Delete</h3>
+<ul>
+<li><strong>Insert.cs:</strong>
+<ul>
+<li>Constructs an <code>INSERT INTO</code> command using values from the mutable model.</li>
+<li>Parameterizes the values and, if required, appends a command to retrieve the last inserted ID.</li>
+</ul>
+</li>
+<li><strong>Update.cs:</strong>
+<ul>
+<li>Builds an <code>UPDATE</code> command with a <code>SET</code> clause derived from the model’s changed properties.</li>
+<li>Appends a WHERE clause to target specific rows.</li>
+</ul>
+</li>
+<li><strong>Delete.cs:</strong>
+<ul>
+<li>Constructs a <code>DELETE FROM</code> command, leveraging the WHERE clause to specify which row(s) to remove.</li>
+</ul>
+</li>
+</ul>
+<h3 id="9-join-clauses">9. JOIN Clauses</h3>
+<p><strong>Join.cs</strong></p>
+<ul>
+<li><strong>Functionality:</strong>
+<ul>
+<li>Represents JOIN operations (inner, left outer, right outer).</li>
+<li>Provides an <code>On</code> method to specify join conditions, which are internally represented as a nested WhereGroup.</li>
+<li>Generates the appropriate JOIN clause in SQL, including table names, aliases, and ON conditions.</li>
+</ul>
+</li>
+</ul>
+<h3 id="10-miscellaneous-utilities">10. Miscellaneous Utilities</h3>
+<ul>
+<li><p><strong>Literal.cs:</strong></p>
+<ul>
+<li>Represents literal SQL strings that can be embedded directly into queries.</li>
+<li>Useful for scenarios where a raw SQL fragment needs to be incorporated.</li>
+</ul>
+</li>
+<li><p><strong>QueryUtils.cs:</strong></p>
+<ul>
+<li>Contains helper methods for parsing table and column names and extracting aliases.</li>
+<li>Simplifies the handling of name formats, ensuring consistency across queries.</li>
+</ul>
+</li>
+<li><p><strong>OrderBy.cs:</strong></p>
+<ul>
+<li>Encapsulates details for ordering, including the column, alias, and direction (ascending or descending).</li>
+<li>Formats the ORDER BY clause using the database provider’s escape characters.</li>
+</ul>
+</li>
+<li><p><strong>IQueryPart.cs and QueryResult.cs:</strong></p>
+<ul>
+<li>Define abstractions for parts of a query and for representing query results.</li>
+<li>Though <code>QueryResult</code> is minimal, it serves as a placeholder for future enhancements in result handling.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3 id="summary">Summary</h3>
+<p>The Query Translator in DataLinq represents a cohesive system that:</p>
+<ul>
+<li><strong>Simplifies and partially evaluates LINQ expression trees</strong> to isolate variable-dependent components.</li>
+<li><strong>Integrates with Remotion.Linq</strong> to produce a QueryModel from high-level LINQ queries.</li>
+<li><strong>Uses specialized visitors</strong> (WhereVisitor, OrderByVisitor) to convert LINQ clauses into SQL predicates.</li>
+<li><strong>Builds complete SQL commands</strong> by assembling SELECT, FROM, JOIN, WHERE, ORDER BY, and LIMIT/OFFSET clauses.</li>
+<li><strong>Handles DML operations</strong> (Insert, Update, Delete) with full parameterization.</li>
+<li><strong>Leverages dynamic type determination and projection</strong> to convert SQL results back into immutable model instances.</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/bazer/DataLinq/blob/master/docs/Query Translator.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

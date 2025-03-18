@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class SqlGeneration | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class SqlGeneration | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ApiPage">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 class='section api' data-uid='DataLinq.Metadata.SqlGeneration' data-commentid='T:DataLinq.Metadata.SqlGeneration' id='DataLinq_Metadata_SqlGeneration'>Class SqlGeneration    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L10'><i class='bi bi-code-slash'></i></a></h1>
+ <div class="facts text-secondary">
+<dl><dt>Namespace</dt><dd><a href='DataLinq.Metadata.html'>DataLinq.Metadata</a></dd></dl><dl><dt>Assembly</dt><dd>DataLinq.dll</dd></dl>
+</div><pre><code class='lang-csharp'>public class SqlGeneration</code></pre><h4 class='section'>Inheritance</h4><dl class="typelist inheritance"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object'>object</a>
+</div>
+<div>
+<a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>
+</div>
+
+</dd></dl><h4 class='section'>Derived</h4><dl class="typelist"><dd>
+<div>
+<a href='DataLinq.SQLite.SQLiteGeneration.html'>SQLiteGeneration</a>
+</div>
+
+</dd></dl><h4 class='section'>Inherited Members</h4><dl class="typelist"><dd>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)'>object.Equals(object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)'>object.Equals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gethashcode'>object.GetHashCode()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.gettype'>object.GetType()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone'>object.MemberwiseClone()</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.referenceequals'>object.ReferenceEquals(object?, object?)</a>
+</div>
+<div>
+<a href='https://learn.microsoft.com/dotnet/api/system.object.tostring'>object.ToString()</a>
+</div>
+
+</dd></dl><h2 class='section'>Constructors</h2><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.#ctor(System.Int32,System.Char,System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.#ctor(System.Int32,System.Char,System.String)' id='DataLinq_Metadata_SqlGeneration__ctor_System_Int32_System_Char_System_String_'>SqlGeneration(int, char, string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L12'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration(int indentationSpaces = 4, char quoteChar = &#39;`&#39;, string generatedText = &quot;&quot;)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>indentationSpaces</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>quoteChar</code> <a href='https://learn.microsoft.com/dotnet/api/system.char'>char</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>generatedText</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Fields</h2><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Buffer' data-commentid='F:DataLinq.Metadata.SqlGeneration.Buffer' id='DataLinq_Metadata_SqlGeneration_Buffer'>Buffer    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L74'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string Buffer</code></pre><h4 class='section'>Field Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.sql' data-commentid='F:DataLinq.Metadata.SqlGeneration.sql' id='DataLinq_Metadata_SqlGeneration_sql'>sql    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L77'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public Sql sql</code></pre><h4 class='section'>Field Value</h4><dl class='parameters'><dt> <a href='DataLinq.Query.Sql.html'>Sql</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Properties</h2><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.IndentationSpaces' data-commentid='P:DataLinq.Metadata.SqlGeneration.IndentationSpaces' id='DataLinq_Metadata_SqlGeneration_IndentationSpaces'>IndentationSpaces    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L71'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public int IndentationSpaces { get; set; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.QuoteCharacter' data-commentid='P:DataLinq.Metadata.SqlGeneration.QuoteCharacter' id='DataLinq_Metadata_SqlGeneration_QuoteCharacter'>QuoteCharacter    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L72'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public char QuoteCharacter { get; set; }</code></pre><h4 class='section'>Property Value</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.char'>char</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h2 class='section'>Methods</h2><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Add(System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.Add(System.String)' id='DataLinq_Metadata_SqlGeneration_Add_System_String_'>Add(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L79'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration Add(string s)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>s</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Align(System.Int32,System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.Align(System.Int32,System.String)' id='DataLinq_Metadata_SqlGeneration_Align_System_Int32_System_String_'>Align(int, string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L140'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string Align(int longest, string text)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>longest</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>text</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Autoincrement(System.Boolean)' data-commentid='M:DataLinq.Metadata.SqlGeneration.Autoincrement(System.Boolean)' id='DataLinq_Metadata_SqlGeneration_Autoincrement_System_Boolean_'>Autoincrement(bool)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L131'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration Autoincrement(bool inc)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>inc</code> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.ColumnName(System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.ColumnName(System.String)' id='DataLinq_Metadata_SqlGeneration_ColumnName_System_String_'>ColumnName(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L83'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration ColumnName(string column)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>column</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.CreateTable(System.String,System.Action{DataLinq.Metadata.SqlGeneration})' data-commentid='M:DataLinq.Metadata.SqlGeneration.CreateTable(System.String,System.Action{DataLinq.Metadata.SqlGeneration})' id='DataLinq_Metadata_SqlGeneration_CreateTable_System_String_System_Action_DataLinq_Metadata_SqlGeneration__'>CreateTable(string, Action&lt;SqlGeneration&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L108'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration CreateTable(string tableName, Action&lt;SqlGeneration&gt; func)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>tableName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>func</code> <a href='https://learn.microsoft.com/dotnet/api/system.action-1'>Action</a>&lt;<a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.CreateView(System.String,System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.CreateView(System.String,System.String)' id='DataLinq_Metadata_SqlGeneration_CreateView_System_String_System_String_'>CreateView(string, string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L118'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration CreateView(string viewName, string definition)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>viewName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>definition</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.DefaultValue(System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.DefaultValue(System.String)' id='DataLinq_Metadata_SqlGeneration_DefaultValue_System_String_'>DefaultValue(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L129'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration DefaultValue(string defaultValue)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>defaultValue</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.EnumValues(System.Collections.Generic.IEnumerable{System.String})' data-commentid='M:DataLinq.Metadata.SqlGeneration.EnumValues(System.Collections.Generic.IEnumerable{System.String})' id='DataLinq_Metadata_SqlGeneration_EnumValues_System_Collections_Generic_IEnumerable_System_String__'>EnumValues(IEnumerable&lt;string&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L138'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration EnumValues(IEnumerable&lt;string&gt; values)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>values</code> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1'>IEnumerable</a>&lt;<a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.ForeignKey(DataLinq.Metadata.RelationPart,System.Boolean)' data-commentid='M:DataLinq.Metadata.SqlGeneration.ForeignKey(DataLinq.Metadata.RelationPart,System.Boolean)' id='DataLinq_Metadata_SqlGeneration_ForeignKey_DataLinq_Metadata_RelationPart_System_Boolean_'>ForeignKey(RelationPart, bool)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L148'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration ForeignKey(RelationPart relation, bool restrict)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>relation</code> RelationPart  </dt>
+<dd>
+
+
+
+</dd><dt><code>restrict</code> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.ForeignKey(System.String,System.String,System.String,System.String,System.Boolean)' data-commentid='M:DataLinq.Metadata.SqlGeneration.ForeignKey(System.String,System.String,System.String,System.String,System.Boolean)' id='DataLinq_Metadata_SqlGeneration_ForeignKey_System_String_System_String_System_String_System_String_System_Boolean_'>ForeignKey(string?, string, string, string, bool)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L155'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration ForeignKey(string? constraintName, string from, string table, string to, bool restrict)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>constraintName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd><dt><code>from</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>table</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>to</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>restrict</code> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Indent' data-commentid='M:DataLinq.Metadata.SqlGeneration.Indent' id='DataLinq_Metadata_SqlGeneration_Indent'>Indent()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L125'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration Indent()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Index(System.String,System.String,System.String,System.String[])' data-commentid='M:DataLinq.Metadata.SqlGeneration.Index(System.String,System.String,System.String,System.String[])' id='DataLinq_Metadata_SqlGeneration_Index_System_String_System_String_System_String_System_String___'>Index(string, string?, string, params string[])    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L142'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration Index(string name, string? characteristic, string type, params string[] columns)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>name</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>characteristic</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd><dt><code>type</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>columns</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>[]  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.NewLine' data-commentid='M:DataLinq.Metadata.SqlGeneration.NewLine' id='DataLinq_Metadata_SqlGeneration_NewLine'>NewLine()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L80'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration NewLine()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.NewLineComma' data-commentid='M:DataLinq.Metadata.SqlGeneration.NewLineComma' id='DataLinq_Metadata_SqlGeneration_NewLineComma'>NewLineComma()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L127'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration NewLineComma()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.NewRow' data-commentid='M:DataLinq.Metadata.SqlGeneration.NewRow' id='DataLinq_Metadata_SqlGeneration_NewRow'>NewRow()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L78'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration NewRow()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Nullable(System.Boolean)' data-commentid='M:DataLinq.Metadata.SqlGeneration.Nullable(System.Boolean)' id='DataLinq_Metadata_SqlGeneration_Nullable_System_Boolean_'>Nullable(bool)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L130'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration Nullable(bool nullable)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>nullable</code> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.OnUpdateDelete(System.Boolean)' data-commentid='M:DataLinq.Metadata.SqlGeneration.OnUpdateDelete(System.Boolean)' id='DataLinq_Metadata_SqlGeneration_OnUpdateDelete_System_Boolean_'>OnUpdateDelete(bool)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L157'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string OnUpdateDelete(bool restrict)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>restrict</code> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Parenthesis(System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.Parenthesis(System.String)' id='DataLinq_Metadata_SqlGeneration_Parenthesis_System_String_'>Parenthesis(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L90'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string Parenthesis(string s)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>s</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.ParenthesisList(System.String[])' data-commentid='M:DataLinq.Metadata.SqlGeneration.ParenthesisList(System.String[])' id='DataLinq_Metadata_SqlGeneration_ParenthesisList_System_String___'>ParenthesisList(string[])    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L92'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string ParenthesisList(string[] columns)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>columns</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>[]  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.PrimaryKey(System.String[])' data-commentid='M:DataLinq.Metadata.SqlGeneration.PrimaryKey(System.String[])' id='DataLinq_Metadata_SqlGeneration_PrimaryKey_System_String___'>PrimaryKey(params string[])    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L144'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration PrimaryKey(params string[] columns)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>columns</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>[]  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.QuotedParenthesis(System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.QuotedParenthesis(System.String)' id='DataLinq_Metadata_SqlGeneration_QuotedParenthesis_System_String_'>QuotedParenthesis(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L88'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string QuotedParenthesis(string s)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>s</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.QuotedString(System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.QuotedString(System.String)' id='DataLinq_Metadata_SqlGeneration_QuotedString_System_String_'>QuotedString(string)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L84'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string QuotedString(string s)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>s</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.SortTablesByForeignKeys(System.Collections.Generic.List{DataLinq.Metadata.TableDefinition})' data-commentid='M:DataLinq.Metadata.SqlGeneration.SortTablesByForeignKeys(System.Collections.Generic.List{DataLinq.Metadata.TableDefinition})' id='DataLinq_Metadata_SqlGeneration_SortTablesByForeignKeys_System_Collections_Generic_List_DataLinq_Metadata_TableDefinition__'>SortTablesByForeignKeys(List&lt;TableDefinition&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L21'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public List&lt;TableDefinition&gt; SortTablesByForeignKeys(List&lt;TableDefinition&gt; tables)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>tables</code> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1'>List</a>&lt;TableDefinition&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1'>List</a>&lt;TableDefinition&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.SortViewsByForeignKeys(System.Collections.Generic.List{DataLinq.Metadata.ViewDefinition})' data-commentid='M:DataLinq.Metadata.SqlGeneration.SortViewsByForeignKeys(System.Collections.Generic.List{DataLinq.Metadata.ViewDefinition})' id='DataLinq_Metadata_SqlGeneration_SortViewsByForeignKeys_System_Collections_Generic_List_DataLinq_Metadata_ViewDefinition__'>SortViewsByForeignKeys(List&lt;ViewDefinition&gt;)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L49'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public List&lt;ViewDefinition&gt; SortViewsByForeignKeys(List&lt;ViewDefinition&gt; views)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>views</code> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1'>List</a>&lt;ViewDefinition&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1'>List</a>&lt;ViewDefinition&gt;  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Space' data-commentid='M:DataLinq.Metadata.SqlGeneration.Space' id='DataLinq_Metadata_SqlGeneration_Space'>Space()    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L86'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration Space()</code></pre><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Type(System.String,System.String,System.Int32)' data-commentid='M:DataLinq.Metadata.SqlGeneration.Type(System.String,System.String,System.Int32)' id='DataLinq_Metadata_SqlGeneration_Type_System_String_System_String_System_Int32_'>Type(string, string, int)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L132'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration Type(string type, string columnName, int longestColumnName)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>type</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>columnName</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>longestColumnName</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.TypeLength(System.Nullable{System.Int64},System.Nullable{System.Int32})' data-commentid='M:DataLinq.Metadata.SqlGeneration.TypeLength(System.Nullable{System.Int64},System.Nullable{System.Int32})' id='DataLinq_Metadata_SqlGeneration_TypeLength_System_Nullable_System_Int64__System_Nullable_System_Int32__'>TypeLength(long?, int?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L133'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration TypeLength(long? length, int? decimals)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>length</code> <a href='https://learn.microsoft.com/dotnet/api/system.int64'>long</a>?  </dt>
+<dd>
+
+
+
+</dd><dt><code>decimals</code> <a href='https://learn.microsoft.com/dotnet/api/system.int32'>int</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.UniqueKey(System.String,System.String[])' data-commentid='M:DataLinq.Metadata.SqlGeneration.UniqueKey(System.String,System.String[])' id='DataLinq_Metadata_SqlGeneration_UniqueKey_System_String_System_String___'>UniqueKey(string, params string[])    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L146'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public virtual SqlGeneration UniqueKey(string name, params string[] columns)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>name</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd><dt><code>columns</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>[]  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.Unsigned(System.Nullable{System.Boolean})' data-commentid='M:DataLinq.Metadata.SqlGeneration.Unsigned(System.Nullable{System.Boolean})' id='DataLinq_Metadata_SqlGeneration_Unsigned_System_Nullable_System_Boolean__'>Unsigned(bool?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L139'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public SqlGeneration Unsigned(bool? signed)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>signed</code> <a href='https://learn.microsoft.com/dotnet/api/system.boolean'>bool</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='DataLinq.Metadata.SqlGeneration.html'>SqlGeneration</a>  </dt>
+<dd>
+
+
+
+</dd></dl><h3 class='section api' data-uid='DataLinq.Metadata.SqlGeneration.ValueWithSpace(System.String)' data-commentid='M:DataLinq.Metadata.SqlGeneration.ValueWithSpace(System.String)' id='DataLinq_Metadata_SqlGeneration_ValueWithSpace_System_String_'>ValueWithSpace(string?)    <a class='header-action link-secondary' title='View source' href='https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L94'><i class='bi bi-code-slash'></i></a></h3>
+ <pre><code class='lang-csharp'>public string ValueWithSpace(string? s)</code></pre><h4 class='section'>Parameters</h4><dl class='parameters'><dt><code>s</code> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>?  </dt>
+<dd>
+
+
+
+</dd></dl><h4 class='section'>Returns</h4><dl class='parameters'><dt> <a href='https://learn.microsoft.com/dotnet/api/system.string'>string</a>  </dt>
+<dd>
+
+
+
+</dd></dl>
+</article>
+
+        <div class="contribution d-print-none">
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

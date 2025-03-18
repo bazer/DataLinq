@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>DataLinq Project Specification | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="DataLinq Project Specification | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/bazer/DataLinq/blob/master/docs/Project Specification.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="datalinq-project-specification">DataLinq Project Specification</h1>
+
+<h2 id="1-introduction">1. Introduction</h2>
+<h3 id="11-purpose">1.1 Purpose</h3>
+<p>DataLinq is designed to be a lightweight, high-performance Object-Relational Mapping (ORM) framework that leverages immutable objects and robust caching to optimize read-heavy scenarios. By focusing on minimal memory allocations and rapid data retrieval, DataLinq aims to provide a reliable and efficient solution for smaller projects and databases. Additionally, the framework is built to support multiple backend data sources—including traditional relational databases (like MariaDB and SQLite) as well as non-relational formats (such as JSON, CSV, and XML)—thus offering flexibility for diverse application requirements.</p>
+<h3 id="12-scope">1.2 Scope</h3>
+<p>DataLinq encompasses:</p>
+<ul>
+<li><strong>Immutable Entity Management:</strong> Utilizing a source generator, the framework automatically creates both immutable and mutable classes for each data model. Immutable objects ensure thread-safety and predictability during read operations.</li>
+<li><strong>Caching:</strong> A dual-level caching strategy is implemented:
+<ul>
+<li>A <strong>global cache</strong> stores immutable entities for reuse across sessions and requests.</li>
+<li>A <strong>transaction-specific cache</strong> holds objects undergoing updates to maintain consistency.</li>
+<li>Cache invalidation is managed automatically during mutations, manually by the user, via time-based expiration, backend polling, or notifications (e.g., through Apache Kafka).</li>
+</ul>
+</li>
+<li><strong>LINQ Integration:</strong> The primary querying mechanism is LINQ, offering a concise and familiar interface for developers.</li>
+<li><strong>Backend Flexibility:</strong> The design facilitates easy swapping of backend sources with minimal code changes. This is essential for projects that may need to switch data storage strategies over time.</li>
+<li><strong>Testability:</strong>
+<ul>
+<li><strong>Data Layer Testing:</strong> DataLinq is designed to make it straightforward for developers to test the data layer of their projects by providing clear interfaces and dedicated mocking classes.</li>
+<li><strong>ORM Test Suite:</strong> In parallel, DataLinq itself includes a comprehensive suite of unit, integration, and benchmarking tests to ensure reliability and performance.</li>
+</ul>
+</li>
+</ul>
+<h3 id="13-audience">1.3 Audience</h3>
+<p>This document is primarily intended for:</p>
+<ul>
+<li><strong>Developers:</strong> Who will be integrating DataLinq into their applications and need to understand its design, usage, and customization points.</li>
+<li><strong>Contributors:</strong> Who are interested in extending or improving the framework, ensuring adherence to its architectural principles and performance targets.</li>
+</ul>
+<h2 id="2-project-overview">2. Project Overview</h2>
+<h3 id="21-goals-and-objectives">2.1 Goals and Objectives</h3>
+<p>DataLinq is driven by several key objectives:</p>
+<ul>
+<li><strong>Performance:</strong> Optimize read operations through aggressive caching and an immutable object model, with a target of zero memory allocations on cache hits.</li>
+<li><strong>Simplicity and Flexibility:</strong> Provide a minimal yet powerful API modeled after Entity Framework, enabling seamless switching between different backend data sources with minimal code adjustments.</li>
+<li><strong>Extensibility:</strong> Support various data sources including MariaDB, SQLite, JSON, CSV, and XML, thereby accommodating diverse application needs.</li>
+<li><strong>Testability:</strong>
+<ul>
+<li>Enable developers to easily test the data layers of their projects by offering clear interfaces and built-in mocking capabilities.</li>
+<li>Maintain a robust internal test suite to validate the ORM's performance and correctness.</li>
+</ul>
+</li>
+<li><strong>Scalability:</strong> Cater primarily to heavy-read scenarios in small-to-medium projects while laying the groundwork for potential expansion.</li>
+</ul>
+<h3 id="22-high-level-architecture">2.2 High-Level Architecture</h3>
+<p>The architecture of DataLinq is organized around several core components:</p>
+<ul>
+<li><strong>Immutable Entity Model:</strong>
+<ul>
+<li>Data models are represented as immutable objects to ensure thread-safety and consistency.</li>
+<li>Mutations are handled by converting immutable objects into new mutable instances for modification. Once updated, these changes are reflected back into the cache by generating a new immutable object.</li>
+</ul>
+</li>
+<li><strong>Caching Mechanism:</strong>
+<ul>
+<li>A <strong>global cache</strong> holds immutable objects to maximize reusability across sessions.</li>
+<li>A <strong>transactional cache</strong> manages updates within individual operations, ensuring that changes are consistently applied before synchronizing with the global cache.</li>
+<li>Multiple cache invalidation strategies are employed, including automatic invalidation on mutation, manual refresh, timer-based expiry, backend polling, and external notifications.</li>
+</ul>
+</li>
+<li><strong>LINQ-Based Querying:</strong>
+<ul>
+<li>The ORM leverages LINQ as its primary query language, providing a concise and familiar syntax for data retrieval and manipulation.</li>
+</ul>
+</li>
+<li><strong>Backend Integration:</strong>
+<ul>
+<li>Initially, DataLinq supports MariaDB and SQLite.</li>
+<li>Its modular design makes it straightforward to switch backends or add new ones, ensuring minimal impact on existing code when migrating between data sources.</li>
+</ul>
+</li>
+<li><strong>Source Generation:</strong>
+<ul>
+<li>A source generator automates the creation of immutable and mutable classes for each model, reducing boilerplate code and enforcing consistency across the codebase.</li>
+</ul>
+</li>
+<li><strong>Testability:</strong>
+<ul>
+<li>The framework is built with testability in mind, offering interfaces and mocking classes to facilitate both the testing of applications that use DataLinq and the rigorous internal testing of the ORM itself.</li>
+</ul>
+</li>
+</ul>
+<p>Below is the updated <strong>System Architecture and Design</strong> section incorporating your feedback:</p>
+<h2 id="3-system-architecture-and-design">3. System Architecture and Design</h2>
+<h3 id="31-immutable-entity-model">3.1 Immutable Entity Model</h3>
+<ul>
+<li><p><strong>Immutable Objects:</strong><br>
+Data models in DataLinq are represented as immutable objects, ensuring thread-safety and consistency. Once created, the state of these objects cannot change.</p>
+</li>
+<li><p><strong>Mutation Workflow:</strong><br>
+When an update is required, the framework provides a <code>Mutate()</code> method. This method converts the immutable object into a mutable version for modifications. After saving these changes to the backend within a transaction, a new immutable instance is generated to replace the previous version in the cache. Notably, mutable objects are only used transiently in user code and are never stored in any cache.</p>
+</li>
+<li><p><strong>Source Generation:</strong><br>
+A source generator automates the creation of both immutable and mutable classes from abstract model classes. This minimizes boilerplate code and ensures consistency across the codebase.</p>
+</li>
+</ul>
+<h3 id="32-caching-mechanism">3.2 Caching Mechanism</h3>
+<ul>
+<li><p><strong>Global Cache:</strong><br>
+A static, application-wide cache holds immutable objects. These objects are shared across sessions and threads, allowing rapid access with zero memory allocations on cache hits.</p>
+</li>
+<li><p><strong>Transactional Cache:</strong><br>
+During a transaction, any updated objects are read back as new immutable objects after being saved to the backend. These new immutable objects are stored in a dedicated transaction cache to maintain consistency until the transaction is complete.</p>
+</li>
+<li><p><strong>Cache Invalidation Strategies:</strong><br>
+Cache consistency is maintained through several mechanisms:</p>
+<ul>
+<li><strong>Automatic Invalidation:</strong> Cache entries are automatically updated when objects are mutated within the library.</li>
+<li><strong>Manual Refresh:</strong> Developers can explicitly refresh cache entries when necessary.</li>
+<li><strong>Time-Based Expiry:</strong> Entries can expire based on a configurable timer.</li>
+<li><strong>Backend Polling:</strong> The system may poll the backend using lightweight techniques (e.g., hash or timestamp comparisons) to detect changes.</li>
+<li><strong>Event-Driven Updates:</strong> External notifications (such as through Apache Kafka) can trigger immediate cache invalidation upon data modifications.</li>
+</ul>
+</li>
+</ul>
+<h3 id="33-linq-based-querying">3.3 LINQ-Based Querying</h3>
+<ul>
+<li><p><strong>Primary Query Interface:</strong><br>
+DataLinq uses LINQ as its core querying language, offering a concise, expressive, and familiar syntax for data retrieval and manipulation.</p>
+</li>
+<li><p><strong>Query Translation:</strong><br>
+LINQ queries are translated into the appropriate backend-specific commands, abstracting the underlying data source so that the same syntax works regardless of whether data comes from MariaDB, SQLite, or other supported formats.</p>
+</li>
+</ul>
+<h3 id="34-backend-integration-and-modularity">3.4 Backend Integration and Modularity</h3>
+<ul>
+<li><p><strong>Pluggable Architecture:</strong><br>
+DataLinq is designed with a modular architecture that allows developers to easily swap one backend for another with minimal code changes. Backend interactions are abstracted behind interfaces and adapter patterns.</p>
+</li>
+<li><p><strong>Initial and Future Backends:</strong><br>
+While initial support is focused on MariaDB and SQLite, the architecture is readily extendable to additional data sources such as JSON, CSV, and XML.</p>
+</li>
+</ul>
+<h3 id="35-concurrency-and-thread-safety">3.5 Concurrency and Thread-Safety</h3>
+<ul>
+<li><p><strong>Immutability Benefits:</strong><br>
+The immutable design reduces the need for complex synchronization since immutable objects can be safely shared across threads.</p>
+</li>
+<li><p><strong>Thread-Safe Collections:</strong><br>
+For mutable scenarios, such as managing the transactional cache, thread-safety is ensured using locking mechanisms and thread-safe collections like <code>ConcurrentDictionary</code>.</p>
+</li>
+<li><p><strong>Minimized Locking:</strong><br>
+The overall design minimizes locking by isolating mutable operations and leveraging immutable data structures, which enhances performance in concurrent environments.</p>
+</li>
+</ul>
+<h3 id="36-source-generation-and-code-consistency">3.6 Source Generation and Code Consistency</h3>
+<ul>
+<li><p><strong>Automated Code Generation:</strong><br>
+The source generator creates both immutable and mutable classes automatically from abstract model definitions. This enforces a consistent pattern across data models and reduces the need for repetitive code.</p>
+</li>
+<li><p><strong>Reduction of Boilerplate:</strong><br>
+Automating the generation of model classes allows developers to focus on business logic, leading to more maintainable and readable code.</p>
+</li>
+</ul>
+<h3 id="37-testability-and-mocking">3.7 Testability and Mocking</h3>
+<ul>
+<li><p><strong>Clear Interfaces:</strong><br>
+The architecture is built around well-defined interfaces, making it simple to substitute real implementations with mocks during testing.</p>
+</li>
+<li><p><strong>Mocking Capabilities:</strong><br>
+Dedicated mocking classes are provided, enabling developers to write comprehensive tests for their applications without needing a live backend connection.</p>
+</li>
+<li><p><strong>Internal Test Suite:</strong><br>
+DataLinq includes a robust internal test suite with unit tests, integration tests, and performance benchmarks to ensure both correctness and efficiency.</p>
+</li>
+</ul>
+<h3 id="38-cli-tool-and-code-generation">3.8 CLI Tool and Code Generation</h3>
+<ul>
+<li><p><strong>Model Class Generation:</strong><br>
+DataLinq provides a CLI tool that reads the database structure and generates abstract model classes. These abstract classes serve as the basis from which immutable and mutable classes are generated via the source generator.</p>
+</li>
+<li><p><strong>Database Script Generation:</strong><br>
+The CLI tool can also generate a SQL script to create the database schema based on the model classes. This feature ensures consistency between the codebase and the actual database structure, facilitating smoother migrations and initial setups.</p>
+</li>
+</ul>
+<h2 id="4-functional-requirements">4. Functional Requirements</h2>
+<h3 id="41-data-access-operations">4.1 Data Access Operations</h3>
+<ul>
+<li><p><strong>CRUD Support:</strong></p>
+<ul>
+<li><strong>Create:</strong> Developers can insert new records by creating a new mutable instance derived from the abstract model. Once the instance is saved to the backend, a corresponding immutable object is generated and added to the global cache.</li>
+<li><strong>Read:</strong> LINQ serves as the primary interface for querying data. Immutable objects are fetched from the global cache when available, ensuring minimal memory allocations and rapid retrieval.</li>
+<li><strong>Update:</strong> Updates are initiated by calling the <code>Mutate()</code> method on an immutable object to obtain a mutable version. After modifications are saved to the backend within a transaction, a new immutable instance is created and cached.</li>
+<li><strong>Delete:</strong> Deletion operations remove records from the backend. Upon successful deletion, the relevant immutable object is removed from both the global and transactional caches.</li>
+</ul>
+</li>
+<li><p><strong>Transaction Management:</strong></p>
+<ul>
+<li>Each operation that involves mutations takes place within a transactional context. This ensures that all updates within a transaction are managed consistently. The transactional cache holds the new immutable objects after successful backend writes until the transaction is complete.</li>
+</ul>
+</li>
+</ul>
+<h3 id="42-query-processing-and-linq-integration">4.2 Query Processing and LINQ Integration</h3>
+<ul>
+<li><p><strong>LINQ-Based Queries:</strong></p>
+<ul>
+<li>Developers write queries using LINQ syntax, which is then translated into backend-specific commands (e.g., SQL for MariaDB or SQLite). This translation layer abstracts away backend details, allowing a unified querying experience.</li>
+<li>Advanced query capabilities, including filtering, ordering, grouping, and joining across entities, are supported through standard LINQ expressions.</li>
+</ul>
+</li>
+<li><p><strong>Query Translation Layer:</strong></p>
+<ul>
+<li>The translation component maps LINQ expressions to the specific SQL dialect or other query languages supported by the backend. This ensures that queries are both efficient and compatible with the targeted data source.</li>
+</ul>
+</li>
+</ul>
+<h3 id="43-data-mapping-and-model-management">4.3 Data Mapping and Model Management</h3>
+<ul>
+<li><p><strong>Model Class Generation:</strong></p>
+<ul>
+<li>A CLI tool is provided to generate abstract model classes by reading the database schema. These abstract classes serve as the blueprint for both immutable and mutable classes produced by the source generator.</li>
+<li>This process ensures that the generated model accurately reflects the structure of the underlying database, reducing manual coding and potential errors.</li>
+</ul>
+</li>
+<li><p><strong>Database Schema Generation:</strong></p>
+<ul>
+<li>The CLI tool can also generate SQL scripts that create the database schema based on the model classes. This ensures consistency between the data models in the code and the actual database structure, simplifying initial setup and migrations.</li>
+</ul>
+</li>
+</ul>
+<h3 id="44-caching-behavior">4.4 Caching Behavior</h3>
+<ul>
+<li><p><strong>Global Cache Operations:</strong></p>
+<ul>
+<li>When a read operation is performed, the system first checks the global cache for an immutable object. If present, the object is returned immediately without additional allocations.</li>
+<li>Cache misses trigger a backend query, after which the retrieved data is converted into an immutable object and stored in the global cache.</li>
+</ul>
+</li>
+<li><p><strong>Transactional Cache Operations:</strong></p>
+<ul>
+<li>Updated objects within a transaction are handled by storing their newly generated immutable versions in a transactional cache. This cache isolates changes until the transaction is fully committed, after which the global cache is updated accordingly.</li>
+</ul>
+</li>
+<li><p><strong>Cache Invalidation:</strong></p>
+<ul>
+<li>The system supports multiple invalidation strategies to ensure data consistency. These include:
+<ul>
+<li><strong>Automatic Invalidation:</strong> Upon mutation, affected cache entries are immediately refreshed.</li>
+<li><strong>Manual Refresh:</strong> Developers can explicitly trigger a cache update.</li>
+<li><strong>Time-Based Expiry:</strong> Cache entries can be configured to expire after a set period.</li>
+<li><strong>Backend Polling and Notifications:</strong> Lightweight checks (via hash or timestamp) or external notifications (e.g., Apache Kafka) ensure the cache reflects the current state of the backend.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="45-backend-flexibility">4.5 Backend Flexibility</h3>
+<ul>
+<li><strong>Seamless Backend Switching:</strong>
+<ul>
+<li>DataLinq’s architecture abstracts backend-specific details through interfaces and adapter patterns. This allows developers to switch from one data source to another (e.g., from MariaDB to SQLite) with minimal or no changes to the application code.</li>
+<li>The modular design ensures that backend-specific optimizations or query translations can be implemented independently without affecting the overall API.</li>
+</ul>
+</li>
+</ul>
+<h3 id="46-error-handling-and-logging">4.6 Error Handling and Logging</h3>
+<ul>
+<li><strong>Robust Exception Management:</strong>
+<ul>
+<li>All CRUD and query operations include error handling to manage scenarios like connection failures, query timeouts, or data inconsistencies.</li>
+<li>Detailed logging mechanisms are integrated to capture the sequence of operations, errors, and any cache invalidation events, aiding in troubleshooting and performance tuning.</li>
+</ul>
+</li>
+</ul>
+<h2 id="5-non-functional-requirements">5. Non-Functional Requirements</h2>
+<h3 id="51-performance">5.1 Performance</h3>
+<ul>
+<li><p><strong>Optimized Read Operations:</strong><br>
+DataLinq is designed for heavy-read scenarios, with a target of zero memory allocations when fetching immutable objects from the cache. This is achieved through aggressive caching and careful management of object creation.</p>
+</li>
+<li><p><strong>Efficient Query Translation:</strong><br>
+LINQ queries are translated into backend-specific commands with minimal overhead, ensuring that query execution remains fast and efficient across different data sources.</p>
+</li>
+<li><p><strong>Benchmarking:</strong><br>
+A suite of performance benchmarks will be maintained to measure key metrics such as query latency, cache hit rates, and overall system throughput. These benchmarks will guide ongoing optimizations and ensure that performance targets are met.</p>
+</li>
+</ul>
+<h3 id="52-scalability">5.2 Scalability</h3>
+<ul>
+<li><p><strong>Designed for Small-to-Medium Projects:</strong><br>
+While DataLinq is optimized for projects with smaller databases and heavy-read operations, the architecture is modular enough to be extended to larger datasets if needed.</p>
+</li>
+<li><p><strong>Modular Backend Integration:</strong><br>
+The ability to switch backends with minimal code changes ensures that the system can scale horizontally by integrating with more powerful data sources or distributed systems as project demands grow.</p>
+</li>
+<li><p><strong>Concurrent Access:</strong><br>
+The use of immutable objects and thread-safe collections minimizes the need for locks and supports high levels of concurrent access without significant performance degradation.</p>
+</li>
+</ul>
+<h3 id="53-maintainability-and-extensibility">5.3 Maintainability and Extensibility</h3>
+<ul>
+<li><p><strong>Automated Code Generation:</strong><br>
+The use of a source generator to create both immutable and mutable classes from abstract model definitions reduces boilerplate code, leading to a more maintainable and consistent codebase.</p>
+</li>
+<li><p><strong>Clear Separation of Concerns:</strong><br>
+By abstracting backend interactions behind interfaces and adapter patterns, DataLinq allows developers to add or update components without affecting the overall system. This design simplifies future enhancements and troubleshooting.</p>
+</li>
+<li><p><strong>Comprehensive Documentation:</strong><br>
+Detailed documentation, including this specification, usage guides, and API references, will be maintained to ensure that developers and contributors can quickly understand and work with the framework.</p>
+</li>
+</ul>
+<h3 id="54-reliability-and-robustness">5.4 Reliability and Robustness</h3>
+<ul>
+<li><p><strong>Robust Error Handling:</strong><br>
+All operations, including CRUD actions and query processing, are designed with robust exception management and logging. This ensures that failures are handled gracefully, and sufficient diagnostic information is available for troubleshooting.</p>
+</li>
+<li><p><strong>Internal Test Suite:</strong><br>
+A comprehensive suite of unit tests, integration tests, and performance benchmarks will be continually run to ensure that any changes maintain the expected behavior and performance characteristics of DataLinq.</p>
+</li>
+</ul>
+<h3 id="55-security-considerations">5.5 Security Considerations</h3>
+<ul>
+<li><p><strong>Data Integrity:</strong><br>
+Mechanisms such as transactional caches and backend polling help maintain data consistency, reducing the risk of stale or inconsistent data being served.</p>
+</li>
+<li><p><strong>Secure Access:</strong><br>
+Although DataLinq focuses primarily on read performance, care is taken to ensure that backend connections and query executions adhere to security best practices, including proper exception handling and input validation.</p>
+</li>
+</ul>
+<h2 id="6-api-design-and-query-interface">6. API Design and Query Interface</h2>
+<h3 id="61-overview">6.1 Overview</h3>
+<p>DataLinq’s API is designed to be both intuitive and powerful, drawing inspiration from established ORM frameworks like Entity Framework. The API is primarily built around LINQ, ensuring that developers can use a familiar and expressive syntax for data access and manipulation while benefiting from DataLinq’s high-performance caching and immutable data structures.</p>
+<h3 id="62-linq-based-querying">6.2 LINQ-Based Querying</h3>
+<ul>
+<li><p><strong>Unified Query Syntax:</strong><br>
+Developers write queries using standard LINQ expressions. DataLinq translates these queries into the appropriate backend-specific commands (e.g., SQL for MariaDB or SQLite), abstracting the underlying complexity and allowing the same query syntax to work across different data sources.</p>
+</li>
+<li><p><strong>Advanced Query Capabilities:</strong><br>
+The query interface supports advanced LINQ operations, including filtering, ordering, grouping, and joining, to cater to a wide range of data retrieval scenarios. This flexibility empowers developers to construct complex queries while keeping the code concise and readable.</p>
+</li>
+<li><p><strong>Query Translation Layer:</strong><br>
+A dedicated translation layer interprets LINQ expressions and optimizes them for the target backend. This ensures efficient query execution and allows for backend-specific optimizations without requiring changes to the developer’s query code.</p>
+</li>
+</ul>
+<h3 id="63-fluent-interface-and-api-methods">6.3 Fluent Interface and API Methods</h3>
+<ul>
+<li><p><strong>Fluent API Design:</strong><br>
+DataLinq’s API incorporates a fluent interface for constructing queries and data operations. This design promotes readability and a natural coding style, enabling developers to chain methods together in a clear and coherent manner.</p>
+</li>
+<li><p><strong>Core Methods and Operations:</strong></p>
+<ul>
+<li><strong>Query Initialization:</strong> Methods for initiating LINQ queries that automatically check the global cache before executing a backend query.</li>
+<li><strong>CRUD Operations:</strong>
+<ul>
+<li><strong>Create:</strong> Methods to generate new mutable instances from abstract model definitions, followed by saving these instances to the backend and updating the global cache with a new immutable object.</li>
+<li><strong>Read:</strong> Methods that prioritize fetching immutable objects from the cache for read operations, falling back to backend queries as needed.</li>
+<li><strong>Update:</strong> A <code>Mutate()</code> method to create a mutable copy of an immutable object for modifications. After saving changes within a transaction, a new immutable instance is produced and stored.</li>
+<li><strong>Delete:</strong> Methods to remove records from the backend along with corresponding cache updates.</li>
+</ul>
+</li>
+<li><strong>Transaction Management:</strong> Methods that allow developers to execute a group of operations within a transactional context, ensuring that all updates are isolated and consistent until the transaction is committed.</li>
+</ul>
+</li>
+</ul>
+<h3 id="64-extensibility-and-backend-switching">6.4 Extensibility and Backend Switching</h3>
+<ul>
+<li><p><strong>Backend Abstraction:</strong><br>
+The API is designed with clear separation between the data access layer and backend-specific implementations. This is achieved through well-defined interfaces and adapter patterns, which enable developers to switch between different backends (e.g., MariaDB to SQLite) with minimal code changes.</p>
+</li>
+<li><p><strong>Custom Extensions:</strong><br>
+Developers can extend the API by implementing custom adapters or overriding default behaviors. This modular design ensures that DataLinq can evolve to support additional backends and specialized query optimizations without altering the core API.</p>
+</li>
+</ul>
+<h3 id="65-integration-with-testing-and-mocking">6.5 Integration with Testing and Mocking</h3>
+<ul>
+<li><p><strong>Mocking Capabilities:</strong><br>
+To support robust testing of applications using DataLinq, the API exposes interfaces and provides dedicated mocking classes. This allows developers to simulate data layer interactions without requiring a live backend connection.</p>
+</li>
+<li><p><strong>Seamless Data Layer Testing:</strong><br>
+The API is designed to facilitate the testing of data access code. Clear and consistent interfaces ensure that unit tests can easily substitute real implementations with mocks, enabling comprehensive testing of both query logic and transactional behaviors.</p>
+</li>
+</ul>
+<p>Below is a draft for the remaining sections of the DataLinq specification document:</p>
+<h2 id="7-data-models-and-backend-integration">7. Data Models and Backend Integration</h2>
+<h3 id="71-data-models">7.1 Data Models</h3>
+<ul>
+<li><p><strong>Entity Definitions:</strong><br>
+DataLinq’s data models are defined via abstract base classes that represent the schema of the underlying data. These abstract classes are used by a source generator to automatically create both immutable and mutable concrete classes.</p>
+</li>
+<li><p><strong>Relationship Mapping:</strong><br>
+The framework supports various types of relationships—such as one-to-one, one-to-many, and many-to-many. These relationships are defined within the abstract models and are translated into the corresponding database relationships (foreign keys, join tables, etc.) during the model generation process.</p>
+</li>
+<li><p><strong>Schema Synchronization:</strong><br>
+A CLI tool is provided to read the database schema and generate the corresponding abstract model classes. Conversely, the same tool can generate SQL scripts to create or update the database schema based on the current model definitions, ensuring consistency between code and database.</p>
+</li>
+</ul>
+<h3 id="72-backend-integration">7.2 Backend Integration</h3>
+<ul>
+<li><p><strong>Adapter Pattern:</strong><br>
+DataLinq abstracts backend-specific details using well-defined interfaces and adapter patterns. Each supported backend (e.g., MariaDB, SQLite) implements a common interface for CRUD operations and query execution, allowing the core framework to remain agnostic of the underlying data source.</p>
+</li>
+<li><p><strong>Modular Integration:</strong><br>
+The modular design facilitates the easy addition of new backends. Developers can implement additional adapters for other data sources (such as JSON, CSV, or XML) without altering the main codebase. This separation of concerns ensures that backend optimizations or changes do not affect the API or core logic.</p>
+</li>
+<li><p><strong>Configuration and Switching:</strong><br>
+Configuration options allow developers to specify the desired backend with minimal changes to the application code. The architecture is designed so that switching between supported data sources is a streamlined process.</p>
+</li>
+</ul>
+<h2 id="8-testing-and-benchmarking-strategy">8. Testing and Benchmarking Strategy</h2>
+<h3 id="81-testing-methodology">8.1 Testing Methodology</h3>
+<ul>
+<li><p><strong>Unit Testing:</strong><br>
+Each component of DataLinq, from the immutable model generation to cache management and query translation, is covered by comprehensive unit tests. These tests validate the correctness of individual functions and modules.</p>
+</li>
+<li><p><strong>Integration Testing:</strong><br>
+Integration tests are used to ensure that the various components work seamlessly together. This includes testing the end-to-end process of data retrieval, manipulation, and caching across different backends.</p>
+</li>
+<li><p><strong>Data Layer Testing for Client Applications:</strong><br>
+The framework provides clear interfaces and mocking capabilities so that developers can write tests for the data layer of their own projects without needing a live backend connection.</p>
+</li>
+</ul>
+<h3 id="82-benchmarking">8.2 Benchmarking</h3>
+<ul>
+<li><p><strong>Performance Benchmarks:</strong><br>
+A dedicated suite of performance benchmarks is maintained to measure:</p>
+<ul>
+<li>Query latency and throughput</li>
+<li>Cache hit rates and memory allocation metrics (with a focus on achieving zero allocations for cache hits)</li>
+<li>Transaction processing times</li>
+</ul>
+</li>
+<li><p><strong>Continuous Integration:</strong><br>
+Benchmark tests are integrated into the CI/CD pipeline to ensure that performance regressions are caught early. Regular reporting of benchmark results helps guide ongoing optimizations.</p>
+</li>
+<li><p><strong>Monitoring and Logging:</strong><br>
+Detailed logging mechanisms capture performance-related metrics and cache events. These logs provide insights for performance tuning and troubleshooting.</p>
+</li>
+</ul>
+<h2 id="9-future-enhancements-and-roadmap">9. Future Enhancements and Roadmap</h2>
+<h3 id="91-planned-features">9.1 Planned Features</h3>
+<ul>
+<li><p><strong>Expanded Backend Support:</strong><br>
+Future releases may include native support for additional data sources, such as NoSQL databases or distributed storage systems.</p>
+</li>
+<li><p><strong>Advanced Query Optimizations:</strong><br>
+Enhancements to the LINQ query translation layer could include more sophisticated optimizations, such as query caching and dynamic query planning tailored to specific backends.</p>
+</li>
+<li><p><strong>Enhanced Caching Strategies:</strong><br>
+Further improvements in caching may involve more granular invalidation policies, adaptive cache sizing, and integration with external cache providers.</p>
+</li>
+<li><p><strong>Developer Tooling:</strong><br>
+Additional CLI features and graphical tools could be introduced to assist developers in model management, schema migration, and performance monitoring.</p>
+</li>
+</ul>
+<h3 id="92-roadmap-and-community-involvement">9.2 Roadmap and Community Involvement</h3>
+<ul>
+<li><p><strong>Release Phases:</strong><br>
+The project roadmap outlines incremental release phases that focus on core functionality first, followed by performance optimizations and expanded backend integrations.</p>
+</li>
+<li><p><strong>Community Contributions:</strong><br>
+DataLinq welcomes community involvement. Clear contribution guidelines, a roadmap for feature requests, and regular community updates will be provided to foster an active development community.</p>
+</li>
+<li><p><strong>Documentation and Support:</strong><br>
+Ongoing efforts will be made to enhance documentation and provide comprehensive usage guides, tutorials, and API references to support both new and experienced developers.</p>
+</li>
+</ul>
+<h2 id="10-appendices">10. Appendices</h2>
+<h3 id="101-glossary">10.1 Glossary</h3>
+<ul>
+<li><strong>ORM (Object-Relational Mapping):</strong> A programming technique for converting data between incompatible type systems in object-oriented programming languages.</li>
+<li><strong>LINQ (Language Integrated Query):</strong> A querying syntax integrated into .NET languages for working with data in a consistent manner.</li>
+<li><strong>Immutable Object:</strong> An object whose state cannot be modified after it is created.</li>
+<li><strong>Mutable Object:</strong> An object that can be modified after creation.</li>
+<li><strong>Cache:</strong> A storage layer used to temporarily store frequently accessed data for faster retrieval.</li>
+<li><strong>Adapter Pattern:</strong> A design pattern that allows incompatible interfaces to work together.</li>
+<li><strong>CRUD:</strong> An acronym for Create, Read, Update, Delete—basic operations for persistent storage.</li>
+</ul>
+<h3 id="102-references">10.2 References</h3>
+<ul>
+<li><strong>Entity Framework Documentation:</strong> Provides context for LINQ-based querying and ORM design patterns.</li>
+<li><strong>Design Patterns Literature:</strong> Sources on the adapter pattern, immutability, and caching strategies that inform DataLinq’s architecture.</li>
+<li><strong>Performance Benchmarking Tools:</strong> Documentation for the benchmarking tools and techniques used within the project.</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/bazer/DataLinq/blob/master/docs/Project Specification.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

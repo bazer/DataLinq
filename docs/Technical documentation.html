@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>DataLinq Technical Documentation | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="DataLinq Technical Documentation | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/bazer/DataLinq/blob/master/docs/Technical documentation.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+
+<p>Below is a draft of the technical documentation for DataLinq. This document covers the architectural overview, core components, caching and mutation subsystems, query handling, and testing strategies. It’s intended to help developers and contributors understand how the library works internally and to serve as a reference for future improvements.</p>
+<hr>
+<h1 id="datalinq-technical-documentation">DataLinq Technical Documentation</h1>
+<h2 id="1-overview">1. Overview</h2>
+<p>DataLinq is a lightweight, high-performance ORM designed primarily for read-heavy scenarios in small to medium projects. The library emphasizes immutability, efficient caching, and seamless backend integration. Its core features include:</p>
+<ul>
+<li><p><strong>Immutable Models:</strong><br>
+Models are represented as immutable objects to ensure thread-safety and minimize side effects during data reads. When updates are necessary, the system creates a mutable copy via a defined mutation workflow.</p>
+</li>
+<li><p><strong>Source Generation:</strong><br>
+A source generator produces both immutable and mutable classes from abstract model definitions. This reduces boilerplate and enforces a consistent pattern across the codebase.</p>
+</li>
+<li><p><strong>LINQ Integration:</strong><br>
+Queries are written using standard LINQ expressions, which are translated into backend-specific commands, allowing a unified querying experience.</p>
+</li>
+<li><p><strong>Robust Caching:</strong><br>
+A multi-layered caching subsystem—including row, index, and key caches—ensures that repeated data accesses incur minimal overhead.</p>
+</li>
+<li><p><strong>Backend Flexibility:</strong><br>
+The architecture abstracts backend details behind interfaces and adapters, enabling easy switching between data sources (e.g., MariaDB, SQLite, JSON, CSV).</p>
+</li>
+</ul>
+<hr>
+<h2 id="2-architecture">2. Architecture</h2>
+<p>DataLinq is organized into several interconnected layers that work together to deliver its performance and flexibility:</p>
+<ul>
+<li><p><strong>Model Layer:</strong><br>
+Consists of abstract model classes decorated with attributes (e.g., <code>[Table]</code>, <code>[Column]</code>, <code>[PrimaryKey]</code>) that describe how classes map to database tables. These definitions are used by the source generator to create concrete immutable and mutable classes (see <em>Department.cs</em> citeturn0file0, <em>Employee.cs</em> citeturn0file2).</p>
+</li>
+<li><p><strong>Instance Creation and Mutation:</strong><br>
+Immutable objects are created dynamically based on <code>RowData</code> provided by data readers. When mutation is required, methods like <code>Mutate()</code> generate a mutable version, which can be updated and then saved back to the backend. The mutation workflow ensures that only immutable instances are stored in caches, preserving thread-safety and performance (see <em>Immutable.cs</em> citeturn1file2 and <em>Mutable.cs</em> citeturn1file6).</p>
+</li>
+<li><p><strong>Caching Subsystem:</strong><br>
+The caching mechanism is divided into several parts:</p>
+<ul>
+<li><strong>RowCache:</strong> Caches immutable row objects keyed by their primary keys, tracking insertion ticks and sizes for eviction based on time, row count, or memory limits (see <em>RowCache.cs</em> citeturn2file2).</li>
+<li><strong>IndexCache and KeyCache:</strong> Manage mappings between foreign keys and primary keys, and cache key instances for fast lookups (see <em>IndexCache.cs</em> citeturn2file0 and <em>KeyCache.cs</em> citeturn2file1).</li>
+<li><strong>TableCache:</strong> Aggregates the various caches for an entire table, provides methods to update or remove rows based on changes, and supports preloading indices for faster query responses (see <em>TableCache.cs</em> citeturn2file3).</li>
+</ul>
+</li>
+<li><p><strong>Query Engine:</strong><br>
+DataLinq uses LINQ as the primary query language. LINQ expressions are parsed and translated into backend-specific SQL (or other query languages), with support for filtering, ordering, grouping, and pagination. The query system leverages caching to avoid unnecessary database round trips, as demonstrated in the extensive unit tests (see <em>QueryTests.cs</em> citeturn2file9).</p>
+</li>
+<li><p><strong>Testing Infrastructure:</strong><br>
+The library is accompanied by a comprehensive suite of unit and integration tests. These tests verify everything from model instantiation and mutation to complex LINQ query operations and cache behavior (see <em>CacheTests.cs</em> citeturn2file5, <em>MutationTests.cs</em> citeturn2file8, and <em>CoreTests.cs</em> citeturn2file6).</p>
+</li>
+</ul>
+<hr>
+<h2 id="3-core-components">3. Core Components</h2>
+<h3 id="31-model-and-source-generation">3.1 Model and Source Generation</h3>
+<ul>
+<li><p><strong>Abstract Models:</strong><br>
+Developers define models using abstract classes and decorate them with attributes to specify table names, column types, and relationships. For example, the <em>Department</em> class declares properties like <code>DeptNo</code> and <code>Name</code>, and defines relations to employees and managers.</p>
+</li>
+<li><p><strong>Source-Generated Classes:</strong><br>
+A source generator processes these abstract definitions to generate:</p>
+<ul>
+<li><strong>Immutable classes:</strong> Provide read-only access to data, with lazy loading of related objects.</li>
+<li><strong>Mutable classes:</strong> Allow modification of model properties via a <code>Mutate()</code> method, and support transactional updates.</li>
+<li><strong>Interfaces:</strong> Generated interfaces (e.g., <code>IDepartmentWithChangedName</code>) ensure consistency and facilitate mocking in tests.</li>
+</ul>
+</li>
+</ul>
+<h3 id="32-instance-management-and-mutation">3.2 Instance Management and Mutation</h3>
+<ul>
+<li><p><strong>Immutable Base Class:</strong><br>
+The base class for immutable models handles:</p>
+<ul>
+<li>Retrieving values from underlying <code>RowData</code>.</li>
+<li>Lazy evaluation of properties.</li>
+<li>Managing relations through helper methods that load related entities only when needed.</li>
+</ul>
+</li>
+<li><p><strong>Mutable Wrapper:</strong><br>
+The <code>Mutable&lt;T&gt;</code> class encapsulates changes in a separate <code>MutableRowData</code> structure. This ensures that modifications are isolated until explicitly committed, after which a new immutable instance is generated to update the cache.</p>
+</li>
+<li><p><strong>Factory Methods:</strong><br>
+The <code>InstanceFactory</code> provides methods to create immutable instances dynamically. Reflection is used to instantiate models based on metadata extracted from attributes.</p>
+</li>
+</ul>
+<h3 id="33-caching-mechanisms">3.3 Caching Mechanisms</h3>
+<ul>
+<li><p><strong>RowCache:</strong><br>
+Stores immutable instances keyed by their primary keys. Tracks insertion ticks and sizes to enforce eviction policies based on time, count, or memory usage. This ensures repeated reads return cached objects without additional allocations.</p>
+</li>
+<li><p><strong>IndexCache and KeyCache:</strong></p>
+<ul>
+<li><strong>IndexCache:</strong> Maps foreign keys to arrays of primary keys and maintains a tick queue to remove old entries.</li>
+<li><strong>KeyCache:</strong> Caches key instances to prevent redundant key creation, enhancing lookup performance.</li>
+</ul>
+</li>
+<li><p><strong>TableCache:</strong><br>
+Combines row and index caches for a given table. Handles state changes such as inserts, updates, and deletions by updating the caches accordingly. It also supports methods for preloading indices and retrieving rows with or without ordering.</p>
+</li>
+</ul>
+<h3 id="34-query-handling">3.4 Query Handling</h3>
+<ul>
+<li><p><strong>LINQ Integration:</strong><br>
+Queries are written in LINQ, and the query engine translates them into backend-specific SQL commands. The translation layer is capable of handling various operations such as:</p>
+<ul>
+<li>Filtering using standard where clauses.</li>
+<li>Ordering, grouping, and pagination (using methods like <code>OrderBy</code>, <code>Skip</code>, and <code>Take</code>).</li>
+<li>Joins and relation traversals by leveraging the relation properties defined in models.</li>
+</ul>
+</li>
+<li><p><strong>Cache-Aware Query Execution:</strong><br>
+When a query is executed, the system first checks the cache (via <code>TableCache</code> and <code>RowCache</code>) for existing rows. If a row is missing, it retrieves the row data from the database, creates an immutable instance, and adds it to the cache.</p>
+</li>
+</ul>
+<h3 id="35-testing-and-examples">3.5 Testing and Examples</h3>
+<ul>
+<li><p><strong>Unit Tests:</strong><br>
+The testing suite covers all aspects of the library:</p>
+<ul>
+<li><strong>Cache Tests:</strong> Validate that duplicate rows are not created, and that eviction policies based on time, row count, and memory size work as expected.</li>
+<li><strong>Mutation Tests:</strong> Ensure that mutable instances correctly capture changes, can be reset, and that saving changes properly updates the backend and cache.</li>
+<li><strong>Query Tests:</strong> Provide extensive examples of LINQ query usage, demonstrating filtering, ordering, grouping, and handling of unsupported operations.</li>
+</ul>
+</li>
+<li><p><strong>Integration Tests:</strong><br>
+The <code>DatabaseFixture</code> sets up real database connections (e.g., to MariaDB and SQLite) and uses generated test data (via Bogus) to ensure that the entire flow—from data retrieval and caching to mutation and query execution—operates correctly.</p>
+</li>
+</ul>
+<hr>
+<h2 id="4-detailed-caching-workflow">4. Detailed Caching Workflow</h2>
+<p>The caching subsystem is critical for achieving the zero-allocation goal in read-heavy scenarios. Here’s a closer look at the workflow:</p>
+<ol>
+<li><p><strong>Insertion into Cache:</strong><br>
+When a new row is fetched from the database, its corresponding immutable instance is created using the <code>InstanceFactory</code>. This instance is then stored in the <code>RowCache</code> along with metadata (insertion ticks, size). Simultaneously, the <code>IndexCache</code> is updated to map foreign keys to this row’s primary key (see <em>RowCache.cs</em> citeturn2file2 and <em>IndexCache.cs</em> citeturn2file0).</p>
+</li>
+<li><p><strong>Cache Eviction:</strong></p>
+<ul>
+<li><strong>Time-Based Eviction:</strong> The system can remove rows that were inserted before a specific tick value.</li>
+<li><strong>Row Count/Size Limits:</strong> Methods in <code>RowCache</code> allow the cache to enforce limits by removing the oldest rows until the count or total size is within the defined thresholds.</li>
+<li><strong>Index Cache Maintenance:</strong> The <code>IndexCache</code> similarly purges outdated entries using its tick queue mechanism.</li>
+</ul>
+</li>
+<li><p><strong>Cache Retrieval:</strong><br>
+Before executing a query, the system checks the <code>RowCache</code> for the required rows. If a row is found, it’s returned directly. Otherwise, the query system retrieves the missing rows from the database and updates the cache.</p>
+</li>
+<li><p><strong>Transaction Awareness:</strong><br>
+The <code>TableCache</code> can maintain separate caches for transaction-specific data. This ensures that updates within a transaction do not affect the global cache until the transaction is committed.</p>
+</li>
+</ol>
+<hr>
+<h2 id="5-mutation-and-data-consistency">5. Mutation and Data Consistency</h2>
+<p>DataLinq ensures data consistency while allowing mutations through a well-defined process:</p>
+<ol>
+<li><p><strong>Immutable to Mutable Conversion:</strong><br>
+The generated <code>Mutate()</code> methods (see source-generated <em>Department</em> file) allow conversion from an immutable instance to a mutable one. This is achieved using pattern matching, ensuring the proper type is returned regardless of whether the object is already mutable or not.</p>
+</li>
+<li><p><strong>Tracking Changes:</strong><br>
+The <code>MutableRowData</code> class tracks modifications in a dictionary. Methods such as <code>Reset()</code> allow reverting changes to the original state, while <code>HasChanges()</code> reports whether any properties have been modified.</p>
+</li>
+<li><p><strong>Saving Changes:</strong><br>
+When a mutable instance is saved, the updated data is written back to the backend. Upon successful commit, a new immutable instance is created to replace the old one in the cache. Extension methods in the generated code (e.g., <code>Save</code>, <code>Update</code>, <code>InsertOrUpdate</code>) abstract these operations, providing a seamless developer experience.</p>
+</li>
+</ol>
+<hr>
+<h2 id="6-future-directions-and-developer-notes">6. Future Directions and Developer Notes</h2>
+<ul>
+<li><p><strong>Additional Backends:</strong><br>
+Although initial support focuses on MariaDB and SQLite, the modular design facilitates easy addition of new data sources (e.g., NoSQL, JSON files).</p>
+</li>
+<li><p><strong>Enhanced Query Optimizations:</strong><br>
+Future enhancements could include query caching, more advanced translation strategies, and support for more complex LINQ expressions.</p>
+</li>
+<li><p><strong>Developer Contributions:</strong><br>
+Clear guidelines and extensive test coverage make it easier for contributors to understand and extend the library. Developers are encouraged to review both the generated code and supporting subsystems (caching, mutation, and query translation) for insights.</p>
+</li>
+<li><p><strong>Documentation Updates:</strong><br>
+This technical documentation is intended to evolve with the project. Feedback from developers and contributors is welcomed to ensure that the documentation remains accurate and helpful.</p>
+</li>
+</ul>
+<hr>
+<h2 id="7-conclusion">7. Conclusion</h2>
+<p>DataLinq’s design centers on immutability, efficient caching, and flexible querying, making it an ideal ORM for heavy-read applications with a focus on performance. The separation of concerns between model mapping, caching, mutation, and query translation ensures that each component can be optimized independently while maintaining a consistent developer experience.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/bazer/DataLinq/blob/master/docs/Technical documentation.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

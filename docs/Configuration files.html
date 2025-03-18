@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>DataLinq Configuration Files | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="DataLinq Configuration Files | DataLinq ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/bazer/DataLinq/blob/master/docs/Configuration files.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="datalinq-configuration-files">DataLinq Configuration Files</h1>
+
+<p>DataLinq uses JSON-based configuration files to define your databases, connections, and model-generation settings. There are two configuration files:</p>
+<ul>
+<li><strong>datalinq.json</strong>: The primary configuration file.</li>
+<li><strong>datalinq.user.json</strong>: An optional file used to override or extend settings from datalinq.json for user-specific or local changes.</li>
+</ul>
+<p>These files are used by the DataLinq CLI tool, it reads the main configuration file and then checks if a corresponding datalinq.user.json exists (by replacing the extension); if found, its settings are merged with the main configuration file.</p>
+<hr>
+<h2 id="overall-structure">Overall Structure</h2>
+<p>Both configuration files adhere to the same schema. The top-level JSON object contains:</p>
+<ul>
+<li><strong>Databases</strong>: An array of database configuration objects.</li>
+</ul>
+<hr>
+<h2 id="database-configuration-object">Database Configuration Object</h2>
+<p>Each entry in the <strong>Databases</strong> array represents a database and includes the following properties:</p>
+<ul>
+<li><p><strong>Name</strong> (string, <em>required</em>):<br>
+The unique name of the database configuration. This name is later used to select a specific database.</p>
+</li>
+<li><p><strong>CsType</strong> (string, <em>optional</em>):<br>
+The C# type name to be used when generating database classes. If not specified, the value of <code>Name</code> is used by default.</p>
+</li>
+<li><p><strong>Namespace</strong> (string, <em>optional</em>):<br>
+The C# namespace for generated models. Defaults to <code>&quot;Models&quot;</code> if not provided.</p>
+</li>
+<li><p><strong>SourceDirectories</strong> (array of strings, <em>optional</em>):<br>
+A list of directories where the source model files are located. These paths are used during model generation.</p>
+</li>
+<li><p><strong>DestinationDirectory</strong> (string, <em>optional</em>):<br>
+The output directory for generated model files.</p>
+</li>
+<li><p><strong>Tables</strong> (array of strings, <em>optional</em>):<br>
+A filter list specifying which tables to include when generating models.</p>
+</li>
+<li><p><strong>Views</strong> (array of strings, <em>optional</em>):<br>
+Similar to <code>Tables</code>, but for database views.</p>
+</li>
+<li><p><strong>UseRecord</strong> (boolean, <em>optional</em>):<br>
+Determines whether generated models should use C# record types. Defaults to <code>false</code>.</p>
+</li>
+<li><p><strong>UseFileScopedNamespaces</strong> (boolean, <em>optional</em>):<br>
+When set to true, the generated code will use file-scoped namespaces (available in C# 10+).</p>
+</li>
+<li><p><strong>UseNullableReferenceTypes</strong> (boolean, <em>optional</em>):<br>
+Enables nullable reference types in the generated code.</p>
+</li>
+<li><p><strong>CapitalizeNames</strong> (boolean, <em>optional</em>):<br>
+If true, property names and other generated identifiers will be capitalized.</p>
+</li>
+<li><p><strong>RemoveInterfacePrefix</strong> (boolean, <em>optional</em>):<br>
+When true (the default), any leading &quot;I&quot; on interface names is removed during code generation.</p>
+</li>
+<li><p><strong>SeparateTablesAndViews</strong> (boolean, <em>optional</em>):<br>
+Indicates whether generated files should be placed in separate folders based on whether they represent tables or views.</p>
+</li>
+<li><p><strong>Connections</strong> (array, <em>required</em>):<br>
+An array of connection objects (see below) that specify how to connect to the database.</p>
+</li>
+<li><p><strong>FileEncoding</strong> (string, <em>required</em>):<br>
+The encoding to use when reading/writing files (for example, <code>&quot;UTF8&quot;</code> or <code>&quot;UTF8BOM&quot;</code>). If omitted, UTF-8 without BOM is used by default.</p>
+</li>
+</ul>
+<hr>
+<h2 id="connection-configuration-object">Connection Configuration Object</h2>
+<p>Each connection object (found in the <strong>Connections</strong> array) defines how to connect to the database. Its properties include:</p>
+<ul>
+<li><p><strong>Type</strong> (string, <em>required</em>):<br>
+A string that identifies the type of database connection. This value is parsed to match a supported database provider (for example, <code>&quot;MySQL&quot;</code> or <code>&quot;SQLite&quot;</code>).</p>
+</li>
+<li><p><strong>DatabaseName</strong> (string, <em>optional</em>):<br>
+An alternative name for the database; if not provided, the value of <code>DataSourceName</code> is used.</p>
+</li>
+<li><p><strong>DataSourceName</strong> (string, <em>required</em>):<br>
+The primary name for the data source. Depending on the connection type, this might represent a server name, file name, or other identifier.</p>
+</li>
+<li><p><strong>ConnectionString</strong> (string, <em>required</em>):<br>
+The full connection string used to establish a connection with the database.</p>
+</li>
+</ul>
+<hr>
+<h2 id="merging-datalinquserjson">Merging datalinq.user.json</h2>
+<p>When DataLinq reads the configuration using the <code>DataLinqConfig.FindAndReadConfigs</code> method citeturn1file0, it:</p>
+<ol>
+<li>Reads the main <code>datalinq.json</code> file.</li>
+<li>Checks for a corresponding <code>datalinq.user.json</code> file (by replacing the extension).</li>
+<li>Merges the settings from the user file into the main configuration. In this process, for any matching database (by name), properties in the user file override those in the main file. For example, if <code>CapitalizeNames</code> or the list of <code>Connections</code> are specified in the user file, those values will replace or augment the main configuration.</li>
+</ol>
+<hr>
+<h2 id="example-datalinqjson">Example: datalinq.json</h2>
+<p>Below is a simplified example of a <code>datalinq.json</code> file:</p>
+<pre><code class="lang-json">{
+  &quot;Databases&quot;: [
+    {
+      &quot;Name&quot;: &quot;MyDatabase&quot;,
+      &quot;CsType&quot;: &quot;MyDatabase&quot;,
+      &quot;Namespace&quot;: &quot;MyApp.Models&quot;,
+      &quot;SourceDirectories&quot;: [ &quot;Models/Source&quot; ],
+      &quot;DestinationDirectory&quot;: &quot;Models/Generated&quot;,
+      &quot;Tables&quot;: [ &quot;Users&quot;, &quot;Orders&quot; ],
+      &quot;Views&quot;: [ &quot;ActiveUsers&quot; ],
+      &quot;UseRecord&quot;: true,
+      &quot;UseFileScopedNamespaces&quot;: false,
+      &quot;UseNullableReferenceTypes&quot;: true,
+      &quot;CapitalizeNames&quot;: true,
+      &quot;RemoveInterfacePrefix&quot;: true,
+      &quot;SeparateTablesAndViews&quot;: false,
+      &quot;FileEncoding&quot;: &quot;UTF8&quot;
+    }
+  ]
+}
+</code></pre>
+<hr>
+<h2 id="example-datalinquserjson">Example: datalinq.user.json</h2>
+<p>A <code>datalinq.user.json</code> file may override or extend the main settings. For example:</p>
+<pre><code class="lang-json">{
+  &quot;Databases&quot;: [
+    {
+      &quot;Name&quot;: &quot;MyDatabase&quot;,
+      &quot;CapitalizeNames&quot;: false,
+      &quot;Connections&quot;: [
+        {
+          &quot;Type&quot;: &quot;SQLite&quot;,
+          &quot;DataSourceName&quot;: &quot;MyDatabase.db&quot;,
+          &quot;ConnectionString&quot;: &quot;Data Source=MyDatabase.db;Cache=Shared;&quot;
+        }
+      ]
+    }
+  ]
+}
+</code></pre>
+<p>In this example, for the database named &quot;MyDatabase&quot;, the user-specific file turns off name capitalization and provides a connection using SQLite. During initialization, these settings will be merged with the ones from the main file.</p>
+<hr>
+<h2 id="summary">Summary</h2>
+<ul>
+<li>The <strong>datalinq.json</strong> file is the main configuration file and defines an array of databases with their settings. This file should be checked in to source control.</li>
+<li><strong>datalinq.user.json</strong> is an optional file that overrides or extends settings from datalinq.json, allowing local or user-specific configuration changes, like connections strings and secret passwords. <strong>This file should typically not be checked in to source control.</strong></li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/bazer/DataLinq/blob/master/docs/Configuration files.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

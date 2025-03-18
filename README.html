@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>DataLinq | DataLinq </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="DataLinq | DataLinq ">
+      
+      
+      <link rel="icon" href="favicon.ico">
+      <link rel="stylesheet" href="public/docfx.min.css">
+      <link rel="stylesheet" href="public/main.css">
+      <meta name="docfx:navrel" content="toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/bazer/DataLinq/blob/master/README.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="index.html">
+            <img id="logo" class="svg" src="logo.svg" alt="DataLinq">
+            DataLinq
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+
+      <div class="content">
+        <div class="actionbar">
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="datalinq">DataLinq</h1>
+
+<p>DataLinq is a lightweight, high-performance ORM that prioritizes data integrity, thread safety, and efficient caching through an innovative use of immutable models. It is designed to minimize memory allocations and speed up data retrieval, making it ideal for read-heavy applications on small to medium projects.</p>
+<hr>
+<h2 id="1-introduction--overview">1. Introduction &amp; Overview</h2>
+<h3 id="what-is-datalinq">What Is DataLinq?</h3>
+<p>DataLinq is a modern ORM framework built around the principles of immutability and minimal overhead. By automatically generating both immutable and mutable model classes from your database schema, it ensures consistency and performance while simplifying data access.</p>
+<h3 id="core-philosophy">Core Philosophy</h3>
+<ul>
+<li><strong>Immutability First:</strong><br>
+All data read from the database is represented as immutable objects, ensuring thread safety and predictable behavior. When modifications are required, DataLinq provides an easy-to-use mechanism to create mutable copies, update them, and seamlessly synchronize the changes.</li>
+<li><strong>Efficient Caching:</strong><br>
+The framework leverages both global and transaction-specific caching, dramatically reducing database hits and improving response times.</li>
+<li><strong>Unified Querying:</strong><br>
+Built on LINQ, DataLinq translates expressive, familiar queries into optimized backend-specific commands without exposing you to the underlying complexities.</li>
+<li><strong>Extensibility:</strong><br>
+Although current support includes MySQL/MariaDB and SQLite, the modular architecture makes it straightforward to extend to other data sources in the future.</li>
+</ul>
+<h2 id="3-getting-started">3. Getting Started</h2>
+<h3 id="installation">Installation</h3>
+<p>Install DataLinq via NuGet. These are the currently available backends:</p>
+<pre><code class="lang-bash">Install-Package DataLinq.MySql
+Install-Package DataLinq.SQLite
+</code></pre>
+<p>The CLI is installed as a dotnet tool:</p>
+<pre><code class="lang-bash">dotnet tool install --global DataLinq.CLI
+</code></pre>
+<h3 id="configuration">Configuration</h3>
+<ol>
+<li><strong>Database Connection:</strong><br>
+Configure your connection strings (for MySQL/MariaDB or SQLite) in your application’s configuration file.</li>
+<li><strong>DataLinq Configuration:</strong><br>
+Use the provided configuration file (e.g., <code>datalinq.json</code>) to define your database settings and cache options.</li>
+</ol>
+<h3 id="model-creation">Model Creation</h3>
+<p>Generate your data models directly from your database schema using the CLI:</p>
+<pre><code class="lang-bash">datalinq create-models -n YourDatabaseName
+</code></pre>
+<p>Or, if you prefer generating SQL scripts for database setup:</p>
+<pre><code class="lang-bash">datalinq create-sql -o output.sql -n YourDatabaseName
+</code></pre>
+<hr>
+<h2 id="4-code-examples--usage">4. Code Examples &amp; Usage</h2>
+<h3 id="performing-a-simple-query">Performing a Simple Query</h3>
+<p>Retrieve all active users using LINQ:</p>
+<pre><code class="lang-csharp">var activeUsers = usersDb.Query().Users
+    .Where(x =&gt; x.Status == UserStatus.Active)
+    .ToList();
+</code></pre>
+<h3 id="updating-data-with-immutability">Updating Data with Immutability</h3>
+<p>Fetch an immutable record, mutate it, and then save the changes:</p>
+<pre><code class="lang-csharp">// Retrieve an immutable user
+var user = usersDb.Query().Users.Single(u =&gt; u.Id == 1);
+
+// Create a mutable copy, update the record, and save changes
+var updatedUser = user.Mutate(u =&gt; u.Name = &quot;New Name&quot;).Save();
+</code></pre>
+<h3 id="accessing-related-entities">Accessing Related Entities</h3>
+<p>Fetch a department and its associated managers:</p>
+<pre><code class="lang-csharp">var department = employeesDb.Query().Departments.Single(d =&gt; d.DeptNo == &quot;d005&quot;);
+var managers = department.Managers;  // Fetches collection of managers from cache
+</code></pre>
+<h3 id="using-the-cli">Using the CLI</h3>
+<p>Create a new database from your models via the command line:</p>
+<pre><code class="lang-bash">datalinq create-database -n YourDatabaseName
+</code></pre>
+<hr>
+<h2 id="5-how-it-works-advanced-overview">5. How It Works (Advanced Overview)</h2>
+<h3 id="source-generation--metadata">Source Generation &amp; Metadata</h3>
+<p>DataLinq scans your abstract model classes—annotated with attributes such as <code>[Table]</code>, <code>[Column]</code>, and <code>[Relation]</code>—to automatically generate consistent immutable and mutable classes. This approach minimizes boilerplate and ensures that your data models always reflect the underlying database schema.</p>
+<h3 id="caching-strategy">Caching Strategy</h3>
+<ul>
+<li><strong>Global Cache:</strong><br>
+Immutable objects are cached globally to enable zero-allocation reads.</li>
+<li><strong>Transactional Cache:</strong><br>
+During data mutations, a dedicated transactional cache maintains consistency until changes are committed.</li>
+<li><strong>Cache Invalidation:</strong><br>
+Supports multiple strategies including automatic updates on mutation, manual refreshes, time-based expiry, and event-driven notifications.</li>
+</ul>
+<h3 id="query-translation">Query Translation</h3>
+<p>LINQ expressions are parsed and optimized before being converted into backend-specific commands. This translation layer allows you to write complex queries in a concise manner without worrying about the underlying SQL syntax.</p>
+<hr>
+<h2 id="6-contributing--further-resources">6. Contributing &amp; Further Resources</h2>
+<h3 id="contributing">Contributing</h3>
+<p>We welcome contributions from the community! Whether you’re fixing bugs, improving documentation, or adding new features, your help is appreciated. Please see our <a href="docs/Contributing.html">Contributing Guide</a> for details.</p>
+<h3 id="documentation--support">Documentation &amp; Support</h3>
+<p>For in-depth technical details, advanced usage, and troubleshooting, please refer to the <a href="docs/Index.html">official documentation</a>.</p>
+<h3 id="license">License</h3>
+<p>DataLinq is open source and distributed under the MIT License. See the <a href="LICENSE.html">LICENSE</a> file for more details.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/bazer/DataLinq/blob/master/README.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
