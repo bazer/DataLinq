@@ -1,0 +1,61 @@
+### YamlMime:ApiPage
+title: Class ConfigFile
+body:
+- api1: Class ConfigFile
+  id: DataLinq_Config_ConfigFile
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L6
+  metadata:
+    uid: DataLinq.Config.ConfigFile
+    commentId: T:DataLinq.Config.ConfigFile
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Config
+      url: DataLinq.Config.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public record ConfigFile : IEquatable<ConfigFile>'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: ConfigFile
+    url: DataLinq.Config.ConfigFile.html
+- h4: Implements
+- list:
+  - text: IEquatable<ConfigFile>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Properties
+- api3: Databases
+  id: DataLinq_Config_ConfigFile_Databases
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L8
+  metadata:
+    uid: DataLinq.Config.ConfigFile.Databases
+    commentId: P:DataLinq.Config.ConfigFile.Databases
+- code: public List<ConfigFileDatabase> Databases { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: ConfigFileDatabase
+      url: DataLinq.Config.ConfigFileDatabase.html
+    - '>'
+languageId: csharp

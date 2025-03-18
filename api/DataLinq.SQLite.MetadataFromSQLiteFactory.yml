@@ -1,0 +1,94 @@
+### YamlMime:ApiPage
+title: Class MetadataFromSQLiteFactory
+body:
+- api1: Class MetadataFromSQLiteFactory
+  id: DataLinq_SQLite_MetadataFromSQLiteFactory
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/MetadataFromSQLiteFactory.cs#L21
+  metadata:
+    uid: DataLinq.SQLite.MetadataFromSQLiteFactory
+    commentId: T:DataLinq.SQLite.MetadataFromSQLiteFactory
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.SQLite
+      url: DataLinq.SQLite.html
+  - name: Assembly
+    value: DataLinq.SQLite.dll
+- code: 'public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: MetadataFromSQLiteFactory
+    url: DataLinq.SQLite.MetadataFromSQLiteFactory.html
+- h4: Implements
+- list:
+  - text: IMetadataFromSqlFactory
+    url: DataLinq.Metadata.IMetadataFromSqlFactory.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: MetadataFromSQLiteFactory(MetadataFromDatabaseFactoryOptions)
+  id: DataLinq_SQLite_MetadataFromSQLiteFactory__ctor_DataLinq_Core_Factories_MetadataFromDatabaseFactoryOptions_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/MetadataFromSQLiteFactory.cs#L25
+  metadata:
+    uid: DataLinq.SQLite.MetadataFromSQLiteFactory.#ctor(DataLinq.Core.Factories.MetadataFromDatabaseFactoryOptions)
+    commentId: M:DataLinq.SQLite.MetadataFromSQLiteFactory.#ctor(DataLinq.Core.Factories.MetadataFromDatabaseFactoryOptions)
+- code: public MetadataFromSQLiteFactory(MetadataFromDatabaseFactoryOptions options)
+- h4: Parameters
+- parameters:
+  - name: options
+    type:
+    - MetadataFromDatabaseFactoryOptions
+- h2: Methods
+- api3: ParseDatabase(string, string, string, string, string)
+  id: DataLinq_SQLite_MetadataFromSQLiteFactory_ParseDatabase_System_String_System_String_System_String_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/MetadataFromSQLiteFactory.cs#L30
+  metadata:
+    uid: DataLinq.SQLite.MetadataFromSQLiteFactory.ParseDatabase(System.String,System.String,System.String,System.String,System.String)
+    commentId: M:DataLinq.SQLite.MetadataFromSQLiteFactory.ParseDatabase(System.String,System.String,System.String,System.String,System.String)
+- code: public Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: csTypeName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: csNamespace
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: dbName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: connectionString
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - DatabaseDefinition
+    - '>'
+languageId: csharp

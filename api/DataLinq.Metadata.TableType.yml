@@ -1,0 +1,24 @@
+### YamlMime:ApiPage
+title: Enum TableType
+body:
+- api1: Enum TableType
+  id: DataLinq_Metadata_TableType
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableDefinition.cs#L8
+  metadata:
+    uid: DataLinq.Metadata.TableType
+    commentId: T:DataLinq.Metadata.TableType
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public enum TableType
+- h2: Fields
+- parameters:
+  - name: Table
+    default: "0"
+  - name: View
+    default: "1"
+languageId: csharp

@@ -1,0 +1,14 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.SourceGenerators
+body:
+- api1: Namespace DataLinq.SourceGenerators
+  id: DataLinq_SourceGenerators
+  metadata:
+    uid: DataLinq.SourceGenerators
+    commentId: N:DataLinq.SourceGenerators
+- h3: Classes
+- parameters:
+  - type:
+      text: ModelGenerator
+      url: DataLinq.SourceGenerators.ModelGenerator.html
+languageId: csharp

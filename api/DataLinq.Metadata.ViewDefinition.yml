@@ -1,0 +1,126 @@
+### YamlMime:ApiPage
+title: Class ViewDefinition
+body:
+- api1: Class ViewDefinition
+  id: DataLinq_Metadata_ViewDefinition
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableDefinition.cs#L69
+  metadata:
+    uid: DataLinq.Metadata.ViewDefinition
+    commentId: T:DataLinq.Metadata.ViewDefinition
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: 'public class ViewDefinition : TableDefinition, IDefinition'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: TableDefinition
+    url: DataLinq.Metadata.TableDefinition.html
+  - text: ViewDefinition
+    url: DataLinq.Metadata.ViewDefinition.html
+- h4: Implements
+- list:
+  - text: IDefinition
+    url: DataLinq.Interfaces.IDefinition.html
+- h4: Inherited Members
+- list:
+  - text: TableDefinition.DbName
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_DbName
+  - text: TableDefinition.SetDbName(string)
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_SetDbName_System_String_
+  - text: TableDefinition.TableModel
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_TableModel
+  - text: TableDefinition.Database
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_Database
+  - text: TableDefinition.Model
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_Model
+  - text: TableDefinition.Columns
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_Columns
+  - text: TableDefinition.SetColumns(IEnumerable<ColumnDefinition>)
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_SetColumns_System_Collections_Generic_IEnumerable_DataLinq_Metadata_ColumnDefinition__
+  - text: TableDefinition.PrimaryKeyColumns
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_PrimaryKeyColumns
+  - text: TableDefinition.ColumnIndices
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_ColumnIndices
+  - text: TableDefinition.Type
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_Type
+  - text: TableDefinition.CacheLimits
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_CacheLimits
+  - text: TableDefinition.IndexCache
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_IndexCache
+  - text: TableDefinition.CsFile
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_CsFile
+  - text: TableDefinition.UseCache
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_UseCache
+  - text: TableDefinition.AddPrimaryKeyColumn(ColumnDefinition)
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_AddPrimaryKeyColumn_DataLinq_Metadata_ColumnDefinition_
+  - text: TableDefinition.RemovePrimaryKeyColumn(ColumnDefinition)
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_RemovePrimaryKeyColumn_DataLinq_Metadata_ColumnDefinition_
+  - text: TableDefinition.ToString()
+    url: DataLinq.Metadata.TableDefinition.html#DataLinq_Metadata_TableDefinition_ToString
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h4: Extension Methods
+- list:
+  - text: MetadataFactory.ParseColumn(TableDefinition, ValueProperty)
+    url: DataLinq.Core.Factories.MetadataFactory.html#DataLinq_Core_Factories_MetadataFactory_ParseColumn_DataLinq_Metadata_TableDefinition_DataLinq_Metadata_ValueProperty_
+- h2: Constructors
+- api3: ViewDefinition(string)
+  id: DataLinq_Metadata_ViewDefinition__ctor_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableDefinition.cs#L74
+  metadata:
+    uid: DataLinq.Metadata.ViewDefinition.#ctor(System.String)
+    commentId: M:DataLinq.Metadata.ViewDefinition.#ctor(System.String)
+- code: public ViewDefinition(string dbName)
+- h4: Parameters
+- parameters:
+  - name: dbName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h2: Properties
+- api3: Definition
+  id: DataLinq_Metadata_ViewDefinition_Definition
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableDefinition.cs#L71
+  metadata:
+    uid: DataLinq.Metadata.ViewDefinition.Definition
+    commentId: P:DataLinq.Metadata.ViewDefinition.Definition
+- code: public string? Definition { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- h2: Methods
+- api3: SetDefinition(string)
+  id: DataLinq_Metadata_ViewDefinition_SetDefinition_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableDefinition.cs#L72
+  metadata:
+    uid: DataLinq.Metadata.ViewDefinition.SetDefinition(System.String)
+    commentId: M:DataLinq.Metadata.ViewDefinition.SetDefinition(System.String)
+- code: public void SetDefinition(string definition)
+- h4: Parameters
+- parameters:
+  - name: definition
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

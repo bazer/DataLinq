@@ -1,0 +1,17 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.Exceptions
+body:
+- api1: Namespace DataLinq.Exceptions
+  id: DataLinq_Exceptions
+  metadata:
+    uid: DataLinq.Exceptions
+    commentId: N:DataLinq.Exceptions
+- h3: Classes
+- parameters:
+  - type:
+      text: InvalidMutationObjectException
+      url: DataLinq.Exceptions.InvalidMutationObjectException.html
+  - type:
+      text: InvalidQueryException
+      url: DataLinq.Exceptions.InvalidQueryException.html
+languageId: csharp

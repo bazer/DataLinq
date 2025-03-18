@@ -1,0 +1,227 @@
+### YamlMime:ApiPage
+title: Class SyntaxParser
+body:
+- api1: Class SyntaxParser
+  id: DataLinq_Core_Factories_SyntaxParser
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/SyntaxParser.cs#L15
+  metadata:
+    uid: DataLinq.Core.Factories.SyntaxParser
+    commentId: T:DataLinq.Core.Factories.SyntaxParser
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Core.Factories
+      url: DataLinq.Core.Factories.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public class SyntaxParser
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: SyntaxParser
+    url: DataLinq.Core.Factories.SyntaxParser.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: SyntaxParser(ImmutableArray<TypeDeclarationSyntax>)
+  id: DataLinq_Core_Factories_SyntaxParser__ctor_System_Collections_Immutable_ImmutableArray_Microsoft_CodeAnalysis_CSharp_Syntax_TypeDeclarationSyntax__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/SyntaxParser.cs#L27
+  metadata:
+    uid: DataLinq.Core.Factories.SyntaxParser.#ctor(System.Collections.Immutable.ImmutableArray{Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax})
+    commentId: M:DataLinq.Core.Factories.SyntaxParser.#ctor(System.Collections.Immutable.ImmutableArray{Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax})
+- code: public SyntaxParser(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+- h4: Parameters
+- parameters:
+  - name: modelSyntaxes
+    type:
+    - text: ImmutableArray
+      url: https://learn.microsoft.com/dotnet/api/system.collections.immutable.immutablearray-1
+    - <
+    - text: TypeDeclarationSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.typedeclarationsyntax
+    - '>'
+- h2: Methods
+- api3: GetTableType(PropertyDeclarationSyntax, List<TypeDeclarationSyntax>)
+  id: DataLinq_Core_Factories_SyntaxParser_GetTableType_Microsoft_CodeAnalysis_CSharp_Syntax_PropertyDeclarationSyntax_System_Collections_Generic_List_Microsoft_CodeAnalysis_CSharp_Syntax_TypeDeclarationSyntax__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/SyntaxParser.cs#L391
+  metadata:
+    uid: DataLinq.Core.Factories.SyntaxParser.GetTableType(Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax,System.Collections.Generic.List{Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax})
+    commentId: M:DataLinq.Core.Factories.SyntaxParser.GetTableType(Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax,System.Collections.Generic.List{Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax})
+- code: public Option<(string csPropertyName, TypeDeclarationSyntax classSyntax), IDLOptionFailure> GetTableType(PropertyDeclarationSyntax property, List<TypeDeclarationSyntax> modelTypeSyntaxes)
+- h4: Parameters
+- parameters:
+  - name: property
+    type:
+    - text: PropertyDeclarationSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.propertydeclarationsyntax
+  - name: modelTypeSyntaxes
+    type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: TypeDeclarationSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.typedeclarationsyntax
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - (
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: csPropertyName
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,microsoft.codeanalysis.csharp.syntax.typedeclarationsyntax-.cspropertyname
+    - ','
+    - " "
+    - text: TypeDeclarationSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.typedeclarationsyntax
+    - " "
+    - text: classSyntax
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,microsoft.codeanalysis.csharp.syntax.typedeclarationsyntax-.classsyntax
+    - )
+    - ','
+    - " "
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- api3: IsCustomModelInterface(string)
+  id: DataLinq_Core_Factories_SyntaxParser_IsCustomModelInterface_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/SyntaxParser.cs#L24
+  metadata:
+    uid: DataLinq.Core.Factories.SyntaxParser.IsCustomModelInterface(System.String)
+    commentId: M:DataLinq.Core.Factories.SyntaxParser.IsCustomModelInterface(System.String)
+- code: public static bool IsCustomModelInterface(string interfaceName)
+- h4: Parameters
+- parameters:
+  - name: interfaceName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: IsModelInterface(string)
+  id: DataLinq_Core_Factories_SyntaxParser_IsModelInterface_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/SyntaxParser.cs#L21
+  metadata:
+    uid: DataLinq.Core.Factories.SyntaxParser.IsModelInterface(System.String)
+    commentId: M:DataLinq.Core.Factories.SyntaxParser.IsModelInterface(System.String)
+- code: public static bool IsModelInterface(string interfaceName)
+- h4: Parameters
+- parameters:
+  - name: interfaceName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: ParseAttribute(AttributeSyntax)
+  id: DataLinq_Core_Factories_SyntaxParser_ParseAttribute_Microsoft_CodeAnalysis_CSharp_Syntax_AttributeSyntax_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/SyntaxParser.cs#L114
+  metadata:
+    uid: DataLinq.Core.Factories.SyntaxParser.ParseAttribute(Microsoft.CodeAnalysis.CSharp.Syntax.AttributeSyntax)
+    commentId: M:DataLinq.Core.Factories.SyntaxParser.ParseAttribute(Microsoft.CodeAnalysis.CSharp.Syntax.AttributeSyntax)
+- code: public Option<Attribute, IDLOptionFailure> ParseAttribute(AttributeSyntax attributeSyntax)
+- h4: Parameters
+- parameters:
+  - name: attributeSyntax
+    type:
+    - text: AttributeSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.attributesyntax
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - text: Attribute
+      url: https://learn.microsoft.com/dotnet/api/system.attribute
+    - ','
+    - " "
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- api3: ParseProperty(PropertyDeclarationSyntax, ModelDefinition)
+  id: DataLinq_Core_Factories_SyntaxParser_ParseProperty_Microsoft_CodeAnalysis_CSharp_Syntax_PropertyDeclarationSyntax_DataLinq_Metadata_ModelDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/SyntaxParser.cs#L358
+  metadata:
+    uid: DataLinq.Core.Factories.SyntaxParser.ParseProperty(Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax,DataLinq.Metadata.ModelDefinition)
+    commentId: M:DataLinq.Core.Factories.SyntaxParser.ParseProperty(Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax,DataLinq.Metadata.ModelDefinition)
+- code: public Option<PropertyDefinition, IDLOptionFailure> ParseProperty(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
+- h4: Parameters
+- parameters:
+  - name: propSyntax
+    type:
+    - text: PropertyDeclarationSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.propertydeclarationsyntax
+  - name: model
+    type:
+    - text: ModelDefinition
+      url: DataLinq.Metadata.ModelDefinition.html
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - text: PropertyDefinition
+      url: DataLinq.Metadata.PropertyDefinition.html
+    - ','
+    - " "
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- api3: ParseTableModel(DatabaseDefinition, TypeDeclarationSyntax, string)
+  id: DataLinq_Core_Factories_SyntaxParser_ParseTableModel_DataLinq_Metadata_DatabaseDefinition_Microsoft_CodeAnalysis_CSharp_Syntax_TypeDeclarationSyntax_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/SyntaxParser.cs#L32
+  metadata:
+    uid: DataLinq.Core.Factories.SyntaxParser.ParseTableModel(DataLinq.Metadata.DatabaseDefinition,Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax,System.String)
+    commentId: M:DataLinq.Core.Factories.SyntaxParser.ParseTableModel(DataLinq.Metadata.DatabaseDefinition,Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax,System.String)
+- code: public Option<TableModel, IDLOptionFailure> ParseTableModel(DatabaseDefinition database, TypeDeclarationSyntax typeSyntax, string csPropertyName)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+  - name: typeSyntax
+    type:
+    - text: TypeDeclarationSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.typedeclarationsyntax
+  - name: csPropertyName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - text: TableModel
+      url: DataLinq.Metadata.TableModel.html
+    - ','
+    - " "
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+languageId: csharp

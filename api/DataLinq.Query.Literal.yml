@@ -1,0 +1,158 @@
+### YamlMime:ApiPage
+title: Class Literal
+body:
+- api1: Class Literal
+  id: DataLinq_Query_Literal
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Literal.cs#L8
+  metadata:
+    uid: DataLinq.Query.Literal
+    commentId: T:DataLinq.Query.Literal
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Query
+      url: DataLinq.Query.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class Literal : IQuery'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Literal
+    url: DataLinq.Query.Literal.html
+- h4: Implements
+- list:
+  - text: IQuery
+    url: DataLinq.Query.IQuery.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: Literal(Transaction, string)
+  id: DataLinq_Query_Literal__ctor_DataLinq_Mutation_Transaction_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Literal.cs#L15
+  metadata:
+    uid: DataLinq.Query.Literal.#ctor(DataLinq.Mutation.Transaction,System.String)
+    commentId: M:DataLinq.Query.Literal.#ctor(DataLinq.Mutation.Transaction,System.String)
+- code: public Literal(Transaction transaction, string sql)
+- h4: Parameters
+- parameters:
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+  - name: sql
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Literal(Transaction, string, IEnumerable<IDataParameter>)
+  id: DataLinq_Query_Literal__ctor_DataLinq_Mutation_Transaction_System_String_System_Collections_Generic_IEnumerable_System_Data_IDataParameter__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Literal.cs#L22
+  metadata:
+    uid: DataLinq.Query.Literal.#ctor(DataLinq.Mutation.Transaction,System.String,System.Collections.Generic.IEnumerable{System.Data.IDataParameter})
+    commentId: M:DataLinq.Query.Literal.#ctor(DataLinq.Mutation.Transaction,System.String,System.Collections.Generic.IEnumerable{System.Data.IDataParameter})
+- code: public Literal(Transaction database, string sql, IEnumerable<IDataParameter> parameters)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+  - name: sql
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: parameters
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IDataParameter
+      url: https://learn.microsoft.com/dotnet/api/system.data.idataparameter
+    - '>'
+- h2: Fields
+- api3: transaction
+  id: DataLinq_Query_Literal_transaction
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Literal.cs#L12
+  metadata:
+    uid: DataLinq.Query.Literal.transaction
+    commentId: F:DataLinq.Query.Literal.transaction
+- code: protected Transaction transaction
+- h4: Field Value
+- parameters:
+  - type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+- h2: Properties
+- api3: ParameterCount
+  id: DataLinq_Query_Literal_ParameterCount
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Literal.cs#L39
+  metadata:
+    uid: DataLinq.Query.Literal.ParameterCount
+    commentId: P:DataLinq.Query.Literal.ParameterCount
+- code: public int ParameterCount { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: Transaction
+  id: DataLinq_Query_Literal_Transaction
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Literal.cs#L13
+  metadata:
+    uid: DataLinq.Query.Literal.Transaction
+    commentId: P:DataLinq.Query.Literal.Transaction
+- code: public Transaction Transaction { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+- h2: Methods
+- api3: ToDbCommand()
+  id: DataLinq_Query_Literal_ToDbCommand
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Literal.cs#L34
+  metadata:
+    uid: DataLinq.Query.Literal.ToDbCommand
+    commentId: M:DataLinq.Query.Literal.ToDbCommand
+- code: public IDbCommand ToDbCommand()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- api3: ToSql(string?)
+  id: DataLinq_Query_Literal_ToSql_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Literal.cs#L29
+  metadata:
+    uid: DataLinq.Query.Literal.ToSql(System.String)
+    commentId: M:DataLinq.Query.Literal.ToSql(System.String)
+- code: public Sql ToSql(string? paramPrefix = null)
+- h4: Parameters
+- parameters:
+  - name: paramPrefix
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+languageId: csharp

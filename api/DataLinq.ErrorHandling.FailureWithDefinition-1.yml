@@ -1,0 +1,97 @@
+### YamlMime:ApiPage
+title: Class FailureWithDefinition<T>
+body:
+- api1: Class FailureWithDefinition<T>
+  id: DataLinq_ErrorHandling_FailureWithDefinition_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L21
+  metadata:
+    uid: DataLinq.ErrorHandling.FailureWithDefinition`1
+    commentId: T:DataLinq.ErrorHandling.FailureWithDefinition`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.ErrorHandling
+      url: DataLinq.ErrorHandling.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public class FailureWithDefinition<T>
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: FailureWithDefinition<T>
+    url: DataLinq.ErrorHandling.FailureWithDefinition-1.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: FailureWithDefinition(T, IDefinition)
+  id: DataLinq_ErrorHandling_FailureWithDefinition_1__ctor__0_DataLinq_Interfaces_IDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L25
+  metadata:
+    uid: DataLinq.ErrorHandling.FailureWithDefinition`1.#ctor(`0,DataLinq.Interfaces.IDefinition)
+    commentId: M:DataLinq.ErrorHandling.FailureWithDefinition`1.#ctor(`0,DataLinq.Interfaces.IDefinition)
+- code: public FailureWithDefinition(T failure, IDefinition definition)
+- h4: Parameters
+- parameters:
+  - name: failure
+    type:
+    - T
+  - name: definition
+    type:
+    - text: IDefinition
+      url: DataLinq.Interfaces.IDefinition.html
+- h2: Properties
+- api3: Definition
+  id: DataLinq_ErrorHandling_FailureWithDefinition_1_Definition
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L23
+  metadata:
+    uid: DataLinq.ErrorHandling.FailureWithDefinition`1.Definition
+    commentId: P:DataLinq.ErrorHandling.FailureWithDefinition`1.Definition
+- code: public IDefinition Definition { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IDefinition
+      url: DataLinq.Interfaces.IDefinition.html
+- api3: Failure
+  id: DataLinq_ErrorHandling_FailureWithDefinition_1_Failure
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L24
+  metadata:
+    uid: DataLinq.ErrorHandling.FailureWithDefinition`1.Failure
+    commentId: P:DataLinq.ErrorHandling.FailureWithDefinition`1.Failure
+- code: public T Failure { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - T
+- h2: Methods
+- api3: ToString()
+  id: DataLinq_ErrorHandling_FailureWithDefinition_1_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L30
+  metadata:
+    uid: DataLinq.ErrorHandling.FailureWithDefinition`1.ToString
+    commentId: M:DataLinq.ErrorHandling.FailureWithDefinition`1.ToString
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

@@ -1,0 +1,116 @@
+### YamlMime:ApiPage
+title: Struct ObjectKey
+body:
+- api1: Struct ObjectKey
+  id: DataLinq_Instances_ObjectKey
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L22
+  metadata:
+    uid: DataLinq.Instances.ObjectKey
+    commentId: T:DataLinq.Instances.ObjectKey
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public readonly record struct ObjectKey : IKey, IEquatable<ObjectKey>'
+- h4: Implements
+- list:
+  - text: IKey
+    url: DataLinq.Instances.IKey.html
+  - text: IEquatable<ObjectKey>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: ObjectKey(object)
+  id: DataLinq_Instances_ObjectKey__ctor_System_Object_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L22
+  metadata:
+    uid: DataLinq.Instances.ObjectKey.#ctor(System.Object)
+    commentId: M:DataLinq.Instances.ObjectKey.#ctor(System.Object)
+- code: public ObjectKey(object Value)
+- h4: Parameters
+- parameters:
+  - name: Value
+    type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+- h2: Properties
+- api3: Value
+  id: DataLinq_Instances_ObjectKey_Value
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L22
+  metadata:
+    uid: DataLinq.Instances.ObjectKey.Value
+    commentId: P:DataLinq.Instances.ObjectKey.Value
+- code: public object Value { get; init; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+- api3: Values
+  id: DataLinq_Instances_ObjectKey_Values
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L24
+  metadata:
+    uid: DataLinq.Instances.ObjectKey.Values
+    commentId: P:DataLinq.Instances.ObjectKey.Values
+- code: public object?[] Values { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '['
+    - ']'
+- h2: Methods
+- api3: Equals(ObjectKey)
+  id: DataLinq_Instances_ObjectKey_Equals_DataLinq_Instances_ObjectKey_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L26
+  metadata:
+    uid: DataLinq.Instances.ObjectKey.Equals(DataLinq.Instances.ObjectKey)
+    commentId: M:DataLinq.Instances.ObjectKey.Equals(DataLinq.Instances.ObjectKey)
+- markdown: Indicates whether the current object is equal to another object of the same type.
+- code: public bool Equals(ObjectKey other)
+- h4: Parameters
+- parameters:
+  - name: other
+    type:
+    - text: ObjectKey
+      url: DataLinq.Instances.ObjectKey.html
+    description: An object to compare with this object.
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    description: <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool">true</a> if the current object is equal to the <code class="paramref">other</code> parameter; otherwise, <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool">false</a>.
+- api3: GetHashCode()
+  id: DataLinq_Instances_ObjectKey_GetHashCode
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L29
+  metadata:
+    uid: DataLinq.Instances.ObjectKey.GetHashCode
+    commentId: M:DataLinq.Instances.ObjectKey.GetHashCode
+- markdown: Returns the hash code for this instance.
+- code: public override int GetHashCode()
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    description: A 32-bit signed integer that is the hash code for this instance.
+languageId: csharp

@@ -1,0 +1,804 @@
+### YamlMime:ApiPage
+title: Class WhereGroup<T>
+body:
+- api1: Class WhereGroup<T>
+  id: DataLinq_Query_WhereGroup_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L15
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1
+    commentId: T:DataLinq.Query.WhereGroup`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Query
+      url: DataLinq.Query.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class WhereGroup<T> : IWhere<T>, IQueryPart'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: WhereGroup<T>
+    url: DataLinq.Query.WhereGroup-1.html
+- h4: Implements
+- list:
+  - text: IWhere<T>
+    url: DataLinq.Query.IWhere-1.html
+  - text: IQueryPart
+    url: DataLinq.Query.IQueryPart.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Fields
+- api3: Query
+  id: DataLinq_Query_WhereGroup_1_Query
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L17
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Query
+    commentId: F:DataLinq.Query.WhereGroup`1.Query
+- code: public readonly SqlQuery<T> Query
+- h4: Field Value
+- parameters:
+  - type:
+    - text: SqlQuery
+      url: DataLinq.Query.SqlQuery-1.html
+    - <
+    - T
+    - '>'
+- api3: whereList
+  id: DataLinq_Query_WhereGroup_1_whereList
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L18
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.whereList
+    commentId: F:DataLinq.Query.WhereGroup`1.whereList
+- code: protected List<(IWhere<T> where, BooleanType type)>? whereList
+- h4: Field Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - (
+    - text: IWhere
+      url: DataLinq.Query.IWhere-1.html
+    - <
+    - T
+    - '>'
+    - " "
+    - text: where
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.query.iwhere--0-,datalinq.query.booleantype-.where
+    - ','
+    - " "
+    - text: BooleanType
+      url: DataLinq.Query.BooleanType.html
+    - " "
+    - text: type
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.query.iwhere--0-,datalinq.query.booleantype-.type
+    - )
+    - '>'
+    - '?'
+- h2: Properties
+- api3: Transaction
+  id: DataLinq_Query_WhereGroup_1_Transaction
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L22
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Transaction
+    commentId: P:DataLinq.Query.WhereGroup`1.Transaction
+- code: public Transaction Transaction { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+- h2: Methods
+- api3: AddCommandString(Sql, string, bool, bool)
+  id: DataLinq_Query_WhereGroup_1_AddCommandString_DataLinq_Query_Sql_System_String_System_Boolean_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L30
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.AddCommandString(DataLinq.Query.Sql,System.String,System.Boolean,System.Boolean)
+    commentId: M:DataLinq.Query.WhereGroup`1.AddCommandString(DataLinq.Query.Sql,System.String,System.Boolean,System.Boolean)
+- code: public void AddCommandString(Sql sql, string prefix = "", bool addCommandParameter = true, bool addParentheses = false)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: prefix
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    optional: true
+  - name: addCommandParameter
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+  - name: addParentheses
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- api3: AddWhere(string, string?, BooleanType)
+  id: DataLinq_Query_WhereGroup_1_AddWhere_System_String_System_String_DataLinq_Query_BooleanType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L70
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.AddWhere(System.String,System.String,DataLinq.Query.BooleanType)
+    commentId: M:DataLinq.Query.WhereGroup`1.AddWhere(System.String,System.String,DataLinq.Query.BooleanType)
+- code: public Where<T> AddWhere(string columnName, string? alias, BooleanType type)
+- h4: Parameters
+- parameters:
+  - name: columnName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+  - name: type
+    type:
+    - text: BooleanType
+      url: DataLinq.Query.BooleanType.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: Where
+      url: DataLinq.Query.Where-1.html
+    - <
+    - T
+    - '>'
+- api3: AddWhereNot(string, string?, BooleanType)
+  id: DataLinq_Query_WhereGroup_1_AddWhereNot_System_String_System_String_DataLinq_Query_BooleanType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L75
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.AddWhereNot(System.String,System.String,DataLinq.Query.BooleanType)
+    commentId: M:DataLinq.Query.WhereGroup`1.AddWhereNot(System.String,System.String,DataLinq.Query.BooleanType)
+- code: public Where<T> AddWhereNot(string columnName, string? alias, BooleanType type)
+- h4: Parameters
+- parameters:
+  - name: columnName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+  - name: type
+    type:
+    - text: BooleanType
+      url: DataLinq.Query.BooleanType.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: Where
+      url: DataLinq.Query.Where-1.html
+    - <
+    - T
+    - '>'
+- api3: And(string, string?)
+  id: DataLinq_Query_WhereGroup_1_And_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L100
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.And(System.String,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.And(System.String,System.String)
+- code: public Where<T> And(string columnName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: columnName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Where
+      url: DataLinq.Query.Where-1.html
+    - <
+    - T
+    - '>'
+- api3: And(Func<Func<string, Where<T>>, WhereGroup<T>>)
+  id: DataLinq_Query_WhereGroup_1_And_System_Func_System_Func_System_String_DataLinq_Query_Where__0___DataLinq_Query_WhereGroup__0___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L105
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.And(System.Func{System.Func{System.String,DataLinq.Query.Where{`0}},DataLinq.Query.WhereGroup{`0}})
+    commentId: M:DataLinq.Query.WhereGroup`1.And(System.Func{System.Func{System.String,DataLinq.Query.Where{`0}},DataLinq.Query.WhereGroup{`0}})
+- code: public WhereGroup<T> And(Func<Func<string, Where<T>>, WhereGroup<T>> func)
+- h4: Parameters
+- parameters:
+  - name: func
+    type:
+    - text: Func
+      url: https://learn.microsoft.com/dotnet/api/system.func-2
+    - <
+    - text: Func
+      url: https://learn.microsoft.com/dotnet/api/system.func-2
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - ','
+    - " "
+    - text: Where
+      url: DataLinq.Query.Where-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+    - ','
+    - " "
+    - text: WhereGroup
+      url: DataLinq.Query.WhereGroup-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: WhereGroup
+      url: DataLinq.Query.WhereGroup-1.html
+    - <
+    - T
+    - '>'
+- api3: Delete()
+  id: DataLinq_Query_WhereGroup_1_Delete
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L142
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Delete
+    commentId: M:DataLinq.Query.WhereGroup`1.Delete
+- code: public QueryResult Delete()
+- h4: Returns
+- parameters:
+  - type:
+    - text: QueryResult
+      url: DataLinq.Query.QueryResult.html
+- api3: Insert()
+  id: DataLinq_Query_WhereGroup_1_Insert
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L147
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Insert
+    commentId: M:DataLinq.Query.WhereGroup`1.Insert
+- code: public QueryResult Insert()
+- h4: Returns
+- parameters:
+  - type:
+    - text: QueryResult
+      url: DataLinq.Query.QueryResult.html
+- api3: InsertQuery()
+  id: DataLinq_Query_WhereGroup_1_InsertQuery
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L162
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.InsertQuery
+    commentId: M:DataLinq.Query.WhereGroup`1.InsertQuery
+- code: public Insert<T> InsertQuery()
+- h4: Returns
+- parameters:
+  - type:
+    - text: Insert
+      url: DataLinq.Query.Insert-1.html
+    - <
+    - T
+    - '>'
+- api3: Join(string, string?)
+  id: DataLinq_Query_WhereGroup_1_Join_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L207
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Join(System.String,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.Join(System.String,System.String)
+- code: public Join<T> Join(string tableName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: tableName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Join
+      url: DataLinq.Query.Join-1.html
+    - <
+    - T
+    - '>'
+- api3: LeftJoin(string, string?)
+  id: DataLinq_Query_WhereGroup_1_LeftJoin_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L212
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.LeftJoin(System.String,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.LeftJoin(System.String,System.String)
+- code: public Join<T> LeftJoin(string tableName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: tableName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Join
+      url: DataLinq.Query.Join-1.html
+    - <
+    - T
+    - '>'
+- api3: Limit(int)
+  id: DataLinq_Query_WhereGroup_1_Limit_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L202
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Limit(System.Int32)
+    commentId: M:DataLinq.Query.WhereGroup`1.Limit(System.Int32)
+- code: public SqlQuery<T> Limit(int rows)
+- h4: Parameters
+- parameters:
+  - name: rows
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlQuery
+      url: DataLinq.Query.SqlQuery-1.html
+    - <
+    - T
+    - '>'
+- api3: Or(string, string?)
+  id: DataLinq_Query_WhereGroup_1_Or_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L116
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Or(System.String,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.Or(System.String,System.String)
+- code: public Where<T> Or(string columnName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: columnName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Where
+      url: DataLinq.Query.Where-1.html
+    - <
+    - T
+    - '>'
+- api3: Or(Func<Func<string, Where<T>>, WhereGroup<T>>)
+  id: DataLinq_Query_WhereGroup_1_Or_System_Func_System_Func_System_String_DataLinq_Query_Where__0___DataLinq_Query_WhereGroup__0___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L121
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Or(System.Func{System.Func{System.String,DataLinq.Query.Where{`0}},DataLinq.Query.WhereGroup{`0}})
+    commentId: M:DataLinq.Query.WhereGroup`1.Or(System.Func{System.Func{System.String,DataLinq.Query.Where{`0}},DataLinq.Query.WhereGroup{`0}})
+- code: public WhereGroup<T> Or(Func<Func<string, Where<T>>, WhereGroup<T>> func)
+- h4: Parameters
+- parameters:
+  - name: func
+    type:
+    - text: Func
+      url: https://learn.microsoft.com/dotnet/api/system.func-2
+    - <
+    - text: Func
+      url: https://learn.microsoft.com/dotnet/api/system.func-2
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - ','
+    - " "
+    - text: Where
+      url: DataLinq.Query.Where-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+    - ','
+    - " "
+    - text: WhereGroup
+      url: DataLinq.Query.WhereGroup-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: WhereGroup
+      url: DataLinq.Query.WhereGroup-1.html
+    - <
+    - T
+    - '>'
+- api3: OrderBy(string, string?, bool)
+  id: DataLinq_Query_WhereGroup_1_OrderBy_System_String_System_String_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L182
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.OrderBy(System.String,System.String,System.Boolean)
+    commentId: M:DataLinq.Query.WhereGroup`1.OrderBy(System.String,System.String,System.Boolean)
+- code: public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true)
+- h4: Parameters
+- parameters:
+  - name: columnName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+  - name: ascending
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlQuery
+      url: DataLinq.Query.SqlQuery-1.html
+    - <
+    - T
+    - '>'
+- api3: OrderBy(ColumnDefinition, string?, bool)
+  id: DataLinq_Query_WhereGroup_1_OrderBy_DataLinq_Metadata_ColumnDefinition_System_String_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L187
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.OrderBy(DataLinq.Metadata.ColumnDefinition,System.String,System.Boolean)
+    commentId: M:DataLinq.Query.WhereGroup`1.OrderBy(DataLinq.Metadata.ColumnDefinition,System.String,System.Boolean)
+- code: public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+  - name: ascending
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlQuery
+      url: DataLinq.Query.SqlQuery-1.html
+    - <
+    - T
+    - '>'
+- api3: OrderByDesc(string, string?)
+  id: DataLinq_Query_WhereGroup_1_OrderByDesc_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L192
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.OrderByDesc(System.String,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.OrderByDesc(System.String,System.String)
+- code: public SqlQuery<T> OrderByDesc(string columnName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: columnName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlQuery
+      url: DataLinq.Query.SqlQuery-1.html
+    - <
+    - T
+    - '>'
+- api3: OrderByDesc(ColumnDefinition, string?)
+  id: DataLinq_Query_WhereGroup_1_OrderByDesc_DataLinq_Metadata_ColumnDefinition_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L197
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.OrderByDesc(DataLinq.Metadata.ColumnDefinition,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.OrderByDesc(DataLinq.Metadata.ColumnDefinition,System.String)
+- code: public SqlQuery<T> OrderByDesc(ColumnDefinition column, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlQuery
+      url: DataLinq.Query.SqlQuery-1.html
+    - <
+    - T
+    - '>'
+- api3: RightJoin(string, string?)
+  id: DataLinq_Query_WhereGroup_1_RightJoin_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L217
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.RightJoin(System.String,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.RightJoin(System.String,System.String)
+- code: public Join<T> RightJoin(string tableName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: tableName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Join
+      url: DataLinq.Query.Join-1.html
+    - <
+    - T
+    - '>'
+- api3: Select()
+  id: DataLinq_Query_WhereGroup_1_Select
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L137
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Select
+    commentId: M:DataLinq.Query.WhereGroup`1.Select
+- code: public IEnumerable<T> Select()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - T
+    - '>'
+- api3: SelectQuery()
+  id: DataLinq_Query_WhereGroup_1_SelectQuery
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L157
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.SelectQuery
+    commentId: M:DataLinq.Query.WhereGroup`1.SelectQuery
+- code: public Select<T> SelectQuery()
+- h4: Returns
+- parameters:
+  - type:
+    - text: Select
+      url: DataLinq.Query.Select-1.html
+    - <
+    - T
+    - '>'
+- api3: Set<V>(string, V)
+  id: DataLinq_Query_WhereGroup_1_Set__1_System_String___0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L132
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Set``1(System.String,``0)
+    commentId: M:DataLinq.Query.WhereGroup`1.Set``1(System.String,``0)
+- code: public SqlQuery<T> Set<V>(string key, V value)
+- h4: Parameters
+- parameters:
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: value
+    type:
+    - V
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlQuery
+      url: DataLinq.Query.SqlQuery-1.html
+    - <
+    - T
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: V
+- api3: ToString()
+  id: DataLinq_Query_WhereGroup_1_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L222
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.ToString
+    commentId: M:DataLinq.Query.WhereGroup`1.ToString
+- markdown: Returns a string that represents the current object.
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: A string that represents the current object.
+- api3: Update()
+  id: DataLinq_Query_WhereGroup_1_Update
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L152
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Update
+    commentId: M:DataLinq.Query.WhereGroup`1.Update
+- code: public QueryResult Update()
+- h4: Returns
+- parameters:
+  - type:
+    - text: QueryResult
+      url: DataLinq.Query.QueryResult.html
+- api3: Where(string, string?)
+  id: DataLinq_Query_WhereGroup_1_Where_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L167
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Where(System.String,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.Where(System.String,System.String)
+- code: public Where<T> Where(string columnName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: columnName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Where
+      url: DataLinq.Query.Where-1.html
+    - <
+    - T
+    - '>'
+- api3: Where(IEnumerable<(string columnName, object? value)>, BooleanType, string?)
+  id: DataLinq_Query_WhereGroup_1_Where_System_Collections_Generic_IEnumerable_System_ValueTuple_System_String_System_Object___DataLinq_Query_BooleanType_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L172
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.Where(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Object}},DataLinq.Query.BooleanType,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.Where(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Object}},DataLinq.Query.BooleanType,System.String)
+- code: public WhereGroup<T> Where(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: wheres
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: columnName
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.object-.columnname
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - " "
+    - text: value
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.object-.value
+    - )
+    - '>'
+  - name: type
+    type:
+    - text: BooleanType
+      url: DataLinq.Query.BooleanType.html
+    optional: true
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: WhereGroup
+      url: DataLinq.Query.WhereGroup-1.html
+    - <
+    - T
+    - '>'
+- api3: WhereNot(IEnumerable<(string columnName, object? value)>, BooleanType, string?)
+  id: DataLinq_Query_WhereGroup_1_WhereNot_System_Collections_Generic_IEnumerable_System_ValueTuple_System_String_System_Object___DataLinq_Query_BooleanType_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L177
+  metadata:
+    uid: DataLinq.Query.WhereGroup`1.WhereNot(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Object}},DataLinq.Query.BooleanType,System.String)
+    commentId: M:DataLinq.Query.WhereGroup`1.WhereNot(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Object}},DataLinq.Query.BooleanType,System.String)
+- code: public WhereGroup<T> WhereNot(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: wheres
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: columnName
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.object-.columnname
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - " "
+    - text: value
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.object-.value
+    - )
+    - '>'
+  - name: type
+    type:
+    - text: BooleanType
+      url: DataLinq.Query.BooleanType.html
+    optional: true
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: WhereGroup
+      url: DataLinq.Query.WhereGroup-1.html
+    - <
+    - T
+    - '>'
+languageId: csharp

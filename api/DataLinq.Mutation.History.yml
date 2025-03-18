@@ -1,0 +1,73 @@
+### YamlMime:ApiPage
+title: Class History
+body:
+- api1: Class History
+  id: DataLinq_Mutation_History
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/History.cs#L5
+  metadata:
+    uid: DataLinq.Mutation.History
+    commentId: T:DataLinq.Mutation.History
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Mutation
+      url: DataLinq.Mutation.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public class History
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: History
+    url: DataLinq.Mutation.History.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Properties
+- api3: Changes
+  id: DataLinq_Mutation_History_Changes
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/History.cs#L7
+  metadata:
+    uid: DataLinq.Mutation.History.Changes
+    commentId: P:DataLinq.Mutation.History.Changes
+- code: public List<StateChange> Changes { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: StateChange
+      url: DataLinq.Mutation.StateChange.html
+    - '>'
+- h2: Methods
+- api3: AddChanges(params StateChange[])
+  id: DataLinq_Mutation_History_AddChanges_DataLinq_Mutation_StateChange___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/History.cs#L9
+  metadata:
+    uid: DataLinq.Mutation.History.AddChanges(DataLinq.Mutation.StateChange[])
+    commentId: M:DataLinq.Mutation.History.AddChanges(DataLinq.Mutation.StateChange[])
+- code: public void AddChanges(params StateChange[] changes)
+- h4: Parameters
+- parameters:
+  - name: changes
+    type:
+    - text: StateChange
+      url: DataLinq.Mutation.StateChange.html
+    - '['
+    - ']'
+languageId: csharp

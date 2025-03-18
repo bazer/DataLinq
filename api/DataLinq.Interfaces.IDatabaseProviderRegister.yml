@@ -1,0 +1,39 @@
+### YamlMime:ApiPage
+title: Interface IDatabaseProviderRegister
+body:
+- api1: Interface IDatabaseProviderRegister
+  id: DataLinq_Interfaces_IDatabaseProviderRegister
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProviderRegister.cs#L5
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProviderRegister
+    commentId: T:DataLinq.Interfaces.IDatabaseProviderRegister
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Interfaces
+      url: DataLinq.Interfaces.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public interface IDatabaseProviderRegister
+- h2: Properties
+- api3: HasBeenRegistered
+  id: DataLinq_Interfaces_IDatabaseProviderRegister_HasBeenRegistered
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProviderRegister.cs#L7
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProviderRegister.HasBeenRegistered
+    commentId: P:DataLinq.Interfaces.IDatabaseProviderRegister.HasBeenRegistered
+- code: public static bool HasBeenRegistered { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h2: Methods
+- api3: RegisterProvider()
+  id: DataLinq_Interfaces_IDatabaseProviderRegister_RegisterProvider
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProviderRegister.cs#L8
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProviderRegister.RegisterProvider
+    commentId: M:DataLinq.Interfaces.IDatabaseProviderRegister.RegisterProvider
+- code: public static void RegisterProvider()
+languageId: csharp

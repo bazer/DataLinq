@@ -1,0 +1,132 @@
+### YamlMime:ApiPage
+title: Class Insert<T>
+body:
+- api1: Class Insert<T>
+  id: DataLinq_Query_Insert_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Insert.cs#L7
+  metadata:
+    uid: DataLinq.Query.Insert`1
+    commentId: T:DataLinq.Query.Insert`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Query
+      url: DataLinq.Query.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class Insert<T> : IQuery'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Insert<T>
+    url: DataLinq.Query.Insert-1.html
+- h4: Implements
+- list:
+  - text: IQuery
+    url: DataLinq.Query.IQuery.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: Insert(SqlQuery<T>)
+  id: DataLinq_Query_Insert_1__ctor_DataLinq_Query_SqlQuery__0__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Insert.cs#L11
+  metadata:
+    uid: DataLinq.Query.Insert`1.#ctor(DataLinq.Query.SqlQuery{`0})
+    commentId: M:DataLinq.Query.Insert`1.#ctor(DataLinq.Query.SqlQuery{`0})
+- code: public Insert(SqlQuery<T> query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: SqlQuery
+      url: DataLinq.Query.SqlQuery-1.html
+    - <
+    - T
+    - '>'
+- h2: Methods
+- api3: Execute()
+  id: DataLinq_Query_Insert_1_Execute
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Insert.cs#L61
+  metadata:
+    uid: DataLinq.Query.Insert`1.Execute
+    commentId: M:DataLinq.Query.Insert`1.Execute
+- code: public QueryResult Execute()
+- h4: Returns
+- parameters:
+  - type:
+    - text: QueryResult
+      url: DataLinq.Query.QueryResult.html
+- api3: GetSet(Sql, string?)
+  id: DataLinq_Query_Insert_1_GetSet_DataLinq_Query_Sql_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Insert.cs#L16
+  metadata:
+    uid: DataLinq.Query.Insert`1.GetSet(DataLinq.Query.Sql,System.String)
+    commentId: M:DataLinq.Query.Insert`1.GetSet(DataLinq.Query.Sql,System.String)
+- code: protected Sql GetSet(Sql sql, string? paramPrefix)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: paramPrefix
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: ToDbCommand()
+  id: DataLinq_Query_Insert_1_ToDbCommand
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Insert.cs#L56
+  metadata:
+    uid: DataLinq.Query.Insert`1.ToDbCommand
+    commentId: M:DataLinq.Query.Insert`1.ToDbCommand
+- code: public IDbCommand ToDbCommand()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- api3: ToSql(string?)
+  id: DataLinq_Query_Insert_1_ToSql_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Insert.cs#L41
+  metadata:
+    uid: DataLinq.Query.Insert`1.ToSql(System.String)
+    commentId: M:DataLinq.Query.Insert`1.ToSql(System.String)
+- code: public Sql ToSql(string? paramPrefix = null)
+- h4: Parameters
+- parameters:
+  - name: paramPrefix
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+languageId: csharp

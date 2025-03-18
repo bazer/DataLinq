@@ -1,0 +1,48 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.Tools
+body:
+- api1: Namespace DataLinq.Tools
+  id: DataLinq_Tools
+  metadata:
+    uid: DataLinq.Tools
+    commentId: N:DataLinq.Tools
+- h3: Classes
+- parameters:
+  - type:
+      text: DatabaseCreator
+      url: DataLinq.Tools.DatabaseCreator.html
+  - type:
+      text: Generator
+      url: DataLinq.Tools.Generator.html
+  - type:
+      text: ModelGenerator
+      url: DataLinq.Tools.ModelGenerator.html
+  - type:
+      text: ModelReader
+      url: DataLinq.Tools.ModelReader.html
+  - type:
+      text: SqlGenerator
+      url: DataLinq.Tools.SqlGenerator.html
+- h3: Structs
+- parameters:
+  - type:
+      text: DatabaseCreatorOptions
+      url: DataLinq.Tools.DatabaseCreatorOptions.html
+  - type:
+      text: ModelGeneratorOptions
+      url: DataLinq.Tools.ModelGeneratorOptions.html
+  - type:
+      text: SqlGeneratorOptions
+      url: DataLinq.Tools.SqlGeneratorOptions.html
+- h3: Enums
+- parameters:
+  - type:
+      text: DatabaseCreatorError
+      url: DataLinq.Tools.DatabaseCreatorError.html
+  - type:
+      text: ModelGeneratorError
+      url: DataLinq.Tools.ModelGeneratorError.html
+  - type:
+      text: SqlGeneratorError
+      url: DataLinq.Tools.SqlGeneratorError.html
+languageId: csharp

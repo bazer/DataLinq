@@ -1,0 +1,331 @@
+### YamlMime:ApiPage
+title: Class DLOptionFailure
+body:
+- api1: Class DLOptionFailure
+  id: DataLinq_ErrorHandling_DLOptionFailure
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L54
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure
+    commentId: T:DataLinq.ErrorHandling.DLOptionFailure
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.ErrorHandling
+      url: DataLinq.ErrorHandling.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public static class DLOptionFailure
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DLOptionFailure
+    url: DataLinq.ErrorHandling.DLOptionFailure.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: AggregateFail(IEnumerable<IDLOptionFailure>)
+  id: DataLinq_ErrorHandling_DLOptionFailure_AggregateFail_System_Collections_Generic_IEnumerable_DataLinq_ErrorHandling_IDLOptionFailure__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L80
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.AggregateFail(System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.AggregateFail(System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+- code: public static DLOptionFailure<string> AggregateFail(IEnumerable<IDLOptionFailure> innerFailures)
+- h4: Parameters
+- parameters:
+  - name: innerFailures
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- api3: Fail<T>(T)
+  id: DataLinq_ErrorHandling_DLOptionFailure_Fail__1___0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L56
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.Fail``1(``0)
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.Fail``1(``0)
+- code: public static DLOptionFailure<T> Fail<T>(T failure)
+- h4: Parameters
+- parameters:
+  - name: failure
+    type:
+    - T
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - T
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Fail<T>(T, IDefinition)
+  id: DataLinq_ErrorHandling_DLOptionFailure_Fail__1___0_DataLinq_Interfaces_IDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L59
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.Fail``1(``0,DataLinq.Interfaces.IDefinition)
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.Fail``1(``0,DataLinq.Interfaces.IDefinition)
+- code: public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(T failure, IDefinition definition)
+- h4: Parameters
+- parameters:
+  - name: failure
+    type:
+    - T
+  - name: definition
+    type:
+    - text: IDefinition
+      url: DataLinq.Interfaces.IDefinition.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - text: FailureWithDefinition
+      url: DataLinq.ErrorHandling.FailureWithDefinition-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Fail<T>(DLFailureType, T)
+  id: DataLinq_ErrorHandling_DLOptionFailure_Fail__1_DataLinq_ErrorHandling_DLFailureType___0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L62
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.Fail``1(DataLinq.ErrorHandling.DLFailureType,``0)
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.Fail``1(DataLinq.ErrorHandling.DLFailureType,``0)
+- code: public static DLOptionFailure<T> Fail<T>(DLFailureType type, T failure)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: DLFailureType
+      url: DataLinq.ErrorHandling.DLFailureType.html
+  - name: failure
+    type:
+    - T
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - T
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Fail<T>(DLFailureType, T, IDefinition)
+  id: DataLinq_ErrorHandling_DLOptionFailure_Fail__1_DataLinq_ErrorHandling_DLFailureType___0_DataLinq_Interfaces_IDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L65
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.Fail``1(DataLinq.ErrorHandling.DLFailureType,``0,DataLinq.Interfaces.IDefinition)
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.Fail``1(DataLinq.ErrorHandling.DLFailureType,``0,DataLinq.Interfaces.IDefinition)
+- code: public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(DLFailureType type, T failure, IDefinition definition)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: DLFailureType
+      url: DataLinq.ErrorHandling.DLFailureType.html
+  - name: failure
+    type:
+    - T
+  - name: definition
+    type:
+    - text: IDefinition
+      url: DataLinq.Interfaces.IDefinition.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - text: FailureWithDefinition
+      url: DataLinq.ErrorHandling.FailureWithDefinition-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Fail<T>(T, IEnumerable<IDLOptionFailure>)
+  id: DataLinq_ErrorHandling_DLOptionFailure_Fail__1___0_System_Collections_Generic_IEnumerable_DataLinq_ErrorHandling_IDLOptionFailure__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L68
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.Fail``1(``0,System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.Fail``1(``0,System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+- code: public static DLOptionFailure<T> Fail<T>(T failure, IEnumerable<IDLOptionFailure> innerFailures)
+- h4: Parameters
+- parameters:
+  - name: failure
+    type:
+    - T
+  - name: innerFailures
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - T
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Fail<T>(T, IDefinition, IEnumerable<IDLOptionFailure>)
+  id: DataLinq_ErrorHandling_DLOptionFailure_Fail__1___0_DataLinq_Interfaces_IDefinition_System_Collections_Generic_IEnumerable_DataLinq_ErrorHandling_IDLOptionFailure__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L71
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.Fail``1(``0,DataLinq.Interfaces.IDefinition,System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.Fail``1(``0,DataLinq.Interfaces.IDefinition,System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+- code: public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(T failure, IDefinition definition, IEnumerable<IDLOptionFailure> innerFailures)
+- h4: Parameters
+- parameters:
+  - name: failure
+    type:
+    - T
+  - name: definition
+    type:
+    - text: IDefinition
+      url: DataLinq.Interfaces.IDefinition.html
+  - name: innerFailures
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - text: FailureWithDefinition
+      url: DataLinq.ErrorHandling.FailureWithDefinition-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Fail<T>(DLFailureType, T, IEnumerable<IDLOptionFailure>)
+  id: DataLinq_ErrorHandling_DLOptionFailure_Fail__1_DataLinq_ErrorHandling_DLFailureType___0_System_Collections_Generic_IEnumerable_DataLinq_ErrorHandling_IDLOptionFailure__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L74
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.Fail``1(DataLinq.ErrorHandling.DLFailureType,``0,System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.Fail``1(DataLinq.ErrorHandling.DLFailureType,``0,System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+- code: public static DLOptionFailure<T> Fail<T>(DLFailureType type, T failure, IEnumerable<IDLOptionFailure> innerFailures)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: DLFailureType
+      url: DataLinq.ErrorHandling.DLFailureType.html
+  - name: failure
+    type:
+    - T
+  - name: innerFailures
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - T
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Fail<T>(DLFailureType, T, IDefinition, IEnumerable<IDLOptionFailure>)
+  id: DataLinq_ErrorHandling_DLOptionFailure_Fail__1_DataLinq_ErrorHandling_DLFailureType___0_DataLinq_Interfaces_IDefinition_System_Collections_Generic_IEnumerable_DataLinq_ErrorHandling_IDLOptionFailure__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L77
+  metadata:
+    uid: DataLinq.ErrorHandling.DLOptionFailure.Fail``1(DataLinq.ErrorHandling.DLFailureType,``0,DataLinq.Interfaces.IDefinition,System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+    commentId: M:DataLinq.ErrorHandling.DLOptionFailure.Fail``1(DataLinq.ErrorHandling.DLFailureType,``0,DataLinq.Interfaces.IDefinition,System.Collections.Generic.IEnumerable{DataLinq.ErrorHandling.IDLOptionFailure})
+- code: public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(DLFailureType type, T failure, IDefinition definition, IEnumerable<IDLOptionFailure> innerFailures)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: DLFailureType
+      url: DataLinq.ErrorHandling.DLFailureType.html
+  - name: failure
+    type:
+    - T
+  - name: definition
+    type:
+    - text: IDefinition
+      url: DataLinq.Interfaces.IDefinition.html
+  - name: innerFailures
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: DLOptionFailure
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+    - <
+    - text: FailureWithDefinition
+      url: DataLinq.ErrorHandling.FailureWithDefinition-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+languageId: csharp

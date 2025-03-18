@@ -1,0 +1,39 @@
+### YamlMime:ApiPage
+title: Interface IQuery
+body:
+- api1: Interface IQuery
+  id: DataLinq_Query_IQuery
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L14
+  metadata:
+    uid: DataLinq.Query.IQuery
+    commentId: T:DataLinq.Query.IQuery
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Query
+      url: DataLinq.Query.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public interface IQuery
+- h2: Methods
+- api3: ToSql(string?)
+  id: DataLinq_Query_IQuery_ToSql_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/SqlQuery.cs#L16
+  metadata:
+    uid: DataLinq.Query.IQuery.ToSql(System.String)
+    commentId: M:DataLinq.Query.IQuery.ToSql(System.String)
+- code: Sql ToSql(string? paramPrefix = null)
+- h4: Parameters
+- parameters:
+  - name: paramPrefix
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+languageId: csharp

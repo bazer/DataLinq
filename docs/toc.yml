@@ -1,0 +1,31 @@
+- name: Introduction
+  href: index.md
+- name: Getting Started & Usage
+  expanded: true
+  items:
+    - name: CLI Documentation
+      href: CLI Documentation.md
+    - name: Configuration Files
+      href: Configuration files.md
+- name: Internals & Architecture
+  expanded: true
+  items:
+    - name: Project Specification
+      href: Project Specification.md
+    - name: Technical Documentation
+      href: Technical documentation.md
+    - name: Metadata Structure
+      href: Metadata Structure.md
+    - name: Source Generator
+      href: Source Generator.md
+    - name: Query Translator
+      href: Query Translator.md
+    - name: Caching and Mutation
+      href: Caching and Mutation.md
+- name: Extensibility & Advanced Development
+  expanded: true
+  items:
+    - name: Implementing a new backend
+      href: Implementing a new backend.md
+    - name: Contribution Guidelines
+      href: Contributing.md

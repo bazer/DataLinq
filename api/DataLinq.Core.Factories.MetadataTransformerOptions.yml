@@ -1,0 +1,77 @@
+### YamlMime:ApiPage
+title: Struct MetadataTransformerOptions
+body:
+- api1: Struct MetadataTransformerOptions
+  id: DataLinq_Core_Factories_MetadataTransformerOptions
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataTransformer.cs#L7
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataTransformerOptions
+    commentId: T:DataLinq.Core.Factories.MetadataTransformerOptions
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Core.Factories
+      url: DataLinq.Core.Factories.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public struct MetadataTransformerOptions
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: MetadataTransformerOptions(bool, bool)
+  id: DataLinq_Core_Factories_MetadataTransformerOptions__ctor_System_Boolean_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataTransformer.cs#L12
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataTransformerOptions.#ctor(System.Boolean,System.Boolean)
+    commentId: M:DataLinq.Core.Factories.MetadataTransformerOptions.#ctor(System.Boolean,System.Boolean)
+- code: public MetadataTransformerOptions(bool removeInterfacePrefix = true, bool updateConstraintNames = true)
+- h4: Parameters
+- parameters:
+  - name: removeInterfacePrefix
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+  - name: updateConstraintNames
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- h2: Properties
+- api3: RemoveInterfacePrefix
+  id: DataLinq_Core_Factories_MetadataTransformerOptions_RemoveInterfacePrefix
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataTransformer.cs#L9
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataTransformerOptions.RemoveInterfacePrefix
+    commentId: P:DataLinq.Core.Factories.MetadataTransformerOptions.RemoveInterfacePrefix
+- code: public bool RemoveInterfacePrefix { readonly get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: UpdateConstraintNames
+  id: DataLinq_Core_Factories_MetadataTransformerOptions_UpdateConstraintNames
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataTransformer.cs#L10
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataTransformerOptions.UpdateConstraintNames
+    commentId: P:DataLinq.Core.Factories.MetadataTransformerOptions.UpdateConstraintNames
+- code: public readonly bool UpdateConstraintNames { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+languageId: csharp

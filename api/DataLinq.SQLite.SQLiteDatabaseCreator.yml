@@ -1,0 +1,82 @@
+### YamlMime:ApiPage
+title: Class SQLiteDatabaseCreator
+body:
+- api1: Class SQLiteDatabaseCreator
+  id: DataLinq_SQLite_SQLiteDatabaseCreator
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabase.cs#L7
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseCreator
+    commentId: T:DataLinq.SQLite.SQLiteDatabaseCreator
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.SQLite
+      url: DataLinq.SQLite.html
+  - name: Assembly
+    value: DataLinq.SQLite.dll
+- code: 'public class SQLiteDatabaseCreator : IDatabaseProviderCreator'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: SQLiteDatabaseCreator
+    url: DataLinq.SQLite.SQLiteDatabaseCreator.html
+- h4: Implements
+- list:
+  - text: IDatabaseProviderCreator
+    url: DataLinq.Metadata.IDatabaseProviderCreator.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: IsDatabaseType(string)
+  id: DataLinq_SQLite_SQLiteDatabaseCreator_IsDatabaseType_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabase.cs#L11
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseCreator.IsDatabaseType(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseCreator.IsDatabaseType(System.String)
+- code: public bool IsDatabaseType(string typeName)
+- h4: Parameters
+- parameters:
+  - name: typeName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: UseLoggerFactory(ILoggerFactory?)
+  id: DataLinq_SQLite_SQLiteDatabaseCreator_UseLoggerFactory_Microsoft_Extensions_Logging_ILoggerFactory_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabase.cs#L21
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseCreator.UseLoggerFactory(Microsoft.Extensions.Logging.ILoggerFactory)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseCreator.UseLoggerFactory(Microsoft.Extensions.Logging.ILoggerFactory)
+- code: public SQLiteDatabaseCreator UseLoggerFactory(ILoggerFactory? loggerFactory)
+- h4: Parameters
+- parameters:
+  - name: loggerFactory
+    type:
+    - text: ILoggerFactory
+      url: https://learn.microsoft.com/dotnet/api/microsoft.extensions.logging.iloggerfactory
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: SQLiteDatabaseCreator
+      url: DataLinq.SQLite.SQLiteDatabaseCreator.html
+languageId: csharp

@@ -1,0 +1,72 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.Query
+body:
+- api1: Namespace DataLinq.Query
+  id: DataLinq_Query
+  metadata:
+    uid: DataLinq.Query
+    commentId: N:DataLinq.Query
+- h3: Classes
+- parameters:
+  - type:
+      text: Delete<T>
+      url: DataLinq.Query.Delete-1.html
+  - type:
+      text: Insert<T>
+      url: DataLinq.Query.Insert-1.html
+  - type:
+      text: Join<T>
+      url: DataLinq.Query.Join-1.html
+  - type:
+      text: Literal
+      url: DataLinq.Query.Literal.html
+  - type:
+      text: OrderBy
+      url: DataLinq.Query.OrderBy.html
+  - type:
+      text: QueryResult
+      url: DataLinq.Query.QueryResult.html
+  - type:
+      text: QueryUtils
+      url: DataLinq.Query.QueryUtils.html
+  - type:
+      text: Select<T>
+      url: DataLinq.Query.Select-1.html
+  - type:
+      text: Sql
+      url: DataLinq.Query.Sql.html
+  - type:
+      text: SqlQuery<T>
+      url: DataLinq.Query.SqlQuery-1.html
+  - type:
+      text: SqlQuery
+      url: DataLinq.Query.SqlQuery.html
+  - type:
+      text: Update<T>
+      url: DataLinq.Query.Update-1.html
+  - type:
+      text: Where<T>
+      url: DataLinq.Query.Where-1.html
+  - type:
+      text: WhereGroup<T>
+      url: DataLinq.Query.WhereGroup-1.html
+- h3: Interfaces
+- parameters:
+  - type:
+      text: IQuery
+      url: DataLinq.Query.IQuery.html
+  - type:
+      text: IQueryPart
+      url: DataLinq.Query.IQueryPart.html
+  - type:
+      text: IWhere<T>
+      url: DataLinq.Query.IWhere-1.html
+- h3: Enums
+- parameters:
+  - type:
+      text: BooleanType
+      url: DataLinq.Query.BooleanType.html
+  - type:
+      text: Relation
+      url: DataLinq.Query.Relation.html
+languageId: csharp

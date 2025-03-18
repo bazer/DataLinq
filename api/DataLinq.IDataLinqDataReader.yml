@@ -1,0 +1,270 @@
+### YamlMime:ApiPage
+title: Interface IDataLinqDataReader
+body:
+- api1: Interface IDataLinqDataReader
+  id: DataLinq_IDataLinqDataReader
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L7
+  metadata:
+    uid: DataLinq.IDataLinqDataReader
+    commentId: T:DataLinq.IDataLinqDataReader
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq
+      url: DataLinq.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public interface IDataLinqDataReader : IDisposable'
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h2: Methods
+- api3: GetBoolean(int)
+  id: DataLinq_IDataLinqDataReader_GetBoolean_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L12
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetBoolean(System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.GetBoolean(System.Int32)
+- code: bool GetBoolean(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: GetBytes(int)
+  id: DataLinq_IDataLinqDataReader_GetBytes_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L16
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetBytes(System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.GetBytes(System.Int32)
+- code: byte[]? GetBytes(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: byte
+      url: https://learn.microsoft.com/dotnet/api/system.byte
+    - '['
+    - ']'
+    - '?'
+- api3: GetBytes(int, Span<byte>)
+  id: DataLinq_IDataLinqDataReader_GetBytes_System_Int32_System_Span_System_Byte__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L17
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetBytes(System.Int32,System.Span{System.Byte})
+    commentId: M:DataLinq.IDataLinqDataReader.GetBytes(System.Int32,System.Span{System.Byte})
+- code: long GetBytes(int ordinal, Span<byte> buffer)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+  - name: buffer
+    type:
+    - text: Span
+      url: https://learn.microsoft.com/dotnet/api/system.span-1
+    - <
+    - text: byte
+      url: https://learn.microsoft.com/dotnet/api/system.byte
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- api3: GetDateOnly(int)
+  id: DataLinq_IDataLinqDataReader_GetDateOnly_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L14
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetDateOnly(System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.GetDateOnly(System.Int32)
+- code: DateOnly GetDateOnly(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: DateOnly
+      url: https://learn.microsoft.com/dotnet/api/system.dateonly
+- api3: GetGuid(int)
+  id: DataLinq_IDataLinqDataReader_GetGuid_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L15
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetGuid(System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.GetGuid(System.Int32)
+- code: Guid GetGuid(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: Guid
+      url: https://learn.microsoft.com/dotnet/api/system.guid
+- api3: GetInt32(int)
+  id: DataLinq_IDataLinqDataReader_GetInt32_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L13
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetInt32(System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.GetInt32(System.Int32)
+- code: int GetInt32(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: GetOrdinal(string)
+  id: DataLinq_IDataLinqDataReader_GetOrdinal_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L10
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetOrdinal(System.String)
+    commentId: M:DataLinq.IDataLinqDataReader.GetOrdinal(System.String)
+- code: int GetOrdinal(string name)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: GetString(int)
+  id: DataLinq_IDataLinqDataReader_GetString_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L11
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetString(System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.GetString(System.Int32)
+- code: string GetString(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: GetValue(int)
+  id: DataLinq_IDataLinqDataReader_GetValue_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L9
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetValue(System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.GetValue(System.Int32)
+- code: object GetValue(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+- api3: GetValue<T>(ColumnDefinition)
+  id: DataLinq_IDataLinqDataReader_GetValue__1_DataLinq_Metadata_ColumnDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L18
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetValue``1(DataLinq.Metadata.ColumnDefinition)
+    commentId: M:DataLinq.IDataLinqDataReader.GetValue``1(DataLinq.Metadata.ColumnDefinition)
+- code: T? GetValue<T>(ColumnDefinition column)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    - '?'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: GetValue<T>(ColumnDefinition, int)
+  id: DataLinq_IDataLinqDataReader_GetValue__1_DataLinq_Metadata_ColumnDefinition_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L19
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.GetValue``1(DataLinq.Metadata.ColumnDefinition,System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.GetValue``1(DataLinq.Metadata.ColumnDefinition,System.Int32)
+- code: T? GetValue<T>(ColumnDefinition column, int ordinal)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    - '?'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: IsDbNull(int)
+  id: DataLinq_IDataLinqDataReader_IsDbNull_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L21
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.IsDbNull(System.Int32)
+    commentId: M:DataLinq.IDataLinqDataReader.IsDbNull(System.Int32)
+- code: bool IsDbNull(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: ReadNextRow()
+  id: DataLinq_IDataLinqDataReader_ReadNextRow
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataReader.cs#L20
+  metadata:
+    uid: DataLinq.IDataLinqDataReader.ReadNextRow
+    commentId: M:DataLinq.IDataLinqDataReader.ReadNextRow
+- code: bool ReadNextRow()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+languageId: csharp

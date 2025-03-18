@@ -1,0 +1,325 @@
+### YamlMime:ApiPage
+title: Struct MySqlDataLinqDataReader
+body:
+- api1: Struct MySqlDataLinqDataReader
+  id: DataLinq_MySql_MySqlDataLinqDataReader
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L10
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader
+    commentId: T:DataLinq.MySql.MySqlDataLinqDataReader
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.MySql
+      url: DataLinq.MySql.html
+  - name: Assembly
+    value: DataLinq.MySql.dll
+- code: 'public struct MySqlDataLinqDataReader : IDataLinqDataReader, IDisposable'
+- h4: Implements
+- list:
+  - text: IDataLinqDataReader
+    url: DataLinq.IDataLinqDataReader.html
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: MySqlDataLinqDataReader(MySqlDataReader)
+  id: DataLinq_MySql_MySqlDataLinqDataReader__ctor_MySqlConnector_MySqlDataReader_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L12
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.#ctor(MySqlConnector.MySqlDataReader)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.#ctor(MySqlConnector.MySqlDataReader)
+- code: public MySqlDataLinqDataReader(MySqlDataReader dataReader)
+- h4: Parameters
+- parameters:
+  - name: dataReader
+    type:
+    - MySqlDataReader
+- h2: Methods
+- api3: Dispose()
+  id: DataLinq_MySql_MySqlDataLinqDataReader_Dispose
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L19
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.Dispose
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.Dispose
+- markdown: Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+- code: public void Dispose()
+- api3: GetBoolean(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetBoolean_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L34
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetBoolean(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetBoolean(System.Int32)
+- code: public bool GetBoolean(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: GetByteLength(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetByteLength_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L64
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetByteLength(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetByteLength(System.Int32)
+- code: public long GetByteLength(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- api3: GetBytes(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetBytes_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L69
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetBytes(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetBytes(System.Int32)
+- code: public byte[]? GetBytes(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: byte
+      url: https://learn.microsoft.com/dotnet/api/system.byte
+    - '['
+    - ']'
+    - '?'
+- api3: GetBytes(int, Span<byte>)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetBytes_System_Int32_System_Span_System_Byte__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L81
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetBytes(System.Int32,System.Span{System.Byte})
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetBytes(System.Int32,System.Span{System.Byte})
+- code: public long GetBytes(int ordinal, Span<byte> buffer)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+  - name: buffer
+    type:
+    - text: Span
+      url: https://learn.microsoft.com/dotnet/api/system.span-1
+    - <
+    - text: byte
+      url: https://learn.microsoft.com/dotnet/api/system.byte
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- api3: GetDateOnly(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetDateOnly_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L44
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetDateOnly(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetDateOnly(System.Int32)
+- code: public DateOnly GetDateOnly(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: DateOnly
+      url: https://learn.microsoft.com/dotnet/api/system.dateonly
+- api3: GetGuid(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetGuid_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L49
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetGuid(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetGuid(System.Int32)
+- code: public Guid GetGuid(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: Guid
+      url: https://learn.microsoft.com/dotnet/api/system.guid
+- api3: GetInt32(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetInt32_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L39
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetInt32(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetInt32(System.Int32)
+- code: public int GetInt32(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: GetOrdinal(string)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetOrdinal_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L54
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetOrdinal(System.String)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetOrdinal(System.String)
+- code: public int GetOrdinal(string name)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: GetString(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetString_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L29
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetString(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetString(System.Int32)
+- code: public string GetString(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: GetValue(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetValue_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L59
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetValue(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetValue(System.Int32)
+- code: public object GetValue(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+- api3: GetValue<T>(ColumnDefinition)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetValue__1_DataLinq_Metadata_ColumnDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L135
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetValue``1(DataLinq.Metadata.ColumnDefinition)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetValue``1(DataLinq.Metadata.ColumnDefinition)
+- code: public T? GetValue<T>(ColumnDefinition column)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    - '?'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: GetValue<T>(ColumnDefinition, int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_GetValue__1_DataLinq_Metadata_ColumnDefinition_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L140
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.GetValue``1(DataLinq.Metadata.ColumnDefinition,System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.GetValue``1(DataLinq.Metadata.ColumnDefinition,System.Int32)
+- code: public T? GetValue<T>(ColumnDefinition column, int ordinal)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    - '?'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: IsDbNull(int)
+  id: DataLinq_MySql_MySqlDataLinqDataReader_IsDbNull_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L24
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.IsDbNull(System.Int32)
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.IsDbNull(System.Int32)
+- code: public bool IsDbNull(int ordinal)
+- h4: Parameters
+- parameters:
+  - name: ordinal
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: ReadNextRow()
+  id: DataLinq_MySql_MySqlDataLinqDataReader_ReadNextRow
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/MySqlDataLinqDataReader.cs#L97
+  metadata:
+    uid: DataLinq.MySql.MySqlDataLinqDataReader.ReadNextRow
+    commentId: M:DataLinq.MySql.MySqlDataLinqDataReader.ReadNextRow
+- code: public bool ReadNextRow()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+languageId: csharp

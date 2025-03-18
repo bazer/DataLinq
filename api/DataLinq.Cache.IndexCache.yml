@@ -1,0 +1,253 @@
+### YamlMime:ApiPage
+title: Class IndexCache
+body:
+- api1: Class IndexCache
+  id: DataLinq_Cache_IndexCache
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L9
+  metadata:
+    uid: DataLinq.Cache.IndexCache
+    commentId: T:DataLinq.Cache.IndexCache
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Cache
+      url: DataLinq.Cache.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public class IndexCache
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: IndexCache
+    url: DataLinq.Cache.IndexCache.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Fields
+- api3: foreignKeys
+  id: DataLinq_Cache_IndexCache_foreignKeys
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L17
+  metadata:
+    uid: DataLinq.Cache.IndexCache.foreignKeys
+    commentId: F:DataLinq.Cache.IndexCache.foreignKeys
+- code: protected ConcurrentDictionary<IKey, IKey[]> foreignKeys
+- h4: Field Value
+- parameters:
+  - type:
+    - text: ConcurrentDictionary
+      url: https://learn.microsoft.com/dotnet/api/system.collections.concurrent.concurrentdictionary-2
+    - <
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+    - ','
+    - " "
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+    - '['
+    - ']'
+    - '>'
+- h2: Properties
+- api3: Count
+  id: DataLinq_Cache_IndexCache_Count
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L19
+  metadata:
+    uid: DataLinq.Cache.IndexCache.Count
+    commentId: P:DataLinq.Cache.IndexCache.Count
+- code: public int Count { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: Values
+  id: DataLinq_Cache_IndexCache_Values
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L136
+  metadata:
+    uid: DataLinq.Cache.IndexCache.Values
+    commentId: P:DataLinq.Cache.IndexCache.Values
+- code: public IEnumerable<IKey[]> Values { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+    - '['
+    - ']'
+    - '>'
+- h2: Methods
+- api3: Clear()
+  id: DataLinq_Cache_IndexCache_Clear
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L138
+  metadata:
+    uid: DataLinq.Cache.IndexCache.Clear
+    commentId: M:DataLinq.Cache.IndexCache.Clear
+- code: public void Clear()
+- api3: ContainsKey(IKey)
+  id: DataLinq_Cache_IndexCache_ContainsKey_DataLinq_Instances_IKey_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L132
+  metadata:
+    uid: DataLinq.Cache.IndexCache.ContainsKey(DataLinq.Instances.IKey)
+    commentId: M:DataLinq.Cache.IndexCache.ContainsKey(DataLinq.Instances.IKey)
+- code: public bool ContainsKey(IKey foreignKey)
+- h4: Parameters
+- parameters:
+  - name: foreignKey
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: GetForeignKeysByPrimaryKey(IKey)
+  id: DataLinq_Cache_IndexCache_GetForeignKeysByPrimaryKey_DataLinq_Instances_IKey_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L79
+  metadata:
+    uid: DataLinq.Cache.IndexCache.GetForeignKeysByPrimaryKey(DataLinq.Instances.IKey)
+    commentId: M:DataLinq.Cache.IndexCache.GetForeignKeysByPrimaryKey(DataLinq.Instances.IKey)
+- code: public IEnumerable<IKey> GetForeignKeysByPrimaryKey(IKey primaryKey)
+- h4: Parameters
+- parameters:
+  - name: primaryKey
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+    - '>'
+- api3: RemoveInsertedBeforeTick(long)
+  id: DataLinq_Cache_IndexCache_RemoveInsertedBeforeTick_System_Int64_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L100
+  metadata:
+    uid: DataLinq.Cache.IndexCache.RemoveInsertedBeforeTick(System.Int64)
+    commentId: M:DataLinq.Cache.IndexCache.RemoveInsertedBeforeTick(System.Int64)
+- code: public int RemoveInsertedBeforeTick(long tick)
+- h4: Parameters
+- parameters:
+  - name: tick
+    type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: TryAdd(IKey, IKey[])
+  id: DataLinq_Cache_IndexCache_TryAdd_DataLinq_Instances_IKey_DataLinq_Instances_IKey___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L21
+  metadata:
+    uid: DataLinq.Cache.IndexCache.TryAdd(DataLinq.Instances.IKey,DataLinq.Instances.IKey[])
+    commentId: M:DataLinq.Cache.IndexCache.TryAdd(DataLinq.Instances.IKey,DataLinq.Instances.IKey[])
+- code: public bool TryAdd(IKey foreignKey, IKey[] primaryKeys)
+- h4: Parameters
+- parameters:
+  - name: foreignKey
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+  - name: primaryKeys
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: TryGetValue(IKey, out IKey[]?)
+  id: DataLinq_Cache_IndexCache_TryGetValue_DataLinq_Instances_IKey_DataLinq_Instances_IKey____
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L134
+  metadata:
+    uid: DataLinq.Cache.IndexCache.TryGetValue(DataLinq.Instances.IKey,DataLinq.Instances.IKey[]@)
+    commentId: M:DataLinq.Cache.IndexCache.TryGetValue(DataLinq.Instances.IKey,DataLinq.Instances.IKey[]@)
+- code: public bool TryGetValue(IKey foreignKey, out IKey[]? keys)
+- h4: Parameters
+- parameters:
+  - name: foreignKey
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+  - name: keys
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+    - '['
+    - ']'
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: TryRemoveForeignKey(IKey, out int)
+  id: DataLinq_Cache_IndexCache_TryRemoveForeignKey_DataLinq_Instances_IKey_System_Int32__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L50
+  metadata:
+    uid: DataLinq.Cache.IndexCache.TryRemoveForeignKey(DataLinq.Instances.IKey,System.Int32@)
+    commentId: M:DataLinq.Cache.IndexCache.TryRemoveForeignKey(DataLinq.Instances.IKey,System.Int32@)
+- code: public bool TryRemoveForeignKey(IKey foreignKey, out int numRowsRemoved)
+- h4: Parameters
+- parameters:
+  - name: foreignKey
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+  - name: numRowsRemoved
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: TryRemovePrimaryKey(IKey, out int)
+  id: DataLinq_Cache_IndexCache_TryRemovePrimaryKey_DataLinq_Instances_IKey_System_Int32__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/IndexCache.cs#L87
+  metadata:
+    uid: DataLinq.Cache.IndexCache.TryRemovePrimaryKey(DataLinq.Instances.IKey,System.Int32@)
+    commentId: M:DataLinq.Cache.IndexCache.TryRemovePrimaryKey(DataLinq.Instances.IKey,System.Int32@)
+- code: public bool TryRemovePrimaryKey(IKey primaryKey, out int numRowsRemoved)
+- h4: Parameters
+- parameters:
+  - name: primaryKey
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+  - name: numRowsRemoved
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+languageId: csharp

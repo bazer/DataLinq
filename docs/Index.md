@@ -49,7 +49,7 @@ Describes how DataLinq’s source generator creates immutable and mutable model 
 ### [Query Translator](Query%20Translator.md)
 Details how LINQ expressions are converted into backend-specific SQL, including an explanation of expression visitors and other helper classes.
 
-### [Caching & Mutation](Caching%20&%20Mutation.md)
+### [Caching and Mutation](Caching%20and%20Mutation.md)
 A dedicated guide to DataLinq’s caching architecture (including the primary-key-first approach) and mutation workflow (immutable data, transactional updates, commits, and rollbacks).
 
 ---

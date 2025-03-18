@@ -1,0 +1,438 @@
+### YamlMime:ApiPage
+title: Interface IDatabaseProvider
+body:
+- api1: Interface IDatabaseProvider
+  id: DataLinq_Interfaces_IDatabaseProvider
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L10
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider
+    commentId: T:DataLinq.Interfaces.IDatabaseProvider
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Interfaces
+      url: DataLinq.Interfaces.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public interface IDatabaseProvider : IDisposable'
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h2: Properties
+- api3: ConnectionString
+  id: DataLinq_Interfaces_IDatabaseProvider_ConnectionString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L13
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.ConnectionString
+    commentId: P:DataLinq.Interfaces.IDatabaseProvider.ConnectionString
+- code: string ConnectionString { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Constants
+  id: DataLinq_Interfaces_IDatabaseProvider_Constants
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L17
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.Constants
+    commentId: P:DataLinq.Interfaces.IDatabaseProvider.Constants
+- code: IDatabaseProviderConstants Constants { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IDatabaseProviderConstants
+      url: DataLinq.Interfaces.IDatabaseProviderConstants.html
+- api3: DatabaseAccess
+  id: DataLinq_Interfaces_IDatabaseProvider_DatabaseAccess
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L15
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.DatabaseAccess
+    commentId: P:DataLinq.Interfaces.IDatabaseProvider.DatabaseAccess
+- code: DatabaseAccess DatabaseAccess { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseAccess
+      url: DataLinq.DatabaseAccess.html
+- api3: DatabaseName
+  id: DataLinq_Interfaces_IDatabaseProvider_DatabaseName
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L12
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.DatabaseName
+    commentId: P:DataLinq.Interfaces.IDatabaseProvider.DatabaseName
+- code: string DatabaseName { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Metadata
+  id: DataLinq_Interfaces_IDatabaseProvider_Metadata
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L14
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.Metadata
+    commentId: P:DataLinq.Interfaces.IDatabaseProvider.Metadata
+- code: DatabaseDefinition Metadata { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - DatabaseDefinition
+- api3: ReadOnlyAccess
+  id: DataLinq_Interfaces_IDatabaseProvider_ReadOnlyAccess
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L18
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.ReadOnlyAccess
+    commentId: P:DataLinq.Interfaces.IDatabaseProvider.ReadOnlyAccess
+- code: ReadOnlyAccess ReadOnlyAccess { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: ReadOnlyAccess
+      url: DataLinq.Mutation.ReadOnlyAccess.html
+- api3: State
+  id: DataLinq_Interfaces_IDatabaseProvider_State
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L16
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.State
+    commentId: P:DataLinq.Interfaces.IDatabaseProvider.State
+- code: State State { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: State
+      url: DataLinq.Mutation.State.html
+- h2: Methods
+- api3: AttachDatabaseTransaction(IDbTransaction, TransactionType)
+  id: DataLinq_Interfaces_IDatabaseProvider_AttachDatabaseTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L27
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.AttachDatabaseTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.AttachDatabaseTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+- code: DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: dbTransaction
+    type:
+    - text: IDbTransaction
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbtransaction
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: DatabaseTransaction
+      url: DataLinq.DatabaseTransaction.html
+- api3: Commit<M>(Func<Transaction, M>)
+  id: DataLinq_Interfaces_IDatabaseProvider_Commit__1_System_Func_DataLinq_Mutation_Transaction___0__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L46
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.Commit``1(System.Func{DataLinq.Mutation.Transaction,``0})
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.Commit``1(System.Func{DataLinq.Mutation.Transaction,``0})
+- code: M Commit<M>(Func<Transaction, M> func)
+- h4: Parameters
+- parameters:
+  - name: func
+    type:
+    - text: Func
+      url: https://learn.microsoft.com/dotnet/api/system.func-2
+    - <
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+    - ','
+    - " "
+    - M
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - M
+- h4: Type Parameters
+- parameters:
+  - name: M
+- api3: Commit(Action<Transaction>)
+  id: DataLinq_Interfaces_IDatabaseProvider_Commit_System_Action_DataLinq_Mutation_Transaction__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L47
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.Commit(System.Action{DataLinq.Mutation.Transaction})
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.Commit(System.Action{DataLinq.Mutation.Transaction})
+- code: void Commit(Action<Transaction> action)
+- h4: Parameters
+- parameters:
+  - name: action
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+    - '>'
+- api3: DatabaseExists(string?)
+  id: DataLinq_Interfaces_IDatabaseProvider_DatabaseExists_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L41
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.DatabaseExists(System.String)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.DatabaseExists(System.String)
+- code: bool DatabaseExists(string? databaseName = null)
+- h4: Parameters
+- parameters:
+  - name: databaseName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: FileOrServerExists()
+  id: DataLinq_Interfaces_IDatabaseProvider_FileOrServerExists
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L42
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.FileOrServerExists
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.FileOrServerExists
+- code: bool FileOrServerExists()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: GetLastIdQuery()
+  id: DataLinq_Interfaces_IDatabaseProvider_GetLastIdQuery
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L29
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetLastIdQuery
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetLastIdQuery
+- code: string GetLastIdQuery()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: GetLimitOffset(Sql, int?, int?)
+  id: DataLinq_Interfaces_IDatabaseProvider_GetLimitOffset_DataLinq_Query_Sql_System_Nullable_System_Int32__System_Nullable_System_Int32__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L39
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetLimitOffset(DataLinq.Query.Sql,System.Nullable{System.Int32},System.Nullable{System.Int32})
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetLimitOffset(DataLinq.Query.Sql,System.Nullable{System.Int32},System.Nullable{System.Int32})
+- code: Sql GetLimitOffset(Sql sql, int? limit, int? offset)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: limit
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - '?'
+  - name: offset
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetNewDatabaseTransaction(TransactionType)
+  id: DataLinq_Interfaces_IDatabaseProvider_GetNewDatabaseTransaction_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L25
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetNewDatabaseTransaction(DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetNewDatabaseTransaction(DataLinq.Mutation.TransactionType)
+- code: DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: DatabaseTransaction
+      url: DataLinq.DatabaseTransaction.html
+- api3: GetParameter(Sql, string, object?)
+  id: DataLinq_Interfaces_IDatabaseProvider_GetParameter_DataLinq_Query_Sql_System_String_System_Object_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L33
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetParameter(DataLinq.Query.Sql,System.String,System.Object)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetParameter(DataLinq.Query.Sql,System.String,System.Object)
+- code: Sql GetParameter(Sql sql, string key, object? value)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: value
+    type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetParameterComparison(Sql, string, Relation, string[])
+  id: DataLinq_Interfaces_IDatabaseProvider_GetParameterComparison_DataLinq_Query_Sql_System_String_DataLinq_Query_Relation_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L37
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetParameterComparison(DataLinq.Query.Sql,System.String,DataLinq.Query.Relation,System.String[])
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetParameterComparison(DataLinq.Query.Sql,System.String,DataLinq.Query.Relation,System.String[])
+- code: Sql GetParameterComparison(Sql sql, string field, Relation relation, string[] prefix)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: field
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: relation
+    type:
+    - text: Relation
+      url: DataLinq.Query.Relation.html
+  - name: prefix
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetParameterValue(Sql, string)
+  id: DataLinq_Interfaces_IDatabaseProvider_GetParameterValue_DataLinq_Query_Sql_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L35
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetParameterValue(DataLinq.Query.Sql,System.String)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetParameterValue(DataLinq.Query.Sql,System.String)
+- code: Sql GetParameterValue(Sql sql, string key)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetTableCache(TableDefinition)
+  id: DataLinq_Interfaces_IDatabaseProvider_GetTableCache_DataLinq_Metadata_TableDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L31
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetTableCache(DataLinq.Metadata.TableDefinition)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetTableCache(DataLinq.Metadata.TableDefinition)
+- code: TableCache GetTableCache(TableDefinition table)
+- h4: Parameters
+- parameters:
+  - name: table
+    type:
+    - TableDefinition
+- h4: Returns
+- parameters:
+  - type:
+    - text: TableCache
+      url: DataLinq.Cache.TableCache.html
+- api3: GetTableName(Sql, string, string?)
+  id: DataLinq_Interfaces_IDatabaseProvider_GetTableName_DataLinq_Query_Sql_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L45
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetTableName(DataLinq.Query.Sql,System.String,System.String)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetTableName(DataLinq.Query.Sql,System.String,System.String)
+- code: Sql GetTableName(Sql sql, string tableName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: tableName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetWriter()
+  id: DataLinq_Interfaces_IDatabaseProvider_GetWriter
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L44
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.GetWriter
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.GetWriter
+- code: IDataLinqDataWriter GetWriter()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDataLinqDataWriter
+      url: DataLinq.IDataLinqDataWriter.html
+- api3: StartTransaction(TransactionType)
+  id: DataLinq_Interfaces_IDatabaseProvider_StartTransaction_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L22
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.StartTransaction(DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.StartTransaction(DataLinq.Mutation.TransactionType)
+- code: Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite)
+- h4: Parameters
+- parameters:
+  - name: transactionType
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+- api3: ToDbCommand(IQuery)
+  id: DataLinq_Interfaces_IDatabaseProvider_ToDbCommand_DataLinq_Query_IQuery_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Interfaces/IDatabaseProvider.cs#L20
+  metadata:
+    uid: DataLinq.Interfaces.IDatabaseProvider.ToDbCommand(DataLinq.Query.IQuery)
+    commentId: M:DataLinq.Interfaces.IDatabaseProvider.ToDbCommand(DataLinq.Query.IQuery)
+- code: IDbCommand ToDbCommand(IQuery query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: IQuery
+      url: DataLinq.Query.IQuery.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+languageId: csharp

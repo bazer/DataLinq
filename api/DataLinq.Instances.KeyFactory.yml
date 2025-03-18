@@ -1,0 +1,164 @@
+### YamlMime:ApiPage
+title: Class KeyFactory
+body:
+- api1: Class KeyFactory
+  id: DataLinq_Instances_KeyFactory
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/KeyFactory.cs#L9
+  metadata:
+    uid: DataLinq.Instances.KeyFactory
+    commentId: T:DataLinq.Instances.KeyFactory
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public static class KeyFactory
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: KeyFactory
+    url: DataLinq.Instances.KeyFactory.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: CreateKeyFromValue<T>(T?)
+  id: DataLinq_Instances_KeyFactory_CreateKeyFromValue__1___0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/KeyFactory.cs#L11
+  metadata:
+    uid: DataLinq.Instances.KeyFactory.CreateKeyFromValue``1(``0)
+    commentId: M:DataLinq.Instances.KeyFactory.CreateKeyFromValue``1(``0)
+- code: public static IKey CreateKeyFromValue<T>(T? value)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - T
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: CreateKeyFromValues(IEnumerable<object?>)
+  id: DataLinq_Instances_KeyFactory_CreateKeyFromValues_System_Collections_Generic_IEnumerable_System_Object__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/KeyFactory.cs#L28
+  metadata:
+    uid: DataLinq.Instances.KeyFactory.CreateKeyFromValues(System.Collections.Generic.IEnumerable{System.Object})
+    commentId: M:DataLinq.Instances.KeyFactory.CreateKeyFromValues(System.Collections.Generic.IEnumerable{System.Object})
+- code: public static IKey CreateKeyFromValues(IEnumerable<object?> values)
+- h4: Parameters
+- parameters:
+  - name: values
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+- api3: GetKey(IDataLinqDataReader, ColumnDefinition[])
+  id: DataLinq_Instances_KeyFactory_GetKey_DataLinq_IDataLinqDataReader_DataLinq_Metadata_ColumnDefinition___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/KeyFactory.cs#L41
+  metadata:
+    uid: DataLinq.Instances.KeyFactory.GetKey(DataLinq.IDataLinqDataReader,DataLinq.Metadata.ColumnDefinition[])
+    commentId: M:DataLinq.Instances.KeyFactory.GetKey(DataLinq.IDataLinqDataReader,DataLinq.Metadata.ColumnDefinition[])
+- code: public static IKey GetKey(IDataLinqDataReader reader, ColumnDefinition[] columns)
+- h4: Parameters
+- parameters:
+  - name: reader
+    type:
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+  - name: columns
+    type:
+    - ColumnDefinition
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+- api3: GetKey(RowData, ColumnDefinition[])
+  id: DataLinq_Instances_KeyFactory_GetKey_DataLinq_Instances_RowData_DataLinq_Metadata_ColumnDefinition___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/KeyFactory.cs#L59
+  metadata:
+    uid: DataLinq.Instances.KeyFactory.GetKey(DataLinq.Instances.RowData,DataLinq.Metadata.ColumnDefinition[])
+    commentId: M:DataLinq.Instances.KeyFactory.GetKey(DataLinq.Instances.RowData,DataLinq.Metadata.ColumnDefinition[])
+- code: public static IKey GetKey(RowData row, ColumnDefinition[] columns)
+- h4: Parameters
+- parameters:
+  - name: row
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+  - name: columns
+    type:
+    - ColumnDefinition
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+- api3: GetKeys<T>(Select<T>, ColumnDefinition[])
+  id: DataLinq_Instances_KeyFactory_GetKeys__1_DataLinq_Query_Select___0__DataLinq_Metadata_ColumnDefinition___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/KeyFactory.cs#L62
+  metadata:
+    uid: DataLinq.Instances.KeyFactory.GetKeys``1(DataLinq.Query.Select{``0},DataLinq.Metadata.ColumnDefinition[])
+    commentId: M:DataLinq.Instances.KeyFactory.GetKeys``1(DataLinq.Query.Select{``0},DataLinq.Metadata.ColumnDefinition[])
+- code: public static IEnumerable<IKey> GetKeys<T>(Select<T> select, ColumnDefinition[] columns)
+- h4: Parameters
+- parameters:
+  - name: select
+    type:
+    - text: Select
+      url: DataLinq.Query.Select-1.html
+    - <
+    - T
+    - '>'
+  - name: columns
+    type:
+    - ColumnDefinition
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+    - '>'
+- h4: Type Parameters
+- parameters:
+  - name: T
+languageId: csharp

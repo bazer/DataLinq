@@ -1,0 +1,293 @@
+### YamlMime:ApiPage
+title: Class SQLiteDatabaseTransaction
+body:
+- api1: Class SQLiteDatabaseTransaction
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L8
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction
+    commentId: T:DataLinq.SQLite.SQLiteDatabaseTransaction
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.SQLite
+      url: DataLinq.SQLite.html
+  - name: Assembly
+    value: DataLinq.SQLite.dll
+- code: 'public class SQLiteDatabaseTransaction : DatabaseTransaction, IDisposable'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DatabaseAccess
+    url: DataLinq.DatabaseAccess.html
+  - text: DatabaseTransaction
+    url: DataLinq.DatabaseTransaction.html
+  - text: SQLiteDatabaseTransaction
+    url: DataLinq.SQLite.SQLiteDatabaseTransaction.html
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - text: DatabaseTransaction.Status
+    url: DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Status
+  - text: DatabaseTransaction.OnStatusChanged
+    url: DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_OnStatusChanged
+  - text: DatabaseTransaction.DbTransaction
+    url: DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_DbTransaction
+  - text: DatabaseTransaction.Type
+    url: DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Type
+  - text: DatabaseTransaction.SetStatus(DatabaseTransactionStatus)
+    url: DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_SetStatus_DataLinq_DatabaseTransactionStatus_
+  - text: DatabaseTransaction.Rollback()
+    url: DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Rollback
+  - text: DatabaseTransaction.Commit()
+    url: DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Commit
+  - text: DatabaseTransaction.Dispose()
+    url: DataLinq.DatabaseTransaction.html#DataLinq_DatabaseTransaction_Dispose
+  - text: DatabaseAccess.ExecuteReader(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteReader_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteReader(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteReader_System_String_
+  - text: DatabaseAccess.ExecuteScalar(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteScalar<T>(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar__1_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteScalar(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar_System_String_
+  - text: DatabaseAccess.ExecuteScalar<T>(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar__1_System_String_
+  - text: DatabaseAccess.ExecuteNonQuery(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteNonQuery_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteNonQuery(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteNonQuery_System_String_
+  - text: DatabaseAccess.ReadReader(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ReadReader_System_Data_IDbCommand_
+  - text: DatabaseAccess.ReadReader(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ReadReader_System_String_
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: SQLiteDatabaseTransaction(string, TransactionType)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction__ctor_System_String_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L15
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.#ctor(System.String,DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.#ctor(System.String,DataLinq.Mutation.TransactionType)
+- code: public SQLiteDatabaseTransaction(string connectionString, TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: connectionString
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- api3: SQLiteDatabaseTransaction(IDbTransaction, TransactionType)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction__ctor_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L20
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.#ctor(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.#ctor(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+- code: public SQLiteDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: dbTransaction
+    type:
+    - text: IDbTransaction
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbtransaction
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- h2: Methods
+- api3: Commit()
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_Commit
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L140
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.Commit
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.Commit
+- code: public override void Commit()
+- api3: Dispose()
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_Dispose
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L181
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.Dispose
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.Dispose
+- markdown: Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+- code: public override void Dispose()
+- api3: ExecuteNonQuery(IDbCommand)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteNonQuery_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L73
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteNonQuery(System.Data.IDbCommand)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteNonQuery(System.Data.IDbCommand)
+- code: public override int ExecuteNonQuery(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: ExecuteNonQuery(string)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteNonQuery_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L87
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteNonQuery(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteNonQuery(System.String)
+- code: public override int ExecuteNonQuery(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: ExecuteReader(string)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteReader_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L113
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteReader(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteReader(System.String)
+- code: public override IDataLinqDataReader ExecuteReader(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+- api3: ExecuteReader(IDbCommand)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteReader_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L123
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteReader(System.Data.IDbCommand)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteReader(System.Data.IDbCommand)
+- markdown: Close this reader when done! (or use a using-statement)
+- code: public override IDataLinqDataReader ExecuteReader(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+    description: ''
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+    description: ''
+- api3: ExecuteScalar(string)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteScalar_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L90
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar(System.String)
+- code: public override object ExecuteScalar(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+- api3: ExecuteScalar<T>(string)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteScalar__1_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L93
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar``1(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar``1(System.String)
+- code: public override T ExecuteScalar<T>(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: ExecuteScalar<T>(IDbCommand)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteScalar__1_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L96
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar``1(System.Data.IDbCommand)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar``1(System.Data.IDbCommand)
+- code: public override T ExecuteScalar<T>(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: ExecuteScalar(IDbCommand)
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_ExecuteScalar_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L99
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar(System.Data.IDbCommand)
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.ExecuteScalar(System.Data.IDbCommand)
+- code: public override object ExecuteScalar(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+- api3: Rollback()
+  id: DataLinq_SQLite_SQLiteDatabaseTransaction_Rollback
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDatabaseTransaction.cs#L153
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDatabaseTransaction.Rollback
+    commentId: M:DataLinq.SQLite.SQLiteDatabaseTransaction.Rollback
+- code: public override void Rollback()
+languageId: csharp

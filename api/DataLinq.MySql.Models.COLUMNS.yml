@@ -1,0 +1,539 @@
+### YamlMime:ApiPage
+title: Class COLUMNS
+body:
+- api1: Class COLUMNS
+  id: DataLinq_MySql_Models_COLUMNS
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS
+    commentId: T:DataLinq.MySql.Models.COLUMNS
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.MySql.Models
+      url: DataLinq.MySql.Models.html
+  - name: Assembly
+    value: DataLinq.MySql.dll
+- code: >-
+    [Definition("")]
+
+    [View("COLUMNS")]
+
+    public abstract class COLUMNS : Immutable<COLUMNS, information_schema>, IImmutable<COLUMNS>, IImmutableInstance<information_schema>, IImmutableInstance, IModelInstance<information_schema>, IModelInstance, IEquatable<Immutable<COLUMNS, information_schema>>, IViewModel<information_schema>, IModel<information_schema>, IModel
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Immutable<COLUMNS, information_schema>
+    url: DataLinq.Instances.Immutable-2.html
+  - text: COLUMNS
+    url: DataLinq.MySql.Models.COLUMNS.html
+- h4: Derived
+- list:
+  - text: ImmutableCOLUMNS
+    url: DataLinq.MySql.Models.ImmutableCOLUMNS.html
+- h4: Implements
+- list:
+  - text: IImmutable<COLUMNS>
+    url: DataLinq.Instances.IImmutable-1.html
+  - text: IImmutableInstance<information_schema>
+    url: DataLinq.Instances.IImmutableInstance-1.html
+  - text: IImmutableInstance
+    url: DataLinq.Instances.IImmutableInstance.html
+  - text: IModelInstance<information_schema>
+    url: DataLinq.Instances.IModelInstance-1.html
+  - text: IModelInstance
+    url: DataLinq.Instances.IModelInstance.html
+  - text: IEquatable<Immutable<COLUMNS, information_schema>>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+  - IViewModel<information_schema>
+  - IModel<information_schema>
+  - IModel
+- h4: Inherited Members
+- list:
+  - text: Immutable<COLUMNS, information_schema>.relationKeys
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_relationKeys
+  - text: Immutable<COLUMNS, information_schema>.lazyValues
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_lazyValues
+  - text: Immutable<COLUMNS, information_schema>.this[ColumnDefinition]
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Item_DataLinq_Metadata_ColumnDefinition_
+  - text: Immutable<COLUMNS, information_schema>.this[string]
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Item_System_String_
+  - text: Immutable<COLUMNS, information_schema>.Metadata()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Metadata
+  - text: Immutable<COLUMNS, information_schema>.PrimaryKeys()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_PrimaryKeys
+  - text: Immutable<COLUMNS, information_schema>.HasPrimaryKeysSet()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_HasPrimaryKeysSet
+  - text: Immutable<COLUMNS, information_schema>.GetRowData()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRowData
+  - text: Immutable<COLUMNS, information_schema>.GetValues()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValues
+  - text: Immutable<COLUMNS, information_schema>.GetValues(IEnumerable<ColumnDefinition>)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValues_System_Collections_Generic_IEnumerable_DataLinq_Metadata_ColumnDefinition__
+  - text: Immutable<COLUMNS, information_schema>.ClearLazy()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_ClearLazy
+  - text: Immutable<COLUMNS, information_schema>.GetLazy<V>(string, Func<V>)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetLazy__1_System_String_System_Func___0__
+  - text: Immutable<COLUMNS, information_schema>.GetImmutableForeignKey<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetImmutableForeignKey__1_System_String_
+  - text: Immutable<COLUMNS, information_schema>.GetImmutableRelation<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetImmutableRelation__1_System_String_
+  - text: Immutable<COLUMNS, information_schema>.GetValue(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValue_System_String_
+  - text: Immutable<COLUMNS, information_schema>.GetNullableValue(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetNullableValue_System_String_
+  - text: Immutable<COLUMNS, information_schema>.GetForeignKey<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetForeignKey__1_System_String_
+  - text: Immutable<COLUMNS, information_schema>.GetRelation<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRelation__1_System_String_
+  - text: Immutable<COLUMNS, information_schema>.GetRelation<V>(RelationProperty)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRelation__1_DataLinq_Metadata_RelationProperty_
+  - text: Immutable<COLUMNS, information_schema>.GetDataSource()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetDataSource
+  - text: Immutable<COLUMNS, information_schema>.Equals(Immutable<COLUMNS, information_schema>?)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Equals_DataLinq_Instances_Immutable__0__1__
+  - text: Immutable<COLUMNS, information_schema>.Equals(object?)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Equals_System_Object_
+  - text: Immutable<COLUMNS, information_schema>.GetHashCode()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetHashCode
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h4: Extension Methods
+- list:
+  - text: IModelExtensions.Delete<COLUMNS>(COLUMNS)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_
+  - text: IModelExtensions.Delete<COLUMNS>(COLUMNS, Transaction)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_DataLinq_Mutation_Transaction_
+- h2: Constructors
+- api3: COLUMNS(RowData, DataSourceAccess)
+  id: DataLinq_MySql_Models_COLUMNS__ctor_DataLinq_Instances_RowData_DataLinq_Mutation_DataSourceAccess_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L10
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.#ctor(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+    commentId: M:DataLinq.MySql.Models.COLUMNS.#ctor(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+- code: protected COLUMNS(RowData rowData, DataSourceAccess dataSource)
+- h4: Parameters
+- parameters:
+  - name: rowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+  - name: dataSource
+    type:
+    - text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+- h2: Properties
+- api3: CHARACTER_MAXIMUM_LENGTH
+  id: DataLinq_MySql_Models_COLUMNS_CHARACTER_MAXIMUM_LENGTH
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L14
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.CHARACTER_MAXIMUM_LENGTH
+    commentId: P:DataLinq.MySql.Models.COLUMNS.CHARACTER_MAXIMUM_LENGTH
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
+
+    [Column("CHARACTER_MAXIMUM_LENGTH")]
+
+    public abstract long? CHARACTER_MAXIMUM_LENGTH { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: CHARACTER_OCTET_LENGTH
+  id: DataLinq_MySql_Models_COLUMNS_CHARACTER_OCTET_LENGTH
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L19
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.CHARACTER_OCTET_LENGTH
+    commentId: P:DataLinq.MySql.Models.COLUMNS.CHARACTER_OCTET_LENGTH
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
+
+    [Column("CHARACTER_OCTET_LENGTH")]
+
+    public abstract long? CHARACTER_OCTET_LENGTH { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: CHARACTER_SET_NAME
+  id: DataLinq_MySql_Models_COLUMNS_CHARACTER_SET_NAME
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L24
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.CHARACTER_SET_NAME
+    commentId: P:DataLinq.MySql.Models.COLUMNS.CHARACTER_SET_NAME
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "varchar", 32)]
+
+    [Column("CHARACTER_SET_NAME")]
+
+    public abstract string? CHARACTER_SET_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: COLLATION_NAME
+  id: DataLinq_MySql_Models_COLUMNS_COLLATION_NAME
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L29
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.COLLATION_NAME
+    commentId: P:DataLinq.MySql.Models.COLUMNS.COLLATION_NAME
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "varchar", 32)]
+
+    [Column("COLLATION_NAME")]
+
+    public abstract string? COLLATION_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: COLUMN_COMMENT
+  id: DataLinq_MySql_Models_COLUMNS_COLUMN_COMMENT
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L34
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.COLUMN_COMMENT
+    commentId: P:DataLinq.MySql.Models.COLUMNS.COLUMN_COMMENT
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 1024)]
+
+    [Column("COLUMN_COMMENT")]
+
+    public abstract string COLUMN_COMMENT { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: COLUMN_DEFAULT
+  id: DataLinq_MySql_Models_COLUMNS_COLUMN_DEFAULT
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L38
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.COLUMN_DEFAULT
+    commentId: P:DataLinq.MySql.Models.COLUMNS.COLUMN_DEFAULT
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "longtext", 4294967295)]
+
+    [Column("COLUMN_DEFAULT")]
+
+    public abstract string? COLUMN_DEFAULT { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: COLUMN_KEY
+  id: DataLinq_MySql_Models_COLUMNS_COLUMN_KEY
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L43
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.COLUMN_KEY
+    commentId: P:DataLinq.MySql.Models.COLUMNS.COLUMN_KEY
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 3)]
+
+    [Column("COLUMN_KEY")]
+
+    public abstract string COLUMN_KEY { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: COLUMN_NAME
+  id: DataLinq_MySql_Models_COLUMNS_COLUMN_NAME
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L47
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.COLUMN_NAME
+    commentId: P:DataLinq.MySql.Models.COLUMNS.COLUMN_NAME
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 64)]
+
+    [Column("COLUMN_NAME")]
+
+    public abstract string COLUMN_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: COLUMN_TYPE
+  id: DataLinq_MySql_Models_COLUMNS_COLUMN_TYPE
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L51
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.COLUMN_TYPE
+    commentId: P:DataLinq.MySql.Models.COLUMNS.COLUMN_TYPE
+- code: >-
+    [Type(DatabaseType.MySQL, "longtext", 4294967295)]
+
+    [Column("COLUMN_TYPE")]
+
+    public abstract string COLUMN_TYPE { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: DATA_TYPE
+  id: DataLinq_MySql_Models_COLUMNS_DATA_TYPE
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L55
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.DATA_TYPE
+    commentId: P:DataLinq.MySql.Models.COLUMNS.DATA_TYPE
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 64)]
+
+    [Column("DATA_TYPE")]
+
+    public abstract string DATA_TYPE { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: DATETIME_PRECISION
+  id: DataLinq_MySql_Models_COLUMNS_DATETIME_PRECISION
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L59
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.DATETIME_PRECISION
+    commentId: P:DataLinq.MySql.Models.COLUMNS.DATETIME_PRECISION
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
+
+    [Column("DATETIME_PRECISION")]
+
+    public abstract long? DATETIME_PRECISION { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: EXTRA
+  id: DataLinq_MySql_Models_COLUMNS_EXTRA
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L64
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.EXTRA
+    commentId: P:DataLinq.MySql.Models.COLUMNS.EXTRA
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 80)]
+
+    [Column("EXTRA")]
+
+    public abstract string EXTRA { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: GENERATION_EXPRESSION
+  id: DataLinq_MySql_Models_COLUMNS_GENERATION_EXPRESSION
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L68
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.GENERATION_EXPRESSION
+    commentId: P:DataLinq.MySql.Models.COLUMNS.GENERATION_EXPRESSION
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "longtext", 4294967295)]
+
+    [Column("GENERATION_EXPRESSION")]
+
+    public abstract string? GENERATION_EXPRESSION { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: IS_GENERATED
+  id: DataLinq_MySql_Models_COLUMNS_IS_GENERATED
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L73
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.IS_GENERATED
+    commentId: P:DataLinq.MySql.Models.COLUMNS.IS_GENERATED
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 6)]
+
+    [Column("IS_GENERATED")]
+
+    public abstract string IS_GENERATED { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: IS_NULLABLE
+  id: DataLinq_MySql_Models_COLUMNS_IS_NULLABLE
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L77
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.IS_NULLABLE
+    commentId: P:DataLinq.MySql.Models.COLUMNS.IS_NULLABLE
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 3)]
+
+    [Column("IS_NULLABLE")]
+
+    public abstract string IS_NULLABLE { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: NUMERIC_PRECISION
+  id: DataLinq_MySql_Models_COLUMNS_NUMERIC_PRECISION
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L81
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.NUMERIC_PRECISION
+    commentId: P:DataLinq.MySql.Models.COLUMNS.NUMERIC_PRECISION
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
+
+    [Column("NUMERIC_PRECISION")]
+
+    public abstract long? NUMERIC_PRECISION { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: NUMERIC_SCALE
+  id: DataLinq_MySql_Models_COLUMNS_NUMERIC_SCALE
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L86
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.NUMERIC_SCALE
+    commentId: P:DataLinq.MySql.Models.COLUMNS.NUMERIC_SCALE
+- code: >-
+    [Nullable]
+
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
+
+    [Column("NUMERIC_SCALE")]
+
+    public abstract long? NUMERIC_SCALE { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: ORDINAL_POSITION
+  id: DataLinq_MySql_Models_COLUMNS_ORDINAL_POSITION
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L91
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.ORDINAL_POSITION
+    commentId: P:DataLinq.MySql.Models.COLUMNS.ORDINAL_POSITION
+- code: >-
+    [Type(DatabaseType.MySQL, "bigint", 21, false)]
+
+    [Column("ORDINAL_POSITION")]
+
+    public abstract long ORDINAL_POSITION { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- api3: PRIVILEGES
+  id: DataLinq_MySql_Models_COLUMNS_PRIVILEGES
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L95
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.PRIVILEGES
+    commentId: P:DataLinq.MySql.Models.COLUMNS.PRIVILEGES
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 80)]
+
+    [Column("PRIVILEGES")]
+
+    public abstract string PRIVILEGES { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_CATALOG
+  id: DataLinq_MySql_Models_COLUMNS_TABLE_CATALOG
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L99
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.TABLE_CATALOG
+    commentId: P:DataLinq.MySql.Models.COLUMNS.TABLE_CATALOG
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 512)]
+
+    [Column("TABLE_CATALOG")]
+
+    public abstract string TABLE_CATALOG { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_NAME
+  id: DataLinq_MySql_Models_COLUMNS_TABLE_NAME
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L103
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.TABLE_NAME
+    commentId: P:DataLinq.MySql.Models.COLUMNS.TABLE_NAME
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 64)]
+
+    [Column("TABLE_NAME")]
+
+    public abstract string TABLE_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_SCHEMA
+  id: DataLinq_MySql_Models_COLUMNS_TABLE_SCHEMA
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L107
+  metadata:
+    uid: DataLinq.MySql.Models.COLUMNS.TABLE_SCHEMA
+    commentId: P:DataLinq.MySql.Models.COLUMNS.TABLE_SCHEMA
+- code: >-
+    [Type(DatabaseType.MySQL, "varchar", 64)]
+
+    [Column("TABLE_SCHEMA")]
+
+    public abstract string TABLE_SCHEMA { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

@@ -1,0 +1,243 @@
+### YamlMime:ApiPage
+title: Class DatabaseAccess
+body:
+- api1: Class DatabaseAccess
+  id: DataLinq_DatabaseAccess
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L6
+  metadata:
+    uid: DataLinq.DatabaseAccess
+    commentId: T:DataLinq.DatabaseAccess
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq
+      url: DataLinq.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public abstract class DatabaseAccess
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DatabaseAccess
+    url: DataLinq.DatabaseAccess.html
+- h4: Derived
+- list:
+  - text: DatabaseTransaction
+    url: DataLinq.DatabaseTransaction.html
+  - text: MySqlDbAccess
+    url: DataLinq.MySql.MySqlDbAccess.html
+  - text: SQLiteDbAccess
+    url: DataLinq.SQLite.SQLiteDbAccess.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: ExecuteNonQuery(IDbCommand)
+  id: DataLinq_DatabaseAccess_ExecuteNonQuery_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L14
+  metadata:
+    uid: DataLinq.DatabaseAccess.ExecuteNonQuery(System.Data.IDbCommand)
+    commentId: M:DataLinq.DatabaseAccess.ExecuteNonQuery(System.Data.IDbCommand)
+- code: public abstract int ExecuteNonQuery(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: ExecuteNonQuery(string)
+  id: DataLinq_DatabaseAccess_ExecuteNonQuery_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L15
+  metadata:
+    uid: DataLinq.DatabaseAccess.ExecuteNonQuery(System.String)
+    commentId: M:DataLinq.DatabaseAccess.ExecuteNonQuery(System.String)
+- code: public abstract int ExecuteNonQuery(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: ExecuteReader(IDbCommand)
+  id: DataLinq_DatabaseAccess_ExecuteReader_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L8
+  metadata:
+    uid: DataLinq.DatabaseAccess.ExecuteReader(System.Data.IDbCommand)
+    commentId: M:DataLinq.DatabaseAccess.ExecuteReader(System.Data.IDbCommand)
+- code: public abstract IDataLinqDataReader ExecuteReader(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+- api3: ExecuteReader(string)
+  id: DataLinq_DatabaseAccess_ExecuteReader_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L9
+  metadata:
+    uid: DataLinq.DatabaseAccess.ExecuteReader(System.String)
+    commentId: M:DataLinq.DatabaseAccess.ExecuteReader(System.String)
+- code: public abstract IDataLinqDataReader ExecuteReader(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+- api3: ExecuteScalar(IDbCommand)
+  id: DataLinq_DatabaseAccess_ExecuteScalar_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L10
+  metadata:
+    uid: DataLinq.DatabaseAccess.ExecuteScalar(System.Data.IDbCommand)
+    commentId: M:DataLinq.DatabaseAccess.ExecuteScalar(System.Data.IDbCommand)
+- code: public abstract object? ExecuteScalar(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- api3: ExecuteScalar<T>(IDbCommand)
+  id: DataLinq_DatabaseAccess_ExecuteScalar__1_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L11
+  metadata:
+    uid: DataLinq.DatabaseAccess.ExecuteScalar``1(System.Data.IDbCommand)
+    commentId: M:DataLinq.DatabaseAccess.ExecuteScalar``1(System.Data.IDbCommand)
+- code: public abstract T ExecuteScalar<T>(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: ExecuteScalar(string)
+  id: DataLinq_DatabaseAccess_ExecuteScalar_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L12
+  metadata:
+    uid: DataLinq.DatabaseAccess.ExecuteScalar(System.String)
+    commentId: M:DataLinq.DatabaseAccess.ExecuteScalar(System.String)
+- code: public abstract object? ExecuteScalar(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- api3: ExecuteScalar<T>(string)
+  id: DataLinq_DatabaseAccess_ExecuteScalar__1_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L13
+  metadata:
+    uid: DataLinq.DatabaseAccess.ExecuteScalar``1(System.String)
+    commentId: M:DataLinq.DatabaseAccess.ExecuteScalar``1(System.String)
+- code: public abstract T ExecuteScalar<T>(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: ReadReader(IDbCommand)
+  id: DataLinq_DatabaseAccess_ReadReader_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L17
+  metadata:
+    uid: DataLinq.DatabaseAccess.ReadReader(System.Data.IDbCommand)
+    commentId: M:DataLinq.DatabaseAccess.ReadReader(System.Data.IDbCommand)
+- code: public IEnumerable<IDataLinqDataReader> ReadReader(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+    - '>'
+- api3: ReadReader(string)
+  id: DataLinq_DatabaseAccess_ReadReader_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseAccess.cs#L25
+  metadata:
+    uid: DataLinq.DatabaseAccess.ReadReader(System.String)
+    commentId: M:DataLinq.DatabaseAccess.ReadReader(System.String)
+- code: public IEnumerable<IDataLinqDataReader> ReadReader(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+    - '>'
+languageId: csharp

@@ -1,0 +1,101 @@
+### YamlMime:ApiPage
+title: Class DatabaseCreator
+body:
+- api1: Class DatabaseCreator
+  id: DataLinq_Tools_DatabaseCreator
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/DatabaseCreator.cs#L29
+  metadata:
+    uid: DataLinq.Tools.DatabaseCreator
+    commentId: T:DataLinq.Tools.DatabaseCreator
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Tools
+      url: DataLinq.Tools.html
+  - name: Assembly
+    value: DataLinq.Tools.dll
+- code: 'public class DatabaseCreator : Generator'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Generator
+    url: DataLinq.Tools.Generator.html
+  - text: DatabaseCreator
+    url: DataLinq.Tools.DatabaseCreator.html
+- h4: Inherited Members
+- list:
+  - text: Generator.log
+    url: DataLinq.Tools.Generator.html#DataLinq_Tools_Generator_log
+  - text: Generator.ParseExistingFilesAndDirs(string, List<string>)
+    url: DataLinq.Tools.Generator.html#DataLinq_Tools_Generator_ParseExistingFilesAndDirs_System_String_System_Collections_Generic_List_System_String__
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: DatabaseCreator(Action<string>, DatabaseCreatorOptions)
+  id: DataLinq_Tools_DatabaseCreator__ctor_System_Action_System_String__DataLinq_Tools_DatabaseCreatorOptions_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/DatabaseCreator.cs#L39
+  metadata:
+    uid: DataLinq.Tools.DatabaseCreator.#ctor(System.Action{System.String},DataLinq.Tools.DatabaseCreatorOptions)
+    commentId: M:DataLinq.Tools.DatabaseCreator.#ctor(System.Action{System.String},DataLinq.Tools.DatabaseCreatorOptions)
+- code: public DatabaseCreator(Action<string> log, DatabaseCreatorOptions options)
+- h4: Parameters
+- parameters:
+  - name: log
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+  - name: options
+    type:
+    - text: DatabaseCreatorOptions
+      url: DataLinq.Tools.DatabaseCreatorOptions.html
+- h2: Methods
+- api3: Create(DataLinqDatabaseConnection, string, string)
+  id: DataLinq_Tools_DatabaseCreator_Create_DataLinq_Config_DataLinqDatabaseConnection_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/DatabaseCreator.cs#L44
+  metadata:
+    uid: DataLinq.Tools.DatabaseCreator.Create(DataLinq.Config.DataLinqDatabaseConnection,System.String,System.String)
+    commentId: M:DataLinq.Tools.DatabaseCreator.Create(DataLinq.Config.DataLinqDatabaseConnection,System.String,System.String)
+- code: public Option<int, IDLOptionFailure> Create(DataLinqDatabaseConnection connection, string basePath, string databaseName)
+- h4: Parameters
+- parameters:
+  - name: connection
+    type:
+    - text: DataLinqDatabaseConnection
+      url: DataLinq.Config.DataLinqDatabaseConnection.html
+  - name: basePath
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: databaseName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - ','
+    - " "
+    - IDLOptionFailure
+    - '>'
+languageId: csharp

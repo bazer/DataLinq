@@ -1,0 +1,76 @@
+### YamlMime:ApiPage
+title: Class ModelGenerator
+body:
+- api1: Class ModelGenerator
+  id: DataLinq_SourceGenerators_ModelGenerator
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Generators/ModelGenerator.cs#L19
+  metadata:
+    uid: DataLinq.SourceGenerators.ModelGenerator
+    commentId: T:DataLinq.SourceGenerators.ModelGenerator
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.SourceGenerators
+      url: DataLinq.SourceGenerators.html
+  - name: Assembly
+    value: DataLinq.Generators.dll
+- code: >-
+    [IncrementalGenerator]
+
+    public class ModelGenerator : IncrementalGenerator, IDisposable
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - IncrementalGenerator
+  - text: ModelGenerator
+    url: DataLinq.SourceGenerators.ModelGenerator.html
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - IncrementalGenerator.OnInitialize(SgfInitializationContext)
+  - IncrementalGenerator.Dispose()
+  - IncrementalGenerator.AttachDebugger()
+  - IncrementalGenerator.OnException(Exception)
+  - IncrementalGenerator.Name
+  - IncrementalGenerator.Logger
+  - IncrementalGenerator.ExceptionHandler
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: ModelGenerator()
+  id: DataLinq_SourceGenerators_ModelGenerator__ctor
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Generators/ModelGenerator.cs#L19
+  metadata:
+    uid: DataLinq.SourceGenerators.ModelGenerator.#ctor
+    commentId: M:DataLinq.SourceGenerators.ModelGenerator.#ctor
+- code: public ModelGenerator()
+- h2: Methods
+- api3: OnInitialize(SgfInitializationContext)
+  id: DataLinq_SourceGenerators_ModelGenerator_OnInitialize_SGF_SgfInitializationContext_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Generators/ModelGenerator.cs#L25
+  metadata:
+    uid: DataLinq.SourceGenerators.ModelGenerator.OnInitialize(SGF.SgfInitializationContext)
+    commentId: M:DataLinq.SourceGenerators.ModelGenerator.OnInitialize(SGF.SgfInitializationContext)
+- code: public override void OnInitialize(SgfInitializationContext context)
+- h4: Parameters
+- parameters:
+  - name: context
+    type:
+    - SgfInitializationContext
+languageId: csharp

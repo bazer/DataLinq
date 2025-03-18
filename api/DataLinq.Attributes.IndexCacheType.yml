@@ -1,0 +1,26 @@
+### YamlMime:ApiPage
+title: Enum IndexCacheType
+body:
+- api1: Enum IndexCacheType
+  id: DataLinq_Attributes_IndexCacheType
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Attributes/IndexCacheAttribute.cs#L5
+  metadata:
+    uid: DataLinq.Attributes.IndexCacheType
+    commentId: T:DataLinq.Attributes.IndexCacheType
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Attributes
+      url: DataLinq.Attributes.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public enum IndexCacheType
+- h2: Fields
+- parameters:
+  - name: All
+    default: "1"
+  - name: MaxAmountRows
+    default: "2"
+  - name: None
+    default: "0"
+languageId: csharp

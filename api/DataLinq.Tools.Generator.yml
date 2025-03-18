@@ -1,0 +1,122 @@
+### YamlMime:ApiPage
+title: Class Generator
+body:
+- api1: Class Generator
+  id: DataLinq_Tools_Generator
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L15
+  metadata:
+    uid: DataLinq.Tools.Generator
+    commentId: T:DataLinq.Tools.Generator
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Tools
+      url: DataLinq.Tools.html
+  - name: Assembly
+    value: DataLinq.Tools.dll
+- code: public class Generator
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Generator
+    url: DataLinq.Tools.Generator.html
+- h4: Derived
+- list:
+  - text: DatabaseCreator
+    url: DataLinq.Tools.DatabaseCreator.html
+  - text: ModelGenerator
+    url: DataLinq.Tools.ModelGenerator.html
+  - text: ModelReader
+    url: DataLinq.Tools.ModelReader.html
+  - text: SqlGenerator
+    url: DataLinq.Tools.SqlGenerator.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: Generator(Action<string>)
+  id: DataLinq_Tools_Generator__ctor_System_Action_System_String__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L20
+  metadata:
+    uid: DataLinq.Tools.Generator.#ctor(System.Action{System.String})
+    commentId: M:DataLinq.Tools.Generator.#ctor(System.Action{System.String})
+- code: public Generator(Action<string> log)
+- h4: Parameters
+- parameters:
+  - name: log
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- h2: Fields
+- api3: log
+  id: DataLinq_Tools_Generator_log
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L18
+  metadata:
+    uid: DataLinq.Tools.Generator.log
+    commentId: F:DataLinq.Tools.Generator.log
+- code: protected Action<string> log
+- h4: Field Value
+- parameters:
+  - type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- h2: Methods
+- api3: ParseExistingFilesAndDirs(string, List<string>)
+  id: DataLinq_Tools_Generator_ParseExistingFilesAndDirs_System_String_System_Collections_Generic_List_System_String__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L25
+  metadata:
+    uid: DataLinq.Tools.Generator.ParseExistingFilesAndDirs(System.String,System.Collections.Generic.List{System.String})
+    commentId: M:DataLinq.Tools.Generator.ParseExistingFilesAndDirs(System.String,System.Collections.Generic.List{System.String})
+- code: protected IEnumerable<Option<string, IDLOptionFailure>> ParseExistingFilesAndDirs(string basePath, List<string> paths)
+- h4: Parameters
+- parameters:
+  - name: basePath
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: paths
+    type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - Option
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - ','
+    - " "
+    - IDLOptionFailure
+    - '>'
+    - '>'
+languageId: csharp

@@ -1,0 +1,161 @@
+### YamlMime:ApiPage
+title: Class DataLinqConfig
+body:
+- api1: Class DataLinqConfig
+  id: DataLinq_Config_DataLinqConfig
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L11
+  metadata:
+    uid: DataLinq.Config.DataLinqConfig
+    commentId: T:DataLinq.Config.DataLinqConfig
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Config
+      url: DataLinq.Config.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public record DataLinqConfig : IEquatable<DataLinqConfig>'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DataLinqConfig
+    url: DataLinq.Config.DataLinqConfig.html
+- h4: Implements
+- list:
+  - text: IEquatable<DataLinqConfig>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: DataLinqConfig(string, params ConfigFile[])
+  id: DataLinq_Config_DataLinqConfig__ctor_System_String_DataLinq_Config_ConfigFile___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L45
+  metadata:
+    uid: DataLinq.Config.DataLinqConfig.#ctor(System.String,DataLinq.Config.ConfigFile[])
+    commentId: M:DataLinq.Config.DataLinqConfig.#ctor(System.String,DataLinq.Config.ConfigFile[])
+- code: public DataLinqConfig(string basePath, params ConfigFile[] configFiles)
+- h4: Parameters
+- parameters:
+  - name: basePath
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: configFiles
+    type:
+    - text: ConfigFile
+      url: DataLinq.Config.ConfigFile.html
+    - '['
+    - ']'
+- h2: Properties
+- api3: BasePath
+  id: DataLinq_Config_DataLinqConfig_BasePath
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L43
+  metadata:
+    uid: DataLinq.Config.DataLinqConfig.BasePath
+    commentId: P:DataLinq.Config.DataLinqConfig.BasePath
+- code: public string BasePath { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Databases
+  id: DataLinq_Config_DataLinqConfig_Databases
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L42
+  metadata:
+    uid: DataLinq.Config.DataLinqConfig.Databases
+    commentId: P:DataLinq.Config.DataLinqConfig.Databases
+- code: public List<DataLinqDatabaseConfig> Databases { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: DataLinqDatabaseConfig
+      url: DataLinq.Config.DataLinqDatabaseConfig.html
+    - '>'
+- h2: Methods
+- api3: FindAndReadConfigs(string, Action<string>)
+  id: DataLinq_Config_DataLinqConfig_FindAndReadConfigs_System_String_System_Action_System_String__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L13
+  metadata:
+    uid: DataLinq.Config.DataLinqConfig.FindAndReadConfigs(System.String,System.Action{System.String})
+    commentId: M:DataLinq.Config.DataLinqConfig.FindAndReadConfigs(System.String,System.Action{System.String})
+- code: public static Option<DataLinqConfig> FindAndReadConfigs(string configPath, Action<string> log)
+- h4: Parameters
+- parameters:
+  - name: configPath
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: log
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - text: DataLinqConfig
+      url: DataLinq.Config.DataLinqConfig.html
+    - '>'
+- api3: GetConnection(string?, DatabaseType?)
+  id: DataLinq_Config_DataLinqConfig_GetConnection_System_String_System_Nullable_DataLinq_DatabaseType__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L77
+  metadata:
+    uid: DataLinq.Config.DataLinqConfig.GetConnection(System.String,System.Nullable{DataLinq.DatabaseType})
+    commentId: M:DataLinq.Config.DataLinqConfig.GetConnection(System.String,System.Nullable{DataLinq.DatabaseType})
+- code: public Option<(DataLinqDatabaseConfig db, DataLinqDatabaseConnection connection)> GetConnection(string? dbName, DatabaseType? databaseType)
+- h4: Parameters
+- parameters:
+  - name: dbName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+  - name: databaseType
+    type:
+    - DatabaseType
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - (
+    - text: DataLinqDatabaseConfig
+      url: DataLinq.Config.DataLinqDatabaseConfig.html
+    - " "
+    - text: db
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.config.datalinqdatabaseconfig,datalinq.config.datalinqdatabaseconnection-.db
+    - ','
+    - " "
+    - text: DataLinqDatabaseConnection
+      url: DataLinq.Config.DataLinqDatabaseConnection.html
+    - " "
+    - text: connection
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.config.datalinqdatabaseconfig,datalinq.config.datalinqdatabaseconnection-.connection
+    - )
+    - '>'
+languageId: csharp

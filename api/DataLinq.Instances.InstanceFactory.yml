@@ -1,0 +1,107 @@
+### YamlMime:ApiPage
+title: Class InstanceFactory
+body:
+- api1: Class InstanceFactory
+  id: DataLinq_Instances_InstanceFactory
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L79
+  metadata:
+    uid: DataLinq.Instances.InstanceFactory
+    commentId: T:DataLinq.Instances.InstanceFactory
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public static class InstanceFactory
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: InstanceFactory
+    url: DataLinq.Instances.InstanceFactory.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: NewDatabase<T>(DataSourceAccess)
+  id: DataLinq_Instances_InstanceFactory_NewDatabase__1_DataLinq_Mutation_DataSourceAccess_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L118
+  metadata:
+    uid: DataLinq.Instances.InstanceFactory.NewDatabase``1(DataLinq.Mutation.DataSourceAccess)
+    commentId: M:DataLinq.Instances.InstanceFactory.NewDatabase``1(DataLinq.Mutation.DataSourceAccess)
+- code: public static T NewDatabase<T>(DataSourceAccess dataSource)
+- h4: Parameters
+- parameters:
+  - name: dataSource
+    type:
+    - text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: NewImmutableRow(RowData, DataSourceAccess)
+  id: DataLinq_Instances_InstanceFactory_NewImmutableRow_DataLinq_Instances_RowData_DataLinq_Mutation_DataSourceAccess_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L84
+  metadata:
+    uid: DataLinq.Instances.InstanceFactory.NewImmutableRow(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+    commentId: M:DataLinq.Instances.InstanceFactory.NewImmutableRow(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+- code: public static IImmutableInstance NewImmutableRow(RowData rowData, DataSourceAccess dataSource)
+- h4: Parameters
+- parameters:
+  - name: rowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+  - name: dataSource
+    type:
+    - text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: IImmutableInstance
+      url: DataLinq.Instances.IImmutableInstance.html
+- api3: NewImmutableRow<T>(RowData, DataSourceAccess)
+  id: DataLinq_Instances_InstanceFactory_NewImmutableRow__1_DataLinq_Instances_RowData_DataLinq_Mutation_DataSourceAccess_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L113
+  metadata:
+    uid: DataLinq.Instances.InstanceFactory.NewImmutableRow``1(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+    commentId: M:DataLinq.Instances.InstanceFactory.NewImmutableRow``1(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+- code: public static T NewImmutableRow<T>(RowData rowData, DataSourceAccess dataSource)
+- h4: Parameters
+- parameters:
+  - name: rowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+  - name: dataSource
+    type:
+    - text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+languageId: csharp

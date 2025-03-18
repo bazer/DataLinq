@@ -1,0 +1,106 @@
+### YamlMime:ApiPage
+title: Class DbRead<T>
+body:
+- api1: Class DbRead<T>
+  id: DataLinq_DbRead_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/DbRead.cs#L11
+  metadata:
+    uid: DataLinq.DbRead`1
+    commentId: T:DataLinq.DbRead`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq
+      url: DataLinq.html
+  - name: Assembly
+    value: DataLinq.dll
+- markdown: Represents a class to connect the models to Linq.
+- code: 'public class DbRead<T> : Queryable<T>, IOrderedQueryable<T>, IOrderedQueryable, IQueryable<T>, IQueryable, IEnumerable<T>, IEnumerable'
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - QueryableBase<T>
+  - text: Queryable<T>
+    url: DataLinq.Queryable-1.html
+  - text: DbRead<T>
+    url: DataLinq.DbRead-1.html
+- h4: Implements
+- list:
+  - text: IOrderedQueryable<T>
+    url: https://learn.microsoft.com/dotnet/api/system.linq.iorderedqueryable-1
+  - text: IOrderedQueryable
+    url: https://learn.microsoft.com/dotnet/api/system.linq.iorderedqueryable
+  - text: IQueryable<T>
+    url: https://learn.microsoft.com/dotnet/api/system.linq.iqueryable-1
+  - text: IQueryable
+    url: https://learn.microsoft.com/dotnet/api/system.linq.iqueryable
+  - text: IEnumerable<T>
+    url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+  - text: IEnumerable
+    url: https://learn.microsoft.com/dotnet/api/system.collections.ienumerable
+- h4: Inherited Members
+- list:
+  - text: Queryable<T>.queryParser
+    url: DataLinq.Queryable-1.html#DataLinq_Queryable_1_queryParser
+  - QueryableBase<T>.GetEnumerator()
+  - QueryableBase<T>.Expression
+  - QueryableBase<T>.Provider
+  - QueryableBase<T>.ElementType
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: DbRead(DataSourceAccess)
+  id: DataLinq_DbRead_1__ctor_DataLinq_Mutation_DataSourceAccess_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/DbRead.cs#L17
+  metadata:
+    uid: DataLinq.DbRead`1.#ctor(DataLinq.Mutation.DataSourceAccess)
+    commentId: M:DataLinq.DbRead`1.#ctor(DataLinq.Mutation.DataSourceAccess)
+- markdown: Initializes a new instance of the <xref href="DataLinq.DbRead%601" data-throw-if-not-resolved="false"></xref> class.
+- code: public DbRead(DataSourceAccess transaction)
+- h4: Parameters
+- parameters:
+  - name: transaction
+    type:
+    - text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+    description: The transaction.
+- api3: DbRead(IQueryProvider, Expression)
+  id: DataLinq_DbRead_1__ctor_System_Linq_IQueryProvider_System_Linq_Expressions_Expression_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/DbRead.cs#L24
+  metadata:
+    uid: DataLinq.DbRead`1.#ctor(System.Linq.IQueryProvider,System.Linq.Expressions.Expression)
+    commentId: M:DataLinq.DbRead`1.#ctor(System.Linq.IQueryProvider,System.Linq.Expressions.Expression)
+- markdown: Initializes a new instance of the <xref href="DataLinq.DbRead%601" data-throw-if-not-resolved="false"></xref> class.
+- code: public DbRead(IQueryProvider provider, Expression expression)
+- h4: Parameters
+- parameters:
+  - name: provider
+    type:
+    - text: IQueryProvider
+      url: https://learn.microsoft.com/dotnet/api/system.linq.iqueryprovider
+    description: The query provider.
+  - name: expression
+    type:
+    - text: Expression
+      url: https://learn.microsoft.com/dotnet/api/system.linq.expressions.expression
+    description: The expression.
+languageId: csharp
+metadata:
+  description: Represents a class to connect the models to Linq.

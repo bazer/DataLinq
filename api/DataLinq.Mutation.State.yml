@@ -1,0 +1,171 @@
+### YamlMime:ApiPage
+title: Class State
+body:
+- api1: Class State
+  id: DataLinq_Mutation_State
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L12
+  metadata:
+    uid: DataLinq.Mutation.State
+    commentId: T:DataLinq.Mutation.State
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Mutation
+      url: DataLinq.Mutation.html
+  - name: Assembly
+    value: DataLinq.dll
+- markdown: >-
+    Represents the state of the database, including history and cache. It provides methods to apply changes to the state,
+
+    manage the transactions in the cache, and handle cleanup of resources.
+- code: 'public class State : IDisposable'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: State
+    url: DataLinq.Mutation.State.html
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: State(DatabaseProvider, DataLinqLoggingConfiguration)
+  id: DataLinq_Mutation_State__ctor_DataLinq_DatabaseProvider_DataLinq_Logging_DataLinqLoggingConfiguration_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L35
+  metadata:
+    uid: DataLinq.Mutation.State.#ctor(DataLinq.DatabaseProvider,DataLinq.Logging.DataLinqLoggingConfiguration)
+    commentId: M:DataLinq.Mutation.State.#ctor(DataLinq.DatabaseProvider,DataLinq.Logging.DataLinqLoggingConfiguration)
+- markdown: Initializes a new instance of the <xref href="DataLinq.Mutation.State" data-throw-if-not-resolved="false"></xref> class with the specified database provider.
+- code: public State(DatabaseProvider database, DataLinqLoggingConfiguration loggingConfiguration)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: DatabaseProvider
+      url: DataLinq.DatabaseProvider.html
+    description: The database provider to associate with the state.
+  - name: loggingConfiguration
+    type:
+    - text: DataLinqLoggingConfiguration
+      url: DataLinq.Logging.DataLinqLoggingConfiguration.html
+- h2: Properties
+- api3: Cache
+  id: DataLinq_Mutation_State_Cache
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L24
+  metadata:
+    uid: DataLinq.Mutation.State.Cache
+    commentId: P:DataLinq.Mutation.State.Cache
+- markdown: Gets or sets the cache associated with the database state.
+- code: public DatabaseCache Cache { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseCache
+      url: DataLinq.Cache.DatabaseCache.html
+- api3: Database
+  id: DataLinq_Mutation_State_Database
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L29
+  metadata:
+    uid: DataLinq.Mutation.State.Database
+    commentId: P:DataLinq.Mutation.State.Database
+- markdown: Gets the database provider associated with the state.
+- code: public DatabaseProvider Database { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseProvider
+      url: DataLinq.DatabaseProvider.html
+- api3: History
+  id: DataLinq_Mutation_State_History
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L19
+  metadata:
+    uid: DataLinq.Mutation.State.History
+    commentId: P:DataLinq.Mutation.State.History
+- markdown: Gets or sets the history of changes made to the database.
+- code: public History History { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: History
+      url: DataLinq.Mutation.History.html
+- h2: Methods
+- api3: ApplyChanges(IEnumerable<StateChange>, Transaction?)
+  id: DataLinq_Mutation_State_ApplyChanges_System_Collections_Generic_IEnumerable_DataLinq_Mutation_StateChange__DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L48
+  metadata:
+    uid: DataLinq.Mutation.State.ApplyChanges(System.Collections.Generic.IEnumerable{DataLinq.Mutation.StateChange},DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.Mutation.State.ApplyChanges(System.Collections.Generic.IEnumerable{DataLinq.Mutation.StateChange},DataLinq.Mutation.Transaction)
+- markdown: Applies a collection of state changes to the database using an optional transaction context.
+- code: public void ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
+- h4: Parameters
+- parameters:
+  - name: changes
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: StateChange
+      url: DataLinq.Mutation.StateChange.html
+    - '>'
+    description: The state changes to apply.
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+    - '?'
+    description: The transaction to associate with the changes, if any.
+    optional: true
+- api3: ClearCache()
+  id: DataLinq_Mutation_State_ClearCache
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L65
+  metadata:
+    uid: DataLinq.Mutation.State.ClearCache
+    commentId: M:DataLinq.Mutation.State.ClearCache
+- markdown: Clears all entries from the cache.
+- code: public void ClearCache()
+- api3: Dispose()
+  id: DataLinq_Mutation_State_Dispose
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L73
+  metadata:
+    uid: DataLinq.Mutation.State.Dispose
+    commentId: M:DataLinq.Mutation.State.Dispose
+- markdown: Releases all resources used by the cache.
+- code: public void Dispose()
+- api3: RemoveTransactionFromCache(Transaction)
+  id: DataLinq_Mutation_State_RemoveTransactionFromCache_DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/State.cs#L57
+  metadata:
+    uid: DataLinq.Mutation.State.RemoveTransactionFromCache(DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.Mutation.State.RemoveTransactionFromCache(DataLinq.Mutation.Transaction)
+- markdown: Removes a transaction from the cache, effectively rolling back any changes associated with the transaction.
+- code: public void RemoveTransactionFromCache(Transaction transaction)
+- h4: Parameters
+- parameters:
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+    description: The transaction to remove from the cache.
+languageId: csharp
+metadata:
+  description: >-
+    Represents the state of the database, including history and cache. It provides methods to apply changes to the state,
+
+    manage the transactions in the cache, and handle cleanup of resources.

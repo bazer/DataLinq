@@ -1,0 +1,59 @@
+### YamlMime:ApiPage
+title: Class TypeUtils
+body:
+- api1: Class TypeUtils
+  id: DataLinq_Utils_TypeUtils
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Utils/TypeUtils.cs#L7
+  metadata:
+    uid: DataLinq.Utils.TypeUtils
+    commentId: T:DataLinq.Utils.TypeUtils
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Utils
+      url: DataLinq.Utils.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public static class TypeUtils
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: TypeUtils
+    url: DataLinq.Utils.TypeUtils.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: GetNullableConversionType(Type)
+  id: DataLinq_Utils_TypeUtils_GetNullableConversionType_System_Type_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Utils/TypeUtils.cs#L11
+  metadata:
+    uid: DataLinq.Utils.TypeUtils.GetNullableConversionType(System.Type)
+    commentId: M:DataLinq.Utils.TypeUtils.GetNullableConversionType(System.Type)
+- code: public static Type GetNullableConversionType(Type returnType)
+- h4: Parameters
+- parameters:
+  - name: returnType
+    type:
+    - text: Type
+      url: https://learn.microsoft.com/dotnet/api/system.type
+- h4: Returns
+- parameters:
+  - type:
+    - text: Type
+      url: https://learn.microsoft.com/dotnet/api/system.type
+languageId: csharp

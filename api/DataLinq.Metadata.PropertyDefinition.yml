@@ -1,0 +1,225 @@
+### YamlMime:ApiPage
+title: Class PropertyDefinition
+body:
+- api1: Class PropertyDefinition
+  id: DataLinq_Metadata_PropertyDefinition
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L15
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition
+    commentId: T:DataLinq.Metadata.PropertyDefinition
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: 'public abstract class PropertyDefinition : IDefinition'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: PropertyDefinition
+    url: DataLinq.Metadata.PropertyDefinition.html
+- h4: Derived
+- list:
+  - text: RelationProperty
+    url: DataLinq.Metadata.RelationProperty.html
+  - text: ValueProperty
+    url: DataLinq.Metadata.ValueProperty.html
+- h4: Implements
+- list:
+  - text: IDefinition
+    url: DataLinq.Interfaces.IDefinition.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: PropertyDefinition(string, CsTypeDeclaration, ModelDefinition, IEnumerable<Attribute>)
+  id: DataLinq_Metadata_PropertyDefinition__ctor_System_String_DataLinq_Metadata_CsTypeDeclaration_DataLinq_Metadata_ModelDefinition_System_Collections_Generic_IEnumerable_System_Attribute__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L15
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.#ctor(System.String,DataLinq.Metadata.CsTypeDeclaration,DataLinq.Metadata.ModelDefinition,System.Collections.Generic.IEnumerable{System.Attribute})
+    commentId: M:DataLinq.Metadata.PropertyDefinition.#ctor(System.String,DataLinq.Metadata.CsTypeDeclaration,DataLinq.Metadata.ModelDefinition,System.Collections.Generic.IEnumerable{System.Attribute})
+- code: protected PropertyDefinition(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes)
+- h4: Parameters
+- parameters:
+  - name: propertyName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: csType
+    type:
+    - text: CsTypeDeclaration
+      url: DataLinq.Metadata.CsTypeDeclaration.html
+  - name: model
+    type:
+    - text: ModelDefinition
+      url: DataLinq.Metadata.ModelDefinition.html
+  - name: attributes
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: Attribute
+      url: https://learn.microsoft.com/dotnet/api/system.attribute
+    - '>'
+- h2: Properties
+- api3: Attributes
+  id: DataLinq_Metadata_PropertyDefinition_Attributes
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L17
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.Attributes
+    commentId: P:DataLinq.Metadata.PropertyDefinition.Attributes
+- code: public Attribute[] Attributes { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Attribute
+      url: https://learn.microsoft.com/dotnet/api/system.attribute
+    - '['
+    - ']'
+- api3: CsFile
+  id: DataLinq_Metadata_PropertyDefinition_CsFile
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L27
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.CsFile
+    commentId: P:DataLinq.Metadata.PropertyDefinition.CsFile
+- code: public CsFileDeclaration? CsFile { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: CsFileDeclaration
+      url: DataLinq.Metadata.CsFileDeclaration.html
+    - '?'
+- api3: CsType
+  id: DataLinq_Metadata_PropertyDefinition_CsType
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L22
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.CsType
+    commentId: P:DataLinq.Metadata.PropertyDefinition.CsType
+- code: public CsTypeDeclaration CsType { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: CsTypeDeclaration
+      url: DataLinq.Metadata.CsTypeDeclaration.html
+- api3: Model
+  id: DataLinq_Metadata_PropertyDefinition_Model
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L24
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.Model
+    commentId: P:DataLinq.Metadata.PropertyDefinition.Model
+- code: public ModelDefinition Model { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: ModelDefinition
+      url: DataLinq.Metadata.ModelDefinition.html
+- api3: PropertyName
+  id: DataLinq_Metadata_PropertyDefinition_PropertyName
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L20
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.PropertyName
+    commentId: P:DataLinq.Metadata.PropertyDefinition.PropertyName
+- code: public string PropertyName { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Type
+  id: DataLinq_Metadata_PropertyDefinition_Type
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L25
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.Type
+    commentId: P:DataLinq.Metadata.PropertyDefinition.Type
+- code: public PropertyType Type { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: PropertyType
+      url: DataLinq.Metadata.PropertyType.html
+- h2: Methods
+- api3: AddAttribute(Attribute)
+  id: DataLinq_Metadata_PropertyDefinition_AddAttribute_System_Attribute_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L19
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.AddAttribute(System.Attribute)
+    commentId: M:DataLinq.Metadata.PropertyDefinition.AddAttribute(System.Attribute)
+- code: public void AddAttribute(Attribute attribute)
+- h4: Parameters
+- parameters:
+  - name: attribute
+    type:
+    - text: Attribute
+      url: https://learn.microsoft.com/dotnet/api/system.attribute
+- api3: SetAttributes(IEnumerable<Attribute>)
+  id: DataLinq_Metadata_PropertyDefinition_SetAttributes_System_Collections_Generic_IEnumerable_System_Attribute__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L18
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.SetAttributes(System.Collections.Generic.IEnumerable{System.Attribute})
+    commentId: M:DataLinq.Metadata.PropertyDefinition.SetAttributes(System.Collections.Generic.IEnumerable{System.Attribute})
+- code: public void SetAttributes(IEnumerable<Attribute> attributes)
+- h4: Parameters
+- parameters:
+  - name: attributes
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: Attribute
+      url: https://learn.microsoft.com/dotnet/api/system.attribute
+    - '>'
+- api3: SetCsType(CsTypeDeclaration)
+  id: DataLinq_Metadata_PropertyDefinition_SetCsType_DataLinq_Metadata_CsTypeDeclaration_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L23
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.SetCsType(DataLinq.Metadata.CsTypeDeclaration)
+    commentId: M:DataLinq.Metadata.PropertyDefinition.SetCsType(DataLinq.Metadata.CsTypeDeclaration)
+- code: public void SetCsType(CsTypeDeclaration csType)
+- h4: Parameters
+- parameters:
+  - name: csType
+    type:
+    - text: CsTypeDeclaration
+      url: DataLinq.Metadata.CsTypeDeclaration.html
+- api3: SetPropertyName(string)
+  id: DataLinq_Metadata_PropertyDefinition_SetPropertyName_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L21
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.SetPropertyName(System.String)
+    commentId: M:DataLinq.Metadata.PropertyDefinition.SetPropertyName(System.String)
+- code: public void SetPropertyName(string propertyName)
+- h4: Parameters
+- parameters:
+  - name: propertyName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: ToString()
+  id: DataLinq_Metadata_PropertyDefinition_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/PropertyDefinition.cs#L29
+  metadata:
+    uid: DataLinq.Metadata.PropertyDefinition.ToString
+    commentId: M:DataLinq.Metadata.PropertyDefinition.ToString
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

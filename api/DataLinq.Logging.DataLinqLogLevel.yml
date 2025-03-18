@@ -1,0 +1,32 @@
+### YamlMime:ApiPage
+title: Enum DataLinqLogLevel
+body:
+- api1: Enum DataLinqLogLevel
+  id: DataLinq_Logging_DataLinqLogLevel
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Logging/DataLinqLogLevel.cs#L3
+  metadata:
+    uid: DataLinq.Logging.DataLinqLogLevel
+    commentId: T:DataLinq.Logging.DataLinqLogLevel
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Logging
+      url: DataLinq.Logging.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public enum DataLinqLogLevel
+- h2: Fields
+- parameters:
+  - name: Debug
+    default: "2"
+  - name: Error
+    default: "5"
+  - name: Fatal
+    default: "6"
+  - name: Info
+    default: "3"
+  - name: Trace
+    default: "1"
+  - name: Warn
+    default: "4"
+languageId: csharp

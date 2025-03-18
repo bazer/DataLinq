@@ -1,0 +1,111 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.Metadata
+body:
+- api1: Namespace DataLinq.Metadata
+  id: DataLinq_Metadata
+  metadata:
+    uid: DataLinq.Metadata
+    commentId: N:DataLinq.Metadata
+- h3: Classes
+- parameters:
+  - type:
+      text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+  - type:
+      text: ColumnIndex
+      url: DataLinq.Metadata.ColumnIndex.html
+    description: Represents an index associated with one or more columns in a database table.
+  - type:
+      text: DatabaseColumnType
+      url: DataLinq.Metadata.DatabaseColumnType.html
+  - type:
+      text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+  - type:
+      text: GeneratorFileFactory
+      url: DataLinq.Metadata.GeneratorFileFactory.html
+  - type:
+      text: GeneratorFileFactoryOptions
+      url: DataLinq.Metadata.GeneratorFileFactoryOptions.html
+  - type:
+      text: MetadataFromTypeFactory
+      url: DataLinq.Metadata.MetadataFromTypeFactory.html
+  - type:
+      text: ModelDefinition
+      url: DataLinq.Metadata.ModelDefinition.html
+  - type:
+      text: ModelUsing
+      url: DataLinq.Metadata.ModelUsing.html
+  - type:
+      text: PluginHook
+      url: DataLinq.Metadata.PluginHook.html
+  - type:
+      text: PropertyDefinition
+      url: DataLinq.Metadata.PropertyDefinition.html
+  - type:
+      text: RelationDefinition
+      url: DataLinq.Metadata.RelationDefinition.html
+  - type:
+      text: RelationPart
+      url: DataLinq.Metadata.RelationPart.html
+  - type:
+      text: RelationProperty
+      url: DataLinq.Metadata.RelationProperty.html
+  - type:
+      text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+  - type:
+      text: TableDefinition
+      url: DataLinq.Metadata.TableDefinition.html
+  - type:
+      text: TableModel
+      url: DataLinq.Metadata.TableModel.html
+  - type:
+      text: ValueProperty
+      url: DataLinq.Metadata.ValueProperty.html
+  - type:
+      text: ViewDefinition
+      url: DataLinq.Metadata.ViewDefinition.html
+- h3: Structs
+- parameters:
+  - type:
+      text: CsFileDeclaration
+      url: DataLinq.Metadata.CsFileDeclaration.html
+  - type:
+      text: CsTypeDeclaration
+      url: DataLinq.Metadata.CsTypeDeclaration.html
+  - type:
+      text: EnumProperty
+      url: DataLinq.Metadata.EnumProperty.html
+- h3: Interfaces
+- parameters:
+  - type:
+      text: IDatabaseProviderCreator
+      url: DataLinq.Metadata.IDatabaseProviderCreator.html
+  - type:
+      text: IMetadataFromDatabaseFactoryCreator
+      url: DataLinq.Metadata.IMetadataFromDatabaseFactoryCreator.html
+  - type:
+      text: IMetadataFromSqlFactory
+      url: DataLinq.Metadata.IMetadataFromSqlFactory.html
+  - type:
+      text: ISqlFromMetadataFactory
+      url: DataLinq.Metadata.ISqlFromMetadataFactory.html
+- h3: Enums
+- parameters:
+  - type:
+      text: ModelCsType
+      url: DataLinq.Metadata.ModelCsType.html
+  - type:
+      text: PropertyType
+      url: DataLinq.Metadata.PropertyType.html
+  - type:
+      text: RelationPartType
+      url: DataLinq.Metadata.RelationPartType.html
+  - type:
+      text: RelationType
+      url: DataLinq.Metadata.RelationType.html
+  - type:
+      text: TableType
+      url: DataLinq.Metadata.TableType.html
+languageId: csharp

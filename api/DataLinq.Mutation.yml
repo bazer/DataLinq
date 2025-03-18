@@ -1,0 +1,57 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.Mutation
+body:
+- api1: Namespace DataLinq.Mutation
+  id: DataLinq_Mutation
+  metadata:
+    uid: DataLinq.Mutation
+    commentId: N:DataLinq.Mutation
+- h3: Classes
+- parameters:
+  - type:
+      text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+  - type:
+      text: History
+      url: DataLinq.Mutation.History.html
+  - type:
+      text: ReadOnlyAccess
+      url: DataLinq.Mutation.ReadOnlyAccess.html
+  - type:
+      text: ReadOnlyAccess<T>
+      url: DataLinq.Mutation.ReadOnlyAccess-1.html
+    description: Represents a database transaction.
+  - type:
+      text: State
+      url: DataLinq.Mutation.State.html
+    description: >-
+      Represents the state of the database, including history and cache. It provides methods to apply changes to the state,
+
+      manage the transactions in the cache, and handle cleanup of resources.
+  - type:
+      text: StateChange
+      url: DataLinq.Mutation.StateChange.html
+    description: Represents a change of state to be applied to a model within a transaction.
+  - type:
+      text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+    description: Represents a database transaction.
+  - type:
+      text: Transaction<T>
+      url: DataLinq.Mutation.Transaction-1.html
+    description: Represents a database transaction.
+  - type:
+      text: TransactionStatusChangeEventArgs
+      url: DataLinq.Mutation.TransactionStatusChangeEventArgs.html
+    description: Provides data for the <xref href="DataLinq.Mutation.Transaction.OnStatusChanged" data-throw-if-not-resolved="false"></xref> event.
+- h3: Enums
+- parameters:
+  - type:
+      text: TransactionChangeType
+      url: DataLinq.Mutation.TransactionChangeType.html
+    description: Enumerates the types of changes that can be made to a transaction.
+  - type:
+      text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+    description: Enumerates the types of transactions.
+languageId: csharp

@@ -1,0 +1,286 @@
+### YamlMime:ApiPage
+title: Class DataLinqDatabaseConfig
+body:
+- api1: Class DataLinqDatabaseConfig
+  id: DataLinq_Config_DataLinqDatabaseConfig
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L119
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig
+    commentId: T:DataLinq.Config.DataLinqDatabaseConfig
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Config
+      url: DataLinq.Config.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public record DataLinqDatabaseConfig : IEquatable<DataLinqDatabaseConfig>'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DataLinqDatabaseConfig
+    url: DataLinq.Config.DataLinqDatabaseConfig.html
+- h4: Implements
+- list:
+  - text: IEquatable<DataLinqDatabaseConfig>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: DataLinqDatabaseConfig(DataLinqConfig, ConfigFileDatabase)
+  id: DataLinq_Config_DataLinqDatabaseConfig__ctor_DataLinq_Config_DataLinqConfig_DataLinq_Config_ConfigFileDatabase_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L140
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.#ctor(DataLinq.Config.DataLinqConfig,DataLinq.Config.ConfigFileDatabase)
+    commentId: M:DataLinq.Config.DataLinqDatabaseConfig.#ctor(DataLinq.Config.DataLinqConfig,DataLinq.Config.ConfigFileDatabase)
+- code: public DataLinqDatabaseConfig(DataLinqConfig config, ConfigFileDatabase database)
+- h4: Parameters
+- parameters:
+  - name: config
+    type:
+    - text: DataLinqConfig
+      url: DataLinq.Config.DataLinqConfig.html
+  - name: database
+    type:
+    - text: ConfigFileDatabase
+      url: DataLinq.Config.ConfigFileDatabase.html
+- h2: Properties
+- api3: CapitalizeNames
+  id: DataLinq_Config_DataLinqDatabaseConfig_CapitalizeNames
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L134
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.CapitalizeNames
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.CapitalizeNames
+- code: public bool CapitalizeNames { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Config
+  id: DataLinq_Config_DataLinqDatabaseConfig_Config
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L121
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.Config
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.Config
+- code: public DataLinqConfig Config { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DataLinqConfig
+      url: DataLinq.Config.DataLinqConfig.html
+- api3: Connections
+  id: DataLinq_Config_DataLinqDatabaseConfig_Connections
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L137
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.Connections
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.Connections
+- code: public List<DataLinqDatabaseConnection> Connections { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: DataLinqDatabaseConnection
+      url: DataLinq.Config.DataLinqDatabaseConnection.html
+    - '>'
+- api3: CsType
+  id: DataLinq_Config_DataLinqDatabaseConfig_CsType
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L124
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.CsType
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.CsType
+- code: public string CsType { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: DestinationDirectory
+  id: DataLinq_Config_DataLinqDatabaseConfig_DestinationDirectory
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L127
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.DestinationDirectory
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.DestinationDirectory
+- code: public string? DestinationDirectory { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: FileEncoding
+  id: DataLinq_Config_DataLinqDatabaseConfig_FileEncoding
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L138
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.FileEncoding
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.FileEncoding
+- code: public Encoding FileEncoding { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Encoding
+      url: https://learn.microsoft.com/dotnet/api/system.text.encoding
+- api3: Name
+  id: DataLinq_Config_DataLinqDatabaseConfig_Name
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L123
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.Name
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.Name
+- code: public string Name { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Namespace
+  id: DataLinq_Config_DataLinqDatabaseConfig_Namespace
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L125
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.Namespace
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.Namespace
+- code: public string Namespace { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: RemoveInterfacePrefix
+  id: DataLinq_Config_DataLinqDatabaseConfig_RemoveInterfacePrefix
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L135
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.RemoveInterfacePrefix
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.RemoveInterfacePrefix
+- code: public bool RemoveInterfacePrefix { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: SeparateTablesAndViews
+  id: DataLinq_Config_DataLinqDatabaseConfig_SeparateTablesAndViews
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L136
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.SeparateTablesAndViews
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.SeparateTablesAndViews
+- code: public bool SeparateTablesAndViews { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: SourceDirectories
+  id: DataLinq_Config_DataLinqDatabaseConfig_SourceDirectories
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L126
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.SourceDirectories
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.SourceDirectories
+- code: public List<string> SourceDirectories { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- api3: Tables
+  id: DataLinq_Config_DataLinqDatabaseConfig_Tables
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L128
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.Tables
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.Tables
+- code: public List<string> Tables { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- api3: UseFileScopedNamespaces
+  id: DataLinq_Config_DataLinqDatabaseConfig_UseFileScopedNamespaces
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L132
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.UseFileScopedNamespaces
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.UseFileScopedNamespaces
+- code: public bool UseFileScopedNamespaces { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: UseNullableReferenceTypes
+  id: DataLinq_Config_DataLinqDatabaseConfig_UseNullableReferenceTypes
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L133
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.UseNullableReferenceTypes
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.UseNullableReferenceTypes
+- code: public bool UseNullableReferenceTypes { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: UseRecord
+  id: DataLinq_Config_DataLinqDatabaseConfig_UseRecord
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L131
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.UseRecord
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.UseRecord
+- code: public bool UseRecord { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Views
+  id: DataLinq_Config_DataLinqDatabaseConfig_Views
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L129
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.Views
+    commentId: P:DataLinq.Config.DataLinqDatabaseConfig.Views
+- code: public List<string> Views { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- h2: Methods
+- api3: MergeConfig(ConfigFileDatabase)
+  id: DataLinq_Config_DataLinqDatabaseConfig_MergeConfig_DataLinq_Config_ConfigFileDatabase_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConfig.cs#L160
+  metadata:
+    uid: DataLinq.Config.DataLinqDatabaseConfig.MergeConfig(DataLinq.Config.ConfigFileDatabase)
+    commentId: M:DataLinq.Config.DataLinqDatabaseConfig.MergeConfig(DataLinq.Config.ConfigFileDatabase)
+- code: public void MergeConfig(ConfigFileDatabase database)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: ConfigFileDatabase
+      url: DataLinq.Config.ConfigFileDatabase.html
+languageId: csharp

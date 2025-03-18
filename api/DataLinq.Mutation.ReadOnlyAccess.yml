@@ -1,0 +1,142 @@
+### YamlMime:ApiPage
+title: Class ReadOnlyAccess
+body:
+- api1: Class ReadOnlyAccess
+  id: DataLinq_Mutation_ReadOnlyAccess
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/ReadOnlyAccess.cs#L11
+  metadata:
+    uid: DataLinq.Mutation.ReadOnlyAccess
+    commentId: T:DataLinq.Mutation.ReadOnlyAccess
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Mutation
+      url: DataLinq.Mutation.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class ReadOnlyAccess : DataSourceAccess, IDataSourceAccess'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DataSourceAccess
+    url: DataLinq.Mutation.DataSourceAccess.html
+  - text: ReadOnlyAccess
+    url: DataLinq.Mutation.ReadOnlyAccess.html
+- h4: Derived
+- list:
+  - text: ReadOnlyAccess<T>
+    url: DataLinq.Mutation.ReadOnlyAccess-1.html
+- h4: Implements
+- list:
+  - IDataSourceAccess
+- h4: Inherited Members
+- list:
+  - text: DataSourceAccess.Provider
+    url: DataLinq.Mutation.DataSourceAccess.html#DataLinq_Mutation_DataSourceAccess_Provider
+  - text: DataSourceAccess.DatabaseAccess
+    url: DataLinq.Mutation.DataSourceAccess.html#DataLinq_Mutation_DataSourceAccess_DatabaseAccess
+  - text: DataSourceAccess.GetFromQuery<T>(string)
+    url: DataLinq.Mutation.DataSourceAccess.html#DataLinq_Mutation_DataSourceAccess_GetFromQuery__1_System_String_
+  - text: DataSourceAccess.GetFromCommand<T>(IDbCommand)
+    url: DataLinq.Mutation.DataSourceAccess.html#DataLinq_Mutation_DataSourceAccess_GetFromCommand__1_System_Data_IDbCommand_
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: ReadOnlyAccess(IDatabaseProvider)
+  id: DataLinq_Mutation_ReadOnlyAccess__ctor_DataLinq_Interfaces_IDatabaseProvider_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/ReadOnlyAccess.cs#L15
+  metadata:
+    uid: DataLinq.Mutation.ReadOnlyAccess.#ctor(DataLinq.Interfaces.IDatabaseProvider)
+    commentId: M:DataLinq.Mutation.ReadOnlyAccess.#ctor(DataLinq.Interfaces.IDatabaseProvider)
+- code: public ReadOnlyAccess(IDatabaseProvider provider)
+- h4: Parameters
+- parameters:
+  - name: provider
+    type:
+    - text: IDatabaseProvider
+      url: DataLinq.Interfaces.IDatabaseProvider.html
+- h2: Properties
+- api3: DatabaseAccess
+  id: DataLinq_Mutation_ReadOnlyAccess_DatabaseAccess
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/ReadOnlyAccess.cs#L13
+  metadata:
+    uid: DataLinq.Mutation.ReadOnlyAccess.DatabaseAccess
+    commentId: P:DataLinq.Mutation.ReadOnlyAccess.DatabaseAccess
+- markdown: Gets or sets the database transaction.
+- code: public override DatabaseAccess DatabaseAccess { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseAccess
+      url: DataLinq.DatabaseAccess.html
+- h2: Methods
+- api3: GetFromCommand<T>(IDbCommand)
+  id: DataLinq_Mutation_ReadOnlyAccess_GetFromCommand__1_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/ReadOnlyAccess.cs#L50
+  metadata:
+    uid: DataLinq.Mutation.ReadOnlyAccess.GetFromCommand``1(System.Data.IDbCommand)
+    commentId: M:DataLinq.Mutation.ReadOnlyAccess.GetFromCommand``1(System.Data.IDbCommand)
+- markdown: Gets models from a command.
+- code: 'public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand) where T : IModel'
+- h4: Parameters
+- parameters:
+  - name: dbCommand
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+    description: The command to execute.
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - T
+    - '>'
+    description: The models returned by the command.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: GetFromQuery<T>(string)
+  id: DataLinq_Mutation_ReadOnlyAccess_GetFromQuery__1_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/ReadOnlyAccess.cs#L33
+  metadata:
+    uid: DataLinq.Mutation.ReadOnlyAccess.GetFromQuery``1(System.String)
+    commentId: M:DataLinq.Mutation.ReadOnlyAccess.GetFromQuery``1(System.String)
+- markdown: Gets models from a query.
+- code: 'public override IEnumerable<T> GetFromQuery<T>(string query) where T : IModel'
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: The query to execute.
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - T
+    - '>'
+    description: The models returned by the query.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+languageId: csharp

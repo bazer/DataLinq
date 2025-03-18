@@ -1,0 +1,451 @@
+### YamlMime:ApiPage
+title: Class Mutable<T>
+body:
+- api1: Class Mutable<T>
+  id: DataLinq_Instances_Mutable_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L8
+  metadata:
+    uid: DataLinq.Instances.Mutable`1
+    commentId: T:DataLinq.Instances.Mutable`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class Mutable<T> : IMutableInstance, IModelInstance, IModel where T : IImmutableInstance'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Mutable<T>
+    url: DataLinq.Instances.Mutable-1.html
+- h4: Implements
+- list:
+  - text: IMutableInstance
+    url: DataLinq.Instances.IMutableInstance.html
+  - text: IModelInstance
+    url: DataLinq.Instances.IModelInstance.html
+  - IModel
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h4: Extension Methods
+- list:
+  - text: IModelExtensions.Delete<Mutable<T>>(Mutable<T>, Transaction)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_DataLinq_Mutation_Transaction_
+  - text: IModelExtensions.Insert<T>(Mutable<T>, Transaction)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Insert__1_DataLinq_Instances_Mutable___0__DataLinq_Mutation_Transaction_
+  - text: IModelExtensions.Save<T>(Mutable<T>, Transaction)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Save__1_DataLinq_Instances_Mutable___0__DataLinq_Mutation_Transaction_
+  - text: IModelExtensions.Update<T>(Mutable<T>, Transaction)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Update__1_DataLinq_Instances_Mutable___0__DataLinq_Mutation_Transaction_
+- h2: Constructors
+- api3: Mutable()
+  id: DataLinq_Instances_Mutable_1__ctor
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L40
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.#ctor
+    commentId: M:DataLinq.Instances.Mutable`1.#ctor
+- code: public Mutable()
+- api3: Mutable(T)
+  id: DataLinq_Instances_Mutable_1__ctor__0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L47
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.#ctor(`0)
+    commentId: M:DataLinq.Instances.Mutable`1.#ctor(`0)
+- code: public Mutable(T model)
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - T
+- api3: Mutable(RowData)
+  id: DataLinq_Instances_Mutable_1__ctor_DataLinq_Instances_RowData_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L55
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.#ctor(DataLinq.Instances.RowData)
+    commentId: M:DataLinq.Instances.Mutable`1.#ctor(DataLinq.Instances.RowData)
+- code: public Mutable(RowData rowData)
+- h4: Parameters
+- parameters:
+  - name: rowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+- h2: Fields
+- api3: lazyValues
+  id: DataLinq_Instances_Mutable_1_lazyValues
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L14
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.lazyValues
+    commentId: F:DataLinq.Instances.Mutable`1.lazyValues
+- code: protected ConcurrentDictionary<string, object?>? lazyValues
+- h4: Field Value
+- parameters:
+  - type:
+    - text: ConcurrentDictionary
+      url: https://learn.microsoft.com/dotnet/api/system.collections.concurrent.concurrentdictionary-2
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+    - '?'
+- h2: Properties
+- api3: this[ColumnDefinition]
+  id: DataLinq_Instances_Mutable_1_Item_DataLinq_Metadata_ColumnDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L28
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.Item(DataLinq.Metadata.ColumnDefinition)
+    commentId: P:DataLinq.Instances.Mutable`1.Item(DataLinq.Metadata.ColumnDefinition)
+- code: public object? this[ColumnDefinition column] { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- api3: this[string]
+  id: DataLinq_Instances_Mutable_1_Item_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L34
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.Item(System.String)
+    commentId: P:DataLinq.Instances.Mutable`1.Item(System.String)
+- code: public object? this[string propertyName] { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- h2: Methods
+- api3: ClearLazy()
+  id: DataLinq_Instances_Mutable_1_ClearLazy
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L89
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.ClearLazy
+    commentId: M:DataLinq.Instances.Mutable`1.ClearLazy
+- code: public void ClearLazy()
+- api3: GetChanges()
+  id: DataLinq_Instances_Mutable_1_GetChanges
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L83
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.GetChanges
+    commentId: M:DataLinq.Instances.Mutable`1.GetChanges
+- code: public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: KeyValuePair
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.keyvaluepair-2
+    - <
+    - ColumnDefinition
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+    - '>'
+- api3: GetImmutableInstance()
+  id: DataLinq_Instances_Mutable_1_GetImmutableInstance
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L16
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.GetImmutableInstance
+    commentId: M:DataLinq.Instances.Mutable`1.GetImmutableInstance
+- code: public T? GetImmutableInstance()
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    - '?'
+- api3: GetLazy<V>(string, Func<V>)
+  id: DataLinq_Instances_Mutable_1_GetLazy__1_System_String_System_Func___0__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L97
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.GetLazy``1(System.String,System.Func{``0})
+    commentId: M:DataLinq.Instances.Mutable`1.GetLazy``1(System.String,System.Func{``0})
+- code: public V? GetLazy<V>(string name, Func<V> fetchCode)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: fetchCode
+    type:
+    - text: Func
+      url: https://learn.microsoft.com/dotnet/api/system.func-1
+    - <
+    - V
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - V
+    - '?'
+- h4: Type Parameters
+- parameters:
+  - name: V
+- api3: GetRowData()
+  id: DataLinq_Instances_Mutable_1_GetRowData
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L25
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.GetRowData
+    commentId: M:DataLinq.Instances.Mutable`1.GetRowData
+- code: public MutableRowData GetRowData()
+- h4: Returns
+- parameters:
+  - type:
+    - text: MutableRowData
+      url: DataLinq.Instances.MutableRowData.html
+- api3: GetValue(string)
+  id: DataLinq_Instances_Mutable_1_GetValue_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L77
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.GetValue(System.String)
+    commentId: M:DataLinq.Instances.Mutable`1.GetValue(System.String)
+- code: public object? GetValue(string propertyName)
+- h4: Parameters
+- parameters:
+  - name: propertyName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- api3: GetValues()
+  id: DataLinq_Instances_Mutable_1_GetValues
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L85
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.GetValues
+    commentId: M:DataLinq.Instances.Mutable`1.GetValues
+- code: public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: KeyValuePair
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.keyvaluepair-2
+    - <
+    - ColumnDefinition
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+    - '>'
+- api3: GetValues(IEnumerable<ColumnDefinition>)
+  id: DataLinq_Instances_Mutable_1_GetValues_System_Collections_Generic_IEnumerable_DataLinq_Metadata_ColumnDefinition__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L87
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.GetValues(System.Collections.Generic.IEnumerable{DataLinq.Metadata.ColumnDefinition})
+    commentId: M:DataLinq.Instances.Mutable`1.GetValues(System.Collections.Generic.IEnumerable{DataLinq.Metadata.ColumnDefinition})
+- code: public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues(IEnumerable<ColumnDefinition> columns)
+- h4: Parameters
+- parameters:
+  - name: columns
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - ColumnDefinition
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: KeyValuePair
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.keyvaluepair-2
+    - <
+    - ColumnDefinition
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+    - '>'
+- api3: HasChanges()
+  id: DataLinq_Instances_Mutable_1_HasChanges
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L22
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.HasChanges
+    commentId: M:DataLinq.Instances.Mutable`1.HasChanges
+- code: public bool HasChanges()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: HasPrimaryKeysSet()
+  id: DataLinq_Instances_Mutable_1_HasPrimaryKeysSet
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L81
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.HasPrimaryKeysSet
+    commentId: M:DataLinq.Instances.Mutable`1.HasPrimaryKeysSet
+- code: public bool HasPrimaryKeysSet()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: IsDeleted()
+  id: DataLinq_Instances_Mutable_1_IsDeleted
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L21
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.IsDeleted
+    commentId: M:DataLinq.Instances.Mutable`1.IsDeleted
+- code: public bool IsDeleted()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: IsNew()
+  id: DataLinq_Instances_Mutable_1_IsNew
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L19
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.IsNew
+    commentId: M:DataLinq.Instances.Mutable`1.IsNew
+- code: public bool IsNew()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Metadata()
+  id: DataLinq_Instances_Mutable_1_Metadata
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L12
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.Metadata
+    commentId: M:DataLinq.Instances.Mutable`1.Metadata
+- code: public ModelDefinition Metadata()
+- h4: Returns
+- parameters:
+  - type:
+    - ModelDefinition
+- api3: PrimaryKeys()
+  id: DataLinq_Instances_Mutable_1_PrimaryKeys
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L80
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.PrimaryKeys
+    commentId: M:DataLinq.Instances.Mutable`1.PrimaryKeys
+- code: public IKey PrimaryKeys()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+- api3: Reset()
+  id: DataLinq_Instances_Mutable_1_Reset
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L62
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.Reset
+    commentId: M:DataLinq.Instances.Mutable`1.Reset
+- code: public void Reset()
+- api3: Reset(T)
+  id: DataLinq_Instances_Mutable_1_Reset__0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L63
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.Reset(`0)
+    commentId: M:DataLinq.Instances.Mutable`1.Reset(`0)
+- code: public void Reset(T model)
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - T
+- api3: Reset(RowData)
+  id: DataLinq_Instances_Mutable_1_Reset_DataLinq_Instances_RowData_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L69
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.Reset(DataLinq.Instances.RowData)
+    commentId: M:DataLinq.Instances.Mutable`1.Reset(DataLinq.Instances.RowData)
+- code: public void Reset(RowData rowData)
+- h4: Parameters
+- parameters:
+  - name: rowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+- api3: SetDeleted()
+  id: DataLinq_Instances_Mutable_1_SetDeleted
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L75
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.SetDeleted
+    commentId: M:DataLinq.Instances.Mutable`1.SetDeleted
+- code: public void SetDeleted()
+- api3: SetLazy<V>(string, V)
+  id: DataLinq_Instances_Mutable_1_SetLazy__1_System_String___0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L91
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.SetLazy``1(System.String,``0)
+    commentId: M:DataLinq.Instances.Mutable`1.SetLazy``1(System.String,``0)
+- code: public void SetLazy<V>(string name, V value)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: value
+    type:
+    - V
+- h4: Type Parameters
+- parameters:
+  - name: V
+- api3: SetValue<V>(string, V)
+  id: DataLinq_Instances_Mutable_1_SetValue__1_System_String___0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/Mutable.cs#L78
+  metadata:
+    uid: DataLinq.Instances.Mutable`1.SetValue``1(System.String,``0)
+    commentId: M:DataLinq.Instances.Mutable`1.SetValue``1(System.String,``0)
+- code: public void SetValue<V>(string propertyName, V value)
+- h4: Parameters
+- parameters:
+  - name: propertyName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: value
+    type:
+    - V
+- h4: Type Parameters
+- parameters:
+  - name: V
+languageId: csharp

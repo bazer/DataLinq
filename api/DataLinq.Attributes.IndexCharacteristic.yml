@@ -1,0 +1,58 @@
+### YamlMime:ApiPage
+title: Enum IndexCharacteristic
+body:
+- api1: Enum IndexCharacteristic
+  id: DataLinq_Attributes_IndexCharacteristic
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Attributes/IndexAttribute.cs#L64
+  metadata:
+    uid: DataLinq.Attributes.IndexCharacteristic
+    commentId: T:DataLinq.Attributes.IndexCharacteristic
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Attributes
+      url: DataLinq.Attributes.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- markdown: Represents the logical or constraint-related characteristic of the index.
+- code: public enum IndexCharacteristic
+- h2: Fields
+- parameters:
+  - name: EXCLUSION
+    default: "5"
+    description: >+
+      Represents PostgreSQL's exclusion constraint, ensuring specific non-overlapping properties.
+
+  - name: FILTERED
+    default: "4"
+    description: >+
+      Represents MSSQL's filtered index, which can be seen as a partial index.
+
+  - name: ForeignKey
+    default: "1"
+    description: >+
+      Represents a foreign key constraint ensuring uniqueness and referencing another table.
+
+  - name: PrimaryKey
+    default: "0"
+    description: >+
+      Represents primary key constraint ensuring uniqueness and serving as a main identifier.
+
+  - name: Simple
+    default: "3"
+    description: >+
+      Represents a standard non-unique index.
+
+  - name: Unique
+    default: "2"
+    description: >+
+      Represents unique constraint ensuring all values in the index are distinct.
+
+  - name: VirtualDataLinq
+    default: "6"
+    description: >+
+      Represents an index that only exists internally in Datalinq.
+
+languageId: csharp
+metadata:
+  description: Represents the logical or constraint-related characteristic of the index.

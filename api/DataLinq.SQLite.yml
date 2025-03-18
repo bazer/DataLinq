@@ -1,0 +1,56 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.SQLite
+body:
+- api1: Namespace DataLinq.SQLite
+  id: DataLinq_SQLite
+  metadata:
+    uid: DataLinq.SQLite
+    commentId: N:DataLinq.SQLite
+- h3: Classes
+- parameters:
+  - type:
+      text: MetadataFromSQLiteFactory
+      url: DataLinq.SQLite.MetadataFromSQLiteFactory.html
+  - type:
+      text: MetadataFromSQLiteFactoryCreator
+      url: DataLinq.SQLite.MetadataFromSQLiteFactoryCreator.html
+  - type:
+      text: SQLiteDataLinqDataReader
+      url: DataLinq.SQLite.SQLiteDataLinqDataReader.html
+  - type:
+      text: SQLiteDataLinqDataWriter
+      url: DataLinq.SQLite.SQLiteDataLinqDataWriter.html
+    description: Represents a data writer for SQLite database.
+  - type:
+      text: SQLiteDatabase<T>
+      url: DataLinq.SQLite.SQLiteDatabase-1.html
+  - type:
+      text: SQLiteDatabaseCreator
+      url: DataLinq.SQLite.SQLiteDatabaseCreator.html
+  - type:
+      text: SQLiteDatabaseTransaction
+      url: DataLinq.SQLite.SQLiteDatabaseTransaction.html
+  - type:
+      text: SQLiteDbAccess
+      url: DataLinq.SQLite.SQLiteDbAccess.html
+  - type:
+      text: SQLiteGeneration
+      url: DataLinq.SQLite.SQLiteGeneration.html
+  - type:
+      text: SQLiteProvider<T>
+      url: DataLinq.SQLite.SQLiteProvider-1.html
+  - type:
+      text: SQLiteProvider
+      url: DataLinq.SQLite.SQLiteProvider.html
+  - type:
+      text: SQLiteProviderConstants
+      url: DataLinq.SQLite.SQLiteProviderConstants.html
+  - type:
+      text: SqlFromMetadataFactory
+      url: DataLinq.SQLite.SqlFromMetadataFactory.html
+- h3: Enums
+- parameters:
+  - type:
+      text: SQLiteJournalMode
+      url: DataLinq.SQLite.SQLiteJournalMode.html
+languageId: csharp

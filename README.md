@@ -122,4 +122,4 @@ We welcome contributions from the community! Whether you’re fixing bugs, impro
 For in-depth technical details, advanced usage, and troubleshooting, please refer to the [official documentation](docs/Index.md).
 
 ### License
-DataLinq is open source and distributed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+DataLinq is open source and distributed under the MIT License. See the [LICENSE](LICENSE.md) file for more details.

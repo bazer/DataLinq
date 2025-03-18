@@ -1,0 +1,36 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.Workers
+body:
+- api1: Namespace DataLinq.Workers
+  id: DataLinq_Workers
+  metadata:
+    uid: DataLinq.Workers
+    commentId: N:DataLinq.Workers
+- h3: Classes
+- parameters:
+  - type:
+      text: CleanCacheWorker
+      url: DataLinq.Workers.CleanCacheWorker.html
+  - type:
+      text: LongRunningTaskCreator
+      url: DataLinq.Workers.LongRunningTaskCreator.html
+  - type:
+      text: ThreadWorker<T>
+      url: DataLinq.Workers.ThreadWorker-1.html
+  - type:
+      text: WorkQueue<T>
+      url: DataLinq.Workers.WorkQueue-1.html
+- h3: Interfaces
+- parameters:
+  - type:
+      text: IThreadCreator
+      url: DataLinq.Workers.IThreadCreator.html
+  - type:
+      text: IWorkQueue<T>
+      url: DataLinq.Workers.IWorkQueue-1.html
+- h3: Enums
+- parameters:
+  - type:
+      text: WorkerStatus
+      url: DataLinq.Workers.WorkerStatus.html
+languageId: csharp

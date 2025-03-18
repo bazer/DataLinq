@@ -1,0 +1,24 @@
+### YamlMime:ApiPage
+title: Enum BooleanType
+body:
+- api1: Enum BooleanType
+  id: DataLinq_Query_BooleanType
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/WhereGroup.cs#L9
+  metadata:
+    uid: DataLinq.Query.BooleanType
+    commentId: T:DataLinq.Query.BooleanType
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Query
+      url: DataLinq.Query.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public enum BooleanType
+- h2: Fields
+- parameters:
+  - name: And
+    default: "0"
+  - name: Or
+    default: "1"
+languageId: csharp

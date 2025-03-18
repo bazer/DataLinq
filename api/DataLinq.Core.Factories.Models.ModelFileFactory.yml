@@ -1,0 +1,89 @@
+### YamlMime:ApiPage
+title: Class ModelFileFactory
+body:
+- api1: Class ModelFileFactory
+  id: DataLinq_Core_Factories_Models_ModelFileFactory
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/Models/ModelFileFactory.cs#L29
+  metadata:
+    uid: DataLinq.Core.Factories.Models.ModelFileFactory
+    commentId: T:DataLinq.Core.Factories.Models.ModelFileFactory
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Core.Factories.Models
+      url: DataLinq.Core.Factories.Models.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public class ModelFileFactory
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: ModelFileFactory
+    url: DataLinq.Core.Factories.Models.ModelFileFactory.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: ModelFileFactory(ModelFileFactoryOptions)
+  id: DataLinq_Core_Factories_Models_ModelFileFactory__ctor_DataLinq_Core_Factories_Models_ModelFileFactoryOptions_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/Models/ModelFileFactory.cs#L36
+  metadata:
+    uid: DataLinq.Core.Factories.Models.ModelFileFactory.#ctor(DataLinq.Core.Factories.Models.ModelFileFactoryOptions)
+    commentId: M:DataLinq.Core.Factories.Models.ModelFileFactory.#ctor(DataLinq.Core.Factories.Models.ModelFileFactoryOptions)
+- code: public ModelFileFactory(ModelFileFactoryOptions options)
+- h4: Parameters
+- parameters:
+  - name: options
+    type:
+    - text: ModelFileFactoryOptions
+      url: DataLinq.Core.Factories.Models.ModelFileFactoryOptions.html
+- h2: Methods
+- api3: CreateModelFiles(DatabaseDefinition)
+  id: DataLinq_Core_Factories_Models_ModelFileFactory_CreateModelFiles_DataLinq_Metadata_DatabaseDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/Models/ModelFileFactory.cs#L44
+  metadata:
+    uid: DataLinq.Core.Factories.Models.ModelFileFactory.CreateModelFiles(DataLinq.Metadata.DatabaseDefinition)
+    commentId: M:DataLinq.Core.Factories.Models.ModelFileFactory.CreateModelFiles(DataLinq.Metadata.DatabaseDefinition)
+- code: public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: path
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.string-.path
+    - ','
+    - " "
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: contents
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.string-.contents
+    - )
+    - '>'
+languageId: csharp

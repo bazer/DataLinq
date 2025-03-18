@@ -1,0 +1,26 @@
+### YamlMime:ApiPage
+title: Enum SqlGeneratorError
+body:
+- api1: Enum SqlGeneratorError
+  id: DataLinq_Tools_SqlGeneratorError
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/SqlGenerator.cs#L18
+  metadata:
+    uid: DataLinq.Tools.SqlGeneratorError
+    commentId: T:DataLinq.Tools.SqlGeneratorError
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Tools
+      url: DataLinq.Tools.html
+  - name: Assembly
+    value: DataLinq.Tools.dll
+- code: public enum SqlGeneratorError
+- h2: Fields
+- parameters:
+  - name: CouldNotGenerateSql
+    default: "2"
+  - name: DestDirectoryNotFound
+    default: "0"
+  - name: UnableToParseModelFiles
+    default: "1"
+languageId: csharp

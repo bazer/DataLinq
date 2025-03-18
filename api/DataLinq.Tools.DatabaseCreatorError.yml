@@ -1,0 +1,26 @@
+### YamlMime:ApiPage
+title: Enum DatabaseCreatorError
+body:
+- api1: Enum DatabaseCreatorError
+  id: DataLinq_Tools_DatabaseCreatorError
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/DatabaseCreator.cs#L17
+  metadata:
+    uid: DataLinq.Tools.DatabaseCreatorError
+    commentId: T:DataLinq.Tools.DatabaseCreatorError
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Tools
+      url: DataLinq.Tools.html
+  - name: Assembly
+    value: DataLinq.Tools.dll
+- code: public enum DatabaseCreatorError
+- h2: Fields
+- parameters:
+  - name: CouldNotCreateDatabase
+    default: "2"
+  - name: DestDirectoryNotFound
+    default: "0"
+  - name: UnableToParseModelFiles
+    default: "1"
+languageId: csharp

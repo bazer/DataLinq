@@ -1,0 +1,179 @@
+### YamlMime:ApiPage
+title: Class TableModel
+body:
+- api1: Class TableModel
+  id: DataLinq_Metadata_TableModel
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L5
+  metadata:
+    uid: DataLinq.Metadata.TableModel
+    commentId: T:DataLinq.Metadata.TableModel
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public class TableModel
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: TableModel
+    url: DataLinq.Metadata.TableModel.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: TableModel(string, DatabaseDefinition, TableDefinition, string)
+  id: DataLinq_Metadata_TableModel__ctor_System_String_DataLinq_Metadata_DatabaseDefinition_DataLinq_Metadata_TableDefinition_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L13
+  metadata:
+    uid: DataLinq.Metadata.TableModel.#ctor(System.String,DataLinq.Metadata.DatabaseDefinition,DataLinq.Metadata.TableDefinition,System.String)
+    commentId: M:DataLinq.Metadata.TableModel.#ctor(System.String,DataLinq.Metadata.DatabaseDefinition,DataLinq.Metadata.TableDefinition,System.String)
+- code: public TableModel(string csPropertyName, DatabaseDefinition database, TableDefinition table, string csName)
+- h4: Parameters
+- parameters:
+  - name: csPropertyName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: database
+    type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+  - name: table
+    type:
+    - text: TableDefinition
+      url: DataLinq.Metadata.TableDefinition.html
+  - name: csName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TableModel(string, DatabaseDefinition, ModelDefinition, bool)
+  id: DataLinq_Metadata_TableModel__ctor_System_String_DataLinq_Metadata_DatabaseDefinition_DataLinq_Metadata_ModelDefinition_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L25
+  metadata:
+    uid: DataLinq.Metadata.TableModel.#ctor(System.String,DataLinq.Metadata.DatabaseDefinition,DataLinq.Metadata.ModelDefinition,System.Boolean)
+    commentId: M:DataLinq.Metadata.TableModel.#ctor(System.String,DataLinq.Metadata.DatabaseDefinition,DataLinq.Metadata.ModelDefinition,System.Boolean)
+- code: public TableModel(string csPropertyName, DatabaseDefinition database, ModelDefinition model, bool isStub = false)
+- h4: Parameters
+- parameters:
+  - name: csPropertyName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: database
+    type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+  - name: model
+    type:
+    - text: ModelDefinition
+      url: DataLinq.Metadata.ModelDefinition.html
+  - name: isStub
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- h2: Properties
+- api3: CsPropertyName
+  id: DataLinq_Metadata_TableModel_CsPropertyName
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L7
+  metadata:
+    uid: DataLinq.Metadata.TableModel.CsPropertyName
+    commentId: P:DataLinq.Metadata.TableModel.CsPropertyName
+- code: public string CsPropertyName { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Database
+  id: DataLinq_Metadata_TableModel_Database
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L8
+  metadata:
+    uid: DataLinq.Metadata.TableModel.Database
+    commentId: P:DataLinq.Metadata.TableModel.Database
+- code: public DatabaseDefinition Database { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+- api3: IsStub
+  id: DataLinq_Metadata_TableModel_IsStub
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L11
+  metadata:
+    uid: DataLinq.Metadata.TableModel.IsStub
+    commentId: P:DataLinq.Metadata.TableModel.IsStub
+- code: public bool IsStub { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Model
+  id: DataLinq_Metadata_TableModel_Model
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L10
+  metadata:
+    uid: DataLinq.Metadata.TableModel.Model
+    commentId: P:DataLinq.Metadata.TableModel.Model
+- code: public ModelDefinition Model { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: ModelDefinition
+      url: DataLinq.Metadata.ModelDefinition.html
+- api3: Table
+  id: DataLinq_Metadata_TableModel_Table
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L9
+  metadata:
+    uid: DataLinq.Metadata.TableModel.Table
+    commentId: P:DataLinq.Metadata.TableModel.Table
+- code: public TableDefinition Table { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: TableDefinition
+      url: DataLinq.Metadata.TableDefinition.html
+- h2: Methods
+- api3: SetCsPropertyName(string)
+  id: DataLinq_Metadata_TableModel_SetCsPropertyName_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L37
+  metadata:
+    uid: DataLinq.Metadata.TableModel.SetCsPropertyName(System.String)
+    commentId: M:DataLinq.Metadata.TableModel.SetCsPropertyName(System.String)
+- code: public void SetCsPropertyName(string csPropertyName)
+- h4: Parameters
+- parameters:
+  - name: csPropertyName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: ToString()
+  id: DataLinq_Metadata_TableModel_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/TableModel.cs#L39
+  metadata:
+    uid: DataLinq.Metadata.TableModel.ToString
+    commentId: M:DataLinq.Metadata.TableModel.ToString
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

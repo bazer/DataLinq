@@ -1,0 +1,28 @@
+### YamlMime:ApiPage
+title: Enum MetadataFromFileFactoryError
+body:
+- api1: Enum MetadataFromFileFactoryError
+  id: DataLinq_Core_Factories_Models_MetadataFromFileFactoryError
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/Models/MetadataFromFileFactory.cs#L18
+  metadata:
+    uid: DataLinq.Core.Factories.Models.MetadataFromFileFactoryError
+    commentId: T:DataLinq.Core.Factories.Models.MetadataFromFileFactoryError
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Core.Factories.Models
+      url: DataLinq.Core.Factories.Models.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public enum MetadataFromFileFactoryError
+- h2: Fields
+- parameters:
+  - name: CompilationError
+    default: "0"
+  - name: CouldNotLoadAssembly
+    default: "3"
+  - name: FileNotFound
+    default: "2"
+  - name: TypeNotFound
+    default: "1"
+languageId: csharp

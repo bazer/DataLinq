@@ -1,0 +1,58 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.MySql
+body:
+- api1: Namespace DataLinq.MySql
+  id: DataLinq_MySql
+  metadata:
+    uid: DataLinq.MySql
+    commentId: N:DataLinq.MySql
+- h3: Namespaces
+- parameters:
+  - type:
+      text: DataLinq.MySql.Models
+      url: DataLinq.MySql.Models.html
+- h3: Classes
+- parameters:
+  - type:
+      text: MetadataFromMySqlFactory
+      url: DataLinq.MySql.MetadataFromMySqlFactory.html
+  - type:
+      text: MetadataFromMySqlFactoryCreator
+      url: DataLinq.MySql.MetadataFromMySqlFactoryCreator.html
+  - type:
+      text: MySQLProvider<T>
+      url: DataLinq.MySql.MySQLProvider-1.html
+  - type:
+      text: MySQLProvider
+      url: DataLinq.MySql.MySQLProvider.html
+  - type:
+      text: MySQLProviderConstants
+      url: DataLinq.MySql.MySQLProviderConstants.html
+  - type:
+      text: MySqlDataLinqDataWriter
+      url: DataLinq.MySql.MySqlDataLinqDataWriter.html
+    description: Represents a data writer for MySql database.
+  - type:
+      text: MySqlDatabase<T>
+      url: DataLinq.MySql.MySqlDatabase-1.html
+    description: Represents a MySQL database provider specific to a given database model type.
+  - type:
+      text: MySqlDatabaseCreator
+      url: DataLinq.MySql.MySqlDatabaseCreator.html
+    description: Factory for creating instances of MySQL database providers.
+  - type:
+      text: MySqlDatabaseTransaction
+      url: DataLinq.MySql.MySqlDatabaseTransaction.html
+    description: Represents a transaction for a MySQL database, encapsulating the logic to execute commands with transactional support.
+  - type:
+      text: MySqlDbAccess
+      url: DataLinq.MySql.MySqlDbAccess.html
+  - type:
+      text: SqlFromMetadataFactory
+      url: DataLinq.MySql.SqlFromMetadataFactory.html
+- h3: Structs
+- parameters:
+  - type:
+      text: MySqlDataLinqDataReader
+      url: DataLinq.MySql.MySqlDataLinqDataReader.html
+languageId: csharp

@@ -1,0 +1,44 @@
+### YamlMime:ApiPage
+title: Interface IImmutable<T>
+body:
+- api1: Interface IImmutable<T>
+  id: DataLinq_Instances_IImmutable_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L44
+  metadata:
+    uid: DataLinq.Instances.IImmutable`1
+    commentId: T:DataLinq.Instances.IImmutable`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public interface IImmutable<T> where T : IModel'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h2: Methods
+- api3: Get(IKey, DataSourceAccess)
+  id: DataLinq_Instances_IImmutable_1_Get_DataLinq_Instances_IKey_DataLinq_Mutation_DataSourceAccess_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L47
+  metadata:
+    uid: DataLinq.Instances.IImmutable`1.Get(DataLinq.Instances.IKey,DataLinq.Mutation.DataSourceAccess)
+    commentId: M:DataLinq.Instances.IImmutable`1.Get(DataLinq.Instances.IKey,DataLinq.Mutation.DataSourceAccess)
+- code: public static T? Get(IKey key, DataSourceAccess dataSource)
+- h4: Parameters
+- parameters:
+  - name: key
+    type:
+    - text: IKey
+      url: DataLinq.Instances.IKey.html
+  - name: dataSource
+    type:
+    - text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    - '?'
+languageId: csharp

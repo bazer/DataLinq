@@ -1,0 +1,270 @@
+### YamlMime:ApiPage
+title: Class MutableRowData
+body:
+- api1: Class MutableRowData
+  id: DataLinq_Instances_MutableRowData
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L8
+  metadata:
+    uid: DataLinq.Instances.MutableRowData
+    commentId: T:DataLinq.Instances.MutableRowData
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class MutableRowData : IRowData'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: MutableRowData
+    url: DataLinq.Instances.MutableRowData.html
+- h4: Implements
+- list:
+  - text: IRowData
+    url: DataLinq.Instances.IRowData.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: MutableRowData(TableDefinition)
+  id: DataLinq_Instances_MutableRowData__ctor_DataLinq_Metadata_TableDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L17
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.#ctor(DataLinq.Metadata.TableDefinition)
+    commentId: M:DataLinq.Instances.MutableRowData.#ctor(DataLinq.Metadata.TableDefinition)
+- code: public MutableRowData(TableDefinition table)
+- h4: Parameters
+- parameters:
+  - name: table
+    type:
+    - TableDefinition
+- api3: MutableRowData(RowData)
+  id: DataLinq_Instances_MutableRowData__ctor_DataLinq_Instances_RowData_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L22
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.#ctor(DataLinq.Instances.RowData)
+    commentId: M:DataLinq.Instances.MutableRowData.#ctor(DataLinq.Instances.RowData)
+- code: public MutableRowData(RowData immutableRowData)
+- h4: Parameters
+- parameters:
+  - name: immutableRowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+- h2: Properties
+- api3: Table
+  id: DataLinq_Instances_MutableRowData_Table
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L12
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.Table
+    commentId: P:DataLinq.Instances.MutableRowData.Table
+- code: public TableDefinition Table { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - TableDefinition
+- api3: this[ColumnDefinition]
+  id: DataLinq_Instances_MutableRowData_Item_DataLinq_Metadata_ColumnDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L15
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.Item(DataLinq.Metadata.ColumnDefinition)
+    commentId: P:DataLinq.Instances.MutableRowData.Item(DataLinq.Metadata.ColumnDefinition)
+- code: public object? this[ColumnDefinition column] { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- h2: Methods
+- api3: GetChanges()
+  id: DataLinq_Instances_MutableRowData_GetChanges
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L78
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.GetChanges
+    commentId: M:DataLinq.Instances.MutableRowData.GetChanges
+- code: public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: KeyValuePair
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.keyvaluepair-2
+    - <
+    - ColumnDefinition
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+    - '>'
+- api3: GetColumnAndValues()
+  id: DataLinq_Instances_MutableRowData_GetColumnAndValues
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L64
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.GetColumnAndValues
+    commentId: M:DataLinq.Instances.MutableRowData.GetColumnAndValues
+- code: public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: KeyValuePair
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.keyvaluepair-2
+    - <
+    - ColumnDefinition
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+    - '>'
+- api3: GetColumnAndValues(IEnumerable<ColumnDefinition>)
+  id: DataLinq_Instances_MutableRowData_GetColumnAndValues_System_Collections_Generic_IEnumerable_DataLinq_Metadata_ColumnDefinition__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L72
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.GetColumnAndValues(System.Collections.Generic.IEnumerable{DataLinq.Metadata.ColumnDefinition})
+    commentId: M:DataLinq.Instances.MutableRowData.GetColumnAndValues(System.Collections.Generic.IEnumerable{DataLinq.Metadata.ColumnDefinition})
+- code: public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns)
+- h4: Parameters
+- parameters:
+  - name: columns
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - ColumnDefinition
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: KeyValuePair
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.keyvaluepair-2
+    - <
+    - ColumnDefinition
+    - ','
+    - " "
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+    - '>'
+- api3: GetValue(ColumnDefinition)
+  id: DataLinq_Instances_MutableRowData_GetValue_DataLinq_Metadata_ColumnDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L42
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.GetValue(DataLinq.Metadata.ColumnDefinition)
+    commentId: M:DataLinq.Instances.MutableRowData.GetValue(DataLinq.Metadata.ColumnDefinition)
+- code: public object? GetValue(ColumnDefinition column)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- api3: GetValues(IEnumerable<ColumnDefinition>)
+  id: DataLinq_Instances_MutableRowData_GetValues_System_Collections_Generic_IEnumerable_DataLinq_Metadata_ColumnDefinition__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L50
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.GetValues(System.Collections.Generic.IEnumerable{DataLinq.Metadata.ColumnDefinition})
+    commentId: M:DataLinq.Instances.MutableRowData.GetValues(System.Collections.Generic.IEnumerable{DataLinq.Metadata.ColumnDefinition})
+- code: public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns)
+- h4: Parameters
+- parameters:
+  - name: columns
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - ColumnDefinition
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '>'
+- api3: HasChanges()
+  id: DataLinq_Instances_MutableRowData_HasChanges
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L13
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.HasChanges
+    commentId: M:DataLinq.Instances.MutableRowData.HasChanges
+- code: public bool HasChanges()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Reset()
+  id: DataLinq_Instances_MutableRowData_Reset
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L28
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.Reset
+    commentId: M:DataLinq.Instances.MutableRowData.Reset
+- code: public void Reset()
+- api3: Reset(RowData)
+  id: DataLinq_Instances_MutableRowData_Reset_DataLinq_Instances_RowData_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L33
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.Reset(DataLinq.Instances.RowData)
+    commentId: M:DataLinq.Instances.MutableRowData.Reset(DataLinq.Instances.RowData)
+- code: public void Reset(RowData immutableRowData)
+- h4: Parameters
+- parameters:
+  - name: immutableRowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+- api3: SetValue(ColumnDefinition, object?)
+  id: DataLinq_Instances_MutableRowData_SetValue_DataLinq_Metadata_ColumnDefinition_System_Object_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/MutableRowData.cs#L56
+  metadata:
+    uid: DataLinq.Instances.MutableRowData.SetValue(DataLinq.Metadata.ColumnDefinition,System.Object)
+    commentId: M:DataLinq.Instances.MutableRowData.SetValue(DataLinq.Metadata.ColumnDefinition,System.Object)
+- code: public void SetValue(ColumnDefinition column, object? value)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+  - name: value
+    type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+languageId: csharp

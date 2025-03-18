@@ -1,0 +1,27 @@
+### YamlMime:ApiPage
+title: Interface ITableModel<T>
+body:
+- api1: Interface ITableModel<T>
+  id: DataLinq_Interfaces_ITableModel_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Interfaces/IModel.cs#L29
+  metadata:
+    uid: DataLinq.Interfaces.ITableModel`1
+    commentId: T:DataLinq.Interfaces.ITableModel`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Interfaces
+      url: DataLinq.Interfaces.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: 'public interface ITableModel<T> : IModel<T>, IModel where T : IDatabaseModel'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h4: Implements
+- list:
+  - text: IModel<T>
+    url: DataLinq.Interfaces.IModel-1.html
+  - text: IModel
+    url: DataLinq.Interfaces.IModel.html
+languageId: csharp

@@ -1,0 +1,251 @@
+### YamlMime:ApiPage
+title: Struct CsTypeDeclaration
+body:
+- api1: Struct CsTypeDeclaration
+  id: DataLinq_Metadata_CsTypeDeclaration
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L28
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration
+    commentId: T:DataLinq.Metadata.CsTypeDeclaration
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: 'public readonly record struct CsTypeDeclaration : IEquatable<CsTypeDeclaration>'
+- h4: Implements
+- list:
+  - text: IEquatable<CsTypeDeclaration>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: CsTypeDeclaration(Type)
+  id: DataLinq_Metadata_CsTypeDeclaration__ctor_System_Type_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L35
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.#ctor(System.Type)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.#ctor(System.Type)
+- code: public CsTypeDeclaration(Type type)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: Type
+      url: https://learn.microsoft.com/dotnet/api/system.type
+- api3: CsTypeDeclaration(TypeDeclarationSyntax)
+  id: DataLinq_Metadata_CsTypeDeclaration__ctor_Microsoft_CodeAnalysis_CSharp_Syntax_TypeDeclarationSyntax_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L46
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.#ctor(Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.#ctor(Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax)
+- code: public CsTypeDeclaration(TypeDeclarationSyntax typeSyntax)
+- h4: Parameters
+- parameters:
+  - name: typeSyntax
+    type:
+    - text: TypeDeclarationSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.typedeclarationsyntax
+- api3: CsTypeDeclaration(PropertyDeclarationSyntax)
+  id: DataLinq_Metadata_CsTypeDeclaration__ctor_Microsoft_CodeAnalysis_CSharp_Syntax_PropertyDeclarationSyntax_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L57
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.#ctor(Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.#ctor(Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax)
+- code: public CsTypeDeclaration(PropertyDeclarationSyntax propertyDeclarationSyntax)
+- h4: Parameters
+- parameters:
+  - name: propertyDeclarationSyntax
+    type:
+    - text: PropertyDeclarationSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.propertydeclarationsyntax
+- api3: CsTypeDeclaration(BaseTypeSyntax)
+  id: DataLinq_Metadata_CsTypeDeclaration__ctor_Microsoft_CodeAnalysis_CSharp_Syntax_BaseTypeSyntax_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L67
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.#ctor(Microsoft.CodeAnalysis.CSharp.Syntax.BaseTypeSyntax)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.#ctor(Microsoft.CodeAnalysis.CSharp.Syntax.BaseTypeSyntax)
+- code: public CsTypeDeclaration(BaseTypeSyntax baseTypeSyntax)
+- h4: Parameters
+- parameters:
+  - name: baseTypeSyntax
+    type:
+    - text: BaseTypeSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.basetypesyntax
+- api3: CsTypeDeclaration(string, string, ModelCsType)
+  id: DataLinq_Metadata_CsTypeDeclaration__ctor_System_String_System_String_DataLinq_Metadata_ModelCsType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L76
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.#ctor(System.String,System.String,DataLinq.Metadata.ModelCsType)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.#ctor(System.String,System.String,DataLinq.Metadata.ModelCsType)
+- code: public CsTypeDeclaration(string name, string @namespace, ModelCsType modelCsType)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: namespace
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: modelCsType
+    type:
+    - text: ModelCsType
+      url: DataLinq.Metadata.ModelCsType.html
+- h2: Properties
+- api3: ModelCsType
+  id: DataLinq_Metadata_CsTypeDeclaration_ModelCsType
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L33
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.ModelCsType
+    commentId: P:DataLinq.Metadata.CsTypeDeclaration.ModelCsType
+- code: public ModelCsType ModelCsType { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: ModelCsType
+      url: DataLinq.Metadata.ModelCsType.html
+- api3: Name
+  id: DataLinq_Metadata_CsTypeDeclaration_Name
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L31
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.Name
+    commentId: P:DataLinq.Metadata.CsTypeDeclaration.Name
+- code: public string Name { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Namespace
+  id: DataLinq_Metadata_CsTypeDeclaration_Namespace
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L32
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.Namespace
+    commentId: P:DataLinq.Metadata.CsTypeDeclaration.Namespace
+- code: public string Namespace { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Type
+  id: DataLinq_Metadata_CsTypeDeclaration_Type
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L30
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.Type
+    commentId: P:DataLinq.Metadata.CsTypeDeclaration.Type
+- code: public Type? Type { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Type
+      url: https://learn.microsoft.com/dotnet/api/system.type
+    - '?'
+- h2: Methods
+- api3: GetNamespace(SyntaxNode)
+  id: DataLinq_Metadata_CsTypeDeclaration_GetNamespace_Microsoft_CodeAnalysis_SyntaxNode_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L127
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.GetNamespace(Microsoft.CodeAnalysis.SyntaxNode)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.GetNamespace(Microsoft.CodeAnalysis.SyntaxNode)
+- code: public static string GetNamespace(SyntaxNode typeSyntax)
+- h4: Parameters
+- parameters:
+  - name: typeSyntax
+    type:
+    - text: SyntaxNode
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.syntaxnode
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: MutateName(string)
+  id: DataLinq_Metadata_CsTypeDeclaration_MutateName_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L83
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.MutateName(System.String)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.MutateName(System.String)
+- code: public CsTypeDeclaration MutateName(string name)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: CsTypeDeclaration
+      url: DataLinq.Metadata.CsTypeDeclaration.html
+- api3: ParseModelCsType(Type)
+  id: DataLinq_Metadata_CsTypeDeclaration_ParseModelCsType_System_Type_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L97
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.ParseModelCsType(System.Type)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.ParseModelCsType(System.Type)
+- code: public static ModelCsType ParseModelCsType(Type type)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: Type
+      url: https://learn.microsoft.com/dotnet/api/system.type
+- h4: Returns
+- parameters:
+  - type:
+    - text: ModelCsType
+      url: DataLinq.Metadata.ModelCsType.html
+- api3: ParseModelCsType(SyntaxNode)
+  id: DataLinq_Metadata_CsTypeDeclaration_ParseModelCsType_Microsoft_CodeAnalysis_SyntaxNode_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L151
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.ParseModelCsType(Microsoft.CodeAnalysis.SyntaxNode)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.ParseModelCsType(Microsoft.CodeAnalysis.SyntaxNode)
+- code: public static ModelCsType ParseModelCsType(SyntaxNode syntaxNode)
+- h4: Parameters
+- parameters:
+  - name: syntaxNode
+    type:
+    - text: SyntaxNode
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.syntaxnode
+- h4: Returns
+- parameters:
+  - type:
+    - text: ModelCsType
+      url: DataLinq.Metadata.ModelCsType.html
+- api3: ParseModelCsType(TypeSyntax)
+  id: DataLinq_Metadata_CsTypeDeclaration_ParseModelCsType_Microsoft_CodeAnalysis_CSharp_Syntax_TypeSyntax_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/CsTypeDeclaration.cs#L175
+  metadata:
+    uid: DataLinq.Metadata.CsTypeDeclaration.ParseModelCsType(Microsoft.CodeAnalysis.CSharp.Syntax.TypeSyntax)
+    commentId: M:DataLinq.Metadata.CsTypeDeclaration.ParseModelCsType(Microsoft.CodeAnalysis.CSharp.Syntax.TypeSyntax)
+- code: public static ModelCsType ParseModelCsType(TypeSyntax typeSyntax)
+- h4: Parameters
+- parameters:
+  - name: typeSyntax
+    type:
+    - text: TypeSyntax
+      url: https://learn.microsoft.com/dotnet/api/microsoft.codeanalysis.csharp.syntax.typesyntax
+- h4: Returns
+- parameters:
+  - type:
+    - text: ModelCsType
+      url: DataLinq.Metadata.ModelCsType.html
+languageId: csharp

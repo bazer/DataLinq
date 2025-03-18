@@ -1,0 +1,28 @@
+### YamlMime:ApiPage
+title: Enum DatabaseTransactionStatus
+body:
+- api1: Enum DatabaseTransactionStatus
+  id: DataLinq_DatabaseTransactionStatus
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L7
+  metadata:
+    uid: DataLinq.DatabaseTransactionStatus
+    commentId: T:DataLinq.DatabaseTransactionStatus
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq
+      url: DataLinq.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public enum DatabaseTransactionStatus
+- h2: Fields
+- parameters:
+  - name: Closed
+    default: "0"
+  - name: Committed
+    default: "2"
+  - name: Open
+    default: "1"
+  - name: RolledBack
+    default: "3"
+languageId: csharp

@@ -1,0 +1,341 @@
+### YamlMime:ApiPage
+title: Class ColumnDefinition
+body:
+- api1: Class ColumnDefinition
+  id: DataLinq_Metadata_ColumnDefinition
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L27
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition
+    commentId: T:DataLinq.Metadata.ColumnDefinition
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: 'public class ColumnDefinition : IDefinition'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: ColumnDefinition
+    url: DataLinq.Metadata.ColumnDefinition.html
+- h4: Implements
+- list:
+  - text: IDefinition
+    url: DataLinq.Interfaces.IDefinition.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: ColumnDefinition(string, TableDefinition)
+  id: DataLinq_Metadata_ColumnDefinition__ctor_System_String_DataLinq_Metadata_TableDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L27
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.#ctor(System.String,DataLinq.Metadata.TableDefinition)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.#ctor(System.String,DataLinq.Metadata.TableDefinition)
+- code: public ColumnDefinition(string dbName, TableDefinition table)
+- h4: Parameters
+- parameters:
+  - name: dbName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: table
+    type:
+    - text: TableDefinition
+      url: DataLinq.Metadata.TableDefinition.html
+- h2: Properties
+- api3: AutoIncrement
+  id: DataLinq_Metadata_ColumnDefinition_AutoIncrement
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L38
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.AutoIncrement
+    commentId: P:DataLinq.Metadata.ColumnDefinition.AutoIncrement
+- code: public bool AutoIncrement { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: ColumnIndices
+  id: DataLinq_Metadata_ColumnDefinition_ColumnIndices
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L43
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.ColumnIndices
+    commentId: P:DataLinq.Metadata.ColumnDefinition.ColumnIndices
+- code: public IEnumerable<ColumnIndex> ColumnIndices { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: ColumnIndex
+      url: DataLinq.Metadata.ColumnIndex.html
+    - '>'
+- api3: CsFile
+  id: DataLinq_Metadata_ColumnDefinition_CsFile
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L46
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.CsFile
+    commentId: P:DataLinq.Metadata.ColumnDefinition.CsFile
+- code: public CsFileDeclaration? CsFile { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: CsFileDeclaration
+      url: DataLinq.Metadata.CsFileDeclaration.html
+    - '?'
+- api3: DbName
+  id: DataLinq_Metadata_ColumnDefinition_DbName
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L30
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.DbName
+    commentId: P:DataLinq.Metadata.ColumnDefinition.DbName
+- code: public string DbName { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: DbTypes
+  id: DataLinq_Metadata_ColumnDefinition_DbTypes
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L32
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.DbTypes
+    commentId: P:DataLinq.Metadata.ColumnDefinition.DbTypes
+- code: public DatabaseColumnType[] DbTypes { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseColumnType
+      url: DataLinq.Metadata.DatabaseColumnType.html
+    - '['
+    - ']'
+- api3: ForeignKey
+  id: DataLinq_Metadata_ColumnDefinition_ForeignKey
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L34
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.ForeignKey
+    commentId: P:DataLinq.Metadata.ColumnDefinition.ForeignKey
+- code: public bool ForeignKey { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Index
+  id: DataLinq_Metadata_ColumnDefinition_Index
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L33
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.Index
+    commentId: P:DataLinq.Metadata.ColumnDefinition.Index
+- code: public int Index { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: Nullable
+  id: DataLinq_Metadata_ColumnDefinition_Nullable
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L40
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.Nullable
+    commentId: P:DataLinq.Metadata.ColumnDefinition.Nullable
+- code: public bool Nullable { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: PrimaryKey
+  id: DataLinq_Metadata_ColumnDefinition_PrimaryKey
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L36
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.PrimaryKey
+    commentId: P:DataLinq.Metadata.ColumnDefinition.PrimaryKey
+- code: public bool PrimaryKey { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Table
+  id: DataLinq_Metadata_ColumnDefinition_Table
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L29
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.Table
+    commentId: P:DataLinq.Metadata.ColumnDefinition.Table
+- code: public TableDefinition Table { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: TableDefinition
+      url: DataLinq.Metadata.TableDefinition.html
+- api3: Unique
+  id: DataLinq_Metadata_ColumnDefinition_Unique
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L37
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.Unique
+    commentId: P:DataLinq.Metadata.ColumnDefinition.Unique
+- code: public bool Unique { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: ValueProperty
+  id: DataLinq_Metadata_ColumnDefinition_ValueProperty
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L44
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.ValueProperty
+    commentId: P:DataLinq.Metadata.ColumnDefinition.ValueProperty
+- code: public ValueProperty ValueProperty { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: ValueProperty
+      url: DataLinq.Metadata.ValueProperty.html
+- h2: Methods
+- api3: AddDbType(DatabaseColumnType)
+  id: DataLinq_Metadata_ColumnDefinition_AddDbType_DataLinq_Metadata_DatabaseColumnType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L64
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.AddDbType(DataLinq.Metadata.DatabaseColumnType)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.AddDbType(DataLinq.Metadata.DatabaseColumnType)
+- code: public void AddDbType(DatabaseColumnType columnType)
+- h4: Parameters
+- parameters:
+  - name: columnType
+    type:
+    - text: DatabaseColumnType
+      url: DataLinq.Metadata.DatabaseColumnType.html
+- api3: GetDbTypeFor(DatabaseType)
+  id: DataLinq_Metadata_ColumnDefinition_GetDbTypeFor_DataLinq_DatabaseType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L70
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.GetDbTypeFor(DataLinq.DatabaseType)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.GetDbTypeFor(DataLinq.DatabaseType)
+- code: public DatabaseColumnType? GetDbTypeFor(DatabaseType databaseType)
+- h4: Parameters
+- parameters:
+  - name: databaseType
+    type:
+    - text: DatabaseType
+      url: DataLinq.DatabaseType.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: DatabaseColumnType
+      url: DataLinq.Metadata.DatabaseColumnType.html
+    - '?'
+- api3: SetAutoIncrement(bool)
+  id: DataLinq_Metadata_ColumnDefinition_SetAutoIncrement_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L39
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.SetAutoIncrement(System.Boolean)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.SetAutoIncrement(System.Boolean)
+- code: public void SetAutoIncrement(bool value = true)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- api3: SetDbName(string)
+  id: DataLinq_Metadata_ColumnDefinition_SetDbName_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L31
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.SetDbName(System.String)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.SetDbName(System.String)
+- code: public void SetDbName(string value)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: SetForeignKey(bool)
+  id: DataLinq_Metadata_ColumnDefinition_SetForeignKey_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L35
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.SetForeignKey(System.Boolean)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.SetForeignKey(System.Boolean)
+- code: public void SetForeignKey(bool value = true)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- api3: SetNullable(bool)
+  id: DataLinq_Metadata_ColumnDefinition_SetNullable_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L41
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.SetNullable(System.Boolean)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.SetNullable(System.Boolean)
+- code: public void SetNullable(bool value = true)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- api3: SetPrimaryKey(bool)
+  id: DataLinq_Metadata_ColumnDefinition_SetPrimaryKey_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L54
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.SetPrimaryKey(System.Boolean)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.SetPrimaryKey(System.Boolean)
+- code: public void SetPrimaryKey(bool value = true)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    optional: true
+- api3: SetValueProperty(ValueProperty)
+  id: DataLinq_Metadata_ColumnDefinition_SetValueProperty_DataLinq_Metadata_ValueProperty_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L48
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.SetValueProperty(DataLinq.Metadata.ValueProperty)
+    commentId: M:DataLinq.Metadata.ColumnDefinition.SetValueProperty(DataLinq.Metadata.ValueProperty)
+- code: public void SetValueProperty(ValueProperty value)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - text: ValueProperty
+      url: DataLinq.Metadata.ValueProperty.html
+- api3: ToString()
+  id: DataLinq_Metadata_ColumnDefinition_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnDefinition.cs#L78
+  metadata:
+    uid: DataLinq.Metadata.ColumnDefinition.ToString
+    commentId: M:DataLinq.Metadata.ColumnDefinition.ToString
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

@@ -1,0 +1,82 @@
+### YamlMime:ApiPage
+title: Interface ISqlFromMetadataFactory
+body:
+- api1: Interface ISqlFromMetadataFactory
+  id: DataLinq_Metadata_ISqlFromMetadataFactory
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/PluginHook.cs#L18
+  metadata:
+    uid: DataLinq.Metadata.ISqlFromMetadataFactory
+    commentId: T:DataLinq.Metadata.ISqlFromMetadataFactory
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public interface ISqlFromMetadataFactory
+- h2: Methods
+- api3: CreateDatabase(Sql, string, string, bool)
+  id: DataLinq_Metadata_ISqlFromMetadataFactory_CreateDatabase_DataLinq_Query_Sql_System_String_System_String_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/PluginHook.cs#L21
+  metadata:
+    uid: DataLinq.Metadata.ISqlFromMetadataFactory.CreateDatabase(DataLinq.Query.Sql,System.String,System.String,System.Boolean)
+    commentId: M:DataLinq.Metadata.ISqlFromMetadataFactory.CreateDatabase(DataLinq.Query.Sql,System.String,System.String,System.Boolean)
+- code: Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: databaseName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: connectionString
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: foreignKeyRestrict
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - ','
+    - " "
+    - IDLOptionFailure
+    - '>'
+- api3: GetCreateTables(DatabaseDefinition, bool)
+  id: DataLinq_Metadata_ISqlFromMetadataFactory_GetCreateTables_DataLinq_Metadata_DatabaseDefinition_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/PluginHook.cs#L20
+  metadata:
+    uid: DataLinq.Metadata.ISqlFromMetadataFactory.GetCreateTables(DataLinq.Metadata.DatabaseDefinition,System.Boolean)
+    commentId: M:DataLinq.Metadata.ISqlFromMetadataFactory.GetCreateTables(DataLinq.Metadata.DatabaseDefinition,System.Boolean)
+- code: Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
+- h4: Parameters
+- parameters:
+  - name: metadata
+    type:
+    - DatabaseDefinition
+  - name: foreignKeyRestrict
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h4: Returns
+- parameters:
+  - type:
+    - Option
+    - <
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+    - ','
+    - " "
+    - IDLOptionFailure
+    - '>'
+languageId: csharp

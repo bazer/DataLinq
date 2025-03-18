@@ -1,0 +1,227 @@
+### YamlMime:ApiPage
+title: Class SQLiteDbAccess
+body:
+- api1: Class SQLiteDbAccess
+  id: DataLinq_SQLite_SQLiteDbAccess
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L6
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess
+    commentId: T:DataLinq.SQLite.SQLiteDbAccess
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.SQLite
+      url: DataLinq.SQLite.html
+  - name: Assembly
+    value: DataLinq.SQLite.dll
+- code: 'public class SQLiteDbAccess : DatabaseAccess'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DatabaseAccess
+    url: DataLinq.DatabaseAccess.html
+  - text: SQLiteDbAccess
+    url: DataLinq.SQLite.SQLiteDbAccess.html
+- h4: Inherited Members
+- list:
+  - text: DatabaseAccess.ExecuteReader(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteReader_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteReader(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteReader_System_String_
+  - text: DatabaseAccess.ExecuteScalar(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteScalar<T>(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar__1_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteScalar(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar_System_String_
+  - text: DatabaseAccess.ExecuteScalar<T>(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar__1_System_String_
+  - text: DatabaseAccess.ExecuteNonQuery(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteNonQuery_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteNonQuery(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteNonQuery_System_String_
+  - text: DatabaseAccess.ReadReader(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ReadReader_System_Data_IDbCommand_
+  - text: DatabaseAccess.ReadReader(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ReadReader_System_String_
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: SQLiteDbAccess(string)
+  id: DataLinq_SQLite_SQLiteDbAccess__ctor_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L10
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.#ctor(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.#ctor(System.String)
+- code: public SQLiteDbAccess(string connectionString)
+- h4: Parameters
+- parameters:
+  - name: connectionString
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h2: Methods
+- api3: ExecuteNonQuery(IDbCommand)
+  id: DataLinq_SQLite_SQLiteDbAccess_ExecuteNonQuery_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L37
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.ExecuteNonQuery(System.Data.IDbCommand)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.ExecuteNonQuery(System.Data.IDbCommand)
+- code: public override int ExecuteNonQuery(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: ExecuteNonQuery(string)
+  id: DataLinq_SQLite_SQLiteDbAccess_ExecuteNonQuery_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L51
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.ExecuteNonQuery(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.ExecuteNonQuery(System.String)
+- code: public override int ExecuteNonQuery(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: ExecuteReader(IDbCommand)
+  id: DataLinq_SQLite_SQLiteDbAccess_ExecuteReader_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L77
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.ExecuteReader(System.Data.IDbCommand)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.ExecuteReader(System.Data.IDbCommand)
+- code: public override IDataLinqDataReader ExecuteReader(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+- api3: ExecuteReader(string)
+  id: DataLinq_SQLite_SQLiteDbAccess_ExecuteReader_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L92
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.ExecuteReader(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.ExecuteReader(System.String)
+- code: public override IDataLinqDataReader ExecuteReader(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDataLinqDataReader
+      url: DataLinq.IDataLinqDataReader.html
+- api3: ExecuteScalar(string)
+  id: DataLinq_SQLite_SQLiteDbAccess_ExecuteScalar_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L54
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.ExecuteScalar(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.ExecuteScalar(System.String)
+- code: public override object? ExecuteScalar(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- api3: ExecuteScalar<T>(string)
+  id: DataLinq_SQLite_SQLiteDbAccess_ExecuteScalar__1_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L57
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.ExecuteScalar``1(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.ExecuteScalar``1(System.String)
+- code: public override T ExecuteScalar<T>(string query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: ExecuteScalar<T>(IDbCommand)
+  id: DataLinq_SQLite_SQLiteDbAccess_ExecuteScalar__1_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L60
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.ExecuteScalar``1(System.Data.IDbCommand)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.ExecuteScalar``1(System.Data.IDbCommand)
+- code: public override T ExecuteScalar<T>(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: ExecuteScalar(IDbCommand)
+  id: DataLinq_SQLite_SQLiteDbAccess_ExecuteScalar_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteDbAccess.cs#L63
+  metadata:
+    uid: DataLinq.SQLite.SQLiteDbAccess.ExecuteScalar(System.Data.IDbCommand)
+    commentId: M:DataLinq.SQLite.SQLiteDbAccess.ExecuteScalar(System.Data.IDbCommand)
+- code: public override object? ExecuteScalar(IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+languageId: csharp

@@ -1,0 +1,114 @@
+### YamlMime:ApiPage
+title: Class RelationPart
+body:
+- api1: Class RelationPart
+  id: DataLinq_Metadata_RelationPart
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/RelationPart.cs#L9
+  metadata:
+    uid: DataLinq.Metadata.RelationPart
+    commentId: T:DataLinq.Metadata.RelationPart
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public class RelationPart
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: RelationPart
+    url: DataLinq.Metadata.RelationPart.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Properties
+- api3: ColumnIndex
+  id: DataLinq_Metadata_RelationPart_ColumnIndex
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/RelationPart.cs#L11
+  metadata:
+    uid: DataLinq.Metadata.RelationPart.ColumnIndex
+    commentId: P:DataLinq.Metadata.RelationPart.ColumnIndex
+- code: public ColumnIndex ColumnIndex { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: ColumnIndex
+      url: DataLinq.Metadata.ColumnIndex.html
+- api3: CsName
+  id: DataLinq_Metadata_RelationPart_CsName
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/RelationPart.cs#L14
+  metadata:
+    uid: DataLinq.Metadata.RelationPart.CsName
+    commentId: P:DataLinq.Metadata.RelationPart.CsName
+- code: public string CsName { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Relation
+  id: DataLinq_Metadata_RelationPart_Relation
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/RelationPart.cs#L12
+  metadata:
+    uid: DataLinq.Metadata.RelationPart.Relation
+    commentId: P:DataLinq.Metadata.RelationPart.Relation
+- code: public RelationDefinition Relation { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: RelationDefinition
+      url: DataLinq.Metadata.RelationDefinition.html
+- api3: Type
+  id: DataLinq_Metadata_RelationPart_Type
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/RelationPart.cs#L13
+  metadata:
+    uid: DataLinq.Metadata.RelationPart.Type
+    commentId: P:DataLinq.Metadata.RelationPart.Type
+- code: public RelationPartType Type { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: RelationPartType
+      url: DataLinq.Metadata.RelationPartType.html
+- h2: Methods
+- api3: GetOtherSide()
+  id: DataLinq_Metadata_RelationPart_GetOtherSide
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/RelationPart.cs#L16
+  metadata:
+    uid: DataLinq.Metadata.RelationPart.GetOtherSide
+    commentId: M:DataLinq.Metadata.RelationPart.GetOtherSide
+- code: public RelationPart GetOtherSide()
+- h4: Returns
+- parameters:
+  - type:
+    - text: RelationPart
+      url: DataLinq.Metadata.RelationPart.html
+- api3: ToString()
+  id: DataLinq_Metadata_RelationPart_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/RelationPart.cs#L20
+  metadata:
+    uid: DataLinq.Metadata.RelationPart.ToString
+    commentId: M:DataLinq.Metadata.RelationPart.ToString
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

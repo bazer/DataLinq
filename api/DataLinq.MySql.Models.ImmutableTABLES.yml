@@ -1,0 +1,447 @@
+### YamlMime:ApiPage
+title: Class ImmutableTABLES
+body:
+- api1: Class ImmutableTABLES
+  id: DataLinq_MySql_Models_ImmutableTABLES
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES
+    commentId: T:DataLinq.MySql.Models.ImmutableTABLES
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.MySql.Models
+      url: DataLinq.MySql.Models.html
+  - name: Assembly
+    value: DataLinq.MySql.dll
+- code: 'public class ImmutableTABLES : TABLES, IImmutable<TABLES>, IImmutableInstance<information_schema>, IImmutableInstance, IModelInstance<information_schema>, IModelInstance, IEquatable<Immutable<TABLES, information_schema>>, IViewModel<information_schema>, IModel<information_schema>, IModel'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Immutable<TABLES, information_schema>
+    url: DataLinq.Instances.Immutable-2.html
+  - text: TABLES
+    url: DataLinq.MySql.Models.TABLES.html
+  - text: ImmutableTABLES
+    url: DataLinq.MySql.Models.ImmutableTABLES.html
+- h4: Implements
+- list:
+  - text: IImmutable<TABLES>
+    url: DataLinq.Instances.IImmutable-1.html
+  - text: IImmutableInstance<information_schema>
+    url: DataLinq.Instances.IImmutableInstance-1.html
+  - text: IImmutableInstance
+    url: DataLinq.Instances.IImmutableInstance.html
+  - text: IModelInstance<information_schema>
+    url: DataLinq.Instances.IModelInstance-1.html
+  - text: IModelInstance
+    url: DataLinq.Instances.IModelInstance.html
+  - text: IEquatable<Immutable<TABLES, information_schema>>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+  - IViewModel<information_schema>
+  - IModel<information_schema>
+  - IModel
+- h4: Inherited Members
+- list:
+  - text: TABLES.AUTO_INCREMENT
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_AUTO_INCREMENT
+  - text: TABLES.AVG_ROW_LENGTH
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_AVG_ROW_LENGTH
+  - text: TABLES.CHECK_TIME
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_CHECK_TIME
+  - text: TABLES.CHECKSUM
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_CHECKSUM
+  - text: TABLES.CREATE_OPTIONS
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_CREATE_OPTIONS
+  - text: TABLES.CREATE_TIME
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_CREATE_TIME
+  - text: TABLES.DATA_FREE
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_DATA_FREE
+  - text: TABLES.DATA_LENGTH
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_DATA_LENGTH
+  - text: TABLES.ENGINE
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_ENGINE
+  - text: TABLES.INDEX_LENGTH
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_INDEX_LENGTH
+  - text: TABLES.MAX_DATA_LENGTH
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_MAX_DATA_LENGTH
+  - text: TABLES.MAX_INDEX_LENGTH
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_MAX_INDEX_LENGTH
+  - text: TABLES.ROW_FORMAT
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_ROW_FORMAT
+  - text: TABLES.TABLE_CATALOG
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_TABLE_CATALOG
+  - text: TABLES.TABLE_COLLATION
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_TABLE_COLLATION
+  - text: TABLES.TABLE_COMMENT
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_TABLE_COMMENT
+  - text: TABLES.TABLE_NAME
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_TABLE_NAME
+  - text: TABLES.TABLE_ROWS
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_TABLE_ROWS
+  - text: TABLES.TABLE_SCHEMA
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_TABLE_SCHEMA
+  - text: TABLES.TABLE_TYPE
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_TABLE_TYPE
+  - text: TABLES.TEMPORARY
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_TEMPORARY
+  - text: TABLES.UPDATE_TIME
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_UPDATE_TIME
+  - text: TABLES.VERSION
+    url: DataLinq.MySql.Models.TABLES.html#DataLinq_MySql_Models_TABLES_VERSION
+  - text: Immutable<TABLES, information_schema>.relationKeys
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_relationKeys
+  - text: Immutable<TABLES, information_schema>.lazyValues
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_lazyValues
+  - text: Immutable<TABLES, information_schema>.this[ColumnDefinition]
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Item_DataLinq_Metadata_ColumnDefinition_
+  - text: Immutable<TABLES, information_schema>.this[string]
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Item_System_String_
+  - text: Immutable<TABLES, information_schema>.Metadata()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Metadata
+  - text: Immutable<TABLES, information_schema>.PrimaryKeys()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_PrimaryKeys
+  - text: Immutable<TABLES, information_schema>.HasPrimaryKeysSet()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_HasPrimaryKeysSet
+  - text: Immutable<TABLES, information_schema>.GetRowData()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRowData
+  - text: Immutable<TABLES, information_schema>.GetValues()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValues
+  - text: Immutable<TABLES, information_schema>.GetValues(IEnumerable<ColumnDefinition>)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValues_System_Collections_Generic_IEnumerable_DataLinq_Metadata_ColumnDefinition__
+  - text: Immutable<TABLES, information_schema>.ClearLazy()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_ClearLazy
+  - text: Immutable<TABLES, information_schema>.GetLazy<V>(string, Func<V>)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetLazy__1_System_String_System_Func___0__
+  - text: Immutable<TABLES, information_schema>.GetImmutableForeignKey<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetImmutableForeignKey__1_System_String_
+  - text: Immutable<TABLES, information_schema>.GetImmutableRelation<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetImmutableRelation__1_System_String_
+  - text: Immutable<TABLES, information_schema>.GetValue(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValue_System_String_
+  - text: Immutable<TABLES, information_schema>.GetNullableValue(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetNullableValue_System_String_
+  - text: Immutable<TABLES, information_schema>.GetForeignKey<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetForeignKey__1_System_String_
+  - text: Immutable<TABLES, information_schema>.GetRelation<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRelation__1_System_String_
+  - text: Immutable<TABLES, information_schema>.GetRelation<V>(RelationProperty)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRelation__1_DataLinq_Metadata_RelationProperty_
+  - text: Immutable<TABLES, information_schema>.GetDataSource()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetDataSource
+  - text: Immutable<TABLES, information_schema>.Equals(Immutable<TABLES, information_schema>?)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Equals_DataLinq_Instances_Immutable__0__1__
+  - text: Immutable<TABLES, information_schema>.Equals(object?)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Equals_System_Object_
+  - text: Immutable<TABLES, information_schema>.GetHashCode()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetHashCode
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h4: Extension Methods
+- list:
+  - text: IModelExtensions.Delete<ImmutableTABLES>(ImmutableTABLES)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_
+  - text: IModelExtensions.Delete<ImmutableTABLES>(ImmutableTABLES, Transaction)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_DataLinq_Mutation_Transaction_
+- h2: Constructors
+- api3: ImmutableTABLES(RowData, DataSourceAccess)
+  id: DataLinq_MySql_Models_ImmutableTABLES__ctor_DataLinq_Instances_RowData_DataLinq_Mutation_DataSourceAccess_
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.#ctor(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+    commentId: M:DataLinq.MySql.Models.ImmutableTABLES.#ctor(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+- code: public ImmutableTABLES(RowData rowData, DataSourceAccess dataSource)
+- h4: Parameters
+- parameters:
+  - name: rowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+  - name: dataSource
+    type:
+    - text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+- h2: Properties
+- api3: AUTO_INCREMENT
+  id: DataLinq_MySql_Models_ImmutableTABLES_AUTO_INCREMENT
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.AUTO_INCREMENT
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.AUTO_INCREMENT
+- code: public override long? AUTO_INCREMENT { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: AVG_ROW_LENGTH
+  id: DataLinq_MySql_Models_ImmutableTABLES_AVG_ROW_LENGTH
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.AVG_ROW_LENGTH
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.AVG_ROW_LENGTH
+- code: public override long? AVG_ROW_LENGTH { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: CHECKSUM
+  id: DataLinq_MySql_Models_ImmutableTABLES_CHECKSUM
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.CHECKSUM
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.CHECKSUM
+- code: public override long? CHECKSUM { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: CHECK_TIME
+  id: DataLinq_MySql_Models_ImmutableTABLES_CHECK_TIME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.CHECK_TIME
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.CHECK_TIME
+- code: public override DateTime? CHECK_TIME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DateTime
+      url: https://learn.microsoft.com/dotnet/api/system.datetime
+    - '?'
+- api3: CREATE_OPTIONS
+  id: DataLinq_MySql_Models_ImmutableTABLES_CREATE_OPTIONS
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.CREATE_OPTIONS
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.CREATE_OPTIONS
+- code: public override string? CREATE_OPTIONS { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: CREATE_TIME
+  id: DataLinq_MySql_Models_ImmutableTABLES_CREATE_TIME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.CREATE_TIME
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.CREATE_TIME
+- code: public override DateTime? CREATE_TIME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DateTime
+      url: https://learn.microsoft.com/dotnet/api/system.datetime
+    - '?'
+- api3: DATA_FREE
+  id: DataLinq_MySql_Models_ImmutableTABLES_DATA_FREE
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.DATA_FREE
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.DATA_FREE
+- code: public override long? DATA_FREE { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: DATA_LENGTH
+  id: DataLinq_MySql_Models_ImmutableTABLES_DATA_LENGTH
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.DATA_LENGTH
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.DATA_LENGTH
+- code: public override long? DATA_LENGTH { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: ENGINE
+  id: DataLinq_MySql_Models_ImmutableTABLES_ENGINE
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.ENGINE
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.ENGINE
+- code: public override string? ENGINE { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: INDEX_LENGTH
+  id: DataLinq_MySql_Models_ImmutableTABLES_INDEX_LENGTH
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.INDEX_LENGTH
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.INDEX_LENGTH
+- code: public override long? INDEX_LENGTH { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: MAX_DATA_LENGTH
+  id: DataLinq_MySql_Models_ImmutableTABLES_MAX_DATA_LENGTH
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.MAX_DATA_LENGTH
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.MAX_DATA_LENGTH
+- code: public override long? MAX_DATA_LENGTH { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: MAX_INDEX_LENGTH
+  id: DataLinq_MySql_Models_ImmutableTABLES_MAX_INDEX_LENGTH
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.MAX_INDEX_LENGTH
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.MAX_INDEX_LENGTH
+- code: public override long? MAX_INDEX_LENGTH { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: ROW_FORMAT
+  id: DataLinq_MySql_Models_ImmutableTABLES_ROW_FORMAT
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.ROW_FORMAT
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.ROW_FORMAT
+- code: public override string? ROW_FORMAT { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: TABLE_CATALOG
+  id: DataLinq_MySql_Models_ImmutableTABLES_TABLE_CATALOG
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.TABLE_CATALOG
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.TABLE_CATALOG
+- code: public override string TABLE_CATALOG { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_COLLATION
+  id: DataLinq_MySql_Models_ImmutableTABLES_TABLE_COLLATION
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.TABLE_COLLATION
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.TABLE_COLLATION
+- code: public override string? TABLE_COLLATION { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: TABLE_COMMENT
+  id: DataLinq_MySql_Models_ImmutableTABLES_TABLE_COMMENT
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.TABLE_COMMENT
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.TABLE_COMMENT
+- code: public override string TABLE_COMMENT { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_NAME
+  id: DataLinq_MySql_Models_ImmutableTABLES_TABLE_NAME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.TABLE_NAME
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.TABLE_NAME
+- code: public override string TABLE_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_ROWS
+  id: DataLinq_MySql_Models_ImmutableTABLES_TABLE_ROWS
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.TABLE_ROWS
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.TABLE_ROWS
+- code: public override long? TABLE_ROWS { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: TABLE_SCHEMA
+  id: DataLinq_MySql_Models_ImmutableTABLES_TABLE_SCHEMA
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.TABLE_SCHEMA
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.TABLE_SCHEMA
+- code: public override string TABLE_SCHEMA { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_TYPE
+  id: DataLinq_MySql_Models_ImmutableTABLES_TABLE_TYPE
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.TABLE_TYPE
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.TABLE_TYPE
+- code: public override string TABLE_TYPE { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TEMPORARY
+  id: DataLinq_MySql_Models_ImmutableTABLES_TEMPORARY
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.TEMPORARY
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.TEMPORARY
+- code: public override string? TEMPORARY { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: UPDATE_TIME
+  id: DataLinq_MySql_Models_ImmutableTABLES_UPDATE_TIME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.UPDATE_TIME
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.UPDATE_TIME
+- code: public override DateTime? UPDATE_TIME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DateTime
+      url: https://learn.microsoft.com/dotnet/api/system.datetime
+    - '?'
+- api3: VERSION
+  id: DataLinq_MySql_Models_ImmutableTABLES_VERSION
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableTABLES.VERSION
+    commentId: P:DataLinq.MySql.Models.ImmutableTABLES.VERSION
+- code: public override long? VERSION { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+languageId: csharp

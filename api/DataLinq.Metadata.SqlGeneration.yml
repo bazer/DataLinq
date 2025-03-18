@@ -1,0 +1,723 @@
+### YamlMime:ApiPage
+title: Class SqlGeneration
+body:
+- api1: Class SqlGeneration
+  id: DataLinq_Metadata_SqlGeneration
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L10
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration
+    commentId: T:DataLinq.Metadata.SqlGeneration
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public class SqlGeneration
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: SqlGeneration
+    url: DataLinq.Metadata.SqlGeneration.html
+- h4: Derived
+- list:
+  - text: SQLiteGeneration
+    url: DataLinq.SQLite.SQLiteGeneration.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: SqlGeneration(int, char, string)
+  id: DataLinq_Metadata_SqlGeneration__ctor_System_Int32_System_Char_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L12
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.#ctor(System.Int32,System.Char,System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.#ctor(System.Int32,System.Char,System.String)
+- code: public SqlGeneration(int indentationSpaces = 4, char quoteChar = '`', string generatedText = "")
+- h4: Parameters
+- parameters:
+  - name: indentationSpaces
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    optional: true
+  - name: quoteChar
+    type:
+    - text: char
+      url: https://learn.microsoft.com/dotnet/api/system.char
+    optional: true
+  - name: generatedText
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    optional: true
+- h2: Fields
+- api3: Buffer
+  id: DataLinq_Metadata_SqlGeneration_Buffer
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L74
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Buffer
+    commentId: F:DataLinq.Metadata.SqlGeneration.Buffer
+- code: public string Buffer
+- h4: Field Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: sql
+  id: DataLinq_Metadata_SqlGeneration_sql
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L77
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.sql
+    commentId: F:DataLinq.Metadata.SqlGeneration.sql
+- code: public Sql sql
+- h4: Field Value
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- h2: Properties
+- api3: IndentationSpaces
+  id: DataLinq_Metadata_SqlGeneration_IndentationSpaces
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L71
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.IndentationSpaces
+    commentId: P:DataLinq.Metadata.SqlGeneration.IndentationSpaces
+- code: public int IndentationSpaces { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: QuoteCharacter
+  id: DataLinq_Metadata_SqlGeneration_QuoteCharacter
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L72
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.QuoteCharacter
+    commentId: P:DataLinq.Metadata.SqlGeneration.QuoteCharacter
+- code: public char QuoteCharacter { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: char
+      url: https://learn.microsoft.com/dotnet/api/system.char
+- h2: Methods
+- api3: Add(string)
+  id: DataLinq_Metadata_SqlGeneration_Add_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L79
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Add(System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.Add(System.String)
+- code: public SqlGeneration Add(string s)
+- h4: Parameters
+- parameters:
+  - name: s
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: Align(int, string)
+  id: DataLinq_Metadata_SqlGeneration_Align_System_Int32_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L140
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Align(System.Int32,System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.Align(System.Int32,System.String)
+- code: public string Align(int longest, string text)
+- h4: Parameters
+- parameters:
+  - name: longest
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+  - name: text
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Autoincrement(bool)
+  id: DataLinq_Metadata_SqlGeneration_Autoincrement_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L131
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Autoincrement(System.Boolean)
+    commentId: M:DataLinq.Metadata.SqlGeneration.Autoincrement(System.Boolean)
+- code: public SqlGeneration Autoincrement(bool inc)
+- h4: Parameters
+- parameters:
+  - name: inc
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: ColumnName(string)
+  id: DataLinq_Metadata_SqlGeneration_ColumnName_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L83
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.ColumnName(System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.ColumnName(System.String)
+- code: public SqlGeneration ColumnName(string column)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: CreateTable(string, Action<SqlGeneration>)
+  id: DataLinq_Metadata_SqlGeneration_CreateTable_System_String_System_Action_DataLinq_Metadata_SqlGeneration__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L108
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.CreateTable(System.String,System.Action{DataLinq.Metadata.SqlGeneration})
+    commentId: M:DataLinq.Metadata.SqlGeneration.CreateTable(System.String,System.Action{DataLinq.Metadata.SqlGeneration})
+- code: public SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
+- h4: Parameters
+- parameters:
+  - name: tableName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: func
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: CreateView(string, string)
+  id: DataLinq_Metadata_SqlGeneration_CreateView_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L118
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.CreateView(System.String,System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.CreateView(System.String,System.String)
+- code: public SqlGeneration CreateView(string viewName, string definition)
+- h4: Parameters
+- parameters:
+  - name: viewName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: definition
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: DefaultValue(string)
+  id: DataLinq_Metadata_SqlGeneration_DefaultValue_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L129
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.DefaultValue(System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.DefaultValue(System.String)
+- code: public SqlGeneration DefaultValue(string defaultValue)
+- h4: Parameters
+- parameters:
+  - name: defaultValue
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: EnumValues(IEnumerable<string>)
+  id: DataLinq_Metadata_SqlGeneration_EnumValues_System_Collections_Generic_IEnumerable_System_String__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L138
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.EnumValues(System.Collections.Generic.IEnumerable{System.String})
+    commentId: M:DataLinq.Metadata.SqlGeneration.EnumValues(System.Collections.Generic.IEnumerable{System.String})
+- code: public SqlGeneration EnumValues(IEnumerable<string> values)
+- h4: Parameters
+- parameters:
+  - name: values
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: ForeignKey(RelationPart, bool)
+  id: DataLinq_Metadata_SqlGeneration_ForeignKey_DataLinq_Metadata_RelationPart_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L148
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.ForeignKey(DataLinq.Metadata.RelationPart,System.Boolean)
+    commentId: M:DataLinq.Metadata.SqlGeneration.ForeignKey(DataLinq.Metadata.RelationPart,System.Boolean)
+- code: public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
+- h4: Parameters
+- parameters:
+  - name: relation
+    type:
+    - RelationPart
+  - name: restrict
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: ForeignKey(string?, string, string, string, bool)
+  id: DataLinq_Metadata_SqlGeneration_ForeignKey_System_String_System_String_System_String_System_String_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L155
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.ForeignKey(System.String,System.String,System.String,System.String,System.Boolean)
+    commentId: M:DataLinq.Metadata.SqlGeneration.ForeignKey(System.String,System.String,System.String,System.String,System.Boolean)
+- code: public SqlGeneration ForeignKey(string? constraintName, string from, string table, string to, bool restrict)
+- h4: Parameters
+- parameters:
+  - name: constraintName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+  - name: from
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: table
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: to
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: restrict
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: Indent()
+  id: DataLinq_Metadata_SqlGeneration_Indent
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L125
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Indent
+    commentId: M:DataLinq.Metadata.SqlGeneration.Indent
+- code: public SqlGeneration Indent()
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: Index(string, string?, string, params string[])
+  id: DataLinq_Metadata_SqlGeneration_Index_System_String_System_String_System_String_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L142
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Index(System.String,System.String,System.String,System.String[])
+    commentId: M:DataLinq.Metadata.SqlGeneration.Index(System.String,System.String,System.String,System.String[])
+- code: public SqlGeneration Index(string name, string? characteristic, string type, params string[] columns)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: characteristic
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+  - name: type
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: columns
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: NewLine()
+  id: DataLinq_Metadata_SqlGeneration_NewLine
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L80
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.NewLine
+    commentId: M:DataLinq.Metadata.SqlGeneration.NewLine
+- code: public SqlGeneration NewLine()
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: NewLineComma()
+  id: DataLinq_Metadata_SqlGeneration_NewLineComma
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L127
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.NewLineComma
+    commentId: M:DataLinq.Metadata.SqlGeneration.NewLineComma
+- code: public SqlGeneration NewLineComma()
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: NewRow()
+  id: DataLinq_Metadata_SqlGeneration_NewRow
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L78
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.NewRow
+    commentId: M:DataLinq.Metadata.SqlGeneration.NewRow
+- code: public SqlGeneration NewRow()
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: Nullable(bool)
+  id: DataLinq_Metadata_SqlGeneration_Nullable_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L130
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Nullable(System.Boolean)
+    commentId: M:DataLinq.Metadata.SqlGeneration.Nullable(System.Boolean)
+- code: public SqlGeneration Nullable(bool nullable)
+- h4: Parameters
+- parameters:
+  - name: nullable
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: OnUpdateDelete(bool)
+  id: DataLinq_Metadata_SqlGeneration_OnUpdateDelete_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L157
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.OnUpdateDelete(System.Boolean)
+    commentId: M:DataLinq.Metadata.SqlGeneration.OnUpdateDelete(System.Boolean)
+- code: public string OnUpdateDelete(bool restrict)
+- h4: Parameters
+- parameters:
+  - name: restrict
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Parenthesis(string)
+  id: DataLinq_Metadata_SqlGeneration_Parenthesis_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L90
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Parenthesis(System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.Parenthesis(System.String)
+- code: public string Parenthesis(string s)
+- h4: Parameters
+- parameters:
+  - name: s
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: ParenthesisList(string[])
+  id: DataLinq_Metadata_SqlGeneration_ParenthesisList_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L92
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.ParenthesisList(System.String[])
+    commentId: M:DataLinq.Metadata.SqlGeneration.ParenthesisList(System.String[])
+- code: public string ParenthesisList(string[] columns)
+- h4: Parameters
+- parameters:
+  - name: columns
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: PrimaryKey(params string[])
+  id: DataLinq_Metadata_SqlGeneration_PrimaryKey_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L144
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.PrimaryKey(System.String[])
+    commentId: M:DataLinq.Metadata.SqlGeneration.PrimaryKey(System.String[])
+- code: public SqlGeneration PrimaryKey(params string[] columns)
+- h4: Parameters
+- parameters:
+  - name: columns
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: QuotedParenthesis(string)
+  id: DataLinq_Metadata_SqlGeneration_QuotedParenthesis_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L88
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.QuotedParenthesis(System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.QuotedParenthesis(System.String)
+- code: public string QuotedParenthesis(string s)
+- h4: Parameters
+- parameters:
+  - name: s
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: QuotedString(string)
+  id: DataLinq_Metadata_SqlGeneration_QuotedString_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L84
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.QuotedString(System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.QuotedString(System.String)
+- code: public string QuotedString(string s)
+- h4: Parameters
+- parameters:
+  - name: s
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: SortTablesByForeignKeys(List<TableDefinition>)
+  id: DataLinq_Metadata_SqlGeneration_SortTablesByForeignKeys_System_Collections_Generic_List_DataLinq_Metadata_TableDefinition__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L21
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.SortTablesByForeignKeys(System.Collections.Generic.List{DataLinq.Metadata.TableDefinition})
+    commentId: M:DataLinq.Metadata.SqlGeneration.SortTablesByForeignKeys(System.Collections.Generic.List{DataLinq.Metadata.TableDefinition})
+- code: public List<TableDefinition> SortTablesByForeignKeys(List<TableDefinition> tables)
+- h4: Parameters
+- parameters:
+  - name: tables
+    type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - TableDefinition
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - TableDefinition
+    - '>'
+- api3: SortViewsByForeignKeys(List<ViewDefinition>)
+  id: DataLinq_Metadata_SqlGeneration_SortViewsByForeignKeys_System_Collections_Generic_List_DataLinq_Metadata_ViewDefinition__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L49
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.SortViewsByForeignKeys(System.Collections.Generic.List{DataLinq.Metadata.ViewDefinition})
+    commentId: M:DataLinq.Metadata.SqlGeneration.SortViewsByForeignKeys(System.Collections.Generic.List{DataLinq.Metadata.ViewDefinition})
+- code: public List<ViewDefinition> SortViewsByForeignKeys(List<ViewDefinition> views)
+- h4: Parameters
+- parameters:
+  - name: views
+    type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - ViewDefinition
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - ViewDefinition
+    - '>'
+- api3: Space()
+  id: DataLinq_Metadata_SqlGeneration_Space
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L86
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Space
+    commentId: M:DataLinq.Metadata.SqlGeneration.Space
+- code: public SqlGeneration Space()
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: Type(string, string, int)
+  id: DataLinq_Metadata_SqlGeneration_Type_System_String_System_String_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L132
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Type(System.String,System.String,System.Int32)
+    commentId: M:DataLinq.Metadata.SqlGeneration.Type(System.String,System.String,System.Int32)
+- code: public SqlGeneration Type(string type, string columnName, int longestColumnName)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: columnName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: longestColumnName
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: TypeLength(long?, int?)
+  id: DataLinq_Metadata_SqlGeneration_TypeLength_System_Nullable_System_Int64__System_Nullable_System_Int32__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L133
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.TypeLength(System.Nullable{System.Int64},System.Nullable{System.Int32})
+    commentId: M:DataLinq.Metadata.SqlGeneration.TypeLength(System.Nullable{System.Int64},System.Nullable{System.Int32})
+- code: public SqlGeneration TypeLength(long? length, int? decimals)
+- h4: Parameters
+- parameters:
+  - name: length
+    type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+  - name: decimals
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: UniqueKey(string, params string[])
+  id: DataLinq_Metadata_SqlGeneration_UniqueKey_System_String_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L146
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.UniqueKey(System.String,System.String[])
+    commentId: M:DataLinq.Metadata.SqlGeneration.UniqueKey(System.String,System.String[])
+- code: public virtual SqlGeneration UniqueKey(string name, params string[] columns)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: columns
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: Unsigned(bool?)
+  id: DataLinq_Metadata_SqlGeneration_Unsigned_System_Nullable_System_Boolean__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L139
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.Unsigned(System.Nullable{System.Boolean})
+    commentId: M:DataLinq.Metadata.SqlGeneration.Unsigned(System.Nullable{System.Boolean})
+- code: public SqlGeneration Unsigned(bool? signed)
+- h4: Parameters
+- parameters:
+  - name: signed
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: SqlGeneration
+      url: DataLinq.Metadata.SqlGeneration.html
+- api3: ValueWithSpace(string?)
+  id: DataLinq_Metadata_SqlGeneration_ValueWithSpace_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Metadata/SqlGeneration.cs#L94
+  metadata:
+    uid: DataLinq.Metadata.SqlGeneration.ValueWithSpace(System.String)
+    commentId: M:DataLinq.Metadata.SqlGeneration.ValueWithSpace(System.String)
+- code: public string ValueWithSpace(string? s)
+- h4: Parameters
+- parameters:
+  - name: s
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

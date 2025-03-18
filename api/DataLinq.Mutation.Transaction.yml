@@ -1,0 +1,591 @@
+### YamlMime:ApiPage
+title: Class Transaction
+body:
+- api1: Class Transaction
+  id: DataLinq_Mutation_Transaction
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L83
+  metadata:
+    uid: DataLinq.Mutation.Transaction
+    commentId: T:DataLinq.Mutation.Transaction
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Mutation
+      url: DataLinq.Mutation.html
+  - name: Assembly
+    value: DataLinq.dll
+- markdown: Represents a database transaction.
+- code: 'public class Transaction : DataSourceAccess, IDataSourceAccess, IDisposable, IEquatable<Transaction>'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DataSourceAccess
+    url: DataLinq.Mutation.DataSourceAccess.html
+  - text: Transaction
+    url: DataLinq.Mutation.Transaction.html
+- h4: Derived
+- list:
+  - text: Transaction<T>
+    url: DataLinq.Mutation.Transaction-1.html
+- h4: Implements
+- list:
+  - IDataSourceAccess
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+  - text: IEquatable<Transaction>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: DataSourceAccess.Provider
+    url: DataLinq.Mutation.DataSourceAccess.html#DataLinq_Mutation_DataSourceAccess_Provider
+  - text: DataSourceAccess.DatabaseAccess
+    url: DataLinq.Mutation.DataSourceAccess.html#DataLinq_Mutation_DataSourceAccess_DatabaseAccess
+  - text: DataSourceAccess.GetFromQuery<T>(string)
+    url: DataLinq.Mutation.DataSourceAccess.html#DataLinq_Mutation_DataSourceAccess_GetFromQuery__1_System_String_
+  - text: DataSourceAccess.GetFromCommand<T>(IDbCommand)
+    url: DataLinq.Mutation.DataSourceAccess.html#DataLinq_Mutation_DataSourceAccess_GetFromCommand__1_System_Data_IDbCommand_
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: Transaction(IDatabaseProvider, TransactionType)
+  id: DataLinq_Mutation_Transaction__ctor_DataLinq_Interfaces_IDatabaseProvider_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L119
+  metadata:
+    uid: DataLinq.Mutation.Transaction.#ctor(DataLinq.Interfaces.IDatabaseProvider,DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.Mutation.Transaction.#ctor(DataLinq.Interfaces.IDatabaseProvider,DataLinq.Mutation.TransactionType)
+- markdown: Initializes a new instance of the <xref href="DataLinq.Mutation.Transaction" data-throw-if-not-resolved="false"></xref> class.
+- code: public Transaction(IDatabaseProvider databaseProvider, TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: databaseProvider
+    type:
+    - text: IDatabaseProvider
+      url: DataLinq.Interfaces.IDatabaseProvider.html
+    description: The database provider.
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+    description: The type of the transaction.
+- api3: Transaction(IDatabaseProvider, IDbTransaction, TransactionType)
+  id: DataLinq_Mutation_Transaction__ctor_DataLinq_Interfaces_IDatabaseProvider_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L135
+  metadata:
+    uid: DataLinq.Mutation.Transaction.#ctor(DataLinq.Interfaces.IDatabaseProvider,System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.Mutation.Transaction.#ctor(DataLinq.Interfaces.IDatabaseProvider,System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+- markdown: Initializes a new instance of the <xref href="DataLinq.Mutation.Transaction" data-throw-if-not-resolved="false"></xref> class.
+- code: public Transaction(IDatabaseProvider databaseProvider, IDbTransaction dbTransaction, TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: databaseProvider
+    type:
+    - text: IDatabaseProvider
+      url: DataLinq.Interfaces.IDatabaseProvider.html
+    description: The database provider.
+  - name: dbTransaction
+    type:
+    - text: IDbTransaction
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbtransaction
+    description: The database transaction.
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+    description: The type of the transaction.
+- h2: Properties
+- api3: Changes
+  id: DataLinq_Mutation_Transaction_Changes
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L95
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Changes
+    commentId: P:DataLinq.Mutation.Transaction.Changes
+- markdown: Gets the list of state changes.
+- code: public List<StateChange> Changes { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: StateChange
+      url: DataLinq.Mutation.StateChange.html
+    - '>'
+- api3: DatabaseAccess
+  id: DataLinq_Mutation_Transaction_DatabaseAccess
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L107
+  metadata:
+    uid: DataLinq.Mutation.Transaction.DatabaseAccess
+    commentId: P:DataLinq.Mutation.Transaction.DatabaseAccess
+- markdown: Gets or sets the database transaction.
+- code: public override DatabaseTransaction DatabaseAccess { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseTransaction
+      url: DataLinq.DatabaseTransaction.html
+- api3: Status
+  id: DataLinq_Mutation_Transaction_Status
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L105
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Status
+    commentId: P:DataLinq.Mutation.Transaction.Status
+- markdown: Gets the status of the database transaction.
+- code: public DatabaseTransactionStatus Status { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseTransactionStatus
+      url: DataLinq.DatabaseTransactionStatus.html
+- api3: TransactionID
+  id: DataLinq_Mutation_Transaction_TransactionID
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L90
+  metadata:
+    uid: DataLinq.Mutation.Transaction.TransactionID
+    commentId: P:DataLinq.Mutation.Transaction.TransactionID
+- markdown: Gets the ID of the transaction.
+- code: public uint TransactionID { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: uint
+      url: https://learn.microsoft.com/dotnet/api/system.uint32
+- api3: Type
+  id: DataLinq_Mutation_Transaction_Type
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L100
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Type
+    commentId: P:DataLinq.Mutation.Transaction.Type
+- markdown: Gets the type of the transaction.
+- code: public TransactionType Type { get; protected set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- h2: Methods
+- api3: Commit()
+  id: DataLinq_Mutation_Transaction_Commit
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L345
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Commit
+    commentId: M:DataLinq.Mutation.Transaction.Commit
+- markdown: Commits the transaction.
+- code: public void Commit()
+- api3: Delete(IModelInstance)
+  id: DataLinq_Mutation_Transaction_Delete_DataLinq_Instances_IModelInstance_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L280
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Delete(DataLinq.Instances.IModelInstance)
+    commentId: M:DataLinq.Mutation.Transaction.Delete(DataLinq.Instances.IModelInstance)
+- markdown: Deletes an existing row from the database.
+- code: public void Delete(IModelInstance model)
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: IModelInstance
+      url: DataLinq.Instances.IModelInstance.html
+    description: The model to delete.
+- api3: Dispose()
+  id: DataLinq_Mutation_Transaction_Dispose
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L389
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Dispose
+    commentId: M:DataLinq.Mutation.Transaction.Dispose
+- markdown: Disposes of the transaction.
+- code: public void Dispose()
+- api3: Equals(Transaction?)
+  id: DataLinq_Mutation_Transaction_Equals_DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L400
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Equals(DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.Mutation.Transaction.Equals(DataLinq.Mutation.Transaction)
+- markdown: Determines whether the specified object is equal to the current object.
+- code: public bool Equals(Transaction? other)
+- h4: Parameters
+- parameters:
+  - name: other
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+    - '?'
+    description: The object to compare with the current object.
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    description: true if the specified object is equal to the current object; otherwise, false.
+- api3: Equals(object?)
+  id: DataLinq_Mutation_Transaction_Equals_System_Object_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L415
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Equals(System.Object)
+    commentId: M:DataLinq.Mutation.Transaction.Equals(System.Object)
+- markdown: Determines whether the specified object is equal to the current object.
+- code: public override bool Equals(object? obj)
+- h4: Parameters
+- parameters:
+  - name: obj
+    type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    description: The object to compare with the current object.
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    description: true if the specified object is equal to the current object; otherwise, false.
+- api3: GetFromCommand<T>(IDbCommand)
+  id: DataLinq_Mutation_Transaction_GetFromCommand__1_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L315
+  metadata:
+    uid: DataLinq.Mutation.Transaction.GetFromCommand``1(System.Data.IDbCommand)
+    commentId: M:DataLinq.Mutation.Transaction.GetFromCommand``1(System.Data.IDbCommand)
+- markdown: Gets models from a command.
+- code: 'public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand) where T : IModel'
+- h4: Parameters
+- parameters:
+  - name: dbCommand
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+    description: The command to execute.
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - T
+    - '>'
+    description: The models returned by the command.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: GetFromQuery<T>(string)
+  id: DataLinq_Mutation_Transaction_GetFromQuery__1_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L299
+  metadata:
+    uid: DataLinq.Mutation.Transaction.GetFromQuery``1(System.String)
+    commentId: M:DataLinq.Mutation.Transaction.GetFromQuery``1(System.String)
+- markdown: Gets models from a query.
+- code: 'public override IEnumerable<T> GetFromQuery<T>(string query) where T : IModel'
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: The query to execute.
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - T
+    - '>'
+    description: The models returned by the query.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: GetHashCode()
+  id: DataLinq_Mutation_Transaction_GetHashCode
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L431
+  metadata:
+    uid: DataLinq.Mutation.Transaction.GetHashCode
+    commentId: M:DataLinq.Mutation.Transaction.GetHashCode
+- markdown: Serves as the default hash function.
+- code: public override int GetHashCode()
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    description: A hash code for the current object.
+- api3: Insert<T>(Mutable<T>)
+  id: DataLinq_Mutation_Transaction_Insert__1_DataLinq_Instances_Mutable___0__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L151
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Insert``1(DataLinq.Instances.Mutable{``0})
+    commentId: M:DataLinq.Mutation.Transaction.Insert``1(DataLinq.Instances.Mutable{``0})
+- markdown: Inserts a new row into the database.
+- code: 'public T Insert<T>(Mutable<T> model) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+    description: The model to insert.
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    description: The inserted model.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: Insert<T>(IEnumerable<Mutable<T>>)
+  id: DataLinq_Mutation_Transaction_Insert__1_System_Collections_Generic_IEnumerable_DataLinq_Instances_Mutable___0___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L175
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Insert``1(System.Collections.Generic.IEnumerable{DataLinq.Instances.Mutable{``0}})
+    commentId: M:DataLinq.Mutation.Transaction.Insert``1(System.Collections.Generic.IEnumerable{DataLinq.Instances.Mutable{``0}})
+- markdown: Inserts multiple new rows into the database.
+- code: 'public List<T> Insert<T>(IEnumerable<Mutable<T>> models) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: models
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+    description: The models to insert.
+- h4: Returns
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - T
+    - '>'
+    description: The inserted models.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: Rollback()
+  id: DataLinq_Mutation_Transaction_Rollback
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L358
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Rollback
+    commentId: M:DataLinq.Mutation.Transaction.Rollback
+- markdown: Rolls back the transaction.
+- code: public void Rollback()
+- api3: Save<T>(Mutable<T>)
+  id: DataLinq_Mutation_Transaction_Save__1_DataLinq_Instances_Mutable___0__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L231
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Save``1(DataLinq.Instances.Mutable{``0})
+    commentId: M:DataLinq.Mutation.Transaction.Save``1(DataLinq.Instances.Mutable{``0})
+- markdown: Inserts a new row into the database or updates an existing row if it already exists.
+- code: 'public T Save<T>(Mutable<T> model) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+    description: The model to insert or update.
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    description: The inserted or updated model.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: Save<T>(T, Action<Mutable<T>>)
+  id: DataLinq_Mutation_Transaction_Save__1___0_System_Action_DataLinq_Instances_Mutable___0___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L249
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Save``1(``0,System.Action{DataLinq.Instances.Mutable{``0}})
+    commentId: M:DataLinq.Mutation.Transaction.Save``1(``0,System.Action{DataLinq.Instances.Mutable{``0}})
+- markdown: Inserts a new row into the database or updates an existing row if it already exists with the specified changes.
+- code: 'public T Save<T>(T model, Action<Mutable<T>> changes) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - T
+    description: The model to insert or update.
+  - name: changes
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+    description: The changes to apply to the model.
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    description: The inserted or updated model.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: Save<T>(Mutable<T>, Action<Mutable<T>>)
+  id: DataLinq_Mutation_Transaction_Save__1_DataLinq_Instances_Mutable___0__System_Action_DataLinq_Instances_Mutable___0___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L267
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Save``1(DataLinq.Instances.Mutable{``0},System.Action{DataLinq.Instances.Mutable{``0}})
+    commentId: M:DataLinq.Mutation.Transaction.Save``1(DataLinq.Instances.Mutable{``0},System.Action{DataLinq.Instances.Mutable{``0}})
+- markdown: Inserts a new row into the database or updates an existing row if it already exists with the specified changes.
+- code: 'public T Save<T>(Mutable<T> model, Action<Mutable<T>> changes) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+    description: The model to insert or update.
+  - name: changes
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+    description: The changes to apply to the model.
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    description: The inserted or updated model.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: ToString()
+  id: DataLinq_Mutation_Transaction_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L440
+  metadata:
+    uid: DataLinq.Mutation.Transaction.ToString
+    commentId: M:DataLinq.Mutation.Transaction.ToString
+- markdown: Returns a string that represents the current object.
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: A string that represents the current object.
+- api3: Update<T>(Mutable<T>)
+  id: DataLinq_Mutation_Transaction_Update__1_DataLinq_Instances_Mutable___0__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L188
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Update``1(DataLinq.Instances.Mutable{``0})
+    commentId: M:DataLinq.Mutation.Transaction.Update``1(DataLinq.Instances.Mutable{``0})
+- markdown: Updates an existing row in the database.
+- code: 'public T Update<T>(Mutable<T> model) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+    description: The model to update.
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    description: The updated model.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: Update<T>(T, Action<Mutable<T>>)
+  id: DataLinq_Mutation_Transaction_Update__1___0_System_Action_DataLinq_Instances_Mutable___0___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L217
+  metadata:
+    uid: DataLinq.Mutation.Transaction.Update``1(``0,System.Action{DataLinq.Instances.Mutable{``0}})
+    commentId: M:DataLinq.Mutation.Transaction.Update``1(``0,System.Action{DataLinq.Instances.Mutable{``0}})
+- markdown: Updates an existing row in the database with the specified changes.
+- code: 'public T Update<T>(T model, Action<Mutable<T>> changes) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - T
+    description: The model to update.
+  - name: changes
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+    - '>'
+    description: The changes to apply to the model.
+- h4: Returns
+- parameters:
+  - type:
+    - T
+    description: The updated model.
+- h4: Type Parameters
+- parameters:
+  - name: T
+    description: The type of the model.
+- api3: OnStatusChanged
+  id: DataLinq_Mutation_Transaction_OnStatusChanged
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L112
+  metadata:
+    uid: DataLinq.Mutation.Transaction.OnStatusChanged
+    commentId: E:DataLinq.Mutation.Transaction.OnStatusChanged
+- markdown: Occurs when the status of the transaction changes.
+- code: public event EventHandler<TransactionStatusChangeEventArgs>? OnStatusChanged
+- h4: Event Type
+- parameters:
+  - type:
+    - text: EventHandler
+      url: https://learn.microsoft.com/dotnet/api/system.eventhandler-1
+    - <
+    - text: TransactionStatusChangeEventArgs
+      url: DataLinq.Mutation.TransactionStatusChangeEventArgs.html
+    - '>'
+    - '?'
+languageId: csharp
+metadata:
+  description: Represents a database transaction.

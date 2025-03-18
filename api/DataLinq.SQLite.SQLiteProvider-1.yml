@@ -1,0 +1,429 @@
+### YamlMime:ApiPage
+title: Class SQLiteProvider<T>
+body:
+- api1: Class SQLiteProvider<T>
+  id: DataLinq_SQLite_SQLiteProvider_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L52
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1
+    commentId: T:DataLinq.SQLite.SQLiteProvider`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.SQLite
+      url: DataLinq.SQLite.html
+  - name: Assembly
+    value: DataLinq.SQLite.dll
+- code: 'public class SQLiteProvider<T> : DatabaseProvider<T>, IDatabaseProvider, IDisposable where T : class, IDatabaseModel'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DatabaseProvider
+    url: DataLinq.DatabaseProvider.html
+  - text: DatabaseProvider<T>
+    url: DataLinq.DatabaseProvider-1.html
+  - text: SQLiteProvider<T>
+    url: DataLinq.SQLite.SQLiteProvider-1.html
+- h4: Implements
+- list:
+  - text: IDatabaseProvider
+    url: DataLinq.Interfaces.IDatabaseProvider.html
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - text: DatabaseProvider<T>.TypedReadOnlyAccess
+    url: DataLinq.DatabaseProvider-1.html#DataLinq_DatabaseProvider_1_TypedReadOnlyAccess
+  - text: DatabaseProvider.DatabaseName
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_DatabaseName
+  - text: DatabaseProvider.CsModelType
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_CsModelType
+  - text: DatabaseProvider.DatabaseType
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_DatabaseType
+  - text: DatabaseProvider.LoggingConfiguration
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_LoggingConfiguration
+  - text: DatabaseProvider.Constants
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Constants
+  - text: DatabaseProvider.ConnectionString
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_ConnectionString
+  - text: DatabaseProvider.DatabaseAccess
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_DatabaseAccess
+  - text: DatabaseProvider.ReadOnlyAccess
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_ReadOnlyAccess
+  - text: DatabaseProvider.Metadata
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Metadata
+  - text: DatabaseProvider.State
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_State
+  - text: DatabaseProvider.GetTableCache(TableDefinition)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetTableCache_DataLinq_Metadata_TableDefinition_
+  - text: DatabaseProvider.StartTransaction(TransactionType)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_StartTransaction_DataLinq_Mutation_TransactionType_
+  - text: DatabaseProvider.Commit<M>(Func<Transaction, M>)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Commit__1_System_Func_DataLinq_Mutation_Transaction___0__
+  - text: DatabaseProvider.Commit(Action<Transaction>)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Commit_System_Action_DataLinq_Mutation_Transaction__
+  - text: DatabaseProvider.AttachTransaction(IDbTransaction, TransactionType)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_AttachTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_
+  - text: DatabaseProvider.ToDbCommand(IQuery)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_ToDbCommand_DataLinq_Query_IQuery_
+  - text: DatabaseProvider.GetLastIdQuery()
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetLastIdQuery
+  - text: DatabaseProvider.GetParameter(Sql, string, object?)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetParameter_DataLinq_Query_Sql_System_String_System_Object_
+  - text: DatabaseProvider.GetParameterValue(Sql, string)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetParameterValue_DataLinq_Query_Sql_System_String_
+  - text: DatabaseProvider.GetParameterComparison(Sql, string, Relation, string[])
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetParameterComparison_DataLinq_Query_Sql_System_String_DataLinq_Query_Relation_System_String___
+  - text: DatabaseProvider.GetLimitOffset(Sql, int?, int?)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetLimitOffset_DataLinq_Query_Sql_System_Nullable_System_Int32__System_Nullable_System_Int32__
+  - text: DatabaseProvider.GetTableName(Sql, string, string?)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetTableName_DataLinq_Query_Sql_System_String_System_String_
+  - text: DatabaseProvider.GetCreateSql()
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetCreateSql
+  - text: DatabaseProvider.GetNewDatabaseTransaction(TransactionType)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetNewDatabaseTransaction_DataLinq_Mutation_TransactionType_
+  - text: DatabaseProvider.AttachDatabaseTransaction(IDbTransaction, TransactionType)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_AttachDatabaseTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_
+  - text: DatabaseProvider.DatabaseExists(string?)
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_DatabaseExists_System_String_
+  - text: DatabaseProvider.FileOrServerExists()
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_FileOrServerExists
+  - text: DatabaseProvider.GetWriter()
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_GetWriter
+  - text: DatabaseProvider.Dispose()
+    url: DataLinq.DatabaseProvider.html#DataLinq_DatabaseProvider_Dispose
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: SQLiteProvider(string)
+  id: DataLinq_SQLite_SQLiteProvider_1__ctor_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L66
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.#ctor(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.#ctor(System.String)
+- code: public SQLiteProvider(string connectionString)
+- h4: Parameters
+- parameters:
+  - name: connectionString
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h2: Properties
+- api3: Constants
+  id: DataLinq_SQLite_SQLiteProvider_1_Constants
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L58
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.Constants
+    commentId: P:DataLinq.SQLite.SQLiteProvider`1.Constants
+- code: public override IDatabaseProviderConstants Constants { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IDatabaseProviderConstants
+      url: DataLinq.Interfaces.IDatabaseProviderConstants.html
+- api3: DatabaseAccess
+  id: DataLinq_SQLite_SQLiteProvider_1_DatabaseAccess
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L59
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.DatabaseAccess
+    commentId: P:DataLinq.SQLite.SQLiteProvider`1.DatabaseAccess
+- code: public override DatabaseAccess DatabaseAccess { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseAccess
+      url: DataLinq.DatabaseAccess.html
+- h2: Methods
+- api3: AttachDatabaseTransaction(IDbTransaction, TransactionType)
+  id: DataLinq_SQLite_SQLiteProvider_1_AttachDatabaseTransaction_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L129
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.AttachDatabaseTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.AttachDatabaseTransaction(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+- code: public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: dbTransaction
+    type:
+    - text: IDbTransaction
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbtransaction
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: DatabaseTransaction
+      url: DataLinq.DatabaseTransaction.html
+- api3: DatabaseExists(string?)
+  id: DataLinq_SQLite_SQLiteProvider_1_DatabaseExists_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L212
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.DatabaseExists(System.String)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.DatabaseExists(System.String)
+- code: public override bool DatabaseExists(string? databaseName = null)
+- h4: Parameters
+- parameters:
+  - name: databaseName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: FileOrServerExists()
+  id: DataLinq_SQLite_SQLiteProvider_1_FileOrServerExists
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L217
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.FileOrServerExists
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.FileOrServerExists
+- code: public override bool FileOrServerExists()
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: GetCreateSql()
+  id: DataLinq_SQLite_SQLiteProvider_1_GetCreateSql
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L201
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetCreateSql
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetCreateSql
+- code: public override Sql GetCreateSql()
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetLastIdQuery()
+  id: DataLinq_SQLite_SQLiteProvider_1_GetLastIdQuery
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L134
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetLastIdQuery
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetLastIdQuery
+- code: public override string GetLastIdQuery()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: GetLimitOffset(Sql, int?, int?)
+  id: DataLinq_SQLite_SQLiteProvider_1_GetLimitOffset_DataLinq_Query_Sql_System_Nullable_System_Int32__System_Nullable_System_Int32__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L177
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetLimitOffset(DataLinq.Query.Sql,System.Nullable{System.Int32},System.Nullable{System.Int32})
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetLimitOffset(DataLinq.Query.Sql,System.Nullable{System.Int32},System.Nullable{System.Int32})
+- code: public override Sql GetLimitOffset(Sql sql, int? limit, int? offset)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: limit
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - '?'
+  - name: offset
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetNewDatabaseTransaction(TransactionType)
+  id: DataLinq_SQLite_SQLiteProvider_1_GetNewDatabaseTransaction_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L121
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetNewDatabaseTransaction(DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetNewDatabaseTransaction(DataLinq.Mutation.TransactionType)
+- code: public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: DatabaseTransaction
+      url: DataLinq.DatabaseTransaction.html
+- api3: GetParameter(Sql, string, object?)
+  id: DataLinq_SQLite_SQLiteProvider_1_GetParameter_DataLinq_Query_Sql_System_String_System_Object_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L172
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetParameter(DataLinq.Query.Sql,System.String,System.Object)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetParameter(DataLinq.Query.Sql,System.String,System.Object)
+- code: public override Sql GetParameter(Sql sql, string key, object? value)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: value
+    type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetParameterComparison(Sql, string, Relation, string[])
+  id: DataLinq_SQLite_SQLiteProvider_1_GetParameterComparison_DataLinq_Query_Sql_System_String_DataLinq_Query_Relation_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L141
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetParameterComparison(DataLinq.Query.Sql,System.String,DataLinq.Query.Relation,System.String[])
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetParameterComparison(DataLinq.Query.Sql,System.String,DataLinq.Query.Relation,System.String[])
+- code: public override Sql GetParameterComparison(Sql sql, string field, Relation relation, string[] key)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: field
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: relation
+    type:
+    - text: Relation
+      url: DataLinq.Query.Relation.html
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetParameterValue(Sql, string)
+  id: DataLinq_SQLite_SQLiteProvider_1_GetParameterValue_DataLinq_Query_Sql_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L136
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetParameterValue(DataLinq.Query.Sql,System.String)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetParameterValue(DataLinq.Query.Sql,System.String)
+- code: public override Sql GetParameterValue(Sql sql, string key)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetTableName(Sql, string, string?)
+  id: DataLinq_SQLite_SQLiteProvider_1_GetTableName_DataLinq_Query_Sql_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L192
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetTableName(DataLinq.Query.Sql,System.String,System.String)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetTableName(DataLinq.Query.Sql,System.String,System.String)
+- code: public override Sql GetTableName(Sql sql, string tableName, string? alias = null)
+- h4: Parameters
+- parameters:
+  - name: sql
+    type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+  - name: tableName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: alias
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    optional: true
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: GetWriter()
+  id: DataLinq_SQLite_SQLiteProvider_1_GetWriter
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L227
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.GetWriter
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.GetWriter
+- code: public override IDataLinqDataWriter GetWriter()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDataLinqDataWriter
+      url: DataLinq.IDataLinqDataWriter.html
+- api3: SetJournalMode(SQLiteJournalMode)
+  id: DataLinq_SQLite_SQLiteProvider_1_SetJournalMode_DataLinq_SQLite_SQLiteJournalMode_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L96
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.SetJournalMode(DataLinq.SQLite.SQLiteJournalMode)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.SetJournalMode(DataLinq.SQLite.SQLiteJournalMode)
+- code: public void SetJournalMode(SQLiteJournalMode journalMode)
+- h4: Parameters
+- parameters:
+  - name: journalMode
+    type:
+    - text: SQLiteJournalMode
+      url: DataLinq.SQLite.SQLiteJournalMode.html
+- api3: ToDbCommand(IQuery)
+  id: DataLinq_SQLite_SQLiteProvider_1_ToDbCommand_DataLinq_Query_IQuery_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.SQLite/SQLiteProvider.cs#L203
+  metadata:
+    uid: DataLinq.SQLite.SQLiteProvider`1.ToDbCommand(DataLinq.Query.IQuery)
+    commentId: M:DataLinq.SQLite.SQLiteProvider`1.ToDbCommand(DataLinq.Query.IQuery)
+- code: public override IDbCommand ToDbCommand(IQuery query)
+- h4: Parameters
+- parameters:
+  - name: query
+    type:
+    - text: IQuery
+      url: DataLinq.Query.IQuery.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+languageId: csharp

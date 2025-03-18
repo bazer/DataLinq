@@ -1,0 +1,221 @@
+### YamlMime:ApiPage
+title: Class DataLinqConnectionString
+body:
+- api1: Class DataLinqConnectionString
+  id: DataLinq_Config_DataLinqConnectionString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L11
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString
+    commentId: T:DataLinq.Config.DataLinqConnectionString
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Config
+      url: DataLinq.Config.html
+  - name: Assembly
+    value: DataLinq.dll
+- markdown: Represents a connection string and provides methods to access its components.
+- code: 'public record DataLinqConnectionString : IEquatable<DataLinqConnectionString>'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DataLinqConnectionString
+    url: DataLinq.Config.DataLinqConnectionString.html
+- h4: Implements
+- list:
+  - text: IEquatable<DataLinqConnectionString>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: DataLinqConnectionString(string?)
+  id: DataLinq_Config_DataLinqConnectionString__ctor_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L77
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.#ctor(System.String)
+    commentId: M:DataLinq.Config.DataLinqConnectionString.#ctor(System.String)
+- markdown: Initializes a new instance of the <xref href="DataLinq.Config.DataLinqConnectionString" data-throw-if-not-resolved="false"></xref> class with the specified connection string.
+- code: public DataLinqConnectionString(string? original)
+- h4: Parameters
+- parameters:
+  - name: original
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    description: The original connection string.
+- h2: Properties
+- api3: Entries
+  id: DataLinq_Config_DataLinqConnectionString_Entries
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L16
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.Entries
+    commentId: P:DataLinq.Config.DataLinqConnectionString.Entries
+- markdown: Gets the dictionary containing the key-value pairs of the connection string.
+- code: public Dictionary<string, string> Entries { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Dictionary
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.dictionary-2
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - ','
+    - " "
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- api3: HasPassword
+  id: DataLinq_Config_DataLinqConnectionString_HasPassword
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L52
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.HasPassword
+    commentId: P:DataLinq.Config.DataLinqConnectionString.HasPassword
+- markdown: Determines whether the connection string contains a password entry.
+- code: public bool HasPassword { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Original
+  id: DataLinq_Config_DataLinqConnectionString_Original
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L21
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.Original
+    commentId: P:DataLinq.Config.DataLinqConnectionString.Original
+- markdown: Gets the original connection string.
+- code: public string Original { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: Path
+  id: DataLinq_Config_DataLinqConnectionString_Path
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L59
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.Path
+    commentId: P:DataLinq.Config.DataLinqConnectionString.Path
+- markdown: Gets the path (either 'host' or 'data source') from the connection string.
+- code: public string? Path { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: Values
+  id: DataLinq_Config_DataLinqConnectionString_Values
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L26
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.Values
+    commentId: P:DataLinq.Config.DataLinqConnectionString.Values
+- markdown: Gets a collection of key-value pairs from the connection string.
+- code: public IEnumerable<(string key, string value)> Values { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: key
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.string-.key
+    - ','
+    - " "
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: value
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.string-.value
+    - )
+    - '>'
+- h2: Methods
+- api3: ChangeValue(string, string)
+  id: DataLinq_Config_DataLinqConnectionString_ChangeValue_System_String_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L91
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.ChangeValue(System.String,System.String)
+    commentId: M:DataLinq.Config.DataLinqConnectionString.ChangeValue(System.String,System.String)
+- code: public DataLinqConnectionString ChangeValue(string key, string value)
+- h4: Parameters
+- parameters:
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: value
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: DataLinqConnectionString
+      url: DataLinq.Config.DataLinqConnectionString.html
+- api3: ContainsKey(string)
+  id: DataLinq_Config_DataLinqConnectionString_ContainsKey_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L33
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.ContainsKey(System.String)
+    commentId: M:DataLinq.Config.DataLinqConnectionString.ContainsKey(System.String)
+- markdown: Determines whether the connection string contains the specified key.
+- code: public bool ContainsKey(string key)
+- h4: Parameters
+- parameters:
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: The key to locate in the connection string.
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    description: true if the connection string contains an element with the specified key; otherwise, false.
+- api3: GetValue(string)
+  id: DataLinq_Config_DataLinqConnectionString_GetValue_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/DataLinqConnectionString.cs#L40
+  metadata:
+    uid: DataLinq.Config.DataLinqConnectionString.GetValue(System.String)
+    commentId: M:DataLinq.Config.DataLinqConnectionString.GetValue(System.String)
+- markdown: Gets the value associated with the specified key.
+- code: public string? GetValue(string key)
+- h4: Parameters
+- parameters:
+  - name: key
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: The key of the value to get.
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    description: The value associated with the specified key.
+languageId: csharp
+metadata:
+  description: Represents a connection string and provides methods to access its components.

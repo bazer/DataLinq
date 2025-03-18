@@ -1,0 +1,44 @@
+### YamlMime:ApiPage
+title: Namespace DataLinq.MySql.Models
+body:
+- api1: Namespace DataLinq.MySql.Models
+  id: DataLinq_MySql_Models
+  metadata:
+    uid: DataLinq.MySql.Models
+    commentId: N:DataLinq.MySql.Models
+- h3: Classes
+- parameters:
+  - type:
+      text: COLUMNS
+      url: DataLinq.MySql.Models.COLUMNS.html
+  - type:
+      text: ImmutableCOLUMNS
+      url: DataLinq.MySql.Models.ImmutableCOLUMNS.html
+  - type:
+      text: ImmutableKEY_COLUMN_USAGE
+      url: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.html
+  - type:
+      text: ImmutableSTATISTICS
+      url: DataLinq.MySql.Models.ImmutableSTATISTICS.html
+  - type:
+      text: ImmutableTABLES
+      url: DataLinq.MySql.Models.ImmutableTABLES.html
+  - type:
+      text: ImmutableVIEWS
+      url: DataLinq.MySql.Models.ImmutableVIEWS.html
+  - type:
+      text: KEY_COLUMN_USAGE
+      url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html
+  - type:
+      text: STATISTICS
+      url: DataLinq.MySql.Models.STATISTICS.html
+  - type:
+      text: TABLES
+      url: DataLinq.MySql.Models.TABLES.html
+  - type:
+      text: VIEWS
+      url: DataLinq.MySql.Models.VIEWS.html
+  - type:
+      text: information_schema
+      url: DataLinq.MySql.Models.information_schema.html
+languageId: csharp

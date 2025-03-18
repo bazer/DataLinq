@@ -1,0 +1,22 @@
+### YamlMime:ApiPage
+title: Enum ModelGeneratorError
+body:
+- api1: Enum ModelGeneratorError
+  id: DataLinq_Tools_ModelGeneratorError
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L49
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorError
+    commentId: T:DataLinq.Tools.ModelGeneratorError
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Tools
+      url: DataLinq.Tools.html
+  - name: Assembly
+    value: DataLinq.Tools.dll
+- code: public enum ModelGeneratorError
+- h2: Fields
+- parameters:
+  - name: UnableToParseSourceFiles
+    default: "0"
+languageId: csharp

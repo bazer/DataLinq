@@ -1,0 +1,116 @@
+### YamlMime:ApiPage
+title: Struct GuidKey
+body:
+- api1: Struct GuidKey
+  id: DataLinq_Instances_GuidKey
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L66
+  metadata:
+    uid: DataLinq.Instances.GuidKey
+    commentId: T:DataLinq.Instances.GuidKey
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public readonly record struct GuidKey : IKey, IEquatable<GuidKey>'
+- h4: Implements
+- list:
+  - text: IKey
+    url: DataLinq.Instances.IKey.html
+  - text: IEquatable<GuidKey>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: GuidKey(Guid)
+  id: DataLinq_Instances_GuidKey__ctor_System_Guid_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L66
+  metadata:
+    uid: DataLinq.Instances.GuidKey.#ctor(System.Guid)
+    commentId: M:DataLinq.Instances.GuidKey.#ctor(System.Guid)
+- code: public GuidKey(Guid Value)
+- h4: Parameters
+- parameters:
+  - name: Value
+    type:
+    - text: Guid
+      url: https://learn.microsoft.com/dotnet/api/system.guid
+- h2: Properties
+- api3: Value
+  id: DataLinq_Instances_GuidKey_Value
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L66
+  metadata:
+    uid: DataLinq.Instances.GuidKey.Value
+    commentId: P:DataLinq.Instances.GuidKey.Value
+- code: public Guid Value { get; init; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Guid
+      url: https://learn.microsoft.com/dotnet/api/system.guid
+- api3: Values
+  id: DataLinq_Instances_GuidKey_Values
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L68
+  metadata:
+    uid: DataLinq.Instances.GuidKey.Values
+    commentId: P:DataLinq.Instances.GuidKey.Values
+- code: public object?[] Values { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '['
+    - ']'
+- h2: Methods
+- api3: Equals(GuidKey)
+  id: DataLinq_Instances_GuidKey_Equals_DataLinq_Instances_GuidKey_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L70
+  metadata:
+    uid: DataLinq.Instances.GuidKey.Equals(DataLinq.Instances.GuidKey)
+    commentId: M:DataLinq.Instances.GuidKey.Equals(DataLinq.Instances.GuidKey)
+- markdown: Indicates whether the current object is equal to another object of the same type.
+- code: public bool Equals(GuidKey other)
+- h4: Parameters
+- parameters:
+  - name: other
+    type:
+    - text: GuidKey
+      url: DataLinq.Instances.GuidKey.html
+    description: An object to compare with this object.
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    description: <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool">true</a> if the current object is equal to the <code class="paramref">other</code> parameter; otherwise, <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool">false</a>.
+- api3: GetHashCode()
+  id: DataLinq_Instances_GuidKey_GetHashCode
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L73
+  metadata:
+    uid: DataLinq.Instances.GuidKey.GetHashCode
+    commentId: M:DataLinq.Instances.GuidKey.GetHashCode
+- markdown: Returns the hash code for this instance.
+- code: public override int GetHashCode()
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    description: A 32-bit signed integer that is the hash code for this instance.
+languageId: csharp

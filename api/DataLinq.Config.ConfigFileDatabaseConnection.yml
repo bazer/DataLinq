@@ -1,0 +1,122 @@
+### YamlMime:ApiPage
+title: Class ConfigFileDatabaseConnection
+body:
+- api1: Class ConfigFileDatabaseConnection
+  id: DataLinq_Config_ConfigFileDatabaseConnection
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L31
+  metadata:
+    uid: DataLinq.Config.ConfigFileDatabaseConnection
+    commentId: T:DataLinq.Config.ConfigFileDatabaseConnection
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Config
+      url: DataLinq.Config.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public record ConfigFileDatabaseConnection : IEquatable<ConfigFileDatabaseConnection>'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: ConfigFileDatabaseConnection
+    url: DataLinq.Config.ConfigFileDatabaseConnection.html
+- h4: Implements
+- list:
+  - text: IEquatable<ConfigFileDatabaseConnection>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Properties
+- api3: ConnectionString
+  id: DataLinq_Config_ConfigFileDatabaseConnection_ConnectionString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L47
+  metadata:
+    uid: DataLinq.Config.ConfigFileDatabaseConnection.ConnectionString
+    commentId: P:DataLinq.Config.ConfigFileDatabaseConnection.ConnectionString
+- code: public string? ConnectionString { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: DataSourceName
+  id: DataLinq_Config_ConfigFileDatabaseConnection_DataSourceName
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L46
+  metadata:
+    uid: DataLinq.Config.ConfigFileDatabaseConnection.DataSourceName
+    commentId: P:DataLinq.Config.ConfigFileDatabaseConnection.DataSourceName
+- code: public string? DataSourceName { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: DatabaseName
+  id: DataLinq_Config_ConfigFileDatabaseConnection_DatabaseName
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L45
+  metadata:
+    uid: DataLinq.Config.ConfigFileDatabaseConnection.DatabaseName
+    commentId: P:DataLinq.Config.ConfigFileDatabaseConnection.DatabaseName
+- code: public string? DatabaseName { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: ParsedConnectionString
+  id: DataLinq_Config_ConfigFileDatabaseConnection_ParsedConnectionString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L48
+  metadata:
+    uid: DataLinq.Config.ConfigFileDatabaseConnection.ParsedConnectionString
+    commentId: P:DataLinq.Config.ConfigFileDatabaseConnection.ParsedConnectionString
+- code: public DataLinqConnectionString? ParsedConnectionString { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DataLinqConnectionString
+      url: DataLinq.Config.DataLinqConnectionString.html
+    - '?'
+- api3: ParsedType
+  id: DataLinq_Config_ConfigFileDatabaseConnection_ParsedType
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L33
+  metadata:
+    uid: DataLinq.Config.ConfigFileDatabaseConnection.ParsedType
+    commentId: P:DataLinq.Config.ConfigFileDatabaseConnection.ParsedType
+- code: public DatabaseType? ParsedType { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - DatabaseType
+    - '?'
+- api3: Type
+  id: DataLinq_Config_ConfigFileDatabaseConnection_Type
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Config/ConfigFile.cs#L44
+  metadata:
+    uid: DataLinq.Config.ConfigFileDatabaseConnection.Type
+    commentId: P:DataLinq.Config.ConfigFileDatabaseConnection.Type
+- code: public string? Type { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+languageId: csharp

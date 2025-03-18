@@ -1,0 +1,18 @@
+### YamlMime:ApiPage
+title: Interface IView
+body:
+- api1: Interface IView
+  id: DataLinq_Interfaces_IView
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Interfaces/IView.cs#L3
+  metadata:
+    uid: DataLinq.Interfaces.IView
+    commentId: T:DataLinq.Interfaces.IView
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Interfaces
+      url: DataLinq.Interfaces.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public interface IView
+languageId: csharp

@@ -1,0 +1,22 @@
+### YamlMime:ApiPage
+title: Interface IWritableView
+body:
+- api1: Interface IWritableView
+  id: DataLinq_Interfaces_IWritableView
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Interfaces/IView.cs#L8
+  metadata:
+    uid: DataLinq.Interfaces.IWritableView
+    commentId: T:DataLinq.Interfaces.IWritableView
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Interfaces
+      url: DataLinq.Interfaces.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: 'public interface IWritableView : IView'
+- h4: Implements
+- list:
+  - text: IView
+    url: DataLinq.Interfaces.IView.html
+languageId: csharp

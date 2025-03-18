@@ -1,0 +1,30 @@
+### YamlMime:ApiPage
+title: Interface IModelInstance<T>
+body:
+- api1: Interface IModelInstance<T>
+  id: DataLinq_Instances_IModelInstance_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/InstanceFactory.cs#L26
+  metadata:
+    uid: DataLinq.Instances.IModelInstance`1
+    commentId: T:DataLinq.Instances.IModelInstance`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public interface IModelInstance<T> : IModelInstance, IModel where T : IDatabaseModel'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h4: Implements
+- list:
+  - text: IModelInstance
+    url: DataLinq.Instances.IModelInstance.html
+  - IModel
+- h4: Extension Methods
+- list:
+  - text: IModelExtensions.Delete<IModelInstance<T>>(IModelInstance<T>, Transaction)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_DataLinq_Mutation_Transaction_
+languageId: csharp

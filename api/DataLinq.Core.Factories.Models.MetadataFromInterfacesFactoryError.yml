@@ -1,0 +1,28 @@
+### YamlMime:ApiPage
+title: Enum MetadataFromInterfacesFactoryError
+body:
+- api1: Enum MetadataFromInterfacesFactoryError
+  id: DataLinq_Core_Factories_Models_MetadataFromInterfacesFactoryError
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/Generator/MetadataFromModelsFactory.cs#L15
+  metadata:
+    uid: DataLinq.Core.Factories.Models.MetadataFromInterfacesFactoryError
+    commentId: T:DataLinq.Core.Factories.Models.MetadataFromInterfacesFactoryError
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Core.Factories.Models
+      url: DataLinq.Core.Factories.Models.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public enum MetadataFromInterfacesFactoryError
+- h2: Fields
+- parameters:
+  - name: CompilationError
+    default: "0"
+  - name: CouldNotLoadAssembly
+    default: "3"
+  - name: FileNotFound
+    default: "2"
+  - name: TypeNotFound
+    default: "1"
+languageId: csharp

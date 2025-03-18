@@ -1,0 +1,95 @@
+### YamlMime:ApiPage
+title: Class TransactionStatusChangeEventArgs
+body:
+- api1: Class TransactionStatusChangeEventArgs
+  id: DataLinq_Mutation_TransactionStatusChangeEventArgs
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L56
+  metadata:
+    uid: DataLinq.Mutation.TransactionStatusChangeEventArgs
+    commentId: T:DataLinq.Mutation.TransactionStatusChangeEventArgs
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Mutation
+      url: DataLinq.Mutation.html
+  - name: Assembly
+    value: DataLinq.dll
+- markdown: Provides data for the <xref href="DataLinq.Mutation.Transaction.OnStatusChanged" data-throw-if-not-resolved="false"></xref> event.
+- code: 'public class TransactionStatusChangeEventArgs : EventArgs'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: EventArgs
+    url: https://learn.microsoft.com/dotnet/api/system.eventargs
+  - text: TransactionStatusChangeEventArgs
+    url: DataLinq.Mutation.TransactionStatusChangeEventArgs.html
+- h4: Inherited Members
+- list:
+  - text: EventArgs.Empty
+    url: https://learn.microsoft.com/dotnet/api/system.eventargs.empty
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: TransactionStatusChangeEventArgs(Transaction, DatabaseTransactionStatus)
+  id: DataLinq_Mutation_TransactionStatusChangeEventArgs__ctor_DataLinq_Mutation_Transaction_DataLinq_DatabaseTransactionStatus_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L63
+  metadata:
+    uid: DataLinq.Mutation.TransactionStatusChangeEventArgs.#ctor(DataLinq.Mutation.Transaction,DataLinq.DatabaseTransactionStatus)
+    commentId: M:DataLinq.Mutation.TransactionStatusChangeEventArgs.#ctor(DataLinq.Mutation.Transaction,DataLinq.DatabaseTransactionStatus)
+- markdown: Initializes a new instance of the <xref href="DataLinq.Mutation.TransactionStatusChangeEventArgs" data-throw-if-not-resolved="false"></xref> class.
+- code: public TransactionStatusChangeEventArgs(Transaction transaction, DatabaseTransactionStatus status)
+- h4: Parameters
+- parameters:
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+    description: The transaction that raised the event.
+  - name: status
+    type:
+    - text: DatabaseTransactionStatus
+      url: DataLinq.DatabaseTransactionStatus.html
+    description: The new status of the transaction.
+- h2: Properties
+- api3: Status
+  id: DataLinq_Mutation_TransactionStatusChangeEventArgs_Status
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L77
+  metadata:
+    uid: DataLinq.Mutation.TransactionStatusChangeEventArgs.Status
+    commentId: P:DataLinq.Mutation.TransactionStatusChangeEventArgs.Status
+- markdown: Gets the new status of the transaction.
+- code: public DatabaseTransactionStatus Status { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseTransactionStatus
+      url: DataLinq.DatabaseTransactionStatus.html
+- api3: Transaction
+  id: DataLinq_Mutation_TransactionStatusChangeEventArgs_Transaction
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Mutation/Transaction.cs#L72
+  metadata:
+    uid: DataLinq.Mutation.TransactionStatusChangeEventArgs.Transaction
+    commentId: P:DataLinq.Mutation.TransactionStatusChangeEventArgs.Transaction
+- markdown: Gets the transaction that raised the event.
+- code: public Transaction Transaction { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+languageId: csharp
+metadata:
+  description: Provides data for the  event.

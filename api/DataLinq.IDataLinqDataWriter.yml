@@ -1,0 +1,53 @@
+### YamlMime:ApiPage
+title: Interface IDataLinqDataWriter
+body:
+- api1: Interface IDataLinqDataWriter
+  id: DataLinq_IDataLinqDataWriter
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataWriter.cs#L9
+  metadata:
+    uid: DataLinq.IDataLinqDataWriter
+    commentId: T:DataLinq.IDataLinqDataWriter
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq
+      url: DataLinq.html
+  - name: Assembly
+    value: DataLinq.dll
+- markdown: Interface for writing data to a database.
+- code: public interface IDataLinqDataWriter
+- h4: Extension Methods
+- list:
+  - text: DataWriter.ConvertColumnValue(IDataLinqDataWriter, ColumnDefinition, object?)
+    url: DataLinq.DataWriter.html#DataLinq_DataWriter_ConvertColumnValue_DataLinq_IDataLinqDataWriter_DataLinq_Metadata_ColumnDefinition_System_Object_
+- h2: Methods
+- api3: ConvertValue(ColumnDefinition, object?)
+  id: DataLinq_IDataLinqDataWriter_ConvertValue_DataLinq_Metadata_ColumnDefinition_System_Object_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DataWriter.cs#L17
+  metadata:
+    uid: DataLinq.IDataLinqDataWriter.ConvertValue(DataLinq.Metadata.ColumnDefinition,System.Object)
+    commentId: M:DataLinq.IDataLinqDataWriter.ConvertValue(DataLinq.Metadata.ColumnDefinition,System.Object)
+- markdown: Converts the value of a column to the appropriate database type.
+- code: object? ConvertValue(ColumnDefinition column, object? value)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - ColumnDefinition
+    description: The column to convert.
+  - name: value
+    type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    description: The value to convert.
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    description: The converted value.
+languageId: csharp
+metadata:
+  description: Interface for writing data to a database.

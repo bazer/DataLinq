@@ -1,0 +1,59 @@
+### YamlMime:ApiPage
+title: Class DbCommandExtensions
+body:
+- api1: Class DbCommandExtensions
+  id: DataLinq_Logging_DbCommandExtensions
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Logging/Log.cs#L33
+  metadata:
+    uid: DataLinq.Logging.DbCommandExtensions
+    commentId: T:DataLinq.Logging.DbCommandExtensions
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Logging
+      url: DataLinq.Logging.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public static class DbCommandExtensions
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DbCommandExtensions
+    url: DataLinq.Logging.DbCommandExtensions.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: FormatCommand(IDbCommand)
+  id: DataLinq_Logging_DbCommandExtensions_FormatCommand_System_Data_IDbCommand_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Logging/Log.cs#L35
+  metadata:
+    uid: DataLinq.Logging.DbCommandExtensions.FormatCommand(System.Data.IDbCommand)
+    commentId: M:DataLinq.Logging.DbCommandExtensions.FormatCommand(System.Data.IDbCommand)
+- code: public static string FormatCommand(this IDbCommand command)
+- h4: Parameters
+- parameters:
+  - name: command
+    type:
+    - text: IDbCommand
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbcommand
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

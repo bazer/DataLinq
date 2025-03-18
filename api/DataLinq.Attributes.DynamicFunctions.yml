@@ -1,0 +1,29 @@
+### YamlMime:ApiPage
+title: Enum DynamicFunctions
+body:
+- api1: Enum DynamicFunctions
+  id: DataLinq_Attributes_DynamicFunctions
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Attributes/DefaultAttribute.cs#L5
+  metadata:
+    uid: DataLinq.Attributes.DynamicFunctions
+    commentId: T:DataLinq.Attributes.DynamicFunctions
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Attributes
+      url: DataLinq.Attributes.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public enum DynamicFunctions
+- h2: Fields
+- parameters:
+  - name: CurrentTimestamp
+    default: "0"
+    description: >+
+      Use the current date and time.
+
+      MySQL/MariaDB: maps to CURRENT_TIMESTAMP.
+
+      SQLite: maps to CURRENT_TIMESTAMP.
+
+languageId: csharp

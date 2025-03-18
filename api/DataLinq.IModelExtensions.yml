@@ -1,0 +1,156 @@
+### YamlMime:ApiPage
+title: Class IModelExtensions
+body:
+- api1: Class IModelExtensions
+  id: DataLinq_IModelExtensions
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Extensions/IModelExtensions.cs#L6
+  metadata:
+    uid: DataLinq.IModelExtensions
+    commentId: T:DataLinq.IModelExtensions
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq
+      url: DataLinq.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public static class IModelExtensions
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: IModelExtensions
+    url: DataLinq.IModelExtensions.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: Delete<T>(T)
+  id: DataLinq_IModelExtensions_Delete__1___0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Extensions/IModelExtensions.cs#L17
+  metadata:
+    uid: DataLinq.IModelExtensions.Delete``1(``0)
+    commentId: M:DataLinq.IModelExtensions.Delete``1(``0)
+- code: 'public static void Delete<T>(this T model) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Delete<T>(T, Transaction)
+  id: DataLinq_IModelExtensions_Delete__1___0_DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Extensions/IModelExtensions.cs#L20
+  metadata:
+    uid: DataLinq.IModelExtensions.Delete``1(``0,DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.IModelExtensions.Delete``1(``0,DataLinq.Mutation.Transaction)
+- code: 'public static void Delete<T>(this T model, Transaction transaction) where T : IModelInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - T
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Insert<T>(Mutable<T>, Transaction)
+  id: DataLinq_IModelExtensions_Insert__1_DataLinq_Instances_Mutable___0__DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Extensions/IModelExtensions.cs#L8
+  metadata:
+    uid: DataLinq.IModelExtensions.Insert``1(DataLinq.Instances.Mutable{``0},DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.IModelExtensions.Insert``1(DataLinq.Instances.Mutable{``0},DataLinq.Mutation.Transaction)
+- code: 'public static T Insert<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Save<T>(Mutable<T>, Transaction)
+  id: DataLinq_IModelExtensions_Save__1_DataLinq_Instances_Mutable___0__DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Extensions/IModelExtensions.cs#L14
+  metadata:
+    uid: DataLinq.IModelExtensions.Save``1(DataLinq.Instances.Mutable{``0},DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.IModelExtensions.Save``1(DataLinq.Instances.Mutable{``0},DataLinq.Mutation.Transaction)
+- code: 'public static T Save<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+- api3: Update<T>(Mutable<T>, Transaction)
+  id: DataLinq_IModelExtensions_Update__1_DataLinq_Instances_Mutable___0__DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Extensions/IModelExtensions.cs#L11
+  metadata:
+    uid: DataLinq.IModelExtensions.Update``1(DataLinq.Instances.Mutable{``0},DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.IModelExtensions.Update``1(DataLinq.Instances.Mutable{``0},DataLinq.Mutation.Transaction)
+- code: 'public static T Update<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance'
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: Mutable
+      url: DataLinq.Instances.Mutable-1.html
+    - <
+    - T
+    - '>'
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+- h4: Returns
+- parameters:
+  - type:
+    - T
+- h4: Type Parameters
+- parameters:
+  - name: T
+languageId: csharp

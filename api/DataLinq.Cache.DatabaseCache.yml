@@ -1,0 +1,332 @@
+### YamlMime:ApiPage
+title: Class DatabaseCache
+body:
+- api1: Class DatabaseCache
+  id: DataLinq_Cache_DatabaseCache
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L14
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache
+    commentId: T:DataLinq.Cache.DatabaseCache
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Cache
+      url: DataLinq.Cache.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class DatabaseCache : IDisposable'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DatabaseCache
+    url: DataLinq.Cache.DatabaseCache.html
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: DatabaseCache(IDatabaseProvider, DataLinqLoggingConfiguration)
+  id: DataLinq_Cache_DatabaseCache__ctor_DataLinq_Interfaces_IDatabaseProvider_DataLinq_Logging_DataLinqLoggingConfiguration_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L24
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.#ctor(DataLinq.Interfaces.IDatabaseProvider,DataLinq.Logging.DataLinqLoggingConfiguration)
+    commentId: M:DataLinq.Cache.DatabaseCache.#ctor(DataLinq.Interfaces.IDatabaseProvider,DataLinq.Logging.DataLinqLoggingConfiguration)
+- code: public DatabaseCache(IDatabaseProvider database, DataLinqLoggingConfiguration loggingConfiguration)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: IDatabaseProvider
+      url: DataLinq.Interfaces.IDatabaseProvider.html
+  - name: loggingConfiguration
+    type:
+    - text: DataLinqLoggingConfiguration
+      url: DataLinq.Logging.DataLinqLoggingConfiguration.html
+- h2: Properties
+- api3: CleanCacheWorker
+  id: DataLinq_Cache_DatabaseCache_CleanCacheWorker
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L20
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.CleanCacheWorker
+    commentId: P:DataLinq.Cache.DatabaseCache.CleanCacheWorker
+- code: public CleanCacheWorker? CleanCacheWorker { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: CleanCacheWorker
+      url: DataLinq.Workers.CleanCacheWorker.html
+    - '?'
+- api3: Database
+  id: DataLinq_Cache_DatabaseCache_Database
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L16
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.Database
+    commentId: P:DataLinq.Cache.DatabaseCache.Database
+- code: public IDatabaseProvider Database { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IDatabaseProvider
+      url: DataLinq.Interfaces.IDatabaseProvider.html
+- api3: History
+  id: DataLinq_Cache_DatabaseCache_History
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L22
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.History
+    commentId: P:DataLinq.Cache.DatabaseCache.History
+- code: public CacheHistory History { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: CacheHistory
+      url: DataLinq.Cache.CacheHistory.html
+- api3: TableCaches
+  id: DataLinq_Cache_DatabaseCache_TableCaches
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L18
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.TableCaches
+    commentId: P:DataLinq.Cache.DatabaseCache.TableCaches
+- code: public Dictionary<TableDefinition, TableCache> TableCaches { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: Dictionary
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.dictionary-2
+    - <
+    - TableDefinition
+    - ','
+    - " "
+    - text: TableCache
+      url: DataLinq.Cache.TableCache.html
+    - '>'
+- h2: Methods
+- api3: ApplyChanges(IEnumerable<StateChange>, Transaction?)
+  id: DataLinq_Cache_DatabaseCache_ApplyChanges_System_Collections_Generic_IEnumerable_DataLinq_Mutation_StateChange__DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L95
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.ApplyChanges(System.Collections.Generic.IEnumerable{DataLinq.Mutation.StateChange},DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.Cache.DatabaseCache.ApplyChanges(System.Collections.Generic.IEnumerable{DataLinq.Mutation.StateChange},DataLinq.Mutation.Transaction)
+- code: public void ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
+- h4: Parameters
+- parameters:
+  - name: changes
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: StateChange
+      url: DataLinq.Mutation.StateChange.html
+    - '>'
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+    - '?'
+    optional: true
+- api3: ClearCache()
+  id: DataLinq_Cache_DatabaseCache_ClearCache
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L151
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.ClearCache
+    commentId: M:DataLinq.Cache.DatabaseCache.ClearCache
+- code: public void ClearCache()
+- api3: Dispose()
+  id: DataLinq_Cache_DatabaseCache_Dispose
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L159
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.Dispose
+    commentId: M:DataLinq.Cache.DatabaseCache.Dispose
+- markdown: Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+- code: public void Dispose()
+- api3: GetIndexCachePolicy()
+  id: DataLinq_Cache_DatabaseCache_GetIndexCachePolicy
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L80
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.GetIndexCachePolicy
+    commentId: M:DataLinq.Cache.DatabaseCache.GetIndexCachePolicy
+- code: public (IndexCacheType, int? amount) GetIndexCachePolicy()
+- h4: Returns
+- parameters:
+  - type:
+    - (
+    - IndexCacheType
+    - ','
+    - " "
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - '?'
+    - " "
+    - text: amount
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.attributes.indexcachetype,system.nullable-system.int32--.amount
+    - )
+- api3: GetLatestSnapshot()
+  id: DataLinq_Cache_DatabaseCache_GetLatestSnapshot
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L55
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.GetLatestSnapshot
+    commentId: M:DataLinq.Cache.DatabaseCache.GetLatestSnapshot
+- code: public DatabaseCacheSnapshot GetLatestSnapshot()
+- h4: Returns
+- parameters:
+  - type:
+    - text: DatabaseCacheSnapshot
+      url: DataLinq.Cache.DatabaseCacheSnapshot.html
+- api3: GetTableCache(TableDefinition)
+  id: DataLinq_Cache_DatabaseCache_GetTableCache_DataLinq_Metadata_TableDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L50
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.GetTableCache(DataLinq.Metadata.TableDefinition)
+    commentId: M:DataLinq.Cache.DatabaseCache.GetTableCache(DataLinq.Metadata.TableDefinition)
+- code: public TableCache GetTableCache(TableDefinition table)
+- h4: Parameters
+- parameters:
+  - name: table
+    type:
+    - TableDefinition
+- h4: Returns
+- parameters:
+  - type:
+    - text: TableCache
+      url: DataLinq.Cache.TableCache.html
+- api3: MakeSnapshot()
+  id: DataLinq_Cache_DatabaseCache_MakeSnapshot
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L60
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.MakeSnapshot
+    commentId: M:DataLinq.Cache.DatabaseCache.MakeSnapshot
+- code: public DatabaseCacheSnapshot MakeSnapshot()
+- h4: Returns
+- parameters:
+  - type:
+    - text: DatabaseCacheSnapshot
+      url: DataLinq.Cache.DatabaseCacheSnapshot.html
+- api3: RemoveRowsByLimit(CacheLimitType, long)
+  id: DataLinq_Cache_DatabaseCache_RemoveRowsByLimit_DataLinq_Attributes_CacheLimitType_System_Int64_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L129
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.RemoveRowsByLimit(DataLinq.Attributes.CacheLimitType,System.Int64)
+    commentId: M:DataLinq.Cache.DatabaseCache.RemoveRowsByLimit(DataLinq.Attributes.CacheLimitType,System.Int64)
+- code: public IEnumerable<(TableCache table, int numRows)> RemoveRowsByLimit(CacheLimitType limitType, long amount)
+- h4: Parameters
+- parameters:
+  - name: limitType
+    type:
+    - CacheLimitType
+  - name: amount
+    type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: TableCache
+      url: DataLinq.Cache.TableCache.html
+    - " "
+    - text: table
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.cache.tablecache,system.int32-.table
+    - ','
+    - " "
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - " "
+    - text: numRows
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.cache.tablecache,system.int32-.numrows
+    - )
+    - '>'
+- api3: RemoveRowsBySettings()
+  id: DataLinq_Cache_DatabaseCache_RemoveRowsBySettings
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L111
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.RemoveRowsBySettings
+    commentId: M:DataLinq.Cache.DatabaseCache.RemoveRowsBySettings
+- code: public IEnumerable<(TableCache table, int numRows)> RemoveRowsBySettings()
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: TableCache
+      url: DataLinq.Cache.TableCache.html
+    - " "
+    - text: table
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.cache.tablecache,system.int32-.table
+    - ','
+    - " "
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - " "
+    - text: numRows
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.cache.tablecache,system.int32-.numrows
+    - )
+    - '>'
+- api3: RemoveRowsInsertedBeforeTick(long)
+  id: DataLinq_Cache_DatabaseCache_RemoveRowsInsertedBeforeTick_System_Int64_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L140
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.RemoveRowsInsertedBeforeTick(System.Int64)
+    commentId: M:DataLinq.Cache.DatabaseCache.RemoveRowsInsertedBeforeTick(System.Int64)
+- code: public IEnumerable<(TableCache table, int numRows)> RemoveRowsInsertedBeforeTick(long tick)
+- h4: Parameters
+- parameters:
+  - name: tick
+    type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: TableCache
+      url: DataLinq.Cache.TableCache.html
+    - " "
+    - text: table
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.cache.tablecache,system.int32-.table
+    - ','
+    - " "
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - " "
+    - text: numRows
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-datalinq.cache.tablecache,system.int32-.numrows
+    - )
+    - '>'
+- api3: RemoveTransaction(Transaction)
+  id: DataLinq_Cache_DatabaseCache_RemoveTransaction_DataLinq_Mutation_Transaction_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCache.cs#L103
+  metadata:
+    uid: DataLinq.Cache.DatabaseCache.RemoveTransaction(DataLinq.Mutation.Transaction)
+    commentId: M:DataLinq.Cache.DatabaseCache.RemoveTransaction(DataLinq.Mutation.Transaction)
+- code: public void RemoveTransaction(Transaction transaction)
+- h4: Parameters
+- parameters:
+  - name: transaction
+    type:
+    - text: Transaction
+      url: DataLinq.Mutation.Transaction.html
+languageId: csharp

@@ -1,0 +1,175 @@
+### YamlMime:ApiPage
+title: Class DatabaseCacheSnapshot
+body:
+- api1: Class DatabaseCacheSnapshot
+  id: DataLinq_Cache_DatabaseCacheSnapshot
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L7
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot
+    commentId: T:DataLinq.Cache.DatabaseCacheSnapshot
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Cache
+      url: DataLinq.Cache.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public class DatabaseCacheSnapshot
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DatabaseCacheSnapshot
+    url: DataLinq.Cache.DatabaseCacheSnapshot.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: DatabaseCacheSnapshot(DateTime, TableCacheSnapshot[])
+  id: DataLinq_Cache_DatabaseCacheSnapshot__ctor_System_DateTime_DataLinq_Cache_TableCacheSnapshot___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L7
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.#ctor(System.DateTime,DataLinq.Cache.TableCacheSnapshot[])
+    commentId: M:DataLinq.Cache.DatabaseCacheSnapshot.#ctor(System.DateTime,DataLinq.Cache.TableCacheSnapshot[])
+- code: public DatabaseCacheSnapshot(DateTime timestamp, TableCacheSnapshot[] tableCaches)
+- h4: Parameters
+- parameters:
+  - name: timestamp
+    type:
+    - text: DateTime
+      url: https://learn.microsoft.com/dotnet/api/system.datetime
+  - name: tableCaches
+    type:
+    - text: TableCacheSnapshot
+      url: DataLinq.Cache.TableCacheSnapshot.html
+    - '['
+    - ']'
+- h2: Properties
+- api3: NewestDateTime
+  id: DataLinq_Cache_DatabaseCacheSnapshot_NewestDateTime
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L17
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.NewestDateTime
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.NewestDateTime
+- code: public DateTime? NewestDateTime { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DateTime
+      url: https://learn.microsoft.com/dotnet/api/system.datetime
+    - '?'
+- api3: NewestTick
+  id: DataLinq_Cache_DatabaseCacheSnapshot_NewestTick
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L12
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.NewestTick
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.NewestTick
+- code: public long? NewestTick { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: OldestDateTime
+  id: DataLinq_Cache_DatabaseCacheSnapshot_OldestDateTime
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L18
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.OldestDateTime
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.OldestDateTime
+- code: public DateTime? OldestDateTime { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DateTime
+      url: https://learn.microsoft.com/dotnet/api/system.datetime
+    - '?'
+- api3: OldestTick
+  id: DataLinq_Cache_DatabaseCacheSnapshot_OldestTick
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L13
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.OldestTick
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.OldestTick
+- code: public long? OldestTick { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: RowCount
+  id: DataLinq_Cache_DatabaseCacheSnapshot_RowCount
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L14
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.RowCount
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.RowCount
+- code: public int RowCount { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: TableCaches
+  id: DataLinq_Cache_DatabaseCacheSnapshot_TableCaches
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L10
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.TableCaches
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.TableCaches
+- code: public TableCacheSnapshot[] TableCaches { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: TableCacheSnapshot
+      url: DataLinq.Cache.TableCacheSnapshot.html
+    - '['
+    - ']'
+- api3: Timestamp
+  id: DataLinq_Cache_DatabaseCacheSnapshot_Timestamp
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L9
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.Timestamp
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.Timestamp
+- code: public DateTime Timestamp { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DateTime
+      url: https://learn.microsoft.com/dotnet/api/system.datetime
+- api3: TotalBytes
+  id: DataLinq_Cache_DatabaseCacheSnapshot_TotalBytes
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L15
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.TotalBytes
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.TotalBytes
+- code: public long TotalBytes { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- api3: TotalBytesFormatted
+  id: DataLinq_Cache_DatabaseCacheSnapshot_TotalBytesFormatted
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Cache/DatabaseCacheSnapshot.cs#L16
+  metadata:
+    uid: DataLinq.Cache.DatabaseCacheSnapshot.TotalBytesFormatted
+    commentId: P:DataLinq.Cache.DatabaseCacheSnapshot.TotalBytesFormatted
+- code: public string TotalBytesFormatted { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

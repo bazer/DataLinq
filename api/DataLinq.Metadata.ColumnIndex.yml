@@ -1,0 +1,195 @@
+### YamlMime:ApiPage
+title: Class ColumnIndex
+body:
+- api1: Class ColumnIndex
+  id: DataLinq_Metadata_ColumnIndex
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L11
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex
+    commentId: T:DataLinq.Metadata.ColumnIndex
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Metadata
+      url: DataLinq.Metadata.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- markdown: Represents an index associated with one or more columns in a database table.
+- code: public class ColumnIndex
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: ColumnIndex
+    url: DataLinq.Metadata.ColumnIndex.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: ColumnIndex(string, IndexCharacteristic, IndexType, List<ColumnDefinition>)
+  id: DataLinq_Metadata_ColumnIndex__ctor_System_String_DataLinq_Attributes_IndexCharacteristic_DataLinq_Attributes_IndexType_System_Collections_Generic_List_DataLinq_Metadata_ColumnDefinition__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L48
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.#ctor(System.String,DataLinq.Attributes.IndexCharacteristic,DataLinq.Attributes.IndexType,System.Collections.Generic.List{DataLinq.Metadata.ColumnDefinition})
+    commentId: M:DataLinq.Metadata.ColumnIndex.#ctor(System.String,DataLinq.Attributes.IndexCharacteristic,DataLinq.Attributes.IndexType,System.Collections.Generic.List{DataLinq.Metadata.ColumnDefinition})
+- markdown: Initializes a new instance of the <xref href="DataLinq.Metadata.ColumnIndex" data-throw-if-not-resolved="false"></xref> class.
+- code: public ColumnIndex(string name, IndexCharacteristic characteristic, IndexType type, List<ColumnDefinition> columns)
+- h4: Parameters
+- parameters:
+  - name: name
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: The name of the index.
+  - name: characteristic
+    type:
+    - text: IndexCharacteristic
+      url: DataLinq.Attributes.IndexCharacteristic.html
+    description: The characteristic of the index.
+  - name: type
+    type:
+    - text: IndexType
+      url: DataLinq.Attributes.IndexType.html
+    description: The type of the index.
+  - name: columns
+    type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+    - '>'
+    description: The columns associated with the index.
+- h2: Properties
+- api3: Characteristic
+  id: DataLinq_Metadata_ColumnIndex_Characteristic
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L29
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.Characteristic
+    commentId: P:DataLinq.Metadata.ColumnIndex.Characteristic
+- markdown: Gets or sets the characteristic of the index, such as whether it's a primary key or unique.
+- code: public IndexCharacteristic Characteristic { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IndexCharacteristic
+      url: DataLinq.Attributes.IndexCharacteristic.html
+- api3: Columns
+  id: DataLinq_Metadata_ColumnIndex_Columns
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L22
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.Columns
+    commentId: P:DataLinq.Metadata.ColumnIndex.Columns
+- markdown: >-
+    Gets or sets the list of columns associated with the index. 
+
+    Each entry includes the column in the order of the index.
+- code: public List<ColumnDefinition> Columns { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+    - '>'
+- api3: Name
+  id: DataLinq_Metadata_ColumnIndex_Name
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L39
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.Name
+    commentId: P:DataLinq.Metadata.ColumnIndex.Name
+- markdown: Gets or sets the name of the index.
+- code: public string Name { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: RelationParts
+  id: DataLinq_Metadata_ColumnIndex_RelationParts
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L24
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.RelationParts
+    commentId: P:DataLinq.Metadata.ColumnIndex.RelationParts
+- code: public List<RelationPart> RelationParts { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: RelationPart
+      url: DataLinq.Metadata.RelationPart.html
+    - '>'
+- api3: Table
+  id: DataLinq_Metadata_ColumnIndex_Table
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L16
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.Table
+    commentId: P:DataLinq.Metadata.ColumnIndex.Table
+- markdown: Table that the index belongs to.
+- code: public TableDefinition Table { get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: TableDefinition
+      url: DataLinq.Metadata.TableDefinition.html
+- api3: Type
+  id: DataLinq_Metadata_ColumnIndex_Type
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L34
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.Type
+    commentId: P:DataLinq.Metadata.ColumnIndex.Type
+- markdown: Gets or sets the type of the index, indicating the underlying data structure or algorithm used.
+- code: public IndexType Type { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IndexType
+      url: DataLinq.Attributes.IndexType.html
+- h2: Methods
+- api3: AddColumn(ColumnDefinition)
+  id: DataLinq_Metadata_ColumnIndex_AddColumn_DataLinq_Metadata_ColumnDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L58
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.AddColumn(DataLinq.Metadata.ColumnDefinition)
+    commentId: M:DataLinq.Metadata.ColumnIndex.AddColumn(DataLinq.Metadata.ColumnDefinition)
+- code: public void AddColumn(ColumnDefinition column)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+- api3: ToString()
+  id: DataLinq_Metadata_ColumnIndex_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Metadata/ColumnIndex.cs#L70
+  metadata:
+    uid: DataLinq.Metadata.ColumnIndex.ToString
+    commentId: M:DataLinq.Metadata.ColumnIndex.ToString
+- markdown: Provides a string representation of the <xref href="DataLinq.Metadata.ColumnIndex" data-throw-if-not-resolved="false"></xref> object.
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: A string representation of the index.
+languageId: csharp
+metadata:
+  description: Represents an index associated with one or more columns in a database table.

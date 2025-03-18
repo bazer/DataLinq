@@ -1,0 +1,290 @@
+### YamlMime:ApiPage
+title: Class ImmutableKEY_COLUMN_USAGE
+body:
+- api1: Class ImmutableKEY_COLUMN_USAGE
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE
+    commentId: T:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.MySql.Models
+      url: DataLinq.MySql.Models.html
+  - name: Assembly
+    value: DataLinq.MySql.dll
+- code: 'public class ImmutableKEY_COLUMN_USAGE : KEY_COLUMN_USAGE, IImmutable<KEY_COLUMN_USAGE>, IImmutableInstance<information_schema>, IImmutableInstance, IModelInstance<information_schema>, IModelInstance, IEquatable<Immutable<KEY_COLUMN_USAGE, information_schema>>, IViewModel<information_schema>, IModel<information_schema>, IModel'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>
+    url: DataLinq.Instances.Immutable-2.html
+  - text: KEY_COLUMN_USAGE
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html
+  - text: ImmutableKEY_COLUMN_USAGE
+    url: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.html
+- h4: Implements
+- list:
+  - text: IImmutable<KEY_COLUMN_USAGE>
+    url: DataLinq.Instances.IImmutable-1.html
+  - text: IImmutableInstance<information_schema>
+    url: DataLinq.Instances.IImmutableInstance-1.html
+  - text: IImmutableInstance
+    url: DataLinq.Instances.IImmutableInstance.html
+  - text: IModelInstance<information_schema>
+    url: DataLinq.Instances.IModelInstance-1.html
+  - text: IModelInstance
+    url: DataLinq.Instances.IModelInstance.html
+  - text: IEquatable<Immutable<KEY_COLUMN_USAGE, information_schema>>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+  - IViewModel<information_schema>
+  - IModel<information_schema>
+  - IModel
+- h4: Inherited Members
+- list:
+  - text: KEY_COLUMN_USAGE.COLUMN_NAME
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_COLUMN_NAME
+  - text: KEY_COLUMN_USAGE.CONSTRAINT_CATALOG
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_CONSTRAINT_CATALOG
+  - text: KEY_COLUMN_USAGE.CONSTRAINT_NAME
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_CONSTRAINT_NAME
+  - text: KEY_COLUMN_USAGE.CONSTRAINT_SCHEMA
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_CONSTRAINT_SCHEMA
+  - text: KEY_COLUMN_USAGE.ORDINAL_POSITION
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_ORDINAL_POSITION
+  - text: KEY_COLUMN_USAGE.POSITION_IN_UNIQUE_CONSTRAINT
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_POSITION_IN_UNIQUE_CONSTRAINT
+  - text: KEY_COLUMN_USAGE.REFERENCED_COLUMN_NAME
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_REFERENCED_COLUMN_NAME
+  - text: KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_REFERENCED_TABLE_NAME
+  - text: KEY_COLUMN_USAGE.REFERENCED_TABLE_SCHEMA
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_REFERENCED_TABLE_SCHEMA
+  - text: KEY_COLUMN_USAGE.TABLE_CATALOG
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_TABLE_CATALOG
+  - text: KEY_COLUMN_USAGE.TABLE_NAME
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_TABLE_NAME
+  - text: KEY_COLUMN_USAGE.TABLE_SCHEMA
+    url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html#DataLinq_MySql_Models_KEY_COLUMN_USAGE_TABLE_SCHEMA
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.relationKeys
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_relationKeys
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.lazyValues
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_lazyValues
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.this[ColumnDefinition]
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Item_DataLinq_Metadata_ColumnDefinition_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.this[string]
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Item_System_String_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.Metadata()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Metadata
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.PrimaryKeys()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_PrimaryKeys
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.HasPrimaryKeysSet()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_HasPrimaryKeysSet
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetRowData()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRowData
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetValues()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValues
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetValues(IEnumerable<ColumnDefinition>)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValues_System_Collections_Generic_IEnumerable_DataLinq_Metadata_ColumnDefinition__
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.ClearLazy()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_ClearLazy
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetLazy<V>(string, Func<V>)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetLazy__1_System_String_System_Func___0__
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetImmutableForeignKey<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetImmutableForeignKey__1_System_String_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetImmutableRelation<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetImmutableRelation__1_System_String_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetValue(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetValue_System_String_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetNullableValue(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetNullableValue_System_String_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetForeignKey<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetForeignKey__1_System_String_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetRelation<V>(string)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRelation__1_System_String_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetRelation<V>(RelationProperty)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetRelation__1_DataLinq_Metadata_RelationProperty_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetDataSource()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetDataSource
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.Equals(Immutable<KEY_COLUMN_USAGE, information_schema>?)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Equals_DataLinq_Instances_Immutable__0__1__
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.Equals(object?)
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_Equals_System_Object_
+  - text: Immutable<KEY_COLUMN_USAGE, information_schema>.GetHashCode()
+    url: DataLinq.Instances.Immutable-2.html#DataLinq_Instances_Immutable_2_GetHashCode
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h4: Extension Methods
+- list:
+  - text: IModelExtensions.Delete<ImmutableKEY_COLUMN_USAGE>(ImmutableKEY_COLUMN_USAGE)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_
+  - text: IModelExtensions.Delete<ImmutableKEY_COLUMN_USAGE>(ImmutableKEY_COLUMN_USAGE, Transaction)
+    url: DataLinq.IModelExtensions.html#DataLinq_IModelExtensions_Delete__1___0_DataLinq_Mutation_Transaction_
+- h2: Constructors
+- api3: ImmutableKEY_COLUMN_USAGE(RowData, DataSourceAccess)
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE__ctor_DataLinq_Instances_RowData_DataLinq_Mutation_DataSourceAccess_
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.#ctor(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+    commentId: M:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.#ctor(DataLinq.Instances.RowData,DataLinq.Mutation.DataSourceAccess)
+- code: public ImmutableKEY_COLUMN_USAGE(RowData rowData, DataSourceAccess dataSource)
+- h4: Parameters
+- parameters:
+  - name: rowData
+    type:
+    - text: RowData
+      url: DataLinq.Instances.RowData.html
+  - name: dataSource
+    type:
+    - text: DataSourceAccess
+      url: DataLinq.Mutation.DataSourceAccess.html
+- h2: Properties
+- api3: COLUMN_NAME
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_COLUMN_NAME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.COLUMN_NAME
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.COLUMN_NAME
+- code: public override string COLUMN_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: CONSTRAINT_CATALOG
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_CONSTRAINT_CATALOG
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.CONSTRAINT_CATALOG
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.CONSTRAINT_CATALOG
+- code: public override string CONSTRAINT_CATALOG { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: CONSTRAINT_NAME
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_CONSTRAINT_NAME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.CONSTRAINT_NAME
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.CONSTRAINT_NAME
+- code: public override string CONSTRAINT_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: CONSTRAINT_SCHEMA
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_CONSTRAINT_SCHEMA
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.CONSTRAINT_SCHEMA
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.CONSTRAINT_SCHEMA
+- code: public override string CONSTRAINT_SCHEMA { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: ORDINAL_POSITION
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_ORDINAL_POSITION
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.ORDINAL_POSITION
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.ORDINAL_POSITION
+- code: public override long ORDINAL_POSITION { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- api3: POSITION_IN_UNIQUE_CONSTRAINT
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_POSITION_IN_UNIQUE_CONSTRAINT
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.POSITION_IN_UNIQUE_CONSTRAINT
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.POSITION_IN_UNIQUE_CONSTRAINT
+- code: public override long? POSITION_IN_UNIQUE_CONSTRAINT { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+    - '?'
+- api3: REFERENCED_COLUMN_NAME
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_REFERENCED_COLUMN_NAME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.REFERENCED_COLUMN_NAME
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.REFERENCED_COLUMN_NAME
+- code: public override string? REFERENCED_COLUMN_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: REFERENCED_TABLE_NAME
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_REFERENCED_TABLE_NAME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.REFERENCED_TABLE_NAME
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.REFERENCED_TABLE_NAME
+- code: public override string? REFERENCED_TABLE_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: REFERENCED_TABLE_SCHEMA
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_REFERENCED_TABLE_SCHEMA
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.REFERENCED_TABLE_SCHEMA
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.REFERENCED_TABLE_SCHEMA
+- code: public override string? REFERENCED_TABLE_SCHEMA { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+- api3: TABLE_CATALOG
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_TABLE_CATALOG
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.TABLE_CATALOG
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.TABLE_CATALOG
+- code: public override string TABLE_CATALOG { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_NAME
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_TABLE_NAME
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.TABLE_NAME
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.TABLE_NAME
+- code: public override string TABLE_NAME { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: TABLE_SCHEMA
+  id: DataLinq_MySql_Models_ImmutableKEY_COLUMN_USAGE_TABLE_SCHEMA
+  metadata:
+    uid: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.TABLE_SCHEMA
+    commentId: P:DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.TABLE_SCHEMA
+- code: public override string TABLE_SCHEMA { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+languageId: csharp

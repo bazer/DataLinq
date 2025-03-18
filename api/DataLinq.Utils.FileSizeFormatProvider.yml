@@ -1,0 +1,104 @@
+### YamlMime:ApiPage
+title: Class FileSizeFormatProvider
+body:
+- api1: Class FileSizeFormatProvider
+  id: DataLinq_Utils_FileSizeFormatProvider
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Utils/FileSizeFormatProvider.cs#L5
+  metadata:
+    uid: DataLinq.Utils.FileSizeFormatProvider
+    commentId: T:DataLinq.Utils.FileSizeFormatProvider
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Utils
+      url: DataLinq.Utils.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class FileSizeFormatProvider : IFormatProvider, ICustomFormatter'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: FileSizeFormatProvider
+    url: DataLinq.Utils.FileSizeFormatProvider.html
+- h4: Implements
+- list:
+  - text: IFormatProvider
+    url: https://learn.microsoft.com/dotnet/api/system.iformatprovider
+  - text: ICustomFormatter
+    url: https://learn.microsoft.com/dotnet/api/system.icustomformatter
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: Format(string?, object?, IFormatProvider?)
+  id: DataLinq_Utils_FileSizeFormatProvider_Format_System_String_System_Object_System_IFormatProvider_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Utils/FileSizeFormatProvider.cs#L20
+  metadata:
+    uid: DataLinq.Utils.FileSizeFormatProvider.Format(System.String,System.Object,System.IFormatProvider)
+    commentId: M:DataLinq.Utils.FileSizeFormatProvider.Format(System.String,System.Object,System.IFormatProvider)
+- markdown: Converts the value of a specified object to an equivalent string representation using specified format and culture-specific formatting information.
+- code: public string Format(string? format, object? arg, IFormatProvider? formatProvider)
+- h4: Parameters
+- parameters:
+  - name: format
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '?'
+    description: A format string containing formatting specifications.
+  - name: arg
+    type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    description: An object to format.
+  - name: formatProvider
+    type:
+    - text: IFormatProvider
+      url: https://learn.microsoft.com/dotnet/api/system.iformatprovider
+    - '?'
+    description: An object that supplies format information about the current instance.
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: The string representation of the value of <code class="paramref">arg</code>, formatted as specified by <code class="paramref">format</code> and <code class="paramref">formatProvider</code>.
+- api3: GetFormat(Type?)
+  id: DataLinq_Utils_FileSizeFormatProvider_GetFormat_System_Type_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Utils/FileSizeFormatProvider.cs#L7
+  metadata:
+    uid: DataLinq.Utils.FileSizeFormatProvider.GetFormat(System.Type)
+    commentId: M:DataLinq.Utils.FileSizeFormatProvider.GetFormat(System.Type)
+- markdown: Returns an object that provides formatting services for the specified type.
+- code: public object? GetFormat(Type? formatType)
+- h4: Parameters
+- parameters:
+  - name: formatType
+    type:
+    - text: Type
+      url: https://learn.microsoft.com/dotnet/api/system.type
+    - '?'
+    description: An object that specifies the type of format object to return.
+- h4: Returns
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    description: An instance of the object specified by <code class="paramref">formatType</code>, if the <xref href="System.IFormatProvider" data-throw-if-not-resolved="false"></xref> implementation can supply that type of object; otherwise, <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/null">null</a>.
+languageId: csharp

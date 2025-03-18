@@ -1,0 +1,28 @@
+### YamlMime:ApiPage
+title: Enum CacheCleanupType
+body:
+- api1: Enum CacheCleanupType
+  id: DataLinq_Attributes_CacheCleanupType
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Attributes/CacheCleanupAttribute.cs#L5
+  metadata:
+    uid: DataLinq.Attributes.CacheCleanupType
+    commentId: T:DataLinq.Attributes.CacheCleanupType
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Attributes
+      url: DataLinq.Attributes.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public enum CacheCleanupType
+- h2: Fields
+- parameters:
+  - name: Days
+    default: "3"
+  - name: Hours
+    default: "2"
+  - name: Minutes
+    default: "1"
+  - name: Seconds
+    default: "0"
+languageId: csharp

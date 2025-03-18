@@ -1,0 +1,194 @@
+### YamlMime:ApiPage
+title: Class DatabaseTransaction
+body:
+- api1: Class DatabaseTransaction
+  id: DataLinq_DatabaseTransaction
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L20
+  metadata:
+    uid: DataLinq.DatabaseTransaction
+    commentId: T:DataLinq.DatabaseTransaction
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq
+      url: DataLinq.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public abstract class DatabaseTransaction : DatabaseAccess, IDisposable'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: DatabaseAccess
+    url: DataLinq.DatabaseAccess.html
+  - text: DatabaseTransaction
+    url: DataLinq.DatabaseTransaction.html
+- h4: Derived
+- list:
+  - text: MySqlDatabaseTransaction
+    url: DataLinq.MySql.MySqlDatabaseTransaction.html
+  - text: SQLiteDatabaseTransaction
+    url: DataLinq.SQLite.SQLiteDatabaseTransaction.html
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - text: DatabaseAccess.ExecuteReader(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteReader_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteReader(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteReader_System_String_
+  - text: DatabaseAccess.ExecuteScalar(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteScalar<T>(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar__1_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteScalar(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar_System_String_
+  - text: DatabaseAccess.ExecuteScalar<T>(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteScalar__1_System_String_
+  - text: DatabaseAccess.ExecuteNonQuery(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteNonQuery_System_Data_IDbCommand_
+  - text: DatabaseAccess.ExecuteNonQuery(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ExecuteNonQuery_System_String_
+  - text: DatabaseAccess.ReadReader(IDbCommand)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ReadReader_System_Data_IDbCommand_
+  - text: DatabaseAccess.ReadReader(string)
+    url: DataLinq.DatabaseAccess.html#DataLinq_DatabaseAccess_ReadReader_System_String_
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: DatabaseTransaction(TransactionType)
+  id: DataLinq_DatabaseTransaction__ctor_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L28
+  metadata:
+    uid: DataLinq.DatabaseTransaction.#ctor(DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.DatabaseTransaction.#ctor(DataLinq.Mutation.TransactionType)
+- code: protected DatabaseTransaction(TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- api3: DatabaseTransaction(IDbTransaction, TransactionType)
+  id: DataLinq_DatabaseTransaction__ctor_System_Data_IDbTransaction_DataLinq_Mutation_TransactionType_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L33
+  metadata:
+    uid: DataLinq.DatabaseTransaction.#ctor(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+    commentId: M:DataLinq.DatabaseTransaction.#ctor(System.Data.IDbTransaction,DataLinq.Mutation.TransactionType)
+- code: protected DatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
+- h4: Parameters
+- parameters:
+  - name: dbTransaction
+    type:
+    - text: IDbTransaction
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbtransaction
+  - name: type
+    type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- h2: Properties
+- api3: DbTransaction
+  id: DataLinq_DatabaseTransaction_DbTransaction
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L25
+  metadata:
+    uid: DataLinq.DatabaseTransaction.DbTransaction
+    commentId: P:DataLinq.DatabaseTransaction.DbTransaction
+- code: public IDbTransaction? DbTransaction { get; protected set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IDbTransaction
+      url: https://learn.microsoft.com/dotnet/api/system.data.idbtransaction
+    - '?'
+- api3: Status
+  id: DataLinq_DatabaseTransaction_Status
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L22
+  metadata:
+    uid: DataLinq.DatabaseTransaction.Status
+    commentId: P:DataLinq.DatabaseTransaction.Status
+- code: public DatabaseTransactionStatus Status { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DatabaseTransactionStatus
+      url: DataLinq.DatabaseTransactionStatus.html
+- api3: Type
+  id: DataLinq_DatabaseTransaction_Type
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L26
+  metadata:
+    uid: DataLinq.DatabaseTransaction.Type
+    commentId: P:DataLinq.DatabaseTransaction.Type
+- code: public TransactionType Type { get; protected set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: TransactionType
+      url: DataLinq.Mutation.TransactionType.html
+- h2: Methods
+- api3: Commit()
+  id: DataLinq_DatabaseTransaction_Commit
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L46
+  metadata:
+    uid: DataLinq.DatabaseTransaction.Commit
+    commentId: M:DataLinq.DatabaseTransaction.Commit
+- code: public abstract void Commit()
+- api3: Dispose()
+  id: DataLinq_DatabaseTransaction_Dispose
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L47
+  metadata:
+    uid: DataLinq.DatabaseTransaction.Dispose
+    commentId: M:DataLinq.DatabaseTransaction.Dispose
+- markdown: Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+- code: public abstract void Dispose()
+- api3: Rollback()
+  id: DataLinq_DatabaseTransaction_Rollback
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L45
+  metadata:
+    uid: DataLinq.DatabaseTransaction.Rollback
+    commentId: M:DataLinq.DatabaseTransaction.Rollback
+- code: public abstract void Rollback()
+- api3: SetStatus(DatabaseTransactionStatus)
+  id: DataLinq_DatabaseTransaction_SetStatus_DataLinq_DatabaseTransactionStatus_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L39
+  metadata:
+    uid: DataLinq.DatabaseTransaction.SetStatus(DataLinq.DatabaseTransactionStatus)
+    commentId: M:DataLinq.DatabaseTransaction.SetStatus(DataLinq.DatabaseTransactionStatus)
+- code: protected void SetStatus(DatabaseTransactionStatus status)
+- h4: Parameters
+- parameters:
+  - name: status
+    type:
+    - text: DatabaseTransactionStatus
+      url: DataLinq.DatabaseTransactionStatus.html
+- api3: OnStatusChanged
+  id: DataLinq_DatabaseTransaction_OnStatusChanged
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Database/DatabaseTransaction.cs#L24
+  metadata:
+    uid: DataLinq.DatabaseTransaction.OnStatusChanged
+    commentId: E:DataLinq.DatabaseTransaction.OnStatusChanged
+- code: public event EventHandler<DatabaseTransactionStatusChangeEventArgs>? OnStatusChanged
+- h4: Event Type
+- parameters:
+  - type:
+    - text: EventHandler
+      url: https://learn.microsoft.com/dotnet/api/system.eventhandler-1
+    - <
+    - text: DatabaseTransactionStatusChangeEventArgs
+      url: DataLinq.DatabaseTransactionStatusChangeEventArgs.html
+    - '>'
+    - '?'
+languageId: csharp

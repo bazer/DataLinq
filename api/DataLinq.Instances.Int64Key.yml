@@ -1,0 +1,116 @@
+### YamlMime:ApiPage
+title: Struct Int64Key
+body:
+- api1: Struct Int64Key
+  id: DataLinq_Instances_Int64Key
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L55
+  metadata:
+    uid: DataLinq.Instances.Int64Key
+    commentId: T:DataLinq.Instances.Int64Key
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Instances
+      url: DataLinq.Instances.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public readonly record struct Int64Key : IKey, IEquatable<Int64Key>'
+- h4: Implements
+- list:
+  - text: IKey
+    url: DataLinq.Instances.IKey.html
+  - text: IEquatable<Int64Key>
+    url: https://learn.microsoft.com/dotnet/api/system.iequatable-1
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: Int64Key(long)
+  id: DataLinq_Instances_Int64Key__ctor_System_Int64_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L55
+  metadata:
+    uid: DataLinq.Instances.Int64Key.#ctor(System.Int64)
+    commentId: M:DataLinq.Instances.Int64Key.#ctor(System.Int64)
+- code: public Int64Key(long Value)
+- h4: Parameters
+- parameters:
+  - name: Value
+    type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- h2: Properties
+- api3: Value
+  id: DataLinq_Instances_Int64Key_Value
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L55
+  metadata:
+    uid: DataLinq.Instances.Int64Key.Value
+    commentId: P:DataLinq.Instances.Int64Key.Value
+- code: public long Value { get; init; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: long
+      url: https://learn.microsoft.com/dotnet/api/system.int64
+- api3: Values
+  id: DataLinq_Instances_Int64Key_Values
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L57
+  metadata:
+    uid: DataLinq.Instances.Int64Key.Values
+    commentId: P:DataLinq.Instances.Int64Key.Values
+- code: public object?[] Values { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: object
+      url: https://learn.microsoft.com/dotnet/api/system.object
+    - '?'
+    - '['
+    - ']'
+- h2: Methods
+- api3: Equals(Int64Key)
+  id: DataLinq_Instances_Int64Key_Equals_DataLinq_Instances_Int64Key_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L59
+  metadata:
+    uid: DataLinq.Instances.Int64Key.Equals(DataLinq.Instances.Int64Key)
+    commentId: M:DataLinq.Instances.Int64Key.Equals(DataLinq.Instances.Int64Key)
+- markdown: Indicates whether the current object is equal to another object of the same type.
+- code: public bool Equals(Int64Key other)
+- h4: Parameters
+- parameters:
+  - name: other
+    type:
+    - text: Int64Key
+      url: DataLinq.Instances.Int64Key.html
+    description: An object to compare with this object.
+- h4: Returns
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+    description: <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool">true</a> if the current object is equal to the <code class="paramref">other</code> parameter; otherwise, <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool">false</a>.
+- api3: GetHashCode()
+  id: DataLinq_Instances_Int64Key_GetHashCode
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Instances/IKey.cs#L62
+  metadata:
+    uid: DataLinq.Instances.Int64Key.GetHashCode
+    commentId: M:DataLinq.Instances.Int64Key.GetHashCode
+- markdown: Returns the hash code for this instance.
+- code: public override int GetHashCode()
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    description: A 32-bit signed integer that is the hash code for this instance.
+languageId: csharp

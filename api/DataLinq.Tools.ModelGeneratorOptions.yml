@@ -1,0 +1,133 @@
+### YamlMime:ApiPage
+title: Struct ModelGeneratorOptions
+body:
+- api1: Struct ModelGeneratorOptions
+  id: DataLinq_Tools_ModelGeneratorOptions
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L54
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions
+    commentId: T:DataLinq.Tools.ModelGeneratorOptions
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Tools
+      url: DataLinq.Tools.html
+  - name: Assembly
+    value: DataLinq.Tools.dll
+- code: public struct ModelGeneratorOptions
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: ModelGeneratorOptions()
+  id: DataLinq_Tools_ModelGeneratorOptions__ctor
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L64
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions.#ctor
+    commentId: M:DataLinq.Tools.ModelGeneratorOptions.#ctor
+- code: public ModelGeneratorOptions()
+- h2: Properties
+- api3: CapitalizeNames
+  id: DataLinq_Tools_ModelGeneratorOptions_CapitalizeNames
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L58
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions.CapitalizeNames
+    commentId: P:DataLinq.Tools.ModelGeneratorOptions.CapitalizeNames
+- code: public bool CapitalizeNames { readonly get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: DeclareEnumsInClass
+  id: DataLinq_Tools_ModelGeneratorOptions_DeclareEnumsInClass
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L59
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions.DeclareEnumsInClass
+    commentId: P:DataLinq.Tools.ModelGeneratorOptions.DeclareEnumsInClass
+- code: public bool DeclareEnumsInClass { readonly get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: OverwriteExistingModels
+  id: DataLinq_Tools_ModelGeneratorOptions_OverwriteExistingModels
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L57
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions.OverwriteExistingModels
+    commentId: P:DataLinq.Tools.ModelGeneratorOptions.OverwriteExistingModels
+- code: public bool OverwriteExistingModels { readonly get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: ReadSourceModels
+  id: DataLinq_Tools_ModelGeneratorOptions_ReadSourceModels
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L56
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions.ReadSourceModels
+    commentId: P:DataLinq.Tools.ModelGeneratorOptions.ReadSourceModels
+- code: public bool ReadSourceModels { readonly get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: SeparateTablesAndViews
+  id: DataLinq_Tools_ModelGeneratorOptions_SeparateTablesAndViews
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L60
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions.SeparateTablesAndViews
+    commentId: P:DataLinq.Tools.ModelGeneratorOptions.SeparateTablesAndViews
+- code: public bool SeparateTablesAndViews { readonly get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: Tables
+  id: DataLinq_Tools_ModelGeneratorOptions_Tables
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L61
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions.Tables
+    commentId: P:DataLinq.Tools.ModelGeneratorOptions.Tables
+- code: public List<string> Tables { readonly get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+- api3: Views
+  id: DataLinq_Tools_ModelGeneratorOptions_Views
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Tools/ModelGenerator.cs#L62
+  metadata:
+    uid: DataLinq.Tools.ModelGeneratorOptions.Views
+    commentId: P:DataLinq.Tools.ModelGeneratorOptions.Views
+- code: public List<string> Views { readonly get; set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '>'
+languageId: csharp

@@ -1,0 +1,264 @@
+### YamlMime:ApiPage
+title: Class MetadataFactory
+body:
+- api1: Class MetadataFactory
+  id: DataLinq_Core_Factories_MetadataFactory
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L22
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory
+    commentId: T:DataLinq.Core.Factories.MetadataFactory
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Core.Factories
+      url: DataLinq.Core.Factories.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public static class MetadataFactory
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: MetadataFactory
+    url: DataLinq.Core.Factories.MetadataFactory.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: AddRelationProperty(ColumnDefinition, ColumnDefinition, string)
+  id: DataLinq_Core_Factories_MetadataFactory_AddRelationProperty_DataLinq_Metadata_ColumnDefinition_DataLinq_Metadata_ColumnDefinition_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L177
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.AddRelationProperty(DataLinq.Metadata.ColumnDefinition,DataLinq.Metadata.ColumnDefinition,System.String)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.AddRelationProperty(DataLinq.Metadata.ColumnDefinition,DataLinq.Metadata.ColumnDefinition,System.String)
+- code: public static RelationProperty AddRelationProperty(ColumnDefinition column, ColumnDefinition referencedColumn, string constraintName)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+  - name: referencedColumn
+    type:
+    - text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+  - name: constraintName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: RelationProperty
+      url: DataLinq.Metadata.RelationProperty.html
+- api3: AttachEnumProperty(ValueProperty, IEnumerable<(string name, int value)>, IEnumerable<(string name, int value)>, bool)
+  id: DataLinq_Core_Factories_MetadataFactory_AttachEnumProperty_DataLinq_Metadata_ValueProperty_System_Collections_Generic_IEnumerable_System_ValueTuple_System_String_System_Int32___System_Collections_Generic_IEnumerable_System_ValueTuple_System_String_System_Int32___System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L226
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.AttachEnumProperty(DataLinq.Metadata.ValueProperty,System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Int32}},System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Int32}},System.Boolean)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.AttachEnumProperty(DataLinq.Metadata.ValueProperty,System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Int32}},System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Int32}},System.Boolean)
+- code: public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, IEnumerable<(string name, int value)> csEnumValues, bool declaredInClass)
+- h4: Parameters
+- parameters:
+  - name: property
+    type:
+    - text: ValueProperty
+      url: DataLinq.Metadata.ValueProperty.html
+  - name: enumValues
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: name
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.int32-.name
+    - ','
+    - " "
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - " "
+    - text: value
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.int32-.value
+    - )
+    - '>'
+  - name: csEnumValues
+    type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - (
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - " "
+    - text: name
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.int32-.name
+    - ','
+    - " "
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+    - " "
+    - text: value
+      url: https://learn.microsoft.com/dotnet/api/system.valuetuple-system.string,system.int32-.value
+    - )
+    - '>'
+  - name: declaredInClass
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- api3: AttachValueProperty(ColumnDefinition, string, bool)
+  id: DataLinq_Core_Factories_MetadataFactory_AttachValueProperty_DataLinq_Metadata_ColumnDefinition_System_String_System_Boolean_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L191
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.AttachValueProperty(DataLinq.Metadata.ColumnDefinition,System.String,System.Boolean)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.AttachValueProperty(DataLinq.Metadata.ColumnDefinition,System.String,System.Boolean)
+- code: public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+  - name: csTypeName
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: capitaliseNames
+    type:
+    - text: bool
+      url: https://learn.microsoft.com/dotnet/api/system.boolean
+- h4: Returns
+- parameters:
+  - type:
+    - text: ValueProperty
+      url: DataLinq.Metadata.ValueProperty.html
+- api3: GetAttributes(ColumnDefinition)
+  id: DataLinq_Core_Factories_MetadataFactory_GetAttributes_DataLinq_Metadata_ColumnDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L231
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.GetAttributes(DataLinq.Metadata.ColumnDefinition)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.GetAttributes(DataLinq.Metadata.ColumnDefinition)
+- code: public static IEnumerable<Attribute> GetAttributes(ColumnDefinition column)
+- h4: Parameters
+- parameters:
+  - name: column
+    type:
+    - text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: IEnumerable
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1
+    - <
+    - text: Attribute
+      url: https://learn.microsoft.com/dotnet/api/system.attribute
+    - '>'
+- api3: ParseAttributes(DatabaseDefinition)
+  id: DataLinq_Core_Factories_MetadataFactory_ParseAttributes_DataLinq_Metadata_DatabaseDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L250
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.ParseAttributes(DataLinq.Metadata.DatabaseDefinition)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.ParseAttributes(DataLinq.Metadata.DatabaseDefinition)
+- code: public static void ParseAttributes(this DatabaseDefinition database)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+- api3: ParseColumn(TableDefinition, ValueProperty)
+  id: DataLinq_Core_Factories_MetadataFactory_ParseColumn_DataLinq_Metadata_TableDefinition_DataLinq_Metadata_ValueProperty_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L271
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.ParseColumn(DataLinq.Metadata.TableDefinition,DataLinq.Metadata.ValueProperty)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.ParseColumn(DataLinq.Metadata.TableDefinition,DataLinq.Metadata.ValueProperty)
+- code: public static ColumnDefinition ParseColumn(this TableDefinition table, ValueProperty property)
+- h4: Parameters
+- parameters:
+  - name: table
+    type:
+    - text: TableDefinition
+      url: DataLinq.Metadata.TableDefinition.html
+  - name: property
+    type:
+    - text: ValueProperty
+      url: DataLinq.Metadata.ValueProperty.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: ColumnDefinition
+      url: DataLinq.Metadata.ColumnDefinition.html
+- api3: ParseIndices(DatabaseDefinition)
+  id: DataLinq_Core_Factories_MetadataFactory_ParseIndices_DataLinq_Metadata_DatabaseDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L67
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.ParseIndices(DataLinq.Metadata.DatabaseDefinition)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.ParseIndices(DataLinq.Metadata.DatabaseDefinition)
+- code: public static void ParseIndices(DatabaseDefinition database)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+- api3: ParseInterfaces(DatabaseDefinition)
+  id: DataLinq_Core_Factories_MetadataFactory_ParseInterfaces_DataLinq_Metadata_DatabaseDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L24
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.ParseInterfaces(DataLinq.Metadata.DatabaseDefinition)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.ParseInterfaces(DataLinq.Metadata.DatabaseDefinition)
+- code: public static void ParseInterfaces(DatabaseDefinition database)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+- api3: ParseRelations(DatabaseDefinition)
+  id: DataLinq_Core_Factories_MetadataFactory_ParseRelations_DataLinq_Metadata_DatabaseDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L97
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.ParseRelations(DataLinq.Metadata.DatabaseDefinition)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.ParseRelations(DataLinq.Metadata.DatabaseDefinition)
+- code: public static void ParseRelations(DatabaseDefinition database)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: DatabaseDefinition
+      url: DataLinq.Metadata.DatabaseDefinition.html
+- api3: ParseTable(ModelDefinition)
+  id: DataLinq_Core_Factories_MetadataFactory_ParseTable_DataLinq_Metadata_ModelDefinition_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/Factories/MetadataFactory.cs#L38
+  metadata:
+    uid: DataLinq.Core.Factories.MetadataFactory.ParseTable(DataLinq.Metadata.ModelDefinition)
+    commentId: M:DataLinq.Core.Factories.MetadataFactory.ParseTable(DataLinq.Metadata.ModelDefinition)
+- code: public static TableDefinition ParseTable(ModelDefinition model)
+- h4: Parameters
+- parameters:
+  - name: model
+    type:
+    - text: ModelDefinition
+      url: DataLinq.Metadata.ModelDefinition.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: TableDefinition
+      url: DataLinq.Metadata.TableDefinition.html
+languageId: csharp

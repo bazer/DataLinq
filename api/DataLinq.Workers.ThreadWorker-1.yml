@@ -1,0 +1,214 @@
+### YamlMime:ApiPage
+title: Class ThreadWorker<T>
+body:
+- api1: Class ThreadWorker<T>
+  id: DataLinq_Workers_ThreadWorker_1
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L37
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1
+    commentId: T:DataLinq.Workers.ThreadWorker`1
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Workers
+      url: DataLinq.Workers.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public abstract class ThreadWorker<T> : IDisposable'
+- h4: Type Parameters
+- parameters:
+  - name: T
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: ThreadWorker<T>
+    url: DataLinq.Workers.ThreadWorker-1.html
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: ThreadWorker(IThreadCreator)
+  id: DataLinq_Workers_ThreadWorker_1__ctor_DataLinq_Workers_IThreadCreator_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L48
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.#ctor(DataLinq.Workers.IThreadCreator)
+    commentId: M:DataLinq.Workers.ThreadWorker`1.#ctor(DataLinq.Workers.IThreadCreator)
+- code: public ThreadWorker(IThreadCreator threadCreator)
+- h4: Parameters
+- parameters:
+  - name: threadCreator
+    type:
+    - text: IThreadCreator
+      url: DataLinq.Workers.IThreadCreator.html
+- h2: Properties
+- api3: Status
+  id: DataLinq_Workers_ThreadWorker_1_Status
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L39
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.Status
+    commentId: P:DataLinq.Workers.ThreadWorker`1.Status
+- code: public WorkerStatus Status { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: WorkerStatus
+      url: DataLinq.Workers.WorkerStatus.html
+- api3: ThreadCreator
+  id: DataLinq_Workers_ThreadWorker_1_ThreadCreator
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L40
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.ThreadCreator
+    commentId: P:DataLinq.Workers.ThreadWorker`1.ThreadCreator
+- code: protected IThreadCreator ThreadCreator { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IThreadCreator
+      url: DataLinq.Workers.IThreadCreator.html
+- api3: WaitingUntil
+  id: DataLinq_Workers_ThreadWorker_1_WaitingUntil
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L46
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.WaitingUntil
+    commentId: P:DataLinq.Workers.ThreadWorker`1.WaitingUntil
+- code: public DateTime? WaitingUntil { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: DateTime
+      url: https://learn.microsoft.com/dotnet/api/system.datetime
+    - '?'
+- api3: WorkQueue
+  id: DataLinq_Workers_ThreadWorker_1_WorkQueue
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L41
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.WorkQueue
+    commentId: P:DataLinq.Workers.ThreadWorker`1.WorkQueue
+- code: protected IWorkQueue<T> WorkQueue { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IWorkQueue
+      url: DataLinq.Workers.IWorkQueue-1.html
+    - <
+    - T
+    - '>'
+- h2: Methods
+- api3: AddWork(T)
+  id: DataLinq_Workers_ThreadWorker_1_AddWork__0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L53
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.AddWork(`0)
+    commentId: M:DataLinq.Workers.ThreadWorker`1.AddWork(`0)
+- code: public void AddWork(T work)
+- h4: Parameters
+- parameters:
+  - name: work
+    type:
+    - T
+- api3: Dispose()
+  id: DataLinq_Workers_ThreadWorker_1_Dispose
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L130
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.Dispose
+    commentId: M:DataLinq.Workers.ThreadWorker`1.Dispose
+- markdown: Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+- code: public void Dispose()
+- api3: DoWork(T)
+  id: DataLinq_Workers_ThreadWorker_1_DoWork__0_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L128
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.DoWork(`0)
+    commentId: M:DataLinq.Workers.ThreadWorker`1.DoWork(`0)
+- code: protected abstract void DoWork(T value)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - T
+- api3: Run()
+  id: DataLinq_Workers_ThreadWorker_1_Run
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L74
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.Run
+    commentId: M:DataLinq.Workers.ThreadWorker`1.Run
+- code: public void Run()
+- api3: SetStatus(WorkerStatus)
+  id: DataLinq_Workers_ThreadWorker_1_SetStatus_DataLinq_Workers_WorkerStatus_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L96
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.SetStatus(DataLinq.Workers.WorkerStatus)
+    commentId: M:DataLinq.Workers.ThreadWorker`1.SetStatus(DataLinq.Workers.WorkerStatus)
+- code: protected void SetStatus(WorkerStatus status)
+- h4: Parameters
+- parameters:
+  - name: status
+    type:
+    - text: WorkerStatus
+      url: DataLinq.Workers.WorkerStatus.html
+- api3: Start()
+  id: DataLinq_Workers_ThreadWorker_1_Start
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L58
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.Start
+    commentId: M:DataLinq.Workers.ThreadWorker`1.Start
+- code: public void Start()
+- api3: Stop()
+  id: DataLinq_Workers_ThreadWorker_1_Stop
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L68
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.Stop
+    commentId: M:DataLinq.Workers.ThreadWorker`1.Stop
+- code: public void Stop()
+- api3: Wait(TimeSpan)
+  id: DataLinq_Workers_ThreadWorker_1_Wait_System_TimeSpan_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L82
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.Wait(System.TimeSpan)
+    commentId: M:DataLinq.Workers.ThreadWorker`1.Wait(System.TimeSpan)
+- code: protected void Wait(TimeSpan tid)
+- h4: Parameters
+- parameters:
+  - name: tid
+    type:
+    - text: TimeSpan
+      url: https://learn.microsoft.com/dotnet/api/system.timespan
+- api3: WorkLoop(IWorkQueue<T>, CancellationToken)
+  id: DataLinq_Workers_ThreadWorker_1_WorkLoop_DataLinq_Workers_IWorkQueue__0__System_Threading_CancellationToken_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L101
+  metadata:
+    uid: DataLinq.Workers.ThreadWorker`1.WorkLoop(DataLinq.Workers.IWorkQueue{`0},System.Threading.CancellationToken)
+    commentId: M:DataLinq.Workers.ThreadWorker`1.WorkLoop(DataLinq.Workers.IWorkQueue{`0},System.Threading.CancellationToken)
+- code: protected void WorkLoop(IWorkQueue<T> queue, CancellationToken ct)
+- h4: Parameters
+- parameters:
+  - name: queue
+    type:
+    - text: IWorkQueue
+      url: DataLinq.Workers.IWorkQueue-1.html
+    - <
+    - T
+    - '>'
+  - name: ct
+    type:
+    - text: CancellationToken
+      url: https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken
+languageId: csharp

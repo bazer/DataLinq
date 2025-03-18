@@ -1,0 +1,62 @@
+### YamlMime:ApiPage
+title: Class LongRunningTaskCreator
+body:
+- api1: Class LongRunningTaskCreator
+  id: DataLinq_Workers_LongRunningTaskCreator
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L31
+  metadata:
+    uid: DataLinq.Workers.LongRunningTaskCreator
+    commentId: T:DataLinq.Workers.LongRunningTaskCreator
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Workers
+      url: DataLinq.Workers.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class LongRunningTaskCreator : IThreadCreator'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: LongRunningTaskCreator
+    url: DataLinq.Workers.LongRunningTaskCreator.html
+- h4: Implements
+- list:
+  - text: IThreadCreator
+    url: DataLinq.Workers.IThreadCreator.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Methods
+- api3: CreateNewThread(Action<CancellationToken>)
+  id: DataLinq_Workers_LongRunningTaskCreator_CreateNewThread_System_Action_System_Threading_CancellationToken__
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L33
+  metadata:
+    uid: DataLinq.Workers.LongRunningTaskCreator.CreateNewThread(System.Action{System.Threading.CancellationToken})
+    commentId: M:DataLinq.Workers.LongRunningTaskCreator.CreateNewThread(System.Action{System.Threading.CancellationToken})
+- code: public void CreateNewThread(Action<CancellationToken> arbete)
+- h4: Parameters
+- parameters:
+  - name: arbete
+    type:
+    - text: Action
+      url: https://learn.microsoft.com/dotnet/api/system.action-1
+    - <
+    - text: CancellationToken
+      url: https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken
+    - '>'
+languageId: csharp

@@ -1,0 +1,133 @@
+### YamlMime:ApiPage
+title: Class CleanCacheWorker
+body:
+- api1: Class CleanCacheWorker
+  id: DataLinq_Workers_CleanCacheWorker
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L136
+  metadata:
+    uid: DataLinq.Workers.CleanCacheWorker
+    commentId: T:DataLinq.Workers.CleanCacheWorker
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Workers
+      url: DataLinq.Workers.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: 'public class CleanCacheWorker : ThreadWorker<int>, IDisposable'
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: ThreadWorker<int>
+    url: DataLinq.Workers.ThreadWorker-1.html
+  - text: CleanCacheWorker
+    url: DataLinq.Workers.CleanCacheWorker.html
+- h4: Implements
+- list:
+  - text: IDisposable
+    url: https://learn.microsoft.com/dotnet/api/system.idisposable
+- h4: Inherited Members
+- list:
+  - text: ThreadWorker<int>.Status
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_Status
+  - text: ThreadWorker<int>.ThreadCreator
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_ThreadCreator
+  - text: ThreadWorker<int>.WorkQueue
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_WorkQueue
+  - text: ThreadWorker<int>.WaitingUntil
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_WaitingUntil
+  - text: ThreadWorker<int>.AddWork(int)
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_AddWork__0_
+  - text: ThreadWorker<int>.Start()
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_Start
+  - text: ThreadWorker<int>.Stop()
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_Stop
+  - text: ThreadWorker<int>.Run()
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_Run
+  - text: ThreadWorker<int>.Wait(TimeSpan)
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_Wait_System_TimeSpan_
+  - text: ThreadWorker<int>.SetStatus(WorkerStatus)
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_SetStatus_DataLinq_Workers_WorkerStatus_
+  - text: ThreadWorker<int>.WorkLoop(IWorkQueue<int>, CancellationToken)
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_WorkLoop_DataLinq_Workers_IWorkQueue__0__System_Threading_CancellationToken_
+  - text: ThreadWorker<int>.DoWork(int)
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_DoWork__0_
+  - text: ThreadWorker<int>.Dispose()
+    url: DataLinq.Workers.ThreadWorker-1.html#DataLinq_Workers_ThreadWorker_1_Dispose
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: CleanCacheWorker(IDatabaseProvider, IThreadCreator, TimeSpan)
+  id: DataLinq_Workers_CleanCacheWorker__ctor_DataLinq_Interfaces_IDatabaseProvider_DataLinq_Workers_IThreadCreator_System_TimeSpan_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L141
+  metadata:
+    uid: DataLinq.Workers.CleanCacheWorker.#ctor(DataLinq.Interfaces.IDatabaseProvider,DataLinq.Workers.IThreadCreator,System.TimeSpan)
+    commentId: M:DataLinq.Workers.CleanCacheWorker.#ctor(DataLinq.Interfaces.IDatabaseProvider,DataLinq.Workers.IThreadCreator,System.TimeSpan)
+- code: public CleanCacheWorker(IDatabaseProvider database, IThreadCreator threadCreator, TimeSpan waitTime)
+- h4: Parameters
+- parameters:
+  - name: database
+    type:
+    - text: IDatabaseProvider
+      url: DataLinq.Interfaces.IDatabaseProvider.html
+  - name: threadCreator
+    type:
+    - text: IThreadCreator
+      url: DataLinq.Workers.IThreadCreator.html
+  - name: waitTime
+    type:
+    - text: TimeSpan
+      url: https://learn.microsoft.com/dotnet/api/system.timespan
+- h2: Properties
+- api3: DatabaseProvider
+  id: DataLinq_Workers_CleanCacheWorker_DatabaseProvider
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L139
+  metadata:
+    uid: DataLinq.Workers.CleanCacheWorker.DatabaseProvider
+    commentId: P:DataLinq.Workers.CleanCacheWorker.DatabaseProvider
+- code: protected IDatabaseProvider DatabaseProvider { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: IDatabaseProvider
+      url: DataLinq.Interfaces.IDatabaseProvider.html
+- api3: WaitTime
+  id: DataLinq_Workers_CleanCacheWorker_WaitTime
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L138
+  metadata:
+    uid: DataLinq.Workers.CleanCacheWorker.WaitTime
+    commentId: P:DataLinq.Workers.CleanCacheWorker.WaitTime
+- code: public TimeSpan WaitTime { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: TimeSpan
+      url: https://learn.microsoft.com/dotnet/api/system.timespan
+- h2: Methods
+- api3: DoWork(int)
+  id: DataLinq_Workers_CleanCacheWorker_DoWork_System_Int32_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Workers/ThreadWorker.cs#L149
+  metadata:
+    uid: DataLinq.Workers.CleanCacheWorker.DoWork(System.Int32)
+    commentId: M:DataLinq.Workers.CleanCacheWorker.DoWork(System.Int32)
+- code: protected override void DoWork(int value)
+- h4: Parameters
+- parameters:
+  - name: value
+    type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+languageId: csharp

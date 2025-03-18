@@ -1,0 +1,258 @@
+### YamlMime:ApiPage
+title: Class Sql
+body:
+- api1: Class Sql
+  id: DataLinq_Query_Sql
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L9
+  metadata:
+    uid: DataLinq.Query.Sql
+    commentId: T:DataLinq.Query.Sql
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.Query
+      url: DataLinq.Query.html
+  - name: Assembly
+    value: DataLinq.dll
+- code: public class Sql
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: Sql
+    url: DataLinq.Query.Sql.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object?, object?)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Constructors
+- api3: Sql()
+  id: DataLinq_Query_Sql__ctor
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L17
+  metadata:
+    uid: DataLinq.Query.Sql.#ctor
+    commentId: M:DataLinq.Query.Sql.#ctor
+- code: public Sql()
+- api3: Sql(string, params IDataParameter[])
+  id: DataLinq_Query_Sql__ctor_System_String_System_Data_IDataParameter___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L26
+  metadata:
+    uid: DataLinq.Query.Sql.#ctor(System.String,System.Data.IDataParameter[])
+    commentId: M:DataLinq.Query.Sql.#ctor(System.String,System.Data.IDataParameter[])
+- code: public Sql(string text, params IDataParameter[] parameters)
+- h4: Parameters
+- parameters:
+  - name: text
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: parameters
+    type:
+    - text: IDataParameter
+      url: https://learn.microsoft.com/dotnet/api/system.data.idataparameter
+    - '['
+    - ']'
+- h2: Fields
+- api3: Parameters
+  id: DataLinq_Query_Sql_Parameters
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L12
+  metadata:
+    uid: DataLinq.Query.Sql.Parameters
+    commentId: F:DataLinq.Query.Sql.Parameters
+- code: public List<IDataParameter> Parameters
+- h4: Field Value
+- parameters:
+  - type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: IDataParameter
+      url: https://learn.microsoft.com/dotnet/api/system.data.idataparameter
+    - '>'
+- h2: Properties
+- api3: Index
+  id: DataLinq_Query_Sql_Index
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L13
+  metadata:
+    uid: DataLinq.Query.Sql.Index
+    commentId: P:DataLinq.Query.Sql.Index
+- code: public int Index { get; protected set; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: Text
+  id: DataLinq_Query_Sql_Text
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L14
+  metadata:
+    uid: DataLinq.Query.Sql.Text
+    commentId: P:DataLinq.Query.Sql.Text
+- code: public string Text { get; }
+- h4: Property Value
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h2: Methods
+- api3: AddFormat(string, params string[])
+  id: DataLinq_Query_Sql_AddFormat_System_String_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L53
+  metadata:
+    uid: DataLinq.Query.Sql.AddFormat(System.String,System.String[])
+    commentId: M:DataLinq.Query.Sql.AddFormat(System.String,System.String[])
+- code: public Sql AddFormat(string format, params string[] values)
+- h4: Parameters
+- parameters:
+  - name: format
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: values
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: AddLineBreak()
+  id: DataLinq_Query_Sql_AddLineBreak
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L46
+  metadata:
+    uid: DataLinq.Query.Sql.AddLineBreak
+    commentId: M:DataLinq.Query.Sql.AddLineBreak
+- code: public Sql AddLineBreak()
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: AddParameters(params IDataParameter[])
+  id: DataLinq_Query_Sql_AddParameters_System_Data_IDataParameter___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L32
+  metadata:
+    uid: DataLinq.Query.Sql.AddParameters(System.Data.IDataParameter[])
+    commentId: M:DataLinq.Query.Sql.AddParameters(System.Data.IDataParameter[])
+- code: public Sql AddParameters(params IDataParameter[] parameters)
+- h4: Parameters
+- parameters:
+  - name: parameters
+    type:
+    - text: IDataParameter
+      url: https://learn.microsoft.com/dotnet/api/system.data.idataparameter
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: AddText(string)
+  id: DataLinq_Query_Sql_AddText_System_String_
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L39
+  metadata:
+    uid: DataLinq.Query.Sql.AddText(System.String)
+    commentId: M:DataLinq.Query.Sql.AddText(System.String)
+- code: public Sql AddText(string text)
+- h4: Parameters
+- parameters:
+  - name: text
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: AddWhereText(string, params string[])
+  id: DataLinq_Query_Sql_AddWhereText_System_String_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L75
+  metadata:
+    uid: DataLinq.Query.Sql.AddWhereText(System.String,System.String[])
+    commentId: M:DataLinq.Query.Sql.AddWhereText(System.String,System.String[])
+- code: public Sql AddWhereText(string format, params string[] values)
+- h4: Parameters
+- parameters:
+  - name: format
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: values
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: IndexAdd()
+  id: DataLinq_Query_Sql_IndexAdd
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L21
+  metadata:
+    uid: DataLinq.Query.Sql.IndexAdd
+    commentId: M:DataLinq.Query.Sql.IndexAdd
+- code: public int IndexAdd()
+- h4: Returns
+- parameters:
+  - type:
+    - text: int
+      url: https://learn.microsoft.com/dotnet/api/system.int32
+- api3: Join(string, params string[])
+  id: DataLinq_Query_Sql_Join_System_String_System_String___
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L60
+  metadata:
+    uid: DataLinq.Query.Sql.Join(System.String,System.String[])
+    commentId: M:DataLinq.Query.Sql.Join(System.String,System.String[])
+- code: public Sql Join(string separator, params string[] values)
+- h4: Parameters
+- parameters:
+  - name: separator
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+  - name: values
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    - '['
+    - ']'
+- h4: Returns
+- parameters:
+  - type:
+    - text: Sql
+      url: DataLinq.Query.Sql.html
+- api3: ToString()
+  id: DataLinq_Query_Sql_ToString
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq/Query/Sql.cs#L82
+  metadata:
+    uid: DataLinq.Query.Sql.ToString
+    commentId: M:DataLinq.Query.Sql.ToString
+- markdown: Returns a string that represents the current object.
+- code: public override string ToString()
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+    description: A string that represents the current object.
+languageId: csharp

@@ -1,0 +1,103 @@
+### YamlMime:ApiPage
+title: Class IDLOptionFailure
+body:
+- api1: Class IDLOptionFailure
+  id: DataLinq_ErrorHandling_IDLOptionFailure
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L39
+  metadata:
+    uid: DataLinq.ErrorHandling.IDLOptionFailure
+    commentId: T:DataLinq.ErrorHandling.IDLOptionFailure
+- facts:
+  - name: Namespace
+    value:
+      text: DataLinq.ErrorHandling
+      url: DataLinq.ErrorHandling.html
+  - name: Assembly
+    value: DataLinq.Core.dll
+- code: public abstract class IDLOptionFailure
+- h4: Inheritance
+- inheritance:
+  - text: object
+    url: https://learn.microsoft.com/dotnet/api/system.object
+  - text: IDLOptionFailure
+    url: DataLinq.ErrorHandling.IDLOptionFailure.html
+- h4: Derived
+- list:
+  - text: DLOptionFailure<T>
+    url: DataLinq.ErrorHandling.DLOptionFailure-1.html
+- h4: Inherited Members
+- list:
+  - text: object.Equals(object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)
+  - text: object.Equals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)
+  - text: object.GetHashCode()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gethashcode
+  - text: object.GetType()
+    url: https://learn.microsoft.com/dotnet/api/system.object.gettype
+  - text: object.MemberwiseClone()
+    url: https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone
+  - text: object.ReferenceEquals(object, object)
+    url: https://learn.microsoft.com/dotnet/api/system.object.referenceequals
+  - text: object.ToString()
+    url: https://learn.microsoft.com/dotnet/api/system.object.tostring
+- h2: Operators
+- api3: implicit operator string(IDLOptionFailure)
+  id: DataLinq_ErrorHandling_IDLOptionFailure_op_Implicit_DataLinq_ErrorHandling_IDLOptionFailure__System_String
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L41
+  metadata:
+    uid: DataLinq.ErrorHandling.IDLOptionFailure.op_Implicit(DataLinq.ErrorHandling.IDLOptionFailure)~System.String
+    commentId: M:DataLinq.ErrorHandling.IDLOptionFailure.op_Implicit(DataLinq.ErrorHandling.IDLOptionFailure)~System.String
+- code: public static implicit operator string(IDLOptionFailure optionFailure)
+- h4: Parameters
+- parameters:
+  - name: optionFailure
+    type:
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+- h4: Returns
+- parameters:
+  - type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- api3: implicit operator IDLOptionFailure(string)
+  id: DataLinq_ErrorHandling_IDLOptionFailure_op_Implicit_System_String__DataLinq_ErrorHandling_IDLOptionFailure
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L44
+  metadata:
+    uid: DataLinq.ErrorHandling.IDLOptionFailure.op_Implicit(System.String)~DataLinq.ErrorHandling.IDLOptionFailure
+    commentId: M:DataLinq.ErrorHandling.IDLOptionFailure.op_Implicit(System.String)~DataLinq.ErrorHandling.IDLOptionFailure
+- code: public static implicit operator IDLOptionFailure(string failure)
+- h4: Parameters
+- parameters:
+  - name: failure
+    type:
+    - text: string
+      url: https://learn.microsoft.com/dotnet/api/system.string
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+- api3: implicit operator IDLOptionFailure(List<IDLOptionFailure>)
+  id: DataLinq_ErrorHandling_IDLOptionFailure_op_Implicit_System_Collections_Generic_List_DataLinq_ErrorHandling_IDLOptionFailure___DataLinq_ErrorHandling_IDLOptionFailure
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.Core/ErrorHandling/DLOptionFailure.cs#L47
+  metadata:
+    uid: DataLinq.ErrorHandling.IDLOptionFailure.op_Implicit(System.Collections.Generic.List{DataLinq.ErrorHandling.IDLOptionFailure})~DataLinq.ErrorHandling.IDLOptionFailure
+    commentId: M:DataLinq.ErrorHandling.IDLOptionFailure.op_Implicit(System.Collections.Generic.List{DataLinq.ErrorHandling.IDLOptionFailure})~DataLinq.ErrorHandling.IDLOptionFailure
+- code: public static implicit operator IDLOptionFailure(List<IDLOptionFailure> optionFailures)
+- h4: Parameters
+- parameters:
+  - name: optionFailures
+    type:
+    - text: List
+      url: https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1
+    - <
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+    - '>'
+- h4: Returns
+- parameters:
+  - type:
+    - text: IDLOptionFailure
+      url: DataLinq.ErrorHandling.IDLOptionFailure.html
+languageId: csharp
