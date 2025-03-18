@@ -2,1699 +2,1699 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://bazer.github.io/datalinq/LICENSE.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/README.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.AutoIncrementAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.CacheCleanupAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.CacheCleanupType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.CacheLimitAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.CacheLimitType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.ColumnAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.DatabaseAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.DefaultAttribute-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.DefaultAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.DefaultCurrentTimestampAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.DefinitionAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.DynamicFunctions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.EnumAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.ForeignKeyAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.IndexAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.IndexCacheAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.IndexCacheType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.IndexCharacteristic.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.IndexType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.InterfaceAttribute-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.InterfaceAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.NullableAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.PrimaryKeyAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.RelationAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.TableAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.TypeAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.UseCacheAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.ViewAttribute.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Attributes.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.CacheHistory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.DatabaseCache.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.DatabaseCacheSnapshot.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.IndexCache.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.KeyCache-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.RowCache.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.RowChangeEventArgs.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.TableCache.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.TableCacheSnapshot.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Cache.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.ConfigFile.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.ConfigFileDatabase.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.ConfigFileDatabaseConnection.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.ConfigReader.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.DataLinqConfig.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.DataLinqConnectionString.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.DataLinqDatabaseConfig.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.DataLinqDatabaseConnection.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Config.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.MetadataFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.MetadataFromDatabaseFactoryOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.MetadataTransformer.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.MetadataTransformerOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.MetadataTypeConverter.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.MetadataFromFileFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.MetadataFromFileFactoryError.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.MetadataFromFileFactoryOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.MetadataFromInterfacesFactoryError.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.MetadataFromInterfacesFactoryOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.MetadataFromModelsFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.ModelFileFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.ModelFileFactoryOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.ModelType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.Models.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.SyntaxParser.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Core.Factories.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DataReader.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DataWriter.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Database-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DatabaseAccess.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DatabaseProvider-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DatabaseProvider.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DatabaseTransaction.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DatabaseTransactionStatus.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DatabaseTransactionStatusChangeEventArgs.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DatabaseType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.DbRead-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.ErrorHandling.DLFailureType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.ErrorHandling.DLOptionFailure-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.ErrorHandling.DLOptionFailure.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.ErrorHandling.FailureWithDefinition-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.ErrorHandling.IDLOptionFailure.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.ErrorHandling.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Exceptions.InvalidMutationObjectException.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Exceptions.InvalidQueryException.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Exceptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.IDataLinqDataReader.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.IDataLinqDataWriter.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.IModelExtensions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.CompositeKey.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.GuidKey.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IImmutable-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IImmutableInstance-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IImmutableInstance.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IImmutableRelation-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IKey.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IModelInstance-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IModelInstance.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IMutableInstance-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IMutableInstance.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IRowData.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.Immutable-2.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.ImmutableRelation-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.ImmutableRelationMock-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.InstanceFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.Int64Key.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.IntKey.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.KeyFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.Mutable-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.MutableRowData.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.NullKey.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.ObjectKey.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.RowData.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.StringKey.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.UInt64Key.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Instances.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IDataSourceAccess.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IDatabaseModel.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IDatabaseProvider.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IDatabaseProviderConstants.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IDatabaseProviderRegister.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IDefinition.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IModel-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IModel.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IReadableView.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.ITableModel-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.ITableModel.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IView.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IViewModel-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IViewModel.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.IWritableView.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Interfaces.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Logging.DataLinqLogLevel.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Logging.DataLinqLoggingConfiguration.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Logging.DbCommandExtensions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Logging.Log.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Logging.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.ColumnDefinition.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.ColumnIndex.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.CsFileDeclaration.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.CsTypeDeclaration.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.DatabaseColumnType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.DatabaseDefinition.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.EnumProperty.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.GeneratorFileFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.GeneratorFileFactoryOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.IDatabaseProviderCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.IMetadataFromDatabaseFactoryCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.IMetadataFromSqlFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.ISqlFromMetadataFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.MetadataFromTypeFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.ModelCsType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.ModelDefinition.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.ModelUsing.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.PluginHook.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.PropertyDefinition.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.PropertyType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.RelationDefinition.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.RelationPart.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.RelationPartType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.RelationProperty.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.RelationType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.SqlGeneration.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.TableDefinition.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.TableModel.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.TableType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.ValueProperty.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.ViewDefinition.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Metadata.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.DataSourceAccess.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.History.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.ReadOnlyAccess-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.ReadOnlyAccess.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.State.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.StateChange.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.Transaction-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.Transaction.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.TransactionChangeType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.TransactionStatusChangeEventArgs.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.TransactionType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Mutation.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MetadataFromMySqlFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MetadataFromMySqlFactoryCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.COLUMNS.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.ImmutableCOLUMNS.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.ImmutableSTATISTICS.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.ImmutableTABLES.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.ImmutableVIEWS.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.KEY_COLUMN_USAGE.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.STATISTICS.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.TABLES.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.VIEWS.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.Models.information_schema.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySQLProvider-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySQLProvider.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySQLProviderConstants.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySqlDataLinqDataReader.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySqlDataLinqDataWriter.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySqlDatabase-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySqlDatabaseCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySqlDatabaseTransaction.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.MySqlDbAccess.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.SqlFromMetadataFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.MySql.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.BooleanType.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Delete-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.IQuery.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.IQueryPart.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.IWhere-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Insert-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Join-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Literal.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.OrderBy.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.QueryResult.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.QueryUtils.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Relation.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Select-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Sql.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.SqlQuery-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.SqlQuery.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Update-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.Where-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.WhereGroup-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Query.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Queryable-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.MetadataFromSQLiteFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.MetadataFromSQLiteFactoryCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteDataLinqDataReader.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteDataLinqDataWriter.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteDatabase-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteDatabaseCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteDatabaseTransaction.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteDbAccess.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteGeneration.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteJournalMode.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteProvider-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteProvider.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SQLiteProviderConstants.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.SqlFromMetadataFactory.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SQLite.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SourceGenerators.ModelGenerator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.SourceGenerators.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.DatabaseCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.DatabaseCreatorError.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.DatabaseCreatorOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.Generator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.ModelGenerator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.ModelGeneratorError.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.ModelGeneratorOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.ModelReader.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.SqlGenerator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.SqlGeneratorError.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.SqlGeneratorOptions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Tools.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Utils.FileSizeExtensions.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Utils.FileSizeFormatProvider.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Utils.NonNegativeInt.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Utils.TypeUtils.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Utils.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Workers.CleanCacheWorker.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Workers.IThreadCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Workers.IWorkQueue-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Workers.LongRunningTaskCreator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Workers.ThreadWorker-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Workers.WorkQueue-1.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Workers.WorkerStatus.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.Workers.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/DataLinq.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/api/index.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/CLI%20Documentation.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Caching%20and%20Mutation.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Configuration%20files.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Contributing.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Implementing%20a%20new%20backend.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Index.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Metadata%20Structure.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Project%20Specification.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Query%20Translator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Source%20Generator.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://bazer.github.io/datalinq/docs/Technical%20documentation.html</loc>
-    <lastmod>2025-03-19T12:09:50+01:00</lastmod>
+    <lastmod>2025-03-19T12:43:32+01:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
