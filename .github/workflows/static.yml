@@ -34,7 +34,7 @@ jobs:
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-version: '9.x.x'
       - name: Install DocFX
         run: dotnet tool install -g docfx
       - name: Build Metadata with DocFX
