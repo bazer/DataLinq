@@ -37,6 +37,8 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - name: Install DocFX
         run: dotnet tool install -g docfx
+      - name: Build Metadata with DocFX
+        run: docfx metadata
       - name: Build Documentation with DocFX
         run: docfx build
       - name: Setup Pages
