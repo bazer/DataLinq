@@ -119,7 +119,7 @@ LINQ expressions are parsed and optimized before being converted into backend-sp
 We welcome contributions from the community! Whether you’re fixing bugs, improving documentation, or adding new features, your help is appreciated. Please see our [Contributing Guide](docs/Contributing.md) for details.
 
 ### Documentation & Support
-For in-depth technical details, advanced usage, and troubleshooting, please refer to the [official documentation](docs/Index.md).
+For in-depth technical details, advanced usage, and troubleshooting, please refer to the [official documentation](docs/index.md).
 
 ### License
 DataLinq is open source and distributed under the MIT License. See the [LICENSE](LICENSE.md) file for more details.
