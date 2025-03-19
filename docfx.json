@@ -28,9 +28,8 @@
     "content": [
       {
         "files": [
-          "README.md",
           "*.md",
-          "docs/**/*.md"
+          "toc.yml"
         ],
         "exclude": [
           "obj/**",
@@ -45,10 +44,8 @@
       },
       {
         "files": [
-          "docs/**.md",
-          "docs/**/toc.yml",
-          "toc.yml",
-          "*.md"
+          "docs/**/*.md",
+          "docs/**/toc.yml"
         ]
       }
     ],
@@ -69,7 +66,8 @@
     "fileMetadataFiles": [],
     "template": [
       "default",
-      "modern"
+      "modern",
+      "./docfx/datalinq"
     ],
     "postProcessors": [ "ExtractSearchIndex"],
     "disableGitFeatures": false,
@@ -77,8 +75,10 @@
       "_appTitle": "DataLinq",
       "_appName": "DataLinq",
       "_gitContribute": "https://github.com/bazer/DataLinq",
+      "_gitUrlPattern": "https://github.com/bazer/DataLinq",
       "_gitHubUrl": "https://github.com/bazer/DataLinq",
       "_enableSearch": true,
+      "_enableNewTab": true,
       "pdf": false
     }
   }
