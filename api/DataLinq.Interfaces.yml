@@ -27,29 +27,29 @@ body:
       text: IDefinition
       url: DataLinq.Interfaces.IDefinition.html
   - type:
-      text: IModel<T>
-      url: DataLinq.Interfaces.IModel-1.html
-  - type:
       text: IModel
       url: DataLinq.Interfaces.IModel.html
+  - type:
+      text: IModel<T>
+      url: DataLinq.Interfaces.IModel-1.html
   - type:
       text: IReadableView
       url: DataLinq.Interfaces.IReadableView.html
   - type:
-      text: ITableModel
-      url: DataLinq.Interfaces.ITableModel.html
-  - type:
       text: ITableModel<T>
       url: DataLinq.Interfaces.ITableModel-1.html
+  - type:
+      text: ITableModel
+      url: DataLinq.Interfaces.ITableModel.html
   - type:
       text: IView
       url: DataLinq.Interfaces.IView.html
   - type:
-      text: IViewModel
-      url: DataLinq.Interfaces.IViewModel.html
-  - type:
       text: IViewModel<T>
       url: DataLinq.Interfaces.IViewModel-1.html
+  - type:
+      text: IViewModel
+      url: DataLinq.Interfaces.IViewModel.html
   - type:
       text: IWritableView
       url: DataLinq.Interfaces.IWritableView.html

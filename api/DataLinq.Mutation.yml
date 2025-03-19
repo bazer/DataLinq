@@ -33,12 +33,12 @@ body:
       url: DataLinq.Mutation.StateChange.html
     description: Represents a change of state to be applied to a model within a transaction.
   - type:
-      text: Transaction
-      url: DataLinq.Mutation.Transaction.html
-    description: Represents a database transaction.
-  - type:
       text: Transaction<T>
       url: DataLinq.Mutation.Transaction-1.html
+    description: Represents a database transaction.
+  - type:
+      text: Transaction
+      url: DataLinq.Mutation.Transaction.html
     description: Represents a database transaction.
   - type:
       text: TransactionStatusChangeEventArgs

@@ -437,16 +437,6 @@
   - name: Classes
   - name: COLUMNS
     href: DataLinq.MySql.Models.COLUMNS.yml
-  - name: ImmutableCOLUMNS
-    href: DataLinq.MySql.Models.ImmutableCOLUMNS.yml
-  - name: ImmutableKEY_COLUMN_USAGE
-    href: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.yml
-  - name: ImmutableSTATISTICS
-    href: DataLinq.MySql.Models.ImmutableSTATISTICS.yml
-  - name: ImmutableTABLES
-    href: DataLinq.MySql.Models.ImmutableTABLES.yml
-  - name: ImmutableVIEWS
-    href: DataLinq.MySql.Models.ImmutableVIEWS.yml
   - name: KEY_COLUMN_USAGE
     href: DataLinq.MySql.Models.KEY_COLUMN_USAGE.yml
   - name: STATISTICS

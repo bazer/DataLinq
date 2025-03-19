@@ -12,21 +12,6 @@ body:
       text: COLUMNS
       url: DataLinq.MySql.Models.COLUMNS.html
   - type:
-      text: ImmutableCOLUMNS
-      url: DataLinq.MySql.Models.ImmutableCOLUMNS.html
-  - type:
-      text: ImmutableKEY_COLUMN_USAGE
-      url: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.html
-  - type:
-      text: ImmutableSTATISTICS
-      url: DataLinq.MySql.Models.ImmutableSTATISTICS.html
-  - type:
-      text: ImmutableTABLES
-      url: DataLinq.MySql.Models.ImmutableTABLES.html
-  - type:
-      text: ImmutableVIEWS
-      url: DataLinq.MySql.Models.ImmutableVIEWS.html
-  - type:
       text: KEY_COLUMN_USAGE
       url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html
   - type:

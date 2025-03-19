@@ -3,6 +3,7 @@ title: Class STATISTICS
 body:
 - api1: Class STATISTICS
   id: DataLinq_MySql_Models_STATISTICS
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/STATISTICS.cs#L10
   metadata:
     uid: DataLinq.MySql.Models.STATISTICS
     commentId: T:DataLinq.MySql.Models.STATISTICS
@@ -27,10 +28,6 @@ body:
     url: DataLinq.Instances.Immutable-2.html
   - text: STATISTICS
     url: DataLinq.MySql.Models.STATISTICS.html
-- h4: Derived
-- list:
-  - text: ImmutableSTATISTICS
-    url: DataLinq.MySql.Models.ImmutableSTATISTICS.html
 - h4: Implements
 - list:
   - text: IImmutable<STATISTICS>

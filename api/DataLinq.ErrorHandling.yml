@@ -9,11 +9,11 @@ body:
 - h3: Classes
 - parameters:
   - type:
-      text: DLOptionFailure<T>
-      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
-  - type:
       text: DLOptionFailure
       url: DataLinq.ErrorHandling.DLOptionFailure.html
+  - type:
+      text: DLOptionFailure<T>
+      url: DataLinq.ErrorHandling.DLOptionFailure-1.html
   - type:
       text: FailureWithDefinition<T>
       url: DataLinq.ErrorHandling.FailureWithDefinition-1.html

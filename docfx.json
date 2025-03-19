@@ -64,7 +64,7 @@
       "priority": 0.5,
       "changefreq": "daily"
     },
-    "output": "docs/_site",
+    "output": "_site",
     "globalMetadataFiles": [],
     "fileMetadataFiles": [],
     "template": [
@@ -79,7 +79,7 @@
       "_gitContribute": "https://github.com/bazer/DataLinq",
       "_gitHubUrl": "https://github.com/bazer/DataLinq",
       "_enableSearch": true,
-      "pdf": true
+      "pdf": false
     }
   }
 }

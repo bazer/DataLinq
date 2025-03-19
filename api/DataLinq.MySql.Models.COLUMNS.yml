@@ -3,6 +3,7 @@ title: Class COLUMNS
 body:
 - api1: Class COLUMNS
   id: DataLinq_MySql_Models_COLUMNS
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/COLUMNS.cs#L10
   metadata:
     uid: DataLinq.MySql.Models.COLUMNS
     commentId: T:DataLinq.MySql.Models.COLUMNS
@@ -27,10 +28,6 @@ body:
     url: DataLinq.Instances.Immutable-2.html
   - text: COLUMNS
     url: DataLinq.MySql.Models.COLUMNS.html
-- h4: Derived
-- list:
-  - text: ImmutableCOLUMNS
-    url: DataLinq.MySql.Models.ImmutableCOLUMNS.html
 - h4: Implements
 - list:
   - text: IImmutable<COLUMNS>

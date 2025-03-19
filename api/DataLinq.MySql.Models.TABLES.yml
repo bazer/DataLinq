@@ -3,6 +3,7 @@ title: Class TABLES
 body:
 - api1: Class TABLES
   id: DataLinq_MySql_Models_TABLES
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/TABLES.cs#L10
   metadata:
     uid: DataLinq.MySql.Models.TABLES
     commentId: T:DataLinq.MySql.Models.TABLES
@@ -27,10 +28,6 @@ body:
     url: DataLinq.Instances.Immutable-2.html
   - text: TABLES
     url: DataLinq.MySql.Models.TABLES.html
-- h4: Derived
-- list:
-  - text: ImmutableTABLES
-    url: DataLinq.MySql.Models.ImmutableTABLES.html
 - h4: Implements
 - list:
   - text: IImmutable<TABLES>

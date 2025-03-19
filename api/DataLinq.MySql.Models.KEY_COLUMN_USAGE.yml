@@ -3,6 +3,7 @@ title: Class KEY_COLUMN_USAGE
 body:
 - api1: Class KEY_COLUMN_USAGE
   id: DataLinq_MySql_Models_KEY_COLUMN_USAGE
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/KEY_COLUMN_USAGE.cs#L10
   metadata:
     uid: DataLinq.MySql.Models.KEY_COLUMN_USAGE
     commentId: T:DataLinq.MySql.Models.KEY_COLUMN_USAGE
@@ -27,10 +28,6 @@ body:
     url: DataLinq.Instances.Immutable-2.html
   - text: KEY_COLUMN_USAGE
     url: DataLinq.MySql.Models.KEY_COLUMN_USAGE.html
-- h4: Derived
-- list:
-  - text: ImmutableKEY_COLUMN_USAGE
-    url: DataLinq.MySql.Models.ImmutableKEY_COLUMN_USAGE.html
 - h4: Implements
 - list:
   - text: IImmutable<KEY_COLUMN_USAGE>

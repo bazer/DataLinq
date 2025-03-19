@@ -3,6 +3,7 @@ title: Class VIEWS
 body:
 - api1: Class VIEWS
   id: DataLinq_MySql_Models_VIEWS
+  src: https://github.com/bazer/DataLinq/blob/master/src/DataLinq.MySql/Models/information_schema/Views/VIEWS.cs#L10
   metadata:
     uid: DataLinq.MySql.Models.VIEWS
     commentId: T:DataLinq.MySql.Models.VIEWS
@@ -27,10 +28,6 @@ body:
     url: DataLinq.Instances.Immutable-2.html
   - text: VIEWS
     url: DataLinq.MySql.Models.VIEWS.html
-- h4: Derived
-- list:
-  - text: ImmutableVIEWS
-    url: DataLinq.MySql.Models.ImmutableVIEWS.html
 - h4: Implements
 - list:
   - text: IImmutable<VIEWS>

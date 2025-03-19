@@ -64,11 +64,11 @@ body:
       text: IImmutable<T>
       url: DataLinq.Instances.IImmutable-1.html
   - type:
-      text: IImmutableInstance
-      url: DataLinq.Instances.IImmutableInstance.html
-  - type:
       text: IImmutableInstance<T>
       url: DataLinq.Instances.IImmutableInstance-1.html
+  - type:
+      text: IImmutableInstance
+      url: DataLinq.Instances.IImmutableInstance.html
   - type:
       text: IImmutableRelation<T>
       url: DataLinq.Instances.IImmutableRelation-1.html
@@ -82,11 +82,11 @@ body:
       text: IModelInstance<T>
       url: DataLinq.Instances.IModelInstance-1.html
   - type:
-      text: IMutableInstance
-      url: DataLinq.Instances.IMutableInstance.html
-  - type:
       text: IMutableInstance<T>
       url: DataLinq.Instances.IMutableInstance-1.html
+  - type:
+      text: IMutableInstance
+      url: DataLinq.Instances.IMutableInstance.html
   - type:
       text: IRowData
       url: DataLinq.Instances.IRowData.html
