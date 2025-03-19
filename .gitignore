@@ -20,6 +20,7 @@ TestResults
 *nCrunchTemp_*.csproj
 launchSettings.json
 /nupkg
+/api
 /src/DataLinq.Benchmark/BenchmarkDotNet.Artifacts
 *.user.json
 /logs
