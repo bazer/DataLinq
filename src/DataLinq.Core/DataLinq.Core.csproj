@@ -8,7 +8,7 @@
 		<Copyright>Sebastian Öberg</Copyright>
 		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
-		<Description>Light weight ORM using Linq, with built in cache.</Description>
+		<Description>A lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -16,7 +16,7 @@
 		<GenerateDocumentationFile>false</GenerateDocumentationFile>
 		<Deterministic>true</Deterministic>
 		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
 		<PackageOutputPath>./../../nupkg</PackageOutputPath>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
@@ -27,7 +27,21 @@
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.13.0" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="MinVer" Version="6.0.0">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 		<PackageReference Include="ThrowAway" Version="0.3.0" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<None Include="..\..\LICENSE.md">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
 </Project>

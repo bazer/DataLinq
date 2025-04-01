@@ -16,7 +16,7 @@
 		<GenerateDocumentationFile>false</GenerateDocumentationFile>
 		<Deterministic>true</Deterministic>
 		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
 		<PackageOutputPath>./../../nupkg</PackageOutputPath>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
@@ -38,7 +38,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="..\..\LICENSE">
+		<None Include="..\..\LICENSE.md">
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>

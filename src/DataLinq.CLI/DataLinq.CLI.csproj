@@ -17,7 +17,7 @@
 		<GenerateDocumentationFile>false</GenerateDocumentationFile>
 		<Deterministic>true</Deterministic>
 		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
 		<PackAsTool>true</PackAsTool>
 		<ToolCommandName>datalinq</ToolCommandName>
 		<PackageOutputPath>./../../nupkg</PackageOutputPath>
@@ -41,10 +41,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="..\..\LICENSE">
+		<None Include="..\..\LICENSE.md">
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
 	</ItemGroup>
-
 </Project>
