@@ -22,6 +22,10 @@
 		<!--<ProduceReferenceAssembly>true</ProduceReferenceAssembly>-->
 		<!--<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>-->
 		<!--<CompilerGeneratedFilesOutputPath>generated</CompilerGeneratedFilesOutputPath>-->
+		<IsRoslynComponent>true</IsRoslynComponent>
+		<IncludeReferencedProjects>true</IncludeReferencedProjects>
+		<TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeProjectReferenceDlls</TargetsForTfmSpecificBuildOutput>
+		<TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeReferenceAssemblies</TargetsForTfmSpecificContentInPackage>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -38,7 +42,7 @@
 		<PackageReference Include="Remotion.Linq" Version="2.2.0" />
 		<PackageReference Include="System.Reflection" Version="4.3.0" />
 		<PackageReference Include="System.Reflection.Metadata" Version="9.0.2" />
-		<!--<PackageReference Include="ThrowAway" Version="0.1.1" />-->
+		<PackageReference Include="ThrowAway" Version="0.3.0" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -49,8 +53,29 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" />
+		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" PrivateAssets="All" />
+		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" PrivateAssets="All">
+			<PackagePath>analyzers\dotnet\cs\</PackagePath>
+		</ProjectReference>
 	</ItemGroup>
+
+	<Target Name="IncludeProjectReferenceDlls" DependsOnTargets="BuildOnlySettings;ResolveReferences">
+		<ItemGroup>
+			<BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')->WithMetadataValue('PrivateAssets', 'all'))"
+								  TargetPath="%(ReferenceCopyLocalPaths.DestinationSubDirectory)" />
+		</ItemGroup>
+	</Target>
+
+	<Target Name="IncludeReferenceAssemblies">
+		<ItemGroup>
+			<TfmSpecificPackageFile Include="$(DLCoreProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Core.dll">
+				<PackagePath>lib/netstandard2.0/DataLinq.Core.dll</PackagePath>
+			</TfmSpecificPackageFile>
+			<TfmSpecificPackageFile Include="$(DLGeneratorsProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Generators.dll">
+				<PackagePath>analyzers/dotnet/cs/netstandard2.0/DataLinq.Generators.dll</PackagePath>
+			</TfmSpecificPackageFile>
+		</ItemGroup>
+	</Target>
 
 	<!--<ItemGroup>
 		<Analyzer Include="..\DataLinq.Generators\bin\Debug\netstandard2.0\DataLinq.Generators.dll" />

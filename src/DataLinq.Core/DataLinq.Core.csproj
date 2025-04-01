@@ -4,9 +4,11 @@
 		<TargetFrameworks>netstandard2.0</TargetFrameworks>
 		<LangVersion>13.0</LangVersion>
 		<Nullable>enable</Nullable>
-		<Authors>Sebastian Öberg</Authors>
-		<Copyright>Sebastian Öberg</Copyright>
-		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
+		<!--<IsNuGetPackage>false</IsNuGetPackage>-->
+		<!--<Authors>Sebastian Öberg</Authors>
+		<Copyright>Sebastian Öberg</Copyright>-->
+
+		<!--<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
 		<Description>A lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
 		<IncludeSymbols>true</IncludeSymbols>
@@ -18,7 +20,7 @@
 		<Configuration>Release</Configuration>
 		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
 		<PackageOutputPath>./../../nupkg</PackageOutputPath>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>-->
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -38,10 +40,10 @@
 		<PackageReference Include="ThrowAway" Version="0.3.0" />
 	</ItemGroup>
 
-	<ItemGroup>
+	<!--<ItemGroup>
 		<None Include="..\..\LICENSE.md">
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
-	</ItemGroup>
+	</ItemGroup>-->
 </Project>

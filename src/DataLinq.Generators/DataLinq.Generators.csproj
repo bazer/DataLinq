@@ -4,8 +4,10 @@
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<LangVersion>13.0</LangVersion>
 		<Nullable>enable</Nullable>
+		<!--<IsNuGetPackage>false</IsNuGetPackage>-->
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-		<Authors>Sebastian Öberg</Authors>
+		<IsRoslynComponent>true</IsRoslynComponent>
+		<!--<Authors>Sebastian Öberg</Authors>
 		<Copyright>Sebastian Öberg</Copyright>
 		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
@@ -20,9 +22,11 @@
 		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
 		<PackageOutputPath>./../../nupkg</PackageOutputPath>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-		<!--<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>-->
 		<IsRoslynComponent>true</IsRoslynComponent>
 		<NoWarn>CS0436</NoWarn>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<IncludeBuildOutput>false</IncludeBuildOutput>-->
+		<!--<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>-->
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -42,7 +46,12 @@
 		<PackageReference Include="SourceGenerator.Foundations" Version="2.0.13" />
 		<PackageReference Include="ThrowAway" Version="0.3.0" />
 	</ItemGroup>
-	
+
+	<!--<ItemGroup>
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+	</ItemGroup>-->
+
+
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" /> <!--GeneratePathProperty="true" PrivateAssets="all"-->
 	</ItemGroup>
@@ -69,10 +78,10 @@
 	<!--https://github.com/dotnet/roslyn/discussions/47517#discussioncomment-76675-->
 	<!--https://github.com/dotnet/roslyn/issues/61940-->
 	
-	<ItemGroup>
+	<!--<ItemGroup>
 		<None Include="..\..\LICENSE.md">
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
-	</ItemGroup>
+	</ItemGroup>-->
 </Project>
