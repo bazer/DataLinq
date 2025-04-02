@@ -2,26 +2,10 @@
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFramework>net9.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<Authors>Sebastian Öberg</Authors>
-		<Copyright>Sebastian Öberg</Copyright>
-		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
-		<Description>CLI tool for creating DataLinq models and databases.</Description>
-		<IncludeSymbols>true</IncludeSymbols>
-		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<PublishRepositoryUrl>true</PublishRepositoryUrl>
-		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<GenerateDocumentationFile>false</GenerateDocumentationFile>
-		<Deterministic>true</Deterministic>
-		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+		<TargetFrameworks>net9.0</TargetFrameworks>
+		<Description>CLI for DataLinq - a lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
 		<PackAsTool>true</PackAsTool>
 		<ToolCommandName>datalinq</ToolCommandName>
-		<PackageOutputPath>./../../nupkg</PackageOutputPath>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -41,10 +25,4 @@
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<None Include="..\..\LICENSE.md">
-			<Pack>True</Pack>
-			<PackagePath></PackagePath>
-		</None>
-	</ItemGroup>
 </Project>

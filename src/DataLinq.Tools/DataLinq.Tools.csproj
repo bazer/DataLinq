@@ -1,23 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-		<LangVersion>13.0</LangVersion>
-		<Nullable>enable</Nullable>
-		<Authors>Sebastian Öberg</Authors>
-		<Copyright>Sebastian Öberg</Copyright>
-		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
 		<Description>Various tools for working with DataLinq models.</Description>
-		<IncludeSymbols>true</IncludeSymbols>
-		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<PublishRepositoryUrl>true</PublishRepositoryUrl>
-		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<GenerateDocumentationFile>false</GenerateDocumentationFile>
-		<Deterministic>true</Deterministic>
-		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-		<PackageOutputPath>./../../nupkg</PackageOutputPath>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -36,13 +20,6 @@
 		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" PrivateAssets="All" />
 		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Include="..\..\LICENSE.md">
-			<Pack>True</Pack>
-			<PackagePath></PackagePath>
-		</None>
 	</ItemGroup>
 
 </Project>

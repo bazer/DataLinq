@@ -1,27 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-		<LangVersion>13.0</LangVersion>
-		<Nullable>enable</Nullable>
-		<Authors>Sebastian Öberg</Authors>
-		<Copyright>Sebastian Öberg</Copyright>
-		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
 		<Description>A lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
-		<IncludeSymbols>true</IncludeSymbols>
-		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<PublishRepositoryUrl>true</PublishRepositoryUrl>
-		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<GenerateDocumentationFile>false</GenerateDocumentationFile>
-		<Deterministic>true</Deterministic>
-		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-		<PackageOutputPath>./../../nupkg</PackageOutputPath>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-		<!--<ProduceReferenceAssembly>true</ProduceReferenceAssembly>-->
-		<!--<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>-->
-		<!--<CompilerGeneratedFilesOutputPath>generated</CompilerGeneratedFilesOutputPath>-->
 		<IsRoslynComponent>true</IsRoslynComponent>
 		<IncludeReferencedProjects>true</IncludeReferencedProjects>
 		<TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeProjectReferenceDlls</TargetsForTfmSpecificBuildOutput>
@@ -43,13 +23,6 @@
 		<PackageReference Include="System.Reflection" Version="4.3.0" />
 		<PackageReference Include="System.Reflection.Metadata" Version="9.0.2" />
 		<PackageReference Include="ThrowAway" Version="0.3.0" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Include="..\..\LICENSE.md">
-			<Pack>True</Pack>
-			<PackagePath></PackagePath>
-		</None>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -76,14 +49,5 @@
 			</TfmSpecificPackageFile>
 		</ItemGroup>
 	</Target>
-
-	<!--<ItemGroup>
-		<Analyzer Include="..\DataLinq.Generators\bin\Debug\netstandard2.0\DataLinq.Generators.dll" />
-	</ItemGroup>-->
-
-	<!--<ItemGroup>
-		--><!-- Exclude the output of source generators from the compilation --><!--
-		<Compile Remove="generated/**/*.g.cs" />
-	</ItemGroup>-->
-
+	
 </Project>

@@ -1,32 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>netstandard2.0</TargetFramework>
-		<LangVersion>13.0</LangVersion>
-		<Nullable>enable</Nullable>
-		<!--<IsNuGetPackage>false</IsNuGetPackage>-->
+		<TargetFrameworks>netstandard2.0</TargetFrameworks>
+		<IsRoslynComponent>true</IsRoslynComponent>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-		<IsRoslynComponent>true</IsRoslynComponent>
-		<!--<Authors>Sebastian Öberg</Authors>
-		<Copyright>Sebastian Öberg</Copyright>
-		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
-		<Description>A lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
-		<IncludeSymbols>true</IncludeSymbols>
-		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<PublishRepositoryUrl>true</PublishRepositoryUrl>
-		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<GenerateDocumentationFile>false</GenerateDocumentationFile>
-		<Deterministic>true</Deterministic>
-		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-		<PackageOutputPath>./../../nupkg</PackageOutputPath>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-		<IsRoslynComponent>true</IsRoslynComponent>
-		<NoWarn>CS0436</NoWarn>
-		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-		<IncludeBuildOutput>false</IncludeBuildOutput>-->
-		<!--<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>-->
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -47,13 +24,8 @@
 		<PackageReference Include="ThrowAway" Version="0.3.0" />
 	</ItemGroup>
 
-	<!--<ItemGroup>
-		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-	</ItemGroup>-->
-
-
 	<ItemGroup>
-		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" /> <!--GeneratePathProperty="true" PrivateAssets="all"-->
+		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" />
 	</ItemGroup>
 
 	<PropertyGroup>
@@ -62,7 +34,6 @@
 	
 	<Target Name="GetDependencyTargetPaths">
 		<ItemGroup>
-			<!--<TargetPathWithTargetPlatformMoniker Include="$(DataLinq_Metadata)\lib\netstandard2.0\DataLinq.Metadata.dll" IncludeRuntimeDependency="false" />-->
 			<TargetPathWithTargetPlatformMoniker Include="$(ProjectDir)/../DataLinq.Core/$(OutputPath)/*.dll" IncludeRuntimeDependency="false" />
 		</ItemGroup>
 	</Target>
@@ -70,18 +41,4 @@
 	<Target Name="ReloadSourceGenerator" BeforeTargets="BeforeBuild" DependsOnTargets="$(BeforeBuildDependsOn)">
 		<Exec Command="dotnet build-server shutdown" />
 	</Target>
-	<!--<ItemGroup>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(MicrosoftNetCompilersToolsetVersion)" PrivateAssets="all" />
-		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="$(MicrosoftCodeAnalysisAnalyzersVersion)" PrivateAssets="all" />
-	</ItemGroup>-->
-
-	<!--https://github.com/dotnet/roslyn/discussions/47517#discussioncomment-76675-->
-	<!--https://github.com/dotnet/roslyn/issues/61940-->
-	
-	<!--<ItemGroup>
-		<None Include="..\..\LICENSE.md">
-			<Pack>True</Pack>
-			<PackagePath></PackagePath>
-		</None>
-	</ItemGroup>-->
 </Project>

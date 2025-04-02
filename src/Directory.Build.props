@@ -1,9 +1,37 @@
 <Project>
     <PropertyGroup>
+		<!-- Common settings for all projects -->
+		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+		<LangVersion>13.0</LangVersion>
+		<Nullable>enable</Nullable>
         <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+
+		<!-- Nuget package information--> 
+		<Authors>Sebastian Öberg</Authors>
+		<Copyright>Sebastian Öberg</Copyright>
+		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<GenerateDocumentationFile>false</GenerateDocumentationFile>
+		<Deterministic>true</Deterministic>
+		<Configuration>Release</Configuration>
+		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageOutputPath>./../../nupkg</PackageOutputPath>
+		
+		<!-- Paths -->
 		<DLSourceDir>$(MSBuildThisFileDirectory)</DLSourceDir>
 		<DLProjectDir>$(DLSourceDir)DataLinq\</DLProjectDir>
 		<DLCoreProjectDir>$(DLSourceDir)DataLinq.Core\</DLCoreProjectDir>
 		<DLGeneratorsProjectDir>$(DLSourceDir)DataLinq.Generators\</DLGeneratorsProjectDir>
     </PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\..\LICENSE.md" Pack="true" PackagePath="\" />
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
 </Project>

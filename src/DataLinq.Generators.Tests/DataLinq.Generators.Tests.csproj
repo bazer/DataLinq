@@ -1,11 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
-		<LangVersion>13.0</LangVersion>
+		<TargetFrameworks>net9.0</TargetFrameworks>
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -37,6 +35,5 @@
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" />
 	</ItemGroup>
-
 
 </Project>
