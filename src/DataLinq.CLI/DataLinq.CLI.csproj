@@ -2,7 +2,6 @@
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFrameworks>net9.0</TargetFrameworks>
 		<Description>CLI for DataLinq - a lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
 		<PackAsTool>true</PackAsTool>
 		<ToolCommandName>datalinq</ToolCommandName>

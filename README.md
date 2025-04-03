@@ -30,8 +30,8 @@ DataLinq is an exploration of the idea of combining immutability, indirect query
 Install DataLinq via NuGet. These are the currently available backends:
 
 ```bash
-Install-Package DataLinq.MySql
-Install-Package DataLinq.SQLite
+dotnet add package DataLinq.MySql
+dotnet add package DataLinq.SQLite
 ```
 
 The CLI is installed as a dotnet tool:
