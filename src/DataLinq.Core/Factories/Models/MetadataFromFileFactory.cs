@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using DataLinq.ErrorHandling;
-using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -101,8 +100,7 @@ public class MetadataFromFileFactory
             .Where(x => x.HasCompilationUnitRoot)
             .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
                     .Where(cls => cls.BaseList?.Types.Any(baseType =>
-                        SyntaxParser.IsModelInterface(baseType.ToString()) ||
-                        SyntaxParser.IsCustomModelInterface(baseType.ToString())) == true))
+                        SyntaxParser.IsModelInterface(baseType.ToString())) == true))
             .ToImmutableArray();
 
         return ReadSyntaxTrees(modelSyntaxes);
@@ -113,17 +111,10 @@ public class MetadataFromFileFactory
         var syntaxParser = new SyntaxParser(modelSyntaxes);
 
         // Identify classes implementing the interfaces of interest
-        var dbModelClasses = modelSyntaxes
+        var dbType = modelSyntaxes
             .Where(cls => cls.BaseList?.Types
-                .Any(baseType => baseType.ToString() == "ICustomDatabaseModel" || baseType.ToString() == "IDatabaseModel") == true)
-            .ToList();
-
-        // Prioritize the classes implementing ICustomDatabaseModel
-        var dbType = dbModelClasses
-            .FirstOrDefault(cls => cls.BaseList?.Types
-                .Any(baseType => baseType.ToString() == "ICustomDatabaseModel") == true)
-            ??
-            dbModelClasses.FirstOrDefault();
+                .Any(baseType => baseType.ToString() == "IDatabaseModel") == true)
+            .FirstOrDefault();
 
         var csType = dbType == null
             ? new CsTypeDeclaration("Unnamed", "Unnamed", ModelCsType.Class)
@@ -133,17 +124,6 @@ public class MetadataFromFileFactory
 
         if (!string.IsNullOrEmpty(dbType?.SyntaxTree.FilePath))
             database.SetCsFile(new CsFileDeclaration(dbType!.SyntaxTree.FilePath));
-
-        var customModelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList?.Types
-                .Any(baseType => baseType.ToString().StartsWith("ICustomTableModel") || baseType.ToString().StartsWith("ICustomViewModel")) == true)
-            .ToList();
-
-        if(!customModelClasses
-            .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text))
-            .Transpose()
-            .TryUnwrap(out var customModels, out var customModelFailures))
-            return DLOptionFailure.AggregateFail(customModelFailures);
 
         var modelClasses = modelSyntaxes
             .Where(cls => cls.BaseList?.Types
@@ -187,16 +167,6 @@ public class MetadataFromFileFactory
         }
 
         var transformer = new MetadataTransformer(new MetadataTransformerOptions(options.RemoveInterfacePrefix));
-
-        foreach (var customModel in customModels)
-        {
-            var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == customModel.Table.DbName);
-
-            if (match != null)
-                transformer.TransformTable(customModel, match);
-            else
-                database.SetTableModels(database.TableModels.Concat([customModel]));
-        }
 
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);

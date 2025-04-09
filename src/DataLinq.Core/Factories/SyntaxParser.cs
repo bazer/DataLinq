@@ -15,15 +15,11 @@ namespace DataLinq.Core.Factories;
 public class SyntaxParser
 {
     private static readonly string[] modelInterfaceNames = ["IDatabaseModel", "ITableModel", "IViewModel", "IModelInstance"];
-    private static readonly string[] customModelInterfaceName = ["ICustomDatabaseModel", "ICustomTableModel", "ICustomViewModel"];
     private readonly ImmutableArray<TypeDeclarationSyntax> modelSyntaxes;
 
     public static bool IsModelInterface(string interfaceName) =>
         modelInterfaceNames.Any(interfaceName.StartsWith);
-
-    public static bool IsCustomModelInterface(string interfaceName) =>
-        customModelInterfaceName.Any(interfaceName.StartsWith);
-
+    
     public SyntaxParser(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     {
         this.modelSyntaxes = modelSyntaxes;
