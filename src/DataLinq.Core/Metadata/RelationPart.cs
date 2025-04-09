@@ -6,12 +6,16 @@ public enum RelationPartType
     CandidateKey
 }
 
-public class RelationPart
+public class RelationPart(
+    ColumnIndex columnIndex,
+    RelationDefinition relation,
+    RelationPartType type,
+    string csName)
 {
-    public ColumnIndex ColumnIndex { get; set; }
-    public RelationDefinition Relation { get; set; }
-    public RelationPartType Type { get; set; }
-    public string CsName { get; set; }
+    public ColumnIndex ColumnIndex { get; } = columnIndex;
+    public RelationDefinition Relation { get; } = relation;
+    public RelationPartType Type { get; } = type;
+    public string CsName { get; } = csName;
 
     public RelationPart GetOtherSide() => Type == RelationPartType.CandidateKey
         ? Relation.ForeignKey

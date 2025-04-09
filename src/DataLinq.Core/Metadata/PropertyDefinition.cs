@@ -88,8 +88,10 @@ public record struct EnumProperty
 
 public class RelationProperty : PropertyDefinition
 {
-    public RelationPart RelationPart { get; set; }
-    public string RelationName { get; set; }
+    public RelationPart RelationPart { get; private set; }
+    public void SetRelationPart(RelationPart relationPart) => RelationPart = relationPart;
+    public string? RelationName { get; private set; }
+    public void SetRelationName(string relationName) => RelationName = relationName;
 
     public RelationProperty(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : base(propertyName, csType, model, attributes)
     {

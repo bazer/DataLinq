@@ -110,12 +110,6 @@ public static class MetadataFactory
         {
             foreach (var attribute in column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
             {
-                var relation = new RelationDefinition
-                {
-                    ConstraintName = attribute.Name,
-                    Type = RelationType.OneToMany
-                };
-
                 var candidateColumn = database
                     .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table)
                     ?.Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
@@ -134,6 +128,7 @@ public static class MetadataFactory
                 var foreignKeyIndex = column.ColumnIndices.Last();
                 var candidateKeyIndex = candidateColumn.ColumnIndices.First();
 
+                var relation = new RelationDefinition(attribute.Name, RelationType.OneToMany);
                 relation.ForeignKey = CreateRelationPart(relation, foreignKeyIndex, RelationPartType.ForeignKey);
                 relation.CandidateKey = CreateRelationPart(relation, candidateKeyIndex, RelationPartType.CandidateKey);
 
@@ -145,8 +140,8 @@ public static class MetadataFactory
                     foreignKeyIndex.RelationParts.Add(relation.ForeignKey);
                     candidateKeyIndex.RelationParts.Add(relation.CandidateKey);
 
-                    candidateProperty.RelationPart = relation.ForeignKey;
-                    columnProperty.RelationPart = relation.CandidateKey;
+                    candidateProperty.SetRelationPart(relation.ForeignKey);
+                    columnProperty.SetRelationPart(relation.CandidateKey);
                 }
             }
         }
@@ -155,12 +150,12 @@ public static class MetadataFactory
     private static RelationPart CreateRelationPart(RelationDefinition relation, ColumnIndex column, RelationPartType type)
     {
         return new RelationPart
-        {
-            Relation = relation,
-            ColumnIndex = column,
-            Type = type,
-            CsName = column.Table.Model.CsType.Name
-        };
+        (
+            column,
+            relation,
+            type,
+            column.Table.Model.CsType.Name
+        );
     }
 
     private static RelationProperty? GetRelationProperty(RelationPart relationPart, ColumnDefinition column)
@@ -182,7 +177,7 @@ public static class MetadataFactory
             propertyName = propertyName + "_" + i++;
 
         var relationProperty = new RelationProperty(propertyName, referencedColumn.Table.Model.CsType, column.Table.Model, [new RelationAttribute(referencedColumn.Table.DbName, referencedColumn.DbName, constraintName)]);
-        relationProperty.RelationName = constraintName;
+        relationProperty.SetRelationName(constraintName);
         relationProperty.Model.AddProperty(relationProperty);
 
         return relationProperty;
