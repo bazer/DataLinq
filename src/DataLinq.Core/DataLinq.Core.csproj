@@ -20,5 +20,14 @@
 		</PackageReference>
 		<PackageReference Include="ThrowAway" Version="0.3.0" />
 	</ItemGroup>
-	
+
+	<ItemGroup>
+		<!-- Allow the main DataLinq project to access internals -->
+		<InternalsVisibleTo Include="DataLinq" />
+		<!-- Allow the main test project to access internals -->
+		<InternalsVisibleTo Include="DataLinq.Tests" />
+		<!-- Allow the generator test project to access internals (if needed) -->
+		<InternalsVisibleTo Include="DataLinq.Generators.Tests" />
+	</ItemGroup>
+
 </Project>

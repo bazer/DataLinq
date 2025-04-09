@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Exceptions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 
@@ -47,6 +48,7 @@ public abstract class IDLOptionFailure
     public static implicit operator IDLOptionFailure(List<IDLOptionFailure> optionFailures) =>
         DLOptionFailure.AggregateFail(optionFailures);
 
+    override public abstract string ToString();
     //public static implicit operator Option<T, IDLOptionFailure>(List<IDLOptionFailure> optionFailures) =>
     //    Option.Fail<T, IDLOptionFailure>(DLOptionFailure.AggregateFail(optionFailures));
 }
@@ -79,6 +81,9 @@ public static class DLOptionFailure
 
     public static DLOptionFailure<string> AggregateFail(IEnumerable<IDLOptionFailure> innerFailures) =>
         new("", innerFailures);
+
+    public static DLOptionFailureException<T> Exception<T>(DLFailureType type, T failure) =>
+        new DLOptionFailureException<T>(Fail(type, failure));
 }
 
 public class DLOptionFailure<T> : IDLOptionFailure

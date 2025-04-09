@@ -10,6 +10,17 @@ public class TableModel
     public ModelDefinition Model { get; }
     public bool IsStub { get; }
 
+    public TableModel(string csPropertyName, DatabaseDefinition database, ModelDefinition model, TableDefinition table)
+    {
+        CsPropertyName = csPropertyName;
+        Database = database;
+        Model = model;
+        Table = table;
+        IsStub = false;
+        Table.SetTableModel(this);
+        Model.SetTableModel(this);
+    }
+
     public TableModel(string csPropertyName, DatabaseDefinition database, TableDefinition table, string csName)
     {
         CsPropertyName = csPropertyName;

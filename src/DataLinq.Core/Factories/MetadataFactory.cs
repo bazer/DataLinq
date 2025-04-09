@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
+using ThrowAway;
 
 namespace DataLinq.Core.Factories;
 
@@ -35,16 +37,27 @@ public static class MetadataFactory
         }
     }
 
-    public static TableDefinition ParseTable(ModelDefinition model)
+    public static Option<TableDefinition, IDLOptionFailure> ParseTable(ModelDefinition model)
     {
-        var table = model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
-            ? new TableDefinition(model.CsType.Name)
-            : new ViewDefinition(model.CsType.Name);
+        if (model == null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Model cannot be null");
+
+        TableDefinition table;
+
+        if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel")))
+            table = new TableDefinition(model.CsType.Name);
+        else if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("IViewModel")))
+            table = new ViewDefinition(model.CsType.Name);
+        else
+            return DLOptionFailure.Fail(DLFailureType.InvalidType, $"Model {model.CsType.Name} is not a valid table or view model.");
 
         foreach (var attribute in model.Attributes)
         {
             if (attribute is TableAttribute tableAttribute)
                 table.SetDbName(tableAttribute.Name);
+
+            if (attribute is ViewAttribute viewAttribute)
+                table.SetDbName(viewAttribute.Name);
 
             if (attribute is UseCacheAttribute useCache)
                 table.UseCache = useCache.UseCache;
