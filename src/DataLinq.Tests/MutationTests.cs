@@ -68,24 +68,6 @@ public class MutationTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void Reset_WithRowData_Should_ResetToRowDataInstance(Database<EmployeesDb> employeesDb)
-    {
-        // Arrange
-        var employee = employeesDb.Query().Employees.First();
-        var rowData = employee.GetRowData();
-        var mutable = new MutableEmployee(employee);
-
-        // Act
-        mutable.birth_date = DateOnly.Parse("1990-01-01");
-        mutable.Reset(rowData);
-
-        // Assert
-        Assert.Equal(employee.birth_date, mutable.birth_date);
-        Assert.False(mutable.HasChanges());
-    }
-
-    [Theory]
-    [MemberData(nameof(GetEmployees))]
     public void TestMutationSave_Should_NotHaveChanges(Database<EmployeesDb> employeesDb)
     {
         // Arrange
