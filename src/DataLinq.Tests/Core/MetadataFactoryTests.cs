@@ -792,9 +792,4 @@ public class MetadataFactoryTests
         Assert.Same(orderFkIndex, orderToUserRelProp.RelationPart.ColumnIndex);
         Assert.Same(userPkIndex, orderToUserRelProp.RelationPart.GetOtherSide().ColumnIndex);
     }
-
-    // Add tests for EnumAttribute, DefaultAttributes, ForeignKeyAttribute, IndexAttribute, RelationAttribute,
-    // CacheAttributes, InterfaceAttribute, ParseIndices, ParseRelations, GetDefaultValue, GetDbTypeFor
-    // following the same Arrange-Act-Assert pattern.
-    // For ParseIndices/ParseRelations, you'll need to set up a DatabaseDefinition with multiple tables/columns.
 }
