@@ -80,6 +80,7 @@ public static class MetadataFactory
     public static void ParseIndices(DatabaseDefinition database)
     {
         var indices = database.TableModels
+            .Where(x => !x.IsStub)
             .SelectMany(tableModel => tableModel.Table.Columns
                 .Select(column => (column, indexAttributes: column.ValueProperty.Attributes.OfType<IndexAttribute>().ToList())))
             .Where(t => t.indexAttributes.Any());
@@ -109,7 +110,7 @@ public static class MetadataFactory
 
     public static void ParseRelations(DatabaseDefinition database)
     {
-        foreach (var table in database.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table))
+        foreach (var table in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).Select(x => x.Table))
         {
             var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
 
@@ -119,7 +120,7 @@ public static class MetadataFactory
             table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
         }
 
-        foreach (var column in database.TableModels.Where(x => x.Table.Type == TableType.Table).SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
+        foreach (var column in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
         {
             foreach (var attribute in column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
             {
