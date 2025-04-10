@@ -135,7 +135,7 @@ public abstract class Database<T> : IDisposable
     }
 
     
-    public M Insert<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
+    public M Insert<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : class, IImmutableInstance
     {
         return Commit(transaction => transaction.Insert(model), transactionType);
     }
@@ -147,7 +147,7 @@ public abstract class Database<T> : IDisposable
     /// <param name="model">The model to update.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The updated model.</returns>
-    public M Update<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
+    public M Update<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : class, IImmutableInstance
     {
         return Commit(transaction => transaction.Update(model), transactionType);
     }
@@ -159,7 +159,7 @@ public abstract class Database<T> : IDisposable
     /// <param name="model">The model to insert or update.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The inserted or updated model.</returns>
-    public M Save<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
+    public M Save<M>(Mutable<M> model, TransactionType transactionType = TransactionType.ReadAndWrite) where M : class, IImmutableInstance
     {
         return Commit(transaction => transaction.Save(model), transactionType);
     }

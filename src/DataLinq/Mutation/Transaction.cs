@@ -148,11 +148,11 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="model">The model to insert.</param>
     /// <returns>The inserted model.</returns>
-    public T Insert<T>(Mutable<T> model) where T : IImmutableInstance
+    public T Insert<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
         CheckIfTransactionIsValid();
 
-        if (model == null)
+        if (model is null)
             throw new ArgumentException("Model argument has null value");
 
         if (!model.IsNew())
@@ -172,7 +172,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="models">The models to insert.</param>
     /// <returns>The inserted models.</returns>
-    public List<T> Insert<T>(IEnumerable<Mutable<T>> models) where T : IImmutableInstance
+    public List<T> Insert<T>(IEnumerable<Mutable<T>> models) where T : class, IImmutableInstance
     {
         return models
             .Select(Insert)
@@ -185,11 +185,11 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="model">The model to update.</param>
     /// <returns>The updated model.</returns>
-    public T Update<T>(Mutable<T> model) where T : IImmutableInstance
+    public T Update<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
         CheckIfTransactionIsValid();
 
-        if (model == null)
+        if (model is null)
             throw new ArgumentException("Model argument has null value");
 
         if (model.IsNew())
@@ -214,7 +214,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="model">The model to update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The updated model.</returns>
-    public T Update<T>(T model, Action<Mutable<T>> changes) where T : IImmutableInstance
+    public T Update<T>(T model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
         var mut = new Mutable<T>(model);
         changes(mut);
@@ -228,9 +228,9 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <typeparam name="T">The type of the model.</typeparam>
     /// <param name="model">The model to insert or update.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T Save<T>(Mutable<T> model) where T : IImmutableInstance
+    public T Save<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
-        if (model == null)
+        if (model is null)
             throw new ArgumentException("Model argument has null value");
 
         if (model.IsNew())
@@ -246,7 +246,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T Save<T>(T model, Action<Mutable<T>> changes) where T : IImmutableInstance
+    public T Save<T>(T model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
         var mut = model == null
             ? new Mutable<T>()
@@ -264,7 +264,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     /// <param name="model">The model to insert or update.</param>
     /// <param name="changes">The changes to apply to the model.</param>
     /// <returns>The inserted or updated model.</returns>
-    public T Save<T>(Mutable<T> model, Action<Mutable<T>> changes) where T : IImmutableInstance
+    public T Save<T>(Mutable<T> model, Action<Mutable<T>> changes) where T : class, IImmutableInstance
     {
         var mut = model ?? new Mutable<T>();
 
@@ -281,7 +281,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
     {
         CheckIfTransactionIsValid();
 
-        if (model == null)
+        if (model is null)
             throw new ArgumentException("Model argument has null value");
 
         AddAndExecute(model, TransactionChangeType.Delete);
@@ -363,7 +363,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
         Provider.State.RemoveTransactionFromCache(this);
     }
 
-    private T? GetModelFromCache<T>(Mutable<T> model) where T : IImmutableInstance
+    private T? GetModelFromCache<T>(Mutable<T> model) where T : class, IImmutableInstance
     {
         var metadata = model.Metadata();
         var keys = model.PrimaryKeys();

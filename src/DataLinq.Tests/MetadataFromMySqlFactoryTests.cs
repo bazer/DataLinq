@@ -304,7 +304,7 @@ namespace DataLinq.Tests
             // Assert
             // It should fail because the specified table wasn't found
             Assert.False(result.HasValue);
-            Assert.NotNull(result.Failure);
+            Assert.NotNull(result.Failure.Value);
             Assert.Contains("Could not find the specified tables or views: non_existent_table", result.Failure.ToString());
         }
     }

@@ -19,7 +19,7 @@ internal class Helpers
     {
         var employee = employeesDb.Query().Employees.SingleOrDefault(x => x.emp_no == emp_no);
 
-        if (employee == null)
+        if (employee is null)
             return employeesDb.Insert(NewEmployee(emp_no));
 
         return employee;

@@ -81,7 +81,7 @@ namespace DataLinq.Tests.Core
 
             // Assert
             Assert.False(result.HasValue);
-            Assert.NotNull(result.Failure);
+            Assert.NotNull(result.Failure.Value);
             // Check for specific failure type if desired (requires Failure object structure)
             // Assert.Equal(DLFailureType.FileNotFound, result.Failure.Type);
             Assert.Contains("Path not found", result.Failure.ToString());

@@ -8,7 +8,8 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSource) : IImmutable<T>, IImmutableInstance<M>, IEquatable<Immutable<T, M>>
+public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSource) : IImmutable<T>, IImmutableInstance<M>,
+    IEquatable<Immutable<T, M>>, IEquatable<IMutableInstance>
     where T : IModel
     where M : class, IDatabaseModel
 {
@@ -17,12 +18,16 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
 
     protected ConcurrentDictionary<string, object?>? lazyValues = null;
 
+    // Cache the primary key once calculated for performance
+    protected IKey? _cachedPrimaryKey = null;
+
     public object? this[ColumnDefinition column] => rowData[column];
     public object? this[string propertyName] => rowData.GetValue(rowData.Table.Model.ValueProperties[propertyName].Column);
 
     public ModelDefinition Metadata() => rowData.Table.Model;
-    public IKey PrimaryKeys() => KeyFactory.CreateKeyFromValues(rowData.GetValues(rowData.Table.PrimaryKeyColumns));
-    public bool HasPrimaryKeysSet() => PrimaryKeys() is not NullKey;
+    // Use the cached version
+    public IKey PrimaryKeys() => _cachedPrimaryKey ??= KeyFactory.CreateKeyFromValues(rowData.GetValues(rowData.Table.PrimaryKeyColumns));
+    public bool HasPrimaryKeysSet() => !(PrimaryKeys() is NullKey);
 
     public RowData GetRowData() => rowData;
     IRowData IModelInstance.GetRowData() => GetRowData();
@@ -83,7 +88,42 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
         return dataSource;
     }
 
-    public bool Equals(Immutable<T, M>? other) => rowData.Equals(other?.GetRowData());
-    public override bool Equals(object? obj) => obj is Immutable<T, M> other && Equals(other);
-    public override int GetHashCode() => rowData.GetHashCode();
+    // --- Start of Equality Implementation ---
+
+    public bool Equals(Immutable<T, M>? other)
+    {
+        if (other is null) return false;
+        if (ReferenceEquals(this, other)) return true;
+        // Compare based on primary key
+        return this.PrimaryKeys().Equals(other.PrimaryKeys());
+    }
+
+    // Implement IEquatable<IMutableInstance>
+    public bool Equals(IMutableInstance? other)
+    {
+        if (other is null) return false;
+
+        // Compare based on primary key
+        return this.PrimaryKeys().Equals(other.PrimaryKeys());
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is null) return false;
+        if (ReferenceEquals(this, obj)) return true;
+
+        // Check against Immutable first (most common case)
+        if (obj is Immutable<T, M> otherImmutable) return Equals(otherImmutable);
+
+        // Check against Mutable
+        if (obj is IMutableInstance otherMutable) return Equals(otherMutable);
+
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        // Hash code MUST be based *only* on the primary key for consistency and stability
+        return PrimaryKeys().GetHashCode();
+    }
 }

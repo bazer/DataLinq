@@ -648,8 +648,8 @@ public class QueryTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void SkipAndTakeWithOrderByDescending(Database<EmployeesDb> employeesDb)
     {
-        var employeesOrderedDescOrm = employeesDb.Query().Employees.OrderByDescending(e => e.birth_date).Skip(5).Take(10).ToList();
-        var employeesOrderedDescList = employeesDb.Query().Employees.ToList().OrderByDescending(e => e.birth_date).Skip(5).Take(10).ToList();
+        var employeesOrderedDescOrm = employeesDb.Query().Employees.OrderByDescending(e => e.birth_date).ThenByDescending(e => e.emp_no).Skip(5).Take(10).ToList();
+        var employeesOrderedDescList = employeesDb.Query().Employees.ToList().OrderByDescending(e => e.birth_date).ThenByDescending(e => e.emp_no).Skip(5).Take(10).ToList();
 
         Assert.Equal(employeesOrderedDescList, employeesOrderedDescOrm);
     }
@@ -658,8 +658,8 @@ public class QueryTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void SkipWithOrderBy(Database<EmployeesDb> employeesDb)
     {
-        var employeesSkippedOrm = employeesDb.Query().Employees.OrderBy(e => e.birth_date).Skip(10).ToList();
-        var employeesSkippedList = employeesDb.Query().Employees.ToList().OrderBy(e => e.birth_date).Skip(10).ToList();
+        var employeesSkippedOrm = employeesDb.Query().Employees.OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(10).ToList();
+        var employeesSkippedList = employeesDb.Query().Employees.ToList().OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(10).ToList();
 
         Assert.Equal(employeesSkippedList, employeesSkippedOrm);
     }
