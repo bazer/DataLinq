@@ -17,10 +17,10 @@
 	<ItemGroup>
 		<!-- Runtime Package References for DataLinq.dll -->
 		<PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.3" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
 		<PackageReference Include="Remotion.Linq" Version="2.2.0" />
 		<PackageReference Include="System.Reflection" Version="4.3.0" />
-		<PackageReference Include="System.Reflection.Metadata" Version="9.0.3" />
+		<PackageReference Include="System.Reflection.Metadata" Version="9.0.4" />
 		<PackageReference Include="ThrowAway" Version="0.3.0" />
 
 		<!-- Build/Dev time packages -->
@@ -36,15 +36,11 @@
 
 	<ItemGroup>
 		<!-- Reference Core normally for compilation, hide from NuGet dependencies -->
-		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" 
-						  PrivateAssets="All" />
+		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" PrivateAssets="All" />
 
 		<!-- Reference Generators as an Analyzer, hide its assets -->
 		<!-- ReferenceOutputAssembly=false here as DataLinq.dll doesn't compile against Generator code -->
-		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj"
-						  PrivateAssets="All"
-						  OutputItemType="Analyzer"
-						  ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" PrivateAssets="All" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 	<!-- This target MANUALLY places ALL required DLLs into the package -->
