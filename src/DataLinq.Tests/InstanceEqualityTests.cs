@@ -18,8 +18,6 @@ namespace DataLinq.Tests
         {
             _fixture = fixture;
             _db = fixture.AllEmployeesDb.First();
-            // Clean up potential leftovers from previous runs for PK tests
-            CleanupTestEmployees();
         }
 
         // Helper to create a NEW mutable employee (IsNew = true)
@@ -54,28 +52,24 @@ namespace DataLinq.Tests
             if (emp == null)
             {
                 // Create if not exists for test stability
-                emp = _db.Insert(CreateNewMutableEmployee($"_{empNo}")).Mutate().GetImmutableInstance();
+                emp = _db.Insert(CreateNewMutableEmployee($"_{empNo}"));
             }
             return emp.Mutate(); // Return as mutable
         }
 
-        // Helper to clean up specific test employees to avoid PK conflicts across test runs
-        private void CleanupTestEmployees(params int[] empNos)
+        // Helper to get existing mutable employee
+        private MutableEmployee GetExistingMutableEmployee(int empNo, Mutation.Transaction<EmployeesDb> transaction)
         {
-            if (empNos == null || empNos.Length == 0)
+            transaction.Provider.State.ClearCache(); // Ensure fetch
+            var emp = transaction.Query().Employees.SingleOrDefault(e => e.emp_no == empNo);
+            if (emp == null)
             {
-                // General cleanup range if specific IDs not provided
-                empNos = Enumerable.Range(990000, 100).ToArray();
+                // Create if not exists for test stability
+                emp = transaction.Insert(CreateNewMutableEmployee($"_{empNo}"));
             }
-            var employeesToDelete = _db.Query().Employees.Where(e => empNos.Contains(e.emp_no.Value)).ToList();
-            if (employeesToDelete.Any())
-            {
-                foreach (var emp in employeesToDelete)
-                    _db.Delete(emp);
-
-                _db.Provider.State.ClearCache(); // Clear cache after delete
-            }
+            return emp.Mutate(); // Return as mutable
         }
+
 
 
         // Helper to get an employee, ensuring DB interaction
@@ -418,7 +412,7 @@ namespace DataLinq.Tests
         public void SavedMutable_GetHashCode_IsStableAfterSave()
         {
             var empNo = 990001;
-            CleanupTestEmployees(empNo);
+            _fixture.CleanupTestEmployees(_db, empNo);
             var newEmp = CreateNewMutableEmployee();
 
             // Save it
@@ -439,7 +433,7 @@ namespace DataLinq.Tests
         public void HashCode_Changes_AfterSave() // Demonstrates the necessary limitation
         {
             var empNo = 990002;
-            CleanupTestEmployees(empNo);
+            _fixture.CleanupTestEmployees(_db, empNo);
             var newEmp = CreateNewMutableEmployee();
 
             Assert.True(newEmp.IsNew());
@@ -541,8 +535,6 @@ namespace DataLinq.Tests
         [Fact]
         public void HashSet_CannotFind_AfterSave() // Demonstrates the documented limitation
         {
-            var empNo = 990003;
-            CleanupTestEmployees(empNo);
             var newEmp = CreateNewMutableEmployee();
             var set = new HashSet<MutableEmployee>();
 
@@ -550,8 +542,9 @@ namespace DataLinq.Tests
             set.Add(newEmp); // Add the NEW instance (uses TransientId hash)
             Assert.Contains(newEmp, set); // Found using TransientId
 
+            using var transaction = _db.Transaction();
             // Act: Save the instance (PK assigned, IsNew becomes false, HashCode changes)
-            var savedImmutable = _db.Save(newEmp); // Save should update 'newEmp' state
+            var savedImmutable = transaction.Save(newEmp); // Save should update 'newEmp' state
 
             Assert.False(newEmp.IsNew()); // Verify state changed
             Assert.NotNull(newEmp.emp_no); // Verify PK assigned
@@ -560,18 +553,20 @@ namespace DataLinq.Tests
             // Assert.False(set.Contains(newEmp)); // EXPECTED TO FAIL! Hash code changed, HashSet cannot locate it.
 
             // Assert: Verify with a freshly fetched instance (using PK equality)
-            var fetchedAfterSave = GetExistingMutableEmployee(newEmp.emp_no.Value);
+            var fetchedAfterSave = GetExistingMutableEmployee(newEmp.emp_no.Value, transaction);
             // Assert.False(set.Contains(fetchedAfterSave)); // Also won't find it
 
             // To make it work, you MUST remove before save and re-add after save
             // (or use collections that don't rely on hash stability like List<T>)
+
+            transaction.Rollback();
+            //if (savedImmutable.emp_no.HasValue)
+            //    _fixture.CleanupTestEmployees(_db, savedImmutable.emp_no.Value);
         }
 
         [Fact]
         public void Dictionary_CannotFindKey_AfterSave() // Demonstrates the documented limitation
         {
-            var empNo = 990004;
-            CleanupTestEmployees(empNo);
             var newEmp = CreateNewMutableEmployee();
             var dict = new Dictionary<MutableEmployee, string>();
 
@@ -579,8 +574,9 @@ namespace DataLinq.Tests
             dict.Add(newEmp, "ValueNew"); // Add NEW instance as key (uses TransientId hash)
             Assert.True(dict.ContainsKey(newEmp));
 
+            using var transaction = _db.Transaction();
             // Act: Save the instance
-            var savedImmutable = _db.Save(newEmp);
+            var savedImmutable = transaction.Save(newEmp);
             Assert.False(newEmp.IsNew());
             Assert.NotNull(newEmp.emp_no);
 
@@ -588,8 +584,12 @@ namespace DataLinq.Tests
             // Assert.False(dict.ContainsKey(newEmp)); // EXPECTED TO FAIL! Hash code changed.
 
             // Assert: Try to find using freshly fetched instance
-            var fetchedAfterSave = GetExistingMutableEmployee(newEmp.emp_no.Value);
+            var fetchedAfterSave = GetExistingMutableEmployee(newEmp.emp_no.Value, transaction);
             // Assert.False(dict.ContainsKey(fetchedAfterSave)); // Also won't find it
+
+            transaction.Rollback();
+            //if (savedImmutable.emp_no.HasValue)
+            //    _fixture.CleanupTestEmployees(_db, savedImmutable.emp_no.Value);
         }
 
         // --- Tests for manually assigned PKs (like Department) ---
@@ -613,7 +613,7 @@ namespace DataLinq.Tests
         [Fact]
         public void SaveMutable_ManuallyAssignedPK_Equality()
         {
-            var deptNo = "d998";
+            var deptNo = "d021";
             // Ensure clean state
             var existing = _db.Query().Departments.SingleOrDefault(d => d.DeptNo == deptNo);
             if (existing != null) _db.Delete(existing);

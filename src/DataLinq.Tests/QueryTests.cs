@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Instances;
-using DataLinq.Tests.Models;
 using DataLinq.Tests.Models.Employees;
 using Xunit;
 
@@ -268,7 +267,7 @@ public class QueryTests : BaseTests
     public void SimpleWhereNotStartsWith(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => !x.DeptNo.StartsWith("d00")).ToList();
-        Assert.Equal(11, where.Count);
+        Assert.Equal(employeesDb.Query().Departments.Count() - 9, where.Count);
         Assert.DoesNotContain(where, x => x.DeptNo == "d001");
     }
 
@@ -287,7 +286,7 @@ public class QueryTests : BaseTests
     public void SimpleWhereNotEndsWith(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => !x.DeptNo.EndsWith("2")).ToList();
-        Assert.Equal(18, where.Count);
+        Assert.Equal(2, employeesDb.Query().Departments.Count() - where.Count);
         Assert.DoesNotContain(where, x => x.DeptNo == "d002");
     }
 
@@ -586,9 +585,9 @@ public class QueryTests : BaseTests
 
         var deptByDeptNo = employeesDb.Query().Departments.OrderBy(x => x.DeptNo);
         Assert.Equal("d001", deptByDeptNo.First().DeptNo);
-        Assert.Equal("d001", deptByDeptNo.FirstOrDefault().DeptNo);
+        Assert.Equal("d001", deptByDeptNo.FirstOrDefault()?.DeptNo);
         Assert.Equal(lastDepartmentName, deptByDeptNo.Last().DeptNo);
-        Assert.Equal(lastDepartmentName, deptByDeptNo.LastOrDefault().DeptNo);
+        Assert.Equal(lastDepartmentName, deptByDeptNo.LastOrDefault()?.DeptNo);
     }
 
     [Theory]
@@ -638,8 +637,8 @@ public class QueryTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void SkipAndTakeWithOrderBy(Database<EmployeesDb> employeesDb)
     {
-        var employeesOrderedOrm = employeesDb.Query().Employees.OrderBy(e => e.birth_date).Skip(5).Take(10).ToList();
-        var employeesOrderedList = employeesDb.Query().Employees.ToList().OrderBy(e => e.birth_date).Skip(5).Take(10).ToList();
+        var employeesOrderedOrm = employeesDb.Query().Employees.Where(x => x.emp_no < 990000).OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(5).Take(10).ToList();
+        var employeesOrderedList = employeesDb.Query().Employees.ToList().Where(x => x.emp_no < 990000).OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(5).Take(10).ToList();
 
         Assert.Equal(employeesOrderedList, employeesOrderedOrm);
     }
@@ -648,8 +647,8 @@ public class QueryTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void SkipAndTakeWithOrderByDescending(Database<EmployeesDb> employeesDb)
     {
-        var employeesOrderedDescOrm = employeesDb.Query().Employees.OrderByDescending(e => e.birth_date).ThenByDescending(e => e.emp_no).Skip(5).Take(10).ToList();
-        var employeesOrderedDescList = employeesDb.Query().Employees.ToList().OrderByDescending(e => e.birth_date).ThenByDescending(e => e.emp_no).Skip(5).Take(10).ToList();
+        var employeesOrderedDescOrm = employeesDb.Query().Employees.Where(x => x.emp_no < 990000).OrderByDescending(e => e.birth_date).ThenByDescending(e => e.emp_no).Skip(5).Take(10).ToList();
+        var employeesOrderedDescList = employeesDb.Query().Employees.ToList().Where(x => x.emp_no < 990000).OrderByDescending(e => e.birth_date).ThenByDescending(e => e.emp_no).Skip(5).Take(10).ToList();
 
         Assert.Equal(employeesOrderedDescList, employeesOrderedDescOrm);
     }
@@ -658,8 +657,8 @@ public class QueryTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void SkipWithOrderBy(Database<EmployeesDb> employeesDb)
     {
-        var employeesSkippedOrm = employeesDb.Query().Employees.OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(10).ToList();
-        var employeesSkippedList = employeesDb.Query().Employees.ToList().OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(10).ToList();
+        var employeesSkippedOrm = employeesDb.Query().Employees.Where(x => x.emp_no < 990000).OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(10).ToList();
+        var employeesSkippedList = employeesDb.Query().Employees.ToList().Where(x => x.emp_no < 990000).OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(10).ToList();
 
         Assert.Equal(employeesSkippedList, employeesSkippedOrm);
     }
