@@ -1,11 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Reflection;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
-using DataLinq.Instances;
 
 namespace DataLinq.Metadata;
 

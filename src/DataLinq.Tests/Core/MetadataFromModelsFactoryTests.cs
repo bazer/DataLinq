@@ -62,22 +62,22 @@ public partial class TestDb : ITestDb // Implement the specific interface
     public DbRead<OrderModel> Orders { get; }
 }
 
-public partial interface IUserModel : ITableModel<ITestDb> { } // Interface for Model
+public partial interface IUserModel { }
 
 [Table(""users"")]
 [Interface<IUserModel>] // Link model to interface
-public abstract partial class UserModel(RowData rowData, DataSourceAccess dataSource) : Immutable<UserModel, ITestDb>(rowData, dataSource), IUserModel // Use specific interface
+public abstract partial class UserModel(RowData rowData, DataSourceAccess dataSource) : Immutable<UserModel, ITestDb>(rowData, dataSource), ITableModel<TestDb>
 {
     [Column(""id""), PrimaryKey] public abstract int Id { get; }
     [Column(""name"")] public abstract string Name { get; }
     [Relation(""orders"", ""user_id"", ""FK_Order_User"")] public abstract IImmutableRelation<OrderModel> Orders { get; } // Relation Property
 }
 
-public partial interface IOrderModel : ITableModel<ITestDb> { }
+public partial interface IOrderModel { }
 
 [Table(""orders"")]
 [Interface<IOrderModel>]
-public abstract partial class OrderModel(RowData rowData, DataSourceAccess dataSource) : Immutable<OrderModel, ITestDb>(rowData, dataSource), IOrderModel
+public abstract partial class OrderModel(RowData rowData, DataSourceAccess dataSource) : Immutable<OrderModel, ITestDb>(rowData, dataSource), ITableModel<TestDb>
 {
     [Column(""order_id""), PrimaryKey] public abstract int OrderId { get; }
     [Column(""user_id""), ForeignKey(""users"", ""id"", ""FK_Order_User"")] public abstract int UserId { get; }
