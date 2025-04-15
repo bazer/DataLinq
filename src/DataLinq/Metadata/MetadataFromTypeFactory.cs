@@ -5,12 +5,14 @@ using System.Linq;
 using System.Reflection;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.ErrorHandling;
+using ThrowAway;
 
 namespace DataLinq.Metadata;
 
 public static class MetadataFromTypeFactory
 {
-    public static DatabaseDefinition ParseDatabaseFromDatabaseModel(Type type)
+    public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel(Type type) => DLOptionFailure.CatchAll(() =>
     {
         var database = new DatabaseDefinition(type.Name, csType: new CsTypeDeclaration(type));
         database.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
@@ -24,7 +26,7 @@ public static class MetadataFromTypeFactory
         MetadataFactory.ParseRelations(database);
 
         return database;
-    }
+    });
 
     private static TableModel ParseTableModel(this DatabaseDefinition database, Type type, string csPropertyName) =>
         new(csPropertyName, database, type.ParseModel());

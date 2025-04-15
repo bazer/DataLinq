@@ -28,7 +28,7 @@ public interface IMetadataFromDatabaseFactoryCreator
 
 public interface IMetadataFromSqlFactory
 {
-    Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString);
+    Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString);
 }
 
 public static class PluginHook

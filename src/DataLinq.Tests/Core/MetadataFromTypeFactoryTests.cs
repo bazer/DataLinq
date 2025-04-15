@@ -3,6 +3,7 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees; // Import your actual test models
+using ThrowAway.Extensions;
 using Xunit;
 
 namespace DataLinq.Tests.Core
@@ -74,7 +75,7 @@ namespace DataLinq.Tests.Core
             // Assuming we can simulate the context needed or if ParseModel was public static.
             // If ParseModel is internal/private, we test it via ParseDatabaseFromDatabaseModel.
             // Let's assume for this test we can get a ModelDefinition somehow (e.g., via ParseDatabase).
-            var dbDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb));
+            var dbDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
             var employeeModel = dbDefinition.TableModels.Single(tm => tm.Model.CsType.Type == modelType).Model;
 
             // Assert
@@ -123,7 +124,7 @@ namespace DataLinq.Tests.Core
         {
             // Arrange
             var modelType = typeof(Department);
-            var dbDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb));
+            var dbDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
             var deptModel = dbDefinition.TableModels.Single(tm => tm.Model.CsType.Type == modelType).Model;
 
             // Assert
@@ -156,7 +157,7 @@ namespace DataLinq.Tests.Core
             var dbType = typeof(EmployeesDb);
 
             // Act
-            var dbDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(dbType);
+            var dbDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(dbType).ValueOrException();
 
             // Assert
             // Database level

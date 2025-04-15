@@ -9,6 +9,7 @@ using DataLinq.Metadata;
 using DataLinq.MySql.Models;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.CodeAnalysis;
+using ThrowAway.Extensions;
 using Xunit;
 
 namespace DataLinq.Tests;
@@ -62,7 +63,7 @@ public class CoreTests : BaseTests
     [Fact]
     public void TestMetadataFromInterfaceFactory()
     {
-        var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb));
+        var metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
 
         var employees = metadata.TableModels.Single(x => x.Table.DbName == "employees").Table;
         Assert.Equal("Employee", employees.Model.CsType.Name);

@@ -115,7 +115,7 @@ public static class MetadataFactory
             var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
 
             if (!columns.Any())
-                throw new Exception($"Table {table.DbName} is missing a primary key. Having a primary key for every table is a requirement for DataLinq.");
+                throw DLOptionFailure.Exception(DLFailureType.InvalidModel, $"Table {table.DbName} is missing a primary key. Having a primary key for every table is a requirement for DataLinq.");
 
             table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
         }

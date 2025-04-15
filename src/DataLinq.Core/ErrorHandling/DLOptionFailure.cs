@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using DataLinq.Exceptions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using ThrowAway;
 
 namespace DataLinq.ErrorHandling;
 
@@ -16,7 +16,8 @@ public enum DLFailureType
     UnexpectedNull,
     InvalidType,
     Aggregation,
-    FileNotFound
+    FileNotFound,
+    InvalidModel
 }
 
 public class FailureWithDefinition<T>
@@ -84,6 +85,12 @@ public static class DLOptionFailure
 
     public static DLOptionFailureException<T> Exception<T>(DLFailureType type, T failure) =>
         new DLOptionFailureException<T>(Fail(type, failure));
+
+    public static Option<T, IDLOptionFailure> CatchAll<T>(Func<T> func) =>
+        Option.CatchAll<T, IDLOptionFailure>(() => func(), x => Fail(DLFailureType.Exception, x));
+
+    public static Option<T, IDLOptionFailure> CatchAll<T>(Func<Option<T, IDLOptionFailure>> func) =>
+        Option.CatchAll(() => func(), x => Fail(DLFailureType.Exception, x));
 }
 
 public class DLOptionFailure<T> : IDLOptionFailure

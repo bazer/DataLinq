@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using ThrowAway;
@@ -27,7 +28,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         this.options = options;
     }
 
-    public Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString)
+    public Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) => DLOptionFailure.CatchAll(() =>
     {
         var dbAccess = new SQLiteDatabaseTransaction(connectionString, Mutation.TransactionType.ReadOnly);
 
@@ -43,7 +44,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         MetadataFactory.ParseInterfaces(database);
 
         return database;
-    }
+    });
 
     private void ParseIndices(DatabaseDefinition database, SQLiteDatabaseTransaction dbAccess)
     {

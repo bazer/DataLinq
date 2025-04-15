@@ -37,7 +37,7 @@ public class MetadataFromModelsFactory
         Log = log;
     }
 
-    public List<Option<DatabaseDefinition, IDLOptionFailure>> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    public List<Option<DatabaseDefinition, IDLOptionFailure>> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes) => DLOptionFailure.CatchAll(() =>
     {
         var syntaxParser = new SyntaxParser(modelSyntaxes);
 
@@ -48,7 +48,7 @@ public class MetadataFromModelsFactory
             .ToList();
 
         return ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses).ToList();
-    }
+    });
 
     private static bool ImplementsInterface(TypeDeclarationSyntax type, ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, Func<string, bool> interfaceNameFunc)
     {

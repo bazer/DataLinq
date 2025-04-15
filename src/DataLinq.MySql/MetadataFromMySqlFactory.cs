@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
-using System.Data.Common;
 using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
@@ -31,7 +30,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         this.options = options;
     }
 
-    public Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString)
+    public Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) => DLOptionFailure.CatchAll<DatabaseDefinition>(() =>
     {
         var information_Schema = new MySqlDatabase<information_schema>(connectionString, "information_schema").Query();
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
@@ -43,8 +42,8 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             .Where(IsTableOrViewInOptionsList));
 
         var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
-        if (missingTables.Any())
-            return $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}";
+        if (missingTables.Count != 0)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}");
 
         ParseIndices(database, information_Schema);
         ParseRelations(database, information_Schema);
@@ -53,7 +52,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         MetadataFactory.ParseInterfaces(database);
 
         return database;
-    }
+    });
 
     private IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)
     {

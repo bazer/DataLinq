@@ -39,7 +39,7 @@ public class MetadataFromFileFactory
         Log = log;
     }
 
-    public Option<DatabaseDefinition, IDLOptionFailure> ReadFiles(string csType, IEnumerable<string> srcPaths)
+    public Option<DatabaseDefinition, IDLOptionFailure> ReadFiles(string csType, IEnumerable<string> srcPaths) => DLOptionFailure.CatchAll(() =>
     {
         var trees = new List<SyntaxTree>();
 
@@ -104,9 +104,9 @@ public class MetadataFromFileFactory
             .ToImmutableArray();
 
         return ReadSyntaxTrees(modelSyntaxes);
-    }
+    });
 
-    public Option<DatabaseDefinition, IDLOptionFailure> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    private Option<DatabaseDefinition, IDLOptionFailure> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     {
         var syntaxParser = new SyntaxParser(modelSyntaxes);
 
