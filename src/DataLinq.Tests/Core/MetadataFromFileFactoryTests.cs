@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using DataLinq.Core.Factories.Models; // Where the factory resides
+using ThrowAway.Extensions;
 using Xunit;
 
 namespace DataLinq.Tests.Core
@@ -38,14 +39,13 @@ namespace DataLinq.Tests.Core
             var expectedDbName = _fixture.DatabaseNameFromAttribute; // Name from attribute in the file
 
             // Act
-            var result = factory.ReadFiles(expectedDbName, new[] { _fixture.TempDirectory });
+            var dbDefinition = factory.ReadFiles(expectedDbName, new[] { _fixture.TempDirectory }).ValueOrException();
 
             // Assert
-            Assert.True(result.HasValue, result.HasFailed ? result.Failure.ToString() : "ReadFiles failed");
-            var dbDefinition = result.Value;
-            Assert.Equal(expectedDbName, dbDefinition.DbName);
-            Assert.Equal(2, dbDefinition.TableModels.Length); // User + Order from fixture file
-            Assert.Equal("UserModelFromFile", dbDefinition.TableModels.First(x => x.Table.DbName == "users_file").Model.CsType.Name);
+            Assert.Single(dbDefinition);
+            Assert.Equal(expectedDbName, dbDefinition[0].DbName);
+            Assert.Equal(2, dbDefinition[0].TableModels.Length); // User + Order from fixture file
+            Assert.Equal("UserModelFromFile", dbDefinition[0].TableModels.First(x => x.Table.DbName == "users_file").Model.CsType.Name);
         }
 
         [Fact]
@@ -56,17 +56,16 @@ namespace DataLinq.Tests.Core
             var expectedDbName = _fixture.DatabaseNameFromAttribute;
 
             // Act
-            var result = factory.ReadFiles(expectedDbName, new[] { _fixture.UserFilePath }); // Pass specific file path
+            var dbDefinition = factory.ReadFiles(expectedDbName, new[] { _fixture.UserFilePath }).ValueOrException(); // Pass specific file path
 
             // Assert
-            Assert.True(result.HasValue, result.HasFailed ? result.Failure.ToString() : "ReadFiles failed");
-            var dbDefinition = result.Value;
+            Assert.Single(dbDefinition);
             // Note: It might parse *all* models found in the file, even if not directly related
             // to the 'csType' passed, depending on the factory's exact logic.
             // Adjust assertion based on actual factory behavior.
             // For now, assume it parses the whole file context.
-            Assert.Equal(expectedDbName, dbDefinition.DbName);
-            Assert.Equal(2, dbDefinition.TableModels.Length);
+            Assert.Equal(expectedDbName, dbDefinition[0].DbName);
+            Assert.Equal(2, dbDefinition[0].TableModels.Length);
         }
 
         [Fact]
@@ -94,13 +93,12 @@ namespace DataLinq.Tests.Core
             var factory = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { RemoveInterfacePrefix = true });
 
             // Act
-            var result = factory.ReadFiles(_fixture.DatabaseNameFromAttribute, new[] { _fixture.TempDirectory });
+            var dbDefinitions = factory.ReadFiles(_fixture.DatabaseNameFromAttribute, new[] { _fixture.TempDirectory }).ValueOrException();
 
             // Assert
-            Assert.True(result.HasValue);
-            var dbDefinition = result.Value;
+            Assert.Single(dbDefinitions);
             // Check a model known to have an 'I' prefix in its interface declaration within the file
-            var userModel = dbDefinition.TableModels.First(x => x.Table.DbName == "users_file").Model;
+            var userModel = dbDefinitions[0].TableModels.First(x => x.Table.DbName == "users_file").Model;
             Assert.Equal("UserModelFromFile", userModel.CsType.Name); // Prefix should be removed from class name if derived from interface name
             Assert.NotNull(userModel.ModelInstanceInterface);
             // The *interface* name itself shouldn't change, but the generated *class* name might be derived without 'I'
@@ -117,12 +115,11 @@ namespace DataLinq.Tests.Core
             var factory = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { RemoveInterfacePrefix = false });
 
             // Act
-            var result = factory.ReadFiles(_fixture.DatabaseNameFromAttribute, new[] { _fixture.TempDirectory });
+            var dbDefinition = factory.ReadFiles(_fixture.DatabaseNameFromAttribute, new[] { _fixture.TempDirectory }).ValueOrException();
 
             // Assert
-            Assert.True(result.HasValue);
-            var dbDefinition = result.Value;
-            var userModel = dbDefinition.TableModels.First(x => x.Table.DbName == "users_file").Model;
+            Assert.Single(dbDefinition);
+            var userModel = dbDefinition[0].TableModels.First(x => x.Table.DbName == "users_file").Model;
             // Assert based on the actual behavior - does it keep the class name as defined, or derive from interface?
             // If it always uses the defined class name "UserModelFromFile", this assert remains the same.
             Assert.Equal("UserModelFromFile", userModel.CsType.Name);

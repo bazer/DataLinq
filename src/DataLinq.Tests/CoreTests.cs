@@ -23,9 +23,9 @@ public class CoreTests : BaseTests
             .Select(x => Path.Combine(projectRoot, x))
             .ToList();
 
-        var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths);
+        var metadata = new MetadataFromFileFactory(new MetadataFromFileFactoryOptions { }).ReadFiles("", srcPaths).ValueOrException();
 
-        return metadata;
+        return metadata.Single();
     }
 
     [Fact]

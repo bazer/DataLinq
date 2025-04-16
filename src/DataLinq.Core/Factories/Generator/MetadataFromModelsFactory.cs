@@ -84,6 +84,9 @@ public class MetadataFromModelsFactory
         var name = MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(dbType));
 
+        if (!string.IsNullOrEmpty(dbType.SyntaxTree.FilePath))
+            database.SetCsFile(new CsFileDeclaration(dbType.SyntaxTree.FilePath));
+
         var modelClasses = modelSyntaxes
             .Where(x => 
                 ImplementsInterface(x, modelSyntaxes, x => x.Contains($"<{dbType.Identifier.Text}>")) && 
