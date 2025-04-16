@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -28,14 +29,19 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         this.options = options;
     }
 
-    public Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) => DLOptionFailure.CatchAll(() =>
+    public Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) => DLOptionFailure.CatchAll<DatabaseDefinition>(() =>
     {
         var dbAccess = new SQLiteDatabaseTransaction(connectionString, Mutation.TransactionType.ReadOnly);
 
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
         database.SetTableModels(dbAccess
             .ReadReader("SELECT *\r\nFROM sqlite_master m\r\nWHERE\r\nm.type <> 'index' AND\r\nm.tbl_name <> 'sqlite_sequence'")
-            .Select(x => ParseTable(database, x, dbAccess)));
+            .Select(x => ParseTable(database, x, dbAccess))
+            .Where(IsTableOrViewInOptionsList));
+
+        var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
+        if (missingTables.Count != 0)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}");
 
         ParseIndices(database, dbAccess);
         ParseRelations(database, dbAccess);
@@ -45,6 +51,26 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         return database;
     });
+
+    private IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)
+    {
+        foreach (var tableName in options.Tables?.Concat(options.Views ?? []) ?? [])
+        {
+            if (!tableModels.Any(x => tableName.Equals(x.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+                yield return tableName;
+        }
+    }
+
+    private bool IsTableOrViewInOptionsList(TableModel tableModel)
+    {
+        if (tableModel.Table.Type == TableType.View && options.Views != null && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        if (tableModel.Table.Type == TableType.Table && options.Tables != null && !options.Tables.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        return true;
+    }
 
     private void ParseIndices(DatabaseDefinition database, SQLiteDatabaseTransaction dbAccess)
     {

@@ -56,7 +56,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
     private IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)
     {
-        foreach (var tableName in options.Tables.Concat(options.Views))
+        foreach (var tableName in options.Tables?.Concat(options.Views ?? []) ?? [])
         {
             if (!tableModels.Any(x => tableName.Equals(x.Table.DbName, StringComparison.OrdinalIgnoreCase)))
                 yield return tableName;
@@ -65,10 +65,10 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
     private bool IsTableOrViewInOptionsList(TableModel tableModel)
     {
-        if (tableModel.Table.Type == TableType.View && options.Views.Any() && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+        if (tableModel.Table.Type == TableType.View && options.Views != null && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
             return false;
 
-        if (tableModel.Table.Type == TableType.Table && options.Tables.Any() && !options.Tables.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+        if (tableModel.Table.Type == TableType.Table && options.Tables != null && !options.Tables.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
             return false;
 
         return true;
@@ -218,7 +218,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
         if (csType == "enum")
         {
-            MetadataFactory.AttachEnumProperty(valueProp, new List<(string name, int value)>(), ParseEnumType(dbColumns.COLUMN_TYPE), true);
+            MetadataFactory.AttachEnumProperty(valueProp, ParseEnumType(dbColumns.COLUMN_TYPE), true);
             if (valueProp.CsType.Name == "enum")
                 valueProp.SetCsType(valueProp.CsType.MutateName(valueProp.PropertyName + "Value"));
             //valueProp.CsTypeName = valueProp.CsTypeName == "enum" ? valueProp.PropertyName + "Value" : valueProp.CsTypeName;

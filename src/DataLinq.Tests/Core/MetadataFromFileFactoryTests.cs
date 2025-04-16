@@ -56,7 +56,7 @@ namespace DataLinq.Tests.Core
             var expectedDbName = _fixture.DatabaseNameFromAttribute;
 
             // Act
-            var dbDefinition = factory.ReadFiles(expectedDbName, new[] { _fixture.UserFilePath }).ValueOrException(); // Pass specific file path
+            var dbDefinition = factory.ReadFiles(expectedDbName, new[] { _fixture.UserFilePath, _fixture.DbFilePath }).ValueOrException(); // Pass specific file path
 
             // Assert
             Assert.Single(dbDefinition);
@@ -187,11 +187,11 @@ using TestDbNamespace; // Reference DB
 
 namespace TestNamespace;
 
-public partial interface IUserModelFromFile : ITableModel<DbModelFromFile> { }
+public partial interface IUserModelFromFile { }
 
 [Table(""users_file"")]
 [Interface<IUserModelFromFile>]
-public abstract partial class UserModelFromFile(RowData rowData, DataSourceAccess dataSource) : Immutable<UserModelFromFile, DbModelFromFile>(rowData, dataSource), IUserModelFromFile
+public abstract partial class UserModelFromFile(RowData rowData, DataSourceAccess dataSource) : Immutable<UserModelFromFile, DbModelFromFile>(rowData, dataSource), ITableModel<DbModelFromFile>
 {
     [Column(""id""), PrimaryKey] public abstract int Id { get; }
     [Column(""name_from_file"")] public abstract string Name { get; }
@@ -209,11 +209,11 @@ using TestDbNamespace; // Reference DB
 
 namespace TestNamespace;
 
-public partial interface IOrderModelFromFile : ITableModel<DbModelFromFile> { }
+public partial interface IOrderModelFromFile { }
 
 [Table(""orders_file"")]
 [Interface<IOrderModelFromFile>]
-public abstract partial class OrderModelFromFile(RowData rowData, DataSourceAccess dataSource) : Immutable<OrderModelFromFile, DbModelFromFile>(rowData, dataSource), IOrderModelFromFile
+public abstract partial class OrderModelFromFile(RowData rowData, DataSourceAccess dataSource) : Immutable<OrderModelFromFile, DbModelFromFile>(rowData, dataSource), ITableModel<DbModelFromFile>
 {
     [Column(""order_id""), PrimaryKey] public abstract int OrderId { get; }
     [Column(""user_id""), ForeignKey(""users_file"", ""id"", ""FK_Order_User_File"")] public abstract int UserId { get; }

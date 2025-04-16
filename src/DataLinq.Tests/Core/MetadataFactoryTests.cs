@@ -304,7 +304,7 @@ public class MetadataFactoryTests
         var attributes = new List<Attribute> { new EnumAttribute("Value1", "Value2") };
         var vp = new ValueProperty("Status", enumCsType, model, attributes);
         // Manually setting EnumProperty as it's normally set by specific factories
-        vp.SetEnumProperty(new EnumProperty(enumValues: attributes.OfType<EnumAttribute>().First().Values.Select((name, index) => (name, index + 1)).ToList()));
+        vp.SetEnumProperty(new EnumProperty(enumValues: attributes.OfType<EnumAttribute>().First().Values.Select((name, index) => (name, index + 1))));
         model.AddProperty(vp);
         var columnDefinition = table.ParseColumn(vp); // Re-parse column with EnumProperty set
 

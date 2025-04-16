@@ -13,8 +13,8 @@ public struct MetadataFromDatabaseFactoryOptions
 {
     public bool CapitaliseNames { get; set; } = false;
     public bool DeclareEnumsInClass { get; set; } = false;
-    public List<string> Tables { get; set; } = new List<string>();
-    public List<string> Views { get; set; } = new List<string>();
+    public List<string>? Tables { get; set; }
+    public List<string>? Views { get; set; }
 
     public MetadataFromDatabaseFactoryOptions()
     {
@@ -232,9 +232,9 @@ public static class MetadataFactory
         return property;
     }
 
-    public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, IEnumerable<(string name, int value)> csEnumValues, bool declaredInClass)
+    public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, bool declaredInClass)
     {
-        property.SetEnumProperty(new EnumProperty(enumValues.ToList(), csEnumValues.ToList(), declaredInClass));
+        property.SetEnumProperty(new EnumProperty(enumValues, enumValues, declaredInClass));
     }
 
     public static IEnumerable<Attribute> GetAttributes(ColumnDefinition column)

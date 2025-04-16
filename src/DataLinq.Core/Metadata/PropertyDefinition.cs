@@ -73,10 +73,10 @@ public class ValueProperty : PropertyDefinition
 
 public record struct EnumProperty
 {
-    public EnumProperty(List<(string name, int value)>? enumValues = null, List<(string name, int value)>? csEnumValues = null, bool declaredInClass = true)
+    public EnumProperty(IEnumerable<(string name, int value)>? enumValues = null, IEnumerable<(string name, int value)>? csEnumValues = null, bool declaredInClass = true)
     {
-        DbEnumValues = enumValues ?? new();
-        CsEnumValues = csEnumValues ?? new();
+        DbEnumValues = enumValues?.ToList() ?? [];
+        CsEnumValues = csEnumValues?.ToList() ?? [];
         DeclaredInClass = declaredInClass;
     }
 

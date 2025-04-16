@@ -89,7 +89,7 @@ namespace DataLinq.Tests
         {
             // Arrange
             // Use filtering options to parse only the 'departments' table
-            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["departments"] };
+            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["departments"], Views = [] };
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);
@@ -135,7 +135,7 @@ namespace DataLinq.Tests
             // gender (enum)
             var genderCol = employeesTable.Columns.Single(c => c.DbName == "gender");
             Assert.False(genderCol.Nullable);
-            Assert.Equal("enum", genderCol.ValueProperty.CsType.Name); // Default mapping before potential rename
+            Assert.Equal("genderValue", genderCol.ValueProperty.CsType.Name); // Default mapping before potential rename
             Assert.NotNull(genderCol.ValueProperty.EnumProperty);
             Assert.Equal(2, genderCol.ValueProperty.EnumProperty.Value.DbEnumValues.Count); // M, F from DB schema
             Assert.Contains(genderCol.ValueProperty.EnumProperty.Value.DbEnumValues, ev => ev.name == "M");
@@ -210,9 +210,9 @@ namespace DataLinq.Tests
             Assert.NotNull(indexAttr);
             Assert.Equal(IndexCharacteristic.Unique, indexAttr.Characteristic);
             Assert.Equal(IndexType.BTREE, indexAttr.Type); // Default assumed by MySQL usually
-            Assert.Empty(indexAttr.Columns); // Single column index
-
-            // You might need more specific checks if your schema has simple/multi-column indices
+            Assert.Single(indexAttr.Columns); // Single column index
+            Assert.Equal("dept_name", indexAttr.Columns[0]); // Check the column name
+            Assert.Equal("dept_name", indexAttr.Name); // Check the index name
         }
 
         [Fact]
@@ -240,7 +240,7 @@ namespace DataLinq.Tests
         public void TestTableFiltering_MySql_TablesOnly()
         {
             // Arrange
-            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["employees", "salaries"] }; // Only these two tables
+            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["employees", "salaries"], Views = [] }; // Only these two tables
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);
@@ -256,7 +256,7 @@ namespace DataLinq.Tests
         public void TestTableFiltering_MySql_ViewsOnly()
         {
             // Arrange
-            var options = new MetadataFromDatabaseFactoryOptions { Views = ["current_dept_emp"] }; // Only this view
+            var options = new MetadataFromDatabaseFactoryOptions { Views = ["current_dept_emp"], Tables = [] }; // Only this view
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);

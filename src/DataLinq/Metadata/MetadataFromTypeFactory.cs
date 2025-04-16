@@ -122,7 +122,7 @@ public static class MetadataFromTypeFactory
                     : new List<(string name, int value)>();
 
                 var enumValues = Enum.GetValues(property.CsType.Type).Cast<int>().ToList();
-                valueProp.SetEnumProperty(new EnumProperty(enumValueList, Enum.GetNames(property.CsType.Type).Select((x, i) => (x, enumValues[i])).ToList(), true));
+                valueProp.SetEnumProperty(new EnumProperty(enumValueList, Enum.GetNames(property.CsType.Type).Select((x, i) => (x, enumValues[i])), true));
             }
             else
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize(property.CsType.Name));

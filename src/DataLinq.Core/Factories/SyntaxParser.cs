@@ -373,7 +373,7 @@ public class SyntaxParser
             {
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
-                var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1)).ToList();
+                var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1));
                 valueProp.SetEnumProperty(new EnumProperty(enumValueList, null, true));
             }
             else
