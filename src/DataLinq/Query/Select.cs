@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using CommunityToolkit.HighPerformance;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Metadata;

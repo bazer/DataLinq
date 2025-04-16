@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading;
-using CommunityToolkit.HighPerformance;
 using DataLinq.Exceptions;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
