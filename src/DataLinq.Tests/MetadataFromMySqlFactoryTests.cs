@@ -187,8 +187,8 @@ namespace DataLinq.Tests
             Assert.Equal("dept_emp_ibfk_2", fkDeptAttr.Name);
 
             // Check Relation Properties were added (names are default based on table)
-            Assert.Contains(employeesTable.Model.RelationProperties, rp => rp.Key == "dept_emp");
-            Assert.Contains(departmentsTable.Model.RelationProperties, rp => rp.Key == "dept_emp");
+            Assert.Contains(employeesTable.Model.RelationProperties, rp => rp.Key == "dept-emp");
+            Assert.Contains(departmentsTable.Model.RelationProperties, rp => rp.Key == "dept-emp");
             Assert.Contains(deptEmpTable.Model.RelationProperties, rp => rp.Key == "employees");
             Assert.Contains(deptEmpTable.Model.RelationProperties, rp => rp.Key == "departments");
         }

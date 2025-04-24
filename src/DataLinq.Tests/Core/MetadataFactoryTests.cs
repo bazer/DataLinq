@@ -50,6 +50,8 @@ public class MetadataFactoryTests
     // Creates a DatabaseDefinition with two tables: Users (PK UserId) and Orders (PK OrderId, FK UserId)
     private DatabaseDefinition CreateMultiTableDatabaseForRelationTests()
     {
+        var fkOrderUserName = "FK_Order_User";
+
         var iTableModel = new CsTypeDeclaration("ITableModel", "TestNamespace", ModelCsType.Interface);
         var iViewModel = new CsTypeDeclaration("IViewModel", "TestNamespace", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class);
@@ -66,10 +68,10 @@ public class MetadataFactoryTests
         var userTableModel = new TableModel("Users", db, userModel, userTable);
         var userIdVp = CreateTestValueProperty(userModel, "UserId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("user_id")]);
         var userNameVp = CreateTestValueProperty(userModel, "UserName", typeof(string), [new ColumnAttribute("user_name")]);
-        MetadataFactory.ParseColumn(userTable, userIdVp);
-        MetadataFactory.ParseColumn(userTable, userNameVp);
-        // Manually link columns back if not done in helper
-        userTable.SetColumns([userIdVp.Column, userNameVp.Column]);
+        // Parse columns against the correct table and capture the result
+        var userIdCol = MetadataFactory.ParseColumn(userTable, userIdVp);
+        var userNameCol = MetadataFactory.ParseColumn(userTable, userNameVp);
+        userTable.SetColumns([userIdCol, userNameCol]);
 
         // Order Table
         var orderModel = new ModelDefinition(orderCsType);
@@ -78,25 +80,22 @@ public class MetadataFactoryTests
         orderTable.SetDbName("orders");
         var orderTableModel = new TableModel("Orders", db, orderModel, orderTable);
         var orderIdVp = CreateTestValueProperty(orderModel, "OrderId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("order_id")]);
-        var orderUserIdVp = CreateTestValueProperty(orderModel, "CustomerId", typeof(int), [new ForeignKeyAttribute("users", "user_id", "FK_Order_User"), new ColumnAttribute("customer_id")]);
+        var orderUserIdVp = CreateTestValueProperty(orderModel, "CustomerId", typeof(int), [new ForeignKeyAttribute("users", "user_id", fkOrderUserName), new ColumnAttribute("customer_id")]);
         var orderAmountVp = CreateTestValueProperty(orderModel, "Amount", typeof(decimal), [new ColumnAttribute("amount")]);
-        MetadataFactory.ParseColumn(userTable, orderIdVp);
-        MetadataFactory.ParseColumn(userTable, orderUserIdVp);
-        MetadataFactory.ParseColumn(userTable, orderAmountVp);
-        // Manually link columns back
-        orderTable.SetColumns([orderIdVp.Column, orderUserIdVp.Column, orderAmountVp.Column]);
-        orderUserIdVp.Column.SetForeignKey(true); // Ensure FK is set
+        // Parse columns against the correct table and capture the result
+        var orderIdCol = MetadataFactory.ParseColumn(orderTable, orderIdVp);
+        var orderUserIdCol = MetadataFactory.ParseColumn(orderTable, orderUserIdVp);
+        var orderAmountCol = MetadataFactory.ParseColumn(orderTable, orderAmountVp);
+        orderTable.SetColumns([orderIdCol, orderUserIdCol, orderAmountCol]);
 
-        // Add RelationProperties (normally done by factory parsing RelationAttribute)
-        // Order -> User (Many-to-One)
-        var orderToUserRelProp = new RelationProperty("User", userCsType, orderModel, [new RelationAttribute("users", "user_id", "FK_Order_User")]);
-        orderModel.AddProperty(orderToUserRelProp);
-        // User -> Orders (One-to-Many)
-        var userToOrdersRelProp = new RelationProperty("Orders", orderCsType, userModel, [new RelationAttribute("orders", "customer_id", "FK_Order_User")]); // Relation points *to* the FK column
-        userModel.AddProperty(userToOrdersRelProp);
-
+        MetadataFactory.AddRelationProperty(orderUserIdCol, userIdCol, fkOrderUserName);
+        MetadataFactory.AddRelationProperty(userIdCol, orderUserIdCol, fkOrderUserName);
 
         db.SetTableModels([userTableModel, orderTableModel]);
+
+        MetadataFactory.ParseIndices(db);
+        MetadataFactory.ParseRelations(db);
+
         return db;
     }
 
@@ -695,8 +694,11 @@ public class MetadataFactoryTests
         var attributesCol2 = new List<Attribute> { new IndexAttribute("idx_multi", IndexCharacteristic.Simple, IndexType.BTREE, "col1", "col2"), new ColumnAttribute("col2") };
         var vp1 = CreateTestValueProperty(model, "Prop1", typeof(string), attributesCol1);
         var vp2 = CreateTestValueProperty(model, "Prop2", typeof(int), attributesCol2);
+
+        var vp1Col = MetadataFactory.ParseColumn(table, vp1);
+        var vp2Col = MetadataFactory.ParseColumn(table, vp2);
         // Update table columns after creating properties
-        table.SetColumns([vp1.Column, vp2.Column]);
+        table.SetColumns([vp1Col, vp2Col]);
 
         // Act
         MetadataFactory.ParseIndices(model.Database);
@@ -728,7 +730,7 @@ public class MetadataFactoryTests
 
         // Assert
         // Check Order -> User relationship (Many-to-One)
-        var orderToUserRelProp = orderTable.Model.RelationProperties["User"];
+        var orderToUserRelProp = orderTable.Model.RelationProperties["users"];
         Assert.NotNull(orderToUserRelProp.RelationPart);
         Assert.Equal(RelationPartType.ForeignKey, orderToUserRelProp.RelationPart.Type); // Order side is FK
         Assert.Equal("FK_Order_User", orderToUserRelProp.RelationPart.Relation.ConstraintName);
@@ -739,7 +741,7 @@ public class MetadataFactoryTests
         Assert.Same(userPkCol, orderUserCandidatePart.ColumnIndex.Columns.Single()); // PK Col Index
 
         // Check User -> Orders relationship (One-to-Many)
-        var userToOrdersRelProp = userTable.Model.RelationProperties["Orders"];
+        var userToOrdersRelProp = userTable.Model.RelationProperties["orders"];
         Assert.NotNull(userToOrdersRelProp.RelationPart);
         Assert.Equal(RelationPartType.CandidateKey, userToOrdersRelProp.RelationPart.Type); // User side is PK/Candidate
         Assert.Equal("FK_Order_User", userToOrdersRelProp.RelationPart.Relation.ConstraintName);
@@ -788,7 +790,7 @@ public class MetadataFactoryTests
         Assert.Same(orderFkCol, orderFkIndex.Columns[0]);
 
         // Check if relation parts are linked to these implicit indices
-        var orderToUserRelProp = orderTable.Model.RelationProperties["User"];
+        var orderToUserRelProp = orderTable.Model.RelationProperties["users"];
         Assert.Same(orderFkIndex, orderToUserRelProp.RelationPart.ColumnIndex);
         Assert.Same(userPkIndex, orderToUserRelProp.RelationPart.GetOtherSide().ColumnIndex);
     }
