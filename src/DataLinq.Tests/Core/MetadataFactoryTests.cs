@@ -15,8 +15,8 @@ public class MetadataFactoryTests
     // Helper to create a basic structure for testing
     private (DatabaseDefinition db, TableModel tableModel, ModelDefinition model, TableDefinition table) CreateTestHierarchy(string dbName = "TestDb", string tableName = "TestTable", string modelName = "TestModel", bool isView = false)
     {
-        var iTableModel = new CsTypeDeclaration("ITableModel", "TestNamespace", ModelCsType.Interface);
-        var iViewModel = new CsTypeDeclaration("IViewModel", "TestNamespace", ModelCsType.Interface);
+        var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
+        var iViewModel = new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration(dbName, "TestNamespace", ModelCsType.Class);
         var modelCsType = new CsTypeDeclaration(modelName, "TestNamespace", ModelCsType.Class);
 
@@ -52,8 +52,8 @@ public class MetadataFactoryTests
     {
         var fkOrderUserName = "FK_Order_User";
 
-        var iTableModel = new CsTypeDeclaration("ITableModel", "TestNamespace", ModelCsType.Interface);
-        var iViewModel = new CsTypeDeclaration("IViewModel", "TestNamespace", ModelCsType.Interface);
+        var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
+        var iViewModel = new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class);
         var userCsType = new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class);
         var orderCsType = new CsTypeDeclaration("Order", "TestNamespace", ModelCsType.Class);

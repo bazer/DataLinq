@@ -44,12 +44,12 @@ public static class MetadataFactory
 
         TableDefinition table;
 
-        if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel")))
+        if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel")/* && x.Namespace == "DataLinq.Interfaces"*/))
             table = new TableDefinition(model.CsType.Name);
-        else if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("IViewModel")))
+        else if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("IViewModel")/* && x.Namespace == "DataLinq.Interfaces"*/))
             table = new ViewDefinition(model.CsType.Name);
         else
-            return DLOptionFailure.Fail(DLFailureType.InvalidType, $"Model {model.CsType.Name} is not a valid table or view model.");
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Model '{model.CsType.Name}' does not inherit from 'ITableModel' or 'IViewModel'.");
 
         foreach (var attribute in model.Attributes)
         {

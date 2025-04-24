@@ -31,7 +31,7 @@ public class SyntaxParser
         if (typeSyntax == null)
         {
             model = new ModelDefinition(new CsTypeDeclaration(csPropertyName, database.CsType.Namespace, ModelCsType.Interface));
-            model.SetInterfaces([new CsTypeDeclaration("ITableModel", database.CsType.Namespace, ModelCsType.Interface)]);
+            model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
         }
         else
         {

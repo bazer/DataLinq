@@ -38,7 +38,9 @@ public class MetadataTransformer
         }
 
         if (destCsType.Name != modelCsTypeName)
-            return destCsType.MutateName(modelCsTypeName);
+            return destCsType
+                .MutateName(modelCsTypeName)
+                .MutateNamespace(srcCsType.Namespace);
 
         return destCsType;
     }
