@@ -66,7 +66,6 @@ public interface IMutableInstance : IModelInstance
     bool IsDeleted();
     void SetDeleted();
     void Reset();
-    void Reset(RowData rowData);
     void SetLazy<V>(string name, V value);
 }
 

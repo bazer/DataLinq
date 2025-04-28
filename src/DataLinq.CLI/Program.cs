@@ -1,4 +1,6 @@
-﻿using CommandLine;
+﻿using System;
+using System.IO;
+using CommandLine;
 using DataLinq.Config;
 using DataLinq.MySql;
 using DataLinq.SQLite;

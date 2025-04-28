@@ -1,24 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-		<LangVersion>13.0</LangVersion>
-		<Nullable>enable</Nullable>
-		<Authors>Sebastian Öberg</Authors>
-		<Copyright>Sebastian Öberg</Copyright>
-		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
-		<Description>MySQL and MariaDB support for DataLinq.</Description>
-		<IncludeSymbols>true</IncludeSymbols>
-		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<PublishRepositoryUrl>true</PublishRepositoryUrl>
-		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<GenerateDocumentationFile>false</GenerateDocumentationFile>
-		<Deterministic>true</Deterministic>
-		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE</PackageLicenseFile>
-		<PackageOutputPath>./../../nupkg</PackageOutputPath>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<Description>MySQL and MariaDB support for DataLinq - a lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -35,21 +18,15 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
-		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" PrivateAssets="All" />
+		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="All" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="..\..\LICENSE">
-			<Pack>True</Pack>
-			<PackagePath></PackagePath>
-		</None>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <None Update="datalinq_mysql.user.json">
+	  <None Update="datalinq_mysql.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
-	  <None Update="datalinq_mysql.json">
+	  <None Update="datalinq_mysql.user.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
 	</ItemGroup>

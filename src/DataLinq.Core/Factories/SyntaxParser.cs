@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -15,15 +15,11 @@ namespace DataLinq.Core.Factories;
 public class SyntaxParser
 {
     private static readonly string[] modelInterfaceNames = ["IDatabaseModel", "ITableModel", "IViewModel", "IModelInstance"];
-    private static readonly string[] customModelInterfaceName = ["ICustomDatabaseModel", "ICustomTableModel", "ICustomViewModel"];
     private readonly ImmutableArray<TypeDeclarationSyntax> modelSyntaxes;
 
     public static bool IsModelInterface(string interfaceName) =>
         modelInterfaceNames.Any(interfaceName.StartsWith);
-
-    public static bool IsCustomModelInterface(string interfaceName) =>
-        customModelInterfaceName.Any(interfaceName.StartsWith);
-
+    
     public SyntaxParser(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
     {
         this.modelSyntaxes = modelSyntaxes;
@@ -35,6 +31,7 @@ public class SyntaxParser
         if (typeSyntax == null)
         {
             model = new ModelDefinition(new CsTypeDeclaration(csPropertyName, database.CsType.Namespace, ModelCsType.Interface));
+            model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
         }
         else
         {
@@ -376,7 +373,7 @@ public class SyntaxParser
             {
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
-                var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1)).ToList();
+                var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1));
                 valueProp.SetEnumProperty(new EnumProperty(enumValueList, null, true));
             }
             else

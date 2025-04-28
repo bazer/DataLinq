@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -37,26 +37,43 @@ public class MetadataFromModelsFactory
         Log = log;
     }
 
-    public List<Option<DatabaseDefinition, IDLOptionFailure>> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    public List<Option<DatabaseDefinition, IDLOptionFailure>> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes) => DLOptionFailure.CatchAll(() =>
     {
         var syntaxParser = new SyntaxParser(modelSyntaxes);
 
         // Identify classes implementing the interfaces of interest
         var dbModelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList != null && cls.BaseList.Types
-                .Any(baseType => baseType.ToString() == "IDatabaseModel"))
+            .OfType<ClassDeclarationSyntax>()
+            .Where(cls => ImplementsInterface(cls, modelSyntaxes, x => x == "IDatabaseModel"))
             .ToList();
 
         return ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses).ToList();
+    });
+
+    private static bool ImplementsInterface(TypeDeclarationSyntax type, ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, Func<string, bool> interfaceNameFunc)
+    {
+        if (type.BaseList == null) return false;
+        foreach (var baseType in type.BaseList.Types)
+        {
+            var baseTypeName = baseType.Type.ToString();
+            if (interfaceNameFunc(baseTypeName))
+                return true;
+            var interfaceDecl = modelSyntaxes
+                .OfType<InterfaceDeclarationSyntax>()
+                .FirstOrDefault(i => i.Identifier.Text == baseTypeName);
+            if (interfaceDecl != null && ImplementsInterface(interfaceDecl, modelSyntaxes, interfaceNameFunc))
+                return true;
+        }
+        return false;
     }
 
-    private static IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseModels(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, List<TypeDeclarationSyntax> dbModelClasses)
+    private static IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseModels(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, List<ClassDeclarationSyntax> dbModelClasses)
     {
         foreach (var dbType in dbModelClasses)
             yield return ParseDatabaseModel(modelSyntaxes, syntaxParser, dbType);
     }
 
-    private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseModel(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, TypeDeclarationSyntax dbType)
+    private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseModel(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, ClassDeclarationSyntax dbType)
     {
         if (dbType == null)
             return DLOptionFailure.Fail("Database model class not found");
@@ -67,11 +84,14 @@ public class MetadataFromModelsFactory
         var name = MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(dbType));
 
+        if (!string.IsNullOrEmpty(dbType.SyntaxTree.FilePath))
+            database.SetCsFile(new CsFileDeclaration(dbType.SyntaxTree.FilePath));
+
         var modelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList != null && cls.BaseList.Types
-                .Any(baseType => (baseType.ToString().StartsWith("ITableModel") || baseType.ToString().StartsWith("IViewModel"))))
-            .Where(cls => cls.BaseList != null && cls.BaseList.Types
-                .Any(baseType => baseType.ToString().Contains($"<{dbType.Identifier.Text}>")))
+            .Where(x => 
+                ImplementsInterface(x, modelSyntaxes, x => x.Contains($"<{dbType.Identifier.Text}>")) && 
+                   (ImplementsInterface(x, modelSyntaxes, x => x.StartsWith("ITableModel")) || 
+                    ImplementsInterface(x, modelSyntaxes, x => x.StartsWith("IViewModel"))))
             .ToList();
 
         if (!dbType.Members.OfType<PropertyDeclarationSyntax>()

@@ -260,10 +260,18 @@ public class ModelFileFactory
         {
             var otherPart = relationProperty.RelationPart.GetOtherSide();
 
+            List<string> relationParameters = [ $"\"{otherPart.ColumnIndex.Table.DbName}\"" ];
+
             if (otherPart.ColumnIndex.Columns.Count == 1)
-                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", \"{otherPart.ColumnIndex.Columns[0].DbName}\", \"{relationProperty.RelationName}\")]";
+                relationParameters.Add($"\"{otherPart.ColumnIndex.Columns[0].DbName}\"");
             else
-                yield return $"{namespaceTab}{tab}[Relation(\"{otherPart.ColumnIndex.Table.DbName}\", [{otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")}], \"{relationProperty.RelationName}\")]";
+                relationParameters.Add($"\"[{otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")}]");
+
+            if (relationProperty.RelationName != null)
+                relationParameters.Add($"\"{relationProperty.RelationName}\"");
+
+            yield return $"{namespaceTab}{tab}[Relation({relationParameters.ToJoinedString(", ")})]";
+
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
                 yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{(options.UseNullableReferenceTypes ? "?" : "")} {relationProperty.PropertyName} {{ get; }}";

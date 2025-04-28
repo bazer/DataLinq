@@ -5,13 +5,13 @@ namespace DataLinq;
 
 public static class IModelExtensions
 {
-    public static T Insert<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance =>
+    public static T Insert<T>(this Mutable<T> model, Transaction transaction) where T : class, IImmutableInstance =>
         transaction.Insert(model);
 
-    public static T Update<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance =>
+    public static T Update<T>(this Mutable<T> model, Transaction transaction) where T : class, IImmutableInstance =>
         transaction.Update(model);
 
-    public static T Save<T>(this Mutable<T> model, Transaction transaction) where T : IImmutableInstance =>
+    public static T Save<T>(this Mutable<T> model, Transaction transaction) where T : class, IImmutableInstance =>
         transaction.Save(model);
 
     public static void Delete<T>(this T model) where T : IImmutableInstance => 

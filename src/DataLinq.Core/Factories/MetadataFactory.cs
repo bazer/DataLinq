@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
+using ThrowAway;
 
 namespace DataLinq.Core.Factories;
 
@@ -11,8 +13,8 @@ public struct MetadataFromDatabaseFactoryOptions
 {
     public bool CapitaliseNames { get; set; } = false;
     public bool DeclareEnumsInClass { get; set; } = false;
-    public List<string> Tables { get; set; } = new List<string>();
-    public List<string> Views { get; set; } = new List<string>();
+    public List<string>? Tables { get; set; }
+    public List<string>? Views { get; set; }
 
     public MetadataFromDatabaseFactoryOptions()
     {
@@ -35,16 +37,27 @@ public static class MetadataFactory
         }
     }
 
-    public static TableDefinition ParseTable(ModelDefinition model)
+    public static Option<TableDefinition, IDLOptionFailure> ParseTable(ModelDefinition model)
     {
-        var table = model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel") || x.Name.StartsWith("ICustomTableModel"))
-            ? new TableDefinition(model.CsType.Name)
-            : new ViewDefinition(model.CsType.Name);
+        if (model == null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Model cannot be null");
+
+        TableDefinition table;
+
+        if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel")/* && x.Namespace == "DataLinq.Interfaces"*/))
+            table = new TableDefinition(model.CsType.Name);
+        else if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("IViewModel")/* && x.Namespace == "DataLinq.Interfaces"*/))
+            table = new ViewDefinition(model.CsType.Name);
+        else
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Model '{model.CsType.Name}' does not inherit from 'ITableModel' or 'IViewModel'.");
 
         foreach (var attribute in model.Attributes)
         {
             if (attribute is TableAttribute tableAttribute)
                 table.SetDbName(tableAttribute.Name);
+
+            if (attribute is ViewAttribute viewAttribute)
+                table.SetDbName(viewAttribute.Name);
 
             if (attribute is UseCacheAttribute useCache)
                 table.UseCache = useCache.UseCache;
@@ -67,6 +80,7 @@ public static class MetadataFactory
     public static void ParseIndices(DatabaseDefinition database)
     {
         var indices = database.TableModels
+            .Where(x => !x.IsStub)
             .SelectMany(tableModel => tableModel.Table.Columns
                 .Select(column => (column, indexAttributes: column.ValueProperty.Attributes.OfType<IndexAttribute>().ToList())))
             .Where(t => t.indexAttributes.Any());
@@ -96,26 +110,20 @@ public static class MetadataFactory
 
     public static void ParseRelations(DatabaseDefinition database)
     {
-        foreach (var table in database.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table))
+        foreach (var table in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).Select(x => x.Table))
         {
             var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
 
             if (!columns.Any())
-                throw new Exception($"Table {table.DbName} is missing a primary key. Having a primary key for every table is a requirement for DataLinq.");
+                throw DLOptionFailure.Exception(DLFailureType.InvalidModel, $"Table {table.DbName} is missing a primary key. Having a primary key for every table is a requirement for DataLinq.");
 
             table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
         }
 
-        foreach (var column in database.TableModels.Where(x => x.Table.Type == TableType.Table).SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
+        foreach (var column in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
         {
             foreach (var attribute in column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
             {
-                var relation = new RelationDefinition
-                {
-                    ConstraintName = attribute.Name,
-                    Type = RelationType.OneToMany
-                };
-
                 var candidateColumn = database
                     .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table)
                     ?.Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
@@ -134,6 +142,7 @@ public static class MetadataFactory
                 var foreignKeyIndex = column.ColumnIndices.Last();
                 var candidateKeyIndex = candidateColumn.ColumnIndices.First();
 
+                var relation = new RelationDefinition(attribute.Name, RelationType.OneToMany);
                 relation.ForeignKey = CreateRelationPart(relation, foreignKeyIndex, RelationPartType.ForeignKey);
                 relation.CandidateKey = CreateRelationPart(relation, candidateKeyIndex, RelationPartType.CandidateKey);
 
@@ -145,8 +154,8 @@ public static class MetadataFactory
                     foreignKeyIndex.RelationParts.Add(relation.ForeignKey);
                     candidateKeyIndex.RelationParts.Add(relation.CandidateKey);
 
-                    candidateProperty.RelationPart = relation.ForeignKey;
-                    columnProperty.RelationPart = relation.CandidateKey;
+                    candidateProperty.SetRelationPart(relation.ForeignKey);
+                    columnProperty.SetRelationPart(relation.CandidateKey);
                 }
             }
         }
@@ -155,12 +164,12 @@ public static class MetadataFactory
     private static RelationPart CreateRelationPart(RelationDefinition relation, ColumnIndex column, RelationPartType type)
     {
         return new RelationPart
-        {
-            Relation = relation,
-            ColumnIndex = column,
-            Type = type,
-            CsName = column.Table.Model.CsType.Name
-        };
+        (
+            column,
+            relation,
+            type,
+            column.Table.Model.CsType.Name
+        );
     }
 
     private static RelationProperty? GetRelationProperty(RelationPart relationPart, ColumnDefinition column)
@@ -182,7 +191,7 @@ public static class MetadataFactory
             propertyName = propertyName + "_" + i++;
 
         var relationProperty = new RelationProperty(propertyName, referencedColumn.Table.Model.CsType, column.Table.Model, [new RelationAttribute(referencedColumn.Table.DbName, referencedColumn.DbName, constraintName)]);
-        relationProperty.RelationName = constraintName;
+        relationProperty.SetRelationName(constraintName);
         relationProperty.Model.AddProperty(relationProperty);
 
         return relationProperty;
@@ -223,9 +232,9 @@ public static class MetadataFactory
         return property;
     }
 
-    public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, IEnumerable<(string name, int value)> csEnumValues, bool declaredInClass)
+    public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, bool declaredInClass)
     {
-        property.SetEnumProperty(new EnumProperty(enumValues.ToList(), csEnumValues.ToList(), declaredInClass));
+        property.SetEnumProperty(new EnumProperty(enumValues, enumValues, declaredInClass));
     }
 
     public static IEnumerable<Attribute> GetAttributes(ColumnDefinition column)
@@ -252,7 +261,7 @@ public static class MetadataFactory
         foreach (var attribute in database.Attributes)
         {
             if (attribute is DatabaseAttribute databaseAttribute)
-                database.SetName(databaseAttribute.Name);
+                database.SetDbName(databaseAttribute.Name);
 
             if (attribute is UseCacheAttribute useCache)
                 database.SetCache(useCache.UseCache);

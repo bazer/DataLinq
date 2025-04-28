@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using DataLinq.ErrorHandling;
-using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -40,7 +39,7 @@ public class MetadataFromFileFactory
         Log = log;
     }
 
-    public Option<DatabaseDefinition, IDLOptionFailure> ReadFiles(string csType, IEnumerable<string> srcPaths)
+    public Option<List<DatabaseDefinition>, IDLOptionFailure> ReadFiles(string csType, IEnumerable<string> srcPaths) => DLOptionFailure.CatchAll<List<DatabaseDefinition>>(() =>
     {
         var trees = new List<SyntaxTree>();
 
@@ -101,109 +100,93 @@ public class MetadataFromFileFactory
             .Where(x => x.HasCompilationUnitRoot)
             .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
                     .Where(cls => cls.BaseList?.Types.Any(baseType =>
-                        SyntaxParser.IsModelInterface(baseType.ToString()) ||
-                        SyntaxParser.IsCustomModelInterface(baseType.ToString())) == true))
+                        SyntaxParser.IsModelInterface(baseType.ToString())) == true))
             .ToImmutableArray();
 
-        return ReadSyntaxTrees(modelSyntaxes);
-    }
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions
+        {
+            RemoveInterfacePrefix = options.RemoveInterfacePrefix,
+            FileEncoding = options.FileEncoding
+        }, Log);
 
-    public Option<DatabaseDefinition, IDLOptionFailure> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
-    {
-        var syntaxParser = new SyntaxParser(modelSyntaxes);
-
-        // Identify classes implementing the interfaces of interest
-        var dbModelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList?.Types
-                .Any(baseType => baseType.ToString() == "ICustomDatabaseModel" || baseType.ToString() == "IDatabaseModel") == true)
-            .ToList();
-
-        // Prioritize the classes implementing ICustomDatabaseModel
-        var dbType = dbModelClasses
-            .FirstOrDefault(cls => cls.BaseList?.Types
-                .Any(baseType => baseType.ToString() == "ICustomDatabaseModel") == true)
-            ??
-            dbModelClasses.FirstOrDefault();
-
-        var csType = dbType == null
-            ? new CsTypeDeclaration("Unnamed", "Unnamed", ModelCsType.Class)
-            : new CsTypeDeclaration(MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text), CsTypeDeclaration.GetNamespace(dbType), ModelCsType.Class);
-
-        var database = new DatabaseDefinition(csType.Name, csType);
-
-        if (!string.IsNullOrEmpty(dbType?.SyntaxTree.FilePath))
-            database.SetCsFile(new CsFileDeclaration(dbType!.SyntaxTree.FilePath));
-
-        var customModelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList?.Types
-                .Any(baseType => baseType.ToString().StartsWith("ICustomTableModel") || baseType.ToString().StartsWith("ICustomViewModel")) == true)
-            .ToList();
-
-        if(!customModelClasses
-            .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text))
+        if (!factory
+            .ReadSyntaxTrees(modelSyntaxes)
             .Transpose()
-            .TryUnwrap(out var customModels, out var customModelFailures))
-            return DLOptionFailure.AggregateFail(customModelFailures);
+            .TryUnwrap(out var models, out var modelFailures))
+            return DLOptionFailure.AggregateFail(modelFailures);
 
-        var modelClasses = modelSyntaxes
-            .Where(cls => cls.BaseList?.Types
-                .Any(baseType => baseType.ToString().StartsWith("ITableModel") || baseType.ToString().StartsWith("IViewModel")) ?? true)
-            .ToList();
+        return models;
+        //return ReadSyntaxTrees(modelSyntaxes);
+    });
 
-        if (dbType != null)
-        {
-            if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
-                .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
-                .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
-                .Transpose()
-                .FlatMap(x => 
-                    x.Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName))
-                    .Transpose())
-                .TryUnwrap(out var models, out var modelFailures))
-                return DLOptionFailure.AggregateFail(modelFailures);
+    //private Option<DatabaseDefinition, IDLOptionFailure> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    //{
+    //    var syntaxParser = new SyntaxParser(modelSyntaxes);
 
-            database.SetTableModels(models);
+    //    // Identify classes implementing the interfaces of interest
+    //    var dbType = modelSyntaxes
+    //        .Where(cls => cls.BaseList?.Types
+    //            .Any(baseType => baseType.ToString() == "IDatabaseModel") == true)
+    //        .FirstOrDefault();
+
+    //    var csType = dbType == null
+    //        ? new CsTypeDeclaration("Unnamed", "Unnamed", ModelCsType.Class)
+    //        : new CsTypeDeclaration(MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text), CsTypeDeclaration.GetNamespace(dbType), ModelCsType.Class);
+
+    //    var database = new DatabaseDefinition(csType.Name, csType);
+
+    //    if (!string.IsNullOrEmpty(dbType?.SyntaxTree.FilePath))
+    //        database.SetCsFile(new CsFileDeclaration(dbType!.SyntaxTree.FilePath));
+
+    //    var modelClasses = modelSyntaxes
+    //        .Where(cls => cls.BaseList?.Types
+    //            .Any(baseType => baseType.ToString().StartsWith("ITableModel") || baseType.ToString().StartsWith("IViewModel")) ?? true)
+    //        .ToList();
+
+    //    if (dbType != null)
+    //    {
+    //        if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
+    //            .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
+    //            .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
+    //            .Transpose()
+    //            .FlatMap(x => 
+    //                x.Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName))
+    //                .Transpose())
+    //            .TryUnwrap(out var models, out var modelFailures))
+    //            return DLOptionFailure.AggregateFail(modelFailures);
+
+    //        database.SetTableModels(models);
 
 
-            if (!dbType.AttributeLists
-                .SelectMany(attrList => attrList.Attributes)
-                .Select(x => syntaxParser.ParseAttribute(x))
-                .Transpose()
-                .TryUnwrap(out var attributes, out var attrFailures))
-                return DLOptionFailure.AggregateFail(attrFailures);
+    //        if (!dbType.AttributeLists
+    //            .SelectMany(attrList => attrList.Attributes)
+    //            .Select(x => syntaxParser.ParseAttribute(x))
+    //            .Transpose()
+    //            .TryUnwrap(out var attributes, out var attrFailures))
+    //            return DLOptionFailure.AggregateFail(attrFailures);
 
-            database.SetAttributes(attributes);
-            database.ParseAttributes();
-        }
-        else
-        {
-            if (!modelClasses
-                .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text))
-                .Transpose()
-                .TryUnwrap(out var models, out var modelFailures))
-                return DLOptionFailure.AggregateFail(modelFailures);
+    //        database.SetAttributes(attributes);
+    //        database.ParseAttributes();
+    //    }
+    //    else
+    //    {
+    //        if (!modelClasses
+    //            .Select(cls => syntaxParser.ParseTableModel(database, cls, cls.Identifier.Text))
+    //            .Transpose()
+    //            .TryUnwrap(out var models, out var modelFailures))
+    //            return DLOptionFailure.AggregateFail(modelFailures);
 
-            database.SetTableModels(models);
-        }
+    //        database.SetTableModels(models);
+    //    }
 
-        var transformer = new MetadataTransformer(new MetadataTransformerOptions(options.RemoveInterfacePrefix));
+    //    var transformer = new MetadataTransformer(new MetadataTransformerOptions(options.RemoveInterfacePrefix));
 
-        foreach (var customModel in customModels)
-        {
-            var match = database.TableModels.FirstOrDefault(x => x.Table.DbName == customModel.Table.DbName);
+    //    MetadataFactory.ParseIndices(database);
+    //    MetadataFactory.ParseRelations(database);
 
-            if (match != null)
-                transformer.TransformTable(customModel, match);
-            else
-                database.SetTableModels(database.TableModels.Concat([customModel]));
-        }
+    //    if (database.TableModels.Any(x => x.Model.CsType.Name == database.CsType.Name))
+    //        database.SetCsType(database.CsType.MutateName($"{database.CsType.Name}Db"));
 
-        MetadataFactory.ParseIndices(database);
-        MetadataFactory.ParseRelations(database);
-
-        if (database.TableModels.Any(x => x.Model.CsType.Name == database.CsType.Name))
-            database.SetCsType(database.CsType.MutateName($"{database.CsType.Name}Db"));
-
-        return database;
-    }
+    //    return database;
+    //}
 }

@@ -1,32 +1,26 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-		<LangVersion>13.0</LangVersion>
-		<Nullable>enable</Nullable>
-		<Authors>Sebastian Öberg</Authors>
-		<Copyright>Sebastian Öberg</Copyright>
-		<PackageProjectUrl>https://github.com/bazer/DataLinq</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/bazer/DataLinq</RepositoryUrl>
-		<Description>Light weight ORM using Linq, with built in cache.</Description>
-		<IncludeSymbols>true</IncludeSymbols>
-		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<PublishRepositoryUrl>true</PublishRepositoryUrl>
-		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<GenerateDocumentationFile>false</GenerateDocumentationFile>
-		<Deterministic>true</Deterministic>
-		<Configuration>Release</Configuration>
-		<PackageLicenseFile>LICENSE</PackageLicenseFile>
-		<PackageOutputPath>./../../nupkg</PackageOutputPath>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-		<!--<ProduceReferenceAssembly>true</ProduceReferenceAssembly>-->
-		<!--<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>-->
-		<!--<CompilerGeneratedFilesOutputPath>generated</CompilerGeneratedFilesOutputPath>-->
+		<Description>A lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
+
+		<!-- This is a source generator package -->
+		<IsRoslynComponent>true</IsRoslynComponent>
+
+		<!-- Tell the standard packing process to NOT include the build output -->
+		<!-- We will manually specify everything via IncludeReferenceAssemblies -->
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+
+		<!-- Target for manually including the DLLs further down -->
+		<TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeReferenceAssemblies</TargetsForTfmSpecificContentInPackage>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.2" />
+		<!-- Runtime Package References for DataLinq.dll -->
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
+		<PackageReference Include="Remotion.Linq" Version="2.2.0" />
+		<PackageReference Include="ThrowAway" Version="0.3.0" />
+
+		<!-- Build/Dev time packages -->
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -35,30 +29,47 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Remotion.Linq" Version="2.2.0" />
-		<PackageReference Include="System.Reflection" Version="4.3.0" />
-		<PackageReference Include="System.Reflection.Metadata" Version="9.0.2" />
-		<!--<PackageReference Include="ThrowAway" Version="0.1.1" />-->
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="..\..\LICENSE">
-			<Pack>True</Pack>
-			<PackagePath></PackagePath>
-		</None>
+		<!-- Reference Core normally for compilation, hide from NuGet dependencies -->
+		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" PrivateAssets="All" />
+
+		<!-- Reference Generators as an Analyzer, hide its assets -->
+		<!-- ReferenceOutputAssembly=false here as DataLinq.dll doesn't compile against Generator code -->
+		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" PrivateAssets="All" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" />
-	</ItemGroup>
+	<!-- This target MANUALLY places ALL required DLLs into the package -->
+	<Target Name="IncludeReferenceAssemblies">
+		<ItemGroup>
+			<!-- Add the MAIN DataLinq.dll to lib/net8.0 and lib/net9.0 -->
+			<!-- $(TargetPath) refers to the output DLL of THIS project -->
+			<TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="lib/net8.0/$(TargetFileName)" Condition="'$(TargetFramework)' == 'net8.0'" />
+			<TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="lib/net9.0/$(TargetFileName)" Condition="'$(TargetFramework)' == 'net9.0'" />
 
-	<!--<ItemGroup>
-		<Analyzer Include="..\DataLinq.Generators\bin\Debug\netstandard2.0\DataLinq.Generators.dll" />
-	</ItemGroup>-->
-
-	<!--<ItemGroup>
-		--><!-- Exclude the output of source generators from the compilation --><!--
-		<Compile Remove="generated/**/*.g.cs" />
-	</ItemGroup>-->
-
+			<!-- Add DataLinq.Core.dll to ALL relevant lib folders -->
+			<!-- This makes it available for compile and runtime for consumers -->
+			<TfmSpecificPackageFile Include="$(DLCoreProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Core.dll">
+				<PackagePath>lib/netstandard2.0/DataLinq.Core.dll</PackagePath>
+			</TfmSpecificPackageFile>
+			<TfmSpecificPackageFile Include="$(DLCoreProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Core.dll">
+				<PackagePath>lib/net8.0/DataLinq.Core.dll</PackagePath>
+			</TfmSpecificPackageFile>
+			<TfmSpecificPackageFile Include="$(DLCoreProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Core.dll">
+				<PackagePath>lib/net9.0/DataLinq.Core.dll</PackagePath>
+			</TfmSpecificPackageFile>
+			
+			<!-- Generator runtime dependency (Core) placed in analyzers -->
+			<TfmSpecificPackageFile Include="$(DLCoreProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Core.dll">
+				<PackagePath>analyzers/dotnet/cs/DataLinq.Core.dll</PackagePath>
+			</TfmSpecificPackageFile>
+			
+			<!-- The Generator itself placed in analyzers -->
+			<TfmSpecificPackageFile Include="$(DLGeneratorsProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Generators.dll">
+				<PackagePath>analyzers/dotnet/cs/DataLinq.Generators.dll</PackagePath>
+			</TfmSpecificPackageFile>
+		</ItemGroup>
+	</Target>
+	
 </Project>

@@ -73,10 +73,10 @@ public class ValueProperty : PropertyDefinition
 
 public record struct EnumProperty
 {
-    public EnumProperty(List<(string name, int value)>? enumValues = null, List<(string name, int value)>? csEnumValues = null, bool declaredInClass = true)
+    public EnumProperty(IEnumerable<(string name, int value)>? enumValues = null, IEnumerable<(string name, int value)>? csEnumValues = null, bool declaredInClass = true)
     {
-        DbEnumValues = enumValues ?? new();
-        CsEnumValues = csEnumValues ?? new();
+        DbEnumValues = enumValues?.ToList() ?? [];
+        CsEnumValues = csEnumValues?.ToList() ?? [];
         DeclaredInClass = declaredInClass;
     }
 
@@ -88,8 +88,10 @@ public record struct EnumProperty
 
 public class RelationProperty : PropertyDefinition
 {
-    public RelationPart RelationPart { get; set; }
-    public string RelationName { get; set; }
+    public RelationPart RelationPart { get; private set; }
+    public void SetRelationPart(RelationPart relationPart) => RelationPart = relationPart;
+    public string? RelationName { get; private set; }
+    public void SetRelationName(string relationName) => RelationName = relationName;
 
     public RelationProperty(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : base(propertyName, csType, model, attributes)
     {

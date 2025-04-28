@@ -8,7 +8,6 @@ using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.MySql.Models;
 using DataLinq.SQLite;
-using DataLinq.Tests.Models;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Extensions.Logging;
 using Serilog;
@@ -73,6 +72,8 @@ public class DatabaseFixture : IDisposable
             }
 
             AllEmployeesDb.Add(dbEmployees);
+
+            CleanupTestEmployees(dbEmployees);
         }
 
         information_schema = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
@@ -151,6 +152,23 @@ public class DatabaseFixture : IDisposable
 
         transaction.Commit();
     }
+
+    // Helper to clean up specific test employees to avoid PK conflicts across test runs
+    public void CleanupTestEmployees(Database<EmployeesDb> db, params int[] empNos)
+    {
+        var employeesToDelete = (empNos == null || empNos.Length == 0) 
+            ? db.Query().Employees.Where(e => e.emp_no >= 990000).ToList()
+            : db.Query().Employees.Where(e => empNos.Contains(e.emp_no.Value)).ToList();
+
+        if (employeesToDelete.Any())
+        {
+            foreach (var emp in employeesToDelete)
+                db.Delete(emp);
+
+            db.Provider.State.ClearCache(); // Clear cache after delete
+        }
+    }
+
 
     public void Dispose()
     {

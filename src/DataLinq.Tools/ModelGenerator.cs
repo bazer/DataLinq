@@ -6,6 +6,7 @@ using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.ErrorHandling;
+using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -43,6 +44,23 @@ public class Generator
                 yield return DLOptionFailure.Fail(DLFailureType.FileNotFound, $"Couldn't find path '{srcPath}'");
             }
         }
+    }
+
+    protected Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseDefinitionFromFiles(MetadataFromFileFactoryOptions options, string csType, IEnumerable<string> srcPaths)
+    {
+        if (!new MetadataFromFileFactory(options, log).ReadFiles(csType, srcPaths).TryUnwrap(out var srcMetadata, out var srcFailure))
+            return srcFailure;
+
+        if (srcMetadata == null || srcMetadata.Count == 0)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No database found in model files. Please check the model files.");
+
+        if (srcMetadata.Count == 1 && srcMetadata[0].TableModels.Length == 0)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No tables found in model files. Please check the model files.");
+
+        if (srcMetadata.Count > 1)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"More than one database found in model files. Found the following databases:\n {srcMetadata.Select(x => x.Name).ToJoinedString()}");
+
+        return srcMetadata[0];
     }
 }
 
@@ -90,10 +108,6 @@ public class ModelGenerator : Generator
         if (connection.Type == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
             databaseName = connection.GetRootedPath(basePath); // Path.Combine(basePath, databaseName);
 
-        //var connectionString = connection.ConnectionString;
-        //if (connection.Type == DatabaseType.SQLite)
-        //    connectionString = $"Data Source={databaseName};Cache=Shared;";
-
         var connectionString = connection.ConnectionString;
         if (connection.Type == DatabaseType.SQLite)
             connectionString = connectionString.ChangeValue("Data Source", databaseName);
@@ -108,14 +122,6 @@ public class ModelGenerator : Generator
             .ParseDatabase(db.Name, db.CsType, db.Namespace, databaseName, connectionString.Original)
             .TryUnwrap(out var dbMetadata, out var dbFailure))
             return DLOptionFailure.Fail(dbFailure);
-
-        //var dbMetadata = connection.ParsedType switch
-        //{
-        //    DatabaseType.MySQL =>
-        //        new MySql.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, new MySqlDatabase<information_schema>(connection.ConnectionString, "information_schema").Query()),
-        //    DatabaseType.SQLite =>
-        //        new SQLite.MetadataFromSqlFactory(sqlOptions).ParseDatabase(db.Name, db.CsType, databaseName, $"Data Source={databaseName};Cache=Shared;")
-        //};
 
         log($"Tables read from database: {dbMetadata.TableModels.Length}");
         log("");
@@ -134,29 +140,14 @@ public class ModelGenerator : Generator
 
                 log($"Reading models from:");
                 foreach (var srcPath in srcPathsExists)
-                {
-                    //if (srcPath.HasFailed)
-                    //    return DLOptionFailure.Fail($"Error: {srcPath.Failure}");
-
                     log($"{srcPath}");
-                }
-
-                //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
-                //if (assemblyPathsExists.Any())
-                //{ 
-                //    log($"Reading assemblies from:");
-                //    foreach (var path in assemblyPathsExists)
-                //        log($"{path}");
-                //}
 
                 var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-                if (!new MetadataFromFileFactory(metadataOptions, log).ReadFiles(db.CsType, srcPathsExists).TryUnwrap(out var srcMetadata, out var srcFailure))
+                if (!ParseDatabaseDefinitionFromFiles(metadataOptions, db.CsType, srcPathsExists).TryUnwrap(out var srcMetadata, out var srcFailure))
                     return srcFailure;
-                //if (srcMetadata.HasFailed)
-                //{
-                //    //log("Error: Unable to parse source files.");
-                //    return "Error: Unable to parse source files";
-                //}
+
+                if (srcMetadata.Name != db.Name)
+                    return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Database name in model files does not match the database name. Expected: {db.Name}, Found: {srcMetadata.Name}");
 
                 log($"Tables in source model files: {srcMetadata.TableModels.Length}");
                 log("");

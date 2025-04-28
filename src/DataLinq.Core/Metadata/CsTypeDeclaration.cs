@@ -81,6 +81,7 @@ public readonly record struct CsTypeDeclaration
     }
 
     public CsTypeDeclaration MutateName(string name) => new(name, Namespace, ModelCsType);
+    public CsTypeDeclaration MutateNamespace(string @namespace) => new(Name, @namespace, ModelCsType);
 
     //public CsTypeDeclaration Clone() => new(Name, Namespace, ModelCsType);
 

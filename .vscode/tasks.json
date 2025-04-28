@@ -7,9 +7,23 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/src/Tests/Tests.csproj"
+                "${workspaceFolder}/src/DataLinq.sln"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "test",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "test",
+                "${workspaceFolder}/src/DataLinq.sln"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
         }
     ]
 }

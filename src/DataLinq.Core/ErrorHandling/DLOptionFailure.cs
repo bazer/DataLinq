@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using DataLinq.Exceptions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using ThrowAway;
 
 namespace DataLinq.ErrorHandling;
 
@@ -15,7 +16,8 @@ public enum DLFailureType
     UnexpectedNull,
     InvalidType,
     Aggregation,
-    FileNotFound
+    FileNotFound,
+    InvalidModel
 }
 
 public class FailureWithDefinition<T>
@@ -47,6 +49,7 @@ public abstract class IDLOptionFailure
     public static implicit operator IDLOptionFailure(List<IDLOptionFailure> optionFailures) =>
         DLOptionFailure.AggregateFail(optionFailures);
 
+    override public abstract string ToString();
     //public static implicit operator Option<T, IDLOptionFailure>(List<IDLOptionFailure> optionFailures) =>
     //    Option.Fail<T, IDLOptionFailure>(DLOptionFailure.AggregateFail(optionFailures));
 }
@@ -79,6 +82,15 @@ public static class DLOptionFailure
 
     public static DLOptionFailure<string> AggregateFail(IEnumerable<IDLOptionFailure> innerFailures) =>
         new("", innerFailures);
+
+    public static DLOptionFailureException<T> Exception<T>(DLFailureType type, T failure) =>
+        new DLOptionFailureException<T>(Fail(type, failure));
+
+    public static Option<T, IDLOptionFailure> CatchAll<T>(Func<T> func) =>
+        Option.CatchAll<T, IDLOptionFailure>(() => func(), x => Fail(DLFailureType.Exception, x));
+
+    public static Option<T, IDLOptionFailure> CatchAll<T>(Func<Option<T, IDLOptionFailure>> func) =>
+        Option.CatchAll(() => func(), x => Fail(DLFailureType.Exception, x));
 }
 
 public class DLOptionFailure<T> : IDLOptionFailure

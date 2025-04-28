@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.ErrorHandling;
 using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
@@ -42,6 +44,8 @@ public class TableDefinition(string dbName) : IDefinition
     {
         if (PrimaryKeyColumns == null)
             PrimaryKeyColumns = [column];
+        else if (PrimaryKeyColumns.Contains(column))
+            throw DLOptionFailure.Exception(DLFailureType.InvalidArgument, $"Column {column} already in primary key");
         else
             PrimaryKeyColumns = PrimaryKeyColumns.Concat(new[] { column }).ToArray();
     }

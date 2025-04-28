@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
-using System.Data.Common;
 using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.MySql.Models;
@@ -31,7 +30,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         this.options = options;
     }
 
-    public Option<DatabaseDefinition> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString)
+    public Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) => DLOptionFailure.CatchAll<DatabaseDefinition>(() =>
     {
         var information_Schema = new MySqlDatabase<information_schema>(connectionString, "information_schema").Query();
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
@@ -43,8 +42,8 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             .Where(IsTableOrViewInOptionsList));
 
         var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
-        if (missingTables.Any())
-            return $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}";
+        if (missingTables.Count != 0)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}");
 
         ParseIndices(database, information_Schema);
         ParseRelations(database, information_Schema);
@@ -53,11 +52,11 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         MetadataFactory.ParseInterfaces(database);
 
         return database;
-    }
+    });
 
     private IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)
     {
-        foreach (var tableName in options.Tables.Concat(options.Views))
+        foreach (var tableName in options.Tables?.Concat(options.Views ?? []) ?? [])
         {
             if (!tableModels.Any(x => tableName.Equals(x.Table.DbName, StringComparison.OrdinalIgnoreCase)))
                 yield return tableName;
@@ -66,10 +65,10 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
     private bool IsTableOrViewInOptionsList(TableModel tableModel)
     {
-        if (tableModel.Table.Type == TableType.View && options.Views.Any() && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+        if (tableModel.Table.Type == TableType.View && options.Views != null && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
             return false;
 
-        if (tableModel.Table.Type == TableType.Table && options.Tables.Any() && !options.Tables.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
+        if (tableModel.Table.Type == TableType.Table && options.Tables != null && !options.Tables.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
             return false;
 
         return true;
@@ -219,7 +218,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
         if (csType == "enum")
         {
-            MetadataFactory.AttachEnumProperty(valueProp, new List<(string name, int value)>(), ParseEnumType(dbColumns.COLUMN_TYPE), true);
+            MetadataFactory.AttachEnumProperty(valueProp, ParseEnumType(dbColumns.COLUMN_TYPE), true);
             if (valueProp.CsType.Name == "enum")
                 valueProp.SetCsType(valueProp.CsType.MutateName(valueProp.PropertyName + "Value"));
             //valueProp.CsTypeName = valueProp.CsTypeName == "enum" ? valueProp.PropertyName + "Value" : valueProp.CsTypeName;

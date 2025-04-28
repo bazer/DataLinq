@@ -1,22 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
-		<LangVersion>13.0</LangVersion>
+		<TargetFrameworks>net9.0</TargetFrameworks>
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Bogus" Version="35.6.2" />
+		<PackageReference Include="Bogus" Version="35.6.3" />
 		<PackageReference Include="coverlet.collector" Version="6.0.4">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.2" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.4" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-		<PackageReference Include="Serilog.Extensions.Logging" Version="9.0.0" />
+		<PackageReference Include="Serilog.Extensions.Logging" Version="9.0.1" />
 		<PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
 		<PackageReference Include="xunit" Version="2.9.3" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
@@ -27,27 +25,17 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<!--<ProjectReference Include="..\DataLinq\DataLinq.csproj" />-->
 		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
 		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" />
-		<!--<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />-->
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Update="appsettings.json">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
 		<None Update="employees.db">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Folder Include="Models\" />
-		<Folder Include="Views\" />
 	</ItemGroup>
 
 </Project>

@@ -1,22 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-		<LangVersion>13.0</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Bogus" Version="35.6.2" />
+		<PackageReference Include="Bogus" Version="35.6.3" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
+		<ProjectReference Include="..\DataLinq.Core\DataLinq.Core.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <None Update="datalinq.json">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
 	  <None Update="datalinq.user.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>

@@ -4,7 +4,6 @@ using System.Linq;
 using DataLinq.Config;
 using DataLinq.Core.Factories.Models;
 using DataLinq.ErrorHandling;
-using DataLinq.Extensions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using DataLinq.MySql;
@@ -55,23 +54,9 @@ public class DatabaseCreator : Generator
             return DLOptionFailure.Fail(DatabaseCreatorError.DestDirectoryNotFound);
         }
 
-        //var assemblyPathsExists = ParseExistingFilesAndDirs(basePath, db.AssemblyDirectories).ToList();
-        //if (assemblyPathsExists.Any())
-        //{
-        //    log($"Reading assemblies from:");
-        //    foreach (var path in assemblyPathsExists)
-        //        log($"{path}");
-        //}
-
-        var options = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
-        if (!new MetadataFromFileFactory(options, log).ReadFiles(db.CsType, destDir.Yield().ToList()).TryUnwrap(out var dbMetadata, out var metaDataFailure))
+        var metadataOptions = new MetadataFromFileFactoryOptions { FileEncoding = fileEncoding, RemoveInterfacePrefix = db.RemoveInterfacePrefix };
+        if (!ParseDatabaseDefinitionFromFiles(metadataOptions, db.CsType, destDir.Yield().ToList()).TryUnwrap(out var dbMetadata, out var metaDataFailure))
             return metaDataFailure;
-
-        //if (dbMetadata.HasFailed)
-        //{
-        //    log("Error: Unable to parse model files.");
-        //    return DatabaseCreatorError.UnableToParseModelFiles;
-        //}
 
         log($"Tables in model files: {dbMetadata.TableModels.Length}");
 

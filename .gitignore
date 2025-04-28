@@ -13,7 +13,6 @@ TestResults
 *.ncrunchproject
 *.ncrunchsolution
 *.cache
-*.vscode
 
 /src/_NCrunch_DataLinq
 /src/DataLinq.Tests/*.db
@@ -27,4 +26,6 @@ launchSettings.json
 /src/.idea
 /src/qodana.yaml
 /repomix-output.txt
+/src/repomix-output.txt
+/gitlog.txt
 /repomix-output.xml
