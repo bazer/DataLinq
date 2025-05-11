@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -156,6 +156,7 @@ public class TableCache
     public void ClearRows()
     {
         RowCache.ClearRows();
+        OnRowChanged(new RowChangeEventArgs());
     }
 
     public void ClearIndex()
