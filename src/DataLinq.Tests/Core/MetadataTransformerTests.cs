@@ -1,4 +1,4 @@
-﻿using DataLinq.Attributes;
+using DataLinq.Attributes;
 using DataLinq.Core.Factories; // Where Transformer resides
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
@@ -99,6 +99,17 @@ namespace DataLinq.Tests.Core
             table.SetColumns([col1, col2]);
             //col1Vp.Column.SetPrimaryKey(true);
 
+            // Order Table
+            var otherCsType = new CsTypeDeclaration("OtherTable", "TestNamespace", ModelCsType.Class);
+            var otherModel = new ModelDefinition(otherCsType);
+            otherModel.SetInterfaces([iTableModel]);
+            var otherTable = MetadataFactory.ParseTable(otherModel).ValueOrException(); // Assume Table("orders")
+            otherTable.SetDbName("other_table");
+            var orderTableModel = new TableModel("OtherTables", db, otherModel, otherTable);
+
+            //MetadataFactory.AddRelationProperty(orderUserIdCol, userIdCol, "FK_MyRelation");
+            //MetadataFactory.AddRelationProperty(userIdCol, orderUserIdCol, fkOrderUserName);
+
 
             // Add relation with intended C# name
             var relProp = new RelationProperty("RelatedItems", new CsTypeDeclaration("MyOtherModel", "SourceNamespace", ModelCsType.Class), model, [new RelationAttribute("other_table", "other_id", "FK_MyRelation")]); // Add attribute
@@ -106,8 +117,10 @@ namespace DataLinq.Tests.Core
             // Fake RelationPart for testing name transfer - full linking not needed here
             //relProp.SetRelationPart(new RelationPart( { Relation = new RelationDefinition { ConstraintName = "FK_MyRelation_Source" } }); //FIXME
 
-
             db.SetTableModels([tableModel]);
+            MetadataFactory.ParseIndices(db);
+            MetadataFactory.ParseRelations(db);
+
             return db;
         }
 

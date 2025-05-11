@@ -91,7 +91,9 @@ public class MetadataTransformer
 
         foreach (var srcProperty in srcTable.Model.ValueProperties.Values)
         {
-            var destProperty = destTable.Model.ValueProperties.Values.FirstOrDefault(x => x.Column?.DbName == srcProperty.Column?.DbName);
+            var destPropertyKeyValue = destTable.Model.ValueProperties.FirstOrDefault(x => x.Value.Column?.DbName == srcProperty.Column?.DbName);
+            var key = destPropertyKeyValue.Key;
+            var destProperty = destPropertyKeyValue.Value;
 
             if (destProperty == null)
             {
@@ -99,12 +101,18 @@ public class MetadataTransformer
                 continue;
             }
 
-            if (srcProperty.EnumProperty != null)
+            // Check if the property name has changed and update the key
+            if (key != srcProperty.PropertyName)
             {
-                destProperty.SetEnumProperty(srcProperty.EnumProperty.Value);
+                destTable.Model.ValueProperties.Remove(key);
+                destTable.Model.ValueProperties.Add(srcProperty.PropertyName, destProperty);
             }
 
             destProperty.SetPropertyName(srcProperty.PropertyName);
+
+            if (srcProperty.EnumProperty != null)
+                destProperty.SetEnumProperty(srcProperty.EnumProperty.Value);
+
             destProperty.SetCsType(srcProperty.CsType);
             destProperty.SetCsNullable(srcProperty.CsNullable);
             destProperty.SetCsSize(srcProperty.CsSize);
@@ -126,14 +134,24 @@ public class MetadataTransformer
 
         foreach (var srcProperty in srcTable.Model.RelationProperties.Values)
         {
-            var destProperty = destTable.Model.RelationProperties.Values.FirstOrDefault(x =>
-                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().ColumnIndex.Table.DbName == y.Table) &&
-                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.RelationPart?.GetOtherSide().ColumnIndex.Columns.All(z => y.Columns.Contains(z.DbName)) == true));
+            var destPropertyKeyValue = destTable.Model.RelationProperties.FirstOrDefault(x =>
+                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.Value.RelationPart?.GetOtherSide().ColumnIndex.Table.DbName == y.Table) &&
+                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.Value.RelationPart?.GetOtherSide().ColumnIndex.Columns.All(z => y.Columns.Contains(z.DbName)) == true));
+
+            var destProperty = destPropertyKeyValue.Value;
+            var key = destPropertyKeyValue.Key;
 
             if (destProperty == null)
             {
                 //log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
                 continue;
+            }
+
+            // Check if the property name has changed and update the key
+            if (key != srcProperty.PropertyName)
+            {
+                destTable.Model.RelationProperties.Remove(key);
+                destTable.Model.RelationProperties.Add(srcProperty.PropertyName, destProperty);
             }
 
             destProperty.SetPropertyName(srcProperty.PropertyName);
