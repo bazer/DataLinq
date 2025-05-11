@@ -25,16 +25,27 @@ public record DataLinqConfig
         }
 
         log($"Reading config from:      {configPath}");
-        var configs = new List<ConfigFile> { ConfigReader.Read(configPath) };
+        var config = ConfigReader.Read(configPath);
+        if (config == null)
+            return $"Couldn't parse config file {configPath}.";
+
+        List<ConfigFile> configs = [config];
 
         var userFilePath = configPath.Replace(".json", ".user.json");
         if (File.Exists(userFilePath))
         {
             log($"Reading user config from: {userFilePath}");
-            configs.Add(ConfigReader.Read(userFilePath));
+            var userConfig = ConfigReader.Read(userFilePath);
+            if (userConfig == null)
+                return $"Couldn't parse config file {userFilePath}.";
+
+            configs.Add(userConfig);
         }
 
         var basePath = Path.GetDirectoryName(configPath);
+
+        if (basePath == null)
+            return $"Couldn't get directory name of path '{configPath}'";
 
         return new DataLinqConfig(basePath, configs.ToArray());
     }
@@ -78,6 +89,7 @@ public record DataLinqConfig
     {
         if (string.IsNullOrEmpty(dbName) && Databases.Count != 1)
             return $"The config file has more than one database specified. Use (-a or --all) to use all configured databases, or name (-n or --name) one:\n{Databases.Select(x => x.Name).ToJoinedString()}";
+
 
         var db = string.IsNullOrEmpty(dbName)
             ? Databases.Single()

@@ -36,13 +36,12 @@ public static class ConfigReader
         return Encoding.GetEncoding(encoding);
     }
 
-    public static ConfigFile Read(string path)
+    public static ConfigFile? Read(string path)
     {
         var file = File.ReadAllText(path);
         var withoutComments = RemoveComments(file);
-        var config = JsonSerializer.Deserialize<ConfigFile>(withoutComments);
 
-        return config;
+        return JsonSerializer.Deserialize<ConfigFile>(withoutComments);
     }
 
     private static string RemoveComments(string json)
