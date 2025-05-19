@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
-using DataLinq.SourceGenerators;
 using DataLinq.Tests.Models;
 //using DataLinq.Tests.Models.Allround;
 using Microsoft.CodeAnalysis;

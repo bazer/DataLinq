@@ -20,13 +20,13 @@ public class DLOptionFailureException(IDLOptionFailure failure) : Exception
         // Append InnerException details if present
         if (InnerException != null)
         {
-            result = $"{result} ---> {InnerException}{Environment.NewLine}   --- End of inner exception stack trace ---";
+            result = $"{result} ---> {InnerException}\n   --- End of inner exception stack trace ---";
         }
 
         // Append StackTrace if available
         if (StackTrace != null)
         {
-            result = $"{result}{Environment.NewLine}{StackTrace}";
+            result = $"{result}\n{StackTrace}";
         }
 
         return result;
