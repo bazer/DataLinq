@@ -26,7 +26,6 @@
 		<!-- Paths -->
 		<DLSourceDir>$(MSBuildThisFileDirectory)</DLSourceDir>
 		<DLProjectDir>$(DLSourceDir)DataLinq\</DLProjectDir>
-		<DLCoreProjectDir>$(DLSourceDir)DataLinq.Core\</DLCoreProjectDir>
 		<DLGeneratorsProjectDir>$(DLSourceDir)DataLinq.Generators\</DLGeneratorsProjectDir>
     </PropertyGroup>
 
