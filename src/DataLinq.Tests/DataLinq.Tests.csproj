@@ -29,9 +29,7 @@
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
 		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
-		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 	<ItemGroup>
