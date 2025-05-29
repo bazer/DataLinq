@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Xml.Linq;
 using DataLinq.Query;
 using DataLinq.Utils;
 using Remotion.Linq.Clauses;
@@ -12,34 +11,18 @@ using Remotion.Linq.Clauses.ResultOperators;
 
 namespace DataLinq.Linq.Visitors;
 
-/// <summary>
-/// The WhereVisitor class is responsible for traversing an expression tree 
-/// that represents a LINQ Where clause and converting it into the corresponding 
-/// SQL query predicates.
-/// </summary>
 internal class WhereVisitor<T> : ExpressionVisitor
 {
     protected SqlQuery<T> query;
-    // Tracks the number of negations (NOT operations) encountered.
     NonNegativeInt negations = new NonNegativeInt(0);
-    // Tracks the number of OR operations encountered.
     NonNegativeInt ors = new NonNegativeInt(0);
-    // A stack to manage groups of WHERE clauses.
     Stack<WhereGroup<T>> whereGroups = new Stack<WhereGroup<T>>();
 
-    /// <summary>
-    /// Initializes a new instance of the WhereVisitor with a given SQL query.
-    /// </summary>
-    /// <param name="query">The SQL query to be built upon.</param>
     internal WhereVisitor(SqlQuery<T> query)
     {
         this.query = query;
     }
 
-    /// <summary>
-    /// Parses a given WhereClause into SQL query predicates.
-    /// </summary>
-    /// <param name="whereClause">The LINQ WhereClause to parse.</param>
     internal void Parse(WhereClause whereClause)
     {
         Visit(whereClause.Predicate);
@@ -55,21 +38,20 @@ internal class WhereVisitor<T> : ExpressionVisitor
         return base.VisitConditional(node);
     }
 
-    // TODO: Consider handling other unary operators if needed.
     protected override Expression VisitUnary(UnaryExpression node)
     {
         if (node.NodeType == ExpressionType.Not)
             negations.Increment();
 
-        // Unwraps nested Convert operations, if any, to get to the actual expression.
         if (node.NodeType == ExpressionType.Convert)
         {
-            while (node.NodeType == ExpressionType.Convert && node.Operand is UnaryExpression expr)
-                node = expr;
-
-            return Visit(node.Operand);
+            Expression currentOperand = node.Operand;
+            while (currentOperand is UnaryExpression unaryOperand && unaryOperand.NodeType == ExpressionType.Convert)
+            {
+                currentOperand = unaryOperand.Operand;
+            }
+            return Visit(currentOperand);
         }
-
         return base.VisitUnary(node);
     }
 
@@ -80,64 +62,105 @@ internal class WhereVisitor<T> : ExpressionVisitor
             return Visit(node.Reduce());
         }
 
-        if (node is Remotion.Linq.Clauses.Expressions.QuerySourceReferenceExpression querySourceRef)
+        if (node is QuerySourceReferenceExpression querySourceRef)
         {
             return querySourceRef;
         }
 
-        if (node is Remotion.Linq.Clauses.Expressions.SubQueryExpression subQuery)
+        if (node is SubQueryExpression subQuery)
         {
+            var currentGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
+            var currentBooleanType = ors.Value > 0 ? BooleanType.Or : BooleanType.And;
+            if (ors.Value > 0) ors.Decrement();
+
+            var collectionExpr = Visit(subQuery.QueryModel.MainFromClause.FromExpression)!;
+            var collectionValue = query.GetValue(collectionExpr);
+            var listToSearch = ConvertToList(collectionValue);
+
             foreach (var resultOperator in subQuery.QueryModel.ResultOperators)
             {
                 if (resultOperator is ContainsResultOperator containsResultOperator)
                 {
                     var itemToFindInListExpression = Visit(containsResultOperator.Item)!;
-                    var collectionToSearchExpression = Visit(subQuery.QueryModel.MainFromClause.FromExpression)!;
-
-                    var collectionToSearchValue = query.GetValue(collectionToSearchExpression);
-                    var listToSearch = ConvertToList(collectionToSearchValue);
-
-                    // Get the current logical group for the WHERE clause
-                    var currentGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
-                    var currentBooleanType = ors.Value > 0 ? BooleanType.Or : BooleanType.And; // Get current AND/OR state
-                    if (ors.Value > 0) ors.Decrement(); // Consume the OR if it was set for this part
 
                     if (listToSearch.Length == 0)
                     {
-                        // For an empty list:
-                        // list.Contains(item) is always FALSE.
-                        // !list.Contains(item) is always TRUE.
                         var effectiveRelation = negations.Value > 0 ? Relation.AlwaysTrue : Relation.AlwaysFalse;
-                        if (negations.Value > 0) negations.Decrement(); // Consume the NOT
-
+                        if (negations.Value > 0) negations.Decrement();
                         currentGroup.AddFixedCondition(effectiveRelation, currentBooleanType);
-                        return node; // Stop processing this specific Contains node
-                    }
-
-                    // If list is not empty, proceed as before
-                    if (negations.Value > 0)
-                    {
-                        // This means we have !list.Contains(item), which translates to "item NOT IN (list_values)"
-                        negations.Decrement(); // Consume the NOT
-
-                        var fields = query.GetFields(itemToFindInListExpression, Expression.Constant(null));
-                        var fieldName = fields.Key;
-                        // Use the existing AddWhere for NOT IN
-                        var whereClause = currentGroup.AddWhere(fieldName, null, currentBooleanType);
-                        whereClause.NotIn(listToSearch);
                     }
                     else
                     {
-                        // This means list.Contains(item), which translates to "item IN (list_values)"
-                        var fields = query.GetFields(itemToFindInListExpression, Expression.Constant(null));
-                        var fieldName = fields.Key;
-                        // Use the existing AddWhere for IN
-                        var whereClause = currentGroup.AddWhere(fieldName, null, currentBooleanType);
-                        whereClause.In(listToSearch);
+                        if (itemToFindInListExpression is MemberExpression memberOuter &&
+                            memberOuter.Expression is QuerySourceReferenceExpression /* qsr && qsr.ReferencedQuerySource == queryModel_MainFromClause_For_OuterContext() */ )
+                        {
+                            var fieldName = query.GetColumn(memberOuter)?.DbName ?? memberOuter.Member.Name;
+                            var whereClause = currentGroup.AddWhere(fieldName, null, currentBooleanType);
+                            if (negations.Value > 0)
+                            {
+                                negations.Decrement();
+                                whereClause.NotIn(listToSearch);
+                            }
+                            else
+                            {
+                                whereClause.In(listToSearch);
+                            }
+                        }
+                        else
+                        {
+                            throw new NotImplementedException($"Contains operator's item expression '{itemToFindInListExpression}' is not a direct member access on the outer query source.");
+                        }
+                    }
+                    return node;
+                }
+                else if (resultOperator is AnyResultOperator) // Corrected: Was ExistsResultOperator
+                {
+                    if (listToSearch.Length == 0)
+                    {
+                        var effectiveRelation = negations.Value > 0 ? Relation.AlwaysTrue : Relation.AlwaysFalse;
+                        if (negations.Value > 0) negations.Decrement();
+                        currentGroup.AddFixedCondition(effectiveRelation, currentBooleanType);
+                        return node;
+                    }
+                    else
+                    {
+                        if (subQuery.QueryModel.BodyClauses.Count == 1 &&
+                            subQuery.QueryModel.BodyClauses[0] is WhereClause subWhereClause &&
+                            subWhereClause.Predicate is BinaryExpression binary && binary.NodeType == ExpressionType.Equal)
+                        {
+                            Expression? outerQueryMemberAccess = null;
+
+                            if (IsOuterQueryMember(binary.Left, subQuery.QueryModel.MainFromClause) && IsSubQueryParameter(binary.Right, subQuery.QueryModel.MainFromClause))
+                            {
+                                outerQueryMemberAccess = binary.Left;
+                            }
+                            else if (IsOuterQueryMember(binary.Right, subQuery.QueryModel.MainFromClause) && IsSubQueryParameter(binary.Left, subQuery.QueryModel.MainFromClause))
+                            {
+                                outerQueryMemberAccess = binary.Right;
+                            }
+
+                            if (outerQueryMemberAccess is MemberExpression memberOuter)
+                            {
+                                var fieldName = query.GetColumn(memberOuter)?.DbName ?? memberOuter.Member.Name;
+                                var whereClause = currentGroup.AddWhere(fieldName, null, currentBooleanType);
+
+                                if (negations.Value > 0)
+                                {
+                                    negations.Decrement();
+                                    whereClause.NotIn(listToSearch);
+                                }
+                                else
+                                {
+                                    whereClause.In(listToSearch);
+                                }
+                                return node;
+                            }
+                        }
+                        throw new NotImplementedException($"Translation for this form of 'Any(predicate)' with a non-empty list (resulting in AnyResultOperator) is not implemented. SubQuery Predicate: {subQuery.QueryModel.BodyClauses.FirstOrDefault()}");
                     }
                 }
                 else
-                    throw new NotImplementedException($"Result operator '{resultOperator}' within SubQuery for Contains not implemented.");
+                    throw new NotImplementedException($"Result operator '{resultOperator}' within SubQuery is not implemented.");
             }
             return node;
         }
@@ -145,131 +168,160 @@ internal class WhereVisitor<T> : ExpressionVisitor
         return base.VisitExtension(node);
     }
 
+    private bool IsOuterQueryMember(Expression expr, MainFromClause subQueryFromClause)
+    {
+        if (expr is MemberExpression me && me.Expression is QuerySourceReferenceExpression qsr)
+        {
+            return qsr.ReferencedQuerySource != subQueryFromClause;
+        }
+        return false;
+    }
+
+    private bool IsSubQueryParameter(Expression expr, MainFromClause subQueryFromClause)
+    {
+        if (expr is ParameterExpression pe)
+        {
+            return pe.Name == subQueryFromClause.ItemName && pe.Type == subQueryFromClause.ItemType;
+        }
+        if (expr is QuerySourceReferenceExpression qsr)
+        {
+            return qsr.ReferencedQuerySource == subQueryFromClause;
+        }
+        return false;
+    }
+
     protected override Expression VisitMember(MemberExpression node)
     {
-        if (node.Member.Name == "Value" && Nullable.GetUnderlyingType(node.Expression.Type) != null)
+        if (node.Member.Name == "Value" && node.Expression != null && Nullable.GetUnderlyingType(node.Expression.Type) != null)
         {
-            var nonNullableType = Nullable.GetUnderlyingType(node.Expression.Type);
-            var memberExp = Expression.Property(node.Expression, nonNullableType.GetProperty("Value"));
-
-            return Expression.Convert(memberExp, nonNullableType);
+            if (node.Expression is MemberExpression innerMember && innerMember.Expression is QuerySourceReferenceExpression)
+            {
+                return Visit(node.Expression);
+            }
         }
-
         return base.VisitMember(node);
     }
 
-    // TODO: Extend to support additional method calls as necessary.
-    // Throws exceptions for unsupported scenarios, indicating areas that require implementation.
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        if (node.Object == null)
-            throw new ArgumentNullException(nameof(node.Object), "Parsing of node without object is not supported");
+        var currentGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
+        var currentBooleanType = ors.Value > 0 ? BooleanType.Or : BooleanType.And;
+        if (ors.Value > 0) ors.Decrement();
 
-        if (node.Arguments.Count != 1)
-            throw new NotImplementedException($"Operation '{node.Method.Name}' with {node.Arguments.Count} arguments not implemented");
+        if ((node.Method.Name == "StartsWith" || node.Method.Name == "EndsWith" || (node.Method.Name == "Contains" && node.Object?.Type == typeof(string)))
+            && node.Object is MemberExpression memberObject && memberObject.Expression is QuerySourceReferenceExpression
+            && node.Arguments.Count == 1)
+        {
+            var field = query.GetColumn(memberObject)?.DbName ?? memberObject.Member.Name;
+            var valueArgument = Visit(node.Arguments[0])!;
+            var value = query.GetValue(valueArgument);
 
-        var field = (string)query.GetValue(node.Object);
-        var value = query.GetValue(node.Arguments[0]);
+            AddWhereToGroup(currentGroup, currentBooleanType, GetOperationForMethodName(node.Method.Name), field, value);
+            return node;
+        }
+        else if (node.Method.IsGenericMethod &&
+                 node.Method.GetGenericMethodDefinition().DeclaringType == typeof(Enumerable) &&
+                 node.Method.Name == "Any" && node.Arguments.Count == 1)
+        {
+            var collectionExpr = Visit(node.Arguments[0])!;
+            var collectionValue = query.GetValue(collectionExpr);
+            var listToSearch = ConvertToList(collectionValue);
 
-        AddWhere(GetOperation(node.Method.Name), field, [value]);
+            Relation effectiveRelation;
+            if (listToSearch.Length > 0)
+                effectiveRelation = negations.Value > 0 ? Relation.AlwaysFalse : Relation.AlwaysTrue;
+            else
+                effectiveRelation = negations.Value > 0 ? Relation.AlwaysTrue : Relation.AlwaysFalse;
 
-        return node;
+            if (negations.Value > 0) negations.Decrement();
+            currentGroup.AddFixedCondition(effectiveRelation, currentBooleanType);
+            return node;
+        }
+
+        throw new NotImplementedException($"Direct translation of method '{node.Method.Name}' with these arguments is not implemented. Expression: {node}");
     }
 
-    // Handles binary operations and translates them into SQL predicates.
-    // TODO: Handle additional binary expressions as needed.
+
     protected override Expression VisitBinary(BinaryExpression node)
     {
-        var left = node.Left;
-        var right = node.Right;
-
         if (node.NodeType == ExpressionType.AndAlso || node.NodeType == ExpressionType.OrElse)
         {
-            whereGroups.Push(negations.Decrement() > 0
-                ? query.AddWhereNotGroup(ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
-                : query.AddWhereGroup(ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And));
+            bool isOuterOr = ors.Value > 0;
+            if (isOuterOr) ors.Decrement();
 
-            Visit(left);
+            bool isOuterNot = negations.Value > 0;
+            if (isOuterNot) negations.Decrement();
+
+            var newGroup = isOuterNot
+                ? query.AddWhereNotGroup(isOuterOr ? BooleanType.Or : BooleanType.And)
+                : query.AddWhereGroup(isOuterOr ? BooleanType.Or : BooleanType.And);
+
+            whereGroups.Push(newGroup);
+            Visit(node.Left);
 
             if (node.NodeType == ExpressionType.OrElse)
                 ors.Increment();
 
-            Visit(right);
-
+            Visit(node.Right);
             whereGroups.Pop();
 
             return node;
         }
 
-        left = Visit(left);
-        right = Visit(right);
-
+        Expression left = Visit(node.Left)!;
+        Expression right = Visit(node.Right)!;
         var fields = query.GetFields(left, right);
 
-        if (node.NodeType == ExpressionType.NotEqual && fields.Value is bool bValue && bValue == true)
+        var currentGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
+        var currentBooleanType = ors.Value > 0 ? BooleanType.Or : BooleanType.And;
+        if (ors.Value > 0) ors.Decrement();
+
+        if (node.NodeType == ExpressionType.NotEqual &&
+            fields.Value is bool bVal && bVal == true &&
+            (left as MemberExpression ?? right as MemberExpression)?.Type.IsNullableTypeWhereVisitor() == true) // Corrected: Using local extension
         {
-            whereGroups.Push(query.AddWhereGroup(BooleanType.And));
-            AddWhere(Operation.EqualNull, fields.Key);
-            ors.Increment();
-            AddWhere(GetOperation(node.NodeType), fields.Key, fields.Value);
-            whereGroups.Pop();
+            // Create a new group for the (IS NULL OR = false) logic
+            var orGroupForNotTrue = new WhereGroup<T>(query);
+            orGroupForNotTrue.AddWhere(fields.Key, null, BooleanType.And).EqualToNull(); // First part of the OR
+            orGroupForNotTrue.AddWhere(fields.Key, null, BooleanType.Or).EqualTo(false);  // Second part of the OR
+
+            // Add this newly created group to the current logical group
+            currentGroup.AddWhereGroup(orGroupForNotTrue, currentBooleanType);
         }
         else
-            AddWhere(GetOperation(node.NodeType), fields.Key, fields.Value);
-
+        {
+            AddWhereToGroup(currentGroup, currentBooleanType, GetOperationForExpressionType(node.NodeType), fields.Key, fields.Value);
+        }
         return node;
     }
 
-    private void AddWhere(Operation operation, string field, params object[] values)
+    private void AddWhereToGroup(WhereGroup<T> group, BooleanType type, Operation operation, string field, params object?[] values)
     {
-        var group = whereGroups.Count > 0
-                    ? whereGroups.Peek()
-                    : query.GetBaseWhereGroup();
+        var where = negations.Value > 0
+            ? group.AddWhereNot(field, null, type)
+            : group.AddWhere(field, null, type);
 
-        var where = negations.Decrement() > 0
-            ? group.AddWhereNot(field, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
-            : group.AddWhere(field, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And);
+        if (negations.Value > 0) negations.Decrement();
 
         switch (operation)
         {
-            case Operation.Equal:
-                where.EqualTo(values[0]);
-                break;
-            case Operation.EqualNull:
-                where.EqualToNull();
-                break;
-            case Operation.NotEqual:
-                where.NotEqualTo(values[0]);
-                break;
-            case Operation.NotEqualNull:
-                where.NotEqualToNull();
-                break;
-            case Operation.GreaterThan:
-                where.GreaterThan(values[0]);
-                break;
-            case Operation.GreaterThanOrEqual:
-                where.GreaterThanOrEqual(values[0]);
-                break;
-            case Operation.LessThan:
-                where.LessThan(values[0]);
-                break;
-            case Operation.LessThanOrEqual:
-                where.LessThanOrEqual(values[0]);
-                break;
-            case Operation.StartsWith:
-                where.Like(values[0] + "%");
-                break;
-            case Operation.EndsWith:
-                where.Like("%" + values[0]);
-                break;
-            case Operation.Contains:
-                where.In(values);
-                break;
-            default: throw new NotImplementedException($"Operation '{operation}' not implemented");
+            case Operation.Equal: where.EqualTo(values[0]); break;
+            case Operation.EqualNull: where.EqualToNull(); break;
+            case Operation.NotEqual: where.NotEqualTo(values[0]); break;
+            case Operation.NotEqualNull: where.NotEqualToNull(); break;
+            case Operation.GreaterThan: where.GreaterThan(values[0]); break;
+            case Operation.GreaterThanOrEqual: where.GreaterThanOrEqual(values[0]); break;
+            case Operation.LessThan: where.LessThan(values[0]); break;
+            case Operation.LessThanOrEqual: where.LessThanOrEqual(values[0]); break;
+            case Operation.StartsWith: where.Like(values[0] + "%"); break;
+            case Operation.EndsWith: where.Like("%" + values[0]); break;
+            case Operation.StringContains: where.Like("%" + values[0] + "%"); break;
+            case Operation.ListContains: where.In(values); break;
+            default: throw new NotImplementedException($"Operation '{operation}' in AddWhereToGroup is not implemented.");
         }
     }
 
-    private static Operation GetOperation(ExpressionType expressionType) => expressionType switch
+    private static Operation GetOperationForExpressionType(ExpressionType expressionType) => expressionType switch
     {
         ExpressionType.Equal => Operation.Equal,
         ExpressionType.NotEqual => Operation.NotEqual,
@@ -277,41 +329,42 @@ internal class WhereVisitor<T> : ExpressionVisitor
         ExpressionType.GreaterThanOrEqual => Operation.GreaterThanOrEqual,
         ExpressionType.LessThan => Operation.LessThan,
         ExpressionType.LessThanOrEqual => Operation.LessThanOrEqual,
-        _ => throw new NotImplementedException($"Operation '{expressionType}' not implemented"),
+        _ => throw new NotImplementedException($"ExpressionType '{expressionType}' cannot be mapped to an Operation."),
     };
 
-    private static Operation GetOperation(string operationName) => operationName switch
+    private static Operation GetOperationForMethodName(string methodName) => methodName switch
     {
-        "Contains" => Operation.Contains,
+        "Contains" => Operation.StringContains,
         "StartsWith" => Operation.StartsWith,
         "EndsWith" => Operation.EndsWith,
-        _ => throw new NotImplementedException($"Operation '{operationName}' not implemented"),
+        _ => throw new NotImplementedException($"Method name '{methodName}' cannot be mapped to an Operation."),
     };
 
     private enum Operation
     {
-        Equal,
-        EqualNull,
-        NotEqual,
-        NotEqualNull,
-        GreaterThan,
-        GreaterThanOrEqual,
-        LessThan,
-        LessThanOrEqual,
-        StartsWith,
-        EndsWith,
-        Contains
+        Equal, EqualNull, NotEqual, NotEqualNull,
+        GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual,
+        StartsWith, EndsWith, StringContains, ListContains
     }
 
-    private static object[] ConvertToList(object obj)
+    private static object[] ConvertToList(object? obj)
     {
         return obj switch
         {
-            null => [], // Handle null collection gracefully
+            null => [],
             object[] arr => arr,
             IEnumerable<object> enumerable => enumerable.ToArray(),
             IEnumerable enumerable => enumerable.Cast<object>().ToArray(),
-            _ => throw new ArgumentException("Object is not a list that can be used in 'Contains'"),
+            _ => throw new ArgumentException("Object is not a list or IEnumerable."),
         };
+    }
+}
+
+// Renamed to avoid conflict if TypeExtensions exists elsewhere
+internal static class TypeExtensionsWhereVisitor
+{
+    public static bool IsNullableTypeWhereVisitor(this Type type) // Renamed method
+    {
+        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);
     }
 }
