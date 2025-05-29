@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +7,7 @@ using System.Xml.Linq;
 using DataLinq.Query;
 using DataLinq.Utils;
 using Remotion.Linq.Clauses;
+using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Clauses.ResultOperators;
 
 namespace DataLinq.Linq.Visitors;
@@ -90,15 +91,54 @@ internal class WhereVisitor<T> : ExpressionVisitor
             {
                 if (resultOperator is ContainsResultOperator containsResultOperator)
                 {
-                    var field = (string)query.GetValue(Visit(containsResultOperator.Item));
-                    var array = ConvertToList(query.GetValue(Visit(subQuery.QueryModel.MainFromClause.FromExpression)));
+                    var itemToFindInListExpression = Visit(containsResultOperator.Item)!;
+                    var collectionToSearchExpression = Visit(subQuery.QueryModel.MainFromClause.FromExpression)!;
 
-                    AddWhere(Operation.Contains, field, array);
+                    var collectionToSearchValue = query.GetValue(collectionToSearchExpression);
+                    var listToSearch = ConvertToList(collectionToSearchValue);
+
+                    // Get the current logical group for the WHERE clause
+                    var currentGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
+                    var currentBooleanType = ors.Value > 0 ? BooleanType.Or : BooleanType.And; // Get current AND/OR state
+                    if (ors.Value > 0) ors.Decrement(); // Consume the OR if it was set for this part
+
+                    if (listToSearch.Length == 0)
+                    {
+                        // For an empty list:
+                        // list.Contains(item) is always FALSE.
+                        // !list.Contains(item) is always TRUE.
+                        var effectiveRelation = negations.Value > 0 ? Relation.AlwaysTrue : Relation.AlwaysFalse;
+                        if (negations.Value > 0) negations.Decrement(); // Consume the NOT
+
+                        currentGroup.AddFixedCondition(effectiveRelation, currentBooleanType);
+                        return node; // Stop processing this specific Contains node
+                    }
+
+                    // If list is not empty, proceed as before
+                    if (negations.Value > 0)
+                    {
+                        // This means we have !list.Contains(item), which translates to "item NOT IN (list_values)"
+                        negations.Decrement(); // Consume the NOT
+
+                        var fields = query.GetFields(itemToFindInListExpression, Expression.Constant(null));
+                        var fieldName = fields.Key;
+                        // Use the existing AddWhere for NOT IN
+                        var whereClause = currentGroup.AddWhere(fieldName, null, currentBooleanType);
+                        whereClause.NotIn(listToSearch);
+                    }
+                    else
+                    {
+                        // This means list.Contains(item), which translates to "item IN (list_values)"
+                        var fields = query.GetFields(itemToFindInListExpression, Expression.Constant(null));
+                        var fieldName = fields.Key;
+                        // Use the existing AddWhere for IN
+                        var whereClause = currentGroup.AddWhere(fieldName, null, currentBooleanType);
+                        whereClause.In(listToSearch);
+                    }
                 }
                 else
-                    throw new NotImplementedException($"Operation '{resultOperator}' not implemented");
+                    throw new NotImplementedException($"Result operator '{resultOperator}' within SubQuery for Contains not implemented.");
             }
-
             return node;
         }
 
@@ -174,48 +214,8 @@ internal class WhereVisitor<T> : ExpressionVisitor
             AddWhere(GetOperation(node.NodeType), fields.Key, fields.Value);
             whereGroups.Pop();
         }
-        else       
+        else
             AddWhere(GetOperation(node.NodeType), fields.Key, fields.Value);
-
-        //var group = whereGroups.Count > 0
-        //    ? whereGroups.Peek()
-        //    : query.GetBaseWhereGroup();
-
-        //var where = negations.Decrement() > 0
-        //    ? group.AddWhereNot(fields.Key, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And)
-        //    : group.AddWhere(fields.Key, null, ors.Decrement() > 0 ? BooleanType.Or : BooleanType.And);
-
-        //List<(ExpressionType type, object value)> nodeTypes = [(node.NodeType, fields.Value)];
-
-        //if (node.NodeType == ExpressionType.NotEqual && fields.Value is bool bValue && bValue == true)
-        //    nodeTypes.Add((ExpressionType.Equal, );
-
-        //foreach (var (nodeType, value) in nodeTypes)
-        //{
-        //    switch (nodeType)
-        //    {
-        //        case ExpressionType.Equal:
-        //            where.EqualTo(fields.Value);
-        //            break;
-        //        case ExpressionType.NotEqual:
-        //            where.NotEqualTo(fields.Value);
-        //            break;
-        //        case ExpressionType.GreaterThan:
-        //            where.GreaterThan(fields.Value);
-        //            break;
-        //        case ExpressionType.GreaterThanOrEqual:
-        //            where.GreaterThanOrEqual(fields.Value);
-        //            break;
-        //        case ExpressionType.LessThan:
-        //            where.LessThan(fields.Value);
-        //            break;
-        //        case ExpressionType.LessThanOrEqual:
-        //            where.LessThanOrEqual(fields.Value);
-        //            break;
-        //        default:
-        //            throw new NotImplementedException("Operation not implemented");
-        //    }
-        //}
 
         return node;
     }
@@ -307,10 +307,11 @@ internal class WhereVisitor<T> : ExpressionVisitor
     {
         return obj switch
         {
+            null => [], // Handle null collection gracefully
             object[] arr => arr,
             IEnumerable<object> enumerable => enumerable.ToArray(),
             IEnumerable enumerable => enumerable.Cast<object>().ToArray(),
-            _ => throw new ArgumentException("Object is not a list"),
+            _ => throw new ArgumentException("Object is not a list that can be used in 'Contains'"),
         };
     }
 }

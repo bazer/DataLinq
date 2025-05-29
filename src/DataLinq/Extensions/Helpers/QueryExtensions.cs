@@ -1,4 +1,5 @@
-﻿using DataLinq.Query;
+using System;
+using DataLinq.Query;
 
 namespace DataLinq.Extensions.Helpers;
 
@@ -6,42 +7,22 @@ internal static class QueryExtensions
 {
     internal static string ToSql(this Relation relation)
     {
-        switch (relation)
+        return relation switch
         {
-            case Relation.Equal:
-                return "=";
-
-            case Relation.EqualNull:
-                return "IS";
-
-            case Relation.NotEqual:
-                return "<>";
-
-            case Relation.NotEqualNull:
-                return "IS NOT";
-
-            case Relation.Like:
-                return "LIKE";
-
-            case Relation.GreaterThan:
-                return ">";
-
-            case Relation.GreaterThanOrEqual:
-                return ">=";
-
-            case Relation.LessThan:
-                return "<";
-
-            case Relation.LessThanOrEqual:
-                return "<=";
-
-            case Relation.In:
-                return "IN";
-
-            case Relation.NotIn:
-                return "NOT IN";
-        }
-
-        return null;
+            Relation.Equal => "=",
+            Relation.EqualNull => "IS",
+            Relation.NotEqual => "<>",
+            Relation.NotEqualNull => "IS NOT",
+            Relation.Like => "LIKE",
+            Relation.GreaterThan => ">",
+            Relation.GreaterThanOrEqual => ">=",
+            Relation.LessThan => "<",
+            Relation.LessThanOrEqual => "<=",
+            Relation.In => "IN",
+            Relation.NotIn => "NOT IN",
+            Relation.AlwaysFalse => "1=0",
+            Relation.AlwaysTrue => "1=1",
+            _ => throw new NotImplementedException($"Relation {relation} is not supported for direct SQL conversion."),
+        };
     }
 }

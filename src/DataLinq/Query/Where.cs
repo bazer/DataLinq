@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
 
@@ -16,7 +17,9 @@ public enum Relation
     LessThan,
     LessThanOrEqual,
     In,
-    NotIn
+    NotIn,
+    AlwaysFalse,
+    AlwaysTrue
 }
 
 public interface IWhere<T> : IQueryPart
@@ -45,6 +48,7 @@ public class Where<T> : IWhere<T>
     private string? KeyAlias;
     private string? ValueAlias;
 
+
     private string KeyName => string.IsNullOrEmpty(KeyAlias)
         ? $"{WhereGroup.Query.EscapeCharacter}{Key}{WhereGroup.Query.EscapeCharacter}"
         : $"{KeyAlias}.{WhereGroup.Query.EscapeCharacter}{Key}{WhereGroup.Query.EscapeCharacter}";
@@ -63,6 +67,15 @@ public class Where<T> : IWhere<T>
         IsValue = isValue;
         IsNegated = isNegated;
         KeyAlias = keyAlias;
+    }
+
+    internal Where(WhereGroup<T> group, Relation fixedRelation)
+    {
+        if (fixedRelation != Relation.AlwaysTrue && fixedRelation != Relation.AlwaysFalse)
+            throw new ArgumentException("This constructor is for AlwaysTrue or AlwaysFalse relations only.");
+
+        WhereGroup = group;
+        Relation = fixedRelation;
     }
 
     internal Where(WhereGroup<T> group)
@@ -214,6 +227,17 @@ public class Where<T> : IWhere<T>
 
     public void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false)
     {
+        // Handle fixed conditions first
+        if (Relation == Relation.AlwaysTrue || Relation == Relation.AlwaysFalse)
+        {
+            if (Relation == Relation.AlwaysFalse)
+                sql.AddText(IsNegated ? "1=1" : "1=0");
+            else if (Relation == Relation.AlwaysTrue)
+                sql.AddText(IsNegated ? "1=0" : "1=1");
+            return;
+        }
+
+
         addParentheses = addParentheses || IsNegated; // || Relation == Relation.In || Relation == Relation.NotIn;
 
         var indexList = addCommandParameter ? GetCommandParameter(sql, prefix).ToArray() : ([sql.Index]);
@@ -225,7 +249,18 @@ public class Where<T> : IWhere<T>
             sql.AddText("(");
 
         if (IsValue)
-            WhereGroup.Query.DataSource.Provider.GetParameterComparison(sql, KeyName, Relation, indexList.Select(x => prefix + "w" + x).ToArray());
+        {
+            // Check for empty IN/NOT IN here before calling provider
+            if ((Relation == Relation.In || Relation == Relation.NotIn) && (Value == null || Value.Length == 0))
+            {
+                // Empty list for IN means false, for NOT IN means true
+                sql.AddText(Relation == Relation.In ? "1=0" : "1=1");
+            }
+            else
+            {
+                WhereGroup.Query.DataSource.Provider.GetParameterComparison(sql, KeyName, Relation, indexList.Select(x => prefix + "w" + x).ToArray());
+            }
+        }
         else
             sql.AddFormat("{0} {1} {2}", KeyName, Relation.ToSql(), ValueName);
 

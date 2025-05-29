@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Metadata;
@@ -79,9 +79,7 @@ public class WhereGroup<T> : IWhere<T>
 
     internal Where<T> AddWhere(Where<T> where, BooleanType type)
     {
-        if (whereList == null)
-            whereList = new List<(IWhere<T> where, BooleanType type)>();
-
+        whereList ??= [];
         whereList.Add((where, type));
 
         return where;
@@ -89,12 +87,20 @@ public class WhereGroup<T> : IWhere<T>
 
     internal WhereGroup<T> AddWhereGroup(WhereGroup<T> group, BooleanType type)
     {
-        if (whereList == null)
-            whereList = new List<(IWhere<T> where, BooleanType type)>();
-
+        whereList ??= [];
         whereList.Add((group, type));
 
         return group;
+    }
+
+    internal Where<T> AddFixedCondition(Relation fixedRelation, BooleanType type)
+    {
+        var where = new Where<T>(this, fixedRelation);
+
+        whereList ??= [];
+        whereList.Add((where, type));
+
+        return where;
     }
 
     public Where<T> And(string columnName, string? alias = null)
