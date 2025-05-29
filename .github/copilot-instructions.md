@@ -1,7 +1,7 @@
 # DataLinq Project: Context, Learnings, and Status for AI Assistant
 
 **Last Updated:** 2025-05-29
-**Last Discussed Topics:** [e.g., Fixing `CS0433` in test project, `MSB3243` warnings]
+**Last Discussed Topics:** Refining this copilot-instructions document, `SourceGenerator.Foundations` usage, Rider/Contracts issue with SGF.
 
 ## 1. Project Overview & Core Concepts
 
@@ -15,12 +15,13 @@ DataLinq is a lightweight, high-performance .NET Object-Relational Mapper (ORM) 
     2.  Modifying properties on the `Mutable<T>` instance.
     3.  Calling `.Save()` (or `Insert()`/`Update()`) within a `Transaction` to persist changes and generate a new immutable instance.
 *   **Source Generation (`DataLinq.Generators`):**
-    *   Reads developer-defined abstract partial model classes (decorated with attributes).
+    *   The Roslyn-based Source Generator (`DataLinq.Generators.ModelGenerator`) reads developer-defined abstract partial model classes (decorated with attributes).
     *   Generates:
         *   Concrete `Immutable[ModelName]` classes.
         *   Concrete `Mutable[ModelName]` classes.
         *   Public interfaces (`I[ModelName]`) for the models.
         *   Extension methods for mutation (`.Save()`, `.Mutate()`, etc.).
+    *   This is distinct from `DataLinq.Tools.ModelGenerator` which is used by the CLI for scaffolding abstract models *from* a database schema.
 *   **Caching:**
     *   Multi-layered: `RowCache` (PK -> Instance), `IndexCache` (FK -> PKs), `ImmutableRelation` object cache.
     *   "Primary Key First" query strategy: Fetch PKs, check cache, then fetch full rows for misses.
@@ -30,16 +31,16 @@ DataLinq is a lightweight, high-performance .NET Object-Relational Mapper (ORM) 
 *   **LINQ Provider:** Uses `Remotion.Linq` as a base for translating LINQ queries into SQL.
 *   **Database Providers:** Modular design to support different databases (currently MySQL, SQLite). Each provider handles SQL dialect specifics, metadata reading, and data access.
 *   **CLI Tool (`DataLinq.CLI`):** Provides commands for:
-    *   `create-models`: Generates abstract model files from a database schema.
-    *   `create-sql`: Generates SQL schema from model definitions.
-    *   `create-database`: Creates a database from model definitions.
+    *   `create-models`: Generates abstract model files from a database schema (uses `DataLinq.Tools.ModelGenerator`).
+    *   `create-sql`: Generates SQL schema from model definitions (uses `DataLinq.Tools.SqlGenerator`).
+    *   `create-database`: Creates a database from model definitions (uses `DataLinq.Tools.DatabaseCreator`).
     *   `list`: Lists configured databases.
 *   **Configuration:** Uses `datalinq.json` (primary) and `datalinq.user.json` (optional overrides) for database connections and model generation settings.
 
 ### 1.3. Coding Styles & Libraries
 *   **Language:** Modern C# (currently targeting .NET 8 & .NET 9, with the generator itself on `netstandard2.0`).
 *   **Nullable Reference Types:** Enabled and actively being managed (CS8618 warnings are a known point).
-*   **Error Handling:** Uses a custom `Option<TSuccess, TFailure>` pattern with `DLOptionFailure` and `DLOptionFailureException` for many internal operations, particularly in factories.
+*   **Error Handling:** Uses a custom `Option<TSuccess, TFailure>` pattern (implemented via `ThrowAway.Option`) with `DLOptionFailure` and `DLOptionFailureException` for many internal operations, particularly in factories.
 *   **Key NuGet Dependencies:**
     *   `Microsoft.CodeAnalysis.CSharp` (for Roslyn APIs in generator and syntax parsing tests).
     *   `Remotion.Linq` (for LINQ query parsing).
@@ -48,42 +49,45 @@ DataLinq is a lightweight, high-performance .NET Object-Relational Mapper (ORM) 
     *   `CommandLineParser` (for CLI).
     *   `Bogus` (for test data generation).
     *   `xUnit` (for testing).
-    *   (Formerly) `SourceGenerator.Foundations` (for generator hoisting, currently removed for diagnostics).
+    *   `SourceGenerator.Foundations` (used for its `SGF.IncrementalGenerator` base class, simplifying generator setup, and for development-time generator execution/debugging features. A known issue exists with Rider and `SourceGenerator.Foundations.Contracts`).
 
 ## 2. Project Structure & Build Learnings
 
-### 2.1. Current Structure (Post-SharedCore Refactor)
-*   **`DataLinq.SharedCore` (.shproj):** Contains core data structures (metadata classes like `DatabaseDefinition`, `TableDefinition`, `ColumnDefinition`, `ModelDefinition`, attributes, `DLOptionFailure`, interfaces like `IModelInstance`). Its source files are *linked* into `DataLinq.dll` and `DataLinq.Generators.dll`.
+### 2.1. Current Structure
+*   **`DataLinq.SharedCore` (directory):** Contains core data structures (metadata classes like `DatabaseDefinition`, `TableDefinition`, `ColumnDefinition`, `ModelDefinition`, attributes, `DLOptionFailure`, interfaces like `IModelInstance`). Its `.cs` source files are *directly linked* into `DataLinq.csproj` (for `DataLinq.dll`) and `DataLinq.Generators.csproj` (for `DataLinq.Generators.dll`) during compilation.
 *   **`DataLinq.Generators` (.csproj):**
     *   The C# Source Generator. Targets `netstandard2.0`.
     *   Compiles linked files from `DataLinq.SharedCore`.
-    *   Depends on `Microsoft.CodeAnalysis.CSharp` and `ThrowAway`.
+    *   Depends on `Microsoft.CodeAnalysis.CSharp`, `ThrowAway`, and `SourceGenerator.Foundations`.
 *   **`DataLinq` (.csproj):**
     *   The main runtime ORM library. Targets `.NET 8` & `.NET 9`.
     *   Compiles linked files from `DataLinq.SharedCore`.
     *   References `DataLinq.Generators` as an `OutputItemType="Analyzer"`.
     *   Responsible for NuGet packaging:
         *   `DataLinq.dll` (containing runtime logic + Core types) goes into `lib/netX.Y/`.
-        *   `DataLinq.Generators.dll` and its direct runtime dependencies (e.g., `ThrowAway.dll`) go into `analyzers/dotnet/cs/`.
+        *   `DataLinq.Generators.dll` and its direct runtime dependencies (e.g., `ThrowAway.dll`, `SourceGenerator.Foundations.Contracts.dll`) go into `analyzers/dotnet/cs/`.
 *   **`DataLinq.MySql` / `DataLinq.SQLite` (.csproj):** Database provider implementations. Depend on `DataLinq`.
 *   **`DataLinq.CLI` (.csproj):** Command-line tool. Depends on `DataLinq.Tools`.
-*   **`DataLinq.Tools` (.csproj):** Helper logic for CLI (model/SQL generation from metadata). Depends on DB providers and `DataLinq.Core` (or equivalent types now in `DataLinq`/`DataLinq.Generators`).
-*   **Test Projects:** `DataLinq.Tests`, `DataLinq.Generators.Tests`.
+*   **`DataLinq.Tools` (.csproj):** Contains helper logic for the CLI, such as classes for generating abstract models from a database schema (`ModelGenerator`), generating SQL DDL from metadata (`SqlGenerator`), and creating databases (`DatabaseCreator`). Depends on DB providers and `DataLinq` (for core types).
+*   **Test Projects:**
+    *   `DataLinq.Tests`: Runtime and integration tests.
+    *   `DataLinq.Generators.Tests`: Tests for the source generator logic.
+    *   `DataLinq.Tests.Models`: Contains the developer-defined abstract model classes (e.g., for `EmployeesDb`, `AllroundBenchmark`) that serve as the "source of truth" for schema definitions used in testing and benchmarking.
+    *   `DataLinq.Benchmark`: Performance benchmarks.
 
 ### 2.2. Build/Packaging Pain Points & Solutions Explored
-*   **Goal:** Single `DataLinq` NuGet package containing the runtime library, the source generator, and all necessary dependencies for both, without listing internal components like "Core" as separate NuGet dependencies.
+*   **Goal:** Single `DataLinq` NuGet package containing the runtime library, the source generator, and all necessary dependencies for both, without listing internal components as separate NuGet dependencies.
 *   **VS Design-Time Generator Failures (`MissingMethodException`, `FileNotFoundException` for generator dependencies):**
-    *   **Cause:** Visual Studio's host for generators can have different assembly loading behavior/paths than `dotnet build`. Dependencies of the generator (like `DataLinq.Core.dll` previously, or `ThrowAway.dll` now) might not be found if not explicitly made available.
-    *   **Current Strategy:** Link Core source files into `DataLinq.Generators` and `DataLinq`. Ensure `DataLinq.Generators.csproj` has direct `PackageReference`s (not `PrivateAssets="All"`) for libraries its compiled code needs (e.g., `ThrowAway`). The `DataLinq.csproj` packaging target then copies these generator dependencies into the `analyzers/dotnet/cs/` folder of the NuGet package.
+    *   **Cause:** Visual Studio's host for generators can have different assembly loading behavior/paths than `dotnet build`. Dependencies of the generator might not be found if not explicitly made available.
+    *   **Current Strategy:** Link Core source files into `DataLinq.Generators` and `DataLinq`. Ensure `DataLinq.Generators.csproj` has direct `PackageReference`s for libraries its compiled code needs (e.g., `ThrowAway`, `SourceGenerator.Foundations.Contracts`). The `DataLinq.csproj` packaging target then copies these generator dependencies into the `analyzers/dotnet/cs/` folder of the NuGet package.
     *   The `GetDependencyTargetPaths` target in `DataLinq.Generators.csproj` (using `@(RuntimeCopyLocalItems)`) aims to declare these dependencies as essential outputs for the VS host.
-*   **Runtime `FileNotFoundException` for `DataLinq.Core.dll` in Consuming Applications (e.g., ASP.NET):**
-    *   **Cause:** When `DataLinq.Core` was a separate project and referenced by `DataLinq.csproj` with `PrivateAssets="All"`, the `.deps.json` file for consuming applications wouldn't correctly list `DataLinq.Core` as a runtime dependency of `DataLinq.dll`, leading to load failures.
-    *   **Current Strategy:** Linking Core source files directly into `DataLinq.dll` should resolve this by eliminating the separate `DataLinq.Core.dll` at runtime for the consumer.
+*   **Solution for `DataLinq.Core.dll`:** Linking Core source files directly into `DataLinq.dll` resolved the runtime `FileNotFoundException` for a separate `DataLinq.Core.dll` by eliminating it for the consumer.
+*   **Runtime `FileNotFoundException` for `ThrowAway.dll` in Consuming Applications (e.g., `VagFasWebb`):** If `DataLinq.dll` (which now includes Core code using `ThrowAway`) causes a `FileNotFoundException` for `ThrowAway.dll` at runtime in a consuming app, it implies that `ThrowAway.dll` was not copied to the consumer's output directory. This typically *should* happen if `DataLinq.csproj` correctly references `ThrowAway` as a runtime dependency (i.e., `PackageReference` without `PrivateAssets="All"`).
 *   **Assembly Version Conflicts (MSB3243 Warnings):**
     *   **Cause:** `DataLinq.dll` (targeting net8/9) and `DataLinq.Generators.dll` (targeting netstandard2.0, which has older baseline System.* libs) might resolve different versions of common NuGet packages like `System.Buffers`.
     *   **Strategy:** Explicitly reference the desired (usually newer) versions of these conflicting packages in `DataLinq.Generators.csproj` to force alignment.
-*   **Internal MSBuild Errors with Shared Projects (e.g., `Non-CrossTargeting GetTargetFrameworks`):**
-    *   **Cause:** Interactions between shared projects, cross-targeting main libraries, and analyzer/generator references.
+*   **Internal MSBuild Errors with Shared Projects:**
+    *   **Previously:** Interactions between shared projects, cross-targeting main libraries, and analyzer/generator references caused issues.
     *   **Current Strategy:** Moved away from `.shproj` to direct source file linking to avoid these MSBuild internal issues.
 
 ## 3. Current Issues & Focus Areas
@@ -91,7 +95,7 @@ DataLinq is a lightweight, high-performance .NET Object-Relational Mapper (ORM) 
 ### 3.1. Outstanding Build/Runtime Issues (as of last discussion)
 *   **CS0433 Type Ambiguity in `DataLinq.Tests`:** After linking Core files into both `DataLinq.Generators` and `DataLinq`, the `DataLinq.Tests` project (which references both `DataLinq.dll` for runtime testing and `DataLinq.Generators.dll` as an analyzer) sees types like `IDatabaseModel` defined in two places.
     *   **Solution Being Implemented:** Ensure the `ProjectReference` to `DataLinq.Generators` in `DataLinq.Tests.csproj` has `OutputItemType="Analyzer"` and `ReferenceOutputAssembly="false"`. This should make the test project compile against types from `DataLinq.dll` primarily.
-*   **(Potentially still) Runtime `FileNotFoundException` for a dependency in `VagFasWebb`:** If the above changes don't resolve the `ThrowAway.dll` issue in the ASP.NET app, it indicates the build output for `VagFasWebb` isn't correctly including all runtime dependencies of `DataLinq.dll` (which now includes Core, which uses ThrowAway). This points to needing `ThrowAway.dll` alongside `DataLinq.dll` in the `VagFasWebb/bin` folder.
+*   **Rider & `SourceGenerator.Foundations.Contracts`:** A known issue exists where JetBrains Rider might have trouble resolving or using `SourceGenerator.Foundations.Contracts.dll` when it's part of an analyzer package, impacting the developer experience in that IDE.
 
 ### 3.2. Code Implementation Focus
 *   **Equality (`Equals`/`GetHashCode`):**
@@ -124,4 +128,4 @@ DataLinq is a lightweight, high-performance .NET Object-Relational Mapper (ORM) 
 *   **Tooling:** Potential for VS extensions or improved CLI diagnostics.
 *   **Non-Relational Backend Support:** A long-term architectural consideration.
 *   **(From AI):** Investigate using a custom MSBuild SDK for the `DataLinq` project to further encapsulate and simplify the complex packaging and dependency logic for the runtime + analyzer bundle.
-*   **(From AI):** Consider if `SourceGenerator.Foundations` (or a similar helper library) can be reintroduced once current dependency issues are stable, as it can simplify generator boilerplate.
+*   **(From AI - Needs Update):** Resolve any outstanding integration issues with `SourceGenerator.Foundations` (e.g., the Rider/Contracts issue) to ensure smooth development experience across all IDEs.
