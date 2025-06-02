@@ -140,16 +140,14 @@ public class SqlQuery<T>
 
     public Where<T> Where(string columnName, string? alias = null)
     {
-        if (WhereGroup == null)
-            WhereGroup = new WhereGroup<T>(this);
+        WhereGroup ??= new WhereGroup<T>(this);
 
         return WhereGroup.AddWhere(columnName, alias, BooleanType.And);
     }
 
     public WhereGroup<T> Where(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
     {
-        if (WhereGroup == null)
-            WhereGroup = new WhereGroup<T>(this);
+        WhereGroup ??= new WhereGroup<T>(this);
 
         foreach (var (columnName, value) in wheres)
             WhereGroup.AddWhere(columnName, alias, type).EqualTo(value);
@@ -159,24 +157,21 @@ public class SqlQuery<T>
 
     public WhereGroup<T> Where(Func<Func<string, Where<T>>, WhereGroup<T>> func)
     {
-        if (WhereGroup == null)
-            WhereGroup = new WhereGroup<T>(this);
+        WhereGroup ??= new WhereGroup<T>(this);
 
         return WhereGroup.And(func);
     }
 
     public Where<T> WhereNot(string columnName, string? alias = null)
     {
-        if (WhereGroup == null)
-            WhereGroup = new WhereGroup<T>(this);
+        WhereGroup ??= new WhereGroup<T>(this);
 
         return WhereGroup.AddWhereNot(columnName, alias, BooleanType.And);
     }
 
     public WhereGroup<T> WhereNot(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
     {
-        if (WhereGroup == null)
-            WhereGroup = new WhereGroup<T>(this);
+        WhereGroup ??= new WhereGroup<T>(this);
 
         foreach (var (columnName, value) in wheres)
             WhereGroup.AddWhereNot(columnName, alias, type).EqualTo(value);
@@ -186,24 +181,29 @@ public class SqlQuery<T>
 
     public WhereGroup<T> AddWhereGroup(BooleanType type = BooleanType.And)
     {
-        if (WhereGroup == null)
-            WhereGroup = new WhereGroup<T>(this);
+        WhereGroup ??= new WhereGroup<T>(this);
 
-        return WhereGroup.AddWhereGroup(new WhereGroup<T>(this), type);
+        // Create a new sub-group. Its internal logic will be AND by default.
+        var newSubGroup = new WhereGroup<T>(this, BooleanType.And, false);
+        // Add this new sub-group to the main WhereGroup, connecting it with the specified 'type'.
+        this.WhereGroup.AddSubGroup(newSubGroup, type);
+        return newSubGroup; // Return the new sub-group for further chaining.
     }
 
     public WhereGroup<T> AddWhereNotGroup(BooleanType type = BooleanType.And)
     {
-        if (WhereGroup == null)
-            WhereGroup = new WhereGroup<T>(this);
+        WhereGroup ??= new WhereGroup<T>(this);
 
-        return WhereGroup.AddWhereGroup(new WhereGroup<T>(this, true), type);
+        // Create a new negated sub-group. Its internal logic will be AND by default.
+        var newSubGroup = new WhereGroup<T>(this, BooleanType.And, true); // true for isNegated
+        // Add this new sub-group to the main WhereGroup, connecting it with the specified 'type'.
+        this.WhereGroup.AddSubGroup(newSubGroup, type);
+        return newSubGroup; // Return the new negated sub-group.
     }
 
     public WhereGroup<T> GetBaseWhereGroup(BooleanType type = BooleanType.And)
     {
-        if (WhereGroup == null)
-            WhereGroup = new WhereGroup<T>(this);
+        WhereGroup ??= new WhereGroup<T>(this, type);
 
         return WhereGroup;
     }
@@ -227,11 +227,16 @@ public class SqlQuery<T>
 
     internal Sql GetWhere(Sql sql, string? paramPrefix)
     {
-        if (WhereGroup == null)
+        // Ensure WhereGroup is initialized (should be by constructor)
+        if (this.WhereGroup == null || this.WhereGroup.Length == 0)
             return sql;
 
         sql.AddText("\nWHERE\n");
-        WhereGroup.AddCommandString(sql, paramPrefix, true);
+        // The root WhereGroup doesn't need outer parentheses unless it's negated (which it isn't by default here)
+        // or if it internally has only one child that is a group needing parens.
+        // AddCommandString now handles its own parentheses better.
+        bool rootGroupNeedsParens = this.WhereGroup.IsNegated || (this.WhereGroup.Length > 1);
+        this.WhereGroup.AddCommandString(sql, paramPrefix, true, rootGroupNeedsParens);
 
         return sql;
     }

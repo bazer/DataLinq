@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Metadata;
-using DataLinq.Mutation;
 
 namespace DataLinq.Query;
 
@@ -15,221 +14,182 @@ public enum BooleanType
 public class WhereGroup<T> : IWhere<T>
 {
     public readonly SqlQuery<T> Query;
-    protected List<(IWhere<T> where, BooleanType type)>? whereList;
+    // Stores child conditions/groups and how each connects to the *previous* child in this list.
+    // The first child's BooleanType is effectively ignored for connection purposes (it's the start).
+    protected List<(IWhere<T> where, BooleanType connectionToPrevious)>? whereList;
+    private readonly bool isNegated;
+    public bool IsNegated => isNegated;
 
-    private bool IsNegated = false;
+    public int Length => whereList?.Count ?? 0;
+    // Defines how subsequent children in *this* group are joined if not explicitly overridden by an OR.
+    public BooleanType InternalJoinType { get; }
 
-    public Transaction Transaction => throw new NotImplementedException();
-
-    internal WhereGroup(SqlQuery<T> query, bool isNegated = false)
+    /// <summary>
+    /// Initializes a new WhereGroup.
+    /// </summary>
+    /// <param name="query">The parent SqlQuery.</param>
+    /// <param name="internalJoinType">How direct children of THIS group should be joined by default (AND or OR).</param>
+    /// <param name="isNegated">If this entire group is negated (e.g., NOT (A OR B)).</param>
+    internal WhereGroup(SqlQuery<T> query, BooleanType internalJoinType = BooleanType.And, bool isNegated = false)
     {
         Query = query;
-        IsNegated = isNegated;
+        this.isNegated = isNegated;
+        InternalJoinType = internalJoinType; // This dictates how children A and B in (A op B) are joined
     }
 
+    /// <summary>
+    /// Renders the SQL for this WHERE group.
+    /// </summary>
     public void AddCommandString(Sql sql, string prefix = "", bool addCommandParameter = true, bool addParentheses = false)
     {
         int length = whereList?.Count ?? 0;
         if (length == 0)
-            return;
+        {
+            // An empty group that's negated (e.g. !()) is problematic.
+            // An empty group not negated is also odd but less of an SQL issue.
+            // For now, let's assume it means "true" if not negated, "false" if negated.
+            // Or, if it's part of a larger structure, it might effectively be ignored.
+            // For safety, an empty group could render as 1=1 (true) or 1=0 (false) if negated.
+            // This helps avoid syntax errors if a group is empty due to logic.
+            // However, a truly empty WHERE clause part should ideally not be generated.
+            // Let's render 1=1 if not negated and empty, and 1=0 if negated and empty.
+            // This behavior might need refinement based on how QueryExecutor handles empty WhereGroup.
+            sql.AddText(IsNegated ? "1=0" : "1=1"); // An empty group is TRUE, negated empty group is FALSE
 
-        if (IsNegated)
+            return;
+        }
+
+        if (isNegated)
             sql.AddText("NOT ");
 
-        if (addParentheses || IsNegated)
+        // Parentheses are needed if the group is negated, or if explicitly requested by caller (addParentheses),
+        // or if there's more than one item inside this group being joined by AND/OR.
+        bool needsOuterParens = isNegated || addParentheses || length > 1;
+        if (needsOuterParens)
             sql.AddText("(");
 
-        //if (whereList!.All(x => x.type == BooleanType.Or && x.where is Where<T> w && w.IsValue && !w.IsNegated))
-        //{
-        //    sql.AddText("IN (");
-        //    whereList.Select(x => Query.DataSource.Provider.GetParameterValue(sql, x.where.)
-        //    sql.AddText("IN )");
-        //}
-        //else
-        //{
-            for (int i = 0; i < length; i++)
+        for (int i = 0; i < length; i++)
+        {
+            var (childWhere, connectionToPrevious) = whereList![i];
+
+            if (i != 0) // For items after the first, use their stored connection type
             {
-                if (i != 0)
-                {
-                    if (whereList?[i].type == BooleanType.And)
-                        sql.AddText(" AND ");
-                    else if (whereList?[i].type == BooleanType.Or)
-                        sql.AddText(" OR ");
-                    else
-                        throw new NotImplementedException();
-                }
-
-                whereList?[i].where.AddCommandString(sql, prefix, addCommandParameter, whereList[i].where is WhereGroup<T>);
+                sql.AddText(connectionToPrevious == BooleanType.And ? " AND " : " OR ");
             }
-        //}
 
-        if (addParentheses || IsNegated)
+            // Determine if the child itself (if it's a group) needs parentheses
+            bool childNeedsInnerParens = false;
+            if (childWhere is WhereGroup<T> childGroup)
+            {
+                childNeedsInnerParens = childGroup.IsNegated || (childGroup.whereList?.Count > 1);
+            }
+            childWhere.AddCommandString(sql, prefix, addCommandParameter, childNeedsInnerParens);
+        }
+
+        if (needsOuterParens)
             sql.AddText(")");
     }
 
-    public Where<T> AddWhere(string columnName, string? alias, BooleanType type)
+    // INTERNAL methods for adding to the list, taking the connection type explicitly.
+    // The 'connectionType' is how THIS item connects to the PREVIOUS item in THIS group.
+    private Where<T> AddWhereInternal(Where<T> where, BooleanType connectionType)
     {
-        return AddWhere(new Where<T>(this, columnName, alias), type);
-    }
-
-    public Where<T> AddWhereNot(string columnName, string? alias, BooleanType type)
-    {
-        return AddWhere(new Where<T>(this, columnName, alias, isNegated: true), type);
-    }
-
-    internal Where<T> AddWhere(Where<T> where, BooleanType type)
-    {
-        whereList ??= [];
-        whereList.Add((where, type));
-
+        whereList ??= new List<(IWhere<T> where, BooleanType connectionToPrevious)>();
+        whereList.Add((where, connectionType));
         return where;
     }
 
-    internal WhereGroup<T> AddWhereGroup(WhereGroup<T> group, BooleanType type)
+    private WhereGroup<T> AddSubGroupInternal(WhereGroup<T> group, BooleanType connectionType)
     {
-        whereList ??= [];
-        whereList.Add((group, type));
-
+        whereList ??= new List<(IWhere<T> where, BooleanType connectionToPrevious)>();
+        whereList.Add((group, connectionType));
         return group;
     }
 
-    internal Where<T> AddFixedCondition(Relation fixedRelation, BooleanType type)
-    {
-        var where = new Where<T>(this, fixedRelation);
-
-        whereList ??= [];
-        whereList.Add((where, type));
-
-        return where;
-    }
-
-    public Where<T> And(string columnName, string? alias = null)
-    {
-        return AddWhere(new Where<T>(this, columnName, alias), BooleanType.And);
-    }
-
-    public WhereGroup<T> And(Func<Func<string, Where<T>>, WhereGroup<T>> func)
-    {
-        var group = AddWhereGroup(new WhereGroup<T>(this.Query), BooleanType.And);
-
-        var where = new Where<T>(group);
-        group.AddWhere(where, BooleanType.And);
-        func(columnName => where.AddKey(columnName, null));
-
-        return this;
-    }
-
-    public Where<T> Or(string columnName, string? alias = null)
-    {
-        return AddWhere(new Where<T>(this, columnName, alias), BooleanType.Or);
-    }
-
-    public WhereGroup<T> Or(Func<Func<string, Where<T>>, WhereGroup<T>> func)
-    {
-        var group = AddWhereGroup(new WhereGroup<T>(this.Query), BooleanType.Or);
-
-        var where = new Where<T>(group);
-        group.AddWhere(where, BooleanType.And);
-        func(columnName => where.AddKey(columnName, null));
-
-        return this;
-    }
-
-    public SqlQuery<T> Set<V>(string key, V value)
-    {
-        return Query.Set(key, value);
-    }
-
-    public IEnumerable<T> Select()
-    {
-        return Query.Select();
-    }
-
-    public QueryResult Delete()
-    {
-        return Query.Delete();
-    }
-
-    public QueryResult Insert()
-    {
-        return Query.Insert();
-    }
-
-    public QueryResult Update()
-    {
-        return Query.Update();
-    }
-
-    public Select<T> SelectQuery()
-    {
-        return new Select<T>(Query);
-    }
-
-    public Insert<T> InsertQuery()
-    {
-        return new Insert<T>(Query);
-    }
-
-    public Where<T> Where(string columnName, string? alias = null)
-    {
-        return Query.Where(columnName, alias);
-    }
-
-    public WhereGroup<T> Where(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    internal WhereGroup<T> Where(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
     {
         return Query.Where(wheres, type, alias);
     }
 
-    public WhereGroup<T> WhereNot(IEnumerable<(string columnName, object? value)> wheres, BooleanType type = BooleanType.And, string? alias = null)
+    // PUBLIC methods for building the query fluently.
+    // These decide the 'connectionType' based on context.
+
+    public Where<T> Where(string columnName, string? alias = null)
     {
-        return Query.WhereNot(wheres, type, alias);
+        // First item in a group is effectively ANDed to the group's start.
+        // Subsequent items use the group's InternalJoinType.
+        var connection = (whereList == null || whereList.Count == 0) ? BooleanType.And : InternalJoinType;
+        return AddWhereInternal(new Where<T>(this, columnName, alias), connection);
     }
 
-    public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true)
+    public Where<T> AddWhere(string columnName, string? alias, BooleanType explicitConnectionType)
     {
-        return Query.OrderBy(columnName, alias, ascending);
+        // Used by visitor when it knows the explicit connection type (e.g. from an OR)
+        return AddWhereInternal(new Where<T>(this, columnName, alias), explicitConnectionType);
     }
 
-    public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true)
+    public Where<T> AddWhereNot(string columnName, string? alias, BooleanType explicitConnectionType)
     {
-        return Query.OrderBy(column, alias, ascending);
+        return AddWhereInternal(new Where<T>(this, columnName, alias, isNegated: true), explicitConnectionType);
     }
 
-    public SqlQuery<T> OrderByDesc(string columnName, string? alias = null)
+    public Where<T> AddFixedCondition(Relation fixedRelation, BooleanType explicitConnectionType)
     {
-        return Query.OrderByDesc(columnName, alias);
+        return AddWhereInternal(new Where<T>(this, fixedRelation), explicitConnectionType);
     }
 
-    public SqlQuery<T> OrderByDesc(ColumnDefinition column, string? alias = null)
+    public WhereGroup<T> AddSubGroup(WhereGroup<T> group, BooleanType explicitConnectionType)
     {
-        return Query.OrderByDesc(column, alias);
+        return AddSubGroupInternal(group, explicitConnectionType);
     }
 
-    public SqlQuery<T> Limit(int rows)
+    // And, Or methods in WhereGroup now add conditions with specific connector types
+    public Where<T> And(string columnName, string? alias = null)
     {
-        return Query.Limit(rows);
+        return AddWhereInternal(new Where<T>(this, columnName, alias), BooleanType.And);
     }
 
-    public Join<T> Join(string tableName, string? alias = null)
+    public WhereGroup<T> And(Func<Func<string, Where<T>>, WhereGroup<T>> populateFunc)
     {
-        return Query.Join(tableName, alias);
+        var newSubGroup = new WhereGroup<T>(this.Query, BooleanType.And); // Sub-group's children are ANDed
+        populateFunc(columnName => newSubGroup.Where(columnName, null)); // Children use newSubGroup's internal logic
+        return AddSubGroupInternal(newSubGroup, BooleanType.And); // Connect this sub-group with AND
     }
 
-    public Join<T> LeftJoin(string tableName, string? alias = null)
+    public Where<T> Or(string columnName, string? alias = null)
     {
-        return Query.Join(tableName, alias);
+        return AddWhereInternal(new Where<T>(this, columnName, alias), BooleanType.Or);
     }
 
-    public Join<T> RightJoin(string tableName, string? alias = null)
+    public WhereGroup<T> Or(Func<Func<string, Where<T>>, WhereGroup<T>> populateFunc)
     {
-        return Query.Join(tableName, alias);
+        var newSubGroup = new WhereGroup<T>(this.Query, BooleanType.And); // Sub-group's children are ANDed by default
+        populateFunc(columnName => newSubGroup.Where(columnName, null));
+        return AddSubGroupInternal(newSubGroup, BooleanType.Or); // Connect this sub-group with OR
     }
+
+
+    // --- Methods to pass through to SqlQuery<T> ---
+    public SqlQuery<T> Set<V>(string key, V value) => Query.Set(key, value);
+    public IEnumerable<T> Select() => Query.Select();
+    public QueryResult Delete() => Query.Delete();
+    public QueryResult Insert() => Query.Insert();
+    public QueryResult Update() => Query.Update();
+    public Select<T> SelectQuery() => new Select<T>(Query);
+    public Insert<T> InsertQuery() => new Insert<T>(Query);
+    public SqlQuery<T> OrderBy(string columnName, string? alias = null, bool ascending = true) => Query.OrderBy(columnName, alias, ascending);
+    public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true) => Query.OrderBy(column, alias, ascending);
+    public SqlQuery<T> OrderByDesc(string columnName, string? alias = null) => Query.OrderByDesc(columnName, alias);
+    public SqlQuery<T> OrderByDesc(ColumnDefinition column, string? alias = null) => Query.OrderByDesc(column, alias);
+    public SqlQuery<T> Limit(int rows) => Query.Limit(rows);
+    public Join<T> Join(string tableName, string? alias = null) => Query.Join(tableName, alias);
+    public Join<T> LeftJoin(string tableName, string? alias = null) => Query.LeftJoin(tableName, alias);
+    public Join<T> RightJoin(string tableName, string? alias = null) => Query.RightJoin(tableName, alias);
 
     public override string ToString()
     {
         var sql = new Sql();
         AddCommandString(sql);
-
         return sql.ToString();
     }
 }

@@ -429,19 +429,37 @@ public class TableCache
 
     private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<IKey> keys, DataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
-        var q = new SqlQuery(Table.DbName, dataSource);
+        var q = new SqlQuery(Table, dataSource);
+
+        if (!keys.Any()) // Optimization: if no keys, return empty
+            return [];
 
         if (Table.PrimaryKeyColumns.Length == 1)
         {
-            q.Where(Table.PrimaryKeyColumns[0].DbName).In(keys.Select(x => dataSource.Provider.GetWriter().ConvertColumnValue(Table.PrimaryKeyColumns[0], x.Values[0])));
+            var pkColumn = Table.PrimaryKeyColumns[0];
+
+            q.Where(pkColumn.DbName)
+             .In(keys.Select(x => dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, x.Values[0])));
         }
         else
         {
             foreach (var key in keys)
             {
-                var where = q.AddWhereGroup(BooleanType.Or);
+                // Each key's set of PK conditions forms an AND group.
+                // This AND group is ORed with other key's AND groups.
+                // How it connects to the *previous* AND group. The first one is effectively standalone.
+                var connectionToPreviousKeyGroup = (key == keys.First()) ? BooleanType.And : BooleanType.Or;
+
+                var keySpecificAndGroup = q.AddWhereGroup(connectionToPreviousKeyGroup); // This creates a new subgroup for ANDs, connected by OR to previous
+
                 for (var i = 0; i < primaryKeyColumnsCount; i++)
-                    where.And(Table.PrimaryKeyColumns[i].DbName).EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(Table.PrimaryKeyColumns[i], key.Values[i]));
+                {
+                    var pkColumn = Table.PrimaryKeyColumns[i];
+                    // All conditions for a single key are ANDed together *within* keySpecificAndGroup.
+                    // The AddWhere on keySpecificAndGroup will use its InternalJoinType (which is AND by default for new groups from SqlQuery.AddWhereGroup)
+                    keySpecificAndGroup.Where(pkColumn.DbName)
+                                       .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key.Values[i]));
+                }
             }
         }
 
