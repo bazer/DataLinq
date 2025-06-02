@@ -261,19 +261,15 @@ public class TableCache
 
 
         var otherColumns = otherSide.RelationPart.ColumnIndex.Columns;
-        select = new SqlQuery(otherSide.Model.Table, DatabaseCache.Database.ReadOnlyAccess, "other")
+        query = new SqlQuery(otherSide.Model.Table, DatabaseCache.Database.ReadOnlyAccess, "other")
             .What(otherSide.Model.Table.PrimaryKeyColumns)
             .LeftJoin(Table.DbName, "this")
-                .On(index.Columns[0].DbName, "this")
-                .EqualToColumn(otherColumns[0].DbName, "other");
-
-        if (index.Columns.Count > 1)
-        {
-            for (var i = 1; i < index.Columns.Count; i++)
-                select.And(index.Columns[i].DbName, "this").EqualToColumn(otherColumns[i].DbName, "other");
-        }
-
-        query = select
+                .On(on =>
+                {
+                    for (var i = 0; i < index.Columns.Count; i++)
+                        on.And(index.Columns[i].DbName, "this")
+                          .EqualToColumn(otherColumns[i].DbName, "other");
+                })
             .Where(index.Columns.Select(y => (y.DbName, null as object)), BooleanType.And, "this")
             .OrderByDesc(otherColumns[0].DbName, "other");
 

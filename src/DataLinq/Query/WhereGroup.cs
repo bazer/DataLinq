@@ -149,12 +149,11 @@ public class WhereGroup<T> : IWhere<T>
         return AddWhereInternal(new Where<T>(this, columnName, alias), BooleanType.And);
     }
 
-    public WhereGroup<T> And(Func<Func<string, Where<T>>, WhereGroup<T>> func)
+    public WhereGroup<T> And(Action<WhereGroup<T>> populateAction)
     {
-        var subGroup = new WhereGroup<T>(this.Query, BooleanType.And);
-        func(columnName => subGroup.Where(columnName));
-        this.AddSubGroup(subGroup, BooleanType.And);
-        return this;
+        var newSubGroup = new WhereGroup<T>(this.Query, BooleanType.And);
+        populateAction(newSubGroup);
+        return AddSubGroupInternal(newSubGroup, BooleanType.And);
     }
 
     public Where<T> Or(string columnName, string? alias = null)
@@ -162,15 +161,12 @@ public class WhereGroup<T> : IWhere<T>
         return AddWhereInternal(new Where<T>(this, columnName, alias), BooleanType.Or);
     }
 
-    public WhereGroup<T> Or(Func<Func<string, Where<T>>, WhereGroup<T>> func)
+    public WhereGroup<T> Or(Action<WhereGroup<T>> populateAction)
     {
-        // This 'this' is the root WhereGroup. We are adding another subgroup to it, connected by OR.
-        var subGroup = new WhereGroup<T>(this.Query, BooleanType.And); // Subgroup for lambda's content
-        func(columnName => subGroup.Where(columnName));            // Populate it
-        this.AddSubGroup(subGroup, BooleanType.Or);                 // Add it to 'this' (the root) with OR
-        return this; // Return 'this' (the root group) for further chaining like .SelectQuery()
+        var newSubGroup = new WhereGroup<T>(this.Query, BooleanType.And); // Subgroup children are ANDed by default
+        populateAction(newSubGroup);
+        return AddSubGroupInternal(newSubGroup, BooleanType.Or);
     }
-
 
     // --- Methods to pass through to SqlQuery<T> ---
     public SqlQuery<T> Set<V>(string key, V value) => Query.Set(key, value);

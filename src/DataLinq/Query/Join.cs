@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace DataLinq.Query;
 
@@ -14,7 +14,7 @@ public class Join<T>
     public readonly SqlQuery<T> Query;
     readonly string TableName;
     readonly JoinType Type;
-    protected WhereGroup<T>? WhereContainer = null;
+    protected WhereGroup<T>? OnClauseContainer = null;
     private readonly string? Alias;
 
     internal Join(SqlQuery<T> query, string tableName, string? alias, JoinType type)
@@ -25,15 +25,19 @@ public class Join<T>
         this.Alias = alias;
     }
 
-    public Where<T> On(string columnName, string? alias = null)
+    public SqlQuery<T> On(Action<WhereGroup<T>> buildOnClause)
     {
-        if (WhereContainer == null)
-            WhereContainer = new WhereGroup<T>(Query);
+        // Create a new WhereGroup specifically for this ON clause.
+        // Its internal children will be ANDed by default, which is typical for ON clauses.
+        this.OnClauseContainer = new WhereGroup<T>(this.Query, BooleanType.And, false);
 
-        if (alias == null)
-            (columnName, alias) = QueryUtils.ParseColumnNameAndAlias(columnName);
+        // Invoke the user's action to populate this OnClauseContainer
+        buildOnClause(this.OnClauseContainer);
 
-        return WhereContainer.AddWhere(columnName, alias, BooleanType.And);
+        if (this.OnClauseContainer.Length == 0)
+            throw new InvalidOperationException($"Join ON clause for table '{TableName}' cannot be empty.");
+
+        return this.Query; // Return the parent SqlQuery<T> instance
     }
 
     public Sql GetSql(Sql sql, string? paramPrefix)
@@ -50,10 +54,15 @@ public class Join<T>
         Query.AddTableName(sql, TableName, Alias);
         sql.AddText(" ON ");
 
-        if (WhereContainer == null)
-            throw new InvalidOperationException("Join without ON clause.");
+        if (OnClauseContainer == null || OnClauseContainer.Length == 0)
+            throw new InvalidOperationException($"Join ON clause for table '{TableName}' cannot be empty.");
 
-        WhereContainer.AddCommandString(sql, paramPrefix, true);
+        // Determine if the ON clause itself needs surrounding parentheses
+        // (usually if it's negated - not typical for ON - or has multiple top-level ORs internally)
+        // For ON clauses that are typically `A=B AND C=D`, parentheses are often not needed for the whole ON block.
+        // Let AddCommandString handle its internal parentheses.
+        // Passing 'false' for addParentheses to the root of the ON clause content.
+        OnClauseContainer.AddCommandString(sql, paramPrefix, true, false);
 
         return sql;
     }

@@ -73,8 +73,8 @@ WHERE
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
-            .Where(x => x("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
-            .Or(x => x("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
+            .Where(x => x.Where("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
+            .Or(x => x.Where("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
             .SelectQuery()
             .ToSql();
 
@@ -94,8 +94,8 @@ WHERE
     {
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = new SqlQuery("departments", employeesDb.Transaction())
-            .Where(x => x("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
-            .And(x => x("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
+            .Where(x => x.Where("dept_no").EqualTo("d001").And("dept_name").EqualTo("Marketing"))
+            .And(x => x.Where("dept_no").EqualTo("d005").And("dept_name").EqualTo("Development"))
             .SelectQuery()
             .ToSql();
 
@@ -505,7 +505,7 @@ LIMIT 1", sql.Text);
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments", "d")
-            .Join("dept_manager", "m").On("dept_no", "d").EqualToColumn("dept_no", "m")
+            .Join("dept_manager", "m").On(on => on.Where("dept_no", "d").EqualToColumn("dept_no", "m"))
             .SelectQuery()
             .ToSql();
 
@@ -521,7 +521,7 @@ JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{es
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
-            .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
+            .Join("dept_manager m").On(on => on.Where("d.dept_no").EqualToColumn("m.dept_no"))
             .SelectQuery()
             .ToSql();
 
@@ -537,7 +537,7 @@ JOIN {dbName}{escape}dept_manager{escape} m ON d.{escape}dept_no{escape} = m.{es
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
-            .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
+            .Join("dept_manager m").On(on => on.Where("d.dept_no").EqualToColumn("m.dept_no"))
             .Where("m.dept_no").EqualTo("d005")
             .Limit(1)
             .OrderByDesc("d.dept_no")
@@ -561,7 +561,7 @@ LIMIT 1", sql.Text);
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
-            .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
+            .Join("dept_manager m").On(on => on.Where("d.dept_no").EqualToColumn("m.dept_no"))
             .Limit(1)
             .OrderByDesc("d.dept_no")
             .SelectQuery()
@@ -582,7 +582,7 @@ LIMIT 1", sql.Text);
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
-            .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
+            .Join("dept_manager m").On(on => on.Where("d.dept_no").EqualToColumn("m.dept_no"))
             .OrderByDesc("d.dept_no")
             .SelectQuery()
             .ToSql();
@@ -600,8 +600,8 @@ ORDER BY d.{escape}dept_no{escape} DESC", sql.Text);
         var (sign, escape, dbName) = GetConstants(employeesDb);
         var sql = employeesDb
             .From("departments d")
-            .Join("dept_manager m").On("d.dept_no").EqualToColumn("m.dept_no")
-            .Join("dept-emp e").On("e.dept_no").EqualToColumn("m.dept_no")
+            .Join("dept_manager m").On(on => on.Where("d.dept_no").EqualToColumn("m.dept_no"))
+            .Join("dept-emp e").On(on => on.Where("e.dept_no").EqualToColumn("m.dept_no"))
             .OrderByDesc("d.dept_no")
             .SelectQuery()
             .ToSql();

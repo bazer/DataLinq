@@ -29,23 +29,6 @@ public class SqlQuery : SqlQuery<object>
     public SqlQuery(string tableName, DataSourceAccess transaction, string? alias = null) : base(tableName, transaction, alias)
     {
     }
-
-    //public SqlQuery Where(WhereClause where)
-    //{
-    //    new WhereVisitor<object>(this).Parse(where);
-
-    //    return this;
-    //}
-
-    //public SqlQuery OrderBy(OrderByClause orderBy)
-    //{
-    //    foreach (var ordering in orderBy.Orderings)
-    //    {
-    //        new OrderByVisitor<object>(this).Parse(ordering);
-    //    }
-
-    //    return this;
-    //}
 }
 
 public class SqlQuery<T>
@@ -155,11 +138,11 @@ public class SqlQuery<T>
         return WhereGroup;
     }
 
-    public WhereGroup<T> Where(Func<Func<string, Where<T>>, WhereGroup<T>> func)
+    public WhereGroup<T> Where(Action<WhereGroup<T>> func)
     {
         this.WhereGroup = new WhereGroup<T>(this, BooleanType.And); // Root group for this WHERE clause, its own children will be ANDed
         var subGroup = new WhereGroup<T>(this, BooleanType.And); // Subgroup for the lambda's content
-        func(columnName => subGroup.Where(columnName));         // Populate the subgroup
+        func(subGroup);         // Populate the subgroup
         this.WhereGroup.AddSubGroup(subGroup, BooleanType.And); // Add as first child to root
         return this.WhereGroup; // Return the root group
     }
@@ -237,7 +220,6 @@ public class SqlQuery<T>
         // The root WhereGroup doesn't need outer parentheses unless it's negated (which it isn't by default here)
         // or if it internally has only one child that is a group needing parens.
         // AddCommandString now handles its own parentheses better.
-        //bool rootGroupNeedsParens = this.WhereGroup.IsNegated || (this.WhereGroup.Length > 1);
         this.WhereGroup.AddCommandString(sql, paramPrefix, true, false);
 
         return sql;
@@ -294,23 +276,22 @@ public class SqlQuery<T>
 
     public Join<T> Join(string tableName, string? alias = null)
     {
-        return Join(tableName, alias, JoinType.Inner);
+        return JoinInternal(tableName, alias, JoinType.Inner);
     }
 
     public Join<T> LeftJoin(string tableName, string? alias = null)
     {
-        return Join(tableName, alias, JoinType.LeftOuter);
+        return JoinInternal(tableName, alias, JoinType.LeftOuter);
     }
 
     public Join<T> RightJoin(string tableName, string? alias = null)
     {
-        return Join(tableName, alias, JoinType.RightOuter);
+        return JoinInternal(tableName, alias, JoinType.RightOuter);
     }
 
-    private Join<T> Join(string tableName, string? alias, JoinType type)
+    private Join<T> JoinInternal(string tableName, string? alias, JoinType type)
     {
-        if (JoinList == null)
-            JoinList = new List<Join<T>>();
+        JoinList ??= [];
 
         if (alias == null)
             (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
