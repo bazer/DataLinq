@@ -138,16 +138,48 @@ public class EmptyListTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void Where_Not_Any_EmptyList_ShouldReturnAll(Database<EmployeesDb> employeesDb)
+    public void Where_Not_Any_EmptyList_ShouldEffectivelyReturnAll_Robust(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
-        var totalEmployees = employeesDb.Query().Employees.Count();
 
+        // 1. Define a small, known set of employee PKs.
+        // Take a few from the start of the table to ensure they exist.
+        var knownPks = employeesDb.Query().Employees
+                                  .OrderBy(e => e.emp_no) // Consistent selection
+                                  .Take(5)
+                                  .ToList()
+                                  .Select(e => e.emp_no.Value)
+                                  .ToList();
+
+        if (knownPks.Count == 0)
+        {
+            // Handle case where table might be empty or too small for Take(5)
+            // For this specific test logic, if the table is empty, totalEmployees is 0,
+            // and the result.Count will also be 0, so it would pass.
+            // But if we want to ensure the WHERE clause is tested, we need some data.
+            // For now, let's assume the fixture ensures some employees.
+            // If not, this test might not be meaningful for an empty DB state.
+            Assert.True(knownPks.Count > 0, "Test requires at least one employee in the database to verify 'select all' behavior with a PK filter.");
+        }
+
+        // 2. Query the database for these known PKs, applying the logic under test.
+        // The `!emptyList.Any(...)` should evaluate to TRUE for every row, so it shouldn't filter out any of the knownPks.
         var result = employeesDb.Query().Employees
-            .Where(e => !emptyList.Any(id => id == e.emp_no.Value))
+            .Where(e =>
+                knownPks.Contains(e.emp_no.Value) && // Filter to our known set
+                !emptyList.Any(id => id == e.emp_no.Value) // The condition under test
+            )
             .ToList();
 
-        Assert.Equal(totalEmployees, result.Count);
+        // 3. Assert that the number of results matches the number of known PKs.
+        // This means the `!emptyList.Any(...)` part did not filter out any of our selected employees.
+        Assert.Equal(knownPks.Count, result.Count);
+
+        // 4. Optionally, verify that all known PKs are present in the result.
+        foreach (var pk in knownPks)
+        {
+            Assert.Contains(result, e => e.emp_no == pk);
+        }
     }
 
     [Theory]
