@@ -157,9 +157,11 @@ public class SqlQuery<T>
 
     public WhereGroup<T> Where(Func<Func<string, Where<T>>, WhereGroup<T>> func)
     {
-        WhereGroup ??= new WhereGroup<T>(this);
-
-        return WhereGroup.And(func);
+        this.WhereGroup = new WhereGroup<T>(this, BooleanType.And); // Root group for this WHERE clause, its own children will be ANDed
+        var subGroup = new WhereGroup<T>(this, BooleanType.And); // Subgroup for the lambda's content
+        func(columnName => subGroup.Where(columnName));         // Populate the subgroup
+        this.WhereGroup.AddSubGroup(subGroup, BooleanType.And); // Add as first child to root
+        return this.WhereGroup; // Return the root group
     }
 
     public Where<T> WhereNot(string columnName, string? alias = null)
@@ -235,8 +237,8 @@ public class SqlQuery<T>
         // The root WhereGroup doesn't need outer parentheses unless it's negated (which it isn't by default here)
         // or if it internally has only one child that is a group needing parens.
         // AddCommandString now handles its own parentheses better.
-        bool rootGroupNeedsParens = this.WhereGroup.IsNegated || (this.WhereGroup.Length > 1);
-        this.WhereGroup.AddCommandString(sql, paramPrefix, true, rootGroupNeedsParens);
+        //bool rootGroupNeedsParens = this.WhereGroup.IsNegated || (this.WhereGroup.Length > 1);
+        this.WhereGroup.AddCommandString(sql, paramPrefix, true, false);
 
         return sql;
     }

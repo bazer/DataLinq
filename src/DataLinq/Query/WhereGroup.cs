@@ -64,7 +64,7 @@ public class WhereGroup<T> : IWhere<T>
 
         // Parentheses are needed if the group is negated, or if explicitly requested by caller (addParentheses),
         // or if there's more than one item inside this group being joined by AND/OR.
-        bool needsOuterParens = isNegated || addParentheses || length > 1;
+        bool needsOuterParens = isNegated || addParentheses;
         if (needsOuterParens)
             sql.AddText("(");
 
@@ -149,11 +149,12 @@ public class WhereGroup<T> : IWhere<T>
         return AddWhereInternal(new Where<T>(this, columnName, alias), BooleanType.And);
     }
 
-    public WhereGroup<T> And(Func<Func<string, Where<T>>, WhereGroup<T>> populateFunc)
+    public WhereGroup<T> And(Func<Func<string, Where<T>>, WhereGroup<T>> func)
     {
-        var newSubGroup = new WhereGroup<T>(this.Query, BooleanType.And); // Sub-group's children are ANDed
-        populateFunc(columnName => newSubGroup.Where(columnName, null)); // Children use newSubGroup's internal logic
-        return AddSubGroupInternal(newSubGroup, BooleanType.And); // Connect this sub-group with AND
+        var subGroup = new WhereGroup<T>(this.Query, BooleanType.And);
+        func(columnName => subGroup.Where(columnName));
+        this.AddSubGroup(subGroup, BooleanType.And);
+        return this;
     }
 
     public Where<T> Or(string columnName, string? alias = null)
@@ -161,11 +162,13 @@ public class WhereGroup<T> : IWhere<T>
         return AddWhereInternal(new Where<T>(this, columnName, alias), BooleanType.Or);
     }
 
-    public WhereGroup<T> Or(Func<Func<string, Where<T>>, WhereGroup<T>> populateFunc)
+    public WhereGroup<T> Or(Func<Func<string, Where<T>>, WhereGroup<T>> func)
     {
-        var newSubGroup = new WhereGroup<T>(this.Query, BooleanType.And); // Sub-group's children are ANDed by default
-        populateFunc(columnName => newSubGroup.Where(columnName, null));
-        return AddSubGroupInternal(newSubGroup, BooleanType.Or); // Connect this sub-group with OR
+        // This 'this' is the root WhereGroup. We are adding another subgroup to it, connected by OR.
+        var subGroup = new WhereGroup<T>(this.Query, BooleanType.And); // Subgroup for lambda's content
+        func(columnName => subGroup.Where(columnName));            // Populate it
+        this.AddSubGroup(subGroup, BooleanType.Or);                 // Add it to 'this' (the root) with OR
+        return this; // Return 'this' (the root group) for further chaining like .SelectQuery()
     }
 
 
