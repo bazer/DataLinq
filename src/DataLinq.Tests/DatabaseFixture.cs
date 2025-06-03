@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -162,8 +162,17 @@ public class DatabaseFixture : IDisposable
 
         if (employeesToDelete.Any())
         {
+            var transaction = db.Transaction();
+
             foreach (var emp in employeesToDelete)
-                db.Delete(emp);
+            {
+                foreach (var salary in emp.salaries)
+                    salary.Delete(transaction);
+
+                emp.Delete(transaction);
+            }
+
+            transaction.Commit();
 
             db.Provider.State.ClearCache(); // Clear cache after delete
         }

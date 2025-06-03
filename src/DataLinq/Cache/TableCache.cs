@@ -5,11 +5,11 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
-using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using DataLinq.Utils;
 
 namespace DataLinq.Cache;
 
@@ -30,8 +30,13 @@ public class TableCache
     protected (IndexCacheType type, int? amount) indexCachePolicy;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public event EventHandler<RowChangeEventArgs>? RowChanged;
-
+    private readonly WeakEventManager _rowChangedEventManager = new WeakEventManager();
+    public event EventHandler<RowChangeEventArgs> RowChanged
+    {
+        add { _rowChangedEventManager.AddEventHandler(value); }
+        remove { _rowChangedEventManager.RemoveEventHandler(value); }
+    }
+    
     public TableCache(TableDefinition table, DatabaseCache databaseCache, DataLinqLoggingConfiguration loggingConfiguration)
     {
         this.Table = table;
@@ -83,8 +88,8 @@ public class TableCache
 
                 RowCache.TryRemoveRow(change.PrimaryKeys, out var rows);
                 numRows += rows;
-            }
-
+                }
+        
 
             TryRemoveRowFromAllIndices(change.PrimaryKeys, out var indexRows);
             numRows += indexRows;
@@ -127,7 +132,7 @@ public class TableCache
 
     protected virtual void OnRowChanged(RowChangeEventArgs e)
     {
-        RowChanged?.Invoke(this, e);
+        _rowChangedEventManager.HandleEvent(this, e, "RowChanged");
     }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
