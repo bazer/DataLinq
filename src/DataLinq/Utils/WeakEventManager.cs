@@ -11,12 +11,12 @@ namespace DataLinq.Utils;
 
 /// <summary>
 /// Manages weak event subscriptions, preventing memory leaks by maintaining weak references to handlers.
-/// This version uses locks on individual lists for modifications after GetOrAdd.
-/// Uses generic WeakReference<object> for handler targets.
 /// </summary>
 public class WeakEventManager
 {
-    private readonly ConcurrentDictionary<string, List<Subscription>> _eventHandlers = new(StringComparer.Ordinal);
+    // The dictionary itself is concurrent for adding/removing event name keys.
+    // The HashSet<Subscription> associated with each event name allows for O(1) average time complexity for Add/Remove/Contains.
+    private readonly ConcurrentDictionary<string, HashSet<Subscription>> _eventHandlers = new(StringComparer.Ordinal);
 
     public void AddEventHandler<TEventArgs>(EventHandler<TEventArgs> handler, [CallerMemberName] string eventName = "")
         where TEventArgs : EventArgs
@@ -24,8 +24,6 @@ public class WeakEventManager
         if (IsNullOrEmpty(eventName))
             throw new ArgumentNullException(nameof(eventName));
         ArgumentNullException.ThrowIfNull(handler);
-
-        // handler.Target is object?, which is compatible with WeakReference<object>
         AddEventHandlerDetail(eventName, handler.Target, handler.GetMethodInfo());
     }
 
@@ -34,86 +32,75 @@ public class WeakEventManager
         if (IsNullOrEmpty(eventName))
             throw new ArgumentNullException(nameof(eventName));
         ArgumentNullException.ThrowIfNull(handler);
-
         AddEventHandlerDetail(eventName, handler.Target, handler.GetMethodInfo());
     }
 
     private void AddEventHandlerDetail(string eventName, object? handlerTarget, MethodInfo methodInfo)
     {
-        List<Subscription> targets = _eventHandlers.GetOrAdd(eventName, _ => new List<Subscription>());
+        HashSet<Subscription> targets = _eventHandlers.GetOrAdd(eventName, _ => new HashSet<Subscription>());
 
+        Subscription newSubscription = (handlerTarget == null)
+            ? new Subscription(null, methodInfo) // Static handler
+            : new Subscription(new WeakReference<object>(handlerTarget), methodInfo);
+
+        // HashSet.Add is O(1) on average and handles duplicate checking
+        // based on Subscription.Equals and Subscription.GetHashCode.
+        // Synchronization is needed because HashSet<T> is not thread-safe for concurrent writes.
         lock (targets)
         {
-            bool alreadyExists = false;
-            for (int i = 0; i < targets.Count; i++)
-            {
-                Subscription sub = targets[i];
-                if (sub.Handler.Equals(methodInfo))
-                {
-                    if (handlerTarget == null && sub.Subscriber == null) // Both static
-                    {
-                        alreadyExists = true;
-                        break;
-                    }
-                    if (handlerTarget != null && sub.Subscriber != null &&
-                        sub.Subscriber.TryGetTarget(out var subTarget) &&
-                        ReferenceEquals(handlerTarget, subTarget))
-                    {
-                        alreadyExists = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!alreadyExists)
-            {
-                if (handlerTarget == null)
-                {
-                    targets.Add(new Subscription(null, methodInfo)); // Static handler
-                }
-                else
-                {
-                    targets.Add(new Subscription(new WeakReference<object>(handlerTarget), methodInfo));
-                }
-            }
+            targets.Add(newSubscription);
         }
     }
 
     public void HandleEvent(object? sender, object? args, string eventName)
     {
         var liveHandlersToInvoke = new List<(object? subscriber, MethodInfo handler)>();
+        List<Subscription>? deadSubscriptionsToRemove = null;
 
-        if (_eventHandlers.TryGetValue(eventName, out List<Subscription>? targets))
+        if (_eventHandlers.TryGetValue(eventName, out HashSet<Subscription>? targets))
         {
-            lock (targets)
+            lock (targets) // Lock for consistent snapshotting and cleanup
             {
-                for (int i = targets.Count - 1; i >= 0; i--)
-                {
-                    Subscription subscription = targets[i];
+                // Iterate a snapshot for raising events if modification during enumeration is a concern,
+                // but since we collect live handlers first, then cleanup, it's safer.
+                // We must collect dead ones while iterating because HashSet doesn't have RemoveAll(predicate)
+                // that we can use efficiently without re-iterating or creating temp collections.
 
+                foreach (var subscription in targets)
+                {
                     if (subscription.Subscriber == null) // Static handler
                     {
                         liveHandlersToInvoke.Add((null, subscription.Handler));
-                        continue;
                     }
-
-                    if (subscription.Subscriber.TryGetTarget(out var subscriberTarget))
+                    else if (subscription.Subscriber.TryGetTarget(out var subscriberTarget))
                     {
                         liveHandlersToInvoke.Add((subscriberTarget, subscription.Handler));
                     }
                     else
                     {
-                        targets.RemoveAt(i); // Subscriber collected
+                        deadSubscriptionsToRemove ??= [];
+                        deadSubscriptionsToRemove.Add(subscription); // Mark for removal
+                    }
+                }
+
+                if (deadSubscriptionsToRemove != null && deadSubscriptionsToRemove.Count > 0)
+                {
+                    foreach (var deadSub in deadSubscriptionsToRemove)
+                    {
+                        targets.Remove(deadSub); // Actual removal from HashSet
                     }
                 }
             }
         }
 
+        // Invoke handlers outside the lock.
+        // Consider reversing liveHandlersToInvoke if original subscription order is critical for invocation.
+        // liveHandlersToInvoke.Reverse();
         foreach (var (subscriber, handler) in liveHandlersToInvoke)
         {
             try
             {
-                handler.Invoke(subscriber, new[] { sender, args });
+                handler.Invoke(subscriber, [sender, args]);
             }
             catch (TargetInvocationException tie)
             {
@@ -132,7 +119,6 @@ public class WeakEventManager
         if (IsNullOrEmpty(eventName))
             throw new ArgumentNullException(nameof(eventName));
         ArgumentNullException.ThrowIfNull(handler);
-
         RemoveEventHandlerDetail(eventName, handler.Target, handler.GetMethodInfo());
     }
 
@@ -141,53 +127,38 @@ public class WeakEventManager
         if (IsNullOrEmpty(eventName))
             throw new ArgumentNullException(nameof(eventName));
         ArgumentNullException.ThrowIfNull(handler);
-
         RemoveEventHandlerDetail(eventName, handler.Target, handler.GetMethodInfo());
     }
 
     private void RemoveEventHandlerDetail(string eventName, object? handlerTarget, MethodInfo methodInfo)
     {
-        if (_eventHandlers.TryGetValue(eventName, out List<Subscription>? subscriptions))
+        if (_eventHandlers.TryGetValue(eventName, out HashSet<Subscription>? subscriptions))
         {
-            lock (subscriptions)
+            // Create a temporary Subscription to use for removal.
+            // HashSet.Remove will use its Equals and GetHashCode.
+            Subscription subToRemove = (handlerTarget == null)
+                ? new Subscription(null, methodInfo)
+                : new Subscription(new WeakReference<object>(handlerTarget), methodInfo);
+
+            lock (subscriptions) // Lock for modification
             {
-                for (int n = subscriptions.Count - 1; n >= 0; n--)
-                {
-                    Subscription current = subscriptions[n];
-
-                    if (!current.Handler.Equals(methodInfo))
-                        continue;
-
-                    bool targetMatches;
-                    if (handlerTarget == null) // Removing a static handler
-                    {
-                        targetMatches = current.Subscriber == null;
-                    }
-                    else // Removing an instance handler
-                    {
-                        targetMatches = current.Subscriber != null &&
-                                        current.Subscriber.TryGetTarget(out var currentTarget) &&
-                                        ReferenceEquals(currentTarget, handlerTarget);
-                    }
-
-                    if (targetMatches)
-                    {
-                        subscriptions.RemoveAt(n);
-                        break;
-                    }
-                    else if (current.Subscriber != null && !current.Subscriber.TryGetTarget(out _))
-                    {
-                        // Clean up unrelated dead subscription found during scan
-                        subscriptions.RemoveAt(n);
-                    }
-                }
+                // For instance methods, if handlerTarget is live, Remove will find it if an
+                // equivalent live subscription exists.
+                // If handlerTarget is live, but the stored subscription's target is dead,
+                // Subscription.Equals will return false, and this Remove won't get it.
+                // This means dead subscriptions are primarily cleaned by HandleEvent.
+                // If immediate removal of a subscription (even if its target became dead)
+                // is needed by providing the original target (that might now be dead too),
+                // then an iteration like in HandleEvent would be needed here too.
+                // However, the typical use of RemoveEventHandler is with a live handlerTarget.
+                subscriptions.Remove(subToRemove);
             }
         }
     }
 
     private readonly struct Subscription : IEquatable<Subscription>
     {
-        public readonly WeakReference<object>? Subscriber; // Now WeakReference<object>
+        public readonly WeakReference<object>? Subscriber; // Null for static handlers
         public readonly MethodInfo Handler;
 
         public Subscription(WeakReference<object>? subscriber, MethodInfo handler)
@@ -198,33 +169,44 @@ public class WeakEventManager
 
         public bool Equals(Subscription other)
         {
-            if (!Handler.Equals(other.Handler))
+            if (!Handler.Equals(other.Handler)) // MethodInfo equality is reliable
                 return false;
 
-            if (Subscriber == null && other.Subscriber == null) // Both static
-                return true;
+            bool thisIsStatic = Subscriber == null;
+            bool otherIsStatic = other.Subscriber == null;
 
-            if (Subscriber == null || other.Subscriber == null) // One static, one instance
-                return false;
+            if (thisIsStatic && otherIsStatic) return true; // Static methods, same MethodInfo
+            if (thisIsStatic != otherIsStatic) return false; // One static, one instance
 
-            // Both instance methods, check if targets are the same (if both alive)
-            bool thisAlive = Subscriber.TryGetTarget(out var thisTarget);
-            bool otherAlive = other.Subscriber.TryGetTarget(out var otherTarget);
+            // Both are instance methods (Subscriber is not null for both)
+            // For equality, we need to compare the *targets* of the WeakReferences.
+            // If either target is no longer alive, they are not considered equal to a live one for Add/Remove purposes.
+            bool thisTargetAlive = Subscriber!.TryGetTarget(out var thisTarget);
+            bool otherTargetAlive = other.Subscriber!.TryGetTarget(out var otherTarget);
 
-            if (thisAlive && otherAlive)
-                return ReferenceEquals(thisTarget, otherTarget);
+            if (thisTargetAlive && otherTargetAlive)
+                return ReferenceEquals(thisTarget, otherTarget); // Both targets are alive, compare their identity
 
-            // If one or both targets are dead, they are not considered equal for preventing duplicates
-            // or for removal by a live target reference.
+            // If one is alive and the other isn't, or both are dead, they are not equal.
+            // This ensures that a new subscription for a live target is distinct from an old, dead one.
             return false;
         }
 
-        public override bool Equals(object? obj) => obj is Subscription other && Equals(other);
-
         public override int GetHashCode()
         {
-            // Primarily use Handler's hash code. Target differences are handled by Equals.
-            return Handler.GetHashCode();
+            int hashCode = Handler.GetHashCode();
+            if (Subscriber != null && Subscriber.TryGetTarget(out var target))
+            {
+                // For live targets, include their identity hash code.
+                // This makes (targetA, methodX) hash differently from (targetB, methodX).
+                hashCode = HashCode.Combine(hashCode, RuntimeHelpers.GetHashCode(target));
+            }
+            // If Subscriber is null (static handler) or its target is dead,
+            // the hash code is primarily based on the MethodInfo.
+            // This is fine because Equals() will perform the final detailed comparison.
+            return hashCode;
         }
+
+        public override bool Equals(object? obj) => obj is Subscription subscription && Equals(subscription);
     }
 }

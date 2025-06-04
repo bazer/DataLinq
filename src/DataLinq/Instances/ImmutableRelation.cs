@@ -103,12 +103,13 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
     public IEnumerable<KeyValuePair<IKey, T>> AsEnumerable() => GetInstances().AsEnumerable();
     public FrozenDictionary<IKey, T> ToFrozenDictionary() => GetInstances();
 
+    private TableCache GetTableCache() => GetTableCache(GetDataSource());
+    private TableCache GetTableCache(DataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
+
     protected IEnumerable<T> GetRelation()
     {
         var source = GetDataSource();
-
-        var otherSide = property.RelationPart.GetOtherSide();
-        var tableCache = source.Provider.GetTableCache(otherSide.ColumnIndex.Table);
+        var tableCache = GetTableCache(source);
 
         if (!_isListenerAttached)
         {
@@ -146,7 +147,19 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
 
     public void Clear()
     {
-        relationInstances = null;
+        if (relationInstances != null)
+        {
+            lock (_loadLock)
+            {
+                relationInstances = null;
+
+                if (!_isListenerAttached)
+                {
+                    _isListenerAttached = false;
+                    GetTableCache().RowChanged -= OnRowChanged;
+                }
+            }
+        }
     }
 
     public IEnumerator<T> GetEnumerator()
