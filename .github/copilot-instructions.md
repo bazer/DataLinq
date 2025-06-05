@@ -1,7 +1,7 @@
 # DataLinq Project: Context, Learnings, and Status for AI Assistant
 
-**Last Updated:** 2025-05-29
-**Last Discussed Topics:** Refining this copilot-instructions document, `SourceGenerator.Foundations` usage, Rider/Contracts issue with SGF.
+**Last Updated:** 2025-06-05 *(Updated to reflect recent fixes)*
+**Last Discussed Topics:** Finalizing `WeakEventManager` optimizations, fixing intermittent parallel test failures, ensuring correct SQL generation for complex LINQ `WHERE` clauses (boolean logic, empty list `Contains`/`Any`, JOIN/WHERE separation), writing release notes for v0.5.3.
 
 ## 1. Project Overview & Core Concepts
 
@@ -16,116 +16,74 @@ DataLinq is a lightweight, high-performance .NET Object-Relational Mapper (ORM) 
     3.  Calling `.Save()` (or `Insert()`/`Update()`) within a `Transaction` to persist changes and generate a new immutable instance.
 *   **Source Generation (`DataLinq.Generators`):**
     *   The Roslyn-based Source Generator (`DataLinq.Generators.ModelGenerator`) reads developer-defined abstract partial model classes (decorated with attributes).
-    *   Generates:
-        *   Concrete `Immutable[ModelName]` classes.
-        *   Concrete `Mutable[ModelName]` classes.
-        *   Public interfaces (`I[ModelName]`) for the models.
-        *   Extension methods for mutation (`.Save()`, `.Mutate()`, etc.).
-    *   This is distinct from `DataLinq.Tools.ModelGenerator` which is used by the CLI for scaffolding abstract models *from* a database schema.
-*   **Caching:**
+    *   Generates: Concrete `Immutable[ModelName]` classes, `Mutable[ModelName]` classes, public interfaces (`I[ModelName]`), and extension methods.
+*   **Caching & Event Handling:**
     *   Multi-layered: `RowCache` (PK -> Instance), `IndexCache` (FK -> PKs), `ImmutableRelation` object cache.
-    *   "Primary Key First" query strategy: Fetch PKs, check cache, then fetch full rows for misses.
-    *   Relation loading also uses a layered cache approach.
-    *   Configurable cache limits and cleanup via attributes and background worker.
-    *   Cache history and snapshotting for diagnostics.
-*   **LINQ Provider:** Uses `Remotion.Linq` as a base for translating LINQ queries into SQL.
-*   **Database Providers:** Modular design to support different databases (currently MySQL, SQLite). Each provider handles SQL dialect specifics, metadata reading, and data access.
-*   **CLI Tool (`DataLinq.CLI`):** Provides commands for:
-    *   `create-models`: Generates abstract model files from a database schema (uses `DataLinq.Tools.ModelGenerator`).
-    *   `create-sql`: Generates SQL schema from model definitions (uses `DataLinq.Tools.SqlGenerator`).
-    *   `create-database`: Creates a database from model definitions (uses `DataLinq.Tools.DatabaseCreator`).
-    *   `list`: Lists configured databases.
-*   **Configuration:** Uses `datalinq.json` (primary) and `datalinq.user.json` (optional overrides) for database connections and model generation settings.
+    *   **`WeakEventManager` (`DataLinq.Utils.WeakEventManager`):** Used by `TableCache.RowChanged` to prevent memory leaks by holding weak references to subscribers (e.g., `ImmutableRelation`, `ImmutableForeignKey` instances), allowing them to be garbage collected. This was a key fix in v0.5.3.
+    *   "Primary Key First" query strategy. Relation loading also uses a layered cache approach.
+    *   Configurable cache limits and cleanup. Cache history and snapshotting.
+*   **LINQ Provider (`DataLinq.Linq`):** Uses `Remotion.Linq` as a base. Contains custom visitors (`WhereVisitor`, `OrderByVisitor`) to translate LINQ expression trees into `SqlQuery` objects.
+    *   Recent work (v0.5.3) significantly improved handling of complex boolean logic (`AND`/`OR` precedence, grouping with `NOT`), `Contains()` and `Any()` with empty lists or complex predicates (including those with `Convert` nodes), and correct SQL parentheses generation.
+*   **Database Providers:** Modular design (MySQL, SQLite). Each provider handles SQL dialect specifics, metadata reading, and data access.
+*   **CLI Tool (`DataLinq.CLI`):** Provides commands for scaffolding abstract models, generating SQL schema, creating databases, and listing configurations.
+*   **Configuration:** Uses `datalinq.json` and `datalinq.user.json`.
 
 ### 1.3. Coding Styles & Libraries
-*   **Language:** Modern C# (currently targeting .NET 8 & .NET 9, with the generator itself on `netstandard2.0`).
-*   **Nullable Reference Types:** Enabled and actively being managed (CS8618 warnings are a known point).
-*   **Error Handling:** Uses a custom `Option<TSuccess, TFailure>` pattern (implemented via `ThrowAway.Option`) with `DLOptionFailure` and `DLOptionFailureException` for many internal operations, particularly in factories.
-*   **Key NuGet Dependencies:**
-    *   `Microsoft.CodeAnalysis.CSharp` (for Roslyn APIs in generator and syntax parsing tests).
-    *   `Remotion.Linq` (for LINQ query parsing).
-    *   `ThrowAway` (for the `Option` type).
-    *   `MySqlConnector`, `Microsoft.Data.Sqlite` (for DB providers).
-    *   `CommandLineParser` (for CLI).
-    *   `Bogus` (for test data generation).
-    *   `xUnit` (for testing).
-    *   `SourceGenerator.Foundations` (used for its `SGF.IncrementalGenerator` base class, simplifying generator setup, and for development-time generator execution/debugging features. A known issue exists with Rider and `SourceGenerator.Foundations.Contracts`).
+*   **Language:** Modern C# (.NET 9 for runtime, `netstandard2.0` for generator).
+*   **Nullable Reference Types:** Enabled.
+*   **Error Handling:** `Option<TSuccess, TFailure>` (`ThrowAway.Option`) with `DLOptionFailure`.
+*   **Key NuGet Dependencies:** `Microsoft.CodeAnalysis.CSharp`, `Remotion.Linq`, `ThrowAway`, DB connectors, `CommandLineParser`, `Bogus`, `xUnit`, `SourceGenerator.Foundations`.
 
 ## 2. Project Structure & Build Learnings
 
-### 2.1. Current Structure
-*   **`DataLinq.SharedCore` (directory):** Contains core data structures (metadata classes like `DatabaseDefinition`, `TableDefinition`, `ColumnDefinition`, `ModelDefinition`, attributes, `DLOptionFailure`, interfaces like `IModelInstance`). Its `.cs` source files are *directly linked* into `DataLinq.csproj` (for `DataLinq.dll`) and `DataLinq.Generators.csproj` (for `DataLinq.Generators.dll`) during compilation.
-*   **`DataLinq.Generators` (.csproj):**
-    *   The C# Source Generator. Targets `netstandard2.0`.
-    *   Compiles linked files from `DataLinq.SharedCore`.
-    *   Depends on `Microsoft.CodeAnalysis.CSharp`, `ThrowAway`, and `SourceGenerator.Foundations`.
-*   **`DataLinq` (.csproj):**
-    *   The main runtime ORM library. Targets `.NET 8` & `.NET 9`.
-    *   Compiles linked files from `DataLinq.SharedCore`.
-    *   References `DataLinq.Generators` as an `OutputItemType="Analyzer"`.
-    *   Responsible for NuGet packaging:
-        *   `DataLinq.dll` (containing runtime logic + Core types) goes into `lib/netX.Y/`.
-        *   `DataLinq.Generators.dll` and its direct runtime dependencies (e.g., `ThrowAway.dll`, `SourceGenerator.Foundations.Contracts.dll`) go into `analyzers/dotnet/cs/`.
-*   **`DataLinq.MySql` / `DataLinq.SQLite` (.csproj):** Database provider implementations. Depend on `DataLinq`.
-*   **`DataLinq.CLI` (.csproj):** Command-line tool. Depends on `DataLinq.Tools`.
-*   **`DataLinq.Tools` (.csproj):** Contains helper logic for the CLI, such as classes for generating abstract models from a database schema (`ModelGenerator`), generating SQL DDL from metadata (`SqlGenerator`), and creating databases (`DatabaseCreator`). Depends on DB providers and `DataLinq` (for core types).
-*   **Test Projects:**
-    *   `DataLinq.Tests`: Runtime and integration tests.
-    *   `DataLinq.Generators.Tests`: Tests for the source generator logic.
-    *   `DataLinq.Tests.Models`: Contains the developer-defined abstract model classes (e.g., for `EmployeesDb`, `AllroundBenchmark`) that serve as the "source of truth" for schema definitions used in testing and benchmarking.
-    *   `DataLinq.Benchmark`: Performance benchmarks.
+### 2.1. Current Structure (Summary - see v0.5.2 notes for more detail if needed)
+*   `DataLinq.SharedCore` (linked sources) for common types.
+*   `DataLinq.Generators` (Source Generator, `netstandard2.0`).
+*   `DataLinq` (Main ORM runtime, .NET 8/9, packages generator & its deps in `analyzers/`).
+*   DB Providers (`DataLinq.MySql`, `DataLinq.SQLite`).
+*   `DataLinq.Tools`, `DataLinq.CLI`.
+*   Test Projects (`DataLinq.Tests`, `DataLinq.Generators.Tests`, `DataLinq.Tests.Models`, `DataLinq.Benchmark`).
 
-### 2.2. Build/Packaging Pain Points & Solutions Explored
-*   **Goal:** Single `DataLinq` NuGet package containing the runtime library, the source generator, and all necessary dependencies for both, without listing internal components as separate NuGet dependencies.
-*   **VS Design-Time Generator Failures (`MissingMethodException`, `FileNotFoundException` for generator dependencies):**
-    *   **Cause:** Visual Studio's host for generators can have different assembly loading behavior/paths than `dotnet build`. Dependencies of the generator might not be found if not explicitly made available.
-    *   **Current Strategy:** Link Core source files into `DataLinq.Generators` and `DataLinq`. Ensure `DataLinq.Generators.csproj` has direct `PackageReference`s for libraries its compiled code needs (e.g., `ThrowAway`, `SourceGenerator.Foundations.Contracts`). The `DataLinq.csproj` packaging target then copies these generator dependencies into the `analyzers/dotnet/cs/` folder of the NuGet package.
-    *   The `GetDependencyTargetPaths` target in `DataLinq.Generators.csproj` (using `@(RuntimeCopyLocalItems)`) aims to declare these dependencies as essential outputs for the VS host.
-*   **Solution for `DataLinq.Core.dll`:** Linking Core source files directly into `DataLinq.dll` resolved the runtime `FileNotFoundException` for a separate `DataLinq.Core.dll` by eliminating it for the consumer.
-*   **Runtime `FileNotFoundException` for `ThrowAway.dll` in Consuming Applications (e.g., `VagFasWebb`):** If `DataLinq.dll` (which now includes Core code using `ThrowAway`) causes a `FileNotFoundException` for `ThrowAway.dll` at runtime in a consuming app, it implies that `ThrowAway.dll` was not copied to the consumer's output directory. This typically *should* happen if `DataLinq.csproj` correctly references `ThrowAway` as a runtime dependency (i.e., `PackageReference` without `PrivateAssets="All"`).
-*   **Assembly Version Conflicts (MSB3243 Warnings):**
-    *   **Cause:** `DataLinq.dll` (targeting net8/9) and `DataLinq.Generators.dll` (targeting netstandard2.0, which has older baseline System.* libs) might resolve different versions of common NuGet packages like `System.Buffers`.
-    *   **Strategy:** Explicitly reference the desired (usually newer) versions of these conflicting packages in `DataLinq.Generators.csproj` to force alignment.
-*   **Internal MSBuild Errors with Shared Projects:**
-    *   **Previously:** Interactions between shared projects, cross-targeting main libraries, and analyzer/generator references caused issues.
-    *   **Current Strategy:** Moved away from `.shproj` to direct source file linking to avoid these MSBuild internal issues.
+### 2.2. Build/Packaging Learnings (Summary - see v0.5.2 notes for historical context)
+*   Single `DataLinq` NuGet package bundling runtime, generator, and dependencies remains the goal.
+*   Source file linking from `SharedCore` used instead of `.shproj`.
+*   Generator dependencies are explicitly packaged into `analyzers/dotnet/cs/`.
 
-## 3. Current Issues & Focus Areas
+## 3. Current Status & Focus Areas (Post v0.5.3)
 
-### 3.1. Outstanding Build/Runtime Issues (as of last discussion)
-*   **CS0433 Type Ambiguity in `DataLinq.Tests`:** After linking Core files into both `DataLinq.Generators` and `DataLinq`, the `DataLinq.Tests` project (which references both `DataLinq.dll` for runtime testing and `DataLinq.Generators.dll` as an analyzer) sees types like `IDatabaseModel` defined in two places.
-    *   **Solution Being Implemented:** Ensure the `ProjectReference` to `DataLinq.Generators` in `DataLinq.Tests.csproj` has `OutputItemType="Analyzer"` and `ReferenceOutputAssembly="false"`. This should make the test project compile against types from `DataLinq.dll` primarily.
-*   **Rider & `SourceGenerator.Foundations.Contracts`:** A known issue exists where JetBrains Rider might have trouble resolving or using `SourceGenerator.Foundations.Contracts.dll` when it's part of an analyzer package, impacting the developer experience in that IDE.
+### 3.1. Key Fixes in v0.5.3
+*   **Memory Leak with Event Handlers:** Resolved by implementing and integrating `DataLinq.Utils.WeakEventManager` for `TableCache.RowChanged`. This ensures `ImmutableRelation` and `ImmutableForeignKey` instances can be garbage collected.
+*   **`WeakEventManager` Performance:** Optimized the `AddEventHandlerDetail` in `WeakEventManager` by switching from `List<Subscription>` linear scan to `HashSet<Subscription>` for O(1) average time duplicate checks and additions.
+*   **LINQ Query Translation Robustness:**
+    *   Corrected boolean operator precedence (`AND`/`OR`) in complex `WHERE` clauses, especially with negations and nested groups.
+    *   Improved SQL parentheses generation for clarity and correctness.
+    *   Added support for `Contains()` and `Any()` (with/without predicates) on empty lists, generating appropriate `1=0` or `1=1` SQL.
+    *   Enhanced `Any(predicate)` to handle `Convert` nodes within the predicate (e.g., `list.Any(id == e.NullableInt.Value)`).
+    *   Fixed bug where `WHERE` conditions on joined tables could incorrectly merge into the `JOIN ON` clause; ensured they correctly form a separate `WHERE` clause. (Involves `Join<T>.On(Action<...>)` returning `SqlQuery<T>`).
+*   **Test Stability:** Refactored several "flaky" tests (especially in `BooleanLogicTests` and `EmptyListTests`) to use smaller, controlled data subsets instead of relying on entire table states, making them more robust against parallel execution interference.
 
-### 3.2. Code Implementation Focus
-*   **Equality (`Equals`/`GetHashCode`):**
-    *   Implemented PK-based equality for `Immutable<T, M>`.
-    *   Implemented hybrid equality for `Mutable<T>` (TransientId for new, PK for saved).
-    *   Removed `operator ==`/`!=` from base generic classes to resolve ambiguity, now requiring `.Equals()` or `is null`. Testing this impact.
-*   **Nullable Reference Type Warnings (CS8618):** Many metadata classes have non-nullable properties not initialized in constructors due to multi-phase/circular setup.
-    *   **Strategy:** Evaluate using `null!`, nullable properties (`Type?`), or backing fields with runtime checks for internal setters.
+### 3.2. Current Code Health
+*   The core LINQ translation logic in `WhereVisitor` is now significantly more robust.
+*   The `WeakEventManager` is more performant and thread-safe.
+*   Equality comparison for `Immutable<T,M>` and `Mutable<T>` (PK-based for saved, TransientId for new) is established.
 
-### 3.3. Testing Focus
-*   Extensive tests for metadata parsing (`MetadataFactory`, `SyntaxParser`, `MetadataFromTypeFactory`, DB-specific factories).
-*   Comprehensive equality tests for `Immutable` and `Mutable` instances, especially around collection behavior and state transitions (new -> saved).
+### 3.3. Known Minor Issues / Next Considerations
+*   **Nullable Reference Type Warnings (CS8618):** Still present in some metadata classes due to multi-phase initialization. Strategy remains to evaluate `null!`, nullable properties, or runtime checks.
+*   **Full LINQ Support Documentation:** Needs to be created/updated to reflect all supported and unsupported LINQ operations.
+*   **Remaining LINQ Operators:** Consider expanding support for more LINQ methods (e.g., `GroupBy`, `Select` projections to different types, more aggregate functions, more `string` methods, `DateTime` properties).
+*   **Test Coverage for `WeakEventManager` Concurrency:** While basic concurrency tests exist, more rigorous stress testing could be beneficial if further issues arise.
+*   **Performance Benchmarking:** Now that core stability is better, more comprehensive write and complex query benchmarks can be developed.
+*   **SQLite Isolation in Tests:** The issue where SQLite (with `Cache=Shared` or WAL) might show uncommitted data to `ReadOnlyAccess` (seen in `InsertRelations` test before conditional `OnRowChanged`) is a characteristic of SQLite's setup. Tests should be mindful of this if strict transactional visibility is asserted. The conditional `OnRowChanged` (only firing globally on final commit) mitigates this for external observers.
 
 ## 4. AI Assistant Learnings & Preferences
 
-*   **Mermaid Diagrams:**
-    *   Current environment (Mermaid.live or similar) does not support `%%` comments or trailing semicolons in `classDef`/`style` lines.
-    *   Applying styles to multiple nodes with `&` (e.g., `A & B ::: MyStyle`) is not reliably supported; apply styles individually.
-    *   Avoid complex HTML or C# code snippets with quotes directly inside node labels; simplify or explain externally.
-    *   Numbering nodes (e.g., "1. My Node") can also cause parsing issues.
-*   **Project Structure:** Understands the goal of a single primary NuGet package (`DataLinq`) that bundles the runtime, core types, and the source generator with its dependencies.
-*   **Problem-Solving Approach:** Iterative; likes to see failing tests first, then apply fixes. Prefers cleaner solutions but understands pragmatic workarounds when facing toolchain issues.
+*   **Mermaid Diagram Quirks:** Understands limitations with comments, `&` styling, complex labels.
+*   **SQL Generation Preference:** For `WHERE` clauses involving multiple top-level `AND`/`OR` groups, the preference is for the SQL to be `(GROUP A) OR (GROUP B)` rather than `WHERE ((GROUP A) OR (GROUP B))` if the outer parentheses are redundant (i.e., the `WHERE` group is not negated). This was achieved by refining parenthesis logic in `WhereGroup.AddCommandString`.
+*   **Test Debugging:** Good at tracing LINQ expression visitor logic and correlating it with generated SQL.
+*   **Refactoring:** Receptive to refactoring suggestions for clarity and correctness (e.g., `GetComparisonDetails` struct, `Join.On(Action<...>)` pattern).
 
-## 5. Future Ideas & Considerations (From AI or User)
-
-*   **Database Migrations:** A significant missing piece for real-world application lifecycles.
-*   **Full LINQ Support Documentation:** Critical for users.
-*   **Write Performance Benchmarks:** To compare with other ORMs.
-*   **Advanced Caching Strategies:** Explore query caching, distributed caching considerations.
-*   **Tooling:** Potential for VS extensions or improved CLI diagnostics.
-*   **Non-Relational Backend Support:** A long-term architectural consideration.
-*   **(From AI):** Investigate using a custom MSBuild SDK for the `DataLinq` project to further encapsulate and simplify the complex packaging and dependency logic for the runtime + analyzer bundle.
-*   **(From AI - Needs Update):** Resolve any outstanding integration issues with `SourceGenerator.Foundations` (e.g., the Rider/Contracts issue) to ensure smooth development experience across all IDEs.
+## 5. Future Ideas & Long-Term
+*   Database Migrations.
+*   Advanced Caching (Query Caching, Distributed).
+*   Tooling (VS Extensions, enhanced CLI).
+*   Non-Relational Backends.
