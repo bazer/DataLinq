@@ -54,34 +54,20 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)
     {
-        foreach (var tableName in options.Tables?.Concat(options.Views ?? []) ?? [])
+        foreach (var tableName in options.Include ?? [])
         {
             if (!tableModels.Any(x => tableName.Equals(x.Table.DbName, StringComparison.OrdinalIgnoreCase)))
                 yield return tableName;
         }
     }
-
     private bool IsTableOrViewInOptionsList(TableModel tableModel)
     {
-        string dbName = tableModel.Table.DbName;
+        // If the Include list is null or empty, always include the item.
+        if (options.Include == null || !options.Include.Any())
+            return true;
 
-        if (tableModel.Table.Type == TableType.Table)
-        {
-            // Include a table if the 'Tables' filter is not active (is null),
-            // OR if the filter is active and contains the table's name.
-            return options.Tables == null ||
-                   options.Tables.Any(x => x.Equals(dbName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (tableModel.Table.Type == TableType.View)
-        {
-            // Include a view if the 'Views' filter is not active (is null),
-            // OR if the filter is active and contains the view's name.
-            return options.Views == null ||
-                   options.Views.Any(x => x.Equals(dbName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        return false; // Should not be reached
+        // Otherwise, the table/view name must exist in the Include list.
+        return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
     }
 
     private void ParseIndices(DatabaseDefinition database, SQLiteDatabaseTransaction dbAccess)

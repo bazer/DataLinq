@@ -15,8 +15,7 @@ public record ConfigFileDatabase
     public string? Namespace { get; set; }
     public List<string>? SourceDirectories { get; set; }
     public string? DestinationDirectory { get; set; }
-    public List<string>? Tables { get; set; }
-    public List<string>? Views { get; set; }
+    public List<string>? Include { get; set; }
     public bool? UseRecord { get; set; }
     public bool? UseFileScopedNamespaces { get; set; }
     public bool? UseNullableReferenceTypes { get; set; }

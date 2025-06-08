@@ -36,11 +36,8 @@ Each entry in the **Databases** array represents a database and includes the fol
 - **DestinationDirectory** (string, *optional*):  
   The output directory for generated model files.
 
-- **Tables** (array of strings, *optional*):  
-  A filter list specifying which tables to include when generating models.
-
-- **Views** (array of strings, *optional*):  
-  Similar to `Tables`, but for database views.
+- **Include** (array of strings, *optional*):  
+  A filter list specifying which tables and views to include when generating models. If this list is omitted or left empty, DataLinq will include all tables and views found in the database schema.
 
 - **UseRecord** (boolean, *optional*):  
   Determines whether generated models should use C# record types. Defaults to `false`.
@@ -109,8 +106,7 @@ Below is a simplified example of a `datalinq.json` file:
       "Namespace": "MyApp.Models",
       "SourceDirectories": [ "Models/Source" ],
       "DestinationDirectory": "Models/Generated",
-      "Tables": [ "Users", "Orders" ],
-      "Views": [ "ActiveUsers" ],
+      "Include": [ "Users", "Orders", "ActiveUsers" ], // To include all tables and views, just omit "Include" entirely or leave the array empty.
       "UseRecord": true,
       "UseFileScopedNamespaces": false,
       "UseNullableReferenceTypes": true,

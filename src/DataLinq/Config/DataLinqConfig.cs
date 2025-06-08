@@ -137,8 +137,7 @@ public record DataLinqDatabaseConfig
     public string Namespace { get; private set; }
     public List<string> SourceDirectories { get; private set; }
     public string? DestinationDirectory { get; private set; }
-    public List<string> Tables { get; private set; }
-    public List<string> Views { get; private set; }
+    public List<string> Include { get; private set; }
     //public bool UseCache { get; }
     public bool UseRecord { get; private set; }
     public bool UseFileScopedNamespaces { get; private set; }
@@ -157,8 +156,7 @@ public record DataLinqDatabaseConfig
         Namespace = database.Namespace ?? "Models";
         SourceDirectories = database.SourceDirectories ?? new List<string>();
         DestinationDirectory = database.DestinationDirectory;
-        Tables = database.Tables ?? new List<string>();
-        Views = database.Views ?? new List<string>();
+        Include = database.Include ?? new List<string>();
         UseRecord = database.UseRecord ?? false;
         UseFileScopedNamespaces = database.UseFileScopedNamespaces ?? false;
         UseNullableReferenceTypes = database.UseNullableReferenceTypes ?? false;
@@ -186,11 +184,8 @@ public record DataLinqDatabaseConfig
         if (database.DestinationDirectory != null)
             DestinationDirectory = database.DestinationDirectory;
 
-        if (database.Tables != null)
-            Tables = database.Tables;
-
-        if (database.Views != null)
-            Views = database.Views;
+        if (database.Include != null)
+            Include = database.Include;
 
         if (database.UseRecord != null)
             UseRecord = database.UseRecord.Value;

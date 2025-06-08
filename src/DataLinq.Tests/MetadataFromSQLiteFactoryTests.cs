@@ -114,7 +114,7 @@ namespace DataLinq.Tests
         public void TestParseTable_SpecificTable_SQLite()
         {
             // Arrange
-            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["departments"], Views = [] };
+            var options = new MetadataFromDatabaseFactoryOptions { Include = ["departments"] };
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);
@@ -270,7 +270,7 @@ namespace DataLinq.Tests
         public void TestTableFiltering_SQLite_TablesOnly()
         {
             // Arrange
-            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["employees", "salaries"], Views = [] };
+            var options = new MetadataFromDatabaseFactoryOptions { Include = ["employees", "salaries"] };
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);
@@ -286,7 +286,7 @@ namespace DataLinq.Tests
         public void TestTableFiltering_SQLite_ViewsOnly()
         {
             // Arrange
-            var options = new MetadataFromDatabaseFactoryOptions { Views = ["current_dept_emp"], Tables = [] };
+            var options = new MetadataFromDatabaseFactoryOptions { Include = ["current_dept_emp"] };
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);

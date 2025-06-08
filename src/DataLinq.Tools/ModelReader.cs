@@ -55,8 +55,7 @@ public class ModelReader : Generator
         {
             CapitaliseNames = true,
             DeclareEnumsInClass = true,
-            Tables = db.Tables,
-            Views = db.Views,
+            Include = db.Include
         };
 
         foreach (var connection in db.Connections)

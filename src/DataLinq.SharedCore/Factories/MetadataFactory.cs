@@ -13,8 +13,7 @@ public struct MetadataFromDatabaseFactoryOptions
 {
     public bool CapitaliseNames { get; set; } = false;
     public bool DeclareEnumsInClass { get; set; } = false;
-    public List<string>? Tables { get; set; }
-    public List<string>? Views { get; set; }
+    public List<string>? Include { get; set; }
 
     public MetadataFromDatabaseFactoryOptions()
     {

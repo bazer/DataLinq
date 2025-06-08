@@ -89,7 +89,7 @@ namespace DataLinq.Tests
         {
             // Arrange
             // Use filtering options to parse only the 'departments' table
-            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["departments"], Views = [] };
+            var options = new MetadataFromDatabaseFactoryOptions { Include = ["departments"] };
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);
@@ -240,7 +240,7 @@ namespace DataLinq.Tests
         public void TestTableFiltering_MySql_TablesOnly()
         {
             // Arrange
-            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["employees", "salaries"], Views = [] }; // Only these two tables
+            var options = new MetadataFromDatabaseFactoryOptions { Include = ["employees", "salaries"] }; // Only these two tables
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);
@@ -256,7 +256,7 @@ namespace DataLinq.Tests
         public void TestTableFiltering_MySql_ViewsOnly()
         {
             // Arrange
-            var options = new MetadataFromDatabaseFactoryOptions { Views = ["current_dept_emp"], Tables = [] }; // Only this view
+            var options = new MetadataFromDatabaseFactoryOptions { Include = ["current_dept_emp"] }; // Only this view
 
             // Act
             var dbDefinition = ParseEmployeesDb(options);
@@ -273,8 +273,7 @@ namespace DataLinq.Tests
             // Arrange
             var options = new MetadataFromDatabaseFactoryOptions
             {
-                Tables = ["departments"],
-                Views = ["dept_emp_latest_date"]
+                Include = ["departments", "dept_emp_latest_date"],
             };
 
             // Act
@@ -290,7 +289,7 @@ namespace DataLinq.Tests
         public void TestTableFiltering_MySql_MissingTable()
         {
             // Arrange
-            var options = new MetadataFromDatabaseFactoryOptions { Tables = ["non_existent_table"] };
+            var options = new MetadataFromDatabaseFactoryOptions { Include = ["non_existent_table"] };
             var factory = new MetadataFromMySqlFactory(options);
 
             // Act

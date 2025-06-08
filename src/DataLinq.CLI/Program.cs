@@ -150,8 +150,7 @@ static class Program
                     OverwriteExistingModels = true,
                     ReadSourceModels = !options.SkipSource,
                     CapitalizeNames = db.CapitalizeNames,
-                    Tables = db.Tables,
-                    Views = db.Views
+                    Tables = db.Include
                 });
 
                 var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);

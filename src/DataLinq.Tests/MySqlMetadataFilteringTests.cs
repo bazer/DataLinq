@@ -87,22 +87,45 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
     }
 
     [Fact]
-    public void Filtering_NoFilter_ReturnsAll()
+    public void Filtering_NullIncludeList_ReturnsAllItems()
     {
+        // Arrange: options.Include is null by default
         var options = new MetadataFromDatabaseFactoryOptions();
+
+        // Act
         var dbDefinition = ParseSchema(options);
 
+        // Assert
         Assert.Equal(4, dbDefinition.TableModels.Length); // 2 tables + 2 views
         Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "table1");
         Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "view1");
     }
 
     [Fact]
-    public void Filtering_TablesOnly_ReturnsOnlySpecifiedTables()
+    public void Filtering_EmptyIncludeList_ReturnsAllItems()
     {
-        var options = new MetadataFromDatabaseFactoryOptions { Tables = ["table1"], Views = [] };
+        // Arrange: An explicitly empty list should also mean "include all"
+        var options = new MetadataFromDatabaseFactoryOptions { Include = [] };
+
+        // Act
         var dbDefinition = ParseSchema(options);
 
+        // Assert
+        Assert.Equal(4, dbDefinition.TableModels.Length);
+        Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "table2");
+        Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "view2");
+    }
+
+    [Fact]
+    public void Filtering_IncludeListWithOneTable_ReturnsOnlyThatTable()
+    {
+        // Arrange
+        var options = new MetadataFromDatabaseFactoryOptions { Include = ["table1"] };
+
+        // Act
+        var dbDefinition = ParseSchema(options);
+
+        // Assert
         Assert.Single(dbDefinition.TableModels);
         var tableModel = dbDefinition.TableModels[0];
         Assert.Equal("table1", tableModel.Table.DbName);
@@ -110,11 +133,15 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
     }
 
     [Fact]
-    public void Filtering_ViewsOnly_ReturnsOnlySpecifiedViews()
+    public void Filtering_IncludeListWithOneView_ReturnsOnlyThatView()
     {
-        var options = new MetadataFromDatabaseFactoryOptions { Views = ["view2"], Tables = [] };
+        // Arrange
+        var options = new MetadataFromDatabaseFactoryOptions { Include = ["view2"] };
+
+        // Act
         var dbDefinition = ParseSchema(options);
 
+        // Assert
         Assert.Single(dbDefinition.TableModels);
         var tableModel = dbDefinition.TableModels[0];
         Assert.Equal("view2", tableModel.Table.DbName);
@@ -122,39 +149,30 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
     }
 
     [Fact]
-    public void Filtering_EmptyTableList_ReturnsNoTablesButAllViews()
+    public void Filtering_IncludeListWithSpecificTablesAndViews_ReturnsOnlyThose()
     {
-        // Here, Views is null, which means "all views". Tables is empty, meaning "zero tables".
-        var options = new MetadataFromDatabaseFactoryOptions { Tables = [], Views = null };
+        // Arrange
+        var options = new MetadataFromDatabaseFactoryOptions { Include = ["table2", "view1"] };
+
+        // Act
         var dbDefinition = ParseSchema(options);
 
-        Assert.Equal(2, dbDefinition.TableModels.Length);
-        Assert.DoesNotContain(dbDefinition.TableModels, tm => tm.Table.Type == TableType.Table);
-        Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "view1");
-        Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "view2");
-    }
-
-    [Fact]
-    public void Filtering_EmptyViewList_ReturnsNoViewsButAllTables()
-    {
-        // Here, Tables is null, meaning "all tables". Views is empty, meaning "zero views".
-        var options = new MetadataFromDatabaseFactoryOptions { Tables = null, Views = [] };
-        var dbDefinition = ParseSchema(options);
-
-        Assert.Equal(2, dbDefinition.TableModels.Length);
-        Assert.DoesNotContain(dbDefinition.TableModels, tm => tm.Table.Type == TableType.View);
-        Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "table1");
-        Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "table2");
-    }
-
-    [Fact]
-    public void Filtering_SpecificTablesAndViews()
-    {
-        var options = new MetadataFromDatabaseFactoryOptions { Tables = ["table2"], Views = ["view1"] };
-        var dbDefinition = ParseSchema(options);
-
+        // Assert
         Assert.Equal(2, dbDefinition.TableModels.Length);
         Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "table2" && tm.Table.Type == TableType.Table);
         Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "view1" && tm.Table.Type == TableType.View);
+    }
+
+    [Fact]
+    public void Filtering_IncludeListWithNonExistentItem_ReturnsNothing()
+    {
+        // Arrange
+        var options = new MetadataFromDatabaseFactoryOptions { Include = ["non_existent_table"] };
+
+        // Act
+        var dbDefinition = ParseSchema(options);
+
+        // Assert
+        Assert.Empty(dbDefinition.TableModels);
     }
 }
