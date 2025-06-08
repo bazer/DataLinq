@@ -65,13 +65,25 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
 
     private bool IsTableOrViewInOptionsList(TableModel tableModel)
     {
-        if (tableModel.Table.Type == TableType.View && options.Views != null && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
-            return false;
+        string dbName = tableModel.Table.DbName;
 
-        if (tableModel.Table.Type == TableType.Table && options.Tables != null && !options.Tables.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
-            return false;
+        if (tableModel.Table.Type == TableType.Table)
+        {
+            // Include a table if the 'Tables' filter is not active (is null),
+            // OR if the filter is active and contains the table's name.
+            return options.Tables == null ||
+                   options.Tables.Any(x => x.Equals(dbName, StringComparison.OrdinalIgnoreCase));
+        }
 
-        return true;
+        if (tableModel.Table.Type == TableType.View)
+        {
+            // Include a view if the 'Views' filter is not active (is null),
+            // OR if the filter is active and contains the view's name.
+            return options.Views == null ||
+                   options.Views.Any(x => x.Equals(dbName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return false; // Should not be reached
     }
 
     private void ParseIndices(DatabaseDefinition database, information_schema information_Schema)
@@ -213,7 +225,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         column.SetAutoIncrement(dbColumns.EXTRA.Contains("auto_increment"));
         column.AddDbType(dbType);
 
-        var csType = ParseCsType(dbType.Name);
+        var csType = ParseCsType(dbType);
         var valueProp = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
 
         if (csType == "enum")
@@ -273,36 +285,64 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
         .Split("','")
         .Select((x, i) => (x, i + 1));
 
-    private string ParseCsType(string dbType)
+    private string ParseCsType(DatabaseColumnType dbType)
     {
-        return dbType.ToLower() switch
+        // Use a switch on the lowercased DB type name
+        switch (dbType.Name.ToLower())
         {
-            "int" => "int",
-            "tinyint" => "int",
-            "mediumint" => "int",
-            "varchar" => "string",
-            "text" => "string",
-            "mediumtext" => "string",
-            "bit" => "bool",
-            "double" => "double",
-            "datetime" => "DateTime",
-            "timestamp" => "DateTime",
-            "year" => "int",
-            "date" => "DateOnly",
-            "time" => "TimeOnly",
-            "float" => "float",
-            "bigint" => "long",
-            "char" => "string",
-            "binary" => "Guid",
-            "enum" => "enum",
-            "longtext" => "string",
-            "decimal" => "decimal",
-            "blob" => "byte[]",
-            "tinyblob" => "byte[]",
-            "mediumblob" => "byte[]",
-            "longblob" => "byte[]",
-            "smallint" => "int",
-            _ => throw new NotImplementedException($"Unknown type '{dbType}'"),
-        };
+            case "int":
+                return (dbType.Signed == false) ? "uint" : "int";
+            case "tinyint":
+                return (dbType.Signed == false) ? "byte" : "sbyte"; // Use byte for unsigned, sbyte for signed
+            case "smallint":
+                return (dbType.Signed == false) ? "ushort" : "short";
+            case "mediumint":
+                return (dbType.Signed == false) ? "uint" : "int"; // No direct ushort equivalent, maps to uint/int
+            case "bigint":
+                return (dbType.Signed == false) ? "ulong" : "long";
+
+            case "bit":
+                return "bool";
+            case "double":
+                return "double";
+            case "float":
+                return "float";
+            case "decimal":
+                return "decimal";
+
+            case "varchar":
+            case "text":
+            case "mediumtext":
+            case "longtext":
+            case "char":
+                return "string";
+
+            case "datetime":
+            case "timestamp":
+                return "DateTime";
+            case "date":
+                return "DateOnly";
+            case "time":
+                return "TimeOnly";
+
+            case "year":
+                return "int";
+
+            case "binary":
+                return "Guid";
+
+            case "enum":
+                return "enum";
+
+            case "blob":
+            case "tinyblob":
+            case "mediumblob":
+            case "longblob":
+                return "byte[]";
+
+            default:
+                throw new NotImplementedException($"Unknown type '{dbType.Name}'");
+        }
+        ;
     }
 }

@@ -63,13 +63,25 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private bool IsTableOrViewInOptionsList(TableModel tableModel)
     {
-        if (tableModel.Table.Type == TableType.View && options.Views != null && !options.Views.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
-            return false;
+        string dbName = tableModel.Table.DbName;
 
-        if (tableModel.Table.Type == TableType.Table && options.Tables != null && !options.Tables.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase)))
-            return false;
+        if (tableModel.Table.Type == TableType.Table)
+        {
+            // Include a table if the 'Tables' filter is not active (is null),
+            // OR if the filter is active and contains the table's name.
+            return options.Tables == null ||
+                   options.Tables.Any(x => x.Equals(dbName, StringComparison.OrdinalIgnoreCase));
+        }
 
-        return true;
+        if (tableModel.Table.Type == TableType.View)
+        {
+            // Include a view if the 'Views' filter is not active (is null),
+            // OR if the filter is active and contains the view's name.
+            return options.Views == null ||
+                   options.Views.Any(x => x.Equals(dbName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return false; // Should not be reached
     }
 
     private void ParseIndices(DatabaseDefinition database, SQLiteDatabaseTransaction dbAccess)
