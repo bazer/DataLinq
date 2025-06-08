@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
+using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
@@ -81,17 +82,30 @@ public class MetadataFromModelsFactory
         if (dbType.Identifier.Text == null)
             return DLOptionFailure.Fail("Database model class must have a name");
 
-        var name = MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
-        var database = new DatabaseDefinition(name, new CsTypeDeclaration(dbType));
+        // Step 1: Parse attributes from the database class syntax first.
+        if (!dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x))
+            .Transpose()
+            .TryUnwrap(out var attributes, out var attrFailures))
+            return DLOptionFailure.AggregateFail(attrFailures);
+
+        // Step 2: Find the [Database] attribute to determine the logical name.
+        var dbAttribute = attributes.OfType<DatabaseAttribute>().FirstOrDefault();
+        // Use the attribute name if present, otherwise fall back to the C# class name.
+        var logicalName = dbAttribute?.Name ?? MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
+
+        // Step 3: Create the DatabaseDefinition with the correct logical name.
+        var database = new DatabaseDefinition(logicalName, new CsTypeDeclaration(dbType));
+        database.SetAttributes(attributes);
+        database.ParseAttributes(); // This will set the DbName, which might be the same as the logical name.
 
         if (!string.IsNullOrEmpty(dbType.SyntaxTree.FilePath))
             database.SetCsFile(new CsFileDeclaration(dbType.SyntaxTree.FilePath));
 
         var modelClasses = modelSyntaxes
-            .Where(x => 
-                ImplementsInterface(x, modelSyntaxes, x => x.Contains($"<{dbType.Identifier.Text}>")) && 
-                   (ImplementsInterface(x, modelSyntaxes, x => x.StartsWith("ITableModel")) || 
-                    ImplementsInterface(x, modelSyntaxes, x => x.StartsWith("IViewModel"))))
+            .Where(x =>
+                ImplementsInterface(x, modelSyntaxes, i => i.Contains($"<{dbType.Identifier.Text}>")) &&
+                   (ImplementsInterface(x, modelSyntaxes, i => i.StartsWith("ITableModel")) ||
+                    ImplementsInterface(x, modelSyntaxes, i => i.StartsWith("IViewModel"))))
             .ToList();
 
         if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
@@ -104,14 +118,6 @@ public class MetadataFromModelsFactory
             return DLOptionFailure.AggregateFail(modelFailures);
 
         database.SetTableModels(models);
-
-        if (!dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x))
-            .Transpose()
-            .TryUnwrap(out var attributes, out var attrFailures))
-            return DLOptionFailure.AggregateFail(attrFailures);
-
-        database.SetAttributes(attributes);
-        database.ParseAttributes();
 
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
