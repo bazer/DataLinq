@@ -200,7 +200,7 @@ public static class MetadataFactory
     public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {
         var name = capitaliseNames
-            ? column.DbName.FirstCharToUpper()
+            ? column.DbName.ToPascalCase()
             : column.DbName;
 
         var type = MetadataTypeConverter.GetType(csTypeName);
@@ -222,7 +222,7 @@ public static class MetadataFactory
 
         var property = new ValueProperty(name, csType, column.Table.Model, GetAttributes(column));
         property.SetCsSize(MetadataTypeConverter.CsTypeSize(csTypeName));
-        property.SetCsNullable(column.Nullable && MetadataTypeConverter.IsCsTypeNullable(csTypeName));
+        property.SetCsNullable(column.Nullable); // && MetadataTypeConverter.IsCsTypeNullable(csTypeName));
         //property.SetAttributes(GetAttributes(property));
         property.SetColumn(column);
 

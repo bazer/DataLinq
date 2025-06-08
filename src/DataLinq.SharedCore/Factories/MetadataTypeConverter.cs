@@ -29,9 +29,22 @@ public static class MetadataTypeConverter
         _ => null
     };
 
-    public static string GetKeywordName(Type type) => type.IsGenericType
-        ? GetFriendlyTypeName(type)
-        : GetKeywordName(type.Name);
+    public static string GetKeywordName(Type type)
+    {
+        // Special handling for array types
+        if (type.IsArray)
+        {
+            // Recursively get the C# keyword for the element type (e.g., System.Byte -> byte)
+            var elementTypeKeyword = GetKeywordName(type.GetElementType()!);
+            return $"{elementTypeKeyword}[]";
+        }
+
+        if (type.IsGenericType)
+            return GetFriendlyTypeName(type);
+
+        // Fallback to the string-based version for non-generic, non-array types
+        return GetKeywordName(type.Name);
+    }
 
     public static string GetKeywordName(string typeName) => typeName switch
     {

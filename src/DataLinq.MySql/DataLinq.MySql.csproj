@@ -22,6 +22,14 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Shared source files -->
+		<Compile Include="..\DataLinq.SharedCore\Extensions\**\*.cs">
+			<!-- Adjust path -->
+			<Link>Core\%(RecursiveDir)%(FileName)%(Extension)</Link>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
 	  <None Update="datalinq_mysql.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>

@@ -171,7 +171,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             : new ViewDefinition(dbTables.TABLE_NAME);
 
         var csName = options.CapitaliseNames
-            ? table.DbName.FirstCharToUpper()
+            ? table.DbName.ToPascalCase()
             : table.DbName;
 
         var tableModel = new TableModel(csName, database, table, csName);
@@ -311,6 +311,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
                 return "decimal";
 
             case "varchar":
+            case "tinytext":
             case "text":
             case "mediumtext":
             case "longtext":
@@ -334,6 +335,7 @@ public class MetadataFromMySqlFactory : IMetadataFromSqlFactory
             case "enum":
                 return "enum";
 
+            case "varbinary":
             case "blob":
             case "tinyblob":
             case "mediumblob":

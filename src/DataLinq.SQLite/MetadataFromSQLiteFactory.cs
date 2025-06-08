@@ -146,7 +146,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
              : new ViewDefinition(reader.GetString(2));
 
         var csName = options.CapitaliseNames
-            ? table.DbName.FirstCharToUpper()
+            ? table.DbName.ToPascalCase()
             : table.DbName;
 
         var tableModel = new TableModel(csName, database, table, csName);

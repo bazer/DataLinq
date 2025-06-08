@@ -21,4 +21,12 @@
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<!-- Shared source files -->
+		<Compile Include="..\DataLinq.SharedCore\Extensions\**\*.cs">
+			<!-- Adjust path -->
+			<Link>Core\%(RecursiveDir)%(FileName)%(Extension)</Link>
+		</Compile>
+	</ItemGroup>
+	
 </Project>
