@@ -118,8 +118,11 @@ public class MetadataTransformer
 
             // Only apply the type information from the source file IF:
             // 1. The overwrite option is OFF, OR
-            // 2. The source property is an ENUM (we always want to preserve enums).
-            if (!options.OverwritePropertyTypes || srcProperty.EnumProperty != null)
+            // 2. The source property is an ENUM (we always want to preserve enums), OR
+            // 3. The source property's C# type is NOT a simple, known type (i.e., it's a custom user type).
+            if (!options.OverwritePropertyTypes ||
+                srcProperty.EnumProperty != null ||
+                !MetadataTypeConverter.IsKnownCsType(srcProperty.CsType.Name))
             {
                 destProperty.SetCsType(srcProperty.CsType);
                 destProperty.SetCsNullable(srcProperty.CsNullable);

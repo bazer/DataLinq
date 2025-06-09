@@ -306,7 +306,33 @@ public class ModelFileFactory
 
     private string GetPropertyNullable(ColumnDefinition column)
     {
-        return (options.UseNullableReferenceTypes || column.ValueProperty.CsNullable) && (column.Nullable || column.AutoIncrement || column.ValueProperty.HasDefaultValue()) ? "?" : "";
+        // The C# property should be nullable if:
+        // 1. The database column itself is nullable.
+        // OR
+        // 2. The column is an auto-incrementing key.
+        // OR
+        // 3. The column has a default value (either from the DB or a [Default] attribute).
+        bool needsCSharpNullable =
+            column.Nullable ||
+            column.AutoIncrement ||
+            column.ValueProperty.HasDefaultValue();
+
+        if (!needsCSharpNullable)
+            return ""; // The property is definitely not nullable.
+
+        // At this point, we know the property MUST be nullable in C#.
+        // Now, we determine if we need to add a '?' to the type name.
+
+        // For value types (int, bool, etc.), we ALWAYS add '?' to make them nullable.
+        // We assume it's a value type if we don't have the full System.Type info.
+        bool isValueType = column.ValueProperty.CsType.Type?.IsValueType ?? true;
+
+        if (isValueType)
+            return "?"; // Generates: int?, bool?
+
+        // For reference types (string), they are inherently nullable. We only add the '?'
+        // if the project has enabled nullable reference types.
+        return options.UseNullableReferenceTypes ? "?" : "";
     }
 
     private IEnumerable<string> WriteEnum(ModelFileFactoryOptions options, ValueProperty property)
