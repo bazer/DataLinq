@@ -76,8 +76,8 @@ public struct ModelGeneratorOptions
     public bool CapitalizeNames { get; set; } = false;
     public bool DeclareEnumsInClass { get; set; } = false;
     public bool SeparateTablesAndViews { get; set; } = false;
-    public List<string> Tables { get; set; } = new List<string>();
-    public List<string> Views { get; set; } = new List<string>();
+    public List<string> Include { get; set; } = [];
+    public bool OverwritePropertyTypes { get; set; } = false;
 
     public ModelGeneratorOptions()
     {
@@ -101,7 +101,7 @@ public class ModelGenerator : Generator
         {
             CapitaliseNames = this.options.CapitalizeNames,
             DeclareEnumsInClass = this.options.DeclareEnumsInClass,
-            Include = this.options.Tables
+            Include = this.options.Include
         };
 
         if (connection.Type == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))
@@ -151,7 +151,11 @@ public class ModelGenerator : Generator
                 log($"Tables in source model files: {srcMetadata.TableModels.Length}");
                 log("");
 
-                var transformer = new MetadataTransformer(new MetadataTransformerOptions(db.RemoveInterfacePrefix));
+                var transformerOptions = new MetadataTransformerOptions(
+                    removeInterfacePrefix: db.RemoveInterfacePrefix,
+                    overwritePropertyTypes: this.options.OverwritePropertyTypes
+                );
+                var transformer = new MetadataTransformer(transformerOptions);
                 transformer.TransformDatabase(srcMetadata, dbMetadata);
             }
         }

@@ -45,19 +45,21 @@ namespace DataLinq.Tests.Core
             var db = new DatabaseDefinition(dbName, dbCsType);
             var model = new ModelDefinition(modelCsType);
             model.SetInterfaces([iTableModel]);
-            //var table = MetadataFactory.ParseTable(model).ValueOrException();
-            var tableModel = new TableModel(modelName + "s", db, model); // Default CS Property Name
-            var table = tableModel.Table;
-            table.SetDbName(tableDbName); // Explicit DB name
+
+            var table = new TableDefinition(tableDbName); // Create the table directly
+            var tableModel = new TableModel(modelName + "s", db, model, table); // Pass it to the constructor
 
             // Add basic columns matching DB schema
             var col1Vp = new ValueProperty("col1_db", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("col1_db"), new PrimaryKeyAttribute()]);
-            var col2Vp = new ValueProperty("col2_db", new CsTypeDeclaration(typeof(string)), model, [new ColumnAttribute("col2_db")]);
+            var col2Vp = new ValueProperty("col2_db", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("col2_db")]);
+            var col3Vp = new ValueProperty("status_db", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("status_db")]);
             model.AddProperty(col1Vp);
             model.AddProperty(col2Vp);
+            model.AddProperty(col3Vp);
             var col1 = MetadataFactory.ParseColumn(table, col1Vp);
             var col2 = MetadataFactory.ParseColumn(table, col2Vp);
-            table.SetColumns([col1, col2]);
+            var col3 = MetadataFactory.ParseColumn(table, col3Vp);
+            table.SetColumns([col1, col2, col3]);
             //col1Vp.Column.SetPrimaryKey(true);
 
             // Add a basic relation property stub (linking happens later)
@@ -85,8 +87,9 @@ namespace DataLinq.Tests.Core
             model.SetInterfaces([iTableModel]);
             model.SetAttributes([new TableAttribute(tableDbName), new InterfaceAttribute(interfaceName)]); // Link to table and interface
             model.SetModelInstanceInterface(modelInterfaceType); // Explicitly set the desired interface
-            var table = MetadataFactory.ParseTable(model).ValueOrException(); // Table gets DbName from attribute
-            var tableModel = new TableModel("MyModels", db, model); // Explicit CS Property Name
+
+            var table = MetadataFactory.ParseTable(model).Value; // Parse the table from model attributes ONCE
+            var tableModel = new TableModel("MyModels", db, model, table); // Pass the SAME instance to the TableModel
 
             // Add properties with intended C# names and attributes
             var col1Vp = new ValueProperty("Id", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("col1_db"), new PrimaryKeyAttribute()]);
@@ -96,7 +99,17 @@ namespace DataLinq.Tests.Core
             var col1 = MetadataFactory.ParseColumn(table, col1Vp);
             var col2 = MetadataFactory.ParseColumn(table, col2Vp);
 
-            table.SetColumns([col1, col2]);
+            // Add a status property that is an ENUM in the C# source
+            var enumCsType = new CsTypeDeclaration("MyStatusEnum", "SourceNamespace", ModelCsType.Enum);
+            var statusVp = new ValueProperty("Status", enumCsType, model, [new ColumnAttribute("status_db"), new EnumAttribute("Active", "Inactive")]);
+            statusVp.SetEnumProperty(new EnumProperty(
+                enumValues: new[] { ("Active", 1), ("Inactive", 2) },
+                csEnumValues: new[] { ("Active", 1), ("Inactive", 2) },
+                declaredInClass: false));
+            model.AddProperty(statusVp);
+            var statusCol = MetadataFactory.ParseColumn(table, statusVp);
+
+            table.SetColumns([col1, col2, statusCol]);
             //col1Vp.Column.SetPrimaryKey(true);
 
             // Order Table
@@ -250,6 +263,77 @@ namespace DataLinq.Tests.Core
             // Re-evaluate this test based on the exact implementation details of how
             // relation properties and their parts are merged/updated.
             // If the intent is just to apply the C# property name, this test might be less relevant.
+        }
+
+        // In src/DataLinq.Tests/Core/MetadataTransformerTests.cs
+
+        [Fact]
+        public void TransformDatabase_WithOverwriteTypesFalse_PreservesSourceType()
+        {
+            // Arrange
+            var srcDb = CreateSourceDatabase(); // Source defines the 'Name' property as a string
+            var destDb = CreateDestinationDatabase(); // Destination defines the corresponding column as an int
+
+            // Create the transformer with the default setting (overwrite = false)
+            var transformerOptions = new MetadataTransformerOptions { OverwritePropertyTypes = false };
+            var transformer = new MetadataTransformer(transformerOptions);
+
+            // Act
+            transformer.TransformDatabase(srcDb, destDb);
+
+            // Assert
+            var transformedProperty = destDb.TableModels[0].Model.ValueProperties["Name"];
+
+            // The type from the source file ('string') should have been preserved.
+            Assert.Equal("string", transformedProperty.CsType.Name);
+            // The underlying database column name should still be correct.
+            Assert.Equal("col2_db", transformedProperty.Column.DbName);
+        }
+
+        [Fact]
+        public void TransformDatabase_WithOverwriteTypesTrue_AppliesDatabaseType()
+        {
+            // Arrange
+            var srcDb = CreateSourceDatabase(); // Source defines 'Name' as string
+            var destDb = CreateDestinationDatabase(); // Destination defines it as int
+
+            // Create the transformer with the overwrite option ENABLED
+            var transformerOptions = new MetadataTransformerOptions { OverwritePropertyTypes = true };
+            var transformer = new MetadataTransformer(transformerOptions);
+
+            // Act
+            transformer.TransformDatabase(srcDb, destDb);
+
+            // Assert
+            var transformedProperty = destDb.TableModels[0].Model.ValueProperties["Name"];
+
+            // The type from the destination/database ('int') should have overwritten the source type.
+            Assert.Equal("int", transformedProperty.CsType.Name);
+            // The underlying database column name should still be correct.
+            Assert.Equal("col2_db", transformedProperty.Column.DbName);
+        }
+
+        [Fact]
+        public void TransformDatabase_WithOverwriteTypesTrue_PreservesEnumType()
+        {
+            // Arrange
+            var srcDb = CreateSourceDatabase(); // Source defines 'Status' as MyStatusEnum
+            var destDb = CreateDestinationDatabase(); // Destination defines 'status_db' as INT
+
+            // Create the transformer with the overwrite option ENABLED
+            var transformerOptions = new MetadataTransformerOptions { OverwritePropertyTypes = true };
+            var transformer = new MetadataTransformer(transformerOptions);
+
+            // Act
+            transformer.TransformDatabase(srcDb, destDb);
+
+            // Assert
+            var transformedProperty = destDb.TableModels[0].Model.ValueProperties["Status"];
+
+            // EVEN WITH OverwriteTypes = true, the C# enum type should be preserved.
+            Assert.Equal("MyStatusEnum", transformedProperty.CsType.Name);
+            Assert.NotNull(transformedProperty.EnumProperty); // Ensure enum details are still there
+            Assert.Equal("status_db", transformedProperty.Column.DbName);
         }
 
         // Add more tests for:

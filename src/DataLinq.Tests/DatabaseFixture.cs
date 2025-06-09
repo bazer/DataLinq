@@ -131,7 +131,7 @@ public class DatabaseFixture : IDisposable
            .RuleFor(x => x.FromDate, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.ToDate, x => x.Date.PastDateOnly(20))
            .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
-           .RuleFor(x => x.salary, x => (int)x.Finance.Amount(10000, 200000, 0));
+           .RuleFor(x => x.salary, x => (uint)x.Finance.Amount(10000, 200000, 0));
         transaction.Insert(salariesFaker.Generate(numEmployees));
 
         var dept_managerFaker = new Faker<MutableManager>()

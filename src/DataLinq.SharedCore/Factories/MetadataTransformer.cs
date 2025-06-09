@@ -8,11 +8,13 @@ public struct MetadataTransformerOptions
 {
     public bool RemoveInterfacePrefix { get; set; } = true;
     public bool UpdateConstraintNames { get; } = true;
+    public bool OverwritePropertyTypes { get; set; } = false;
 
-    public MetadataTransformerOptions(bool removeInterfacePrefix = true, bool updateConstraintNames = true)
+    public MetadataTransformerOptions(bool removeInterfacePrefix = true, bool updateConstraintNames = true, bool overwritePropertyTypes = false)
     {
         RemoveInterfacePrefix = removeInterfacePrefix;
         UpdateConstraintNames = updateConstraintNames;
+        OverwritePropertyTypes = overwritePropertyTypes;
     }
 }
 
@@ -113,9 +115,15 @@ public class MetadataTransformer
             if (srcProperty.EnumProperty != null)
                 destProperty.SetEnumProperty(srcProperty.EnumProperty.Value);
 
-            destProperty.SetCsType(srcProperty.CsType);
-            destProperty.SetCsNullable(srcProperty.CsNullable);
-            destProperty.SetCsSize(srcProperty.CsSize);
+            // Only apply the type information from the source file IF:
+            // 1. The overwrite option is OFF, OR
+            // 2. The source property is an ENUM (we always want to preserve enums).
+            if (!options.OverwritePropertyTypes || srcProperty.EnumProperty != null)
+            {
+                destProperty.SetCsType(srcProperty.CsType);
+                destProperty.SetCsNullable(srcProperty.CsNullable);
+                destProperty.SetCsSize(srcProperty.CsSize);
+            }
 
             foreach (var srcAttribute in srcProperty.Attributes.OfType<TypeAttribute>())
             {

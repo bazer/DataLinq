@@ -28,6 +28,9 @@ static class Program
     {
         [Option('s', "skip-source", HelpText = "Skip reading from source models", Required = false)]
         public bool SkipSource { get; set; }
+
+        [Option("overwrite-types", Required = false, HelpText = "Force overwriting C# property types in existing models with types inferred from the database schema.")]
+        public bool OverwriteTypes { get; set; }
     }
 
     public class CreateOptions : Options
@@ -150,7 +153,8 @@ static class Program
                     OverwriteExistingModels = true,
                     ReadSourceModels = !options.SkipSource,
                     CapitalizeNames = db.CapitalizeNames,
-                    Tables = db.Include
+                    Include = db.Include,
+                    OverwritePropertyTypes = options.OverwriteTypes
                 });
 
                 var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);

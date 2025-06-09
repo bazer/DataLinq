@@ -31,7 +31,7 @@ public abstract partial class Salaries(RowData rowData, DataSourceAccess dataSou
     [Type(DatabaseType.MySQL, "int", 11, false)]
     [Type(DatabaseType.SQLite, "integer")]
     [Column("salary")]
-    public abstract int salary { get; }
+    public abstract uint salary { get; }
 
     [Type(DatabaseType.MySQL, "date")]
     [Type(DatabaseType.SQLite, "text")]
