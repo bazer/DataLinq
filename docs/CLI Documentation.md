@@ -89,8 +89,12 @@ datalinq create-models [options]
 
 **Options:**
 
-- **-s, --skip-source**  
-  *Description:* Skip reading from source models during generation (boolean flag).  
+- **--skip-source**  
+  *Description:* Skip reading from source models during generation.
+  *Optional*
+
+- **--overwrite-types**  
+  *Description:* Force C# property types in your model files to be overwritten with the types inferred from the database. By default, existing C# types (especially enums) are preserved.
   *Optional*
 
 - **-d, --datasource**  
@@ -145,7 +149,12 @@ datalinq list [options]
 
 - **Generating Models:**
   ```bash
-  datalinq create-models -n MyDatabase --skip-source
+  datalinq create-models -n MyDatabase
+  ```
+
+  - **Generating Models and Forcing Type Overwrite:**
+  ```bash
+  datalinq create-models -n MyDatabase --overwrite-types
   ```
 
 - **Listing Databases from Config:**

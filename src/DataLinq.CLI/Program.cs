@@ -26,7 +26,7 @@ static class Program
     [Verb("create-models", HelpText = "Create models for selected database")]
     public class CreateModelsOptions : CreateOptions
     {
-        [Option('s', "skip-source", HelpText = "Skip reading from source models", Required = false)]
+        [Option("skip-source", HelpText = "Skip reading from source models", Required = false)]
         public bool SkipSource { get; set; }
 
         [Option("overwrite-types", Required = false, HelpText = "Force overwriting C# property types in existing models with types inferred from the database schema.")]
