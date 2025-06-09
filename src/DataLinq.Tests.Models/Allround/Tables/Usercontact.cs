@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IUsercontact
+{
+}
+
 [Table("usercontacts")]
+[Interface<IUsercontact>]
 public abstract partial class Usercontact(RowData rowData, DataSourceAccess dataSource) : Immutable<Usercontact, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]

@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IOrderdetail
+{
+}
+
 [Table("orderdetails")]
+[Interface<IOrderdetail>]
 public abstract partial class Orderdetail(RowData rowData, DataSourceAccess dataSource) : Immutable<Orderdetail, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]

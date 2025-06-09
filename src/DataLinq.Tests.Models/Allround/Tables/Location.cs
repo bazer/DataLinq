@@ -8,7 +8,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface ILocation
+{
+}
+
 [Table("locations")]
+[Interface<ILocation>]
 public abstract partial class Location(RowData rowData, DataSourceAccess dataSource) : Immutable<Location, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]

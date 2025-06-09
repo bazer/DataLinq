@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IDiscount
+{
+}
+
 [Table("discounts")]
+[Interface<IDiscount>]
 public abstract partial class Discount(RowData rowData, DataSourceAccess dataSource) : Immutable<Discount, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]

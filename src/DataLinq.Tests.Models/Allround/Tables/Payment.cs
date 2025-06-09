@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IPayment
+{
+}
+
 [Table("payments")]
+[Interface<IPayment>]
 public abstract partial class Payment(RowData rowData, DataSourceAccess dataSource) : Immutable<Payment, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum PaymentMethodValue

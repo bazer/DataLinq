@@ -8,7 +8,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IUserprofile
+{
+}
+
 [Table("userprofiles")]
+[Interface<IUserprofile>]
 public abstract partial class Userprofile(RowData rowData, DataSourceAccess dataSource) : Immutable<Userprofile, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]

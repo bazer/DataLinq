@@ -8,7 +8,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IUser
+{
+}
+
 [Table("users")]
+[Interface<IUser>]
 public abstract partial class User(RowData rowData, DataSourceAccess dataSource) : Immutable<User, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum UserRoleValue
@@ -41,7 +46,7 @@ public abstract partial class User(RowData rowData, DataSourceAccess dataSource)
     [Nullable]
     [Type(DatabaseType.MySQL, "tinyint", 4)]
     [Column("UserAge")]
-    public abstract int? UserAge { get; }
+    public abstract sbyte? UserAge { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "float")]

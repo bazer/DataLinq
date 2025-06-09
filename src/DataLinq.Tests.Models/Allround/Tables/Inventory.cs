@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IInventory
+{
+}
+
 [Table("inventory")]
+[Interface<IInventory>]
 public abstract partial class Inventory(RowData rowData, DataSourceAccess dataSource) : Immutable<Inventory, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]

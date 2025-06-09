@@ -8,7 +8,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IOrder
+{
+}
+
 [Table("orders")]
+[Interface<IOrder>]
 public abstract partial class Order(RowData rowData, DataSourceAccess dataSource) : Immutable<Order, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum OrderStatusValue
@@ -51,7 +56,7 @@ public abstract partial class Order(RowData rowData, DataSourceAccess dataSource
     [Type(DatabaseType.MySQL, "timestamp")]
     [DefaultCurrentTimestamp]
     [Column("OrderTimestamp")]
-    public abstract DateTime OrderTimestamp { get; }
+    public abstract DateTime? OrderTimestamp { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "int", 11)]

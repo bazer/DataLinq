@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IUserfeedback
+{
+}
+
 [Table("userfeedback")]
+[Interface<IUserfeedback>]
 public abstract partial class Userfeedback(RowData rowData, DataSourceAccess dataSource) : Immutable<Userfeedback, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]

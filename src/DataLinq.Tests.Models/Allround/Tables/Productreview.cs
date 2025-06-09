@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IProductreview
+{
+}
+
 [Table("productreviews")]
+[Interface<IProductreview>]
 public abstract partial class Productreview(RowData rowData, DataSourceAccess dataSource) : Immutable<Productreview, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
@@ -31,7 +36,7 @@ public abstract partial class Productreview(RowData rowData, DataSourceAccess da
     [Nullable]
     [Type(DatabaseType.MySQL, "tinyint", 4)]
     [Column("Rating")]
-    public abstract int? Rating { get; }
+    public abstract sbyte? Rating { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "mediumtext", 16777215)]

@@ -7,7 +7,12 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Models.Allround;
 
+public partial interface IProductimage
+{
+}
+
 [Table("productimages")]
+[Interface<IProductimage>]
 public abstract partial class Productimage(RowData rowData, DataSourceAccess dataSource) : Immutable<Productimage, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]

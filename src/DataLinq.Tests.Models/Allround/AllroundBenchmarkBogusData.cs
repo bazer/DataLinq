@@ -177,7 +177,7 @@ public static class AllroundBenchmarkBogusData
                 .RuleFor(pr => pr.ReviewId, f => f.Random.Uuid())
                 .RuleFor(pr => pr.ProductId, f => (Guid?)f.PickRandom(productIds))
                 .RuleFor(pr => pr.UserId, f => f.PickRandom(userIds))
-                .RuleFor(pr => pr.Rating, f => f.Random.Int(1, 5))  // Assuming a 5-star rating system
+                .RuleFor(pr => pr.Rating, f => (sbyte)f.Random.Byte(1, 5))  // Assuming a 5-star rating system
                 .RuleFor(pr => pr.Review, f => f.Lorem.Paragraph());
 
             var productReviews = transaction.Insert(productReviewFaker.Generate((int)(500000 * numMillionRows)));
