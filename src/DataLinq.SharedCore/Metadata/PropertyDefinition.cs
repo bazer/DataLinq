@@ -91,10 +91,17 @@ public class RelationProperty : PropertyDefinition
     public RelationPart RelationPart { get; private set; }
     public void SetRelationPart(RelationPart relationPart) => RelationPart = relationPart;
     public string? RelationName { get; private set; }
-    public void SetRelationName(string relationName) => RelationName = relationName;
+    public void SetRelationName(string? relationName) => RelationName = relationName;
 
     public RelationProperty(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : base(propertyName, csType, model, attributes)
     {
         Type = PropertyType.Relation;
+
+        // Find the RelationAttribute among the provided attributes and set the RelationName.
+        var relationAttribute = attributes.OfType<RelationAttribute>().FirstOrDefault();
+        if (relationAttribute?.Name != null)
+        {
+            this.RelationName = relationAttribute.Name;
+        }
     }
 }

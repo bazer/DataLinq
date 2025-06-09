@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
 
@@ -7,7 +8,7 @@ namespace DataLinq.Core.Factories;
 public struct MetadataTransformerOptions
 {
     public bool RemoveInterfacePrefix { get; set; } = true;
-    public bool UpdateConstraintNames { get; } = true;
+    public bool UpdateConstraintNames { get; set; } = true;
     public bool OverwritePropertyTypes { get; set; } = false;
 
     public MetadataTransformerOptions(bool removeInterfacePrefix = true, bool updateConstraintNames = true, bool overwritePropertyTypes = false)
@@ -140,32 +141,51 @@ public class MetadataTransformer
             }
         }
 
+        // Create a stable key for a relation based on the DB columns it connects.
+        // Example key: "users.id->orders.user_id"
+        Func<RelationPart, string> stableKeyGenerator = (part) =>
+        {
+            var fkCols = string.Join(",", part.ColumnIndex.Columns.Select(c => c.DbName));
+            var pkCols = string.Join(",", part.GetOtherSide().ColumnIndex.Columns.Select(c => c.DbName));
+            return $"{part.GetOtherSide().ColumnIndex.Table.DbName}.({pkCols})->{part.ColumnIndex.Table.DbName}.({fkCols})";
+        };
+
+        // Create a lookup dictionary of the original destination relation properties, keyed by the stable column key.
+        var oldDestRelationsMap = destTable.Model.RelationProperties.Values
+            .Where(p => p.RelationPart != null) // Filter out null RelationPart entries
+            .ToDictionary(p => stableKeyGenerator(p.RelationPart), p => p);
+
+        destTable.Model.RelationProperties.Clear();
+
+        // Now, iterate through the source properties, which are the "source of truth" for C# names.
         foreach (var srcProperty in srcTable.Model.RelationProperties.Values)
         {
-            var destPropertyKeyValue = destTable.Model.RelationProperties.FirstOrDefault(x =>
-                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.Value.RelationPart?.GetOtherSide().ColumnIndex.Table.DbName == y.Table) &&
-                srcProperty.Attributes.OfType<RelationAttribute>().Any(y => x.Value.RelationPart?.GetOtherSide().ColumnIndex.Columns.All(z => y.Columns.Contains(z.DbName)) == true));
+            if (srcProperty.RelationPart == null) continue; // Cannot process relations without a RelationPart
 
-            var destProperty = destPropertyKeyValue.Value;
-            var key = destPropertyKeyValue.Key;
+            var newRelationProperty = new RelationProperty(
+                srcProperty.PropertyName,
+                srcProperty.CsType,
+                destTable.Model,
+                srcProperty.Attributes
+            );
 
-            if (destProperty == null)
+            // Find the corresponding original destination property using the stable key.
+            var stableKey = stableKeyGenerator(srcProperty.RelationPart);
+            oldDestRelationsMap.TryGetValue(stableKey, out var originalDestProperty);
+
+            // Start with the source's RelationPart as the default. It contains the correct C# property info.
+            var partToAssign = srcProperty.RelationPart;
+
+            // If the option is to preserve names, AND we found a corresponding destination part...
+            if (!options.UpdateConstraintNames && originalDestProperty?.RelationPart != null)
             {
-                //log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
-                continue;
+                // ...then we use the destination's part, because it holds the constraint name we want to preserve.
+                partToAssign = originalDestProperty.RelationPart;
             }
 
-            // Check if the property name has changed and update the key
-            if (key != srcProperty.PropertyName)
-            {
-                destTable.Model.RelationProperties.Remove(key);
-                destTable.Model.RelationProperties.Add(srcProperty.PropertyName, destProperty);
-            }
-
-            destProperty.SetPropertyName(srcProperty.PropertyName);
-
-            if (!options.UpdateConstraintNames && srcProperty.RelationPart != null)
-                destProperty.RelationPart.Relation.ConstraintName = srcProperty.RelationPart.Relation.ConstraintName;
+            newRelationProperty.SetRelationPart(partToAssign);
+            newRelationProperty.SetRelationName(partToAssign.Relation.ConstraintName);
+            destTable.Model.AddProperty(newRelationProperty);
         }
     }
 }

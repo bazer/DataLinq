@@ -39,9 +39,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     public void AddProperty(PropertyDefinition property)
     {
         if (property is RelationProperty relationProperty)
-            RelationProperties.Add(relationProperty.PropertyName, relationProperty);
+            // This will add or overwrite the entry for the given property name.
+            RelationProperties[relationProperty.PropertyName] = relationProperty;
         else if (property is ValueProperty valueProperty)
-            ValueProperties.Add(valueProperty.PropertyName, valueProperty);
+            // This will add or overwrite the entry for the given property name.
+            ValueProperties[valueProperty.PropertyName] = valueProperty;
         else
             throw new NotImplementedException();
     }
