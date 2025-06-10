@@ -1,43 +1,23 @@
 ﻿using System.Linq;
-using DataLinq;
+using System.Threading;
 using DataLinq.Cache;
-using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 
+namespace DataLinq.Instances;
+
 public class ImmutableForeignKey<T>(IKey foreignKey, DataSourceAccess dataSource, RelationProperty property) where T : IImmutableInstance
 {
-    private T? cachedValue;
-    private bool isValueCached;
+    protected T? cachedValue;
+    protected bool isValueCached;
 
     // Flag to ensure we only attach our listener once.
-    private bool _isListenerAttached = false;
-    private readonly object _loadLock = new();
+    protected bool isListenerAttached = false;
+    protected readonly Lock loadLock = new();
 
+    protected TableCache GetTableCache() => GetTableCache(GetDataSource());
+    protected TableCache GetTableCache(DataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
     public T? Value => GetInstance();
-
-    private T? GetValue()
-    {
-        if (foreignKey is NullKey)
-            return default;
-
-        var source = GetDataSource();
-        var otherSide = property.RelationPart.GetOtherSide();
-        var tableCache = source.Provider.GetTableCache(otherSide.ColumnIndex.Table);
-
-        if (!_isListenerAttached)
-        {
-            _isListenerAttached = true;
-            tableCache.RowChanged += OnRowChanged;
-        }
-
-        return (T?)tableCache
-            .GetRows(foreignKey, property, dataSource)
-            .SingleOrDefault();
-    }
-
-    // Event handler that clears the cached relation when any change occurs.
-    private void OnRowChanged(object? sender, RowChangeEventArgs e) => Clear();
 
     protected DataSourceAccess GetDataSource()
     {
@@ -51,10 +31,32 @@ public class ImmutableForeignKey<T>(IKey foreignKey, DataSourceAccess dataSource
     {
         if (!isValueCached)
         {
-            lock (_loadLock)
+            lock (loadLock)
             {
-                cachedValue = GetValue();
-                isValueCached = true;
+                if (!isValueCached)
+                {
+                    if (foreignKey is NullKey)
+                    {
+                        cachedValue = default;
+                    }
+                    else
+                    {
+                        var source = GetDataSource();
+                        var tableCache = GetTableCache(source);
+
+                        if (!isListenerAttached)
+                        {
+                            isListenerAttached = true;
+                            tableCache.RowChanged += OnRowChanged;
+                        }
+
+                        cachedValue = (T?)tableCache
+                            .GetRows(foreignKey, property, dataSource)
+                            .SingleOrDefault();
+                    }
+
+                    isValueCached = true;
+                }
             }
         }
 
@@ -63,10 +65,31 @@ public class ImmutableForeignKey<T>(IKey foreignKey, DataSourceAccess dataSource
 
     public void Clear()
     {
-        isValueCached = false;
+        if (isValueCached)
+        {
+            lock (loadLock)
+            {
+                if (isValueCached)
+                {
+                    cachedValue = default;
+                    isValueCached = false;
+
+                    if (isListenerAttached)
+                    {
+                        isListenerAttached = false;
+                        GetTableCache().RowChanged -= OnRowChanged;
+                    }
+                }
+            }
+        }
     }
 
     public static implicit operator T?(ImmutableForeignKey<T> foreignKey) => foreignKey.Value;
 
     public override string ToString() => Value?.ToString() ?? "null";
+
+    // Event handler that clears the cached relation when any change occurs.
+    private void OnRowChanged(object? sender, RowChangeEventArgs e) => Clear();
+
+    ~ImmutableForeignKey() => Clear();
 }
