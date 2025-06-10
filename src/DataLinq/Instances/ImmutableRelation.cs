@@ -78,11 +78,12 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
     }
 }
 
-public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T> where T : IImmutableInstance
+public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
+    where T : IImmutableInstance
 {
     protected FrozenDictionary<IKey, T>? relationInstances;
     // Flag to ensure we only attach our listener once.
-    protected bool isListenerAttached = false;
+    protected bool isSubscribed = false;
     protected readonly Lock loadLock = new();
 
     /// <summary>
@@ -106,7 +107,7 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
     protected TableCache GetTableCache(DataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
-    
+
     protected DataSourceAccess GetDataSource()
     {
         if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
@@ -129,10 +130,10 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
                     var source = GetDataSource();
                     var tableCache = GetTableCache(source);
 
-                    if (!isListenerAttached)
+                    if (!isSubscribed)
                     {
-                        isListenerAttached = true;
-                        tableCache.RowChanged += OnRowChanged;
+                        tableCache.SubscribeToChanges(this);
+                        isSubscribed = true;
                     }
 
                     relationInstances = tableCache
@@ -142,7 +143,6 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
                 }
             }
         }
-
         return relationInstances;
     }
 
@@ -153,12 +153,6 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
             lock (loadLock)
             {
                 relationInstances = null;
-
-                if (isListenerAttached)
-                {
-                    isListenerAttached = false;
-                    GetTableCache().RowChanged -= OnRowChanged;
-                }
             }
         }
     }
@@ -173,9 +167,4 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
     {
         return GetEnumerator();
     }
-
-    // Event handler that clears the cached relation when any change occurs.
-    private void OnRowChanged(object? sender, RowChangeEventArgs e) => Clear();
-
-    ~ImmutableRelation() => Clear();
 }

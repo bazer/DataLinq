@@ -6,13 +6,14 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public class ImmutableForeignKey<T>(IKey foreignKey, DataSourceAccess dataSource, RelationProperty property) where T : IImmutableInstance
+public class ImmutableForeignKey<T>(IKey foreignKey, DataSourceAccess dataSource, RelationProperty property) : ICacheNotification
+    where T : IImmutableInstance
 {
     protected T? cachedValue;
     protected bool isValueCached;
 
     // Flag to ensure we only attach our listener once.
-    protected bool isListenerAttached = false;
+    protected bool isSubscribed = false;
     protected readonly Lock loadLock = new();
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
@@ -44,10 +45,10 @@ public class ImmutableForeignKey<T>(IKey foreignKey, DataSourceAccess dataSource
                         var source = GetDataSource();
                         var tableCache = GetTableCache(source);
 
-                        if (!isListenerAttached)
+                        if (!isSubscribed)
                         {
-                            isListenerAttached = true;
-                            tableCache.RowChanged += OnRowChanged;
+                            tableCache.SubscribeToChanges(this);
+                            isSubscribed = true;
                         }
 
                         cachedValue = (T?)tableCache
@@ -73,12 +74,6 @@ public class ImmutableForeignKey<T>(IKey foreignKey, DataSourceAccess dataSource
                 {
                     cachedValue = default;
                     isValueCached = false;
-
-                    if (isListenerAttached)
-                    {
-                        isListenerAttached = false;
-                        GetTableCache().RowChanged -= OnRowChanged;
-                    }
                 }
             }
         }
@@ -87,9 +82,4 @@ public class ImmutableForeignKey<T>(IKey foreignKey, DataSourceAccess dataSource
     public static implicit operator T?(ImmutableForeignKey<T> foreignKey) => foreignKey.Value;
 
     public override string ToString() => Value?.ToString() ?? "null";
-
-    // Event handler that clears the cached relation when any change occurs.
-    private void OnRowChanged(object? sender, RowChangeEventArgs e) => Clear();
-
-    ~ImmutableForeignKey() => Clear();
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
@@ -9,17 +10,69 @@ using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
-using DataLinq.Utils;
 
 namespace DataLinq.Cache;
 
-public class RowChangeEventArgs : EventArgs
+public interface ICacheNotification
 {
-    // For now, we can keep this empty since a full clear is acceptable.
+    void Clear();
 }
 
 public class TableCache
 {
+    internal sealed class CacheNotificationManager
+    {
+        // volatile ensures that the assignment to a new instance of the bag is visible to all threads immediately.
+        internal volatile ConcurrentBag<WeakReference<ICacheNotification>> subscribers = [];
+
+        public void Subscribe(ICacheNotification subscriber)
+        {
+            subscribers.Add(new WeakReference<ICacheNotification>(subscriber));
+        }
+
+        public void Notify()
+        {
+            // Atomically get the current subscribers and replace the main bag with a new, empty one.
+            // Any new subscribers will now be added to the new bag.
+            var bagToProcess = Interlocked.Exchange(ref subscribers, []);
+
+            var liveSubscribers = new List<ICacheNotification>(bagToProcess.Count);
+
+            // Process the old bag that no other thread is adding to.
+            foreach (var weakRef in bagToProcess)
+            {
+                if (weakRef.TryGetTarget(out var subscriber))
+                {
+                    // If the subscriber is still alive, add it to the list to be notified...
+                    liveSubscribers.Add(subscriber);
+                    // ...and add it back to the *current* main bag so it persists for the next cycle.
+                    subscribers.Add(weakRef);
+                }
+            }
+
+            // Notify all live subscribers outside of any lock or complex logic.
+            foreach (var subscriber in liveSubscribers)
+            {
+                subscriber?.Clear();
+            }
+        }
+
+        public void Clean()
+        {
+            // The logic is the same as Notify, but we just discard the live subscribers list.
+            var bagToProcess = Interlocked.Exchange(ref subscribers, []);
+
+            foreach (var weakRef in bagToProcess)
+            {
+                if (weakRef.TryGetTarget(out _))
+                {
+                    // If it's alive, add it back to the main bag.
+                    subscribers.Add(weakRef);
+                }
+            }
+        }
+    }
+
     protected Dictionary<ColumnIndex, IndexCache> IndexCaches;
     protected KeyCache<IKey> PrimaryKeysCache = new();
     protected RowCache RowCache = new();
@@ -30,13 +83,16 @@ public class TableCache
     protected (IndexCacheType type, int? amount) indexCachePolicy;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    private readonly WeakEventManager _rowChangedEventManager = new WeakEventManager();
-    public event EventHandler<RowChangeEventArgs> RowChanged
+    // This table weakly maps a relation object to its subscription manager.
+    // When the relation object (key) is GC'd, the entry is removed, 
+    // making the SubscriptionManager (value) eligible for GC, which then triggers its finalizer.
+    private readonly CacheNotificationManager notificationManager = new();
+
+    public void SubscribeToChanges(ICacheNotification subscriber)
     {
-        add { _rowChangedEventManager.AddEventHandler(value); }
-        remove { _rowChangedEventManager.RemoveEventHandler(value); }
+        notificationManager.Subscribe(subscriber);
     }
-    
+
     public TableCache(TableDefinition table, DatabaseCache databaseCache, DataLinqLoggingConfiguration loggingConfiguration)
     {
         this.Table = table;
@@ -88,8 +144,8 @@ public class TableCache
 
                 RowCache.TryRemoveRow(change.PrimaryKeys, out var rows);
                 numRows += rows;
-                }
-        
+            }
+
 
             TryRemoveRowFromAllIndices(change.PrimaryKeys, out var indexRows);
             numRows += indexRows;
@@ -111,7 +167,7 @@ public class TableCache
 
         // At this point, all cache changes have been applied.
         // Raise the event to notify any observers that a change has occurred.
-        OnRowChanged(new RowChangeEventArgs());
+        OnRowChanged();
 
         return numRows;
 
@@ -130,9 +186,9 @@ public class TableCache
         }
     }
 
-    protected virtual void OnRowChanged(RowChangeEventArgs e)
+    protected virtual void OnRowChanged()
     {
-        _rowChangedEventManager.HandleEvent(this, e, "RowChanged");
+        notificationManager.Notify();
     }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
@@ -156,12 +212,13 @@ public class TableCache
     {
         ClearRows();
         ClearIndex();
+        notificationManager.Clean();
     }
 
     public void ClearRows()
     {
         RowCache.ClearRows();
-        OnRowChanged(new RowChangeEventArgs());
+        OnRowChanged();
     }
 
     public void ClearIndex()
