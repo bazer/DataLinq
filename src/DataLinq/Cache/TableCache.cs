@@ -81,7 +81,6 @@ public class TableCache
     }
 
     protected Dictionary<ColumnIndex, IndexCache> IndexCaches;
-    protected KeyCache<IKey> PrimaryKeysCache = new();
     protected RowCache RowCache = new();
     protected ConcurrentDictionary<Transaction, RowCache> TransactionRows = new();
 

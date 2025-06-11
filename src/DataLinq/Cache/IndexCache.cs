@@ -138,6 +138,7 @@ public class IndexCache
     public void Clear()
     {
         foreignKeys.Clear();
+        primaryKeysToForeignKeys.Clear();
         ticks.Clear();
         oldestTick = null;
     }
