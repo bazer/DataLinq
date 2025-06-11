@@ -108,6 +108,15 @@ public class DatabaseCache : IDisposable
         }
     }
 
+    public void CleanRelationNotifications()
+    {
+        foreach (var table in TableCaches.Values)
+        {
+            table.CleanRelationNotifications();
+        }
+    }
+
+
     public IEnumerable<(TableCache table, int numRows)> RemoveRowsBySettings()
     {
         foreach (var table in TableCaches.Values)

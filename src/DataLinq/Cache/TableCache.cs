@@ -20,56 +20,63 @@ public interface ICacheNotification
 
 public class TableCache
 {
+    // In src/DataLinq/Cache/TableCache.cs
+
     internal sealed class CacheNotificationManager
     {
-        // volatile ensures that the assignment to a new instance of the bag is visible to all threads immediately.
-        internal volatile ConcurrentBag<WeakReference<ICacheNotification>> subscribers = [];
+        // The backing store is now a simple, volatile array.
+        internal volatile WeakReference<ICacheNotification>[] subscribers = [];
 
-        public void Subscribe(ICacheNotification subscriber)
+        internal void Subscribe(ICacheNotification subscriber)
         {
-            subscribers.Add(new WeakReference<ICacheNotification>(subscriber));
+            // The lock-free Compare-And-Swap (CAS) loop pattern.
+            WeakReference<ICacheNotification>[] oldSubscribers, newSubscribers;
+            do
+            {
+                // 1. Get a local reference to the current array.
+                oldSubscribers = subscribers;
+
+                // 2. Create a new array that is one larger.
+                newSubscribers = new WeakReference<ICacheNotification>[oldSubscribers.Length + 1];
+
+                // 3. Copy the old elements and add the new one.
+                oldSubscribers.CopyTo(newSubscribers, 0);
+                newSubscribers[^1] = new WeakReference<ICacheNotification>(subscriber);
+            }
+            // 4. Atomically swap the main array with our new one if no other thread beat us to it.
+            while (Interlocked.CompareExchange(ref subscribers, newSubscribers, oldSubscribers) != oldSubscribers);
         }
 
-        public void Notify()
+        internal void Notify()
         {
-            // Atomically get the current subscribers and replace the main bag with a new, empty one.
-            // Any new subscribers will now be added to the new bag.
-            var bagToProcess = Interlocked.Exchange(ref subscribers, []);
-
-            var liveSubscribers = new List<ICacheNotification>(bagToProcess.Count);
-
-            // Process the old bag that no other thread is adding to.
-            foreach (var weakRef in bagToProcess)
+            // We can iterate this local snapshot safely, even if other threads are calling Subscribe.
+            var currentSubscribers = subscribers;
+            foreach (var weakRef in currentSubscribers)
             {
                 if (weakRef.TryGetTarget(out var subscriber))
-                {
-                    // If the subscriber is still alive, add it to the list to be notified...
-                    liveSubscribers.Add(subscriber);
-                    // ...and add it back to the *current* main bag so it persists for the next cycle.
-                    subscribers.Add(weakRef);
-                }
-            }
-
-            // Notify all live subscribers outside of any lock or complex logic.
-            foreach (var subscriber in liveSubscribers)
-            {
-                subscriber?.Clear();
+                    subscriber.Clear();
             }
         }
 
-        public void Clean()
+        internal void Clean()
         {
-            // The logic is the same as Notify, but we just discard the live subscribers list.
-            var bagToProcess = Interlocked.Exchange(ref subscribers, []);
+            if (subscribers.Length == 0)
+                return; // Nothing to clean, exit early.
 
-            foreach (var weakRef in bagToProcess)
+            WeakReference<ICacheNotification>[] oldSubscribers, newSubscribers;
+
+            do
             {
-                if (weakRef.TryGetTarget(out _))
-                {
-                    // If it's alive, add it back to the main bag.
-                    subscribers.Add(weakRef);
-                }
+                oldSubscribers = subscribers;
+
+                // Use LINQ to create a new array containing only the live references.
+                newSubscribers = [.. oldSubscribers.Where(wr => wr.TryGetTarget(out _))];
+
+                // If nothing changed, we can exit early to avoid an unnecessary swap.
+                if (newSubscribers.Length == oldSubscribers.Length)
+                    return;
             }
+            while (Interlocked.CompareExchange(ref subscribers, newSubscribers, oldSubscribers) != oldSubscribers); // Atomically swap the old array with the new, clean array.
         }
     }
 
@@ -227,40 +234,25 @@ public class TableCache
             IndexCaches[indices[i]].Clear();
     }
 
-    public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
+    public void CleanRelationNotifications()
     {
-        if (limitType == CacheLimitType.Seconds)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Minutes)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Hours)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Days)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Ticks)
-            return RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks);
-
-        if (limitType == CacheLimitType.Rows)
-            return RowCache.RemoveRowsOverRowLimit((int)amount);
-
-        if (limitType == CacheLimitType.Bytes)
-            return RowCache.RemoveRowsOverSizeLimit(amount);
-
-        if (limitType == CacheLimitType.Kilobytes)
-            return RowCache.RemoveRowsOverSizeLimit(amount * 1024);
-
-        if (limitType == CacheLimitType.Megabytes)
-            return RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024);
-
-        if (limitType == CacheLimitType.Gigabytes)
-            return RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024);
-
-        throw new NotImplementedException();
+        notificationManager.Clean();
     }
+
+    public int RemoveRowsByLimit(CacheLimitType limitType, long amount) => limitType switch
+    {
+        CacheLimitType.Seconds => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks),
+        CacheLimitType.Minutes => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks),
+        CacheLimitType.Hours => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks),
+        CacheLimitType.Days => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks),
+        CacheLimitType.Ticks => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks),
+        CacheLimitType.Rows => RowCache.RemoveRowsOverRowLimit((int)amount),
+        CacheLimitType.Bytes => RowCache.RemoveRowsOverSizeLimit(amount),
+        CacheLimitType.Kilobytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024),
+        CacheLimitType.Megabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024),
+        CacheLimitType.Gigabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024),
+        _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
+    };
 
     public int RemoveRowsInsertedBeforeTick(long tick)
     {

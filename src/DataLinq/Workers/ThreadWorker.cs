@@ -148,6 +148,7 @@ public class CleanCacheWorker : ThreadWorker<int>
 
     protected override void DoWork(int value)
     {
+        DatabaseProvider.State?.Cache.CleanRelationNotifications();
         var rows = DatabaseProvider.State?.Cache.RemoveRowsBySettings().ToList();
         //TODO: Logging
 
