@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.5.4 - Critical Memory Leak Fixes & Schema Generation Improvements](https://github.com/bazer/DataLinq/releases/tag/0.5.4)
+
+**Released on:** 2025-06-11
+
+This is a high-priority maintenance and enhancement release focused on resolving critical memory leaks, improving the fidelity of the schema-to-model generation process, and giving developers more control over their code generation workflow.
+
+### 🚀 Highlights
+
+*   **Fixed Two Critical Memory Leaks:** Identified and resolved two separate memory leaks related to cache clearing and event handling, drastically improving long-term stability and performance for applications under load.
+*   **Greatly Improved Database-to-C# Type Mapping:** The `create-models` CLI tool is now much smarter, correctly generating unsigned types (`uint`, `ulong`, `byte`, etc.) and appropriately sized integer types (`short`, `long`) from MySQL/MariaDB schemas.
+*   **New `--overwrite-types` CLI Flag:** Added a new powerful option to the `create-models` command that allows developers to force the regeneration of C# property types directly from the database schema, perfect for a "schema-first" workflow.
+
+---
+
+### 🐛 Critical Bug Fixes
+
+*   **Fixed Major Memory Leak in Relation Caching:**
+    *   The previous event handling system for cache notifications (`WeakEventManager`) had a subtle flaw that prevented `ImmutableRelation` and `ImmutableForeignKey` objects from being garbage collected. This could lead to significant memory consumption over time.
+    *   **Solution:** The `WeakEventManager` has been completely replaced with a new, highly performant, lock-free `CacheNotificationManager`. This new system uses a custom array-swapping pattern with `Interlocked.CompareExchange` to ensure thread-safety and memory-safety without the overhead of reflection or the risks of finalizers, completely curing the leak.
+*   **Fixed Memory Leak in Index Cache:**
+    *   A bug was discovered where calling `TableCache.ClearCache()` would not fully clear the `IndexCache`. The reverse mapping dictionary (`primaryKeysToForeignKeys`) was not being cleared, causing it to grow indefinitely. This has been fixed.
+*   **Corrected Nullability for Generated Properties:**
+    *   Auto-incrementing primary key columns are now correctly generated with nullable C# types (e.g., `int?`) to reflect their `null` state before an entity is inserted into the database.
+    *   Columns with a `DEFAULT` value in the database are also now correctly generated as nullable, as the value is optional on insert.
+
+### ✨ Features & Enhancements
+
+*   **Enhanced Schema-to-Model Type Mapping:**
+    *   The `MetadataFromMySqlFactory` now correctly maps database integer types to their corresponding C# types based on size and `UNSIGNED` flags. This improves type safety and correctness when generating models from a MySQL/MariaDB database. The new mappings include:
+        | MySQL Type | C# Type |
+        | :--- | :--- |
+        | `TINYINT UNSIGNED` | `byte` |
+        | `TINYINT` | `sbyte` |
+        | `SMALLINT UNSIGNED` | `ushort` |
+        | `SMALLINT` | `short` |
+        | `INT UNSIGNED` | `uint` |
+        | `INT` | `int` |
+        | `BIGINT UNSIGNED` | `ulong` |
+        | `BIGINT` | `long` |
+*   **New `--overwrite-types` CLI Flag:**
+    *   The `datalinq create-models` command now accepts an `--overwrite-types` flag.
+    *   **Default Behavior:** DataLinq preserves user-defined types in source code (like custom classes or `enum`s) even if the underlying database column is a primitive type.
+    *   **New Behavior:** When `--overwrite-types` is used, DataLinq will force C# property types to be updated based on the schema from the database. This is ideal for when you change a column type in the database (e.g., from `INT` to `BIGINT`) and want your C# model to automatically update. This override intelligently preserves user-defined `enum` types and other custom classes.
+*   **Improved CLI Filtering Logic:**
+    *   Unified the `Tables` and `Views` configuration lists in `datalinq.json` into a single, more intuitive `Include` list. If the list is empty or omitted, all tables and views are included. Otherwise, only the specified items are included.
+
+### 🛠️ Internal Improvements & Testing
+
+*   **Improved Test Isolation:** Created new, dedicated test fixtures (`MySqlFilteringTestFixture`, `MySqlTypeMappingFixture`) that create temporary databases. This ensures that tests for metadata parsing are fully isolated, faster, and more reliable.
+*   **Comprehensive Test Coverage:** Added a full suite of unit tests for the new type mapping logic, CLI filtering behavior, and the `--overwrite-types` feature to prevent future regressions.
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.5.3...0.5.4
+
+---
+
 ## [DataLinq v0.5.3 - Maintenance & LINQ Enhancements](https://github.com/bazer/DataLinq/releases/tag/0.5.3)
 
 **Released on:** 2025-06-04
