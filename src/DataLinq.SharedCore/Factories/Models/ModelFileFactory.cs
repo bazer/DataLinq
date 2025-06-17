@@ -314,8 +314,7 @@ public class ModelFileFactory
         // 3. The column has a default value (either from the DB or a [Default] attribute).
         bool needsCSharpNullable =
             column.Nullable ||
-            column.AutoIncrement ||
-            column.ValueProperty.HasDefaultValue();
+            column.AutoIncrement;
 
         if (!needsCSharpNullable)
             return ""; // The property is definitely not nullable.

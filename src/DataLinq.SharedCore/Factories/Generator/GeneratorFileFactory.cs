@@ -481,7 +481,7 @@ public class GeneratorFileFactory
     private bool IsInterfacePropertyNullable(ValueProperty property)
     {
         return (Options.UseNullableReferenceTypes || property.CsNullable) &&
-            (property.Column.Nullable || property.Column.AutoIncrement || property.HasDefaultValue());
+            (property.Column.Nullable || property.Column.AutoIncrement);
     }
 
     private bool IsMutablePropertyRequired(ValueProperty property)

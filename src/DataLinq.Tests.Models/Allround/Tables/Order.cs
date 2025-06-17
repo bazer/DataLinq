@@ -56,11 +56,10 @@ public abstract partial class Order(RowData rowData, DataSourceAccess dataSource
     [Type(DatabaseType.MySQL, "timestamp")]
     [DefaultCurrentTimestamp]
     [Column("OrderTimestamp")]
-    public abstract DateTime? OrderTimestamp { get; }
+    public abstract DateTime OrderTimestamp { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "int", 11)]
-    [Default(0)]
     [Column("ShippingCompanyId")]
     public abstract int? ShippingCompanyId { get; }
 
