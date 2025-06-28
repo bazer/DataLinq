@@ -124,7 +124,7 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
 
     protected TableModel ParseTable(DatabaseDefinition database, MariaDBInformationSchema information_Schema, TABLES dbTables)
     {
-        var type = dbTables.TABLE_TYPE == "BASE TABLE" ? TableType.Table : TableType.View;
+        var type = dbTables.TABLE_TYPE == TABLE_TYPE.BASE_TABLE ? TableType.Table : TableType.View;
 
         if (dbTables.TABLE_NAME == null)
             throw new Exception("Table name is null");
@@ -159,7 +159,7 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
 
     protected override string ParseCsType(DatabaseColumnType dbType)
     {
-        if (dbType.Name.ToLower() == "uuid")
+        if (dbType.Name.ToLower().StartsWith("uuid"))
             return "Guid";
 
         return base.ParseCsType(dbType);

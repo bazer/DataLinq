@@ -91,8 +91,8 @@ public class DatabaseFixture : IDisposable
     public static DataLinqConfig DataLinqConfig { get; set; }
     public List<DataLinqDatabaseConnection> EmployeeConnections { get; set; } = new();
     public List<Database<EmployeesDb>> AllEmployeesDb { get; set; } = new();
-    public MariaDBDatabase<MariaDBInformationSchema> MariaDB_information_schema { get; set; }
-    public MySqlDatabase<MySQLInformationSchema> MySQL_information_schema { get; set; }
+    public MariaDBDatabase<MariaDBInformationSchema>? MariaDB_information_schema { get; set; }
+    public MySqlDatabase<MySQLInformationSchema>? MySQL_information_schema { get; set; }
 
     public void FillEmployeesWithBogusData(Database<EmployeesDb> database)
     {
@@ -168,7 +168,7 @@ public class DatabaseFixture : IDisposable
     {
         var employeesToDelete = (empNos == null || empNos.Length == 0) 
             ? db.Query().Employees.Where(e => e.emp_no >= 990000).ToList()
-            : db.Query().Employees.Where(e => empNos.Contains(e.emp_no.Value)).ToList();
+            : db.Query().Employees.Where(e => empNos.Contains(e.emp_no!.Value)).ToList();
 
         if (employeesToDelete.Any())
         {

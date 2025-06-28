@@ -4,6 +4,7 @@ using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
+using DataLinq.MySql.Shared;
 
 namespace DataLinq.MySql.information_schema;
 
@@ -24,13 +25,6 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
         Redundant = 4,
         Compact = 5,
         Paged = 6,
-    }
-    
-    public enum TABLE_TYPEValue
-    {
-        BASE_TABLE = 1,
-        VIEW = 2,
-        SYSTEM_VIEW = 3,
     }
     
     [Nullable]
@@ -126,7 +120,7 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
     [Type(DatabaseType.MySQL, "enum")]
     [Enum("BASE TABLE", "VIEW", "SYSTEM VIEW")]
     [Column("TABLE_TYPE")]
-    public abstract TABLE_TYPEValue TABLE_TYPE { get; }
+    public abstract TABLE_TYPE TABLE_TYPE { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "datetime")]

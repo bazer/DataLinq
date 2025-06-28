@@ -49,7 +49,7 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
     [Type(DatabaseType.MySQL, "enum")]
     [Enum("", "PRI", "UNI", "MUL")]
     [Column("COLUMN_KEY")]
-    public abstract COLUMN_KEYValue COLUMN_KEY { get; }
+    public abstract COLUMN_KEY COLUMN_KEY { get; }
 
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 64)]

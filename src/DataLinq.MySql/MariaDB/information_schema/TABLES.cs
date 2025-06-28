@@ -4,6 +4,7 @@ using DataLinq.Attributes;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
+using DataLinq.MySql.Shared;
 
 namespace DataLinq.MariaDB.information_schema;
 
@@ -108,8 +109,9 @@ public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSourc
     public abstract string TABLE_SCHEMA { get; }
 
     [Type(DatabaseType.MariaDB, "varchar", 64)]
+    [Enum("BASE TABLE", "VIEW", "SYSTEM VIEW")]
     [Column("TABLE_TYPE")]
-    public abstract string TABLE_TYPE { get; }
+    public abstract TABLE_TYPE TABLE_TYPE { get; }
 
     [Nullable]
     [Type(DatabaseType.MariaDB, "varchar", 1)]

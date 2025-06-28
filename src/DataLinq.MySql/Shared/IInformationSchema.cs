@@ -1,11 +1,18 @@
 ﻿namespace DataLinq.MySql.Shared;
 
-public enum COLUMN_KEYValue
+public enum COLUMN_KEY
 {
     Empty = 1,
     PRI = 2,
     UNI = 3,
     MUL = 4,
+}
+
+public enum TABLE_TYPE
+{
+    BASE_TABLE = 1,
+    VIEW = 2,
+    SYSTEM_VIEW = 3,
 }
 
 public interface ICOLUMNS
@@ -18,7 +25,7 @@ public interface ICOLUMNS
     ulong? NUMERIC_SCALE { get; }
     ulong? CHARACTER_MAXIMUM_LENGTH { get; }
     string IS_NULLABLE { get; }
-    COLUMN_KEYValue COLUMN_KEY { get; }
+    COLUMN_KEY COLUMN_KEY { get; }
     string EXTRA { get; }
     string COLUMN_DEFAULT { get; }
     string COLUMN_NAME { get; }

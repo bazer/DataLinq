@@ -48,7 +48,7 @@ public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSour
     [Type(DatabaseType.MariaDB, "varchar", 3)]
     [Enum("", "PRI", "UNI", "MUL")]
     [Column("COLUMN_KEY")]
-    public abstract COLUMN_KEYValue COLUMN_KEY { get; }
+    public abstract COLUMN_KEY COLUMN_KEY { get; }
 
     [Type(DatabaseType.MariaDB, "varchar", 64)]
     [Column("COLUMN_NAME")]

@@ -118,7 +118,7 @@ public static class MetadataFromTypeFactory
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
                 var enumValueList = attributes.Any(attribute => attribute is EnumAttribute)
-                    ? attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i)).ToList()
+                    ? attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1)).ToList()
                     : new List<(string name, int value)>();
 
                 var enumType = property.CsType.Type;

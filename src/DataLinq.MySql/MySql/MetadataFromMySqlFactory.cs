@@ -124,7 +124,7 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
 
     protected TableModel ParseTable(DatabaseDefinition database, MySQLInformationSchema information_Schema, TABLES dbTables)
     {
-        var type = dbTables.TABLE_TYPE == TABLES.TABLE_TYPEValue.BASE_TABLE ? TableType.Table : TableType.View;
+        var type = dbTables.TABLE_TYPE == TABLE_TYPE.BASE_TABLE ? TableType.Table : TableType.View;
 
         if (dbTables.TABLE_NAME == null)
             throw new Exception("Table name is null");
