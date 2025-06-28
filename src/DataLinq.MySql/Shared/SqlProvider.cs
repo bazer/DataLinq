@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
@@ -13,25 +12,29 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-public class MySQLProvider : IDatabaseProviderRegister
-{
-    public static bool HasBeenRegistered { get; private set; }
+//public class SqlProvider : IDatabaseProviderRegister
+//{
+//    public static bool HasBeenRegistered { get; private set; }
 
-    //[ModuleInitializer]
-    public static void RegisterProvider()
-    {
-        if (HasBeenRegistered)
-            return;
+//    //[ModuleInitializer]
+//    public static void RegisterProvider()
+//    {
+//        if (HasBeenRegistered)
+//            return;
 
-        PluginHook.DatabaseProviders[DatabaseType.MySQL] = new MySqlDatabaseCreator();
-        PluginHook.SqlFromMetadataFactories[DatabaseType.MySQL] = new SqlFromMetadataFactory();
-        PluginHook.MetadataFromSqlFactories[DatabaseType.MySQL] = new MetadataFromMySqlFactoryCreator();
+//        var creator = new MySqlDatabaseCreator();
+//        var sqlFactory = new SqlFromMysqlFactory();
+//        var metadataFactory = new MetadataFromMySqlFactoryCreator();
 
-        HasBeenRegistered = true;
-    }
-}
+//        PluginHook.DatabaseProviders[DatabaseType.MySQL] = creator;
+//        PluginHook.SqlFromMetadataFactories[DatabaseType.MySQL] = sqlFactory;
+//        PluginHook.MetadataFromSqlFactories[DatabaseType.MySQL] = metadataFactory;
 
-public class MySQLProviderConstants : IDatabaseProviderConstants
+//        HasBeenRegistered = true;
+//    }
+//}
+
+public class SqlProviderConstants : IDatabaseProviderConstants
 {
     public string ParameterSign { get; } = "?";
     public string LastInsertCommand { get; } = "last_insert_id()";
@@ -39,26 +42,26 @@ public class MySQLProviderConstants : IDatabaseProviderConstants
     public bool SupportsMultipleDatabases { get; } = true;
 }
 
-public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
+public class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel
 {
-    private MySqlDataLinqDataWriter dataWriter = new MySqlDataLinqDataWriter();
+    private SqlDataLinqDataWriter dataWriter = new SqlDataLinqDataWriter();
     private MySqlDataSource dataSource;
-    private MySqlDbAccess dbAccess;
+    private SqlDbAccess dbAccess;
 
-    public override IDatabaseProviderConstants Constants { get; } = new MySQLProviderConstants();
+    public override IDatabaseProviderConstants Constants { get; } = new SqlProviderConstants();
     public override DatabaseAccess DatabaseAccess => dbAccess;
 
-    static MySQLProvider()
+    static SqlProvider()
     {
         MySQLProvider.RegisterProvider();
     }
 
-    public MySQLProvider(string connectionString) : this(connectionString, null, DataLinqLoggingConfiguration.NullConfiguration)
+    public SqlProvider(string connectionString) : this(connectionString, null, DataLinqLoggingConfiguration.NullConfiguration)
     {
     }
 
-    public MySQLProvider(string connectionString, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration)
+    public SqlProvider(string connectionString, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration)
     {
         var connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
 
@@ -68,11 +71,11 @@ public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
         Setup();
     }
 
-    public MySQLProvider(string connectionString, string? databaseName) : this(connectionString, databaseName, DataLinqLoggingConfiguration.NullConfiguration)
+    public SqlProvider(string connectionString, string? databaseName) : this(connectionString, databaseName, DataLinqLoggingConfiguration.NullConfiguration)
     {
     }
 
-    public MySQLProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration, databaseName)
+    public SqlProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration, databaseName)
     {
         Setup();
     }
@@ -83,33 +86,18 @@ public class MySQLProvider<T> : DatabaseProvider<T>, IDisposable
             .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
             .Build();
 
-        dbAccess = new MySqlDbAccess(dataSource, LoggingConfiguration);
+        dbAccess = new SqlDbAccess(dataSource, LoggingConfiguration);
     }
-
-    //public override void CreateDatabase(string? databaseName = null)
-    //{
-    //    if (databaseName == null && DatabaseName == null)
-    //        throw new ArgumentNullException("DatabaseName not defined");
-
-    //    using var transaction = GetNewDatabaseTransaction(TransactionType.ReadAndWrite);
-
-    //    var query = $"CREATE DATABASE IF NOT EXISTS {databaseName ?? DatabaseName};\n" +
-    //        $"USE `{databaseName ?? DatabaseName}`;\n" +
-    //        GetCreateSql();
-
-    //    transaction.ExecuteNonQuery(query);
-    //}
-
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
 
-        return new MySqlDatabaseTransaction(dataSource, type, DatabaseName, LoggingConfiguration);
+        return new SqlDatabaseTransaction(dataSource, type, DatabaseName, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
-        return new MySqlDatabaseTransaction(dbTransaction, type, DatabaseName, LoggingConfiguration);
+        return new SqlDatabaseTransaction(dbTransaction, type, DatabaseName, LoggingConfiguration);
     }
 
     public override bool DatabaseExists(string? databaseName = null)

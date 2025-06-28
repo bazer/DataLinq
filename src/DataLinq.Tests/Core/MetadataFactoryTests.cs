@@ -227,7 +227,7 @@ public class MetadataFactoryTests
         var dbType = columnDefinition.DbTypes[0];
         Assert.Equal(DatabaseType.MySQL, dbType.DatabaseType);
         Assert.Equal("VARCHAR", dbType.Name);
-        Assert.Equal(255, dbType.Length);
+        Assert.Equal((ulong)255, dbType.Length);
         Assert.Null(dbType.Decimals);
         Assert.Null(dbType.Signed);
     }
@@ -268,8 +268,8 @@ public class MetadataFactoryTests
         var dbType = columnDefinition.DbTypes[0];
         Assert.Equal(DatabaseType.MySQL, dbType.DatabaseType);
         Assert.Equal("DECIMAL", dbType.Name);
-        Assert.Equal(10, dbType.Length);
-        Assert.Equal(2, dbType.Decimals);
+        Assert.Equal((ulong)10, dbType.Length);
+        Assert.Equal((uint)2, dbType.Decimals);
     }
 
     [Fact]
@@ -312,11 +312,11 @@ public class MetadataFactoryTests
 
         // Assert
         Assert.NotNull(vp.EnumProperty);
-        Assert.Equal(2, vp.EnumProperty.Value.EnumValues.Count);
-        Assert.Equal("Value1", vp.EnumProperty.Value.EnumValues[0].name);
-        Assert.Equal(1, vp.EnumProperty.Value.EnumValues[0].value); // Assuming 1-based index
-        Assert.Equal("Value2", vp.EnumProperty.Value.EnumValues[1].name);
-        Assert.Equal(2, vp.EnumProperty.Value.EnumValues[1].value);
+        Assert.Equal(2, vp.EnumProperty.Value.CsValuesOrDbValues.Count);
+        Assert.Equal("Value1", vp.EnumProperty.Value.CsValuesOrDbValues[0].name);
+        Assert.Equal(1, vp.EnumProperty.Value.CsValuesOrDbValues[0].value); // Assuming 1-based index
+        Assert.Equal("Value2", vp.EnumProperty.Value.CsValuesOrDbValues[1].name);
+        Assert.Equal(2, vp.EnumProperty.Value.CsValuesOrDbValues[1].value);
     }
 
     [Fact]

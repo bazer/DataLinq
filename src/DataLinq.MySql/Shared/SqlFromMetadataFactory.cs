@@ -14,7 +14,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
     private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob" };
 
-    public Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
+    public virtual Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
     {
         using var connection = new MySqlConnection(connectionString);
         connection.Open();
@@ -27,9 +27,9 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return command.ExecuteNonQuery();
     }
 
-    public Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
+    public virtual Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
-        var sql = new SqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
+        var sql = new MySqlGeneration(2, '`', "/* Generated %datetime% by DataLinq */\n\n");
         //sql.CreateDatabase(metadata.DbName);
 
         foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
@@ -48,7 +48,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return sql.sql;
     }
 
-    private static void CreateColumns(bool foreignKeyRestrict, SqlGeneration sql, TableDefinition table)
+    protected virtual void CreateColumns(bool foreignKeyRestrict, SqlGeneration sql, TableDefinition table)
     {
         var longestName = table.Columns.Max(x => x.DbName.Length) + 1;
         foreach (var column in table.Columns.OrderBy(x => x.Index))
@@ -61,7 +61,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
                 .Type(dbType.Name.ToUpper(), column.DbName, longestName);
 
             if (dbType.Name == "enum" && column.ValueProperty.EnumProperty.HasValue)
-                sql.EnumValues(column.ValueProperty.EnumProperty.Value.EnumValues.Select(x => x.name));
+                sql.EnumValues(column.ValueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => x.name));
 
             if (!NoLengthTypes.Contains(dbType.Name.ToLower()) && dbType.Length.HasValue && dbType.Length != 0)
                 sql.TypeLength(dbType.Length, dbType.Decimals);
@@ -90,7 +90,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
     }
 
-    public static DatabaseColumnType GetDbType(ColumnDefinition column)
+    public virtual DatabaseColumnType GetDbType(ColumnDefinition column)
     {
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
             return column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL);
@@ -107,7 +107,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return type;
     }
 
-    public static string? GetDefaultValue(ColumnDefinition column)
+    public virtual string? GetDefaultValue(ColumnDefinition column)
     {
         var defaultAttr = column.ValueProperty.Attributes
             .Where(x => x is DefaultAttribute)
@@ -120,7 +120,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return defaultAttr?.Value.ToString();
     }
 
-    private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
+    protected virtual DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
     {
         string? type = null;
 
@@ -134,7 +134,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             : new DatabaseColumnType(DatabaseType.MySQL, type, dbType.Length, dbType.Decimals, dbType.Signed);
     }
 
-    private static DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
+    protected virtual DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
     {
         var type = ParseCsType(property.CsType.Name);
 
@@ -143,7 +143,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             : new DatabaseColumnType(DatabaseType.MySQL, type);
     }
 
-    private static string? ParseDefaultType(string defaultType)
+    protected virtual string? ParseDefaultType(string defaultType)
     {
         return defaultType.ToLower() switch
         {
@@ -174,7 +174,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         };
     }
 
-    private static string? ParseSQLiteType(string sqliteType)
+    protected virtual string? ParseSQLiteType(string sqliteType)
     {
         return sqliteType.ToLower() switch
         {
@@ -186,7 +186,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         };
     }
 
-    private static string? ParseCsType(string csType)
+    protected virtual string? ParseCsType(string csType)
     {
         return csType.ToLower() switch
         {
@@ -194,11 +194,11 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             "string" => "varchar",
             "bool" => "bit",
             "double" => "double",
-            "DateTime" => "datetime",
-            "DateOnly" => "date",
+            "datetime" => "datetime",
+            "dateonly" => "date",
             "float" => "float",
             "long" => "bigint",
-            "Guid" => "binary",
+            "guid" => "binary(16)",
             "enum" => "enum",
             "decimal" => "decimal",
             "byte[]" => "blob",

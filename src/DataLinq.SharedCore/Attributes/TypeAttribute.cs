@@ -12,7 +12,7 @@ public sealed class TypeAttribute : Attribute
         Name = name;
     }
 
-    public TypeAttribute(string name, long length)
+    public TypeAttribute(string name, ulong length)
     {
         DatabaseType = DatabaseType.Default;
         Name = name;
@@ -26,7 +26,7 @@ public sealed class TypeAttribute : Attribute
         Signed = signed;
     }
 
-    public TypeAttribute(string name, long length, bool signed)
+    public TypeAttribute(string name, ulong length, bool signed)
     {
         DatabaseType = DatabaseType.Default;
         Name = name;
@@ -34,7 +34,7 @@ public sealed class TypeAttribute : Attribute
         Signed = signed;
     }
 
-    public TypeAttribute(string name, long length, int decimals, bool signed)
+    public TypeAttribute(string name, ulong length, uint decimals, bool signed)
     {
         DatabaseType = DatabaseType.Default;
         Name = name;
@@ -49,14 +49,14 @@ public sealed class TypeAttribute : Attribute
         Name = name;
     }
 
-    public TypeAttribute(DatabaseType databaseType, string name, long length)
+    public TypeAttribute(DatabaseType databaseType, string name, ulong length)
     {
         DatabaseType = databaseType;
         Name = name;
         Length = length;
     }
 
-    public TypeAttribute(DatabaseType databaseType, string name, long length, int decimals)
+    public TypeAttribute(DatabaseType databaseType, string name, ulong length, uint decimals)
     {
         DatabaseType = databaseType;
         Name = name;
@@ -71,7 +71,7 @@ public sealed class TypeAttribute : Attribute
         Signed = signed;
     }
 
-    public TypeAttribute(DatabaseType databaseType, string name, long length, bool signed)
+    public TypeAttribute(DatabaseType databaseType, string name, ulong length, bool signed)
     {
         DatabaseType = databaseType;
         Name = name;
@@ -79,7 +79,7 @@ public sealed class TypeAttribute : Attribute
         Signed = signed;
     }
 
-    public TypeAttribute(DatabaseType databaseType, string name, long length, int decimals, bool signed)
+    public TypeAttribute(DatabaseType databaseType, string name, ulong length, uint decimals, bool signed)
     {
         DatabaseType = databaseType;
         Name = name;
@@ -88,7 +88,7 @@ public sealed class TypeAttribute : Attribute
         Signed = signed;
     }
 
-    public TypeAttribute(DatabaseType databaseType, string name, long? length, int? decimals, bool? signed)
+    public TypeAttribute(DatabaseType databaseType, string name, ulong? length, uint? decimals, bool? signed)
     {
         DatabaseType = databaseType;
         Name = name;
@@ -105,8 +105,8 @@ public sealed class TypeAttribute : Attribute
         Signed = dbType.Signed;
     }
 
-    public long? Length { get; }
-    public int? Decimals { get; }
+    public ulong? Length { get; }
+    public uint? Decimals { get; }
     public DatabaseType DatabaseType { get; }
     public string Name { get; }
     public bool? Signed { get; }

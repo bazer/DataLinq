@@ -230,7 +230,7 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
             var attribute = Assert.IsType<TypeAttribute>(result.Value);
             Assert.Equal(DatabaseType.MySQL, attribute.DatabaseType);
             Assert.Equal("VARCHAR", attribute.Name);
-            Assert.Equal(100, attribute.Length);
+            Assert.Equal((ulong)100, attribute.Length);
         }
 
         [Fact]
@@ -301,9 +301,9 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
             Assert.Equal("Status", prop.PropertyName);
             Assert.Equal("StatusEnum", prop.CsType.Name);
             Assert.NotNull(prop.EnumProperty); // Enum property struct should be created
-            Assert.Equal(2, prop.EnumProperty.Value.EnumValues.Count);
-            Assert.Equal("Active", prop.EnumProperty.Value.EnumValues[0].name);
-            Assert.Equal("Inactive", prop.EnumProperty.Value.EnumValues[1].name);
+            Assert.Equal(2, prop.EnumProperty.Value.CsValuesOrDbValues.Count);
+            Assert.Equal("Active", prop.EnumProperty.Value.CsValuesOrDbValues[0].name);
+            Assert.Equal("Inactive", prop.EnumProperty.Value.CsValuesOrDbValues[1].name);
         }
 
         // --- Model Parsing Tests ---

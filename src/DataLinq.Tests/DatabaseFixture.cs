@@ -4,9 +4,10 @@ using System.IO;
 using System.Linq;
 using Bogus;
 using DataLinq.Config;
+using DataLinq.MariaDB.information_schema;
 using DataLinq.Metadata;
 using DataLinq.MySql;
-using DataLinq.MySql.Models;
+using DataLinq.MySql.information_schema;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,7 @@ public class DatabaseFixture : IDisposable
     static DatabaseFixture()
     {
         MySQLProvider.RegisterProvider();
+        MariaDBProvider.RegisterProvider();
         SQLiteProvider.RegisterProvider();
 
         DataLinqConfig = DataLinqConfig.FindAndReadConfigs($"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json", _ => { });
@@ -47,7 +49,7 @@ public class DatabaseFixture : IDisposable
 
         //var loggerFactory = LoggerFactory.Create(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
 
-        foreach (var connection in employees.Connections)
+        foreach (var connection in EmployeeConnections)
         {
             var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
             provider.UseLoggerFactory(loggerFactory);
@@ -76,13 +78,21 @@ public class DatabaseFixture : IDisposable
             CleanupTestEmployees(dbEmployees);
         }
 
-        information_schema = new MySqlDatabase<information_schema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
+        if (EmployeeConnections.Count == 0)
+            Assert.Fail("No employee connections found in datalinq.json");
+
+        if (EmployeeConnections.Count(x => x.Type == DatabaseType.MariaDB) != 1)
+            MariaDB_information_schema = new MariaDBDatabase<MariaDBInformationSchema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MariaDB).ConnectionString.Original);
+
+        if (EmployeeConnections.Count(x => x.Type == DatabaseType.MySQL) != 1)
+            MySQL_information_schema = new MySqlDatabase<MySQLInformationSchema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
     }
 
     public static DataLinqConfig DataLinqConfig { get; set; }
     public List<DataLinqDatabaseConnection> EmployeeConnections { get; set; } = new();
     public List<Database<EmployeesDb>> AllEmployeesDb { get; set; } = new();
-    public MySqlDatabase<information_schema> information_schema { get; set; }
+    public MariaDBDatabase<MariaDBInformationSchema> MariaDB_information_schema { get; set; }
+    public MySqlDatabase<MySQLInformationSchema> MySQL_information_schema { get; set; }
 
     public void FillEmployeesWithBogusData(Database<EmployeesDb> database)
     {
@@ -184,6 +194,7 @@ public class DatabaseFixture : IDisposable
         foreach (var db in AllEmployeesDb)
             db.Dispose();
 
-        information_schema.Dispose();
+        MariaDB_information_schema?.Dispose();
+        MySQL_information_schema?.Dispose();
     }
 }

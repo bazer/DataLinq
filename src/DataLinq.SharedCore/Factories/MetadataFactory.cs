@@ -231,10 +231,10 @@ public static class MetadataFactory
         return property;
     }
 
-    public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, bool declaredInClass)
-    {
-        property.SetEnumProperty(new EnumProperty(enumValues, enumValues, declaredInClass));
-    }
+    //public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, bool declaredInClass)
+    //{
+    //    property.SetEnumProperty(new EnumProperty(enumValues, enumValues, declaredInClass));
+    //}
 
     public static IEnumerable<Attribute> GetAttributes(ColumnDefinition column)
     {

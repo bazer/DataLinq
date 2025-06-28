@@ -19,8 +19,7 @@ public class MySqlDatabaseCreator : IDatabaseProviderCreator
     /// <returns>true if typeName is either 'mysql' or 'mariadb'; otherwise, false.</returns>
     public bool IsDatabaseType(string typeName)
     {
-        return typeName.Equals("mysql", System.StringComparison.OrdinalIgnoreCase)
-            || typeName.Equals("mariadb", System.StringComparison.OrdinalIgnoreCase);
+        return typeName.Equals("mysql", System.StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -56,7 +55,7 @@ public class MySqlDatabase<T> : Database<T>
     /// Initializes a new instance of the MySqlDatabase with the specified connection string.
     /// </summary>
     /// <param name="connectionString">The connection string for the MySQL database.</param>
-    public MySqlDatabase(string connectionString) : base(new MySQLProvider<T>(connectionString))
+    public MySqlDatabase(string connectionString) : base(new MySqlProvider<T>(connectionString))
     {
     }
 
@@ -65,7 +64,7 @@ public class MySqlDatabase<T> : Database<T>
     /// </summary>
     /// <param name="connectionString">The connection string for the MySQL database.</param>
     /// <param name="loggerFactory">The logger factory to use for logging.</param>
-    public MySqlDatabase(string connectionString, ILoggerFactory? loggerFactory) : base(new MySQLProvider<T>(connectionString, loggerFactory == null ? DataLinqLoggingConfiguration.NullConfiguration : new DataLinqLoggingConfiguration(loggerFactory)))
+    public MySqlDatabase(string connectionString, ILoggerFactory? loggerFactory) : base(new MySqlProvider<T>(connectionString, null, loggerFactory == null ? DataLinqLoggingConfiguration.NullConfiguration : new DataLinqLoggingConfiguration(loggerFactory)))
     {
     }
 
@@ -74,7 +73,7 @@ public class MySqlDatabase<T> : Database<T>
     /// </summary>
     /// <param name="connectionString">The connection string for the MySQL database.</param>
     /// <param name="databaseName">The name of the database.</param>
-    public MySqlDatabase(string connectionString, string databaseName) : base(new MySQLProvider<T>(connectionString, databaseName))
+    public MySqlDatabase(string connectionString, string databaseName) : base(new MySqlProvider<T>(connectionString, databaseName))
     {
     }
 
@@ -84,7 +83,7 @@ public class MySqlDatabase<T> : Database<T>
     /// <param name="connectionString">The connection string for the MySQL database.</param>
     /// <param name="databaseName">The name of the database.</param>
     /// /// <param name="loggerFactory">The logger factory to use for logging.</param>
-    public MySqlDatabase(string connectionString, string databaseName, ILoggerFactory? loggerFactory) : base(new MySQLProvider<T>(connectionString, databaseName, loggerFactory == null ? DataLinqLoggingConfiguration.NullConfiguration : new DataLinqLoggingConfiguration(loggerFactory)))
+    public MySqlDatabase(string connectionString, string databaseName, ILoggerFactory? loggerFactory) : base(new MySqlProvider<T>(connectionString, databaseName, loggerFactory == null ? DataLinqLoggingConfiguration.NullConfiguration : new DataLinqLoggingConfiguration(loggerFactory)))
     {
     }
 }

@@ -5,8 +5,9 @@ using DataLinq.Attributes;
 using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
+using DataLinq.MariaDB.information_schema;
 using DataLinq.Metadata;
-using DataLinq.MySql.Models;
+using DataLinq.MySql.information_schema;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.CodeAnalysis;
 using ThrowAway.Extensions;
@@ -31,9 +32,10 @@ public class CoreTests : BaseTests
     [Fact]
     public void TestMetadataFromFixture()
     {
-        Assert.Equal(2, DatabaseDefinition.LoadedDatabases.Count);
+        Assert.Equal(3, DatabaseDefinition.LoadedDatabases.Count);
         Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(EmployeesDb));
-        Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(information_schema));
+        Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(MariaDBInformationSchema));
+        Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(MySQLInformationSchema));
     }
 
     [Fact]

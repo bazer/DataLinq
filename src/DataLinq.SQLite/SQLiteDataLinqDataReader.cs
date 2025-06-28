@@ -129,7 +129,7 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
         {
             var enumValue = GetValue(ordinal);
             if (enumValue is string stringValue)
-                return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, column.ValueProperty.EnumProperty.Value.EnumValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
+                return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, column.ValueProperty.EnumProperty.Value.DbValuesOrCsValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
             else
                 return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, enumValue);
         }

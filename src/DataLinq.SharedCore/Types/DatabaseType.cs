@@ -5,6 +5,7 @@
 /// </summary>
 public enum DatabaseType
 {
+    Unknown,
     /// <summary>
     /// Default database type.
     /// </summary>
@@ -13,6 +14,10 @@ public enum DatabaseType
     /// MySQL database type.
     /// </summary>
     MySQL,
+    /// <summary>
+    /// MariaDB database type.
+    /// </summary>
+    MariaDB,
     /// <summary>
     /// SQLite database type.
     /// </summary>

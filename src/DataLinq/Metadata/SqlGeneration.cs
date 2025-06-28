@@ -105,7 +105,7 @@ public class SqlGeneration
     //    return this;
     //}
 
-    public SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
+    public virtual SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
     {
         sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\n");
         func(this);
@@ -115,7 +115,7 @@ public class SqlGeneration
         sql.AddText("\n);\n\n");
         return this;
     }
-    public SqlGeneration CreateView(string viewName, string definition)
+    public virtual SqlGeneration CreateView(string viewName, string definition)
     {
         sql.AddText($"CREATE VIEW IF NOT EXISTS {QuoteCharacter}{viewName}{QuoteCharacter}\n");
         sql.AddText($"AS {definition};");
@@ -130,7 +130,7 @@ public class SqlGeneration
     public SqlGeneration Nullable(bool nullable) => Space().Add(nullable ? "NULL" : "NOT NULL");
     public SqlGeneration Autoincrement(bool inc) => inc ? Space().Add("AUTO_INCREMENT") : this;
     public SqlGeneration Type(string type, string columnName, int longestColumnName) => Add(Align(longestColumnName, columnName) + type);
-    public SqlGeneration TypeLength(long? length, int? decimals) => length.HasValue
+    public SqlGeneration TypeLength(ulong? length, uint? decimals) => length.HasValue
         ? decimals.HasValue
             ? Add($"({length},{decimals})")
             : Add($"({length})")

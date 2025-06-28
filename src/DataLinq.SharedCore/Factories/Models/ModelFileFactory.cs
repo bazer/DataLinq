@@ -249,7 +249,7 @@ public class ModelFileFactory
             }
 
             if (valueProperty.EnumProperty != null)
-                yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.EnumValues.Select(x => $"\"{x.name}\""))})]";
+                yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => $"\"{x.name}\""))})]";
 
             yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
             yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
@@ -340,7 +340,7 @@ public class ModelFileFactory
         yield return namespaceTab + "{";
         //yield return $"{tab}{tab}Empty,";
 
-        foreach (var val in property.EnumProperty!.Value.EnumValues)
+        foreach (var val in property.EnumProperty!.Value.CsValuesOrDbValues)
             yield return $"{namespaceTab}{tab}{val.name} = {val.value},";
 
         yield return namespaceTab + "}";

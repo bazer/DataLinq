@@ -84,6 +84,7 @@ static class Program
     static void Main(string[] args)
     {
         MySQLProvider.RegisterProvider();
+        MariaDBProvider.RegisterProvider();
         SQLiteProvider.RegisterProvider();
 
 

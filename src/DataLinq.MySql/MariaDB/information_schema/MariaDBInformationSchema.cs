@@ -1,14 +1,12 @@
-﻿using System;
-using DataLinq;
+﻿using DataLinq.Attributes;
 using DataLinq.Interfaces;
-using DataLinq.Attributes;
-using DataLinq.Instances;
 using DataLinq.Mutation;
+using DataLinq.MySql.Shared;
 
-namespace DataLinq.MySql.Models;
+namespace DataLinq.MariaDB.information_schema;
 
-[Database("information_schema")]
-public partial class information_schema(DataSourceAccess dataSource) : IDatabaseModel
+[Database("mariadb_information_schema")]
+public partial class MariaDBInformationSchema(DataSourceAccess dataSource) : IDatabaseModel, IInformationSchema
 {
     public DbRead<COLUMNS> COLUMNS { get; } = new DbRead<COLUMNS>(dataSource);
     public DbRead<KEY_COLUMN_USAGE> KEY_COLUMN_USAGE { get; } = new DbRead<KEY_COLUMN_USAGE>(dataSource);

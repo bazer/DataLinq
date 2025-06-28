@@ -7,9 +7,9 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-public struct MySqlDataLinqDataReader : IDataLinqDataReader, IDisposable
+public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
 {
-    public MySqlDataLinqDataReader(MySqlDataReader dataReader)
+    public SqlDataLinqDataReader(MySqlDataReader dataReader)
     {
         this.dataReader = dataReader;
     }
@@ -160,7 +160,7 @@ public struct MySqlDataLinqDataReader : IDataLinqDataReader, IDisposable
         {
             var enumValue = GetValue(ordinal);
             if (enumValue is string stringValue)
-                return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, column.ValueProperty.EnumProperty.Value.EnumValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
+                return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, column.ValueProperty.EnumProperty.Value.DbValuesOrCsValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
             else
                 return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, enumValue);
         }

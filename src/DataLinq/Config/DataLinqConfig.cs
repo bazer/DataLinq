@@ -85,7 +85,7 @@ public record DataLinqConfig
         }
     }
 
-    public Option<(DataLinqDatabaseConfig db, DataLinqDatabaseConnection connection)> GetConnection(string? dbName, DatabaseType? databaseType)
+    public Option<(DataLinqDatabaseConfig db, DataLinqDatabaseConnection connection)> GetConnection(string? dbName, DatabaseType databaseType)
     {
         if (string.IsNullOrEmpty(dbName) && Databases.Count != 1)
             return $"The config file has more than one database specified. Use (-a or --all) to use all configured databases, or name (-n or --name) one:\n{Databases.Select(x => x.Name).ToJoinedString()}";
@@ -105,13 +105,13 @@ public record DataLinqConfig
             return $"Database '{db.Name}' has no connections to read from";
         }
 
-        if (db.Connections.Count > 1 && databaseType == null)
+        if (db.Connections.Count > 1 && databaseType == DatabaseType.Unknown)
         {
             return $"Database '{db.Name}' has more than one type of connection to read from, you need to select which one (-t or --type):\n{db.Connections.Select(x => x.Type).ToJoinedString()}";
         }
 
         DataLinqDatabaseConnection? connection = null;
-        if (databaseType != null)
+        if (databaseType != DatabaseType.Unknown)
         {
             connection = db.Connections.SingleOrDefault(x => x.Type == databaseType);
 
@@ -235,7 +235,7 @@ public record DataLinqDatabaseConnection
     {
         DatabaseConfig = databaseConfig;
         DataSourceName = connection.DataSourceName ?? connection.DatabaseName ?? throw new ArgumentNullException(nameof(connection.DataSourceName));
-        Type = ConfigReader.ParseDatabaseType(connection.Type) ?? throw new ArgumentException($"Couldn't find database type for '{connection.Type}'");
+        Type = ConfigReader.ParseDatabaseType(connection.Type); // ?? throw new ArgumentException($"Couldn't find database type for '{connection.Type}'");
         ConnectionString = new DataLinqConnectionString(connection.ConnectionString);
     }
 }

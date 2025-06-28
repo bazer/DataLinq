@@ -9,10 +9,10 @@ namespace DataLinq.Config;
 
 public static class ConfigReader
 {
-    public static DatabaseType? ParseDatabaseType(string? typeName)
+    public static DatabaseType ParseDatabaseType(string? typeName)
     {
         if (typeName == null)
-            return null;
+            return DatabaseType.Unknown;
 
         foreach (var (type, provider) in PluginHook.DatabaseProviders)
         {
@@ -20,7 +20,7 @@ public static class ConfigReader
                 return type;
         }
 
-        return null;
+        return DatabaseType.Unknown;
 
         // return $"No provider matched with database type '{typeName}'";
     }

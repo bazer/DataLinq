@@ -18,7 +18,7 @@ public class MySqlTypeMappingFixture : IDisposable
         // Get the base connection details from the main DatabaseFixture config
         var mysqlConfig = DatabaseFixture.DataLinqConfig.Databases
             .Single(x => x.Name == "employees")
-            .Connections.Single(c => c.Type == DatabaseType.MySQL);
+            .Connections.Single(c => c.Type == DatabaseType.MariaDB);
 
         // Generate a unique name for our temporary database
         TestDatabaseName = $"datalinq_type_tests_{Guid.NewGuid().ToString("N")[..10]}";
@@ -89,7 +89,7 @@ public class MySqlTypeMappingTests : IClassFixture<MySqlTypeMappingFixture>
         var tableName = "type_test_table";
 
         // Create a new transaction for each test to ensure isolation
-        using var transaction = new MySqlDatabaseTransaction(
+        using var transaction = new SqlDatabaseTransaction(
              new MySqlConnector.MySqlDataSourceBuilder(_mySqlConnection.ConnectionString.Original).Build(),
              Mutation.TransactionType.ReadAndWrite,
              _dbName, // Use the unique DB name
@@ -105,7 +105,7 @@ public class MySqlTypeMappingTests : IClassFixture<MySqlTypeMappingFixture>
 
             // 2. Parse the schema for just this table
             var options = new MetadataFromDatabaseFactoryOptions { Include = [tableName], CapitaliseNames = true };
-            var factory = new MetadataFromMySqlFactory(options);
+            var factory = MetadataFromSqlFactory.GetSqlFactory(options, DatabaseType.MySQL);
             var dbDefinition = factory.ParseDatabase(
                 _dbName,
                 "TestDb",

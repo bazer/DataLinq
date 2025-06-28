@@ -16,7 +16,7 @@ public partial interface ILocationhistory
 public abstract partial class Locationhistory(RowData rowData, DataSourceAccess dataSource) : Immutable<Locationhistory, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
-    [Type(DatabaseType.MySQL, "binary", 16)]
+    [Type(DatabaseType.MySQL, "uuid")]
     [Column("HistoryId")]
     public abstract Guid HistoryId { get; }
 

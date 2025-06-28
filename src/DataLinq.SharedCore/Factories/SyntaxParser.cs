@@ -295,17 +295,17 @@ public class SyntaxParser
                     case 1: return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
                     case 2: return new TypeAttribute(dbType, arguments[1]);
                     case 3:
-                        if (long.TryParse(arguments[2], out long length))
+                        if (ulong.TryParse(arguments[2], out ulong length))
                             return new TypeAttribute(dbType, arguments[1], length);
                         else
                             return new TypeAttribute(dbType, arguments[1], bool.Parse(arguments[2]));
                     case 4:
-                        if (int.TryParse(arguments[3], out int decimals))
-                            return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), decimals);
+                        if (uint.TryParse(arguments[3], out uint decimals))
+                            return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), decimals);
                         else
-                            return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), bool.Parse(arguments[3]));
+                            return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), bool.Parse(arguments[3]));
                     case 5:
-                        return new TypeAttribute(dbType, arguments[1], long.Parse(arguments[2]), int.Parse(arguments[3]), bool.Parse(arguments[4]));
+                        return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), uint.Parse(arguments[3]), bool.Parse(arguments[4]));
                 }
             }
             else
@@ -314,14 +314,14 @@ public class SyntaxParser
                 {
                     case 1: return new TypeAttribute(arguments[0]);
                     case 2:
-                        if (long.TryParse(arguments[1], out long length))
+                        if (ulong.TryParse(arguments[1], out ulong length))
                             return new TypeAttribute(arguments[0], length);
                         else
                             return new TypeAttribute(arguments[0], bool.Parse(arguments[1]));
                     case 3:
-                        return new TypeAttribute(arguments[0], long.Parse(arguments[1]), bool.Parse(arguments[2]));
+                        return new TypeAttribute(arguments[0], ulong.Parse(arguments[1]), bool.Parse(arguments[2]));
                     case 4:
-                        return new TypeAttribute(arguments[0], long.Parse(arguments[1]), int.Parse(arguments[2]), bool.Parse(arguments[3]));
+                        return new TypeAttribute(arguments[0], ulong.Parse(arguments[1]), uint.Parse(arguments[2]), bool.Parse(arguments[3]));
                 }
             }
 
@@ -374,7 +374,38 @@ public class SyntaxParser
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
                 var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1));
-                valueProp.SetEnumProperty(new EnumProperty(enumValueList, null, true));
+
+                var propertyTypeName = valueProp.CsType.Name;
+                var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
+
+                var declaredInClass = parentClassSyntax?.Members
+                    .OfType<EnumDeclarationSyntax>()
+                    .Any(enumDecl => enumDecl.Identifier.ValueText == propertyTypeName) ?? false;
+
+                var csEnumValues = new List<(string name, int value)>();
+                var allEnums = modelSyntaxes.SelectMany(x => x.DescendantNodesAndSelf().OfType<EnumDeclarationSyntax>());
+                var enumDeclaration = allEnums.FirstOrDefault(e => e.Identifier.ValueText == propertyTypeName);
+
+                if (enumDeclaration != null)
+                {
+                    int lastValue = -1;
+                    csEnumValues = enumDeclaration.Members
+                        .Select(m => {
+                            if (m.EqualsValue != null)
+                            {
+                                lastValue = int.Parse(m.EqualsValue.Value.ToString());
+                                return (m.Identifier.ValueText, lastValue);
+                            }
+                            else
+                            {
+                                lastValue++;
+                                return (m.Identifier.ValueText, lastValue);
+                            }
+                        })
+                        .ToList();
+                }
+
+                valueProp.SetEnumProperty(new EnumProperty(enumValueList, csEnumValues, declaredInClass));
             }
             else
             {

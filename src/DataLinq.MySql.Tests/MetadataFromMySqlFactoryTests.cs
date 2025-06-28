@@ -290,7 +290,7 @@ namespace DataLinq.Tests
         {
             // Arrange
             var options = new MetadataFromDatabaseFactoryOptions { Include = ["non_existent_table"] };
-            var factory = new MetadataFromMySqlFactory(options);
+            var factory = MetadataFromSqlFactory.GetSqlFactory(options, DatabaseType.MySQL);
 
             // Act
             var result = factory.ParseDatabase(

@@ -9,7 +9,7 @@ namespace DataLinq.MySql;
 /// <summary>
 /// Represents a transaction for a MySQL database, encapsulating the logic to execute commands with transactional support.
 /// </summary>
-public class MySqlDatabaseTransaction : DatabaseTransaction
+public class SqlDatabaseTransaction : DatabaseTransaction
 {
     private IDbConnection? dbConnection;
     private readonly string databaseName;
@@ -21,7 +21,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// </summary>
     /// <param name="connectionString">The connection string to the MySQL database.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(MySqlDataSource dataSource, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(type)
+    public SqlDatabaseTransaction(MySqlDataSource dataSource, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(type)
     {
         this.dataSource = dataSource;
         this.databaseName = databaseName;
@@ -34,7 +34,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
     /// </summary>
     /// <param name="dbTransaction">The existing database transaction.</param>
     /// <param name="type">The type of transaction to be performed.</param>
-    public MySqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(dbTransaction, type)
+    public SqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(dbTransaction, type)
     {
         if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
         if (dbTransaction.Connection is not MySqlConnection) throw new ArgumentException("The transaction connection must be an MySqlConnection", "dbTransaction.Connection");
@@ -160,7 +160,7 @@ public class MySqlDatabaseTransaction : DatabaseTransaction
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        return new MySqlDataLinqDataReader((command.ExecuteReader() as MySqlDataReader)!);
+        return new SqlDataLinqDataReader((command.ExecuteReader() as MySqlDataReader)!);
     }
 
     /// <summary>

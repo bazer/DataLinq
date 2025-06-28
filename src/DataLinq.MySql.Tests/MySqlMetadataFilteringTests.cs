@@ -81,7 +81,7 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
 
     private DatabaseDefinition ParseSchema(MetadataFromDatabaseFactoryOptions options)
     {
-        var factory = new MetadataFromMySqlFactory(options);
+        var factory = MetadataFromSqlFactory.GetSqlFactory(options, DatabaseType.MySQL);
         return factory.ParseDatabase(
             _dbName, "TestDb", "TestNs", _dbName, _testConnection.ConnectionString.Original).Value;
     }

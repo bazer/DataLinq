@@ -82,7 +82,8 @@ public record struct EnumProperty
 
     public List<(string name, int value)> DbEnumValues { get; }
     public List<(string name, int value)> CsEnumValues { get; }
-    public List<(string name, int value)> EnumValues => CsEnumValues.Count != 0 ? CsEnumValues : DbEnumValues;
+    public List<(string name, int value)> CsValuesOrDbValues => CsEnumValues.Count != 0 ? CsEnumValues : DbEnumValues;
+    public List<(string name, int value)> DbValuesOrCsValues => DbEnumValues.Count != 0 ? DbEnumValues : CsEnumValues;
     public bool DeclaredInClass { get; }
 }
 

@@ -8,7 +8,7 @@ namespace DataLinq.Extensions.Helpers;
 internal static class StringExtensions
 {
     // This regular expression splits the string by underscores or hyphens.
-    private static readonly Regex WordBoundaryRegex = new Regex("[-_]");
+    private static readonly Regex WordBoundaryRegex = new Regex("[-_ ]");
 
     /// <summary>
     /// Converts a snake_case or kebab-case string to PascalCase.

@@ -29,17 +29,7 @@ public record ConfigFileDatabase
 
 public record ConfigFileDatabaseConnection
 {
-    public DatabaseType? ParsedType
-    {
-        get
-        {
-            var type = ConfigReader.ParseDatabaseType(Type);
-
-            return type.HasValue
-                ? type
-                : null;
-        }
-    }
+    public DatabaseType ParsedType => ConfigReader.ParseDatabaseType(Type);
     public string? Type { get; set; }
     public string? DatabaseName { get; set; }
     public string? DataSourceName { get; set; }

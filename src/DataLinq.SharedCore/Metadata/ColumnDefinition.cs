@@ -6,16 +6,16 @@ using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
 
-public class DatabaseColumnType(DatabaseType databaseType, string name, long? length = null, int? decimals = null, bool? signed = null)
+public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? length = null, uint? decimals = null, bool? signed = null)
 {
     public DatabaseType DatabaseType { get; } = databaseType;
     public string Name { get; private set; } = name;
     public void SetName(string name) => Name = name;
-    public long? Length { get; private set; } = length;
-    public void SetLength(long? length) => Length = length == 0 ? null : length;
-    public int? Decimals { get; private set; } = decimals;
-    public void SetDecimals(int? decimals) => Decimals = decimals;
-    public void SetDecimals(long? decimals) => Decimals = (int?)decimals;
+    public ulong? Length { get; private set; } = length;
+    public void SetLength(ulong? length) => Length = length == 0 ? null : length;
+    public uint? Decimals { get; private set; } = decimals;
+    public void SetDecimals(uint? decimals) => Decimals = decimals;
+    public void SetDecimals(ulong? decimals) => Decimals = (uint?)decimals;
     public bool? Signed { get; private set; } = signed;
     public void SetSigned(bool signed) => Signed = signed;
 

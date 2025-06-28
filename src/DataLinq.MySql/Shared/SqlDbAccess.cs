@@ -4,12 +4,12 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-public class MySqlDbAccess : DatabaseAccess
+public class SqlDbAccess : DatabaseAccess
 {
     private readonly MySqlDataSource dataSource;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public MySqlDbAccess(MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration) : base()
+    public SqlDbAccess(MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration) : base()
     {
         this.dataSource = dataSource;
         this.loggingConfiguration = loggingConfiguration;
@@ -54,7 +54,7 @@ public class MySqlDbAccess : DatabaseAccess
 
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        return new MySqlDataLinqDataReader((command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader)!);
+        return new SqlDataLinqDataReader((command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader)!);
     }
 
     public override IDataLinqDataReader ExecuteReader(string query) =>
