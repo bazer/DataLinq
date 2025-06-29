@@ -40,6 +40,11 @@ public class FailureWithDefinition<T>
 
 public abstract class IDLOptionFailure
 {
+    public DLFailureType FailureType { get; protected set; }
+    public IDLOptionFailure[] InnerFailures { get; protected set; } = [];
+    public bool HasInnerFailures => InnerFailures.Length > 0;
+    public abstract string Message { get; }
+
     public static implicit operator string(IDLOptionFailure optionFailure) =>
         optionFailure.ToString();
 
@@ -95,32 +100,33 @@ public static class DLOptionFailure
 
 public class DLOptionFailure<T> : IDLOptionFailure
 {
-    public DLFailureType Type { get; }
+    //public DLFailureType Type { get; }
     public T Failure { get; }
-    public IDLOptionFailure[] InnerFailures { get; } = [];
+    //public IDLOptionFailure[] InnerFailures { get; } = [];
+    public override string Message => ToString();
 
     public DLOptionFailure(T failure)
     {
-        Type = failure is Exception ? DLFailureType.Exception : DLFailureType.Unspecified;
+        FailureType = failure is Exception ? DLFailureType.Exception : DLFailureType.Unspecified;
         Failure = failure;
     }
 
     public DLOptionFailure(DLFailureType type, T failure)
     {
-        Type = type;
+        FailureType = type;
         Failure = failure;
     }
 
     public DLOptionFailure(T failure, IEnumerable<IDLOptionFailure> innerFailure)
     {
-        Type = failure is Exception ? DLFailureType.Exception : DLFailureType.Aggregation;
+        FailureType = failure is Exception ? DLFailureType.Exception : DLFailureType.Aggregation;
         Failure = failure;
         InnerFailures = [.. innerFailure];
     }
 
     public DLOptionFailure(DLFailureType type, T failure, IEnumerable<IDLOptionFailure> innerFailure)
     {
-        Type = type;
+        FailureType = type;
         Failure = failure;
         InnerFailures = [.. innerFailure];
     }
@@ -128,7 +134,7 @@ public class DLOptionFailure<T> : IDLOptionFailure
     public override string ToString()
     {
         if (InnerFailures.Length == 0)
-            return $"[{Type}] {Failure?.ToString()}";
+            return $"[{FailureType}] {Failure?.ToString()}";
 
         var innerFailureOutput = InnerFailures.ToJoinedString("\n");
 

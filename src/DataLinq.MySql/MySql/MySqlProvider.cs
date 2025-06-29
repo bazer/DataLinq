@@ -1,14 +1,6 @@
-﻿using System;
-using System.Data;
-using System.Linq;
-using System.Text;
-using DataLinq.Extensions.Helpers;
-using DataLinq.Interfaces;
+﻿using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
-using DataLinq.Mutation;
-using DataLinq.Query;
-using MySqlConnector;
 
 namespace DataLinq.MySql;
 
@@ -16,7 +8,6 @@ public class MySQLProvider : IDatabaseProviderRegister
 {
     public static bool HasBeenRegistered { get; private set; }
 
-    //[ModuleInitializer]
     public static void RegisterProvider()
     {
         if (HasBeenRegistered)
@@ -42,7 +33,7 @@ public class MySqlProvider<T> : SqlProvider<T> where T : class, IDatabaseModel
     }
 
     public MySqlProvider(string connectionString, string? databaseName = null, DataLinqLoggingConfiguration? loggerFactory = null)
-        : base(connectionString, databaseName, loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration)
+        : base(connectionString, DatabaseType.MySQL, loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration, databaseName)
     {
     }
 }

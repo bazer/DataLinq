@@ -42,12 +42,12 @@ public class SqlProviderConstants : IDatabaseProviderConstants
     public bool SupportsMultipleDatabases { get; } = true;
 }
 
-public class SqlProvider<T> : DatabaseProvider<T>, IDisposable
+public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel
 {
-    private SqlDataLinqDataWriter dataWriter = new SqlDataLinqDataWriter();
-    private MySqlDataSource dataSource;
-    private SqlDbAccess dbAccess;
+    private readonly SqlDataLinqDataWriter dataWriter = new();
+    private readonly MySqlDataSource dataSource;
+    private readonly SqlDbAccess dbAccess;
 
     public override IDatabaseProviderConstants Constants { get; } = new SqlProviderConstants();
     public override DatabaseAccess DatabaseAccess => dbAccess;
@@ -57,34 +57,23 @@ public class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         MySQLProvider.RegisterProvider();
     }
 
-    public SqlProvider(string connectionString) : this(connectionString, null, DataLinqLoggingConfiguration.NullConfiguration)
+    public SqlProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration) : this(connectionString, databaseType, loggingConfiguration, null)
     {
     }
 
-    public SqlProvider(string connectionString, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration)
+    public SqlProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName) : base(connectionString, databaseType, loggingConfiguration, databaseName)
     {
-        var connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+        if (string.IsNullOrWhiteSpace(databaseName))
+        {
+            var connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
 
-        if (!string.IsNullOrWhiteSpace(connectionStringBuilder.Database))
-            DatabaseName = connectionStringBuilder.Database;
+            if (!string.IsNullOrWhiteSpace(connectionStringBuilder.Database))
+                DatabaseName = connectionStringBuilder.Database;
+        }
 
-        Setup();
-    }
-
-    public SqlProvider(string connectionString, string? databaseName) : this(connectionString, databaseName, DataLinqLoggingConfiguration.NullConfiguration)
-    {
-    }
-
-    public SqlProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, DatabaseType.MySQL, loggingConfiguration, databaseName)
-    {
-        Setup();
-    }
-
-    private void Setup()
-    {
         dataSource = new MySqlDataSourceBuilder(ConnectionString)
-            .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
-            .Build();
+             .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
+             .Build();
 
         dbAccess = new SqlDbAccess(dataSource, LoggingConfiguration);
     }

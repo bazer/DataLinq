@@ -2,11 +2,10 @@
 using System.Linq;
 using DataLinq.Config;
 using DataLinq.Core.Factories;
-using DataLinq.MySql;
 using MySqlConnector;
 using Xunit;
 
-namespace DataLinq.Tests;
+namespace DataLinq.MySql.Tests;
 
 public class MySqlTypeMappingFixture : IDisposable
 {
@@ -90,10 +89,10 @@ public class MySqlTypeMappingTests : IClassFixture<MySqlTypeMappingFixture>
 
         // Create a new transaction for each test to ensure isolation
         using var transaction = new SqlDatabaseTransaction(
-             new MySqlConnector.MySqlDataSourceBuilder(_mySqlConnection.ConnectionString.Original).Build(),
+             new MySqlDataSourceBuilder(_mySqlConnection.ConnectionString.Original).Build(),
              Mutation.TransactionType.ReadAndWrite,
              _dbName, // Use the unique DB name
-             DataLinq.Logging.DataLinqLoggingConfiguration.NullConfiguration);
+             Logging.DataLinqLoggingConfiguration.NullConfiguration);
 
         try
         {
@@ -105,7 +104,7 @@ public class MySqlTypeMappingTests : IClassFixture<MySqlTypeMappingFixture>
 
             // 2. Parse the schema for just this table
             var options = new MetadataFromDatabaseFactoryOptions { Include = [tableName], CapitaliseNames = true };
-            var factory = MetadataFromSqlFactory.GetSqlFactory(options, DatabaseType.MySQL);
+            var factory = MetadataFromSqlFactory.GetSqlFactory(options, DatabaseType.MariaDB);
             var dbDefinition = factory.ParseDatabase(
                 _dbName,
                 "TestDb",

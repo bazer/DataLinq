@@ -44,7 +44,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database.</param>
-    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string databaseName) : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName)
+    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName) : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName)
     {
         TypedReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }

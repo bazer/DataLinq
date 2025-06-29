@@ -6,10 +6,9 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
-using DataLinq.MySql;
 using Xunit;
 
-namespace DataLinq.Tests;
+namespace DataLinq.MySql.Tests.MariaDB;
 
 [Collection("MariaDB Type Mapping")]
 public class MariaDBTypeMappingTests : IClassFixture<MariaDBTypeMappingFixture>
@@ -67,7 +66,7 @@ public class MariaDBTypeMappingTests : IClassFixture<MariaDBTypeMappingFixture>
         Assert.Equal("id", column.DbName);
         Assert.Equal("Guid", column.ValueProperty.CsType.Name); // Should map to C# Guid
 
-        var dbType = column.GetDbTypeFor(DatabaseType.MySQL); // Factory assigns MySQL as it's the base
+        var dbType = column.GetDbTypeFor(DatabaseType.MariaDB); // Factory assigns MySQL as it's the base
         Assert.NotNull(dbType);
         Assert.Equal("uuid", dbType.Name, ignoreCase: true); // Should recognize the 'uuid' type
     }
@@ -86,7 +85,7 @@ public class MariaDBTypeMappingTests : IClassFixture<MariaDBTypeMappingFixture>
         var sqlResult = sqlFactory.GetCreateTables(dbDefinition, true).Value;
 
         // Assert
-        Assert.Contains("CREATE TABLE `uuid_test`", sqlResult.Text);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS `uuid_test`", sqlResult.Text);
         Assert.Contains("`id` UUID NOT NULL", sqlResult.Text); // Assert it generates UUID
         Assert.DoesNotContain("`id` BINARY(16) NOT NULL", sqlResult.Text); // Assert it does NOT generate BINARY(16)
     }
@@ -103,7 +102,7 @@ public class MariaDBTypeMappingTests : IClassFixture<MariaDBTypeMappingFixture>
         var createSql = sqlFactory.GetCreateTables(dbDefinition, true).Value;
 
         // We need a proper Database<T> object to test the runtime
-        var db = new MariaDBDatabase<UuidTestDatabase>(_fixture.TestConnection.ConnectionString.Original, _fixture.TestDatabaseName, null);
+        var db = new MariaDBDatabase<UuidTestDatabase>(_fixture.TestConnection.ConnectionString.Original, _fixture.TestDatabaseName, _fixture.TestLoggerFactory);
 
         // Create the table
         db.Provider.DatabaseAccess.ExecuteNonQuery(createSql.Text);

@@ -1,27 +1,26 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
-using DataLinq;
 using DataLinq.Config;
 using DataLinq.Core.Factories;
+using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
-using DataLinq.MySql;
-using DataLinq.Tests;
 using MySqlConnector;
+using ThrowAway;
 using Xunit;
 
-// A dedicated fixture to set up and tear down a database with a known schema for filtering tests.
-public class MySqlFilteringTestFixture : IDisposable
-{
-    public DataLinqDatabaseConnection TestConnection { get; }
-    public string TestDatabaseName { get; }
+namespace DataLinq.MySql.Tests;
 
-    public MySqlFilteringTestFixture()
+// A dedicated fixture to set up and tear down a database with a known schema for filtering tests.
+public class MySqlFilteringTestFixture() : IDisposable
+{
+    public static (string dbName, DataLinqDatabaseConnection connection) GetTestDatabase(DatabaseType databaseType)
     {
         var mysqlConfig = DatabaseFixture.DataLinqConfig.Databases
             .Single(x => x.Name == "employees")
-            .Connections.Single(c => c.Type == DatabaseType.MySQL);
+            .Connections.Single(c => c.Type == databaseType);
 
-        TestDatabaseName = $"datalinq_filter_tests_{Guid.NewGuid().ToString("N")[..10]}";
+        var databaseName = $"datalinq_filter_tests_{Guid.NewGuid().ToString("N")[..10]}";
 
         var serverConnectionString = new MySqlConnectionStringBuilder(mysqlConfig.ConnectionString.Original) { Database = "" }.ConnectionString;
 
@@ -29,11 +28,11 @@ public class MySqlFilteringTestFixture : IDisposable
         {
             connection.Open();
             using var command = connection.CreateCommand();
-            command.CommandText = $"CREATE DATABASE `{TestDatabaseName}`;";
+            command.CommandText = $"CREATE DATABASE `{databaseName}`;";
             command.ExecuteNonQuery();
         }
 
-        var testConnectionString = new MySqlConnectionStringBuilder(mysqlConfig.ConnectionString.Original) { Database = TestDatabaseName }.ConnectionString;
+        var testConnectionString = new MySqlConnectionStringBuilder(mysqlConfig.ConnectionString.Original) { Database = databaseName }.ConnectionString;
 
         // Create the schema
         using (var connection = new MySqlConnection(testConnectionString))
@@ -48,52 +47,69 @@ public class MySqlFilteringTestFixture : IDisposable
             command.ExecuteNonQuery();
         }
 
-        TestConnection = new DataLinqDatabaseConnection(mysqlConfig.DatabaseConfig, new ConfigFileDatabaseConnection
+        var testConnection = new DataLinqDatabaseConnection(mysqlConfig.DatabaseConfig, new ConfigFileDatabaseConnection
         {
-            Type = "MySQL",
-            DataSourceName = TestDatabaseName,
+            Type = databaseType == DatabaseType.MySQL ? "MySQL" : "MariaDB",
+            DataSourceName = databaseName,
             ConnectionString = testConnectionString
         });
+
+        return (databaseName, testConnection);
+    }
+
+    public static void DropTestDatabase(DataLinqDatabaseConnection testConnection, string dbName)
+    {
+        using (var connection = new MySqlConnection(testConnection.ConnectionString.Original))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = $"DROP DATABASE IF EXISTS `{dbName}`;";
+            command.ExecuteNonQuery();
+        }
     }
 
     public void Dispose()
     {
-        var serverConnectionString = new MySqlConnectionStringBuilder(TestConnection.ConnectionString.Original) { Database = "" }.ConnectionString;
-        using var connection = new MySqlConnection(serverConnectionString);
-        connection.Open();
-        using var command = connection.CreateCommand();
-        command.CommandText = $"DROP DATABASE IF EXISTS `{TestDatabaseName}`;";
-        command.ExecuteNonQuery();
+        foreach (var (dbName, testConnection) in DatabaseFixture.SupportedDatabaseTypes.Select(GetTestDatabase))
+            DropTestDatabase(testConnection, dbName);
     }
 }
 
 [Collection("MySQL Filtering Tests")]
 public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixture>
 {
-    private readonly DataLinqDatabaseConnection _testConnection;
-    private readonly string _dbName;
+    //private readonly DataLinqDatabaseConnection _testConnection;
+    //private readonly string _dbName;
+
+    public static IEnumerable<object[]> DatabaseTypes()
+    {
+        foreach (var type in DatabaseFixture.SupportedDatabaseTypes)
+            yield return new object[] { type };
+    }
 
     public MySqlMetadataFilteringTests(MySqlFilteringTestFixture fixture)
     {
-        _testConnection = fixture.TestConnection;
-        _dbName = fixture.TestDatabaseName;
+        //_testConnection = fixture.TestConnection;
+        //_dbName = fixture.TestDatabaseName;
     }
 
-    private DatabaseDefinition ParseSchema(MetadataFromDatabaseFactoryOptions options)
+    private Option<DatabaseDefinition, IDLOptionFailure> ParseSchema(MetadataFromDatabaseFactoryOptions options, DatabaseType databaseType)
     {
-        var factory = MetadataFromSqlFactory.GetSqlFactory(options, DatabaseType.MySQL);
+        var (dbName, testConnection) = MySqlFilteringTestFixture.GetTestDatabase(databaseType);
+        var factory = MetadataFromSqlFactory.GetSqlFactory(options, databaseType);
         return factory.ParseDatabase(
-            _dbName, "TestDb", "TestNs", _dbName, _testConnection.ConnectionString.Original).Value;
+            dbName, "TestDb", "TestNs", dbName, testConnection.ConnectionString.Original);
     }
 
-    [Fact]
-    public void Filtering_NullIncludeList_ReturnsAllItems()
+    [Theory]
+    [MemberData(nameof(DatabaseTypes))]
+    public void Filtering_NullIncludeList_ReturnsAllItems(DatabaseType databaseType)
     {
         // Arrange: options.Include is null by default
         var options = new MetadataFromDatabaseFactoryOptions();
 
         // Act
-        var dbDefinition = ParseSchema(options);
+        var dbDefinition = ParseSchema(options, databaseType).Value;
 
         // Assert
         Assert.Equal(4, dbDefinition.TableModels.Length); // 2 tables + 2 views
@@ -101,14 +117,15 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
         Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "view1");
     }
 
-    [Fact]
-    public void Filtering_EmptyIncludeList_ReturnsAllItems()
+    [Theory]
+    [MemberData(nameof(DatabaseTypes))]
+    public void Filtering_EmptyIncludeList_ReturnsAllItems(DatabaseType databaseType)
     {
         // Arrange: An explicitly empty list should also mean "include all"
         var options = new MetadataFromDatabaseFactoryOptions { Include = [] };
 
         // Act
-        var dbDefinition = ParseSchema(options);
+        var dbDefinition = ParseSchema(options, databaseType).Value;
 
         // Assert
         Assert.Equal(4, dbDefinition.TableModels.Length);
@@ -116,14 +133,15 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
         Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "view2");
     }
 
-    [Fact]
-    public void Filtering_IncludeListWithOneTable_ReturnsOnlyThatTable()
+    [Theory]
+    [MemberData(nameof(DatabaseTypes))]
+    public void Filtering_IncludeListWithOneTable_ReturnsOnlyThatTable(DatabaseType databaseType)
     {
         // Arrange
         var options = new MetadataFromDatabaseFactoryOptions { Include = ["table1"] };
 
         // Act
-        var dbDefinition = ParseSchema(options);
+        var dbDefinition = ParseSchema(options, databaseType).Value;
 
         // Assert
         Assert.Single(dbDefinition.TableModels);
@@ -132,14 +150,15 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
         Assert.Equal(TableType.Table, tableModel.Table.Type);
     }
 
-    [Fact]
-    public void Filtering_IncludeListWithOneView_ReturnsOnlyThatView()
+    [Theory]
+    [MemberData(nameof(DatabaseTypes))]
+    public void Filtering_IncludeListWithOneView_ReturnsOnlyThatView(DatabaseType databaseType)
     {
         // Arrange
         var options = new MetadataFromDatabaseFactoryOptions { Include = ["view2"] };
 
         // Act
-        var dbDefinition = ParseSchema(options);
+        var dbDefinition = ParseSchema(options, databaseType).Value;
 
         // Assert
         Assert.Single(dbDefinition.TableModels);
@@ -148,14 +167,15 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
         Assert.Equal(TableType.View, tableModel.Table.Type);
     }
 
-    [Fact]
-    public void Filtering_IncludeListWithSpecificTablesAndViews_ReturnsOnlyThose()
+    [Theory]
+    [MemberData(nameof(DatabaseTypes))]
+    public void Filtering_IncludeListWithSpecificTablesAndViews_ReturnsOnlyThose(DatabaseType databaseType)
     {
         // Arrange
         var options = new MetadataFromDatabaseFactoryOptions { Include = ["table2", "view1"] };
 
         // Act
-        var dbDefinition = ParseSchema(options);
+        var dbDefinition = ParseSchema(options, databaseType).Value;
 
         // Assert
         Assert.Equal(2, dbDefinition.TableModels.Length);
@@ -163,16 +183,19 @@ public class MySqlMetadataFilteringTests : IClassFixture<MySqlFilteringTestFixtu
         Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "view1" && tm.Table.Type == TableType.View);
     }
 
-    [Fact]
-    public void Filtering_IncludeListWithNonExistentItem_ReturnsNothing()
+    [Theory]
+    [MemberData(nameof(DatabaseTypes))]
+    public void Filtering_IncludeListWithNonExistentItem_ReturnsFailure(DatabaseType databaseType)
     {
         // Arrange
         var options = new MetadataFromDatabaseFactoryOptions { Include = ["non_existent_table"] };
 
         // Act
-        var dbDefinition = ParseSchema(options);
+        var dbDefinition = ParseSchema(options, databaseType);
 
         // Assert
-        Assert.Empty(dbDefinition.TableModels);
+        Assert.True(dbDefinition.HasFailed);
+        Assert.Equal(DLFailureType.InvalidModel, dbDefinition.Failure.Value.FailureType);
+        Assert.Contains("Could not find the specified tables or views: non_existent_table", dbDefinition.Failure.Value.Message);
     }
 }
