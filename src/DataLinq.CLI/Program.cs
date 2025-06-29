@@ -2,6 +2,7 @@
 using System.IO;
 using CommandLine;
 using DataLinq.Config;
+using DataLinq.MariaDB;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 using DataLinq.Tools;

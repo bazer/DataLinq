@@ -3,7 +3,7 @@ using DataLinq.Logging;
 using DataLinq.Metadata;
 using Microsoft.Extensions.Logging;
 
-namespace DataLinq.MySql;
+namespace DataLinq.MariaDB;
 
 public class MariaDBDatabaseCreator : IDatabaseProviderCreator
 {

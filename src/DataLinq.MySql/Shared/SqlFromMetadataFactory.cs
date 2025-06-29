@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
-using DataLinq.Extensions.Helpers;
+using DataLinq.MariaDB;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using MySqlConnector;
@@ -10,8 +10,18 @@ using ThrowAway;
 
 namespace DataLinq.MySql;
 
-public class SqlFromMetadataFactory : ISqlFromMetadataFactory
+public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
+    public static SqlFromMetadataFactory GetFactoryFromDatabaseType(DatabaseType databaseType)
+    {
+        if (databaseType == DatabaseType.MariaDB)
+            return new SqlFromMariaDBFactory();
+        if (databaseType == DatabaseType.MySQL)
+            return new SqlFromMySqlFactory();
+
+        throw new NotImplementedException($"No SQL factory for {databaseType}");
+    }
+
     private static readonly string[] NoLengthTypes = new string[] { "text", "tinytext", "mediumtext", "longtext", "enum", "float", "double", "blob", "tinyblob", "mediumblob", "longblob" };
 
     public virtual Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
@@ -90,22 +100,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
     }
 
-    public virtual DatabaseColumnType GetDbType(ColumnDefinition column)
-    {
-        if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))
-            return column.DbTypes.First(x => x.DatabaseType == DatabaseType.MySQL);
-
-        var type = column.DbTypes
-            .Select(x => TryGetColumnType(x))
-            .Concat(GetDbTypeFromCsType(column.ValueProperty).Yield())
-            .Where(x => x != null)
-            .FirstOrDefault();
-
-        if (type == null)
-            throw new Exception($"Could not find a MySQL database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.PropertyName}'");
-
-        return type;
-    }
+    public abstract DatabaseColumnType GetDbType(ColumnDefinition column);
 
     public virtual string? GetDefaultValue(ColumnDefinition column)
     {
@@ -120,63 +115,36 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return defaultAttr?.Value.ToString();
     }
 
-    protected virtual DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
+    protected virtual DatabaseColumnType? ParseDefaultType(DatabaseColumnType defaultType, DatabaseType databaseType)
     {
-        string? type = null;
-
-        if (dbType.DatabaseType == DatabaseType.Default)
-            type = ParseDefaultType(dbType.Name);
-        else if (dbType.DatabaseType == DatabaseType.SQLite)
-            type = ParseSQLiteType(dbType.Name);
-
-        return type == null
-            ? null
-            : new DatabaseColumnType(DatabaseType.MySQL, type, dbType.Length, dbType.Decimals, dbType.Signed);
-    }
-
-    protected virtual DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
-    {
-        var type = ParseCsType(property.CsType.Name);
-
-        return type == null
-            ? null
-            : new DatabaseColumnType(DatabaseType.MySQL, type);
-    }
-
-    protected virtual string? ParseDefaultType(string defaultType)
-    {
-        return defaultType.ToLower() switch
+        var newTypeName = defaultType.Name.ToLower() switch
         {
-            "integer" => "integer",
-            "int" => "integer",
-            "tinyint" => "integer",
-            "mediumint" => "integer",
-            "bit" => "integer",
-            "bigint" => "integer",
-            "smallint" => "integer",
-            "enum" => "integer",
-            "real" => "real",
-            "double" => "real",
-            "float" => "real",
-            "decimal" => "real",
-            "varchar" => "text",
+            "integer" => "int",
+            "big-integer" => "bigint",
+            "decimal" => "decimal",
+            "float" => "float",
+            "double" => "double",
             "text" => "text",
-            "mediumtext" => "text",
-            "datetime" => "text",
-            "timestamp" => "text",
-            "date" => "text",
-            "char" => "text",
-            "longtext" => "text",
-            "binary" => "blob",
+            "boolean" => "bit",
+            "datetime" => "datetime",
+            "timestamp" => "timestamp",
+            "date" => "date",
+            "time" => "time",
+            "uuid" => "binary",
             "blob" => "blob",
-            _ => null
-            //_ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
+            "json" => "json",
+            "xml" => "longtext",
+            _ => null,
         };
+
+        return newTypeName == null
+            ? null
+            : new DatabaseColumnType(databaseType, newTypeName, defaultType.Length, defaultType.Decimals, defaultType.Signed);
     }
 
-    protected virtual string? ParseSQLiteType(string sqliteType)
+    protected virtual DatabaseColumnType? ParseSQLiteType(DatabaseColumnType sqliteType, DatabaseType databaseType)
     {
-        return sqliteType.ToLower() switch
+        var newTypeName = sqliteType.Name.ToLower() switch
         {
             "integer" => "int",
             "text" => "varchar",
@@ -184,25 +152,50 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
             "blob" => "binary",
             _ => null
         };
+
+        return newTypeName == null
+            ? null
+            : new DatabaseColumnType(databaseType, newTypeName, sqliteType.Length, sqliteType.Decimals, sqliteType.Signed);
     }
 
-    protected virtual string? ParseCsType(string csType)
+    protected virtual DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property, DatabaseType databaseType)
+{
+    var csTypeName = property.CsType.Name.ToLower();
+
+    return csTypeName switch
     {
-        return csType.ToLower() switch
-        {
-            "int" => "int",
-            "string" => "varchar",
-            "bool" => "bit",
-            "double" => "double",
-            "datetime" => "datetime",
-            "dateonly" => "date",
-            "float" => "float",
-            "long" => "bigint",
-            "guid" => "binary(16)",
-            "enum" => "enum",
-            "decimal" => "decimal",
-            "byte[]" => "blob",
-            _ => null
-        };
-    }
+        // Integer types
+        "sbyte"     => new DatabaseColumnType(databaseType, "tinyint", signed: true),
+        "byte"      => new DatabaseColumnType(databaseType, "tinyint", signed: false),
+        "short"     => new DatabaseColumnType(databaseType, "smallint", signed: true),
+        "ushort"    => new DatabaseColumnType(databaseType, "smallint", signed: false),
+        "int"       => new DatabaseColumnType(databaseType, "int", signed: true),
+        "uint"      => new DatabaseColumnType(databaseType, "int", signed: false),
+        "long"      => new DatabaseColumnType(databaseType, "bigint", signed: true),
+        "ulong"     => new DatabaseColumnType(databaseType, "bigint", signed: false),
+
+        // Floating point and decimal types
+        "decimal"   => new DatabaseColumnType(databaseType, "decimal", 18, 4), // Common default precision
+        "float"     => new DatabaseColumnType(databaseType, "float"),
+        "double"    => new DatabaseColumnType(databaseType, "double"),
+
+        // String and character types
+        "string"    => new DatabaseColumnType(databaseType, "varchar", 255), // Default length for strings
+        "char"      => new DatabaseColumnType(databaseType, "char", 1),
+
+        // Date and Time types
+        "datetime"  => new DatabaseColumnType(databaseType, "datetime"),
+        "dateonly"  => new DatabaseColumnType(databaseType, "date"),
+        "timeonly"  => new DatabaseColumnType(databaseType, "time"),
+
+        // Other types
+        "bool"      => new DatabaseColumnType(databaseType, "bit", 1),
+        "guid"      => new DatabaseColumnType(databaseType, "binary", 16),
+        "byte[]"    => new DatabaseColumnType(databaseType, "blob"),
+        
+        // Enum handling
+        "enum"      => new DatabaseColumnType(databaseType, "enum"), // Generic enum type, can be refined by provider
+
+        _ => null
+    };
 }

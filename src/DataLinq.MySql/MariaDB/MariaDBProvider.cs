@@ -2,8 +2,9 @@
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
+using DataLinq.MySql;
 
-namespace DataLinq.MySql;
+namespace DataLinq.MariaDB;
 
 public class MariaDBProvider : IDatabaseProviderRegister
 {

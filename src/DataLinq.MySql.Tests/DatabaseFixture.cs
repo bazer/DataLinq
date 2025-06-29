@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DataLinq.Config;
+using DataLinq.MariaDB;
 using DataLinq.MariaDB.information_schema;
 using DataLinq.Metadata;
 using DataLinq.MySql.information_schema;

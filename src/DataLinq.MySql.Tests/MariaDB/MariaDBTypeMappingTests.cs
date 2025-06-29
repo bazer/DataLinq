@@ -4,6 +4,7 @@ using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.MariaDB;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using Xunit;

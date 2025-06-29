@@ -12,28 +12,6 @@ using MySqlConnector;
 
 namespace DataLinq.MySql;
 
-//public class SqlProvider : IDatabaseProviderRegister
-//{
-//    public static bool HasBeenRegistered { get; private set; }
-
-//    //[ModuleInitializer]
-//    public static void RegisterProvider()
-//    {
-//        if (HasBeenRegistered)
-//            return;
-
-//        var creator = new MySqlDatabaseCreator();
-//        var sqlFactory = new SqlFromMysqlFactory();
-//        var metadataFactory = new MetadataFromMySqlFactoryCreator();
-
-//        PluginHook.DatabaseProviders[DatabaseType.MySQL] = creator;
-//        PluginHook.SqlFromMetadataFactories[DatabaseType.MySQL] = sqlFactory;
-//        PluginHook.MetadataFromSqlFactories[DatabaseType.MySQL] = metadataFactory;
-
-//        HasBeenRegistered = true;
-//    }
-//}
-
 public class SqlProviderConstants : IDatabaseProviderConstants
 {
     public string ParameterSign { get; } = "?";
@@ -45,9 +23,10 @@ public class SqlProviderConstants : IDatabaseProviderConstants
 public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel
 {
-    private readonly SqlDataLinqDataWriter dataWriter = new();
+    private readonly SqlDataLinqDataWriter dataWriter;
     private readonly MySqlDataSource dataSource;
     private readonly SqlDbAccess dbAccess;
+    private readonly SqlFromMetadataFactory sqlFromMetadataFactory;
 
     public override IDatabaseProviderConstants Constants { get; } = new SqlProviderConstants();
     public override DatabaseAccess DatabaseAccess => dbAccess;
@@ -76,6 +55,8 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
              .Build();
 
         dbAccess = new SqlDbAccess(dataSource, LoggingConfiguration);
+        sqlFromMetadataFactory = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType);
+        dataWriter = new SqlDataLinqDataWriter(sqlFromMetadataFactory);
     }
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
@@ -196,7 +177,7 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         return command;
     }
 
-    public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
+    public override Sql GetCreateSql() => sqlFromMetadataFactory.GetCreateTables(Metadata, true);
 
     public override IDataLinqDataWriter GetWriter()
     {

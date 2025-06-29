@@ -22,6 +22,7 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
     public override string ToString() => $"{Name} ({Length}) [{DatabaseType}]";
 
     public DatabaseColumnType Clone() => new(DatabaseType, Name, Length, Decimals, Signed);
+    public DatabaseColumnType Mutate(DatabaseType databaseType) => new(databaseType, Name, Length, Decimals, Signed);
 }
 
 public class ColumnDefinition(string dbName, TableDefinition table) : IDefinition

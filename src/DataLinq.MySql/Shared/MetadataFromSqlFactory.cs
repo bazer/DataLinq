@@ -7,6 +7,7 @@ using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
+using DataLinq.MariaDB;
 using DataLinq.Metadata;
 using DataLinq.MySql.Shared;
 using ThrowAway;

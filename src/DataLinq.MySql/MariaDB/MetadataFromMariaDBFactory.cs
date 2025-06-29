@@ -6,10 +6,11 @@ using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.MariaDB.information_schema;
 using DataLinq.Metadata;
+using DataLinq.MySql;
 using DataLinq.MySql.Shared;
 using ThrowAway;
 
-namespace DataLinq.MySql;
+namespace DataLinq.MariaDB;
 
 public class MetadataFromMariaDBFactoryCreator : IMetadataFromDatabaseFactoryCreator
 {

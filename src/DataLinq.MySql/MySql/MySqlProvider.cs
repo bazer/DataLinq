@@ -14,7 +14,7 @@ public class MySQLProvider : IDatabaseProviderRegister
             return;
 
         var creator = new MySqlDatabaseCreator();
-        var sqlFactory = new SqlFromMysqlFactory();
+        var sqlFactory = new SqlFromMySqlFactory();
         var metadataFactory = new MetadataFromMySqlFactoryCreator();
 
         PluginHook.DatabaseProviders[DatabaseType.MySQL] = creator;
@@ -29,7 +29,7 @@ public class MySqlProvider<T> : SqlProvider<T> where T : class, IDatabaseModel
 {
     static MySqlProvider()
     {
-        MariaDBProvider.RegisterProvider();
+        MySQLProvider.RegisterProvider();
     }
 
     public MySqlProvider(string connectionString, string? databaseName = null, DataLinqLoggingConfiguration? loggerFactory = null)

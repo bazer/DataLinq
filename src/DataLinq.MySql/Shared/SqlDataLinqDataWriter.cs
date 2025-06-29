@@ -6,17 +6,14 @@ namespace DataLinq.MySql;
 /// <summary>
 /// Represents a data writer for MySql database.
 /// </summary>
-public class SqlDataLinqDataWriter : IDataLinqDataWriter
+/// <remarks>
+/// Initializes a new instance of the <see cref="SqlDataLinqDataWriter"/> class.
+/// </remarks>
+public class SqlDataLinqDataWriter(SqlFromMetadataFactory sqlFromMetadataFactory) : IDataLinqDataWriter
 {
-    protected SqlFromMetadataFactory sqlFromMetadataFactory { get; } = new SqlFromMetadataFactory();
+    protected SqlFromMetadataFactory SqlFromMetadataFactory { get; } = sqlFromMetadataFactory;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SqlDataLinqDataWriter"/> class.
-    /// </summary>
-    public SqlDataLinqDataWriter()
-    {
-    }
-
+
     /// <summary>
     /// Converts the specified value to the appropriate type for the specified column.
     /// </summary>
@@ -30,7 +27,10 @@ public class SqlDataLinqDataWriter : IDataLinqDataWriter
 
         if (value is Guid guid)
         {
-            var dbType = sqlFromMetadataFactory.GetDbType(column);
+            var dbType = SqlFromMetadataFactory.GetDbType(column);
+
+            if (dbType.Name == "uuid" || (dbType.Name == "char" && dbType.Length == 36))
+                return guid.ToString();
 
             if (dbType.Name == "binary" && dbType.Length == 16)
                 return guid.ToByteArray();
