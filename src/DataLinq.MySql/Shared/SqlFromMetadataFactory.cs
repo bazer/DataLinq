@@ -159,43 +159,44 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
     }
 
     protected virtual DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property, DatabaseType databaseType)
-{
-    var csTypeName = property.CsType.Name.ToLower();
-
-    return csTypeName switch
     {
-        // Integer types
-        "sbyte"     => new DatabaseColumnType(databaseType, "tinyint", signed: true),
-        "byte"      => new DatabaseColumnType(databaseType, "tinyint", signed: false),
-        "short"     => new DatabaseColumnType(databaseType, "smallint", signed: true),
-        "ushort"    => new DatabaseColumnType(databaseType, "smallint", signed: false),
-        "int"       => new DatabaseColumnType(databaseType, "int", signed: true),
-        "uint"      => new DatabaseColumnType(databaseType, "int", signed: false),
-        "long"      => new DatabaseColumnType(databaseType, "bigint", signed: true),
-        "ulong"     => new DatabaseColumnType(databaseType, "bigint", signed: false),
+        var csTypeName = property.CsType.Name.ToLower();
 
-        // Floating point and decimal types
-        "decimal"   => new DatabaseColumnType(databaseType, "decimal", 18, 4), // Common default precision
-        "float"     => new DatabaseColumnType(databaseType, "float"),
-        "double"    => new DatabaseColumnType(databaseType, "double"),
+        return csTypeName switch
+        {
+            // Integer types
+            "sbyte" => new DatabaseColumnType(databaseType, "tinyint", signed: true),
+            "byte" => new DatabaseColumnType(databaseType, "tinyint", signed: false),
+            "short" => new DatabaseColumnType(databaseType, "smallint", signed: true),
+            "ushort" => new DatabaseColumnType(databaseType, "smallint", signed: false),
+            "int" => new DatabaseColumnType(databaseType, "int", signed: true),
+            "uint" => new DatabaseColumnType(databaseType, "int", signed: false),
+            "long" => new DatabaseColumnType(databaseType, "bigint", signed: true),
+            "ulong" => new DatabaseColumnType(databaseType, "bigint", signed: false),
 
-        // String and character types
-        "string"    => new DatabaseColumnType(databaseType, "varchar", 255), // Default length for strings
-        "char"      => new DatabaseColumnType(databaseType, "char", 1),
+            // Floating point and decimal types
+            "decimal" => new DatabaseColumnType(databaseType, "decimal", 18, 4), // Common default precision
+            "float" => new DatabaseColumnType(databaseType, "float"),
+            "double" => new DatabaseColumnType(databaseType, "double"),
 
-        // Date and Time types
-        "datetime"  => new DatabaseColumnType(databaseType, "datetime"),
-        "dateonly"  => new DatabaseColumnType(databaseType, "date"),
-        "timeonly"  => new DatabaseColumnType(databaseType, "time"),
+            // String and character types
+            "string" => new DatabaseColumnType(databaseType, "varchar", 255), // Default length for strings
+            "char" => new DatabaseColumnType(databaseType, "char", 1),
 
-        // Other types
-        "bool"      => new DatabaseColumnType(databaseType, "bit", 1),
-        "guid"      => new DatabaseColumnType(databaseType, "binary", 16),
-        "byte[]"    => new DatabaseColumnType(databaseType, "blob"),
-        
-        // Enum handling
-        "enum"      => new DatabaseColumnType(databaseType, "enum"), // Generic enum type, can be refined by provider
+            // Date and Time types
+            "datetime" => new DatabaseColumnType(databaseType, "datetime"),
+            "dateonly" => new DatabaseColumnType(databaseType, "date"),
+            "timeonly" => new DatabaseColumnType(databaseType, "time"),
 
-        _ => null
-    };
+            // Other types
+            "bool" => new DatabaseColumnType(databaseType, "bit", 1),
+            "guid" => new DatabaseColumnType(databaseType, "binary", 16),
+            "byte[]" => new DatabaseColumnType(databaseType, "blob"),
+
+            // Enum handling
+            "enum" => new DatabaseColumnType(databaseType, "enum"), // Generic enum type, can be refined by provider
+
+            _ => null
+        };
+    }
 }

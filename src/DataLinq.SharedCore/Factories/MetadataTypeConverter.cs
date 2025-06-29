@@ -5,7 +5,7 @@ namespace DataLinq.Core.Factories;
 
 public static class MetadataTypeConverter
 {
-    public static int? CsTypeSize(string csType) => csType switch
+    public static int? CsTypeSize(string csType) => csType.ToLowerInvariant() switch
     {
         "sbyte" => sizeof(sbyte),
         "byte" => sizeof(byte),
@@ -20,10 +20,10 @@ public static class MetadataTypeConverter
         "double" => sizeof(double),
         "bool" => sizeof(bool),
         "decimal" => sizeof(decimal),
-        "DateTime" => 8,
-        "DateOnly" => sizeof(long),
-        "Guid" => 16,
-        "String" => null,
+        "datetime" => 8,
+        "dateonly" => sizeof(long),
+        "guid" => 16,
+        "string" => null,
         "byte[]" => null,
         "enum" => sizeof(int),
         _ => null
@@ -31,43 +31,53 @@ public static class MetadataTypeConverter
 
     public static string GetKeywordName(Type type)
     {
-        // Special handling for array types
+        if (type.IsGenericType)
+            return GetFriendlyTypeNameWithKeywords(type);
+
+        // For array types, recursively call GetKeywordName on the element type.
         if (type.IsArray)
         {
-            // Recursively get the C# keyword for the element type (e.g., System.Byte -> byte)
             var elementTypeKeyword = GetKeywordName(type.GetElementType()!);
             return $"{elementTypeKeyword}[]";
         }
 
-        if (type.IsGenericType)
-            return GetFriendlyTypeName(type);
-
-        // Fallback to the string-based version for non-generic, non-array types
+        // For non-generic, non-array types, use the string-based mapping.
         return GetKeywordName(type.Name);
     }
 
-    public static string GetKeywordName(string typeName) => typeName switch
+    public static string GetKeywordName(string typeName)
     {
-        "SByte" => "sbyte",
-        "Byte" => "byte",
-        "Int16" => "short",
-        "UInt16" => "ushort",
-        "Int32" => "int",
-        "UInt32" => "uint",
-        "Int64" => "long",
-        "UInt64" => "ulong",
-        "Char" => "char",
-        "Single" => "float",
-        "Double" => "double",
-        "Boolean" => "bool",
-        "Decimal" => "decimal",
-        "String" => "string",
-        _ => typeName,
-    };
+        // Handle array types by recursively calling this method on the element type.
+        if (typeName.EndsWith("[]"))
+        {
+            string elementType = typeName.Substring(0, typeName.Length - 2);
+            string elementKeyword = GetKeywordName(elementType);
+            return $"{elementKeyword}[]";
+        }
 
-    public static Type GetType(string typeName) => Type.GetType(GetFullTypeName(typeName));
+        return typeName switch
+        {
+            "SByte" => "sbyte",
+            "Byte" => "byte",
+            "Int16" => "short",
+            "UInt16" => "ushort",
+            "Int32" => "int",
+            "UInt32" => "uint",
+            "Int64" => "long",
+            "UInt64" => "ulong",
+            "Char" => "char",
+            "Single" => "float",
+            "Double" => "double",
+            "Boolean" => "bool",
+            "Decimal" => "decimal",
+            "String" => "string",
+            _ => typeName,
+        };
+    }
 
-    public static string GetFullTypeName(string typeName) => typeName.ToLower() switch
+    public static Type? GetType(string typeName) => Type.GetType(GetFullTypeName(typeName));
+
+    public static string GetFullTypeName(string typeName) => typeName.ToLowerInvariant() switch
     {
         "sbyte" => "System.SByte",
         "byte" => "System.Byte",
@@ -91,19 +101,19 @@ public static class MetadataTypeConverter
         _ => typeName,
     };
 
-    public static bool IsCsTypeNullable(string csType) => csType switch
+    public static bool IsCsTypeNullable(string csType) => csType.ToLowerInvariant() switch
     {
         "int" => true,
-        "string" => false,
+        "string" => false, // Reference type, nullability handled by context
         "bool" => true,
         "double" => true,
-        "DateTime" => true,
-        "DateOnly" => true,
-        "TimeOnly" => true,
+        "datetime" => true,
+        "dateonly" => true,
+        "timeonly" => true,
         "float" => true,
         "long" => true,
-        "Guid" => true,
-        "byte[]" => false,
+        "guid" => true,
+        "byte[]" => false, // Reference type
         "decimal" => true,
         "enum" => true,
         "sbyte" => true,
@@ -113,22 +123,21 @@ public static class MetadataTypeConverter
         "uint" => true,
         "ulong" => true,
         "char" => true,
-        "String" => false,
         _ => false,
     };
 
-    public static bool IsKnownCsType(string csType) => csType switch
+    public static bool IsKnownCsType(string csType) => csType.ToLowerInvariant() switch
     {
         "int" => true,
         "string" => true,
         "bool" => true,
         "double" => true,
-        "DateTime" => true,
-        "DateOnly" => true,
-        "TimeOnly" => true,
+        "datetime" => true,
+        "dateonly" => true,
+        "timeonly" => true,
         "float" => true,
         "long" => true,
-        "Guid" => true,
+        "guid" => true,
         "byte[]" => true,
         "decimal" => true,
         "enum" => true,
@@ -139,11 +148,10 @@ public static class MetadataTypeConverter
         "uint" => true,
         "ulong" => true,
         "char" => true,
-        "String" => true,
         _ => false,
     };
 
-    public static bool IsPrimitiveType(string typeName) => GetKeywordName(typeName) switch
+    public static bool IsPrimitiveType(string typeName) => GetKeywordName(typeName.ToLowerInvariant()) switch
     {
         "bool" => true,
         "byte" => true,
@@ -166,25 +174,22 @@ public static class MetadataTypeConverter
             ? interfaceName.Substring(1)
             : interfaceName;
 
-    private static string GetFriendlyTypeName(Type type)
+    private static string GetFriendlyTypeNameWithKeywords(Type type)
     {
         if (type.IsGenericType)
         {
-            // Get the base name without the trailing `N part.
             var baseName = type.Name;
             int index = baseName.IndexOf('`');
             if (index > 0)
             {
                 baseName = baseName.Substring(0, index);
             }
-            // Process each generic argument recursively (if necessary)
+
             var genericArgs = type.GetGenericArguments();
-            var genericArgNames = genericArgs.Select(GetFriendlyTypeName);
+            var genericArgNames = genericArgs.Select(GetKeywordName); // Use GetKeywordName recursively
             return $"{baseName}<{string.Join(", ", genericArgNames)}>";
         }
-        else
-        {
-            return type.Name;
-        }
+
+        return GetKeywordName(type.Name);
     }
 }

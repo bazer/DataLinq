@@ -54,14 +54,14 @@ namespace DataLinq.Tests.Core
         }
 
         [Theory]
-        [InlineData(typeof(int), "int")]
-        [InlineData(typeof(string), "string")]
-        [InlineData(typeof(bool), "bool")]
-        [InlineData(typeof(DateTime), "DateTime")]
+        [InlineData(typeof(Int32), "int")]
+        [InlineData(typeof(String), "string")]
+        [InlineData(typeof(Boolean), "bool")]
+        [InlineData(typeof(DateTime), "DateTime")] // Not a keyword
         [InlineData(typeof(Guid), "Guid")]
-        [InlineData(typeof(byte[]), "Byte[]")] // Note: Array type name representation
-        [InlineData(typeof(List<int>), "List<Int32>")] // Generic representation
-        [InlineData(typeof(System.Collections.Generic.Dictionary<string, int>), "Dictionary<String, Int32>")]
+        [InlineData(typeof(Byte[]), "byte[]")]
+        [InlineData(typeof(List<Int32>), "List<int>")]
+        [InlineData(typeof(Dictionary<String, Int32>), "Dictionary<string, int>")]
         public void GetKeywordName_FromType_ReturnsCorrectName(Type type, string expectedName)
         {
             // Act
@@ -76,7 +76,7 @@ namespace DataLinq.Tests.Core
         [InlineData("String", "string")]
         [InlineData("Boolean", "bool")]
         [InlineData("DateTime", "DateTime")] // Not a keyword
-        [InlineData("Byte[]", "Byte[]")]   // Not a keyword
+        [InlineData("Byte[]", "byte[]")]   // Not a keyword
         [InlineData("MyClass", "MyClass")] // Custom type
         public void GetKeywordName_FromString_ReturnsCorrectName(string typeName, string expectedKeyword)
         {
