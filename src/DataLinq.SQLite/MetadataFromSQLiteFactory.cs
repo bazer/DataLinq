@@ -43,6 +43,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         if (missingTables.Count != 0)
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}");
 
+        if (database.TableModels.Length == 0)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No tables or views found in database '{dbName}'. Please check the connection string and database name.");
+
         ParseIndices(database, dbAccess);
         ParseRelations(database, dbAccess);
         MetadataFactory.ParseIndices(database);
@@ -62,11 +65,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     }
     private bool IsTableOrViewInOptionsList(TableModel tableModel)
     {
-        // If the Include list is null or empty, always include the item.
         if (options.Include == null || !options.Include.Any())
             return true;
 
-        // Otherwise, the table/view name must exist in the Include list.
         return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -126,7 +127,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private TableModel ParseTable(DatabaseDefinition database, IDataLinqDataReader reader, SQLiteDatabaseTransaction dbAccess)
     {
-        var type = reader.GetString(0) == "table" ? TableType.Table : TableType.View; //sqlite_master.type
+        var type = reader.GetString(0) == "table" ? TableType.Table : TableType.View;
         var table = type == TableType.Table
              ? new TableDefinition(reader.GetString(2))
              : new ViewDefinition(reader.GetString(2));
@@ -138,7 +139,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         var tableModel = new TableModel(csName, database, table, csName);
 
         if (table is ViewDefinition view)
-            view.SetDefinition(ParseViewDefinition(reader.GetString(4))); //sqlite_master.sql
+            view.SetDefinition(ParseViewDefinition(reader.GetString(4)));
 
         table.SetColumns(dbAccess
             .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
@@ -165,7 +166,6 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         var dbType = new DatabaseColumnType(DatabaseType.SQLite, reader.GetString(2).ToLower());
 
-        // For whatever reason, sometimes the data type for columns in views return ""
         if (string.IsNullOrEmpty(dbType.Name))
             dbType.SetName("text");
 
@@ -176,36 +176,53 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         if (createStatement != null)
         {
-            // Check if the specified column is defined as AUTOINCREMENT
             var pattern = $@"\""({dbName})\""\s+INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT\b";
             var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
             hasAutoIncrement = regex.IsMatch(createStatement);
         }
 
         var column = new ColumnDefinition(dbName, table);
-        column.SetNullable(reader.GetBoolean(3) == false); // For views, this seems to indicate all columns as Nullable
+        column.SetNullable(reader.GetBoolean(3) == false);
         column.SetAutoIncrement(hasAutoIncrement);
         column.SetPrimaryKey(reader.GetBoolean(5));
         column.AddDbType(dbType);
 
-        var csType = ParseCsType(dbType.Name);
+        var csType = ParseCsType(dbType, dbName);
 
         MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
 
         return column;
     }
 
-    // https://www.sqlite.org/datatype3.html
-    private string ParseCsType(string dbType)
+    private string ParseCsType(DatabaseColumnType dbType, string columnName)
     {
-        return dbType.ToLower() switch
+        var lowerColumnName = columnName.ToLowerInvariant();
+
+        // Name-based override for specific types
+        if (dbType.Name == "text")
+        {
+            if (lowerColumnName.EndsWith("_date")) return "DateOnly";
+            if (lowerColumnName.EndsWith("_time")) return "TimeOnly";
+            if (lowerColumnName.Contains("datetime") || lowerColumnName.Contains("timestamp")) return "DateTime";
+            if (lowerColumnName == "guid" || lowerColumnName.EndsWith("_guid") || lowerColumnName == "uuid" || lowerColumnName.EndsWith("_uuid")) return "Guid";
+        }
+        else if (dbType.Name == "integer")
+        {
+            if (lowerColumnName.StartsWith("is_") || lowerColumnName.StartsWith("has_")) return "bool";
+        }
+        else if (dbType.Name == "blob")
+        {
+            if (lowerColumnName == "guid" || lowerColumnName.EndsWith("_guid") || lowerColumnName == "uuid" || lowerColumnName.EndsWith("_uuid")) return "Guid";
+        }
+
+        // Default mapping based on affinity
+        return dbType.Name.ToLower() switch
         {
             "integer" => "int",
             "real" => "double",
             "text" => "string",
             "blob" => "byte[]",
-            _ => throw new NotImplementedException($"Unknown type '{dbType}'"),
+            _ => throw new NotImplementedException($"Unknown type '{dbType.Name}' for column '{columnName}'"),
         };
     }
 }

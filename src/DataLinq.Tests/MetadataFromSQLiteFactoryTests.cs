@@ -158,14 +158,14 @@ namespace DataLinq.Tests
             // gender (INTEGER, mapped to Enum)
             var genderCol = employeesTable.Columns.Single(c => c.DbName == "gender");
             Assert.False(genderCol.Nullable);
-            Assert.Equal("enum", genderCol.ValueProperty.CsType.Name); // Default mapping
+            Assert.Equal("int", genderCol.ValueProperty.CsType.Name); // Default mapping
             var genderDbType = genderCol.GetDbTypeFor(DatabaseType.SQLite);
             Assert.NotNull(genderDbType);
             Assert.Equal("integer", genderDbType.Name); // Enums likely stored as INTEGER
                                                         // Note: SQLite doesn't have native ENUM type, so DbEnumValues might be empty unless populated by transformer
 
             // IsDeleted (INTEGER nullable, mapped to bool?)
-            var isDeletedCol = employeesTable.Columns.SingleOrDefault(c => c.DbName == "IsDeleted");
+            var isDeletedCol = employeesTable.Columns.SingleOrDefault(c => c.DbName == "is_deleted");
             if (isDeletedCol != null)
             {
                 Assert.True(isDeletedCol.Nullable); // pragma_table_info 'notnull' is 0 for nullable

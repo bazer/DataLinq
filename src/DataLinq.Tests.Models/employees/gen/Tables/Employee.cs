@@ -53,7 +53,7 @@ public abstract partial class Employee(RowData rowData, DataSourceAccess dataSou
     [Nullable]
     [Type(DatabaseType.MySQL, "bit", 1)]
     [Type(DatabaseType.SQLite, "integer")]
-    [Column("IsDeleted")]
+    [Column("is_deleted")]
     public abstract bool? IsDeleted { get; }
 
     [Type(DatabaseType.MySQL, "varchar", 16)]
