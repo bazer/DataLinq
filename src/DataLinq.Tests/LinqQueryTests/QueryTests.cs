@@ -352,7 +352,7 @@ public class QueryTests : BaseTests
     public void WhereMultipleContains(Database<EmployeesDb> employeesDb)
     {
         var deptIds = new[] { "d001", "d002", "d003" };
-        var empIds = new[] { 5, 2668, 100 };
+        var empIds = new[] { 5, 8, 100 };
         var where = employeesDb.Query().DepartmentEmployees
             .Where(x => deptIds.Contains(x.dept_no) && empIds.Contains(x.emp_no))
             .ToList();
@@ -404,7 +404,7 @@ public class QueryTests : BaseTests
     public void WhereMultipleContainsAndStartsWith(Database<EmployeesDb> employeesDb)
     {
         var deptIds = new[] { "d001", "d002", "d003" };
-        var empIds = new[] { 5, 2668, 100 };
+        var empIds = new[] { 5, 8, 100 };
         var where = employeesDb.Query().DepartmentEmployees
             .Where(x => deptIds.Contains(x.dept_no) && empIds.Contains(x.emp_no) && x.dept_no.StartsWith("d"))
             .ToList();
