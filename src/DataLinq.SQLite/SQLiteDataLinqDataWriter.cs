@@ -6,15 +6,14 @@ namespace DataLinq.SQLite;
 /// <summary>
 /// Represents a data writer for SQLite database.
 /// </summary>
-public class SQLiteDataLinqDataWriter : IDataLinqDataWriter
+/// <remarks>
+/// Initializes a new instance of the <see cref="SQLiteDataLinqDataWriter"/> class.
+/// </remarks>
+public class SQLiteDataLinqDataWriter(SqlFromSQLiteFactory sqlFromSQLiteFactory) : IDataLinqDataWriter
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SQLiteDataLinqDataWriter"/> class.
-    /// </summary>
-    public SQLiteDataLinqDataWriter()
-    {
-    }
-
+    protected SqlFromSQLiteFactory sqlFromSQLiteFactory { get; } = sqlFromSQLiteFactory;
+
+
     /// <summary>
     /// Converts the specified value to the appropriate type for the specified column.
     /// </summary>
@@ -28,7 +27,7 @@ public class SQLiteDataLinqDataWriter : IDataLinqDataWriter
 
         if (value is Guid guid)
         {
-            var dbType = SqlFromMetadataFactory.GetDbType(column);
+            var dbType = sqlFromSQLiteFactory.GetDbType(column);
 
             if (dbType.Name == "binary" && dbType.Length == 16)
                 return guid.ToByteArray();

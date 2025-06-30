@@ -12,7 +12,7 @@ using ThrowAway;
 
 namespace DataLinq.SQLite;
 
-public class SqlFromMetadataFactory : ISqlFromMetadataFactory
+public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
 {
     public Option<Sql, IDLOptionFailure> GetCreateTables(DatabaseDefinition metadata, bool foreignKeyRestrict)
     {
@@ -37,11 +37,6 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
                 if (table.PrimaryKeyColumns.Length > 1)
                     sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
-
-                //{
-                //    sql.NewRow().Indent()
-                //        .Add($"PRIMARY KEY ({table.PrimaryKeyColumns.Select(x => x.DbName).ToJoinedString(", ")})");
-                //}
 
                 foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique))
                     sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
@@ -69,7 +64,7 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         var builder = new SqliteConnectionStringBuilder(connectionString);
         var file = builder.DataSource;
 
-        if (file != "memory")
+        if (file != "memory" && file != ":memory:")
         {
             if (File.Exists(file))
                 return DLOptionFailure.Fail($"Failed to create new SQLite database file '{file}', it already exists.");
@@ -85,116 +80,83 @@ public class SqlFromMetadataFactory : ISqlFromMetadataFactory
         return command.ExecuteNonQuery();
     }
 
-    public static DatabaseColumnType GetDbType(ColumnDefinition column)
+    public virtual DatabaseColumnType GetDbType(ColumnDefinition column)
     {
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.SQLite))
             return column.DbTypes.First(x => x.DatabaseType == DatabaseType.SQLite);
 
         var type = column.DbTypes
             .Select(x => TryGetColumnType(x))
-            .Concat(GetDbTypeFromCsType(column.ValueProperty).Yield())
+            .Concat(GetDbTypeFromCsType(column.ValueProperty, DatabaseType.SQLite).Yield())
             .Where(x => x != null)
             .FirstOrDefault();
 
         if (type == null)
-            throw new Exception($"Could not find a SQLite database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.PropertyName}'");
+            throw new Exception($"Could not find an SQLite database type for '{column.Table.Model.CsType.Name}.{column.ValueProperty.PropertyName}'");
 
         return type;
     }
 
-    private static DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
+    protected virtual DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
     {
-        string? type = null;
-
-        if (dbType.DatabaseType == DatabaseType.Default)
-            type = ParseDefaultType(dbType.Name);
-        else if (dbType.DatabaseType == DatabaseType.MySQL)
-            type = ParseMySqlType(dbType.Name);
-
-        return type == null
-            ? null
-            : new DatabaseColumnType(DatabaseType.SQLite, type, dbType.Length, dbType.Decimals, dbType.Signed);
-    }
-
-    private static DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property)
-    {
-        var type = ParseCsType(property.CsType.Name);
-
-        return type == null
-            ? null 
-            : new DatabaseColumnType(DatabaseType.SQLite, type);
-    }
-
-    private static string? ParseDefaultType(string defaultType)
-    {
-        return defaultType.ToLower() switch
+        return dbType.DatabaseType switch
         {
-            "integer" => "integer",
-            "int" => "integer",
-            "tinyint" => "integer",
-            "mediumint" => "integer",
-            "bit" => "integer",
-            "bigint" => "integer",
-            "smallint" => "integer",
-            "enum" => "integer",
-            "real" => "real",
-            "double" => "real",
-            "float" => "real",
-            "decimal" => "real",
-            "varchar" => "text",
-            "text" => "text",
-            "mediumtext" => "text",
-            "datetime" => "text",
-            "timestamp" => "text",
-            "date" => "text",
-            "char" => "text",
-            "longtext" => "text",
-            "binary" => "blob",
-            "blob" => "blob",
-            _ => null
-            //_ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
+            DatabaseType.Default => ParseDefaultType(dbType),
+            DatabaseType.MySQL => ParseMySQLType(dbType),
+            DatabaseType.MariaDB => ParseMariaDBType(dbType),
+            _ => null,
         };
     }
 
-    private static string? ParseMySqlType(string mysqlType)
+    protected virtual DatabaseColumnType? ParseDefaultType(DatabaseColumnType defaultType)
     {
-        return mysqlType.ToLower() switch
+        var newTypeName = defaultType.Name.ToLower() switch
         {
-            "int" => "integer",
-            "tinyint" => "integer",
-            "mediumint" => "integer",
-            "varchar" => "text",
-            "text" => "text",
-            "mediumtext" => "text",
-            "bit" => "integer",
-            "double" => "real",
-            "datetime" => "text",
-            "timestamp" => "text",
-            "date" => "text",
-            "float" => "real",
-            "bigint" => "integer",
-            "char" => "text",
-            "binary" => "blob",
-            "enum" => "integer",
-            "longtext" => "text",
-            "decimal" => "real",
-            "blob" => "blob",
-            "smallint" => "integer",
-            _ => null
-            //_ => throw new NotImplementedException($"Unknown type '{mysqlType}'"),
+            "integer" or "big-integer" or "boolean" => "INTEGER",
+            "decimal" or "float" or "double" => "REAL",
+            "text" or "json" or "xml" => "TEXT",
+            "datetime" or "timestamp" or "date" or "time" or "uuid" => "TEXT",
+            "blob" => "BLOB",
+            _ => null,
         };
+
+        return newTypeName == null ? null : new DatabaseColumnType(DatabaseType.SQLite, newTypeName, defaultType.Length, defaultType.Decimals, defaultType.Signed);
     }
 
-    private static string? ParseCsType(string csType)
+    protected virtual DatabaseColumnType? ParseMySQLType(DatabaseColumnType mysqlType)
     {
-        return csType.ToLower() switch
+        var newTypeName = mysqlType.Name.ToLower() switch
         {
-            "int" => "integer",
-            "double" => "real",
-            "string" => "text",
-            "byte[]" => "blob",
+            "int" or "tinyint" or "smallint" or "mediumint" or "bigint" or "bit" or "year" or "enum" => "INTEGER",
+            "double" or "float" or "decimal" => "REAL",
+            "varchar" or "text" or "mediumtext" or "longtext" or "char" or "datetime" or "timestamp" or "date" or "time" or "json" => "TEXT",
+            "binary" or "varbinary" or "blob" or "tinyblob" or "mediumblob" or "longblob" => "BLOB",
             _ => null
-            //_ => throw new NotImplementedException($"Unknown type '{csType}'"),
+        };
+
+        return newTypeName == null ? null : new DatabaseColumnType(DatabaseType.SQLite, newTypeName, mysqlType.Length, mysqlType.Decimals, mysqlType.Signed);
+    }
+
+    protected virtual DatabaseColumnType? ParseMariaDBType(DatabaseColumnType mariaDbType)
+    {
+        if (mariaDbType.Name.ToLower() == "uuid")
+            return new DatabaseColumnType(DatabaseType.SQLite, "TEXT");
+
+        // MariaDB is highly compatible with MySQL, so we can reuse the same parsing logic.
+        return ParseMySQLType(mariaDbType);
+    }
+
+    protected virtual DatabaseColumnType? GetDbTypeFromCsType(ValueProperty property, DatabaseType databaseType)
+    {
+        var csTypeName = property.CsType.Name.ToLower();
+
+        return csTypeName switch
+        {
+            "sbyte" or "byte" or "short" or "ushort" or "int" or "uint" or "long" or "ulong" or "bool" or "enum" => new DatabaseColumnType(databaseType, "INTEGER"),
+            "decimal" or "float" or "double" => new DatabaseColumnType(databaseType, "REAL"),
+            "string" or "char" or "datetime" or "dateonly" or "timeonly" or "guid" => new DatabaseColumnType(databaseType, "TEXT"),
+            "byte[]" => new DatabaseColumnType(databaseType, "BLOB"),
+            _ => null
         };
     }
 }

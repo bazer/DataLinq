@@ -1,7 +1,6 @@
 using System;
 using System.Data;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Text;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
@@ -34,7 +33,7 @@ public class SQLiteProvider : IDatabaseProviderRegister
             return;
 
         PluginHook.DatabaseProviders[DatabaseType.SQLite] = new SQLiteDatabaseCreator();
-        PluginHook.SqlFromMetadataFactories[DatabaseType.SQLite] = new SqlFromMetadataFactory();
+        PluginHook.SqlFromMetadataFactories[DatabaseType.SQLite] = new SqlFromSQLiteFactory();
         PluginHook.MetadataFromSqlFactories[DatabaseType.SQLite] = new MetadataFromSQLiteFactoryCreator();
 
         HasBeenRegistered = true;
@@ -53,7 +52,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel
 {
     private SqliteConnectionStringBuilder connectionStringBuilder;
-    private SQLiteDataLinqDataWriter dataWriter = new SQLiteDataLinqDataWriter();
+    private SQLiteDataLinqDataWriter dataWriter = new(new SqlFromSQLiteFactory());
     private SQLiteDbAccess dbAccess;
     public override IDatabaseProviderConstants Constants { get; } = new SQLiteProviderConstants();
     public override DatabaseAccess DatabaseAccess => dbAccess;
@@ -198,7 +197,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
         return sql;
     }
 
-    public override Sql GetCreateSql() => new SqlFromMetadataFactory().GetCreateTables(Metadata, true);
+    public override Sql GetCreateSql() => new SqlFromSQLiteFactory().GetCreateTables(Metadata, true);
 
     public override IDbCommand ToDbCommand(IQuery query)
     {
