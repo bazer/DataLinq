@@ -203,7 +203,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         {
             if (lowerColumnName.EndsWith("_date")) return "DateOnly";
             if (lowerColumnName.EndsWith("_time")) return "TimeOnly";
-            if (lowerColumnName.Contains("datetime") || lowerColumnName.Contains("timestamp")) return "DateTime";
+            if (lowerColumnName.EndsWith("_at") || lowerColumnName.Contains("datetime") || lowerColumnName.Contains("timestamp")) return "DateTime";
             if (lowerColumnName == "guid" || lowerColumnName.EndsWith("_guid") || lowerColumnName == "uuid" || lowerColumnName.EndsWith("_uuid")) return "Guid";
         }
         else if (dbType.Name == "integer")

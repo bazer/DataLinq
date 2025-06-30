@@ -22,10 +22,17 @@
       href: Query Translator.md
     - name: Caching and Mutation
       href: Caching and Mutation.md
-- name: Extensibility & Advanced Development
+- name: Backend Providers
   expanded: true
   items:
     - name: Implementing a new backend
       href: Implementing a new backend.md
+    - name: MySQL & MariaDB
+      href: backends/MySQL-MariaDB.md
+    - name: SQLite
+      href: backends/SQLite.md
+- name: Extensibility & Advanced Development
+  expanded: true
+  items:
     - name: Contribution Guidelines
       href: Contributing.md
