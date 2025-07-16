@@ -2,10 +2,7 @@ using System;
 using System.Data;
 using System.Linq;
 using DataLinq.Mutation;
-using DataLinq.Tests.Models;
 using DataLinq.Tests.Models.Employees;
-using Microsoft.Data.Sqlite;
-using MySqlConnector;
 using Xunit;
 
 namespace DataLinq.Tests;
@@ -18,9 +15,7 @@ public class TransactionTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void AttachTransaction(Database<EmployeesDb> employeesDb)
     {
-        using IDbConnection dbConnection = employeesDb.DatabaseType == DatabaseType.MySQL
-            ? new MySqlConnection(employeesDb.Provider.ConnectionString)
-            : new SqliteConnection(employeesDb.Provider.ConnectionString);
+        using IDbConnection dbConnection = employeesDb.Provider.GetDbConnection();
 
         dbConnection.Open();
         using var dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
@@ -63,9 +58,7 @@ public class TransactionTests : BaseTests
         Assert.Equal("Bob", dbEmployee.first_name);
 
 
-        using IDbConnection dbConnection = employeesDb.DatabaseType == DatabaseType.MySQL
-            ? new MySqlConnection(employeesDb.Provider.ConnectionString)
-            : new SqliteConnection(employeesDb.Provider.ConnectionString);
+        using IDbConnection dbConnection = employeesDb.Provider.GetDbConnection();
 
         dbConnection.Open();
         using var dbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);

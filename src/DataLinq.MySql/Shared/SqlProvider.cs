@@ -5,7 +5,6 @@ using System.Text;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
-using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
 using MySqlConnector;
@@ -30,11 +29,6 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override IDatabaseProviderConstants Constants { get; } = new SqlProviderConstants();
     public override DatabaseAccess DatabaseAccess => dbAccess;
-
-    static SqlProvider()
-    {
-        MySQLProvider.RegisterProvider();
-    }
 
     public SqlProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration) : this(connectionString, databaseType, loggingConfiguration, null)
     {
@@ -77,6 +71,19 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
         return DatabaseAccess
             .ReadReader($"SHOW DATABASES LIKE '{databaseName ?? DatabaseName}'")
+            .Any();
+    }
+
+    public override bool TableExists(string tableName, string? databaseName = null)
+    {
+        if (string.IsNullOrEmpty(tableName))
+            throw new ArgumentNullException(nameof(tableName));
+
+        if (databaseName == null && DatabaseName == null)
+            throw new ArgumentNullException(nameof(databaseName));
+
+        return DatabaseAccess
+            .ReadReader($"SHOW TABLES IN `{databaseName ?? DatabaseName}` LIKE '{tableName}'")
             .Any();
     }
 
@@ -182,5 +189,10 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     public override IDataLinqDataWriter GetWriter()
     {
         return dataWriter;
+    }
+
+    public override IDbConnection GetDbConnection()
+    {
+        return new MySqlConnection(dataSource.ConnectionString);
     }
 }

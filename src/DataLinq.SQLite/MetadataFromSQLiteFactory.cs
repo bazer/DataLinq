@@ -75,7 +75,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
-            foreach (var reader in dbAccess.ReadReader($"SELECT l.`name`, l.`origin`, l.`unique`, i.`seqno`, i.`name` FROM pragma_index_list('{tableModel.Table.DbName}') l JOIN pragma_index_info(l.`name`) i"))
+            foreach (var reader in dbAccess.ReadReader($"SELECT l.name, l.origin, l.\"unique\", i.seqno, i.name FROM pragma_index_list('{tableModel.Table.DbName}') l JOIN pragma_index_info(l.name) i"))
             {
                 var column = tableModel
                     .Table.Columns.Single(x => x.DbName == reader.GetString(4));
@@ -99,7 +99,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
-            foreach (var reader in dbAccess.ReadReader($"SELECT `id`, `table`, `from`, `to` FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
+            foreach (var reader in dbAccess.ReadReader($"SELECT id, \"table\", \"from\", \"to\" FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
             {
                 var keyName = reader.GetString(0);
                 var tableName = reader.GetString(1);

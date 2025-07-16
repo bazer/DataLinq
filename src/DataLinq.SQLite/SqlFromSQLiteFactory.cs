@@ -64,11 +64,8 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
         var builder = new SqliteConnectionStringBuilder(connectionString);
         var file = builder.DataSource;
 
-        if (file != "memory" && file != ":memory:")
+        if (file != "memory" && file != ":memory:" && !File.Exists(file))
         {
-            if (File.Exists(file))
-                return DLOptionFailure.Fail($"Failed to create new SQLite database file '{file}', it already exists.");
-
             File.WriteAllBytes(file, []);
         }
 

@@ -43,7 +43,7 @@ public class BenchmarkSetup
     [GlobalSetup]
     public void Setup()
     {
-        if (!db.FileOrServerExists() || !db.Exists())
+        if (!db.FileOrServerExists() || !db.DatabaseExists())
         {
             PluginHook.CreateDatabaseFromMetadata(conn.Type,
                 db.Provider.Metadata, conn.DataSourceName, conn.ConnectionString.Original, true);

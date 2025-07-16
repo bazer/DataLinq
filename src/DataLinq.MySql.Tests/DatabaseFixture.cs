@@ -61,7 +61,7 @@ public class DatabaseFixture : IDisposable
 
             lock (lockObject)
             {
-                if (!dbEmployees.FileOrServerExists() || !dbEmployees.Exists())
+                if (!dbEmployees.FileOrServerExists() || !dbEmployees.DatabaseExists())
                 {
                     var result = connection.Type.CreateDatabaseFromMetadata(                        dbEmployees.Provider.Metadata, connection.DataSourceName, connection.ConnectionString.Original, true);
 

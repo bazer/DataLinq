@@ -1,6 +1,7 @@
 using System;
 using System.Data;
 using System.IO;
+using System.Linq;
 using System.Text;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
@@ -213,6 +214,21 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
         return FileOrServerExists();
     }
 
+    public override bool TableExists(string tableName, string? databaseName = null)
+    {
+        if (string.IsNullOrEmpty(tableName))
+            throw new ArgumentNullException(nameof(tableName));
+
+        if (!FileOrServerExists())
+            throw new InvalidOperationException("Database file or server does not exist.");
+
+        var literal = new Literal(ReadOnlyAccess, "SELECT name FROM sqlite_master WHERE type='table' AND name = @tableName", new SqliteParameter("@tableName", tableName));
+
+        return DatabaseAccess
+            .ReadReader(literal.ToDbCommand())
+            .Any();
+    }
+
     public override bool FileOrServerExists()
     {
         var source = connectionStringBuilder.DataSource;
@@ -226,5 +242,10 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     public override IDataLinqDataWriter GetWriter()
     {
         return dataWriter;
+    }
+
+    public override IDbConnection GetDbConnection()
+    {
+        return new SqliteConnection(connectionStringBuilder.ConnectionString);
     }
 }

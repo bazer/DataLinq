@@ -59,7 +59,7 @@ public class DatabaseFixture : IDisposable
 
             lock (lockObject)
             {
-                if (!dbEmployees.FileOrServerExists() || !dbEmployees.Exists())
+                if (!dbEmployees.FileOrServerExists() || !dbEmployees.DatabaseExists() || !dbEmployees.TableExists("employees"))
                 {
                     var result = PluginHook.CreateDatabaseFromMetadata(connection.Type,
                         dbEmployees.Provider.Metadata, connection.DataSourceName, connection.ConnectionString.Original, true);
@@ -72,11 +72,12 @@ public class DatabaseFixture : IDisposable
                 {
                     FillEmployeesWithBogusData(dbEmployees);
                 }
+
+                //CleanupTestEmployees(dbEmployees);
             }
 
             AllEmployeesDb.Add(dbEmployees);
 
-            CleanupTestEmployees(dbEmployees);
         }
 
         if (EmployeeConnections.Count == 0)
@@ -97,12 +98,13 @@ public class DatabaseFixture : IDisposable
 
     public void FillEmployeesWithBogusData(Database<EmployeesDb> database)
     {
-        Randomizer.Seed = new Random(59345922);
+        var seed = 59345922;
 
-        var numEmployees = 10000;
+        var numEmployees = 1000;
         using var transaction = database.Transaction();
 
         var employeeFaker = new Faker<MutableEmployee>()
+            .UseSeed(seed)
             .StrictMode(false)
             .RuleFor(x => x.first_name, x => x.Person.FirstName)
             .RuleFor(x => x.last_name, x => x.Person.LastName)
@@ -111,47 +113,62 @@ public class DatabaseFixture : IDisposable
             .RuleFor(x => x.gender, x => (Employee.Employeegender)(((int)x.Person.Gender) + 1));
         var employees = transaction.Insert(employeeFaker.Generate(numEmployees));
 
+        var usedDepartmentNames = new HashSet<string>();
         var deptNo = 1;
         var departmentFaker = new Faker<MutableDepartment>()
+            .UseSeed(seed)
             .StrictMode(false)
             .RuleFor(x => x.DeptNo, x => $"d{deptNo++:000}")
-            .RuleFor(x => x.Name, x => x.Commerce.Department());
+            .RuleFor(x => x.Name, x => {
+                string name;
+                do
+                {
+                    name = x.Commerce.Department();
+                } while (usedDepartmentNames.Contains(name));
+
+                usedDepartmentNames.Add(name);
+                return name;
+            });
         var departments = transaction.Insert(departmentFaker.Generate(20));
 
         var empNo = 0;
         var dept_empFaker = new Faker<MutableDept_emp>()
-           .StrictMode(false)
-           .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
-           .RuleFor(x => x.dept_no, x => x.PickRandom(departments).DeptNo);
+            .UseSeed(seed)
+            .StrictMode(false)
+            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
+            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+            .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
+            .RuleFor(x => x.dept_no, x => x.PickRandom(departments).DeptNo);
         transaction.Insert(dept_empFaker.Generate(numEmployees));
 
         empNo = 0;
         var titlesFaker = new Faker<MutableTitles>()
-           .StrictMode(false)
-           .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
-           .RuleFor(x => x.title, x => x.Name.JobTitle());
+            .UseSeed(seed)
+            .StrictMode(false)
+            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
+            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+            .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
+            .RuleFor(x => x.title, x => x.Name.JobTitle());
         transaction.Insert(titlesFaker.Generate(numEmployees));
 
         empNo = 0;
         var salariesFaker = new Faker<MutableSalaries>()
-           .StrictMode(false)
-           .RuleFor(x => x.FromDate, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.ToDate, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
-           .RuleFor(x => x.salary, x => (uint)x.Finance.Amount(10000, 200000, 0));
+            .UseSeed(seed)
+            .StrictMode(false)
+            .RuleFor(x => x.FromDate, x => x.Date.PastDateOnly(20))
+            .RuleFor(x => x.ToDate, x => x.Date.PastDateOnly(20))
+            .RuleFor(x => x.emp_no, x => employees[empNo++].emp_no)
+            .RuleFor(x => x.salary, x => (uint)x.Finance.Amount(10000, 200000, 0));
         transaction.Insert(salariesFaker.Generate(numEmployees));
 
         var dept_managerFaker = new Faker<MutableManager>()
-           .StrictMode(false)
-           .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
-           .RuleFor(x => x.Type, x => x.PickRandom<ManagerType>())
-           .RuleFor(x => x.emp_no, x => x.PickRandom(employees).emp_no)
-           .RuleFor(x => x.dept_fk, x => x.PickRandom(departments).DeptNo);
+            .UseSeed(seed)
+            .StrictMode(false)
+            .RuleFor(x => x.from_date, x => x.Date.PastDateOnly(20))
+            .RuleFor(x => x.to_date, x => x.Date.PastDateOnly(20))
+            .RuleFor(x => x.Type, x => x.PickRandom<ManagerType>())
+            .RuleFor(x => x.emp_no, x => x.PickRandom(employees).emp_no)
+            .RuleFor(x => x.dept_fk, x => x.PickRandom(departments).DeptNo);
 
         var dept_managers = dept_managerFaker.Generate(numEmployees / 10);
 
@@ -167,7 +184,7 @@ public class DatabaseFixture : IDisposable
     // Helper to clean up specific test employees to avoid PK conflicts across test runs
     public void CleanupTestEmployees(Database<EmployeesDb> db, params int[] empNos)
     {
-        var employeesToDelete = (empNos == null || empNos.Length == 0) 
+        var employeesToDelete = (empNos == null || empNos.Length == 0)
             ? db.Query().Employees.Where(e => e.emp_no >= 990000).ToList()
             : db.Query().Employees.Where(e => empNos.Contains(e.emp_no!.Value)).ToList();
 
@@ -179,6 +196,12 @@ public class DatabaseFixture : IDisposable
             {
                 foreach (var salary in emp.salaries)
                     salary.Delete(transaction);
+
+                foreach (var dept_emp in emp.dept_emp)
+                    dept_emp.Delete(transaction);
+
+                foreach (var title in emp.titles)
+                    title.Delete(transaction);
 
                 emp.Delete(transaction);
             }

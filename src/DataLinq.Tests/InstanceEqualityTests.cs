@@ -112,7 +112,7 @@ namespace DataLinq.Tests
         public void Immutable_Equals_SameInstance()
         {
             // Arrange
-            var empNo = 9001;
+            var empNo = 901;
             var employee1 = GetEmployeeMaybeFromCache(empNo); // First fetch, might cache
             var employee2 = GetEmployeeMaybeFromCache(empNo); // Second fetch, likely cache hit
 
@@ -128,7 +128,7 @@ namespace DataLinq.Tests
         public void Immutable_Equals_DifferentInstancesSameData()
         {
             // Arrange
-            var empNo = 9002;
+            var empNo = 902;
             var employeeX = GetEmployeeFromDb(empNo); // Force DB read
 
             // Act
@@ -147,8 +147,8 @@ namespace DataLinq.Tests
         public void Immutable_Equals_DifferentData()
         {
             // Arrange
-            var empNo1 = 9003;
-            var empNo2 = 9004;
+            var empNo1 = 903;
+            var empNo2 = 904;
             var employee1 = GetEmployeeFromDb(empNo1);
             var employee2 = GetEmployeeFromDb(empNo2);
 
@@ -165,7 +165,7 @@ namespace DataLinq.Tests
         public void Immutable_GetHashCode_Consistent()
         {
             // Arrange
-            var empNo = 9005;
+            var empNo = 905;
             var employeeX = GetEmployeeFromDb(empNo);
             int hashCodeX = employeeX.GetHashCode();
 
@@ -186,7 +186,7 @@ namespace DataLinq.Tests
         public void Mutable_Equals_DifferentInstancesSameData()
         {
             // Arrange
-            var empNo = 9006;
+            var empNo = 906;
             var mutableA = GetMutableEmployee(empNo, clearCache: true); // Force DB read
             var mutableB = GetMutableEmployee(empNo, clearCache: true); // Force another DB read
 
@@ -202,7 +202,7 @@ namespace DataLinq.Tests
         public void Mutable_Equals_AfterMutation()
         {
             // Arrange
-            var empNo = 9007;
+            var empNo = 907;
             var immutableX = GetEmployeeFromDb(empNo);
             var mutableA = immutableX.Mutate();
             var mutableB = immutableX.Mutate(); // Fresh mutable from same original immutable
@@ -223,7 +223,7 @@ namespace DataLinq.Tests
         public void Mutable_GetHashCode_StableAfterMutation()
         {
             // Arrange
-            var empNo = 9008;
+            var empNo = 908;
             var mutableEmp = GetMutableEmployee(empNo, clearCache: true);
 
             // Act
@@ -242,7 +242,7 @@ namespace DataLinq.Tests
         public void Immutable_Equals_Mutable_SameData()
         {
             // Arrange
-            var empNo = 9009;
+            var empNo = 909;
             var immutableX = GetEmployeeFromDb(empNo);
             var mutableA = immutableX.Mutate();
 
@@ -261,7 +261,7 @@ namespace DataLinq.Tests
         public void List_Remove_Immutable_DifferentInstances()
         {
             // Arrange
-            var empNo = 9010;
+            var empNo = 910;
             var employeeX = GetEmployeeFromDb(empNo); // Force read
             var list = new List<Employee> { employeeX };
 
@@ -281,7 +281,7 @@ namespace DataLinq.Tests
         public void HashSet_Contains_Immutable_DifferentInstances()
         {
             // Arrange
-            var empNo = 9011;
+            var empNo = 911;
             var employeeX = GetEmployeeFromDb(empNo);
             var hashSet = new HashSet<Employee> { employeeX };
 
@@ -299,7 +299,7 @@ namespace DataLinq.Tests
         public void Dictionary_Key_Mutable_AfterMutation()
         {
             // Arrange
-            var empNo = 9012;
+            var empNo = 912;
             var mutableA = GetMutableEmployee(empNo, clearCache: true);
             var dictionary = new Dictionary<IEmployee, string>(); // Use base Employee type for key
             dictionary.Add(mutableA, "InitialValue"); // Add mutable instance
@@ -325,8 +325,8 @@ namespace DataLinq.Tests
         public void GroupBy_Immutable_DifferentInstances()
         {
             // Arrange
-            var empNo1 = 9013;
-            var empNo2 = 9014;
+            var empNo1 = 913;
+            var empNo2 = 914;
             var employeeX1 = GetEmployeeFromDb(empNo1);
             var employeeZ = GetEmployeeFromDb(empNo2);
             var employeeY1 = GetEmployeeFromDb(empNo1); // Different instance

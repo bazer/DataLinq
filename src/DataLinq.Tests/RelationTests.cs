@@ -11,7 +11,7 @@ public class RelationTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void LazyLoadSingleValue(Database<EmployeesDb> employeesDb)
     {
-        var manager = employeesDb.Query().Managers.Single(x => x.dept_fk == "d005" && x.emp_no == 1251);
+        var manager = employeesDb.Query().Managers.Single(x => x.dept_fk == "d005" && x.emp_no == 576);
 
         Assert.NotNull(manager.Department);
         Assert.Equal("d005", manager.Department.DeptNo);
@@ -25,7 +25,7 @@ public class RelationTests : BaseTests
 
         Assert.NotNull(department.Managers);
         Assert.NotEmpty(department.Managers);
-        Assert.True(10 < department.Managers.Count());
+        Assert.Equal(4, department.Managers.Count());
         Assert.Equal("d005", department.Managers.First().Department.DeptNo);
     }
 

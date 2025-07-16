@@ -19,7 +19,7 @@ public class SharedSetup
 
     public SharedSetup(Database<EmployeesDb> employeesDb)
     {
-        TestEmployee = employeesDb.Query().Employees.Single(x => x.emp_no == 1010);
+        TestEmployee = employeesDb.Query().Employees.Single(x => x.emp_no == 800);
         TestEmployeeDeptCount = TestEmployee.dept_emp.Count();
         Dept2Count = employeesDb.Query().Departments.Single(x => x.DeptNo == "d002").DepartmentEmployees.Count();
         Dept6Count = employeesDb.Query().Departments.Single(x => x.DeptNo == "d006").DepartmentEmployees.Count();
@@ -171,15 +171,17 @@ public class CacheTests
         Assert.Equal(setup.Dept7Count, dept.DepartmentEmployees.Count());
         Assert.Equal(setup.Dept7Count, cache.RowCount);
 
+        var removeRowsAmount = 10;
+
         var tables = employeesDb.Provider.State.Cache
-            .RemoveRowsByLimit(CacheLimitType.Rows, 100)
+            .RemoveRowsByLimit(CacheLimitType.Rows, removeRowsAmount)
             .OrderBy(x => x.numRows)
             .ToList();
 
         Assert.Single(tables);
         Assert.Equal("dept-emp", tables[0].table.Table.DbName);
-        Assert.Equal(setup.Dept7Count - 100, tables[0].numRows);
-        Assert.Equal(100, cache.RowCount);
+        Assert.Equal(setup.Dept7Count - removeRowsAmount, tables[0].numRows);
+        Assert.Equal(removeRowsAmount, cache.RowCount);
     }
 
     [Theory]
@@ -193,13 +195,14 @@ public class CacheTests
 
         var cache = employeesDb.Provider.GetTableCache(table);
         cache.ClearRows();
+        Assert.Equal(0, cache.TotalBytes);
 
         var dept = employeesDb.Query().Departments.Single(x => x.DeptNo == "d007");
         Assert.Equal(setup.Dept7Count, dept.DepartmentEmployees.Count());
         Assert.True(cache.TotalBytes > 0);
 
         var tables = employeesDb.Provider.State.Cache
-            .RemoveRowsByLimit(CacheLimitType.Kilobytes, 10)
+            .RemoveRowsByLimit(CacheLimitType.Bytes, 100)
             .OrderBy(x => x.numRows)
             .ToList();
 

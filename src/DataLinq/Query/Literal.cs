@@ -8,22 +8,29 @@ namespace DataLinq.Query;
 public class Literal : IQuery
 {
     private readonly string sql;
-    private readonly IEnumerable<IDataParameter> parameters;
-    protected Transaction transaction;
-    public Transaction Transaction => transaction;
+    private readonly List<IDataParameter> parameters;
+    protected DataSourceAccess transaction;
+    public DataSourceAccess DataSource => transaction;
 
-    public Literal(Transaction transaction, string sql)
+    public Literal(DataSourceAccess dataSource, string sql)
     {
-        this.transaction = transaction;
+        this.transaction = dataSource;
         this.sql = sql;
         this.parameters = new List<IDataParameter>();
     }
 
-    public Literal(Transaction database, string sql, IEnumerable<IDataParameter> parameters)
+    public Literal(DataSourceAccess dataSource, string sql, IEnumerable<IDataParameter> parameters)
     {
-        this.transaction = database;
+        this.transaction = dataSource;
         this.sql = sql;
-        this.parameters = parameters;
+        this.parameters = parameters.ToList();
+    }
+
+    public Literal(DataSourceAccess dataSource, string sql, params IDataParameter[] parameters)
+    {
+        this.transaction = dataSource;
+        this.sql = sql;
+        this.parameters = parameters.ToList();
     }
 
     public Sql ToSql(string? paramPrefix = null)
@@ -33,7 +40,7 @@ public class Literal : IQuery
 
     public IDbCommand ToDbCommand()
     {
-        return Transaction.Provider.ToDbCommand(this);
+        return DataSource.Provider.ToDbCommand(this);
     }
 
     public int ParameterCount

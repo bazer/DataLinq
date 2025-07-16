@@ -51,9 +51,21 @@ public abstract class Database<T> : IDisposable
     /// </summary>
     /// <param name="databaseName">The name of the database.</param>
     /// <returns><c>true</c> if the database exists; otherwise, <c>false</c>.</returns>
-    public bool Exists(string? databaseName = null)
+    public bool DatabaseExists(string? databaseName = null)
     {
         return Provider.DatabaseExists(databaseName);
+    }
+
+    /// <summary>
+    /// Determines whether a specified table exists in the database.
+    /// </summary>
+    /// <param name="tableName">The name of the table to check for existence. Cannot be null or empty.</param>
+    /// <param name="databaseName">The name of the database to check within. If null, the default database is used.</param>
+    /// <returns><see langword="true"/> if the specified table exists in the specified or default database; otherwise, <see
+    /// langword="false"/>.</returns>
+    public bool TableExists(string tableName, string? databaseName = null)
+    {
+        return Provider.TableExists(tableName, databaseName);
     }
 
     /// <summary>

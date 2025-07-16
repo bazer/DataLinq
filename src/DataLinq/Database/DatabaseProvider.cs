@@ -178,9 +178,11 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public abstract DatabaseTransaction GetNewDatabaseTransaction(TransactionType type);
     public abstract DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
     public abstract bool DatabaseExists(string? databaseName = null);
+    public abstract bool TableExists(string tableName, string? databaseName = null);
     public abstract bool FileOrServerExists();
     //public abstract void CreateDatabase(string? databaseName = null);
     public abstract IDataLinqDataWriter GetWriter();
+    public abstract IDbConnection GetDbConnection();
 
     /// <summary>
     /// Releases all resources used by the DatabaseProvider.

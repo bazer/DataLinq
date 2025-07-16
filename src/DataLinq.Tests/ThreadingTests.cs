@@ -48,11 +48,11 @@ public class ThreadingTests : BaseTests
     {
         Parallel.For(0, 100, i =>
         {
-            SetAndTest(1004, employeesDb);
-            SetAndTest(1005, employeesDb);
-            SetAndTest(1006, employeesDb);
-            SetAndTest(1007, employeesDb);
-            SetAndTest(1008, employeesDb);
+            SetAndTest(904, employeesDb);
+            SetAndTest(905, employeesDb);
+            SetAndTest(906, employeesDb);
+            SetAndTest(907, employeesDb);
+            SetAndTest(908, employeesDb);
         });
     }
 
@@ -114,7 +114,7 @@ public class ThreadingTests : BaseTests
 
             Assert.NotNull(department.Managers);
             Assert.NotEmpty(department.Managers);
-            Assert.True(10 < department.Managers.Count());
+            Assert.Equal(4, department.Managers.Count);
             Assert.Equal("d005", department.Managers.First().Department.DeptNo);
         });
     }
