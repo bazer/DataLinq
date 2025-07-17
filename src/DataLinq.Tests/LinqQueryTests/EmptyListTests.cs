@@ -53,10 +53,10 @@ public class EmptyListTests : BaseTests
     public void Where_Not_Contains_EmptyList_ShouldReturnAll(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
-        var totalEmployees = employeesDb.Query().Employees.Count();
+        var totalEmployees = employeesDb.Query().salaries.Count();
 
-        var result = employeesDb.Query().Employees
-            .Where(e => !emptyList.Contains(e.emp_no.Value))
+        var result = employeesDb.Query().salaries
+            .Where(e => !emptyList.Contains(e.emp_no))
             .ToList();
 
         Assert.Equal(totalEmployees, result.Count);

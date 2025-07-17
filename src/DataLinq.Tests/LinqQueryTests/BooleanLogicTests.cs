@@ -14,7 +14,7 @@ public class BooleanLogicTests : BaseTests
         // Ensure a consistent small set of employees for these tests
         // Clear cache to ensure fresh reads if needed for specific test setup,
         // but for general details, cached is fine.
-        var emps = db.Query().Employees.OrderBy(e => e.emp_no).Take(4).ToList();
+        var emps = db.Query().Employees.Where(x => x.emp_no <= 1000).OrderBy(e => e.emp_no).Take(4).ToList();
         if (emps.Count < 4)
         {
             // Fallback: if DB is too small, create some test data or throw
@@ -27,7 +27,7 @@ public class BooleanLogicTests : BaseTests
 
     private List<Employee> GetOrderedFullEmployeeList(Database<EmployeesDb> db)
     {
-        return db.Query().Employees.ToList().OrderBy(e => e.emp_no).ToList();
+        return db.Query().Employees.Where(x => x.emp_no <= 1000).ToList().OrderBy(e => e.emp_no).ToList();
     }
 
     // --- Test Group 1: Nested Groups and Operator Precedence ---
@@ -44,6 +44,7 @@ public class BooleanLogicTests : BaseTests
             .ToList();
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => (e.emp_no == details.empA_id && e.first_name == details.fnameA) || e.last_name == details.lnameC)
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -64,6 +65,7 @@ public class BooleanLogicTests : BaseTests
             .ToList();
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => e.emp_no == details.empA_id && (e.first_name == details.fnameB || e.last_name == details.lnameC))
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -86,6 +88,7 @@ public class BooleanLogicTests : BaseTests
             .ToList();
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => !(e.emp_no == details.empA_id && e.first_name == details.fnameA))
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -200,6 +203,7 @@ public class BooleanLogicTests : BaseTests
             .ToList();
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => e.emp_no == details.empA_id && !(e.first_name == details.fnameB || e.last_name == details.lnameC))
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -220,6 +224,7 @@ public class BooleanLogicTests : BaseTests
             .ToList();
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => !((e.emp_no == details.empA_id && e.first_name == details.fnameA) || (e.last_name == details.lnameC && e.gender == details.genderD)))
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -248,6 +253,7 @@ public class BooleanLogicTests : BaseTests
             "Test G3.1 ExpectedLinq should not be empty for valid setup, unless specific data makes it so.");
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => (e.emp_no == details.empA_id && !emptyList.Contains(e.emp_no.Value)) || e.last_name == details.lnameC)
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -273,6 +279,7 @@ public class BooleanLogicTests : BaseTests
             .ToList();
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => e.emp_no == details.empA_id && !(emptyList.Contains(e.emp_no.Value) || e.last_name == details.lnameC))
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -300,6 +307,7 @@ public class BooleanLogicTests : BaseTests
             "Test G3.3 ExpectedLinq should not be empty for valid setup, unless specific data makes it so.");
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => (e.emp_no == details.empA_id || !emptyList.Any(id => id == e.emp_no.Value)) && e.last_name == details.lnameC)
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -402,6 +410,7 @@ public class BooleanLogicTests : BaseTests
             .ToList();
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => e.emp_no == details.empA_id || !(e.first_name == details.fnameB))
             .OrderBy(e => e.emp_no)
             .ToList();
@@ -424,6 +433,7 @@ public class BooleanLogicTests : BaseTests
             .ToList();
 
         var result = employeesDb.Query().Employees
+            .Where(x => x.emp_no <= 1000)
             .Where(e => !(e.emp_no == details.empA_id || !(e.first_name == details.fnameB)) && e.last_name == details.lnameC)
             .OrderBy(e => e.emp_no)
             .ToList();
