@@ -210,8 +210,8 @@ namespace DataLinq.Tests
             // Assert.Equal("1", fkDeptAttr.Name); // Might be 1 or another ID.
 
             // Check Relation Properties were added
-            Assert.Contains(employeesTable.Model.RelationProperties, rp => rp.Key == "dept_emp");
-            Assert.Contains(departmentsTable.Model.RelationProperties, rp => rp.Key == "dept_emp");
+            Assert.Contains(employeesTable.Model.RelationProperties, rp => rp.Key == "dept-emp");
+            Assert.Contains(departmentsTable.Model.RelationProperties, rp => rp.Key == "dept-emp");
             Assert.Contains(deptEmpTable.Model.RelationProperties, rp => rp.Key == "employees");
             Assert.Contains(deptEmpTable.Model.RelationProperties, rp => rp.Key == "departments");
         }
