@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using DataLinq.Exceptions;
 using DataLinq.Query;
 using DataLinq.Utils;
 using Remotion.Linq.Clauses;
@@ -327,6 +328,23 @@ internal class WhereVisitor<T> : ExpressionVisitor
 
     protected override Expression VisitBinary(BinaryExpression node)
     {
+        // Check for member-to-member or member-to-function before handling logical operators
+        if (node.Left is MemberExpression leftMember && node.Right is MemberExpression rightMember)
+        {
+            if (leftMember.Expression is QuerySourceReferenceExpression && rightMember.Expression is QuerySourceReferenceExpression)
+            {
+                return HandleMemberToMemberComparison(node, leftMember, rightMember);
+            }
+            else if (leftMember.Expression is QuerySourceReferenceExpression)
+            {
+                return HandleMemberToFunctionComparison(node, leftMember, rightMember);
+            }
+            else if (rightMember.Expression is QuerySourceReferenceExpression)
+            {
+                return HandleMemberToFunctionComparison(node, rightMember, leftMember);
+            }
+        }
+
         // WhereVisitor.VisitBinary for AndAlso/OrElse
         if (node.NodeType == ExpressionType.AndAlso || node.NodeType == ExpressionType.OrElse)
         {
@@ -432,6 +450,89 @@ internal class WhereVisitor<T> : ExpressionVisitor
             // AddWhereToGroup already handles negations for the simple condition itself.
             AddWhereToGroup(currentActiveGroup, connectionTypeToUse, GetOperationForExpressionType(node.NodeType), fields.Key, fields.Value);
         }
+        return node;
+    }
+
+    private Expression HandleMemberToMemberComparison(BinaryExpression node, MemberExpression leftMember, MemberExpression rightMember)
+    {
+        var currentActiveGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
+        var connectionTypeToUse = (ors.Value > 0) ? BooleanType.Or : currentActiveGroup.InternalJoinType;
+        if (ors.Value > 0) ors.Decrement();
+
+        var leftColumnName = query.GetColumn(leftMember)?.DbName ?? leftMember.Member.Name;
+        var rightColumnName = query.GetColumn(rightMember)?.DbName ?? rightMember.Member.Name;
+        
+        var where = currentActiveGroup.AddWhere(leftColumnName, null, connectionTypeToUse);
+
+        switch (node.NodeType)
+        {
+            case ExpressionType.Equal:              where.EqualToColumn(rightColumnName); break;
+            case ExpressionType.NotEqual:           where.NotEqualToColumn(rightColumnName); break;
+            case ExpressionType.GreaterThan:        where.GreaterThanColumn(rightColumnName); break;
+            case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqualToColumn(rightColumnName); break;
+            case ExpressionType.LessThan:           where.LessThanColumn(rightColumnName); break;
+            case ExpressionType.LessThanOrEqual:    where.LessThanOrEqualToColumn(rightColumnName); break;
+            default: throw new NotImplementedException($"Binary operator '{node.NodeType}' between two members is not supported.");
+        }
+        return node;
+    }
+
+    private Expression HandleMemberToFunctionComparison(BinaryExpression node, MemberExpression memberExpr, MemberExpression functionExpr)
+    {
+        if (functionExpr.Expression is not MemberExpression innerMember)
+            throw new InvalidQueryException("Function call on a non-member expression is not supported.");
+
+        var columnName = query.GetColumn(memberExpr)?.DbName ?? memberExpr.Member.Name;
+        var functionOnColumnName = $"{query.EscapeCharacter}{query.GetColumn(innerMember)?.DbName ?? innerMember.Member.Name}{query.EscapeCharacter}";
+
+        SqlFunctionType? functionType = null;
+        if (innerMember.Type == typeof(DateOnly) || innerMember.Type == typeof(DateTime))
+        {
+            functionType = functionExpr.Member.Name switch
+            {
+                "Year" => SqlFunctionType.DatePartYear,
+                "Month" => SqlFunctionType.DatePartMonth,
+                "Day" => SqlFunctionType.DatePartDay,
+                "DayOfYear" => SqlFunctionType.DatePartDayOfYear,
+                "DayOfWeek" => SqlFunctionType.DatePartDayOfWeek,
+                _ => null
+            };
+        }
+
+        if (functionType == null && (innerMember.Type == typeof(TimeOnly) || innerMember.Type == typeof(DateTime)))
+        {
+            functionType = functionExpr.Member.Name switch
+            {
+                "Hour" => SqlFunctionType.TimePartHour,
+                "Minute" => SqlFunctionType.TimePartMinute,
+                "Second" => SqlFunctionType.TimePartSecond,
+                "Millisecond" => SqlFunctionType.TimePartMillisecond,
+                _ => null
+            };
+        }
+
+        if (functionType == null)
+            throw new NotImplementedException($"Function '{functionExpr.Member.Name}' on type '{innerMember.Type.Name}' is not supported.");
+
+        string sqlFunction = query.DataSource.Provider.GetSqlForFunction(functionType.Value, functionOnColumnName);
+
+        var currentActiveGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
+        var connectionTypeToUse = (ors.Value > 0) ? BooleanType.Or : currentActiveGroup.InternalJoinType;
+        if (ors.Value > 0) ors.Decrement();
+
+        var where = currentActiveGroup.AddWhere(columnName, null, connectionTypeToUse);
+
+        switch (node.NodeType)
+        {
+            case ExpressionType.Equal: where.EqualToRaw(sqlFunction); break;
+            case ExpressionType.NotEqual: where.NotEqualToRaw(sqlFunction); break;
+            case ExpressionType.GreaterThan: where.GreaterThanRaw(sqlFunction); break;
+            case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqualToRaw(sqlFunction); break;
+            case ExpressionType.LessThan: where.LessThanRaw(sqlFunction); break;
+            case ExpressionType.LessThanOrEqual: where.LessThanOrEqualToRaw(sqlFunction); break;
+            default: throw new NotImplementedException($"Binary operator '{node.NodeType}' between a member and a function is not supported.");
+        }
+
         return node;
     }
 

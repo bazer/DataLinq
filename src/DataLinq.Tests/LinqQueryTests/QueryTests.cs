@@ -169,22 +169,6 @@ public class QueryTests : BaseTests
 
     [Theory]
     [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereTwoPropertiesEquals(Database<EmployeesDb> employeesDb)
-    {
-        var where = employeesDb.Query().Managers.Where(x => x.emp_no == x.emp_no).ToList();
-        Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => x.emp_no == x.emp_no).Count(), where.Count);
-    }
-
-    [Theory]
-    [MemberData(nameof(GetEmployees))]
-    public void SimpleWhereTwoPropertiesNotEquals(Database<EmployeesDb> employeesDb)
-    {
-        var where = employeesDb.Query().Managers.Where(x => x.emp_no != x.emp_no).ToList();
-        Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => x.emp_no != x.emp_no).Count(), where.Count);
-    }
-
-    [Theory]
-    [MemberData(nameof(GetEmployees))]
     public void SimpleWhereIntEnumEqualsBackwards(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => ManagerType.FestiveManager == x.Type).ToList();
@@ -726,5 +710,114 @@ public class QueryTests : BaseTests
     {
         Assert.Throws<NotSupportedException>(() =>
             employeesDb.Query().Employees.SkipWhile(e => e.first_name.StartsWith("A")).ToList());
+    }
+
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereTwoPropertiesEquals(Database<EmployeesDb> employeesDb)
+    {
+        var where = employeesDb.Query().Managers.Where(x => x.emp_no == x.emp_no).ToList();
+        Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => x.emp_no == x.emp_no).Count(), where.Count);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void SimpleWhereTwoPropertiesNotEquals(Database<EmployeesDb> employeesDb)
+    {
+        var where = employeesDb.Query().Managers.Where(x => x.emp_no != x.emp_no).ToList();
+        Assert.Equal(employeesDb.Query().Managers.ToList().Where(x => x.emp_no != x.emp_no).Count(), where.Count);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void Where_TwoProperties_Equals(Database<EmployeesDb> employeesDb)
+    {
+        var expected = employeesDb.Query().DepartmentEmployees
+            .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no) // Order before Take
+            .Take(100)
+            .ToList()
+            .Where(x => x.emp_no == x.emp_no) // In-memory filter after Take
+            .ToList();
+
+        Assert.NotEmpty(expected);
+
+        var result = employeesDb.Query().DepartmentEmployees
+            .Where(x => x.emp_no == x.emp_no)
+            .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no) // Order before Take
+            .Take(100)
+            .ToList();
+
+        Assert.Equal(expected.Count, result.Count);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void Where_TwoProperties_NotEquals(Database<EmployeesDb> employeesDb)
+    {
+        var expected = employeesDb.Query().DepartmentEmployees
+            .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no)
+            //.Take(100)
+            .ToList()
+            .Where(x => x.emp_no != x.from_date.Day)
+            .ToList();
+
+        Assert.NotEmpty(expected);
+
+        var result = employeesDb.Query().DepartmentEmployees
+            .Where(x => x.emp_no != x.from_date.Day)
+            .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no)
+            //.Take(100)
+            .ToList();
+
+        Assert.Equal(expected.Count, result.Count);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void Where_TwoProperties_GreaterThan(Database<EmployeesDb> employeesDb)
+    {
+        var expected = employeesDb.Query().DepartmentEmployees
+            .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no)
+            //.Take(100)
+            .ToList()
+            .Where(x => x.emp_no > x.from_date.Day)
+            .ToList();
+
+        Assert.NotEmpty(expected);
+
+        var result = employeesDb.Query().DepartmentEmployees
+            .Where(x => x.emp_no > x.from_date.Day)
+            .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no)
+            //.Take(100)
+            .ToList();
+
+        Assert.Equal(expected.Count, result.Count);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void Where_TwoProperties_LessThanOrEqual(Database<EmployeesDb> employeesDb)
+    {
+        var expected = employeesDb.Query().DepartmentEmployees
+            .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no)
+            .Take(100)
+            .ToList()
+            .Where(x => x.emp_no <= x.from_date.Day)
+            .ToList();
+
+        Assert.NotEmpty(expected);
+
+        var result = employeesDb.Query().DepartmentEmployees
+            .Where(x => x.emp_no <= x.from_date.Day)
+            .OrderBy(x => x.emp_no).ThenBy(x => x.dept_no)
+            .Take(100)
+            .ToList();
+
+        Assert.Equal(expected.Count, result.Count);
+        Assert.Equal(expected, result);
     }
 }

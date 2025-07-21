@@ -104,6 +104,33 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         return "SELECT last_insert_id()";
     }
 
+    public override string GetSqlForFunction(SqlFunctionType functionType, string quotedColumnName)
+    {
+        return functionType switch
+        {
+            // Date Parts
+            SqlFunctionType.DatePartYear => $"YEAR({quotedColumnName})",
+            SqlFunctionType.DatePartMonth => $"MONTH({quotedColumnName})",
+            SqlFunctionType.DatePartDay => $"DAY({quotedColumnName})",
+            SqlFunctionType.DatePartDayOfYear => $"DAYOFYEAR({quotedColumnName})",
+            // MySQL's DAYOFWEEK() returns 1=Sun, 2=Mon... C#'s DayOfWeek is 0=Sun, 1=Mon...
+            // So we subtract 1 to align them.
+            SqlFunctionType.DatePartDayOfWeek => $"({{\n    \"1\":0,\"2\":1,\"3\":2,\"4\":3,\"5\":4,\"6\":5,\"7\":6\n}} ->> CONCAT('$.', DAYOFWEEK({quotedColumnName})))",
+
+            // Time Parts
+            SqlFunctionType.TimePartHour => $"HOUR({quotedColumnName})",
+            SqlFunctionType.TimePartMinute => $"MINUTE({quotedColumnName})",
+            SqlFunctionType.TimePartSecond => $"SECOND({quotedColumnName})",
+            // MySQL's MICROSECOND() returns microseconds, so we divide by 1000.
+            SqlFunctionType.TimePartMillisecond => $"FLOOR(MICROSECOND({quotedColumnName}) / 1000)",
+
+            // String Parts
+            SqlFunctionType.StringLength => $"CHAR_LENGTH({quotedColumnName})",
+
+            _ => throw new NotImplementedException($"SQL function '{functionType}' not implemented for MySQL/MariaDB."),
+        };
+    }
+
     public override Sql GetParameterValue(Sql sql, string key)
     {
         return sql.AddFormat("?{0}", key);

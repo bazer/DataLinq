@@ -1,6 +1,8 @@
-﻿using DataLinq.Interfaces;
+﻿using System;
+using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
+using DataLinq.Query;
 
 namespace DataLinq.MySql;
 

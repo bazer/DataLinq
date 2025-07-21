@@ -3,6 +3,7 @@ using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.MySql;
+using DataLinq.Query;
 
 namespace DataLinq.MariaDB;
 

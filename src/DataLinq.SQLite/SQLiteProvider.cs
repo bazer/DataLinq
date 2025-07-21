@@ -133,6 +133,32 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override string GetLastIdQuery() => "SELECT last_insert_rowid()";
 
+    public override string GetSqlForFunction(SqlFunctionType functionType, string quotedColumnName)
+    {
+        return functionType switch
+        {
+            // Date Parts
+            SqlFunctionType.DatePartYear => $"CAST(strftime('%Y', {quotedColumnName}) AS INTEGER)",
+            SqlFunctionType.DatePartMonth => $"CAST(strftime('%m', {quotedColumnName}) AS INTEGER)",
+            SqlFunctionType.DatePartDay => $"CAST(strftime('%d', {quotedColumnName}) AS INTEGER)",
+            SqlFunctionType.DatePartDayOfYear => $"CAST(strftime('%j', {quotedColumnName}) AS INTEGER)",
+            // strftime('%w') in SQLite returns 0 for Sunday, which directly aligns with C#'s DayOfWeek enum.
+            SqlFunctionType.DatePartDayOfWeek => $"CAST(strftime('%w', {quotedColumnName}) AS INTEGER)",
+
+            // Time Parts
+            SqlFunctionType.TimePartHour => $"CAST(strftime('%H', {quotedColumnName}) AS INTEGER)",
+            SqlFunctionType.TimePartMinute => $"CAST(strftime('%M', {quotedColumnName}) AS INTEGER)",
+            SqlFunctionType.TimePartSecond => $"CAST(strftime('%S', {quotedColumnName}) AS INTEGER)",
+            // strftime('%f') returns seconds with fractional part. Multiply by 1000 and take integer part.
+            SqlFunctionType.TimePartMillisecond => $"CAST((strftime('%f', {quotedColumnName}) * 1000) % 1000 AS INTEGER)",
+
+            // String Parts
+            SqlFunctionType.StringLength => $"LENGTH({quotedColumnName})",
+
+            _ => throw new NotImplementedException($"SQL function '{functionType}' not implemented for SQLite."),
+        };
+    }
+
     public override Sql GetParameterValue(Sql sql, string key)
     {
         return sql.AddFormat("@{0}", key);

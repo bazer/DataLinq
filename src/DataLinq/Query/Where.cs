@@ -24,25 +24,16 @@ public enum Relation
 
 public interface IWhere<T> : IQueryPart
 {
-    //IWhere<T> And(string columnName);
-
-    //IWhere<T> Or(string columnName);
-    //WhereContinuation<T> EqualTo<V>(V value);
-    //WhereContinuation<T> EqualTo<V>(V value, bool isValue);
-    //WhereContinuation<T> NotEqualTo<V>(V value);
-    //WhereContinuation<T> Like<V>(V value);
-    //WhereContinuation<T> GreaterThan<V>(V value);
-    //WhereContinuation<T> GreaterThanOrEqual<V>(V value);
-    //WhereContinuation<T> LessThan<V>(V value);
-    //WhereContinuation<T> LessThanOrEqual<V>(V value);
 }
 
 public class Where<T> : IWhere<T>
 {
     private string? Key;
     private object?[]? Value;
+    private string? RawSql;
     private Relation Relation;
     internal bool IsValue = true;
+    internal bool IsRaw = false;
     internal bool IsNegated = false;
     protected WhereGroup<T> WhereGroup;
     private string? KeyAlias;
@@ -122,6 +113,36 @@ public class Where<T> : IWhere<T>
         return SetAndReturnColumn(column, alias, Relation.NotEqual);
     }
 
+    public WhereGroup<T> EqualToRaw(string sql)
+    {
+        return SetAndReturnRaw(sql, Relation.Equal);
+    }
+
+    public WhereGroup<T> NotEqualToRaw(string sql)
+    {
+        return SetAndReturnRaw(sql, Relation.NotEqual);
+    }
+
+    public WhereGroup<T> GreaterThanRaw(string sql)
+    {
+        return SetAndReturnRaw(sql, Relation.GreaterThan);
+    }
+
+    public WhereGroup<T> GreaterThanOrEqualToRaw(string sql)
+    {
+        return SetAndReturnRaw(sql, Relation.GreaterThanOrEqual);
+    }
+
+    public WhereGroup<T> LessThanRaw(string sql)
+    {
+        return SetAndReturnRaw(sql, Relation.LessThan);
+    }
+
+    public WhereGroup<T> LessThanOrEqualToRaw(string sql)
+    {
+        return SetAndReturnRaw(sql, Relation.LessThanOrEqual);
+    }
+
     public WhereGroup<T> Like<V>(V value)
     {
         return SetAndReturn(value, Relation.Like);
@@ -192,7 +213,6 @@ public class Where<T> : IWhere<T>
     {
         Value = value.Cast<object>().ToArray();
         Relation = relation;
-
         return this.WhereGroup;
     }
 
@@ -200,7 +220,6 @@ public class Where<T> : IWhere<T>
     {
         Value = [value];
         Relation = relation;
-
         return this.WhereGroup;
     }
 
@@ -208,7 +227,6 @@ public class Where<T> : IWhere<T>
     {
         Value = null;
         Relation = relation;
-
         return this.WhereGroup;
     }
 
@@ -220,9 +238,19 @@ public class Where<T> : IWhere<T>
         Value = [column];
         ValueAlias = alias;
         IsValue = false;
+        IsRaw = false;
         Relation = relation;
 
         return this.WhereGroup;
+    }
+
+    private WhereGroup<T> SetAndReturnRaw(string sql, Relation relation)
+    {
+        RawSql = sql;
+        IsValue = false;
+        IsRaw = true;
+        Relation = relation;
+        return WhereGroup;
     }
 
     public void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false)
@@ -260,6 +288,10 @@ public class Where<T> : IWhere<T>
             {
                 WhereGroup.Query.DataSource.Provider.GetParameterComparison(sql, KeyName, Relation, indexList.Select(x => prefix + "w" + x).ToArray());
             }
+        }
+        else if (IsRaw)
+        {
+            sql.AddFormat("{0} {1} {2}", KeyName, Relation.ToSql(), RawSql);
         }
         else
             sql.AddFormat("{0} {1} {2}", KeyName, Relation.ToSql(), ValueName);

@@ -47,6 +47,17 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
         return new DateOnly(date.Year, date.Month, date.Day);
     }
 
+    public DateTime GetDateTime(int ordinal)
+    {
+        return dataReader.GetDateTime(ordinal);
+    }
+
+    public TimeOnly GetTimeOnly(int ordinal)
+    {
+        // SQLite stores TIME as TEXT, so we parse the string.
+        return TimeOnly.Parse(dataReader.GetString(ordinal));
+    }
+
     public Guid GetGuid(int ordinal)
     {
         return dataReader.GetGuid(ordinal);
@@ -111,34 +122,40 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
         if (IsDbNull(ordinal))
             return default;
 
-        else if (column.ValueProperty.CsType.Type == typeof(Guid) || column.ValueProperty.CsType.Type == typeof(Guid?))
-        {
-            //var dbType = column.GetDbTypeFor(DatabaseType.MySQL); // column.DbTypes.FirstOrDefault(x => x.DatabaseType == DatabaseType.MySQL) ?? column.DbTypes.FirstOrDefault(); //SqlFromMetadataFactory.GetDbType(column);
-            //if (value is byte[] bytes && column.GetDbTypeFor(DatabaseType.MySQL)?.Length == 16 && column.GetDbTypeFor(DatabaseType.MySQL)?.Name == "binary")
-            //    return new Guid(bytes);
+        var csType = column.ValueProperty.CsType.Type;
 
+        if (csType == typeof(Guid) || csType == typeof(Guid?))
             return (T?)(object)GetGuid(ordinal);
-        }
-        else if (column.ValueProperty.CsType.Type == typeof(string))
+
+        if (csType == typeof(string))
             return (T?)(object)GetString(ordinal);
-        else if (column.ValueProperty.CsType.Type == typeof(int) || column.ValueProperty.CsType.Type == typeof(int?))
+
+        if (csType == typeof(int) || csType == typeof(int?))
             return (T?)(object)GetInt32(ordinal);
-        else if (column.ValueProperty.CsType.Type == typeof(DateOnly) || column.ValueProperty.CsType.Type == typeof(DateOnly?))
+
+        if (csType == typeof(DateOnly) || csType == typeof(DateOnly?))
             return (T?)(object)GetDateOnly(ordinal);
-        else if (column.ValueProperty.CsType.Type?.IsEnum == true)
+
+        if (csType == typeof(DateTime) || csType == typeof(DateTime?))
+            return (T?)(object)GetDateTime(ordinal);
+
+        if (csType == typeof(TimeOnly) || csType == typeof(TimeOnly?))
+            return (T?)(object)GetTimeOnly(ordinal);
+
+        if (csType?.IsEnum == true)
         {
             var enumValue = GetValue(ordinal);
             if (enumValue is string stringValue)
-                return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, column.ValueProperty.EnumProperty.Value.DbValuesOrCsValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
+                return (T?)Enum.ToObject(csType, column.ValueProperty.EnumProperty.Value.DbValuesOrCsValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
             else
-                return (T?)Enum.ToObject(column.ValueProperty.CsType.Type, enumValue);
+                return (T?)Enum.ToObject(csType, enumValue);
         }
 
         var value = GetValue(ordinal);
         if (column.ValueProperty.CsNullable)
-            return (T?)Convert.ChangeType(value, TypeUtils.GetNullableConversionType(column.ValueProperty.CsType.Type));
-        else if (value.GetType() != column.ValueProperty.CsType.Type)
-            return (T?)Convert.ChangeType(value, column.ValueProperty.CsType.Type);
+            return (T?)Convert.ChangeType(value, TypeUtils.GetNullableConversionType(csType));
+        else if (value.GetType() != csType)
+            return (T?)Convert.ChangeType(value, csType);
 
         return (T?)value;
     }

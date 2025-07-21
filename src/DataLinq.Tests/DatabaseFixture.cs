@@ -110,7 +110,9 @@ public class DatabaseFixture : IDisposable
             .RuleFor(x => x.last_name, x => x.Person.LastName)
             .RuleFor(x => x.birth_date, x => DateOnly.FromDateTime(x.Person.DateOfBirth.Date))
             .RuleFor(x => x.hire_date, x => x.Date.PastDateOnly(20))
-            .RuleFor(x => x.gender, x => (Employee.Employeegender)(((int)x.Person.Gender) + 1));
+            .RuleFor(x => x.gender, x => (Employee.Employeegender)(((int)x.Person.Gender) + 1))
+            .RuleFor(x => x.last_login, f => TimeOnly.FromDateTime(f.Date.Past(1)))
+            .RuleFor(x => x.created_at, f => f.Date.Past(5));
         var employees = transaction.Insert(employeeFaker.Generate(numEmployees));
 
         var usedDepartmentNames = new HashSet<string>();

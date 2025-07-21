@@ -107,7 +107,7 @@ namespace DataLinq.Tests
             var employeesTableModel = dbDefinition.TableModels.SingleOrDefault(tm => tm.Table.DbName == "employees");
             Assert.NotNull(employeesTableModel);
             Assert.Equal("employees", employeesTableModel.Model.CsType.Name); // Default name from DB
-            Assert.Equal(7, employeesTableModel.Table.Columns.Length);
+            Assert.Equal(9, employeesTableModel.Table.Columns.Length);
         }
 
         [Fact]

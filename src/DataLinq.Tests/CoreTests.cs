@@ -150,7 +150,7 @@ public class CoreTests : BaseTests
         var employees = database.TableModels.Single(x => x.Table.DbName == "employees").Table;
         Assert.Same(employees, employees.Model.Table);
         Assert.Equal("employees", employees.DbName);
-        Assert.Equal(7, employees.Columns.Length);
+        Assert.Equal(9, employees.Columns.Length);
         Assert.Equal(1, employees.Columns.Count(x => x.PrimaryKey));
         Assert.Equal(1, employees.Columns.Count(x => x.AutoIncrement));
 

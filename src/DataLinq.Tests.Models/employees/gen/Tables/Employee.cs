@@ -21,7 +21,7 @@ public abstract partial class Employee(RowData rowData, DataSourceAccess dataSou
         M = 1,
         F = 2,
     }
-    
+
     [PrimaryKey]
     [AutoIncrement]
     [Type(DatabaseType.MySQL, "int", 11)]
@@ -60,6 +60,19 @@ public abstract partial class Employee(RowData rowData, DataSourceAccess dataSou
     [Type(DatabaseType.SQLite, "text")]
     [Column("last_name")]
     public abstract string last_name { get; }
+
+    // New Columns
+    [Nullable]
+    [Type(DatabaseType.MySQL, "time")]
+    [Type(DatabaseType.SQLite, "text")]
+    [Column("last_login")]
+    public abstract TimeOnly? last_login { get; }
+
+    [Nullable]
+    [Type(DatabaseType.MySQL, "datetime")]
+    [Type(DatabaseType.SQLite, "text")]
+    [Column("created_at")]
+    public abstract DateTime? created_at { get; }
 
     [Relation("dept-emp", "emp_no", "dept_emp_ibfk_1")]
     public abstract IImmutableRelation<Dept_emp> dept_emp { get; }

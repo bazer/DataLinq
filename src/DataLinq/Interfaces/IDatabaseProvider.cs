@@ -27,6 +27,7 @@ public interface IDatabaseProvider : IDisposable
     DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
 
     string GetLastIdQuery();
+    string GetSqlForFunction(SqlFunctionType functionType, string quotedColumnName);
 
     TableCache GetTableCache(TableDefinition table);
 
