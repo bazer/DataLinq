@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Linq.Expressions;
-using DataLinq.Exceptions;
+using DataLinq.Linq;
 using DataLinq.Linq.Visitors;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -195,7 +194,7 @@ public class SqlQuery<T>
 
     public SqlQuery<T> Where(WhereClause where)
     {
-        new WhereVisitor<T>(this).Parse(where);
+        new WhereVisitor<T>(new QueryBuilder<T>(this)).Parse(where);
 
         return this;
     }
@@ -204,7 +203,7 @@ public class SqlQuery<T>
     {
         foreach (var ordering in orderBy.Orderings)
         {
-            new OrderByVisitor<T>(this).Parse(ordering);
+            new OrderByVisitor<T>(new QueryBuilder<T>(this)).Parse(ordering);
         }
 
         return this;
@@ -223,40 +222,6 @@ public class SqlQuery<T>
         this.WhereGroup.AddCommandString(sql, paramPrefix, true, false);
 
         return sql;
-    }
-
-    internal KeyValuePair<string, object> GetFields(Expression left, Expression right)
-    {
-        if (left is ConstantExpression && right is ConstantExpression)
-            throw new InvalidQueryException("Unable to compare 2 constants.");
-
-        if (left is MemberExpression && right is MemberExpression)
-            throw new InvalidQueryException("Unable to compare 2 members.");
-
-        if (left is MemberExpression)
-            return GetValues(left, right);
-        else
-            return GetValues(right, left);
-    }
-
-    internal KeyValuePair<string, object> GetValues(Expression field, Expression value)
-    {
-        return new KeyValuePair<string, object>((string)GetValue(field), GetValue(value));
-    }
-
-    internal object GetValue(Expression expression)
-    {
-        if (expression is ConstantExpression constExp)
-            return constExp.Value;
-        else if (expression is MemberExpression propExp)
-            return GetColumn(propExp).DbName;
-        else
-            throw new InvalidQueryException("Value is not a member or constant.");
-    }
-
-    internal ColumnDefinition? GetColumn(MemberExpression expression)
-    {
-        return Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == expression.Member.Name);
     }
 
     internal Sql AddTableName(Sql sql, string tableName, string? alias)
