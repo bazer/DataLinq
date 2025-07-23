@@ -192,7 +192,7 @@ public abstract class Database<T> : IDisposable
     /// </summary>
     /// <param name="func">The action to perform in the transaction.</param>
     /// <param name="transactionType">The type of the transaction.</param>
-    public void Commit(Action<Transaction> func, TransactionType transactionType = TransactionType.ReadAndWrite)
+    public void Commit(Action<Transaction<T>> func, TransactionType transactionType = TransactionType.ReadAndWrite)
     {
         using var transaction = Transaction(transactionType);
         func(transaction);
@@ -206,7 +206,7 @@ public abstract class Database<T> : IDisposable
     /// <param name="func">The function to perform in the transaction.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The result of the function.</returns>
-    public M Commit<M>(Func<Transaction, M> func, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
+    public M Commit<M>(Func<Transaction<T>, M> func, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
     {
         using var transaction = Transaction(transactionType);
         var result = func(transaction);

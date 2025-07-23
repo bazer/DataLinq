@@ -201,9 +201,10 @@ public class SqlQuery<T>
 
     public SqlQuery<T> OrderBy(OrderByClause orderBy)
     {
+        var builder = new QueryBuilder<T>(this);
         foreach (var ordering in orderBy.Orderings)
         {
-            new OrderByVisitor<T>(new QueryBuilder<T>(this)).Parse(ordering);
+            new OrderByVisitor<T>(builder).Parse(ordering);
         }
 
         return this;

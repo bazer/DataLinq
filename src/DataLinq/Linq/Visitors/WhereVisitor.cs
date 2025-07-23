@@ -3,12 +3,19 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using DataLinq.Exceptions;
+using DataLinq.Metadata;
 using DataLinq.Query;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Clauses.ResultOperators;
 
 namespace DataLinq.Linq.Visitors;
+
+internal record ExpressionAnalysis(ExpressionAnalysis.ResultType Type, object? Data)
+{
+    internal enum ResultType { Column, Function, Value }
+}
 
 internal class WhereVisitor<T> : ExpressionVisitor
 {
@@ -77,7 +84,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
             // Evaluate the collection part of the subquery (e.g., the list in list.Contains(x.Prop))
             // This is done ONCE for the subquery.
             var collectionExpr = Visit(subQuery.QueryModel.MainFromClause.FromExpression)!;
-            var collectionValue = builder.GetValue(collectionExpr);
+            var collectionValue = GetConstantValue(collectionExpr);
             var listToProcess = ConvertToList(collectionValue);
 
             bool isSubQueryGloballyNegated = builder.Negations > 0; // Negation applies to the whole subquery result
@@ -105,10 +112,13 @@ internal class WhereVisitor<T> : ExpressionVisitor
                         if (itemToFindInListExpression is MemberExpression memberOuter &&
                             memberOuter.Expression is QuerySourceReferenceExpression)
                         {
-                            var fieldName = builder.GetColumn(memberOuter)?.DbName ?? memberOuter.Member.Name;
+                            var fieldName = builder.GetColumnMaybe(memberOuter)?.DbName ?? memberOuter.Member.Name;
                             var whereClause = builder.CurrentParentGroup.AddWhere(fieldName, null, connectionType);
-                            if (isSubQueryGloballyNegated) whereClause.NotIn(listToProcess);
-                            else whereClause.In(listToProcess);
+                            
+                            if (isSubQueryGloballyNegated)
+                                whereClause.NotIn(listToProcess);
+                            else
+                                whereClause.In(listToProcess);
                         }
                         else if (itemToFindInListExpression is ConstantExpression constantItem)
                         {
@@ -128,7 +138,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
                             // If Contains is false (not found) AND subquery is NOT negated -> result is False (1=0)
                             // This is equivalent to: (found XOR isSubQueryGloballyNegated) ? Relation.AlwaysTrue : Relation.AlwaysFalse,
                             // but simpler: (found == !isSubQueryGloballyNegated)
-                            var effectiveRelation = (found ^ isSubQueryGloballyNegated) ? Relation.AlwaysFalse : Relation.AlwaysTrue;
+                            Relation effectiveRelation;
                             if (isSubQueryGloballyNegated)
                             { // Corrected logic for direct boolean to Relation.
                                 effectiveRelation = found ? Relation.AlwaysFalse : Relation.AlwaysTrue;
@@ -213,7 +223,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
                                 if (finalOuterMemberAccess.Expression is QuerySourceReferenceExpression qsr &&
                                     qsr.ReferencedQuerySource != subQuery.QueryModel.MainFromClause)
                                 {
-                                    var fieldName = builder.GetColumn(finalOuterMemberAccess)?.DbName ?? finalOuterMemberAccess.Member.Name;
+                                    var fieldName = builder.GetColumnMaybe(finalOuterMemberAccess)?.DbName ?? finalOuterMemberAccess.Member.Name;
                                     var whereClause = builder.CurrentParentGroup.AddWhere(fieldName, null, connectionType);
                                     if (isSubQueryGloballyNegated) whereClause.NotIn(listToProcess);
                                     else whereClause.In(listToProcess);
@@ -233,7 +243,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
         return base.VisitExtension(node);
     }
 
-    private bool IsOuterQueryMember(Expression expr, MainFromClause subQueryFromClause)
+    protected bool IsOuterQueryMember(Expression expr, MainFromClause subQueryFromClause)
     {
         // Strip UnaryExpression (like Convert) if present
         if (expr is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
@@ -246,7 +256,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
         return false;
     }
 
-    private bool IsSubQueryParameter(Expression expr, MainFromClause subQueryFromClause)
+    protected bool IsSubQueryParameter(Expression expr, MainFromClause subQueryFromClause)
     {
         // Strip UnaryExpression (like Convert) if present
         if (expr is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
@@ -291,9 +301,9 @@ internal class WhereVisitor<T> : ExpressionVisitor
             && node.Object is MemberExpression memberObject && memberObject.Expression is QuerySourceReferenceExpression
             && node.Arguments.Count == 1)
         {
-            var field = builder.GetColumn(memberObject)?.DbName ?? memberObject.Member.Name;
+            var field = builder.GetColumnMaybe(memberObject)?.DbName ?? memberObject.Member.Name;
             var valueArgument = Visit(node.Arguments[0])!;
-            var value = builder.GetValue(valueArgument);
+            var value = GetConstantValue(valueArgument);
 
             builder.AddWhereToGroup(builder.CurrentParentGroup, connectionType, SqlOperation.GetOperationForMethodName(node.Method.Name), field, value);
             return node;
@@ -304,7 +314,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
                  node.Method.Name == "Any" && node.Arguments.Count == 1)
         {
             var collectionExpr = Visit(node.Arguments[0])!;
-            var collectionValue = builder.GetValue(collectionExpr);
+            var collectionValue = GetConstantValue(collectionExpr);
             var listToProcess = ConvertToList(collectionValue);
 
             bool isCallNegated = builder.Negations > 0;
@@ -351,31 +361,106 @@ internal class WhereVisitor<T> : ExpressionVisitor
             return node;
         }
 
-        // For simple binary expressions (==, !=, >, < etc.)
-        Expression left = Visit(node.Left)!;
-        Expression right = Visit(node.Right)!;
-
-        // Check for member-to-member or member-to-function before handling logical operators
-        if (left is MemberExpression leftMember && right is MemberExpression rightMember)
+        // For all other binary expressions, they must be comparisons. Let the builder handle them.
+        var comparison = ParseComparison(node);
+        if (comparison != null)
         {
-            if (leftMember.Expression is QuerySourceReferenceExpression && rightMember.Expression is QuerySourceReferenceExpression)
-            {
-                return builder.HandleMemberToMemberComparison(node, leftMember, rightMember);
-            }
-            else if (leftMember.Expression is QuerySourceReferenceExpression)
-            {
-                return builder.HandleMemberToFunctionComparison(node, leftMember, rightMember);
-            }
-            else if (rightMember.Expression is QuerySourceReferenceExpression)
-            {
-                return builder.HandleMemberToFunctionComparison(node, rightMember, leftMember);
-            }
+            builder.AddComparison(comparison);
+        }
+        else // Fallback for Value-vs-Value
+        {
+            var leftVal = EvaluateExpression(node.Left);
+            var rightVal = EvaluateExpression(node.Right);
+            bool result = (bool)Expression.Lambda(Expression.MakeBinary(node.NodeType, Expression.Constant(leftVal), Expression.Constant(rightVal))).Compile().DynamicInvoke();
+            builder.CurrentParentGroup.AddFixedCondition(result ? Relation.AlwaysTrue : Relation.AlwaysFalse, builder.GetNextConnectionType());
         }
 
-        return builder.HandleMemberToValueComparison(node, left, right);
+        return node;
     }
 
-    public static object[] ConvertToList(object? obj)
+    protected Comparison? ParseComparison(BinaryExpression node)
+    {
+        var leftAnalysis = AnalyzeExpression(node.Left);
+        var rightAnalysis = AnalyzeExpression(node.Right);
+
+        switch (leftAnalysis.Type, rightAnalysis.Type)
+        {
+            // Column on Left
+            case (ExpressionAnalysis.ResultType.Column, ExpressionAnalysis.ResultType.Value):
+                return new Comparison((ColumnDefinition)leftAnalysis.Data!, node.NodeType, rightAnalysis.Data, Comparison.ValueType.Literal);
+
+            case (ExpressionAnalysis.ResultType.Column, ExpressionAnalysis.ResultType.Column):
+                return new Comparison((ColumnDefinition)leftAnalysis.Data!, node.NodeType, ((ColumnDefinition)rightAnalysis.Data!).DbName, Comparison.ValueType.Column);
+
+            case (ExpressionAnalysis.ResultType.Column, ExpressionAnalysis.ResultType.Function):
+                return new Comparison((ColumnDefinition)leftAnalysis.Data!, node.NodeType, rightAnalysis.Data, Comparison.ValueType.RawSql);
+
+            // Function on Left
+            case (ExpressionAnalysis.ResultType.Function, ExpressionAnalysis.ResultType.Value):
+                return new Comparison(null, node.NodeType, rightAnalysis.Data, Comparison.ValueType.Literal) { RawSqlColumn = leftAnalysis.Data!.ToString() };
+
+            case (ExpressionAnalysis.ResultType.Function, ExpressionAnalysis.ResultType.Column):
+                return new Comparison((ColumnDefinition)rightAnalysis.Data!, node.NodeType, leftAnalysis.Data, Comparison.ValueType.RawSql, Swapped: true);
+
+            case (ExpressionAnalysis.ResultType.Function, ExpressionAnalysis.ResultType.Function):
+                return new Comparison(null, node.NodeType, rightAnalysis.Data, Comparison.ValueType.RawSql) { RawSqlColumn = leftAnalysis.Data!.ToString() };
+
+            // Value on Left
+            case (ExpressionAnalysis.ResultType.Value, ExpressionAnalysis.ResultType.Column):
+                return new Comparison((ColumnDefinition)rightAnalysis.Data!, node.NodeType, leftAnalysis.Data, Comparison.ValueType.Literal, Swapped: true);
+
+            case (ExpressionAnalysis.ResultType.Value, ExpressionAnalysis.ResultType.Function):
+                return new Comparison(null, node.NodeType, leftAnalysis.Data, Comparison.ValueType.Literal, Swapped: true) { RawSqlColumn = rightAnalysis.Data!.ToString() };
+
+            // Value vs Value is the fallback case handled in HandleComparison
+            default:
+                return null;
+        }
+    }
+
+    protected ExpressionAnalysis AnalyzeExpression(Expression expression)
+    {
+        // Unwrap the Convert expression to get to the underlying member
+        if (expression is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
+            expression = unary.Operand;
+
+        if (expression is MemberExpression memberExpr)
+        {
+            // Is it a simple column? (e.g., x.emp_no)
+            if (memberExpr.Expression is QuerySourceReferenceExpression)
+                return new ExpressionAnalysis(ExpressionAnalysis.ResultType.Column, builder.GetColumn(memberExpr));
+
+            // Is it a function on a column? (e.g., x.from_date.Day)
+            if (builder.GetSqlFunction(memberExpr) is var (colName, funcType) && colName != null)
+                return new ExpressionAnalysis(ExpressionAnalysis.ResultType.Function, builder.GetSqlForFunction(colName, funcType));
+        }
+
+        // If it's anything else, it must be a literal value to be evaluated.
+        return new ExpressionAnalysis(ExpressionAnalysis.ResultType.Value, EvaluateExpression(expression));
+    }
+
+    protected static object? EvaluateExpression(Expression expression)
+    {
+        if (expression is ConstantExpression constExp)
+            return constExp.Value;
+
+        var evaluatedExpression = Evaluator.PartialEval(expression, e => !(e is QuerySourceReferenceExpression) && !(e is SubQueryExpression));
+
+        if (evaluatedExpression is ConstantExpression constAfterEval)
+            return constAfterEval.Value;
+
+        throw new InvalidQueryException($"Could not evaluate expression to a constant value: {expression}");
+    }
+
+    protected static object? GetConstantValue(Expression expression)
+    {
+        if (expression is ConstantExpression constExp)
+            return constExp.Value;
+        else
+            throw new InvalidQueryException($"Expression '{expression}' is not a constant.");
+    }
+
+    protected static object[] ConvertToList(object? obj)
     {
         return obj switch
         {
@@ -385,13 +470,5 @@ internal class WhereVisitor<T> : ExpressionVisitor
             IEnumerable enumerable => enumerable.Cast<object>().ToArray(),
             _ => throw new ArgumentException("Object is not a list or IEnumerable."),
         };
-    }
-}
-
-internal static class TypeExtensionsWhereVisitor
-{
-    public static bool IsNullableTypeWhereVisitor(this Type type)
-    {
-        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);
     }
 }

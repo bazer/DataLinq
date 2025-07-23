@@ -3,52 +3,54 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using DataLinq.Exceptions;
-using DataLinq.Linq.Visitors;
 using DataLinq.Metadata;
 using DataLinq.Query;
 using DataLinq.Utils;
 using Remotion.Linq.Clauses;
+using Remotion.Linq.Clauses.Expressions;
 
 namespace DataLinq.Linq;
 
-public interface IQueryBuilder<T>
+// A private record to hold the structured result of parsing a comparison expression.
+internal record Comparison(
+    ColumnDefinition? Column, // Now nullable
+    ExpressionType Operator,
+    object? Value,
+    Comparison.ValueType Type,
+    bool Swapped = false)
 {
+    public string? RawSqlColumn { get; init; } // New property
+    public enum ValueType { Literal, Column, RawSql }
 }
 
-public class QueryBuilder<T>(SqlQuery<T> query) : IQueryBuilder<T>
+internal class QueryBuilder<T>(SqlQuery<T> query)
 {
-    private NonNegativeInt negations = new NonNegativeInt(0); // Tracks pending NOT operations
-    private NonNegativeInt ors = new NonNegativeInt(0);       // Tracks if the next item should be ORed
-    private Stack<WhereGroup<T>> whereGroups = new Stack<WhereGroup<T>>(); // Manages logical grouping (parentheses)
+    private readonly NonNegativeInt negations = new(0); // Tracks pending NOT operations
+    private readonly NonNegativeInt ors = new(0);       // Tracks if the next item should be ORed
+    private readonly Stack<WhereGroup<T>> whereGroups = new(); // Manages logical grouping (parentheses)
 
-    public WhereGroup<T> CurrentParentGroup => whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
+    internal WhereGroup<T> CurrentParentGroup => whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
 
-    public int ORs => ors.Value;
-    public void IncrementORs() => ors.Increment();
-    public void DecrementORs() => ors.Decrement();
+    internal int ORs => ors.Value;
+    internal void IncrementORs() => ors.Increment();
+    internal void DecrementORs() => ors.Decrement();
 
-    public int Negations => negations.Value;
-    public void IncrementNegations() => negations.Increment();
-    public void DecrementNegations() => negations.Decrement();
+    internal int Negations => negations.Value;
+    internal void IncrementNegations() => negations.Increment();
+    internal void DecrementNegations() => negations.Decrement();
 
-    public void PushWhereGroup(WhereGroup<T> group)
+    internal void PushWhereGroup(WhereGroup<T> group)
     {
         ArgumentNullException.ThrowIfNull(group);
         whereGroups.Push(group);
     }
-    public WhereGroup<T> PopWhereGroup() => whereGroups.Pop();
 
-    public void AddOrderBy(MemberExpression memberExpression, OrderingDirection direction)
-    {
-        var column = GetColumn(memberExpression);
+    internal WhereGroup<T> PopWhereGroup() => whereGroups.Pop();
 
-        if (column == null)
-            throw new Exception($"Database column for property '{memberExpression.Member.Name}' not found");
+    internal void AddOrderBy(MemberExpression memberExpression, OrderingDirection direction) =>
+        query.OrderBy(GetColumn(memberExpression), null, direction == OrderingDirection.Asc);
 
-        query.OrderBy(column, null, direction == OrderingDirection.Asc);
-    }
-
-    public WhereGroup<T> AddNewSubGroup(BinaryExpression node)
+    internal WhereGroup<T> AddNewSubGroup(BinaryExpression node)
     {
         var currentParentGroupForThisOperation = CurrentParentGroup;
 
@@ -59,178 +61,19 @@ public class QueryBuilder<T>(SqlQuery<T> query) : IQueryBuilder<T>
         BooleanType internalJoinTypeForThisOperationGroup = (node.NodeType == ExpressionType.OrElse) ? BooleanType.Or : BooleanType.And;
         var newGroupForThisOperation = new WhereGroup<T>(query, internalJoinTypeForThisOperationGroup, isThisOperationGroupNegated);
 
-        BooleanType connectionToOuterFlow;
-        if (currentParentGroupForThisOperation.Length == 0)
-        {
-            if (ors.Value > 0)
-            { // Check 'ors' if this is the first child of its parent
-                connectionToOuterFlow = BooleanType.Or;
-                ors.Decrement();
-            }
-            else
-            {
-                connectionToOuterFlow = BooleanType.And;
-            }
-        }
-        else // Subsequent child in parent
-        {
-            if (ors.Value > 0)
-            { // 'ors' for *this specific connection* takes precedence
-                connectionToOuterFlow = BooleanType.Or;
-                ors.Decrement();
-            }
-            else
-            {
-                connectionToOuterFlow = currentParentGroupForThisOperation.InternalJoinType;
-            }
-        }
-
-        return currentParentGroupForThisOperation.AddSubGroup(newGroupForThisOperation, connectionToOuterFlow);
+        return currentParentGroupForThisOperation.AddSubGroup(newGroupForThisOperation, GetNextConnectionType());
     }
 
-    public Expression HandleMemberToValueComparison(BinaryExpression node, Expression left, Expression right)
-    {
-        var fields = GetFields(left, right);
-
-        // To be used in VisitBinary (simple ops), VisitMethodCall, VisitExtension (for subquery conditions)
-        var currentActiveGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
-        BooleanType connectionTypeToUse;
-
-        if (ors.Value > 0) // Higher priority: if an 'OR' is explicitly signaled for this connection
-        {
-            connectionTypeToUse = BooleanType.Or;
-            ors.Decrement(); // Consume the 'ors' signal for this specific connection
-        }
-        else // No explicit 'OR' signaled, use group's logic
-        {
-            if (currentActiveGroup.Length == 0)
-            {
-                // First child in the current group.
-                connectionTypeToUse = BooleanType.And;
-            }
-            else
-            {
-                // Subsequent child in currentActiveGroup, use its InternalJoinType.
-                connectionTypeToUse = currentActiveGroup.InternalJoinType;
-            }
-        }
-
-        if (node.NodeType == ExpressionType.NotEqual &&
-            fields.Value is bool bVal && bVal == true &&
-            (left as MemberExpression ?? right as MemberExpression)?.Type.IsNullableTypeWhereVisitor() == true)
-        {
-            bool isOuterNegationAppliedToGroup = negations.Value > 0;
-            if (isOuterNegationAppliedToGroup) negations.Decrement();
-
-            // Create a new group for (IS NULL OR = false), its internal join is OR.
-            var orGroupForNotTrue = new WhereGroup<T>(query, BooleanType.Or, isOuterNegationAppliedToGroup);
-            orGroupForNotTrue.AddWhere(fields.Key, null, BooleanType.And).EqualToNull(); // First in this sub-group
-            orGroupForNotTrue.AddWhere(fields.Key, null, BooleanType.Or).EqualTo(false);   // Second, ORed to first
-
-            currentActiveGroup.AddSubGroup(orGroupForNotTrue, connectionTypeToUse);
-        }
-        else
-        {
-            // AddWhereToGroup already handles negations for the simple condition itself.
-            AddWhereToGroup(currentActiveGroup, connectionTypeToUse, SqlOperation.GetOperationForExpressionType(node.NodeType), fields.Key, fields.Value);
-        }
-        return node;
-    }
-
-    public Expression HandleMemberToMemberComparison(BinaryExpression node, MemberExpression leftMember, MemberExpression rightMember)
-    {
-        var currentActiveGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
-        var connectionTypeToUse = (ors.Value > 0) ? BooleanType.Or : currentActiveGroup.InternalJoinType;
-        if (ors.Value > 0) ors.Decrement();
-
-        var leftColumnName = GetColumn(leftMember)?.DbName ?? leftMember.Member.Name;
-        var rightColumnName = GetColumn(rightMember)?.DbName ?? rightMember.Member.Name;
-
-        var where = currentActiveGroup.AddWhere(leftColumnName, null, connectionTypeToUse);
-
-        switch (node.NodeType)
-        {
-            case ExpressionType.Equal: where.EqualToColumn(rightColumnName); break;
-            case ExpressionType.NotEqual: where.NotEqualToColumn(rightColumnName); break;
-            case ExpressionType.GreaterThan: where.GreaterThanColumn(rightColumnName); break;
-            case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqualToColumn(rightColumnName); break;
-            case ExpressionType.LessThan: where.LessThanColumn(rightColumnName); break;
-            case ExpressionType.LessThanOrEqual: where.LessThanOrEqualToColumn(rightColumnName); break;
-            default: throw new NotImplementedException($"Binary operator '{node.NodeType}' between two members is not supported.");
-        }
-        return node;
-    }
-
-    public Expression HandleMemberToFunctionComparison(BinaryExpression node, MemberExpression memberExpr, MemberExpression functionExpr)
-    {
-        if (functionExpr.Expression is not MemberExpression innerMember)
-            throw new InvalidQueryException("Function call on a non-member expression is not supported.");
-
-        var columnName = GetColumn(memberExpr)?.DbName ?? memberExpr.Member.Name;
-        var functionOnColumnName = $"{query.EscapeCharacter}{GetColumn(innerMember)?.DbName ?? innerMember.Member.Name}{query.EscapeCharacter}";
-
-        SqlFunctionType? functionType = null;
-        if (innerMember.Type == typeof(DateOnly) || innerMember.Type == typeof(DateTime))
-        {
-            functionType = functionExpr.Member.Name switch
-            {
-                "Year" => SqlFunctionType.DatePartYear,
-                "Month" => SqlFunctionType.DatePartMonth,
-                "Day" => SqlFunctionType.DatePartDay,
-                "DayOfYear" => SqlFunctionType.DatePartDayOfYear,
-                "DayOfWeek" => SqlFunctionType.DatePartDayOfWeek,
-                _ => null
-            };
-        }
-
-        if (functionType == null && (innerMember.Type == typeof(TimeOnly) || innerMember.Type == typeof(DateTime)))
-        {
-            functionType = functionExpr.Member.Name switch
-            {
-                "Hour" => SqlFunctionType.TimePartHour,
-                "Minute" => SqlFunctionType.TimePartMinute,
-                "Second" => SqlFunctionType.TimePartSecond,
-                "Millisecond" => SqlFunctionType.TimePartMillisecond,
-                _ => null
-            };
-        }
-
-        if (functionType == null)
-            throw new NotImplementedException($"Function '{functionExpr.Member.Name}' on type '{innerMember.Type.Name}' is not supported.");
-
-        string sqlFunction = query.DataSource.Provider.GetSqlForFunction(functionType.Value, functionOnColumnName);
-
-        var currentActiveGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
-        var connectionTypeToUse = (ors.Value > 0) ? BooleanType.Or : currentActiveGroup.InternalJoinType;
-        if (ors.Value > 0) ors.Decrement();
-
-        var where = currentActiveGroup.AddWhere(columnName, null, connectionTypeToUse);
-
-        switch (node.NodeType)
-        {
-            case ExpressionType.Equal: where.EqualToRaw(sqlFunction); break;
-            case ExpressionType.NotEqual: where.NotEqualToRaw(sqlFunction); break;
-            case ExpressionType.GreaterThan: where.GreaterThanRaw(sqlFunction); break;
-            case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqualToRaw(sqlFunction); break;
-            case ExpressionType.LessThan: where.LessThanRaw(sqlFunction); break;
-            case ExpressionType.LessThanOrEqual: where.LessThanOrEqualToRaw(sqlFunction); break;
-            default: throw new NotImplementedException($"Binary operator '{node.NodeType}' between a member and a function is not supported.");
-        }
-
-        return node;
-    }
-
-    public void AddWhereToGroup(WhereGroup<T> group, BooleanType connectionType, SqlOperationType operation, string field, params object?[] values)
+    internal void AddWhereToGroup(WhereGroup<T> group, BooleanType connectionType, SqlOperationType operation, string field, params object?[] values)
     {
         // 'negations' applies to the individual 'where' condition being added.
-        bool isConditionNegated = negations.Value > 0;
-        if (isConditionNegated) negations.Decrement();
-
-        Where<T> where;
+        bool isConditionNegated = Negations > 0;
         if (isConditionNegated)
-            where = group.AddWhereNot(field, null, connectionType);
-        else
-            where = group.AddWhere(field, null, connectionType);
+            DecrementNegations();
+
+        var where = isConditionNegated
+            ? group.AddWhereNot(field, null, connectionType)
+            : group.AddWhere(field, null, connectionType);
 
         switch (operation)
         {
@@ -250,44 +93,179 @@ public class QueryBuilder<T>(SqlQuery<T> query) : IQueryBuilder<T>
         }
     }
 
-    
-
-    
-
-    internal KeyValuePair<string, object?> GetFields(Expression left, Expression right)
+    internal void AddComparison(Comparison comparison)
     {
-        if (left is ConstantExpression && right is ConstantExpression)
-            throw new InvalidQueryException("Unable to compare 2 constants.");
+        var columnName = comparison.Column?.DbName ?? comparison.RawSqlColumn
+            ?? throw new InvalidQueryException("Comparison must have a column.");
 
-        if (left is MemberExpression && right is MemberExpression)
-            throw new InvalidQueryException("Unable to compare 2 members.");
+        // --- Nullable Bool Logic ---
+        if (comparison.Column != null &&
+            comparison.Column.ValueProperty.CsNullable &&
+            comparison.Column.ValueProperty.CsType.Type == typeof(bool) &&
+            comparison.Operator == ExpressionType.NotEqual &&
+            comparison.Value is bool boolValue)
+        {
+            // Case: x.NullableBool != true  (C# wants false or null)
+            // Case: x.NullableBool != false (C# wants true or null)
+            var orGroup = new WhereGroup<T>(query, BooleanType.Or)
+                .Where(columnName).EqualTo(!boolValue)
+                .Where(columnName).EqualToNull();
 
-        if (left is MemberExpression memberExp && right is ConstantExpression constantExpr)
-            return GetValues(memberExp, constantExpr);
-        else if (right is MemberExpression memberExp2 && left is ConstantExpression constantExpr2)
-            return GetValues(memberExp2, constantExpr2);
+            CurrentParentGroup.AddSubGroup(orGroup, GetNextConnectionType());
+            return;
 
-        throw new InvalidQueryException($"Unable to compare {left.GetType().Name} with {right.GetType().Name}. Only MemberExpression and ConstantExpression are supported.");
+            // Cases for == true and == false are handled correctly by the default logic below,
+            // as SQL's `col = 1` and `col = 0` correctly exclude NULLs, matching C#'s behavior.
+        }
+
+        var where = CurrentParentGroup.AddWhere(columnName, null, GetNextConnectionType());
+        AddWhereClause(where, comparison.Operator, comparison.Value,
+            isColumn: comparison.Type == Comparison.ValueType.Column,
+            isRaw: comparison.Type == Comparison.ValueType.RawSql,
+            swapped: comparison.Swapped);
     }
 
-    internal KeyValuePair<string, object?> GetValues(MemberExpression field, ConstantExpression value) =>
-        new KeyValuePair<string, object?>(GetColumnDbName(field), value.Value);
-
-    internal string GetColumnDbName(MemberExpression expression) =>
-        GetColumn(expression)?.DbName ?? throw new InvalidQueryException($"Could not find column with name '{expression.Member.Name}' in table '{query.Table.DbName}'");
-
-    internal object? GetValue(Expression expression)
+    private void AddWhereClause(Where<T> where, ExpressionType op, object? value, bool isColumn = false, bool isRaw = false, bool swapped = false)
     {
-        if (expression is ConstantExpression constExp)
-            return constExp.Value;
-        else if (expression is MemberExpression propExp)
-            return GetColumnDbName(propExp);
+        if (Negations > 0)
+        {
+            where.IsNegated = true;
+            DecrementNegations();
+        }
+
+        if (swapped)
+        {
+            op = op switch
+            {
+                ExpressionType.GreaterThan => ExpressionType.LessThan,
+                ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
+                ExpressionType.LessThan => ExpressionType.GreaterThan,
+                ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
+                _ => op
+            };
+        }
+
+        if (isRaw)
+        {
+            var sql = value?.ToString() ?? throw new ArgumentException($"Value cannot be null for expression '{op}' in query '{where}'.");
+            switch (op)
+            {
+                case ExpressionType.Equal: where.EqualToRaw(sql); break;
+                case ExpressionType.NotEqual: where.NotEqualToRaw(sql); break;
+                case ExpressionType.GreaterThan: where.GreaterThanRaw(sql); break;
+                case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqualToRaw(sql); break;
+                case ExpressionType.LessThan: where.LessThanRaw(sql); break;
+                case ExpressionType.LessThanOrEqual: where.LessThanOrEqualToRaw(sql); break;
+                default: throw new NotImplementedException($"Operator '{op}' not supported for raw SQL comparison.");
+            }
+        }
+        else if (isColumn)
+        {
+            var colName = value?.ToString() ?? throw new ArgumentException($"Value cannot be null for expression '{op}' in query '{where}'.");
+            switch (op)
+            {
+                case ExpressionType.Equal: where.EqualToColumn(colName); break;
+                case ExpressionType.NotEqual: where.NotEqualToColumn(colName); break;
+                case ExpressionType.GreaterThan: where.GreaterThanColumn(colName); break;
+                case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqualToColumn(colName); break;
+                case ExpressionType.LessThan: where.LessThanColumn(colName); break;
+                case ExpressionType.LessThanOrEqual: where.LessThanOrEqualToColumn(colName); break;
+                default: throw new NotImplementedException($"Operator '{op}' not supported for column comparison.");
+            }
+        }
         else
-            throw new InvalidQueryException($"Expression '{expression}' is not a member or constant.");
+        {
+            switch (op)
+            {
+                case ExpressionType.Equal: where.EqualTo(value); break;
+                case ExpressionType.NotEqual: where.NotEqualTo(value); break;
+                case ExpressionType.GreaterThan: where.GreaterThan(value); break;
+                case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqual(value); break;
+                case ExpressionType.LessThan: where.LessThan(value); break;
+                case ExpressionType.LessThanOrEqual: where.LessThanOrEqual(value); break;
+                default: throw new NotImplementedException($"Operator '{op}' not supported for value comparison.");
+            }
+        }
     }
 
-    internal ColumnDefinition? GetColumn(MemberExpression expression)
+    internal string GetSqlForFunction(string colName, SqlFunctionType funcType) =>
+        query.DataSource.Provider.GetSqlForFunction(funcType, $"{query.EscapeCharacter}{colName}{query.EscapeCharacter}");
+
+    internal (string columnName, SqlFunctionType function)? GetSqlFunction(MemberExpression functionExpr)
     {
-        return query.Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == expression.Member.Name);
+        // Use the recursive helper to find the root column expression
+        var rootColumnExpr = QueryBuilder<T>.FindRootColumn(functionExpr);
+        if (rootColumnExpr == null)
+            return null;
+
+        var functionOnColumnName = GetColumnMaybe(rootColumnExpr)?.DbName ?? rootColumnExpr.Member.Name;
+
+        var columnType = rootColumnExpr.Type;
+
+        // Handle nullable types by getting the underlying type (e.g., DateTime? -> DateTime)
+        var underlyingType = Nullable.GetUnderlyingType(columnType) ?? columnType;
+
+        SqlFunctionType? functionType = null;
+        if (underlyingType == typeof(DateOnly) || underlyingType == typeof(DateTime))
+        {
+            functionType = functionExpr.Member.Name switch
+            {
+                "Year" => SqlFunctionType.DatePartYear,
+                "Month" => SqlFunctionType.DatePartMonth,
+                "Day" => SqlFunctionType.DatePartDay,
+                "DayOfYear" => SqlFunctionType.DatePartDayOfYear,
+                "DayOfWeek" => SqlFunctionType.DatePartDayOfWeek,
+                _ => null
+            };
+        }
+
+        if (functionType == null && (underlyingType == typeof(TimeOnly) || underlyingType == typeof(DateTime)))
+        {
+            functionType = functionExpr.Member.Name switch
+            {
+                "Hour" => SqlFunctionType.TimePartHour,
+                "Minute" => SqlFunctionType.TimePartMinute,
+                "Second" => SqlFunctionType.TimePartSecond,
+                "Millisecond" => SqlFunctionType.TimePartMillisecond,
+                _ => null
+            };
+        }
+
+        if (functionType.HasValue)
+            return (functionOnColumnName, functionType.Value);
+
+        return null;
     }
+
+    // Recursive helper to find the root database column from any expression
+    private static MemberExpression? FindRootColumn(Expression expression)
+    {
+        return expression switch
+        {
+            // Base case: We've found a member directly on the query source (e.g., "x.created_at")
+            MemberExpression { Expression: QuerySourceReferenceExpression } memberExpr => memberExpr,
+            // Recursive step: Unwrap a member of a member (e.g., the ".Value" in "x.created_at.Value")
+            MemberExpression { Expression: not null } memberExpr => FindRootColumn(memberExpr.Expression),
+            // Recursive step: Unwrap a conversion (e.g., the Convert in "Convert(x.created_at, DateTime)")
+            UnaryExpression { NodeType: ExpressionType.Convert } unaryExpr => FindRootColumn(unaryExpr.Operand),
+            _ => null,
+        };
+    }
+
+    internal BooleanType GetNextConnectionType()
+    {
+        if (ORs > 0)
+        {
+            DecrementORs();
+            return BooleanType.Or;
+        }
+
+        return CurrentParentGroup.Length == 0 ? BooleanType.And : CurrentParentGroup.InternalJoinType;
+    }
+
+    internal ColumnDefinition GetColumn(MemberExpression expression) =>
+        GetColumnMaybe(expression) ?? throw new InvalidQueryException($"Column '{expression.Member.Name}' not found in table '{query.Table.DbName}'");
+
+    internal ColumnDefinition? GetColumnMaybe(MemberExpression expression) =>
+        query.Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == expression.Member.Name);
 }
