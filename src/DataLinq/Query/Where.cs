@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DataLinq.Extensions.Helpers;
 
 namespace DataLinq.Query;
 
-public enum Relation
+public enum Operator
 {
     Equal,
     EqualNull,
@@ -18,9 +17,15 @@ public enum Relation
     LessThanOrEqual,
     In,
     NotIn,
+    NotLike,
     AlwaysFalse,
     AlwaysTrue
 }
+
+public record Comparison(
+    Operand Left,
+    Operator Operator,
+    Operand Right);
 
 public interface IWhere<T> : IQueryPart
 {
@@ -28,169 +33,154 @@ public interface IWhere<T> : IQueryPart
 
 public class Where<T> : IWhere<T>
 {
-    private string? Key;
-    private object?[]? Value;
-    private string? RawSql;
-    private Relation Relation;
-    internal bool IsValue = true;
-    internal bool IsRaw = false;
+    private Operand? Left;
+    private Operand? Right;
+    private Operator Operator;
     internal bool IsNegated = false;
     protected WhereGroup<T> WhereGroup;
-    private string? KeyAlias;
-    private string? ValueAlias;
 
-
-    private string KeyName => string.IsNullOrEmpty(KeyAlias)
-        ? $"{WhereGroup.Query.EscapeCharacter}{Key}{WhereGroup.Query.EscapeCharacter}"
-        : $"{KeyAlias}.{WhereGroup.Query.EscapeCharacter}{Key}{WhereGroup.Query.EscapeCharacter}";
-
-    private string ValueName => string.IsNullOrEmpty(ValueAlias)
-        ? $"{WhereGroup.Query.EscapeCharacter}{Value?[0] as string}{WhereGroup.Query.EscapeCharacter}"
-        : $"{ValueAlias}.{WhereGroup.Query.EscapeCharacter}{Value?[0]}{WhereGroup.Query.EscapeCharacter}";
-
-    internal Where(WhereGroup<T> group, string key, string? keyAlias, bool isValue = true, bool isNegated = false)
+    internal Where(WhereGroup<T> group, Operand left, bool isNegated = false)
     {
-        if (keyAlias == null)
-            (key, keyAlias) = QueryUtils.ParseColumnNameAndAlias(key);
-
         WhereGroup = group;
-        Key = key;
-        IsValue = isValue;
+        Left = left;
         IsNegated = isNegated;
-        KeyAlias = keyAlias;
     }
 
-    internal Where(WhereGroup<T> group, Relation fixedRelation)
+    internal Where(WhereGroup<T> group, Operand left, Operator @operator, Operand right, bool isNegated = false)
     {
-        if (fixedRelation != Relation.AlwaysTrue && fixedRelation != Relation.AlwaysFalse)
+        WhereGroup = group;
+        Left = left;
+        Operator = @operator;
+        Right = right;
+        IsNegated = isNegated;
+    }
+
+    internal Where(WhereGroup<T> group, Comparison comparison, bool isNegated = false)
+    {
+        WhereGroup = group;
+        Left = comparison.Left;
+        Operator = comparison.Operator;
+        Right = comparison.Right;
+        IsNegated = isNegated;
+    }
+
+    internal Where(WhereGroup<T> group, Operator fixedRelation)
+    {
+        if (fixedRelation != Operator.AlwaysTrue && fixedRelation != Operator.AlwaysFalse)
             throw new ArgumentException("This constructor is for AlwaysTrue or AlwaysFalse relations only.");
 
         WhereGroup = group;
-        Relation = fixedRelation;
-    }
-
-    internal Where(WhereGroup<T> group)
-    {
-        WhereGroup = group;
-    }
-
-    internal Where<T> AddKey(string key, string? alias, bool isValue = true)
-    {
-        Key = key;
-        IsValue = isValue;
-        KeyAlias = alias;
-
-        return this;
+        Operator = fixedRelation;
     }
 
     public WhereGroup<T> EqualTo<V>(V value)
     {
-        return SetAndReturn(value, value == null ? Relation.EqualNull : Relation.Equal);
+        return SetAndReturn(value, value == null ? Operator.EqualNull : Operator.Equal);
     }
 
     public WhereGroup<T> EqualToNull()
     {
-        return SetAndReturnNull(Relation.EqualNull);
+        return SetAndReturnNull(Operator.EqualNull);
     }
 
     public WhereGroup<T> EqualToColumn(string column, string? alias = null)
     {
-        return SetAndReturnColumn(column, alias, Relation.Equal);
+        return SetAndReturnColumn(column, alias, Operator.Equal);
     }
 
     public WhereGroup<T> NotEqualTo<V>(V value)
     {
-        return SetAndReturn(value, value == null ? Relation.NotEqualNull : Relation.NotEqual);
+        return SetAndReturn(value, value == null ? Operator.NotEqualNull : Operator.NotEqual);
     }
 
     public WhereGroup<T> NotEqualToNull()
     {
-        return SetAndReturnNull(Relation.NotEqualNull);
+        return SetAndReturnNull(Operator.NotEqualNull);
     }
 
     public WhereGroup<T> NotEqualToColumn(string column, string? alias = null)
     {
-        return SetAndReturnColumn(column, alias, Relation.NotEqual);
+        return SetAndReturnColumn(column, alias, Operator.NotEqual);
     }
 
     public WhereGroup<T> EqualToRaw(string sql)
     {
-        return SetAndReturnRaw(sql, Relation.Equal);
+        return SetAndReturnRaw(sql, Operator.Equal);
     }
 
     public WhereGroup<T> NotEqualToRaw(string sql)
     {
-        return SetAndReturnRaw(sql, Relation.NotEqual);
+        return SetAndReturnRaw(sql, Operator.NotEqual);
     }
 
     public WhereGroup<T> GreaterThanRaw(string sql)
     {
-        return SetAndReturnRaw(sql, Relation.GreaterThan);
+        return SetAndReturnRaw(sql, Operator.GreaterThan);
     }
 
     public WhereGroup<T> GreaterThanOrEqualToRaw(string sql)
     {
-        return SetAndReturnRaw(sql, Relation.GreaterThanOrEqual);
+        return SetAndReturnRaw(sql, Operator.GreaterThanOrEqual);
     }
 
     public WhereGroup<T> LessThanRaw(string sql)
     {
-        return SetAndReturnRaw(sql, Relation.LessThan);
+        return SetAndReturnRaw(sql, Operator.LessThan);
     }
 
     public WhereGroup<T> LessThanOrEqualToRaw(string sql)
     {
-        return SetAndReturnRaw(sql, Relation.LessThanOrEqual);
+        return SetAndReturnRaw(sql, Operator.LessThanOrEqual);
     }
 
     public WhereGroup<T> Like<V>(V value)
     {
-        return SetAndReturn(value, Relation.Like);
+        return SetAndReturn(value, Operator.Like);
     }
 
     public WhereGroup<T> LikeColumn(string column, string? alias = null)
     {
-        return SetAndReturnColumn(column, alias, Relation.Like);
+        return SetAndReturnColumn(column, alias, Operator.Like);
     }
 
     public WhereGroup<T> GreaterThan<V>(V value)
     {
-        return SetAndReturn(value, Relation.GreaterThan);
+        return SetAndReturn(value, Operator.GreaterThan);
     }
 
     public WhereGroup<T> GreaterThanColumn(string column, string? alias = null)
     {
-        return SetAndReturnColumn(column, alias, Relation.GreaterThan);
+        return SetAndReturnColumn(column, alias, Operator.GreaterThan);
     }
 
     public WhereGroup<T> GreaterThanOrEqual<V>(V value)
     {
-        return SetAndReturn(value, Relation.GreaterThanOrEqual);
+        return SetAndReturn(value, Operator.GreaterThanOrEqual);
     }
 
     public WhereGroup<T> GreaterThanOrEqualToColumn(string column, string? alias = null)
     {
-        return SetAndReturnColumn(column, alias, Relation.GreaterThanOrEqual);
+        return SetAndReturnColumn(column, alias, Operator.GreaterThanOrEqual);
     }
 
     public WhereGroup<T> LessThan<V>(V value)
     {
-        return SetAndReturn(value, Relation.LessThan);
+        return SetAndReturn(value, Operator.LessThan);
     }
 
     public WhereGroup<T> LessThanColumn(string column, string? alias = null)
     {
-        return SetAndReturnColumn(column, alias, Relation.LessThan);
+        return SetAndReturnColumn(column, alias, Operator.LessThan);
     }
 
     public WhereGroup<T> LessThanOrEqual<V>(V value)
     {
-        return SetAndReturn(value, Relation.LessThanOrEqual);
+        return SetAndReturn(value, Operator.LessThanOrEqual);
     }
 
     public WhereGroup<T> LessThanOrEqualToColumn(string column, string? alias = null)
     {
-        return SetAndReturnColumn(column, alias, Relation.LessThanOrEqual);
+        return SetAndReturnColumn(column, alias, Operator.LessThanOrEqual);
     }
 
     public WhereGroup<T> In<V>(IEnumerable<V> values) =>
@@ -198,7 +188,7 @@ public class Where<T> : IWhere<T>
 
     public WhereGroup<T> In<V>(params V[] values)
     {
-        return SetAndReturn(values, Relation.In);
+        return SetAndReturn(values, Operator.In);
     }
 
     public WhereGroup<T> NotIn<V>(IEnumerable<V> values) =>
@@ -206,69 +196,64 @@ public class Where<T> : IWhere<T>
 
     public WhereGroup<T> NotIn<V>(params V[] values)
     {
-        return SetAndReturn(values, Relation.NotIn);
+        return SetAndReturn(values, Operator.NotIn);
     }
 
-    protected WhereGroup<T> SetAndReturn<V>(V[] value, Relation relation)
+    protected WhereGroup<T> SetAndReturn<V>(V[] value, Operator @operator)
     {
-        Value = value.Cast<object>().ToArray();
-        Relation = relation;
+        Right = Operand.Value(value.Cast<object>());
+        Operator = @operator;
         return this.WhereGroup;
     }
 
-    protected WhereGroup<T> SetAndReturn<V>(V? value, Relation relation)
+    protected WhereGroup<T> SetAndReturn<V>(V? value, Operator @operator)
     {
-        Value = [value];
-        Relation = relation;
+        Right = Operand.Value(value);
+        Operator = @operator;
         return this.WhereGroup;
     }
 
-    protected WhereGroup<T> SetAndReturnNull(Relation relation)
+    protected WhereGroup<T> SetAndReturnNull(Operator @operator)
     {
-        Value = null;
-        Relation = relation;
+        Right = Operand.Value([null]);
+        Operator = @operator;
         return this.WhereGroup;
     }
 
-    protected WhereGroup<T> SetAndReturnColumn(string column, string? alias, Relation relation)
+    protected WhereGroup<T> SetAndReturnColumn(string column, string? alias, Operator @operator)
     {
-        if (alias == null)
-            (column, alias) = QueryUtils.ParseColumnNameAndAlias(column);
-
-        Value = [column];
-        ValueAlias = alias;
-        IsValue = false;
-        IsRaw = false;
-        Relation = relation;
+        Right = Operand.Column(column, alias);
+        Operator = @operator;
 
         return this.WhereGroup;
     }
 
-    private WhereGroup<T> SetAndReturnRaw(string sql, Relation relation)
+    private WhereGroup<T> SetAndReturnRaw(string sql, Operator @operator)
     {
-        RawSql = sql;
-        IsValue = false;
-        IsRaw = true;
-        Relation = relation;
+        Right = Operand.RawSql(sql);
+        Operator = @operator;
+
         return WhereGroup;
     }
 
     public void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false)
     {
         // Handle fixed conditions first
-        if (Relation == Relation.AlwaysTrue || Relation == Relation.AlwaysFalse)
+        if (Operator == Operator.AlwaysTrue || Operator == Operator.AlwaysFalse)
         {
-            if (Relation == Relation.AlwaysFalse)
+            if (Operator == Operator.AlwaysFalse)
                 sql.AddText(IsNegated ? "1=1" : "1=0");
-            else if (Relation == Relation.AlwaysTrue)
+            else if (Operator == Operator.AlwaysTrue)
                 sql.AddText(IsNegated ? "1=0" : "1=1");
             return;
         }
 
+        if (Left == null || Right == null)
+        {
+            throw new InvalidOperationException("Both Left and Right operands must be set before generating SQL.");
+        }
 
-        addParentheses = addParentheses || IsNegated; // || Relation == Relation.In || Relation == Relation.NotIn;
-
-        var indexList = addCommandParameter ? GetCommandParameter(sql, prefix).ToArray() : ([sql.Index]);
+        addParentheses = addParentheses || IsNegated;
 
         if (IsNegated)
             sql.AddText("NOT ");
@@ -276,46 +261,72 @@ public class Where<T> : IWhere<T>
         if (addParentheses)
             sql.AddText("(");
 
-        if (IsValue)
-        {
-            // Check for empty IN/NOT IN here before calling provider
-            if ((Relation == Relation.In || Relation == Relation.NotIn) && (Value == null || Value.Length == 0))
-            {
-                // Empty list for IN means false, for NOT IN means true
-                sql.AddText(Relation == Relation.In ? "1=0" : "1=1");
-            }
-            else
-            {
-                WhereGroup.Query.DataSource.Provider.GetParameterComparison(sql, KeyName, Relation, indexList.Select(x => prefix + "w" + x).ToArray());
-            }
-        }
-        else if (IsRaw)
-        {
-            sql.AddFormat("{0} {1} {2}", KeyName, Relation.ToSql(), RawSql);
-        }
-        else
-            sql.AddFormat("{0} {1} {2}", KeyName, Relation.ToSql(), ValueName);
+        var leftSql = GetOperandSql(Left, sql, prefix, addCommandParameter);
+        var rightSql = GetOperandSql(Right, sql, prefix, addCommandParameter);
+
+        sql.AddFormat("{0} {1} {2}", leftSql, GetOperatorSql(Left, Operator, Right), rightSql);
 
         if (addParentheses)
             sql.AddText(")");
     }
 
-    protected IEnumerable<int> GetCommandParameter(Sql sql, string prefix)
+    protected Operator GetCorrectedOperator(Operand left, Operator @operator, Operand right)
     {
-        if (IsValue)
+        // If the operator is EqualNull or NotEqualNull, we need to ensure it is handled correctly
+        if ((@operator == Operator.Equal || @operator == Operator.NotEqual) &&
+            ((left is ValueOperand valueOperandLeft && valueOperandLeft.IsNull) ||
+            right is ValueOperand valueOperandRight && valueOperandRight.IsNull))
         {
-            if (Value == null)
+            // If one of the operands is null, we can only use IS NULL or IS NOT NULL
+            return @operator == Operator.Equal ? Operator.EqualNull : Operator.NotEqualNull;
+        }
+
+        // For other operators, we can return them as is
+        return @operator;
+    }
+
+    protected string GetOperatorSql(Operand left, Operator @operator, Operand right)
+    {
+        var operatorToUse = GetCorrectedOperator(left, @operator, right);
+
+        // If the operator is AlwaysTrue or AlwaysFalse, we handle it separately
+        return WhereGroup.Query.DataSource.Provider.GetOperatorSql(operatorToUse);
+    }
+
+    protected string GetOperandSql(Operand operand, Sql sql, string prefix, bool addCommandParameter)
+    {
+        if (operand is ValueOperand valueOperand)
+        {
+            // Check for empty IN/NOT IN here before calling provider
+            if ((Operator == Operator.In || Operator == Operator.NotIn) && valueOperand.IsNull)
             {
-                yield return sql.Index;
-                WhereGroup.Query.DataSource.Provider.GetParameter(sql, prefix + "w" + sql.IndexAdd(), null);
+                // Empty list for IN means false, for NOT IN means true
+                return Operator == Operator.In ? "1=0" : "1=1";
             }
             else
             {
-                foreach (var value in Value)
-                {
-                    yield return sql.Index;
-                    WhereGroup.Query.DataSource.Provider.GetParameter(sql, prefix + "w" + sql.IndexAdd(), value);
-                }
+                var indexList = addCommandParameter ? GetCommandParameter(operand, sql, prefix).ToArray() : ([sql.Index]);
+                return WhereGroup.Query.DataSource.Provider.GetParameterName(Operator, indexList.Select(x => prefix + "w" + x).ToArray());
+            }
+        }
+        else if (operand is RawSqlOperand rawOperand)
+        {
+            return rawOperand.Sql;
+        }
+        else if (operand is ColumnOperand columnOperand)
+            return columnOperand.FormatName(WhereGroup.Query.EscapeCharacter);
+        else
+            throw new NotSupportedException($"Unsupported operand type: {operand.GetType().Name}");
+    }
+
+    protected IEnumerable<int> GetCommandParameter(Operand operand, Sql sql, string prefix)
+    {
+        if (operand is ValueOperand valueOperand)
+        {
+            foreach (var value in valueOperand.Values)
+            {
+                yield return sql.Index;
+                WhereGroup.Query.DataSource.Provider.GetParameter(sql, prefix + "w" + sql.IndexAdd(), value);
             }
         }
     }

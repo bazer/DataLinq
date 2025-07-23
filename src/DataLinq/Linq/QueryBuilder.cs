@@ -11,18 +11,6 @@ using Remotion.Linq.Clauses.Expressions;
 
 namespace DataLinq.Linq;
 
-// A private record to hold the structured result of parsing a comparison expression.
-internal record Comparison(
-    ColumnDefinition? Column, // Now nullable
-    ExpressionType Operator,
-    object? Value,
-    Comparison.ValueType Type,
-    bool Swapped = false)
-{
-    public string? RawSqlColumn { get; init; } // New property
-    public enum ValueType { Literal, Column, RawSql }
-}
-
 internal class QueryBuilder<T>(SqlQuery<T> query)
 {
     private readonly NonNegativeInt negations = new(0); // Tracks pending NOT operations
@@ -95,16 +83,15 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
     internal void AddComparison(Comparison comparison)
     {
-        var columnName = comparison.Column?.DbName ?? comparison.RawSqlColumn
-            ?? throw new InvalidQueryException("Comparison must have a column.");
-
         // --- Nullable Bool Logic ---
-        if (comparison.Column != null &&
-            comparison.Column.ValueProperty.CsNullable &&
-            comparison.Column.ValueProperty.CsType.Type == typeof(bool) &&
-            comparison.Operator == ExpressionType.NotEqual &&
-            comparison.Value is bool boolValue)
+        if (IsNegatedNullableBool(comparison, out var columnOperand, out var valueOperand))
         {
+            // Handle negated nullable bools specifically
+            var columnName = columnOperand?.ColumnDefinition.DbName ?? throw new InvalidQueryException("Column definition is required for nullable bool comparison.");
+            var boolValue = valueOperand?.FirstValue as bool? ?? throw new InvalidQueryException("Value must be a boolean for nullable bool comparison.");
+            // Add a group to handle the negation logic
+            // This will create a group that handles the negation of nullable bools correctly.
+        
             // Case: x.NullableBool != true  (C# wants false or null)
             // Case: x.NullableBool != false (C# wants true or null)
             var orGroup = new WhereGroup<T>(query, BooleanType.Or)
@@ -118,78 +105,94 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
             // as SQL's `col = 1` and `col = 0` correctly exclude NULLs, matching C#'s behavior.
         }
 
-        var where = CurrentParentGroup.AddWhere(columnName, null, GetNextConnectionType());
-        AddWhereClause(where, comparison.Operator, comparison.Value,
-            isColumn: comparison.Type == Comparison.ValueType.Column,
-            isRaw: comparison.Type == Comparison.ValueType.RawSql,
-            swapped: comparison.Swapped);
-    }
-
-    private void AddWhereClause(Where<T> where, ExpressionType op, object? value, bool isColumn = false, bool isRaw = false, bool swapped = false)
-    {
-        if (Negations > 0)
-        {
-            where.IsNegated = true;
+        // --- Regular Comparison Logic ---
+        var isNegated = Negations > 0;
+        if (isNegated)
             DecrementNegations();
-        }
 
-        if (swapped)
-        {
-            op = op switch
-            {
-                ExpressionType.GreaterThan => ExpressionType.LessThan,
-                ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
-                ExpressionType.LessThan => ExpressionType.GreaterThan,
-                ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
-                _ => op
-            };
-        }
-
-        if (isRaw)
-        {
-            var sql = value?.ToString() ?? throw new ArgumentException($"Value cannot be null for expression '{op}' in query '{where}'.");
-            switch (op)
-            {
-                case ExpressionType.Equal: where.EqualToRaw(sql); break;
-                case ExpressionType.NotEqual: where.NotEqualToRaw(sql); break;
-                case ExpressionType.GreaterThan: where.GreaterThanRaw(sql); break;
-                case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqualToRaw(sql); break;
-                case ExpressionType.LessThan: where.LessThanRaw(sql); break;
-                case ExpressionType.LessThanOrEqual: where.LessThanOrEqualToRaw(sql); break;
-                default: throw new NotImplementedException($"Operator '{op}' not supported for raw SQL comparison.");
-            }
-        }
-        else if (isColumn)
-        {
-            var colName = value?.ToString() ?? throw new ArgumentException($"Value cannot be null for expression '{op}' in query '{where}'.");
-            switch (op)
-            {
-                case ExpressionType.Equal: where.EqualToColumn(colName); break;
-                case ExpressionType.NotEqual: where.NotEqualToColumn(colName); break;
-                case ExpressionType.GreaterThan: where.GreaterThanColumn(colName); break;
-                case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqualToColumn(colName); break;
-                case ExpressionType.LessThan: where.LessThanColumn(colName); break;
-                case ExpressionType.LessThanOrEqual: where.LessThanOrEqualToColumn(colName); break;
-                default: throw new NotImplementedException($"Operator '{op}' not supported for column comparison.");
-            }
-        }
-        else
-        {
-            switch (op)
-            {
-                case ExpressionType.Equal: where.EqualTo(value); break;
-                case ExpressionType.NotEqual: where.NotEqualTo(value); break;
-                case ExpressionType.GreaterThan: where.GreaterThan(value); break;
-                case ExpressionType.GreaterThanOrEqual: where.GreaterThanOrEqual(value); break;
-                case ExpressionType.LessThan: where.LessThan(value); break;
-                case ExpressionType.LessThanOrEqual: where.LessThanOrEqual(value); break;
-                default: throw new NotImplementedException($"Operator '{op}' not supported for value comparison.");
-            }
-        }
+        CurrentParentGroup.AddWhere(comparison, GetNextConnectionType(), isNegated);
     }
 
-    internal string GetSqlForFunction(string colName, SqlFunctionType funcType) =>
-        query.DataSource.Provider.GetSqlForFunction(funcType, $"{query.EscapeCharacter}{colName}{query.EscapeCharacter}");
+    protected bool IsNegatedNullableBool(Comparison comparison, out ColumnOperandWithDefinition? columnOperand, out ValueOperand? valueOperand)
+    {
+        columnOperand = null;
+        valueOperand = null;
+
+        if (comparison.Operator != Operator.NotEqual)
+            return false; // Only interested in NotEqual comparisons for negated nullable bools
+
+        if (comparison.Left is ColumnOperandWithDefinition columnOperand1 &&
+            comparison.Right is ValueOperand valueOperand1 &&
+            IsNegatedNullableBool(columnOperand1, valueOperand1))
+        {
+            columnOperand = columnOperand1;
+            valueOperand = valueOperand1;
+            return true; // This indicates a negated nullable bool condition
+        }
+
+        if (comparison.Left is ValueOperand valueOperand2 &&
+            comparison.Right is ColumnOperandWithDefinition columnOperand2 &&
+            IsNegatedNullableBool(columnOperand2, valueOperand2))
+        {
+            columnOperand = columnOperand2;
+            valueOperand = valueOperand2;
+            return true; // This indicates a negated nullable bool condition
+        }
+
+        return false; // Not a negated nullable bool condition
+    }
+
+    // Check if the comparison is on a nullable bool column
+    protected bool IsNegatedNullableBool(ColumnOperandWithDefinition columnOperand, ValueOperand valueOperand) =>
+        columnOperand.ColumnDefinition.ValueProperty.CsNullable &&
+        columnOperand.ColumnDefinition.ValueProperty.CsType.Type == typeof(bool) &&
+        valueOperand.HasOneValue &&
+        valueOperand.FirstValue is bool;
+
+    internal Comparison? ParseComparison(BinaryExpression node)
+    {
+        var left = GetOperand(node.Left);
+        var right = GetOperand(node.Right);
+
+        return new Comparison(left, GetOperator(node.NodeType), right);
+    }
+
+    protected Operand GetOperand(Expression expression)
+    {
+        // Unwrap the Convert expression to get to the underlying member
+        if (expression is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
+            expression = unary.Operand;
+
+        if (expression is MemberExpression memberExpr)
+        {
+            // Is it a simple column? (e.g., x.emp_no)
+            if (memberExpr.Expression is QuerySourceReferenceExpression)
+                return Operand.Column(GetColumn(memberExpr));
+
+            // Is it a function on a column? (e.g., x.from_date.Day)
+            if (GetSqlFunction(memberExpr) is var (colName, funcType) && colName != null)
+                return Operand.RawSql(GetSqlForFunction(funcType, colName));
+        }
+
+        // If it's anything else, it must be a literal value to be evaluated
+        return Operand.Value(GetConstant(expression));
+    }
+
+    internal object? GetConstant(Expression expression)
+    {
+        if (expression is ConstantExpression constExp)
+            return constExp.Value;
+
+        var evaluatedExpression = Evaluator.PartialEval(expression, e => !(e is QuerySourceReferenceExpression) && !(e is SubQueryExpression));
+
+        if (evaluatedExpression is ConstantExpression constAfterEval)
+            return constAfterEval.Value;
+
+        throw new InvalidQueryException($"Could not evaluate expression to a constant value: {expression}");
+    }
+
+    internal string GetSqlForFunction(SqlFunctionType functionType, string columnName) =>
+        query.DataSource.Provider.GetSqlForFunction(functionType, columnName);
 
     internal (string columnName, SqlFunctionType function)? GetSqlFunction(MemberExpression functionExpr)
     {
@@ -268,4 +271,15 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
     internal ColumnDefinition? GetColumnMaybe(MemberExpression expression) =>
         query.Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == expression.Member.Name);
+
+    internal Operator GetOperator(ExpressionType type) => type switch
+    {
+        ExpressionType.Equal => Operator.Equal,
+        ExpressionType.NotEqual => Operator.NotEqual,
+        ExpressionType.GreaterThan => Operator.GreaterThan,
+        ExpressionType.GreaterThanOrEqual => Operator.GreaterThanOrEqual,
+        ExpressionType.LessThan => Operator.LessThan,
+        ExpressionType.LessThanOrEqual => Operator.LessThanOrEqual,
+        _ => throw new NotImplementedException($"Expression type '{type}' is not supported for relation mapping.")
+    };
 }

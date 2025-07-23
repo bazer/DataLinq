@@ -27,15 +27,19 @@ public interface IDatabaseProvider : IDisposable
     DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type);
 
     string GetLastIdQuery();
-    string GetSqlForFunction(SqlFunctionType functionType, string quotedColumnName);
+    string GetSqlForFunction(SqlFunctionType functionType, string columnName);
 
     TableCache GetTableCache(TableDefinition table);
+
+    string GetOperatorSql(Operator @operator);
 
     Sql GetParameter(Sql sql, string key, object? value);
 
     Sql GetParameterValue(Sql sql, string key);
 
-    Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] prefix);
+    string GetParameterName(Operator relation, string[] key);
+
+    Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] prefix);
 
     Sql GetLimitOffset(Sql sql, int? limit, int? offset);
 

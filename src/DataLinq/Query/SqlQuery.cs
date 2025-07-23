@@ -363,7 +363,7 @@ public class SqlQuery<T>
         foreach (var with in SetList)
         {
             DataSource.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-            DataSource.Provider.GetParameterComparison(sql, with.Key, Relation.Equal, [paramPrefix + "v" + i]);
+            DataSource.Provider.GetParameterComparison(sql, with.Key, Operator.Equal, [paramPrefix + "v" + i]);
 
             if (i + 1 < length)
                 sql.AddText(",");

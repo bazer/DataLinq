@@ -3,19 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using DataLinq.Exceptions;
-using DataLinq.Metadata;
 using DataLinq.Query;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Clauses.ResultOperators;
 
 namespace DataLinq.Linq.Visitors;
-
-internal record ExpressionAnalysis(ExpressionAnalysis.ResultType Type, object? Data)
-{
-    internal enum ResultType { Column, Function, Value }
-}
 
 internal class WhereVisitor<T> : ExpressionVisitor
 {
@@ -84,7 +77,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
             // Evaluate the collection part of the subquery (e.g., the list in list.Contains(x.Prop))
             // This is done ONCE for the subquery.
             var collectionExpr = Visit(subQuery.QueryModel.MainFromClause.FromExpression)!;
-            var collectionValue = GetConstantValue(collectionExpr);
+            var collectionValue = builder.GetConstant(collectionExpr);
             var listToProcess = ConvertToList(collectionValue);
 
             bool isSubQueryGloballyNegated = builder.Negations > 0; // Negation applies to the whole subquery result
@@ -100,7 +93,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
                     if (listToProcess.Length == 0)
                     {
                         // list.Contains(item) is FALSE. If negated (!list.Contains), it's TRUE.
-                        var effectiveRelation = isSubQueryGloballyNegated ? Relation.AlwaysTrue : Relation.AlwaysFalse;
+                        var effectiveRelation = isSubQueryGloballyNegated ? Operator.AlwaysTrue : Operator.AlwaysFalse;
                         builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
                         // DO NOT VISIT containsResultOperator.Item if the list is empty.
                     }
@@ -138,14 +131,14 @@ internal class WhereVisitor<T> : ExpressionVisitor
                             // If Contains is false (not found) AND subquery is NOT negated -> result is False (1=0)
                             // This is equivalent to: (found XOR isSubQueryGloballyNegated) ? Relation.AlwaysTrue : Relation.AlwaysFalse,
                             // but simpler: (found == !isSubQueryGloballyNegated)
-                            Relation effectiveRelation;
+                            Operator effectiveRelation;
                             if (isSubQueryGloballyNegated)
                             { // Corrected logic for direct boolean to Relation.
-                                effectiveRelation = found ? Relation.AlwaysFalse : Relation.AlwaysTrue;
+                                effectiveRelation = found ? Operator.AlwaysFalse : Operator.AlwaysTrue;
                             }
                             else
                             {
-                                effectiveRelation = found ? Relation.AlwaysTrue : Relation.AlwaysFalse;
+                                effectiveRelation = found ? Operator.AlwaysTrue : Operator.AlwaysFalse;
                             }
 
                             builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
@@ -164,14 +157,14 @@ internal class WhereVisitor<T> : ExpressionVisitor
                     if (subQuery.QueryModel.BodyClauses.Count == 0) // .Any() without predicate
                     {
                         bool listHasItems = listToProcess.Length > 0;
-                        Relation effectiveRelation;
+                        Operator effectiveRelation;
                         if (isSubQueryGloballyNegated)
                         {
-                            effectiveRelation = listHasItems ? Relation.AlwaysFalse : Relation.AlwaysTrue;
+                            effectiveRelation = listHasItems ? Operator.AlwaysFalse : Operator.AlwaysTrue;
                         }
                         else
                         {
-                            effectiveRelation = listHasItems ? Relation.AlwaysTrue : Relation.AlwaysFalse;
+                            effectiveRelation = listHasItems ? Operator.AlwaysTrue : Operator.AlwaysFalse;
                         }
                         builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
                         return node;
@@ -180,7 +173,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
                     // .Any(predicate)
                     if (listToProcess.Length == 0)
                     {
-                        var effectiveRelation = isSubQueryGloballyNegated ? Relation.AlwaysTrue : Relation.AlwaysFalse;
+                        var effectiveRelation = isSubQueryGloballyNegated ? Operator.AlwaysTrue : Operator.AlwaysFalse;
                         builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
                         return node;
                     }
@@ -303,7 +296,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
         {
             var field = builder.GetColumnMaybe(memberObject)?.DbName ?? memberObject.Member.Name;
             var valueArgument = Visit(node.Arguments[0])!;
-            var value = GetConstantValue(valueArgument);
+            var value = builder.GetConstant(valueArgument);
 
             builder.AddWhereToGroup(builder.CurrentParentGroup, connectionType, SqlOperation.GetOperationForMethodName(node.Method.Name), field, value);
             return node;
@@ -314,18 +307,18 @@ internal class WhereVisitor<T> : ExpressionVisitor
                  node.Method.Name == "Any" && node.Arguments.Count == 1)
         {
             var collectionExpr = Visit(node.Arguments[0])!;
-            var collectionValue = GetConstantValue(collectionExpr);
+            var collectionValue = builder.GetConstant(collectionExpr);
             var listToProcess = ConvertToList(collectionValue);
 
             bool isCallNegated = builder.Negations > 0;
             if (isCallNegated)
                 builder.DecrementNegations();
 
-            Relation effectiveRelation;
+            Operator effectiveRelation;
             if (listToProcess.Length > 0) // collection.Any() is TRUE if list has items
-                effectiveRelation = isCallNegated ? Relation.AlwaysFalse : Relation.AlwaysTrue;
+                effectiveRelation = isCallNegated ? Operator.AlwaysFalse : Operator.AlwaysTrue;
             else // collection.Any() is FALSE if list is empty
-                effectiveRelation = isCallNegated ? Relation.AlwaysTrue : Relation.AlwaysFalse;
+                effectiveRelation = isCallNegated ? Operator.AlwaysTrue : Operator.AlwaysFalse;
 
             builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
             return node;
@@ -362,102 +355,20 @@ internal class WhereVisitor<T> : ExpressionVisitor
         }
 
         // For all other binary expressions, they must be comparisons. Let the builder handle them.
-        var comparison = ParseComparison(node);
+        var comparison = builder.ParseComparison(node);
         if (comparison != null)
         {
             builder.AddComparison(comparison);
         }
         else // Fallback for Value-vs-Value
         {
-            var leftVal = EvaluateExpression(node.Left);
-            var rightVal = EvaluateExpression(node.Right);
+            var leftVal = builder.GetConstant(node.Left);
+            var rightVal = builder.GetConstant(node.Right);
             bool result = (bool)Expression.Lambda(Expression.MakeBinary(node.NodeType, Expression.Constant(leftVal), Expression.Constant(rightVal))).Compile().DynamicInvoke();
-            builder.CurrentParentGroup.AddFixedCondition(result ? Relation.AlwaysTrue : Relation.AlwaysFalse, builder.GetNextConnectionType());
+            builder.CurrentParentGroup.AddFixedCondition(result ? Operator.AlwaysTrue : Operator.AlwaysFalse, builder.GetNextConnectionType());
         }
 
         return node;
-    }
-
-    protected Comparison? ParseComparison(BinaryExpression node)
-    {
-        var leftAnalysis = AnalyzeExpression(node.Left);
-        var rightAnalysis = AnalyzeExpression(node.Right);
-
-        switch (leftAnalysis.Type, rightAnalysis.Type)
-        {
-            // Column on Left
-            case (ExpressionAnalysis.ResultType.Column, ExpressionAnalysis.ResultType.Value):
-                return new Comparison((ColumnDefinition)leftAnalysis.Data!, node.NodeType, rightAnalysis.Data, Comparison.ValueType.Literal);
-
-            case (ExpressionAnalysis.ResultType.Column, ExpressionAnalysis.ResultType.Column):
-                return new Comparison((ColumnDefinition)leftAnalysis.Data!, node.NodeType, ((ColumnDefinition)rightAnalysis.Data!).DbName, Comparison.ValueType.Column);
-
-            case (ExpressionAnalysis.ResultType.Column, ExpressionAnalysis.ResultType.Function):
-                return new Comparison((ColumnDefinition)leftAnalysis.Data!, node.NodeType, rightAnalysis.Data, Comparison.ValueType.RawSql);
-
-            // Function on Left
-            case (ExpressionAnalysis.ResultType.Function, ExpressionAnalysis.ResultType.Value):
-                return new Comparison(null, node.NodeType, rightAnalysis.Data, Comparison.ValueType.Literal) { RawSqlColumn = leftAnalysis.Data!.ToString() };
-
-            case (ExpressionAnalysis.ResultType.Function, ExpressionAnalysis.ResultType.Column):
-                return new Comparison((ColumnDefinition)rightAnalysis.Data!, node.NodeType, leftAnalysis.Data, Comparison.ValueType.RawSql, Swapped: true);
-
-            case (ExpressionAnalysis.ResultType.Function, ExpressionAnalysis.ResultType.Function):
-                return new Comparison(null, node.NodeType, rightAnalysis.Data, Comparison.ValueType.RawSql) { RawSqlColumn = leftAnalysis.Data!.ToString() };
-
-            // Value on Left
-            case (ExpressionAnalysis.ResultType.Value, ExpressionAnalysis.ResultType.Column):
-                return new Comparison((ColumnDefinition)rightAnalysis.Data!, node.NodeType, leftAnalysis.Data, Comparison.ValueType.Literal, Swapped: true);
-
-            case (ExpressionAnalysis.ResultType.Value, ExpressionAnalysis.ResultType.Function):
-                return new Comparison(null, node.NodeType, leftAnalysis.Data, Comparison.ValueType.Literal, Swapped: true) { RawSqlColumn = rightAnalysis.Data!.ToString() };
-
-            // Value vs Value is the fallback case handled in HandleComparison
-            default:
-                return null;
-        }
-    }
-
-    protected ExpressionAnalysis AnalyzeExpression(Expression expression)
-    {
-        // Unwrap the Convert expression to get to the underlying member
-        if (expression is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
-            expression = unary.Operand;
-
-        if (expression is MemberExpression memberExpr)
-        {
-            // Is it a simple column? (e.g., x.emp_no)
-            if (memberExpr.Expression is QuerySourceReferenceExpression)
-                return new ExpressionAnalysis(ExpressionAnalysis.ResultType.Column, builder.GetColumn(memberExpr));
-
-            // Is it a function on a column? (e.g., x.from_date.Day)
-            if (builder.GetSqlFunction(memberExpr) is var (colName, funcType) && colName != null)
-                return new ExpressionAnalysis(ExpressionAnalysis.ResultType.Function, builder.GetSqlForFunction(colName, funcType));
-        }
-
-        // If it's anything else, it must be a literal value to be evaluated.
-        return new ExpressionAnalysis(ExpressionAnalysis.ResultType.Value, EvaluateExpression(expression));
-    }
-
-    protected static object? EvaluateExpression(Expression expression)
-    {
-        if (expression is ConstantExpression constExp)
-            return constExp.Value;
-
-        var evaluatedExpression = Evaluator.PartialEval(expression, e => !(e is QuerySourceReferenceExpression) && !(e is SubQueryExpression));
-
-        if (evaluatedExpression is ConstantExpression constAfterEval)
-            return constAfterEval.Value;
-
-        throw new InvalidQueryException($"Could not evaluate expression to a constant value: {expression}");
-    }
-
-    protected static object? GetConstantValue(Expression expression)
-    {
-        if (expression is ConstantExpression constExp)
-            return constExp.Value;
-        else
-            throw new InvalidQueryException($"Expression '{expression}' is not a constant.");
     }
 
     protected static object[] ConvertToList(object? obj)

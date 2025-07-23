@@ -104,8 +104,10 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         return "SELECT last_insert_id()";
     }
 
-    public override string GetSqlForFunction(SqlFunctionType functionType, string quotedColumnName)
+    public override string GetSqlForFunction(SqlFunctionType functionType, string columnName)
     {
+        var quotedColumnName = $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
+
         return functionType switch
         {
             // Date Parts
@@ -131,23 +133,40 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         };
     }
 
+    public override string GetOperatorSql(Operator @operator) => @operator switch
+    {
+        Operator.Equal => "=",
+        Operator.EqualNull => "IS",
+        Operator.NotEqual => "<>",
+        Operator.NotEqualNull => "IS NOT",
+        Operator.Like => "LIKE",
+        Operator.NotLike => "NOT LIKE",
+        Operator.GreaterThan => ">",
+        Operator.GreaterThanOrEqual => ">=",
+        Operator.LessThan => "<",
+        Operator.LessThanOrEqual => "<=",
+        Operator.In => "IN",
+        Operator.NotIn => "NOT IN",
+        _ => throw new NotSupportedException($"Operator '{@operator}' is not supported in MySQL/MariaDB.")
+    };
+
     public override Sql GetParameterValue(Sql sql, string key)
     {
         return sql.AddFormat("?{0}", key);
     }
 
-    public override Sql GetParameterComparison(Sql sql, string field, Query.Relation relation, string[] key)
+    public override Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] key)
     {
         return sql.AddFormat("{0} {1} {2}",
             field,
-            relation.ToSql(),
-            GetParameterName(relation, key));
+            GetOperatorSql(@operator),
+            GetParameterName(@operator, key));
     }
 
-    private string GetParameterName(Query.Relation relation, string[] key)
+    public override string GetParameterName(Operator relation, string[] key)
     {
         var builder = new StringBuilder();
-        if (key.Length > 1 || relation == Query.Relation.In || relation == Query.Relation.NotIn)
+        if (key.Length > 1 || relation == Operator.In || relation == Operator.NotIn)
         {
             builder.Append('(');
         }
@@ -162,7 +181,7 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
             builder.Append(key[i]);
         }
 
-        if (key.Length > 1 || relation == Query.Relation.In || relation == Query.Relation.NotIn)
+        if (key.Length > 1 || relation == Operator.In || relation == Operator.NotIn)
         {
             builder.Append(')');
         }

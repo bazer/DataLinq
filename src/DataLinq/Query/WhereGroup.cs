@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using DataLinq.Metadata;
 
 namespace DataLinq.Query;
@@ -119,21 +118,28 @@ public class WhereGroup<T> : IWhere<T>
         // First item in a group is effectively ANDed to the group's start.
         // Subsequent items use the group's InternalJoinType.
         var connection = (whereList == null || whereList.Count == 0) ? BooleanType.And : InternalJoinType;
-        return AddWhereInternal(new Where<T>(this, columnName, alias), connection);
+        return AddWhereInternal(new Where<T>(this, Operand.Column(columnName, alias)), connection);
+    }
+
+    public WhereGroup<T> AddWhere(Comparison comparison, BooleanType explicitConnectionType, bool isNegated = false)
+    {
+        // Used by visitor when it knows the explicit connection type (e.g. from an OR)
+        AddWhereInternal(new Where<T>(this, comparison, isNegated), explicitConnectionType);
+        return this;
     }
 
     public Where<T> AddWhere(string columnName, string? alias, BooleanType explicitConnectionType)
     {
         // Used by visitor when it knows the explicit connection type (e.g. from an OR)
-        return AddWhereInternal(new Where<T>(this, columnName, alias), explicitConnectionType);
+        return AddWhereInternal(new Where<T>(this, Operand.Column(columnName, alias)), explicitConnectionType);
     }
 
     public Where<T> AddWhereNot(string columnName, string? alias, BooleanType explicitConnectionType)
     {
-        return AddWhereInternal(new Where<T>(this, columnName, alias, isNegated: true), explicitConnectionType);
+        return AddWhereInternal(new Where<T>(this, Operand.Column(columnName, alias), isNegated: true), explicitConnectionType);
     }
 
-    public Where<T> AddFixedCondition(Relation fixedRelation, BooleanType explicitConnectionType)
+    public Where<T> AddFixedCondition(Operator fixedRelation, BooleanType explicitConnectionType)
     {
         return AddWhereInternal(new Where<T>(this, fixedRelation), explicitConnectionType);
     }
@@ -146,7 +152,7 @@ public class WhereGroup<T> : IWhere<T>
     // And, Or methods in WhereGroup now add conditions with specific connector types
     public Where<T> And(string columnName, string? alias = null)
     {
-        return AddWhereInternal(new Where<T>(this, columnName, alias), BooleanType.And);
+        return AddWhereInternal(new Where<T>(this, Operand.Column(columnName, alias)), BooleanType.And);
     }
 
     public WhereGroup<T> And(Action<WhereGroup<T>> populateAction)
@@ -158,7 +164,7 @@ public class WhereGroup<T> : IWhere<T>
 
     public Where<T> Or(string columnName, string? alias = null)
     {
-        return AddWhereInternal(new Where<T>(this, columnName, alias), BooleanType.Or);
+        return AddWhereInternal(new Where<T>(this, Operand.Column(columnName, alias)), BooleanType.Or);
     }
 
     public WhereGroup<T> Or(Action<WhereGroup<T>> populateAction)
