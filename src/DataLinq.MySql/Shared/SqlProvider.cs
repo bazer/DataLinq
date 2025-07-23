@@ -117,7 +117,8 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
             SqlFunctionType.DatePartDayOfYear => $"DAYOFYEAR({quotedColumnName})",
             // MySQL's DAYOFWEEK() returns 1=Sun, 2=Mon... C#'s DayOfWeek is 0=Sun, 1=Mon...
             // So we subtract 1 to align them.
-            SqlFunctionType.DatePartDayOfWeek => $"({{\n    \"1\":0,\"2\":1,\"3\":2,\"4\":3,\"5\":4,\"6\":5,\"7\":6\n}} ->> CONCAT('$.', DAYOFWEEK({quotedColumnName})))",
+            SqlFunctionType.DatePartDayOfWeek => $"(DAYOFWEEK({quotedColumnName}) - 1)",
+            //SqlFunctionType.DatePartDayOfWeek => $"({{\n    \"1\":0,\"2\":1,\"3\":2,\"4\":3,\"5\":4,\"6\":5,\"7\":6\n}} ->> CONCAT('$.', DAYOFWEEK({quotedColumnName})))",
 
             // Time Parts
             SqlFunctionType.TimePartHour => $"HOUR({quotedColumnName})",
