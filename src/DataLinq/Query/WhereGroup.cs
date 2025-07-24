@@ -113,6 +113,14 @@ public class WhereGroup<T> : IWhere<T>
     // PUBLIC methods for building the query fluently.
     // These decide the 'connectionType' based on context.
 
+    public Where<T> Where(Operand operand)
+    {
+        // First item in a group is effectively ANDed to the group's start.
+        // Subsequent items use the group's InternalJoinType.
+        var connection = (whereList == null || whereList.Count == 0) ? BooleanType.And : InternalJoinType;
+        return AddWhereInternal(new Where<T>(this, operand), connection);
+    }
+
     public Where<T> Where(string columnName, string? alias = null)
     {
         // First item in a group is effectively ANDed to the group's start.
@@ -128,10 +136,10 @@ public class WhereGroup<T> : IWhere<T>
         return this;
     }
 
-    public Where<T> AddWhere(string columnName, string? alias, BooleanType explicitConnectionType)
+    public Where<T> AddWhere(string columnName, string? alias, BooleanType explicitConnectionType, bool isNegated = false)
     {
         // Used by visitor when it knows the explicit connection type (e.g. from an OR)
-        return AddWhereInternal(new Where<T>(this, Operand.Column(columnName, alias)), explicitConnectionType);
+        return AddWhereInternal(new Where<T>(this, Operand.Column(columnName, alias), isNegated), explicitConnectionType);
     }
 
     public Where<T> AddWhereNot(string columnName, string? alias, BooleanType explicitConnectionType)

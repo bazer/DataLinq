@@ -59,9 +59,18 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
         if (isConditionNegated)
             DecrementNegations();
 
-        var where = isConditionNegated
-            ? group.AddWhereNot(field, null, connectionType)
-            : group.AddWhere(field, null, connectionType);
+        Where<T> where;
+
+        // If the operation is IsNullOrEmpty or IsNullOrWhiteSpace, we need to add a sub-group with (first-condition OR second-conditon)
+        if (operation == SqlOperationType.IsNullOrEmpty || operation == SqlOperationType.IsNullOrWhiteSpace)
+        {
+            var subGroup = new WhereGroup<T>(query, BooleanType.Or, isConditionNegated);
+            group.AddSubGroup(subGroup, connectionType);
+
+            where = subGroup.AddWhere(field, null, connectionType);
+        }
+        else
+            where = group.AddWhere(field, null, connectionType, isConditionNegated);
 
         switch (operation)
         {
@@ -77,6 +86,8 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
             case SqlOperationType.EndsWith: where.Like("%" + values[0]); break;
             case SqlOperationType.StringContains: where.Like("%" + values[0] + "%"); break;
             case SqlOperationType.ListContains: where.In(values); break; // This is for pre-evaluated list.Contains results
+            case SqlOperationType.IsNullOrEmpty: where.EqualToNull().Where(Operand.RawSql(GetSqlForFunction(SqlFunctionType.StringLength, field))).EqualTo(0); break;
+            case SqlOperationType.IsNullOrWhiteSpace: where.EqualToNull().Where(Operand.RawSql(GetSqlForFunction(SqlFunctionType.StringTrim, field))).EqualTo(""); break;
             default: throw new NotImplementedException($"Operation '{operation}' in AddWhereToGroup is not implemented.");
         }
     }
@@ -170,8 +181,17 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
                 return Operand.Column(GetColumn(memberExpr));
 
             // Is it a function on a column? (e.g., x.from_date.Day)
-            if (GetSqlFunction(memberExpr) is var (colName, funcType) && colName != null)
-                return Operand.RawSql(GetSqlForFunction(funcType, colName));
+            if (GetSqlFunction(memberExpr) is var (colName, funcType, arguments) && colName != null)
+                return Operand.RawSql(GetSqlForFunction(funcType, colName, arguments));
+        }
+        // Handle instance method calls like ToUpper(), Substring(), etc.
+        else if (expression is MethodCallExpression methodCallExpr)
+        {
+            if (methodCallExpr.Object is MemberExpression instanceMember)
+            {
+                if (GetSqlFunction(instanceMember, methodCallExpr) is var (colName, funcType, arguments) && colName != null)
+                    return Operand.RawSql(GetSqlForFunction(funcType, colName, arguments));
+            }
         }
 
         // If it's anything else, it must be a literal value to be evaluated
@@ -191,10 +211,10 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
         throw new InvalidQueryException($"Could not evaluate expression to a constant value: {expression}");
     }
 
-    internal string GetSqlForFunction(SqlFunctionType functionType, string columnName) =>
-        query.DataSource.Provider.GetSqlForFunction(functionType, columnName);
+    internal string GetSqlForFunction(SqlFunctionType functionType, string columnName, params object[]? arguments) =>
+        query.DataSource.Provider.GetSqlForFunction(functionType, columnName, arguments);
 
-    internal (string columnName, SqlFunctionType function)? GetSqlFunction(MemberExpression functionExpr)
+    internal (string columnName, SqlFunctionType function, object[]? arguments)? GetSqlFunction(MemberExpression functionExpr, MethodCallExpression? methodCallExpr = null)
     {
         // Use the recursive helper to find the root column expression
         var rootColumnExpr = QueryBuilder<T>.FindRootColumn(functionExpr);
@@ -209,6 +229,9 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
         var underlyingType = Nullable.GetUnderlyingType(columnType) ?? columnType;
 
         SqlFunctionType? functionType = null;
+        object[]? arguments = null;
+
+        // Date/Time Properties
         if (underlyingType == typeof(DateOnly) || underlyingType == typeof(DateTime))
         {
             functionType = functionExpr.Member.Name switch
@@ -234,8 +257,28 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
             };
         }
 
+        // String Methods
+        if (functionType == null && underlyingType == typeof(string) && methodCallExpr != null)
+        {
+            functionType = methodCallExpr.Method.Name switch
+            {
+                "ToUpper" => SqlFunctionType.StringToUpper,
+                "ToLower" => SqlFunctionType.StringToLower,
+                "Trim" => SqlFunctionType.StringTrim,
+                "Substring" => SqlFunctionType.StringSubstring,
+                _ => null
+            };
+
+            if (functionType == SqlFunctionType.StringSubstring)
+            {
+                var startIndex = (int)GetConstant(methodCallExpr.Arguments[0])! + 1; // SQL is 1-indexed
+                var length = (int)GetConstant(methodCallExpr.Arguments[1])!;
+                arguments = [startIndex, length];
+            }
+        }
+
         if (functionType.HasValue)
-            return (functionOnColumnName, functionType.Value);
+            return (functionOnColumnName, functionType.Value, arguments);
 
         return null;
     }

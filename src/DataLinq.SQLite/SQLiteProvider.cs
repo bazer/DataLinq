@@ -133,8 +133,11 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override string GetLastIdQuery() => "SELECT last_insert_rowid()";
 
-    public override string GetSqlForFunction(SqlFunctionType functionType, string columnName)
+    public override string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments)
     {
+        if (SqlFunctionType.StringSubstring == functionType && (arguments == null || arguments.Length != 2))
+            throw new ArgumentException("StringSubstring requires two arguments: start index and length.");
+
         var quotedColumnName = $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
 
         return functionType switch
@@ -156,6 +159,10 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
             // String Parts
             SqlFunctionType.StringLength => $"LENGTH({quotedColumnName})",
+            SqlFunctionType.StringToUpper => $"UPPER({quotedColumnName})",
+            SqlFunctionType.StringToLower => $"LOWER({quotedColumnName})",
+            SqlFunctionType.StringTrim => $"TRIM({quotedColumnName})",
+            SqlFunctionType.StringSubstring => $"SUBSTR({quotedColumnName}, {arguments[0]}, {arguments[1]})",
 
             _ => throw new NotImplementedException($"SQL function '{functionType}' not implemented for SQLite."),
         };

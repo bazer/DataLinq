@@ -104,8 +104,11 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         return "SELECT last_insert_id()";
     }
 
-    public override string GetSqlForFunction(SqlFunctionType functionType, string columnName)
+    public override string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments)
     {
+        if (SqlFunctionType.StringSubstring == functionType && (arguments == null || arguments.Length != 2))
+            throw new ArgumentException("StringSubstring requires two arguments: start index and length.");
+
         var quotedColumnName = $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
 
         return functionType switch
@@ -118,7 +121,6 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
             // MySQL's DAYOFWEEK() returns 1=Sun, 2=Mon... C#'s DayOfWeek is 0=Sun, 1=Mon...
             // So we subtract 1 to align them.
             SqlFunctionType.DatePartDayOfWeek => $"(DAYOFWEEK({quotedColumnName}) - 1)",
-            //SqlFunctionType.DatePartDayOfWeek => $"({{\n    \"1\":0,\"2\":1,\"3\":2,\"4\":3,\"5\":4,\"6\":5,\"7\":6\n}} ->> CONCAT('$.', DAYOFWEEK({quotedColumnName})))",
 
             // Time Parts
             SqlFunctionType.TimePartHour => $"HOUR({quotedColumnName})",
@@ -129,6 +131,10 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
             // String Parts
             SqlFunctionType.StringLength => $"CHAR_LENGTH({quotedColumnName})",
+            SqlFunctionType.StringToUpper => $"UPPER({quotedColumnName})",
+            SqlFunctionType.StringToLower => $"LOWER({quotedColumnName})",
+            SqlFunctionType.StringTrim => $"TRIM({quotedColumnName})",
+            SqlFunctionType.StringSubstring => $"SUBSTRING({quotedColumnName}, {arguments![0]}, {arguments[1]})",
 
             _ => throw new NotImplementedException($"SQL function '{functionType}' not implemented for MySQL/MariaDB."),
         };

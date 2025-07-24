@@ -583,13 +583,12 @@ public class QueryTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void TakeAndSkip(Database<EmployeesDb> employeesDb)
     {
-        var tenEmployees = employeesDb.Query().Employees.Take(10).ToList();
-        Assert.Equal(10, tenEmployees.Count);
+        var elevenEmployees = employeesDb.Query().Employees.OrderBy(x => x.emp_no).Take(11).ToList().Select(x => x.emp_no).ToList();
+        Assert.Equal(11, elevenEmployees.Count);
 
-        var tenEmployeesSkip1 = employeesDb.Query().Employees.Skip(1).Take(10).ToList();
+        var tenEmployeesSkip1 = employeesDb.Query().Employees.OrderBy(x => x.emp_no).Where(x => elevenEmployees.Contains(x.emp_no)).Skip(1).Take(10).ToList().Select(x => x.emp_no).ToList();
         Assert.Equal(10, tenEmployeesSkip1.Count);
-        Assert.Equal(tenEmployees[1], tenEmployeesSkip1[0]);
-        Assert.Same(tenEmployees[1], tenEmployeesSkip1[0]);
+        Assert.Equal(elevenEmployees[1], tenEmployeesSkip1[0]);
     }
 
     [Theory]

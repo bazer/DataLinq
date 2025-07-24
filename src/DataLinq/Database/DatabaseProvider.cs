@@ -169,7 +169,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     // Abstract methods definitions:
     public abstract IDbCommand ToDbCommand(IQuery query);
     public abstract string GetLastIdQuery();
-    public abstract string GetSqlForFunction(SqlFunctionType functionType, string columnName);
+    public abstract string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments);
     public abstract string GetOperatorSql(Operator @operator);
     public abstract Sql GetParameter(Sql sql, string key, object? value);
     public abstract Sql GetParameterValue(Sql sql, string key);

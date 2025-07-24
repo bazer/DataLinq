@@ -16,5 +16,9 @@ public enum SqlFunctionType
     TimePartMillisecond,
 
     // String Functions
-    StringLength
+    StringLength,
+    StringToUpper,
+    StringToLower,
+    StringTrim,
+    StringSubstring
 }

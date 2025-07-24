@@ -7,7 +7,8 @@ public enum SqlOperationType
 {
     Equal, EqualNull, NotEqual, NotEqualNull,
     GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual,
-    StartsWith, EndsWith, StringContains, ListContains
+    StartsWith, EndsWith, StringContains, ListContains,
+    IsNullOrEmpty, IsNullOrWhiteSpace
 }
 
 public static class SqlOperation
@@ -28,6 +29,8 @@ public static class SqlOperation
         "Contains" => SqlOperationType.StringContains,
         "StartsWith" => SqlOperationType.StartsWith,
         "EndsWith" => SqlOperationType.EndsWith,
+        "IsNullOrEmpty" => SqlOperationType.IsNullOrEmpty,
+        "IsNullOrWhiteSpace" => SqlOperationType.IsNullOrWhiteSpace,
         _ => throw new NotImplementedException($"Method name '{methodName}' cannot be mapped to an Operation."),
     };
 }

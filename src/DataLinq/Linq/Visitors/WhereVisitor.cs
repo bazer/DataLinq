@@ -284,13 +284,18 @@ internal class WhereVisitor<T> : ExpressionVisitor
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         // Determine how this method call condition connects to the previous one in the current group
-        //var currentParentGroup = whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
-        var connectionType = builder.ORs > 0 ? BooleanType.Or : BooleanType.And; // Default to AND if not first in an OR sequence
-        if (builder.ORs > 0)
-            builder.DecrementORs(); // Consume OR state
+        var connectionType = builder.GetNextConnectionType();
 
+        // Handle static string.IsNullOrEmpty and string.IsNullOrWhiteSpace
+        if (node.Method.IsStatic && node.Method.DeclaringType == typeof(string) && (node.Method.Name == "IsNullOrEmpty" || node.Method.Name == "IsNullOrWhiteSpace"))
+        {
+            var member = (MemberExpression)node.Arguments[0];
+            var field = builder.GetColumn(member).DbName;
+
+            builder.AddWhereToGroup(builder.CurrentParentGroup, connectionType, SqlOperation.GetOperationForMethodName(node.Method.Name), field, []);
+        }
         // Handle string methods like StartsWith, EndsWith, Contains
-        if ((node.Method.Name == "StartsWith" || node.Method.Name == "EndsWith" || (node.Method.Name == "Contains" && node.Object?.Type == typeof(string)))
+        else if ((node.Method.Name == "StartsWith" || node.Method.Name == "EndsWith" || (node.Method.Name == "Contains" && node.Object?.Type == typeof(string)))
             && node.Object is MemberExpression memberObject && memberObject.Expression is QuerySourceReferenceExpression
             && node.Arguments.Count == 1)
         {
@@ -299,7 +304,6 @@ internal class WhereVisitor<T> : ExpressionVisitor
             var value = builder.GetConstant(valueArgument);
 
             builder.AddWhereToGroup(builder.CurrentParentGroup, connectionType, SqlOperation.GetOperationForMethodName(node.Method.Name), field, value);
-            return node;
         }
         // Handle Enumerable.Any<TSource>(IEnumerable<TSource>) (without predicate)
         else if (node.Method.IsGenericMethod &&
@@ -313,18 +317,17 @@ internal class WhereVisitor<T> : ExpressionVisitor
             bool isCallNegated = builder.Negations > 0;
             if (isCallNegated)
                 builder.DecrementNegations();
-
-            Operator effectiveRelation;
-            if (listToProcess.Length > 0) // collection.Any() is TRUE if list has items
-                effectiveRelation = isCallNegated ? Operator.AlwaysFalse : Operator.AlwaysTrue;
-            else // collection.Any() is FALSE if list is empty
-                effectiveRelation = isCallNegated ? Operator.AlwaysTrue : Operator.AlwaysFalse;
+            
+            Operator effectiveRelation = listToProcess.Length > 0
+                ? isCallNegated ? Operator.AlwaysFalse : Operator.AlwaysTrue // collection.Any() is TRUE if list has items
+                : isCallNegated ? Operator.AlwaysTrue : Operator.AlwaysFalse; // collection.Any() is FALSE if list is empty
 
             builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
-            return node;
         }
+        else
+            throw new NotImplementedException($"Direct translation of method '{node.Method.Name}' with these arguments is not implemented. Expression: {node}");
 
-        throw new NotImplementedException($"Direct translation of method '{node.Method.Name}' with these arguments is not implemented. Expression: {node}");
+        return node;
     }
 
     protected override Expression VisitBinary(BinaryExpression node)
