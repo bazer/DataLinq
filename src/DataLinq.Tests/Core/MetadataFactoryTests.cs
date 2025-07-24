@@ -377,6 +377,29 @@ public class MetadataFactoryTests
     }
 
     [Fact]
+    public void TestParseDefaultNewUUIDAttribute()
+    {
+        // Arrange
+        var (_, _, model, table) = CreateTestHierarchy();
+        var attributes = new List<Attribute> { new DefaultNewUUIDAttribute() };
+        var vp = CreateTestValueProperty(model, "ID", typeof(Guid), attributes);
+
+        // Act
+        var columnDefinition = table.ParseColumn(vp);
+
+        // Assert
+        Assert.True(vp.HasDefaultValue());
+        var defaultAttr = vp.GetDefaultAttribute();
+        Assert.NotNull(defaultAttr);
+        Assert.IsType<DefaultNewUUIDAttribute>(defaultAttr);
+        Assert.Equal(DynamicFunctions.NewUUID, defaultAttr.Value);
+
+        var defaultUUID = defaultAttr as DefaultNewUUIDAttribute;
+        Assert.NotNull(defaultUUID);
+        Assert.Equal(UUIDVersion.Version7, defaultUUID.Version); // Assuming Version7 is the default
+    }
+
+    [Fact]
     public void TestGetDefaultValue_Timestamp()
     {
         // Arrange
@@ -390,6 +413,22 @@ public class MetadataFactoryTests
 
         // Assert
         Assert.Equal("DateTime.Now", defaultValueString); // Or specific DB function name if formatting changes
+    }
+
+    [Fact]
+    public void TestGetDefaultValue_NewUUID()
+    {
+        // Arrange
+        var (_, _, model, table) = CreateTestHierarchy();
+        var attributes = new List<Attribute> { new DefaultNewUUIDAttribute() };
+        var vp = CreateTestValueProperty(model, "ID", typeof(Guid), attributes);
+        table.ParseColumn(vp); // Ensure column is parsed
+
+        // Act
+        var defaultValueString = vp.GetDefaultValue();
+
+        // Assert
+        Assert.Equal("Guid.CreateVersion7()", defaultValueString);
     }
 
     [Fact]

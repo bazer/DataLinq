@@ -9,7 +9,14 @@ public enum DynamicFunctions
     /// MySQL/MariaDB: maps to CURRENT_TIMESTAMP.
     /// SQLite: maps to CURRENT_TIMESTAMP.
     /// </summary>
-    CurrentTimestamp
+    CurrentTimestamp,
+    NewUUID
+}
+
+public enum UUIDVersion
+{
+    Version4,
+    Version7
 }
 
 
@@ -29,4 +36,11 @@ public class DefaultAttribute<T>(T value) : DefaultAttribute(value ?? throw new 
 public class DefaultCurrentTimestampAttribute() : DefaultAttribute(DynamicFunctions.CurrentTimestamp)
 {
     public DynamicFunctions DateTimeDefault => (DynamicFunctions)Value;
+}
+
+[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
+public class DefaultNewUUIDAttribute(UUIDVersion version = UUIDVersion.Version7) : DefaultAttribute(DynamicFunctions.NewUUID)
+{
+    public DynamicFunctions NewUUID => (DynamicFunctions)Value;
+    public UUIDVersion Version { get; } = version;
 }

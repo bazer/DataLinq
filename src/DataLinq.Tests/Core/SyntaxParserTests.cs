@@ -253,6 +253,15 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
         }
 
         [Fact]
+        public void TestParseAttributeSyntax_DefaultValue_NewUUID()
+        {
+            var (parser, syntax) = GetAttributeSyntax(@"[DefaultNewUUID]");
+            var result = parser.ParseAttribute(syntax);
+            Assert.True(result.HasValue);
+            Assert.IsType<DefaultNewUUIDAttribute>(result.Value);
+        }
+
+        [Fact]
         public void TestParseAttributeSyntax_Interface_Named()
         {
             var (parser, syntax) = GetAttributeSyntax(@"[Interface(""IMyThing"")]");

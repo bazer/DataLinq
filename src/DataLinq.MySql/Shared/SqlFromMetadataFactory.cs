@@ -112,6 +112,9 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         if (defaultAttr is DefaultCurrentTimestampAttribute)
             return "CURRENT_TIMESTAMP";
 
+        if (defaultAttr is DefaultNewUUIDAttribute)
+            return "UUID()";
+
         return defaultAttr?.Value.ToString();
     }
 

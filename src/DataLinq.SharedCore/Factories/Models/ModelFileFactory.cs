@@ -241,9 +241,9 @@ public class ModelFileFactory
             {
                 var defaultAttr = valueProperty.GetDefaultAttribute();
                 if (defaultAttr is DefaultCurrentTimestampAttribute)
-                {
                     yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
-                }
+                else if (defaultAttr is DefaultNewUUIDAttribute)
+                    yield return $"{namespaceTab}{tab}[DefaultNewUUID]";
                 else if (defaultAttr != null)
                     yield return $"{namespaceTab}{tab}[Default({FormatDefaultValue(defaultAttr.Value)})]";
             }

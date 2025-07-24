@@ -266,6 +266,22 @@ public class SyntaxParser
             return new DefaultCurrentTimestampAttribute();
         }
 
+        if (name == "DefaultNewUUID")
+        {
+            if (arguments.Count > 1)
+                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
+
+            if (arguments.Count == 1)
+            {
+                if (!UUIDVersion.TryParse(arguments[0], out UUIDVersion version))
+                    return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Invalid UUIDVersion value '{arguments[0]}'");
+
+                return new DefaultNewUUIDAttribute(version);
+            }
+        
+            return new DefaultNewUUIDAttribute();
+        }
+
         if (name == "Index")
         {
             if (arguments.Count < 2)

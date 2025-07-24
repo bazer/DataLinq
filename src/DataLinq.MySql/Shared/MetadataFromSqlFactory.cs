@@ -117,6 +117,9 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         if (dbColumns.COLUMN_DEFAULT.StartsWith("CURRENT_TIMESTAMP", StringComparison.CurrentCultureIgnoreCase))
             return new DefaultCurrentTimestampAttribute();
 
+        if (dbColumns.COLUMN_DEFAULT.StartsWith("UUID()", StringComparison.CurrentCultureIgnoreCase))
+            return new DefaultNewUUIDAttribute();
+
         if (property.CsType.Type == typeof(bool) && dbColumns.COLUMN_DEFAULT.StartsWith("b'"))
             return new DefaultAttribute(dbColumns.COLUMN_DEFAULT == "b'1'");
 

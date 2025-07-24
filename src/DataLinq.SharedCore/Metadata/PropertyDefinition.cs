@@ -66,7 +66,19 @@ public class ValueProperty : PropertyDefinition
                 _ => "DateTime.Now"
             };
         }
+        else if (defaultAttr is DefaultNewUUIDAttribute defaultNewUUID)
+        {
+            if (CsType.Name != "Guid" && CsType.Name != "System.Guid")
+                throw new InvalidOperationException($"DefaultNewUUIDAttribute can only be used with Guid type, but found {CsType.Name}.");
 
+            return defaultNewUUID.Version switch
+            {
+                UUIDVersion.Version4 => "Guid.NewGuid()",
+                UUIDVersion.Version7 => "Guid.CreateVersion7()",
+                _ => throw new NotImplementedException(),
+            };
+        }
+            
         return defaultAttr?.Value.ToString();
     }
 }
