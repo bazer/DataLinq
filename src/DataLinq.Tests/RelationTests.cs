@@ -21,8 +21,9 @@ public class RelationTests : BaseTests
     [MemberData(nameof(GetEmployees))]
     public void LazyLoadList(Database<EmployeesDb> employeesDb)
     {
-        var department = employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
+        var department = Department.Get("d005", employeesDb);
 
+        Assert.NotNull(department);
         Assert.NotNull(department.Managers);
         Assert.NotEmpty(department.Managers);
         Assert.Equal(4, department.Managers.Count());

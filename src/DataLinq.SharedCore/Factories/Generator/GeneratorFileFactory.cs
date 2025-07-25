@@ -165,6 +165,35 @@ public class GeneratorFileFactory
 
         if (model.Table.Type == TableType.Table)
         {
+            if (model.Table.PrimaryKeyColumns.Length > 0)
+            {
+                var primaryKeys = model.Table.PrimaryKeyColumns
+                    .Select(c => c.ValueProperty)
+                    .ToList();
+
+                var keyString = primaryKeys
+                    .Select(x => $"{x.CsType.Name} {ToCamelCase(x.PropertyName)}")
+                    .ToJoinedString(", ");
+
+                var keyValues = primaryKeys
+                    .Select(x => $"{ToCamelCase(x.PropertyName)}")
+                    .ToJoinedString(", ");
+
+                if (primaryKeys.Count == 1)
+                {
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.Get(KeyFactory.CreateKeyFromValue({keyValues}), database.Provider.ReadOnlyAccess);";
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.Get(KeyFactory.CreateKeyFromValue({keyValues}), transaction);";
+                }
+                else
+                {
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.Get(KeyFactory.CreateKeyFromValues([{keyValues}]), database.Provider.ReadOnlyAccess);";
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.Get(KeyFactory.CreateKeyFromValues([{keyValues}]), transaction);";
+                }
+
+                yield return $"";
+            }
+
+
             var requiredProps = GetRequiredValueProperties(model);
 
             if (requiredProps.Any())

@@ -50,7 +50,7 @@ public interface IImmutable<T>
         if (tableModel == null)
             throw new Exception($"Found no TableDefinition for model '{typeof(T)}'");
 
-        return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource.Provider.ReadOnlyAccess);
+        return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource);
     }
 }
 
