@@ -481,6 +481,17 @@ public class Transaction<T> : Transaction where T : class, IDatabaseModel
     public T Query() => Database;
 
     /// <summary>
+    /// Retrieves a model from the database using the specified key.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <param name="key">The key to identify the model.</param>
+    /// <returns>The model if found; otherwise, <c>null</c>.</returns>
+    public M? Get<M>(IKey key) where M : IImmutableInstance
+    {
+        return IImmutable<M>.Get(key, this);
+    }
+
+    /// <summary>
     /// Creates a new SQL query from the specified table name.
     /// </summary>
     /// <param name="tableName">The name of the table.</param>
