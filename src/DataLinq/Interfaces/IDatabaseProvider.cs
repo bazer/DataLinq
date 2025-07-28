@@ -16,6 +16,7 @@ public interface IDatabaseProvider : IDisposable
     State State { get; }
     IDatabaseProviderConstants Constants { get; }
     ReadOnlyAccess ReadOnlyAccess { get; }
+    DatabaseType DatabaseType { get; }
 
     IDbCommand ToDbCommand(IQuery query);
 
@@ -50,4 +51,12 @@ public interface IDatabaseProvider : IDisposable
     Sql GetTableName(Sql sql, string tableName, string? alias = null);
     M Commit<M>(Func<Transaction, M> func);
     void Commit(Action<Transaction> action);
+    bool TableExists(string tableName, string? databaseName = null);
+    IDbConnection GetDbConnection();
+}
+
+public interface IDatabaseProvider<T> : IDatabaseProvider
+    where T : class, IDatabaseModel
+{
+    new ReadOnlyAccess<T> ReadOnlyAccess { get; }
 }

@@ -18,7 +18,7 @@ namespace DataLinq;
 /// Provides a generic abstract database provider for a specific type of database model.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public abstract class DatabaseProvider<T> : DatabaseProvider
+public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<T>
     where T : class, IDatabaseModel
 {
     //public static DatabaseProvider<T> GetPrimaryProvider()
@@ -26,7 +26,8 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     //    return (DatabaseProvider<T>)GetPrimaryProvider(typeof(T));
     //}
 
-    public ReadOnlyAccess<T> TypedReadOnlyAccess { get; set; }
+    ReadOnlyAccess<T> IDatabaseProvider<T>.ReadOnlyAccess => ReadOnlyAccess as ReadOnlyAccess<T> ??
+        throw new InvalidCastException($"ReadOnlyAccess is not of type {nameof(ReadOnlyAccess<T>)}. Actual type: {ReadOnlyAccess.GetType()}");
 
     /// <summary>
     /// Initializes a new instance of the DatabaseProvider with the specified connection string and database type.
@@ -35,7 +36,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     /// <param name="databaseType">The type of the database.</param>
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, typeof(T), databaseType, loggingConfiguration)
     {
-        TypedReadOnlyAccess = new ReadOnlyAccess<T>(this);
+        ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
     /// <summary>
@@ -46,8 +47,9 @@ public abstract class DatabaseProvider<T> : DatabaseProvider
     /// <param name="databaseName">The name of the database.</param>
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName) : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName)
     {
-        TypedReadOnlyAccess = new ReadOnlyAccess<T>(this);
+        ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
+
 }
 
 /// <summary>
@@ -63,7 +65,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
 
     public string ConnectionString { get; }
     public abstract DatabaseAccess DatabaseAccess { get; }
-    public virtual ReadOnlyAccess ReadOnlyAccess { get; }
+    public virtual ReadOnlyAccess ReadOnlyAccess { get; protected set; }
     public DatabaseDefinition Metadata { get; }
     public State State { get; }
 
@@ -124,7 +126,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         ConnectionString = connectionString;
         State = new State(this, loggingConfiguration);
 
-        this.ReadOnlyAccess = new ReadOnlyAccess(this);
+        this.ReadOnlyAccess ??= new ReadOnlyAccess(this);
     }
 
     

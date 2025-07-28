@@ -446,19 +446,22 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 /// Represents a database transaction.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public class Transaction<T> : Transaction where T : class, IDatabaseModel
+public class Transaction<T> : Transaction, IDataSourceAccess<T>
+    where T : class, IDatabaseModel
 {
     /// <summary>
     /// Gets the database for the transaction.
     /// </summary>
     protected T Database { get; }
 
+    IDatabaseProvider<T> IDataSourceAccess<T>.Provider => Provider as IDatabaseProvider<T> ?? throw new InvalidCastException("Provider is not of type IDatabaseProvider<T>");
+
     /// <summary>
     /// Initializes a new instance of the <see cref="Transaction{T}"/> class.
     /// </summary>
     /// <param name="databaseProvider">The database provider.</param>
     /// <param name="type">The type of the transaction.</param>
-    public Transaction(DatabaseProvider<T> databaseProvider, TransactionType type) : base(databaseProvider, type)
+    public Transaction(IDatabaseProvider<T> databaseProvider, TransactionType type) : base(databaseProvider, type)
     {
         Database = InstanceFactory.NewDatabase<T>(this);
     }
@@ -469,7 +472,7 @@ public class Transaction<T> : Transaction where T : class, IDatabaseModel
     /// <param name="databaseProvider">The database provider.</param>
     /// <param name="dbTransaction">The database transaction.</param>
     /// <param name="type">The type of the transaction.</param>
-    public Transaction(DatabaseProvider<T> databaseProvider, IDbTransaction dbTransaction, TransactionType type) : base(databaseProvider, dbTransaction, type)
+    public Transaction(IDatabaseProvider<T> databaseProvider, IDbTransaction dbTransaction, TransactionType type) : base(databaseProvider, dbTransaction, type)
     {
         Database = InstanceFactory.NewDatabase<T>(this);
     }

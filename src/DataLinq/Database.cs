@@ -14,7 +14,7 @@ namespace DataLinq;
 /// The main interface for working with the database.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public abstract class Database<T> : IDisposable
+public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
     where T : class, IDatabaseModel
 {
     /// <summary>
@@ -25,8 +25,11 @@ public abstract class Database<T> : IDisposable
     /// <summary>
     /// Gets the database provider.
     /// </summary>
-    public DatabaseProvider<T> Provider { get; }
-    
+    public IDatabaseProvider<T> Provider { get; }
+
+    IDatabaseProvider IDataSourceAccess.Provider => Provider;
+
+    IDatabaseAccess IDataSourceAccess.DatabaseAccess => Provider.DatabaseAccess;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Database{T}"/> class.
@@ -95,7 +98,7 @@ public abstract class Database<T> : IDisposable
     /// <returns>The query result.</returns>
     public T Query()
     {
-        return Provider.TypedReadOnlyAccess.Query();
+        return Provider.ReadOnlyAccess.Query();
     }
 
     /// <summary>
@@ -109,9 +112,9 @@ public abstract class Database<T> : IDisposable
         if (alias == null)
             (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
-        var table = Provider.TypedReadOnlyAccess.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
+        var table = Provider.ReadOnlyAccess.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
 
-        return new SqlQuery(table, Provider.TypedReadOnlyAccess, alias);
+        return new SqlQuery(table, Provider.ReadOnlyAccess, alias);
     }
 
     /// <summary>
@@ -122,7 +125,7 @@ public abstract class Database<T> : IDisposable
     /// <returns>The new SQL query.</returns>
     public SqlQuery From(TableDefinition table, string? alias = null)
     {
-        return new SqlQuery(table, Provider.TypedReadOnlyAccess, alias);
+        return new SqlQuery(table, Provider.ReadOnlyAccess, alias);
     }
 
     /// <summary>
@@ -132,7 +135,7 @@ public abstract class Database<T> : IDisposable
     /// <returns>The new SQL query.</returns>
     public SqlQuery<V> From<V>() where V : IModel
     {
-        return Provider.TypedReadOnlyAccess.From<V>();
+        return Provider.ReadOnlyAccess.From<V>();
     }
 
     /// <summary>
@@ -143,7 +146,7 @@ public abstract class Database<T> : IDisposable
     /// <returns>The model if found; otherwise, <c>null</c>.</returns>
     public M? Get<M>(IKey key) where M : IImmutableInstance
     {
-        return IImmutable<M>.Get(key, Provider.TypedReadOnlyAccess);
+        return IImmutable<M>.Get(key, Provider.ReadOnlyAccess);
     }
 
     

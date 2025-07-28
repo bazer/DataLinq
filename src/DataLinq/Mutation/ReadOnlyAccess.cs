@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using DataLinq.Instances;
@@ -64,12 +65,16 @@ public class ReadOnlyAccess : DataSourceAccess
 /// Represents a database transaction.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public class ReadOnlyAccess<T> : ReadOnlyAccess where T : class, IDatabaseModel
+public class ReadOnlyAccess<T> : ReadOnlyAccess, IDataSourceAccess<T>
+    where T : class, IDatabaseModel
 {
     /// <summary>
     /// Gets the database for the transaction.
     /// </summary>
     protected T Database { get; }
+
+    IDatabaseProvider<T> IDataSourceAccess<T>.Provider => Provider as IDatabaseProvider<T> ?? 
+        throw new InvalidCastException($"Provider is not of type {nameof(IDatabaseProvider<T>)}. Actual type: {Provider.GetType()}");
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Transaction{T}"/> class.
