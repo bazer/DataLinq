@@ -14,7 +14,7 @@ public partial interface IEmployee
 
 [Table("employees")]
 [Interface<IEmployee>]
-public abstract partial class Employee(RowData rowData, DataSourceAccess dataSource) : Immutable<Employee, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
+public abstract partial class Employee(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Employee, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     public enum Employeegender
     {

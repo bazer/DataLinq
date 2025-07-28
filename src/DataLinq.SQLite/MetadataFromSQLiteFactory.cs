@@ -132,7 +132,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
              ? new TableDefinition(reader.GetString(2))
              : new ViewDefinition(reader.GetString(2));
 
-        var csName = options.CapitaliseNames
+        var csName = options.CapitaliseNames && !table.DbName.IsFirstCharUpper()
             ? table.DbName.ToPascalCase()
             : table.DbName;
 

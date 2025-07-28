@@ -15,7 +15,7 @@ public abstract class DataSourceAccess : IDataSourceAccess
     /// <summary>
     /// Gets or sets the database transaction.
     /// </summary>
-    public abstract DatabaseAccess DatabaseAccess { get; }
+    public abstract IDatabaseAccess DatabaseAccess { get; }
 
     protected DataSourceAccess(IDatabaseProvider provider)
     {

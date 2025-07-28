@@ -6,6 +6,7 @@ using System.Threading;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -333,7 +334,7 @@ public class TableCache
             IndexCaches[index].TryAdd(pk, []);
     }
 
-    public IKey[] GetKeys(IKey foreignKey, RelationProperty otherSide, DataSourceAccess dataSource)
+    public IKey[] GetKeys(IKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
     {
         var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
         if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
@@ -370,7 +371,7 @@ public class TableCache
         return newKeys;
     }
 
-    public IEnumerable<IImmutableInstance> GetRows(IKey foreignKey, RelationProperty otherSide, DataSourceAccess dataSource)
+    public IEnumerable<IImmutableInstance> GetRows(IKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
     {
         if (foreignKey is NullKey)
             return [];
@@ -378,10 +379,10 @@ public class TableCache
         return GetRows(GetKeys(foreignKey, otherSide, dataSource), dataSource);
     }
 
-    public IImmutableInstance? GetRow(IKey primaryKeys, DataSourceAccess dataSource) =>
+    public IImmutableInstance? GetRow(IKey primaryKeys, IDataSourceAccess dataSource) =>
         GetRows([primaryKeys], dataSource).SingleOrDefault();
 
-    public IEnumerable<IImmutableInstance> GetRows(IKey[] primaryKeys, DataSourceAccess dataSource, List<OrderBy>? orderings = null)
+    public IEnumerable<IImmutableInstance> GetRows(IKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
             TransactionRows.TryAdd(transaction, new RowCache());
@@ -392,7 +393,7 @@ public class TableCache
             return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
     }
 
-    private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache(IKey[] primaryKeys, DataSourceAccess dataSource)
+    private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache(IKey[] primaryKeys, IDataSourceAccess dataSource)
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
 
@@ -421,7 +422,7 @@ public class TableCache
         }
     }
 
-    private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache(IKey[] primaryKeys, DataSourceAccess dataSource, List<OrderBy> orderings)
+    private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache(IKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
 
@@ -476,7 +477,7 @@ public class TableCache
             : orderedRows;
     }
 
-    private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<IKey> keys, DataSourceAccess dataSource, List<OrderBy>? orderings = null)
+    private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<IKey> keys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
         var q = new SqlQuery(Table, dataSource);
 
@@ -523,7 +524,7 @@ public class TableCache
             .ReadRows();
     }
 
-    private bool GetRowFromCache(IKey key, DataSourceAccess dataSource, out IImmutableInstance? row)
+    private bool GetRowFromCache(IKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
     {
         if (dataSource is ReadOnlyAccess && RowCache.TryGetValue(key, out row))
             return true;
@@ -534,13 +535,13 @@ public class TableCache
         return false;
     }
 
-    private IImmutableInstance AddRow(RowData rowData, DataSourceAccess transaction)
+    private IImmutableInstance AddRow(RowData rowData, IDataSourceAccess transaction)
     {
         TryAddRow(rowData, transaction, out var row);
         return row;
     }
 
-    private bool TryAddRow(RowData rowData, DataSourceAccess dataSource, out IImmutableInstance row)
+    private bool TryAddRow(RowData rowData, IDataSourceAccess dataSource, out IImmutableInstance row)
     {
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
         var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);

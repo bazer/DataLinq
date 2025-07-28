@@ -14,7 +14,7 @@ public partial interface IMYSQLVIEWS
 [Definition("")]
 [View("VIEWS")]
 [Interface<IMYSQLVIEWS>]
-public abstract partial class VIEWS(RowData rowData, DataSourceAccess dataSource) : Immutable<VIEWS, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
+public abstract partial class VIEWS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<VIEWS, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
 {
     public enum CHECK_OPTIONValue
     {

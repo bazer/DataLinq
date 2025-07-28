@@ -14,7 +14,7 @@ public partial interface IUserprofile
 
 [Table("userprofiles")]
 [Interface<IUserprofile>]
-public abstract partial class Userprofile(RowData rowData, DataSourceAccess dataSource) : Immutable<Userprofile, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Userprofile(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Userprofile, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

@@ -13,7 +13,7 @@ public partial interface Idept
 
 [Table("dept-emp")]
 [Interface<Idept>]
-public abstract partial class Dept_emp(RowData rowData, DataSourceAccess dataSource) : Immutable<Dept_emp, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
+public abstract partial class Dept_emp(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Dept_emp, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [ForeignKey("departments", "dept_no", "dept_emp_ibfk_2")]

@@ -13,7 +13,7 @@ public partial interface IUserhistory
 
 [Table("userhistory")]
 [Interface<IUserhistory>]
-public abstract partial class Userhistory(RowData rowData, DataSourceAccess dataSource) : Immutable<Userhistory, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Userhistory(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Userhistory, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

@@ -50,7 +50,7 @@ using System.Collections.Generic; // Required for IImmutableRelation
 namespace TestNamespace;
 
 // Base classes (simplified for testing)
-// public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSource) : IImmutableInstance<M> where M : class, IDatabaseModel { }
+// public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSource) : IImmutableInstance<M> where M : class, IDatabaseModel { }
 
 public partial interface ITestDb : IDatabaseModel { } // Explicit interface
 
@@ -66,7 +66,7 @@ public partial interface IUserModel { }
 
 [Table(""users"")]
 [Interface<IUserModel>] // Link model to interface
-public abstract partial class UserModel(RowData rowData, DataSourceAccess dataSource) : Immutable<UserModel, ITestDb>(rowData, dataSource), ITableModel<TestDb>
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, ITestDb>(rowData, dataSource), ITableModel<TestDb>
 {
     [Column(""id""), PrimaryKey] public abstract int Id { get; }
     [Column(""name"")] public abstract string Name { get; }
@@ -77,7 +77,7 @@ public partial interface IOrderModel { }
 
 [Table(""orders"")]
 [Interface<IOrderModel>]
-public abstract partial class OrderModel(RowData rowData, DataSourceAccess dataSource) : Immutable<OrderModel, ITestDb>(rowData, dataSource), ITableModel<TestDb>
+public abstract partial class OrderModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<OrderModel, ITestDb>(rowData, dataSource), ITableModel<TestDb>
 {
     [Column(""order_id""), PrimaryKey] public abstract int OrderId { get; }
     [Column(""user_id""), ForeignKey(""users"", ""id"", ""FK_Order_User"")] public abstract int UserId { get; }

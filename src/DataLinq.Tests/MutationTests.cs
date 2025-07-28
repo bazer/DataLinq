@@ -17,7 +17,7 @@ public class MutationTests : BaseTests
         {
             var employee = employeesDb.Query().Employees
                 .Where(x => x.emp_no == 423692592)
-                .FirstOrDefault().Mutate();
+                .FirstOrDefault()!.Mutate();
         });
     }
 
@@ -27,7 +27,7 @@ public class MutationTests : BaseTests
     {
         var employee = employeesDb.Query().Employees
             .Where(x => x.emp_no == 423692592)
-            .FirstOrDefault().MutateOrNew(birth_date: DateOnly.Parse("1990-01-01"), "name", Employee.Employeegender.M, DateOnly.Parse("2022-12-02"), "last name");
+            .FirstOrDefault().MutateOrNew(birthDate: DateOnly.Parse("1990-01-01"), "name", Employee.Employeegender.M, DateOnly.Parse("2022-12-02"), "last name");
 
         Assert.NotNull(employee);
         Assert.NotEqual(423692592, employee.emp_no);

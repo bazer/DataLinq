@@ -30,8 +30,8 @@ public interface IModelInstance<T> : IModelInstance
 
 public interface IImmutableInstance : IModelInstance
 {
-    new RowData GetRowData();
-    DataSourceAccess GetDataSource();
+    new IRowData GetRowData();
+    IDataSourceAccess GetDataSource();
     //static abstract IImmutableInstance NewInstance(RowData rowData, DataSourceAccess dataSource);
 }
 
@@ -44,7 +44,7 @@ public interface IImmutableInstance<T> : IImmutableInstance, IModelInstance<T>
 public interface IImmutable<T>
     where T : IModel
 {
-    static T? Get(IKey key, DataSourceAccess dataSource)
+    static T? Get(IKey key, IDataSourceAccess dataSource)
     {
         var tableModel = dataSource.Provider.Metadata.TableModels.SingleOrDefault(x => x.Model.CsType.Type == typeof(T));
         if (tableModel == null)
@@ -80,7 +80,7 @@ public static class InstanceFactory
     // Cache the compiled factory delegates keyed by the model type.
     private static readonly ConcurrentDictionary<Type, Delegate> factoryCache = new();
 
-    public static IImmutableInstance NewImmutableRow(RowData rowData, DataSourceAccess dataSource)
+    public static IImmutableInstance NewImmutableRow(IRowData rowData, IDataSourceAccess dataSource)
     {
         var type = rowData.Table.Model.ImmutableType?.Type;
 
@@ -90,15 +90,15 @@ public static class InstanceFactory
         if (!factoryCache.TryGetValue(type, out var del))
         {
             // Look for the constructor with parameters (RowData, DataSourceAccess)
-            var constructor = type.GetConstructor([typeof(RowData), typeof(DataSourceAccess)]);
+            var constructor = type.GetConstructor([typeof(IRowData), typeof(IDataSourceAccess)]);
             if (constructor == null)
                 throw new Exception($"No matching constructor found for {type.FullName}");
 
             // Build the expression tree: (rowData, dataSource) => new T(rowData, dataSource)
-            var rowDataParam = Expression.Parameter(typeof(RowData), "rowData");
-            var dataSourceParam = Expression.Parameter(typeof(DataSourceAccess), "dataSource");
+            var rowDataParam = Expression.Parameter(typeof(IRowData), "rowData");
+            var dataSourceParam = Expression.Parameter(typeof(IDataSourceAccess), "dataSource");
             var newExp = Expression.New(constructor, rowDataParam, dataSourceParam);
-            var lambda = Expression.Lambda<Func<RowData, DataSourceAccess, IImmutableInstance>>(newExp, rowDataParam, dataSourceParam);
+            var lambda = Expression.Lambda<Func<IRowData, IDataSourceAccess, IImmutableInstance>>(newExp, rowDataParam, dataSourceParam);
 
             // Compile the delegate and add it to the cache
             var compiled = lambda.Compile();
@@ -106,15 +106,15 @@ public static class InstanceFactory
             del = compiled;
         }
 
-        return ((Func<RowData, DataSourceAccess, IImmutableInstance>)del)(rowData, dataSource) ?? throw new Exception($"Failed to create instance of immutable model type '{rowData.Table.Model.CsType}'");
+        return ((Func<IRowData, IDataSourceAccess, IImmutableInstance>)del)(rowData, dataSource) ?? throw new Exception($"Failed to create instance of immutable model type '{rowData.Table.Model.CsType}'");
     }
 
-    public static T NewImmutableRow<T>(RowData rowData, DataSourceAccess dataSource)
+    public static T NewImmutableRow<T>(IRowData rowData, IDataSourceAccess dataSource)
     {
         return (T)NewImmutableRow(rowData, dataSource);
     }
 
-    public static T NewDatabase<T>(DataSourceAccess dataSource)
+    public static T NewDatabase<T>(IDataSourceAccess dataSource)
     {
         var db = Activator.CreateInstance(typeof(T), dataSource);
 

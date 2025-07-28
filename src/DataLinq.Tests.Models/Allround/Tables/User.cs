@@ -14,7 +14,7 @@ public partial interface IUser
 
 [Table("users")]
 [Interface<IUser>]
-public abstract partial class User(RowData rowData, DataSourceAccess dataSource) : Immutable<User, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class User(IRowData rowData, IDataSourceAccess dataSource) : Immutable<User, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum UserRoleValue
     {

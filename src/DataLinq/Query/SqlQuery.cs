@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using DataLinq.Interfaces;
 using DataLinq.Linq;
 using DataLinq.Linq.Visitors;
 using DataLinq.Metadata;
@@ -17,15 +18,15 @@ public interface IQuery
 
 public class SqlQuery : SqlQuery<object>
 {
-    public SqlQuery(DataSourceAccess transaction, string? alias = null) : base(transaction, alias)
+    public SqlQuery(IDataSourceAccess transaction, string? alias = null) : base(transaction, alias)
     {
     }
 
-    public SqlQuery(TableDefinition table, DataSourceAccess transaction, string? alias = null) : base(table, transaction, alias)
+    public SqlQuery(TableDefinition table, IDataSourceAccess transaction, string? alias = null) : base(table, transaction, alias)
     {
     }
 
-    public SqlQuery(string tableName, DataSourceAccess transaction, string? alias = null) : base(tableName, transaction, alias)
+    public SqlQuery(string tableName, IDataSourceAccess transaction, string? alias = null) : base(tableName, transaction, alias)
     {
     }
 }
@@ -40,14 +41,14 @@ public class SqlQuery<T>
     protected int? limit;
     protected int? offset;
     public bool LastIdQuery { get; protected set; }
-    public DataSourceAccess DataSource { get; }
+    public IDataSourceAccess DataSource { get; }
 
     public TableDefinition Table { get; }
     public string? Alias { get; }
 
     internal string EscapeCharacter => DataSource.Provider.Constants.EscapeCharacter;
 
-    public SqlQuery(DataSourceAccess dataSource, string? alias = null)
+    public SqlQuery(IDataSourceAccess dataSource, string? alias = null)
     {
         CheckTransaction(dataSource);
 
@@ -56,7 +57,7 @@ public class SqlQuery<T>
         this.Alias = alias;
     }
 
-    public SqlQuery(TableDefinition table, DataSourceAccess transaction, string? alias = null)
+    public SqlQuery(TableDefinition table, IDataSourceAccess transaction, string? alias = null)
     {
         CheckTransaction(transaction);
 
@@ -65,7 +66,7 @@ public class SqlQuery<T>
         this.Alias = alias;
     }
 
-    public SqlQuery(string tableName, DataSourceAccess transaction, string? alias = null)
+    public SqlQuery(string tableName, IDataSourceAccess transaction, string? alias = null)
     {
         CheckTransaction(transaction);
 
@@ -74,7 +75,7 @@ public class SqlQuery<T>
         this.Alias = alias;
     }
 
-    private void CheckTransaction(DataSourceAccess dataSource)
+    private void CheckTransaction(IDataSourceAccess dataSource)
     {
         if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
             throw new Exception("Can't open a new connection on a committed or rolled back transaction");

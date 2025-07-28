@@ -13,7 +13,7 @@ public partial interface IProductreview
 
 [Table("productreviews")]
 [Interface<IProductreview>]
-public abstract partial class Productreview(RowData rowData, DataSourceAccess dataSource) : Immutable<Productreview, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Productreview(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Productreview, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

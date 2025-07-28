@@ -184,7 +184,7 @@ public static class MetadataFactory
 
     public static RelationProperty AddRelationProperty(ColumnDefinition column, ColumnDefinition referencedColumn, string constraintName)
     {
-        var propertyName = referencedColumn.Table.DbName;
+        var propertyName = referencedColumn.Table.Model.CsType.Name;
         var i = 2;
         while (column.Table.Model.RelationProperties.ContainsKey(propertyName))
             propertyName = propertyName + "_" + i++;
@@ -198,7 +198,7 @@ public static class MetadataFactory
 
     public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {
-        var name = capitaliseNames
+        var name = capitaliseNames && !column.DbName.IsFirstCharUpper()
             ? column.DbName.ToPascalCase()
             : column.DbName;
 

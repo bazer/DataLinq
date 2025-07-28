@@ -14,7 +14,7 @@ public partial interface IMARIADBCOLUMNS: ICOLUMNS
 [Definition("")]
 [View("COLUMNS")]
 [Interface<IMARIADBCOLUMNS>]
-public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSource) : Immutable<COLUMNS, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
+public abstract partial class COLUMNS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<COLUMNS, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
 {
     [Nullable]
     [Type(DatabaseType.MariaDB, "bigint", 21, false)]

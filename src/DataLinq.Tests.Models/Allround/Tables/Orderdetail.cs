@@ -13,7 +13,7 @@ public partial interface IOrderdetail
 
 [Table("orderdetails")]
 [Interface<IOrderdetail>]
-public abstract partial class Orderdetail(RowData rowData, DataSourceAccess dataSource) : Immutable<Orderdetail, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Orderdetail(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Orderdetail, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

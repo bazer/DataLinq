@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Data;
+using DataLinq.Interfaces;
 
 namespace DataLinq;
 
-public abstract class DatabaseAccess 
+public abstract class DatabaseAccess : IDatabaseAccess
 {
     public abstract IDataLinqDataReader ExecuteReader(IDbCommand command);
     public abstract IDataLinqDataReader ExecuteReader(string query);

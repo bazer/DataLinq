@@ -14,7 +14,7 @@ public partial interface IMYSQLSTATISTICS
 [Definition("")]
 [View("STATISTICS")]
 [Interface<IMYSQLSTATISTICS>]
-public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataSource) : Immutable<STATISTICS, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
+public abstract partial class STATISTICS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<STATISTICS, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
 {
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint")]

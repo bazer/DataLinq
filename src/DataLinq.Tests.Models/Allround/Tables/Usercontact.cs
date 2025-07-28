@@ -13,7 +13,7 @@ public partial interface IUsercontact
 
 [Table("usercontacts")]
 [Interface<IUsercontact>]
-public abstract partial class Usercontact(RowData rowData, DataSourceAccess dataSource) : Immutable<Usercontact, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Usercontact(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Usercontact, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

@@ -171,7 +171,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             // It's crucial to ensure the resulting name is a valid C# identifier.
             var csName = string.IsNullOrWhiteSpace(dbName)
                 ? "Empty" // Or "None", "Default", etc. "Empty" is clear.
-                : options.CapitaliseNames ? dbName.ToPascalCase() : dbName.Replace(" ", "_");
+                : options.CapitaliseNames && !dbName.IsFirstCharUpper() ? dbName.ToPascalCase() : dbName.Replace(" ", "_");
 
             csValues.Add((csName, i + 1));
         }

@@ -13,7 +13,7 @@ public partial interface IManager
 
 [Table("dept_manager")]
 [Interface<IManager>]
-public abstract partial class Manager(RowData rowData, DataSourceAccess dataSource) : Immutable<Manager, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
+public abstract partial class Manager(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Manager, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [ForeignKey("departments", "dept_no", "dept_manager_ibfk_2")]

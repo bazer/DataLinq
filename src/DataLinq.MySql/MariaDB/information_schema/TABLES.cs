@@ -15,7 +15,7 @@ public partial interface IMARIADBTABLES
 [Definition("")]
 [View("TABLES")]
 [Interface<IMARIADBTABLES>]
-public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSource) : Immutable<TABLES, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
+public abstract partial class TABLES(IRowData rowData, IDataSourceAccess dataSource) : Immutable<TABLES, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
 {
     [Nullable]
     [Type(DatabaseType.MariaDB, "bigint", 21, false)]

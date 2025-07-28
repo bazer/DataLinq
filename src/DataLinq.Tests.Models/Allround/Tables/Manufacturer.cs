@@ -13,7 +13,7 @@ public partial interface IManufacturer
 
 [Table("manufacturers")]
 [Interface<IManufacturer>]
-public abstract partial class Manufacturer(RowData rowData, DataSourceAccess dataSource) : Immutable<Manufacturer, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Manufacturer(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Manufacturer, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

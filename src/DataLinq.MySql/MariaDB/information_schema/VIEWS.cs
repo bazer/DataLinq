@@ -14,7 +14,7 @@ public partial interface IMARIADBVIEWS
 [Definition("")]
 [View("VIEWS")]
 [Interface<IMARIADBVIEWS>]
-public abstract partial class VIEWS(RowData rowData, DataSourceAccess dataSource) : Immutable<VIEWS, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
+public abstract partial class VIEWS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<VIEWS, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
 {
     [Type(DatabaseType.MariaDB, "varchar", 10)]
     [Column("ALGORITHM")]

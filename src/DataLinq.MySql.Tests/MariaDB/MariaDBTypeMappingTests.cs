@@ -134,7 +134,7 @@ public partial class UuidTestDatabase(DataSourceAccess dataSource) : IDatabaseMo
 }
 
 [Table("uuid_test")]
-public abstract partial class UuidModel(RowData rowData, DataSourceAccess dataSource)
+public abstract partial class UuidModel(IRowData rowData, IDataSourceAccess dataSource)
     : Immutable<UuidModel, UuidTestDatabase>(rowData, dataSource), ITableModel<UuidTestDatabase>
 {
     [PrimaryKey, Column("id")]

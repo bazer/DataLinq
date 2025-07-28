@@ -8,7 +8,7 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSource) : IImmutable<T>, IImmutableInstance<M>,
+public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSource) : IImmutable<T>, IImmutableInstance<M>,
     IEquatable<Immutable<T, M>>, IEquatable<IMutableInstance>
     where T : IModel
     where M : class, IDatabaseModel
@@ -29,7 +29,7 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
     public IKey PrimaryKeys() => _cachedPrimaryKey ??= KeyFactory.CreateKeyFromValues(rowData.GetValues(rowData.Table.PrimaryKeyColumns));
     public bool HasPrimaryKeysSet() => !(PrimaryKeys() is NullKey);
 
-    public RowData GetRowData() => rowData;
+    public IRowData GetRowData() => rowData;
     IRowData IModelInstance.GetRowData() => GetRowData();
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues() => rowData.GetColumnAndValues();
@@ -80,7 +80,7 @@ public abstract class Immutable<T, M>(RowData rowData, DataSourceAccess dataSour
         return result;
     }
 
-    public DataSourceAccess GetDataSource()
+    public IDataSourceAccess GetDataSource()
     {
         if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
             dataSource = dataSource.Provider.ReadOnlyAccess;

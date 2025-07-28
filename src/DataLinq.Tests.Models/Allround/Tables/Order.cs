@@ -14,7 +14,7 @@ public partial interface IOrder
 
 [Table("orders")]
 [Interface<IOrder>]
-public abstract partial class Order(RowData rowData, DataSourceAccess dataSource) : Immutable<Order, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Order(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Order, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum OrderStatusValue
     {

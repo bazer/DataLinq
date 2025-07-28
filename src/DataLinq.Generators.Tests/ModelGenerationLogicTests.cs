@@ -29,7 +29,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 
     [Table(""test_defaults"")]
     [Interface<ITestDefaultModel>]
-    public abstract partial class TestDefaultModel(RowData rowData, DataSourceAccess dataSource)
+    public abstract partial class TestDefaultModel(IRowData rowData, IDataSourceAccess dataSource)
         : Immutable<TestDefaultModel, TestDefaultDb>(rowData, dataSource), ITableModel<TestDefaultDb>
     {
         [Column(""count"")]

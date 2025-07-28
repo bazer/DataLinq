@@ -86,7 +86,7 @@ namespace TestNamespace;
 public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess dsa) {{}} }} // Added constructor
 // ******************************************
 
-public abstract partial class TestModel(RowData rowData, DataSourceAccess dataSource) : Immutable<TestModel, TestDb>(rowData, dataSource), {modelInterfaces} // Added base class and constructor params
+public abstract partial class TestModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<TestModel, TestDb>(rowData, dataSource), {modelInterfaces} // Added base class and constructor params
 {{
     {propertyCode} // e.g., [Column(""my_col"")] public abstract string MyProp {{ get; }} // Made abstract
 }}

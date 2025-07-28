@@ -13,7 +13,7 @@ public partial interface IUserfeedback
 
 [Table("userfeedback")]
 [Interface<IUserfeedback>]
-public abstract partial class Userfeedback(RowData rowData, DataSourceAccess dataSource) : Immutable<Userfeedback, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Userfeedback(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Userfeedback, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

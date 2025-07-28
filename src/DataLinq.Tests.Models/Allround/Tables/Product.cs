@@ -14,7 +14,7 @@ public partial interface IProduct
 
 [Table("products")]
 [Interface<IProduct>]
-public abstract partial class Product(RowData rowData, DataSourceAccess dataSource) : Immutable<Product, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Product(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Product, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

@@ -13,7 +13,7 @@ public partial interface IProducttag
 
 [Table("producttags")]
 [Interface<IProducttag>]
-public abstract partial class Producttag(RowData rowData, DataSourceAccess dataSource) : Immutable<Producttag, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Producttag(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Producttag, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

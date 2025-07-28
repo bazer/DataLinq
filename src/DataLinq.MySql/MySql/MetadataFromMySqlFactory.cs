@@ -133,7 +133,7 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
              ? new TableDefinition(dbTables.TABLE_NAME)
              : new ViewDefinition(dbTables.TABLE_NAME);
 
-        var csName = options.CapitaliseNames
+        var csName = options.CapitaliseNames && !table.DbName.IsFirstCharUpper()
             ? table.DbName.ToPascalCase()
             : table.DbName;
 

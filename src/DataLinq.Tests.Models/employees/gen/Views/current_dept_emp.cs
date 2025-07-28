@@ -14,7 +14,7 @@ public partial interface Icurrent_dept_emp
 [Definition("select `l`.`emp_no` AS `emp_no`,`d`.`dept_no` AS `dept_no`,`l`.`from_date` AS `from_date`,`l`.`to_date` AS `to_date` from (`dept-emp` `d` join `dept_emp_latest_date` `l` on(`d`.`emp_no` = `l`.`emp_no` and `d`.`from_date` = `l`.`from_date` and `l`.`to_date` = `d`.`to_date`))")]
 [View("current_dept_emp")]
 [Interface<Icurrent_dept_emp>]
-public abstract partial class current_dept_emp(RowData rowData, DataSourceAccess dataSource) : Immutable<current_dept_emp, EmployeesDb>(rowData, dataSource), IViewModel<EmployeesDb>
+public abstract partial class current_dept_emp(IRowData rowData, IDataSourceAccess dataSource) : Immutable<current_dept_emp, EmployeesDb>(rowData, dataSource), IViewModel<EmployeesDb>
 {
     [Type(DatabaseType.MySQL, "char", 4)]
     [Column("dept_no")]

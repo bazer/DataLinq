@@ -14,7 +14,7 @@ public partial interface IMARIADBSTATISTICS
 [Definition("")]
 [View("STATISTICS")]
 [Interface<IMARIADBSTATISTICS>]
-public abstract partial class STATISTICS(RowData rowData, DataSourceAccess dataSource) : Immutable<STATISTICS, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
+public abstract partial class STATISTICS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<STATISTICS, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
 {
     [Nullable]
     [Type(DatabaseType.MariaDB, "bigint", 21)]

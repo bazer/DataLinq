@@ -14,7 +14,7 @@ public partial interface IMYSQLKEY_COLUMN_USAGE
 [Definition("")]
 [View("KEY_COLUMN_USAGE")]
 [Interface<IMYSQLKEY_COLUMN_USAGE>]
-public abstract partial class KEY_COLUMN_USAGE(RowData rowData, DataSourceAccess dataSource) : Immutable<KEY_COLUMN_USAGE, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
+public abstract partial class KEY_COLUMN_USAGE(IRowData rowData, IDataSourceAccess dataSource) : Immutable<KEY_COLUMN_USAGE, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
 {
     [Nullable]
     [Type(DatabaseType.MySQL, "varchar", 64)]

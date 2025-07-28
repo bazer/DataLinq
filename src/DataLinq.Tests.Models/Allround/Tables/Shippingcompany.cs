@@ -13,7 +13,7 @@ public partial interface IShippingcompany
 
 [Table("shippingcompanies")]
 [Interface<IShippingcompany>]
-public abstract partial class Shippingcompany(RowData rowData, DataSourceAccess dataSource) : Immutable<Shippingcompany, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Shippingcompany(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Shippingcompany, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

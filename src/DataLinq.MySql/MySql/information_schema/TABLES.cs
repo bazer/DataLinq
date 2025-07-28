@@ -15,7 +15,7 @@ public partial interface IMYSQLTABLES
 [Definition("")]
 [View("TABLES")]
 [Interface<IMYSQLTABLES>]
-public abstract partial class TABLES(RowData rowData, DataSourceAccess dataSource) : Immutable<TABLES, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
+public abstract partial class TABLES(IRowData rowData, IDataSourceAccess dataSource) : Immutable<TABLES, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
 {
     public enum ROW_FORMATValue
     {

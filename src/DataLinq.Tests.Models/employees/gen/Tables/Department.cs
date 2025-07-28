@@ -14,7 +14,7 @@ public partial interface IDepartmentWithChangedName
 
 [Table("departments")]
 [Interface<IDepartmentWithChangedName>]
-public abstract partial class Department(RowData rowData, DataSourceAccess dataSource) : Immutable<Department, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
+public abstract partial class Department(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Department, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "char", 4)]

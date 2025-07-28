@@ -13,7 +13,7 @@ public partial interface IInventory
 
 [Table("inventory")]
 [Interface<IInventory>]
-public abstract partial class Inventory(RowData rowData, DataSourceAccess dataSource) : Immutable<Inventory, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Inventory(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Inventory, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

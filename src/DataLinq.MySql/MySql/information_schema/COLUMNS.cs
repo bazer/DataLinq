@@ -15,7 +15,7 @@ public partial interface IMYSQLCOLUMNS: ICOLUMNS
 [Definition("")]
 [View("COLUMNS")]
 [Interface<IMYSQLCOLUMNS>]
-public abstract partial class COLUMNS(RowData rowData, DataSourceAccess dataSource) : Immutable<COLUMNS, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
+public abstract partial class COLUMNS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<COLUMNS, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
 {
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint")]

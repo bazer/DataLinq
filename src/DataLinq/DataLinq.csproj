@@ -49,7 +49,7 @@
 		<!-- Package the ThrowAway dependency alongside the generator assembly -->
 		<None Include="$(PKGThrowAway)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
 	</ItemGroup>
-	
+
 	<!-- This target MANUALLY places ALL required DLLs into the package -->
 	<Target Name="IncludeReferenceAssemblies">
 		<ItemGroup>

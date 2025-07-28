@@ -172,11 +172,11 @@ public class GeneratorFileFactory
                     .ToList();
 
                 var keyString = primaryKeys
-                    .Select(x => $"{x.CsType.Name} {ToCamelCase(x.PropertyName)}")
+                    .Select(x => $"{x.CsType.Name} {x.PropertyName.ToCamelCase()}")
                     .ToJoinedString(", ");
 
                 var keyValues = primaryKeys
-                    .Select(x => $"{ToCamelCase(x.PropertyName)}")
+                    .Select(x => $"{x.PropertyName.ToCamelCase()}")
                     .ToJoinedString(", ");
 
                 if (primaryKeys.Count == 1)
@@ -201,7 +201,7 @@ public class GeneratorFileFactory
             if (requiredProps.Any())
             {
                 var constructorParams = requiredProps.Select(GetConstructorParam).ToJoinedString(", ");
-                var constructorArgs = requiredProps.Select(v => ToCamelCase(v.Column.ValueProperty.PropertyName)).ToJoinedString(", ");
+                var constructorArgs = requiredProps.Select(v => v.Column.ValueProperty.PropertyName.ToCamelCase()).ToJoinedString(", ");
 
                 yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({constructorParams}) => new({constructorArgs});";
                 yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} Mutate({constructorParams}, Action<Mutable{model.CsType.Name}> changes) => new Mutable{model.CsType.Name}({constructorArgs}).Mutate(changes);";
@@ -228,7 +228,7 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> ImmutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
     {
-        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{model.CsType.Name}(RowData rowData, DataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
+        yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
         yield return namespaceTab + "{";
 
         foreach (var valueProperty in valueProps)
@@ -302,7 +302,7 @@ public class GeneratorFileFactory
 
             // For each required property, assign the passed parameter to the property.
             foreach (var v in requiredProps)
-                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {ToCamelCase(v.PropertyName)};";
+                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.PropertyName.ToCamelCase()};";
 
             yield return $"{namespaceTab}{tab}" + "}";
         }
@@ -358,19 +358,19 @@ public class GeneratorFileFactory
         if (requiredProps.Any())
         {
             var constructorParams = requiredProps.Select(GetConstructorParam).ToJoinedString(", ");
-            var constructorArgs = requiredProps.Select(v => ToCamelCase(v.Column.ValueProperty.PropertyName)).ToJoinedString(", ");
+            var constructorArgs = requiredProps.Select(v => v.Column.ValueProperty.PropertyName.ToCamelCase()).ToJoinedString(", ");
 
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, {constructorParams}) => model is null ? new Mutable{model.CsType.Name}({constructorArgs}) : model.Mutate(x =>";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name}{GetUseNullableReferenceTypes()} model, {constructorParams}) => model is null ? new Mutable{model.CsType.Name}({constructorArgs}) : model.Mutate(x =>";
             yield return $"{namespaceTab}{tab}{{";
             foreach (var v in requiredProps)
-                yield return $"{namespaceTab}{tab}{tab}x.{v.PropertyName} = {ToCamelCase(v.Column.ValueProperty.PropertyName)};";
+                yield return $"{namespaceTab}{tab}{tab}x.{v.PropertyName} = {v.Column.ValueProperty.PropertyName.ToCamelCase()};";
             yield return $"{namespaceTab}{tab}}});";
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, {constructorParams}, Action<Mutable{model.CsType.Name}> changes) => model.MutateOrNew({constructorArgs}).Mutate(changes);";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name}{GetUseNullableReferenceTypes()} model, {constructorParams}, Action<Mutable{model.CsType.Name}> changes) => model.MutateOrNew({constructorArgs}).Mutate(changes);";
         }
         else
         {
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model) => model is null ? new() : new(model);";
-            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) => model is null ? new Mutable{model.CsType.Name}().Mutate(changes) : new Mutable{model.CsType.Name}(model).Mutate(changes);";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name}{GetUseNullableReferenceTypes()} model) => model is null ? new() : new(model);";
+            yield return $"{namespaceTab}{tab}public static Mutable{model.CsType.Name} MutateOrNew(this {model.CsType.Name}{GetUseNullableReferenceTypes()} model, Action<Mutable{model.CsType.Name}> changes) => model is null ? new Mutable{model.CsType.Name}().Mutate(changes) : new Mutable{model.CsType.Name}(model).Mutate(changes);";
         }
 
         //Insert
@@ -425,7 +425,7 @@ public class GeneratorFileFactory
     {
         var typeName = GetCsTypeName(property);
         var nullable = GetMutablePropertyNullable(property);
-        var paramName = ToCamelCase(property.PropertyName);
+        var paramName = property.PropertyName.ToCamelCase();
 
         return $"{typeName}{nullable} {paramName}";
     }
@@ -452,19 +452,6 @@ public class GeneratorFileFactory
             .ThenBy(x => x.PropertyName)
             .Where(x => x.Column.ValueProperty.Attributes.Any(a => a is DefaultAttribute))
             .ToList();
-    }
-
-    private string ToCamelCase(string s)
-    {
-        if (string.IsNullOrEmpty(s))
-            return s;
-
-        // Check if the string is all uppercase
-        if (s.ToUpperInvariant() == s)
-            return s.ToLowerInvariant();
-
-        // Regular camel casing for mixed-case strings
-        return char.ToLowerInvariant(s[0]) + s.Substring(1);
     }
 
     private string GetCsTypeName(ValueProperty property)

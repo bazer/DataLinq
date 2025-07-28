@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using DataLinq.Cache;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 
@@ -78,7 +79,7 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
     }
 }
 
-public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
+public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
     where T : IImmutableInstance
 {
     protected FrozenDictionary<IKey, T>? relationInstances;
@@ -106,9 +107,9 @@ public class ImmutableRelation<T>(IKey foreignKey, DataSourceAccess dataSource, 
     public FrozenDictionary<IKey, T> ToFrozenDictionary() => GetInstances();
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
-    protected TableCache GetTableCache(DataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
+    protected TableCache GetTableCache(IDataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
 
-    protected DataSourceAccess GetDataSource()
+    protected IDataSourceAccess GetDataSource()
     {
         if (dataSource is Transaction transaction && (transaction.Status == DatabaseTransactionStatus.Committed || transaction.Status == DatabaseTransactionStatus.RolledBack))
             dataSource = dataSource.Provider.ReadOnlyAccess;

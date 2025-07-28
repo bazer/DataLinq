@@ -13,7 +13,7 @@ public partial interface Isalaries
 
 [Table("salaries")]
 [Interface<Isalaries>]
-public abstract partial class Salaries(RowData rowData, DataSourceAccess dataSource) : Immutable<Salaries, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
+public abstract partial class Salaries(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Salaries, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [ForeignKey("employees", "emp_no", "salaries_ibfk_1")]

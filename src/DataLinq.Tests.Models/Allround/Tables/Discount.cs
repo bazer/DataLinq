@@ -13,7 +13,7 @@ public partial interface IDiscount
 
 [Table("discounts")]
 [Interface<IDiscount>]
-public abstract partial class Discount(RowData rowData, DataSourceAccess dataSource) : Immutable<Discount, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Discount(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Discount, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [AutoIncrement]

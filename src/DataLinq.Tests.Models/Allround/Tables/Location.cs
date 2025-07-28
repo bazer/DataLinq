@@ -14,7 +14,7 @@ public partial interface ILocation
 
 [Table("locations")]
 [Interface<ILocation>]
-public abstract partial class Location(RowData rowData, DataSourceAccess dataSource) : Immutable<Location, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Location(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Location, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]

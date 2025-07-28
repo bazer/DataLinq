@@ -14,7 +14,7 @@ public partial interface IMARIADBKEY_COLUMN_USAGE
 [Definition("")]
 [View("KEY_COLUMN_USAGE")]
 [Interface<IMARIADBKEY_COLUMN_USAGE>]
-public abstract partial class KEY_COLUMN_USAGE(RowData rowData, DataSourceAccess dataSource) : Immutable<KEY_COLUMN_USAGE, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
+public abstract partial class KEY_COLUMN_USAGE(IRowData rowData, IDataSourceAccess dataSource) : Immutable<KEY_COLUMN_USAGE, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
 {
     [Type(DatabaseType.MariaDB, "varchar", 64)]
     [Column("COLUMN_NAME")]

@@ -13,7 +13,7 @@ public partial interface IPayment
 
 [Table("payments")]
 [Interface<IPayment>]
-public abstract partial class Payment(RowData rowData, DataSourceAccess dataSource) : Immutable<Payment, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Payment(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Payment, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     public enum PaymentMethodValue
     {

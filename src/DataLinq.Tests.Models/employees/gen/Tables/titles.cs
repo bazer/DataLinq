@@ -13,7 +13,7 @@ public partial interface Ititles
 
 [Table("titles")]
 [Interface<Ititles>]
-public abstract partial class Titles(RowData rowData, DataSourceAccess dataSource) : Immutable<Titles, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
+public abstract partial class Titles(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Titles, EmployeesDb>(rowData, dataSource), ITableModel<EmployeesDb>
 {
     [PrimaryKey]
     [ForeignKey("employees", "emp_no", "titles_ibfk_1")]

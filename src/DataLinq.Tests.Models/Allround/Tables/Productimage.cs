@@ -13,7 +13,7 @@ public partial interface IProductimage
 
 [Table("productimages")]
 [Interface<IProductimage>]
-public abstract partial class Productimage(RowData rowData, DataSourceAccess dataSource) : Immutable<Productimage, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
+public abstract partial class Productimage(IRowData rowData, IDataSourceAccess dataSource) : Immutable<Productimage, AllroundBenchmark>(rowData, dataSource), ITableModel<AllroundBenchmark>
 {
     [PrimaryKey]
     [Type(DatabaseType.MySQL, "binary", 16)]
