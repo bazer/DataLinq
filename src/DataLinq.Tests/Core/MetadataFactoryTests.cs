@@ -769,7 +769,7 @@ public class MetadataFactoryTests
 
         // Assert
         // Check Order -> User relationship (Many-to-One)
-        var orderToUserRelProp = orderTable.Model.RelationProperties["users"];
+        var orderToUserRelProp = orderTable.Model.RelationProperties["User"];
         Assert.NotNull(orderToUserRelProp.RelationPart);
         Assert.Equal(RelationPartType.ForeignKey, orderToUserRelProp.RelationPart.Type); // Order side is FK
         Assert.Equal("FK_Order_User", orderToUserRelProp.RelationPart.Relation.ConstraintName);
@@ -780,7 +780,7 @@ public class MetadataFactoryTests
         Assert.Same(userPkCol, orderUserCandidatePart.ColumnIndex.Columns.Single()); // PK Col Index
 
         // Check User -> Orders relationship (One-to-Many)
-        var userToOrdersRelProp = userTable.Model.RelationProperties["orders"];
+        var userToOrdersRelProp = userTable.Model.RelationProperties["Order"];
         Assert.NotNull(userToOrdersRelProp.RelationPart);
         Assert.Equal(RelationPartType.CandidateKey, userToOrdersRelProp.RelationPart.Type); // User side is PK/Candidate
         Assert.Equal("FK_Order_User", userToOrdersRelProp.RelationPart.Relation.ConstraintName);
@@ -829,7 +829,7 @@ public class MetadataFactoryTests
         Assert.Same(orderFkCol, orderFkIndex.Columns[0]);
 
         // Check if relation parts are linked to these implicit indices
-        var orderToUserRelProp = orderTable.Model.RelationProperties["users"];
+        var orderToUserRelProp = orderTable.Model.RelationProperties["User"];
         Assert.Same(orderFkIndex, orderToUserRelProp.RelationPart.ColumnIndex);
         Assert.Same(userPkIndex, orderToUserRelProp.RelationPart.GetOtherSide().ColumnIndex);
     }
