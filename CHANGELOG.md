@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.0 - Powerful Queries, Dedicated Backends](https://github.com/bazer/DataLinq/releases/tag/0.6.0)
+
+**Released on:** 2025-07-29
+
+This is a major feature release that significantly enhances the power and expressiveness of the LINQ provider, introduces dedicated first-class support for both MariaDB and MySQL, improves the developer experience with more convenient data access methods, and includes a deep refactoring of the query generation engine for greater stability and extensibility.
+
+### 🚀 Highlights
+
+*   **Dedicated MariaDB & MySQL Providers:** The previously unified MySQL provider has been split into two distinct, first-class providers. This major architectural change ensures more accurate, dialect-specific SQL generation and enables dedicated support for features unique to each database, like MariaDB's native `UUID` type.
+*   **Massively Expanded LINQ `WHERE` Clause Support:** The LINQ provider is now dramatically more powerful, with support for many common, real-world query patterns:
+    *   **Member-to-Member Comparisons:** You can now write queries that compare two columns directly (e.g., `where x.ShippedDate > x.OrderDate`).
+    *   **Full Date & Time Property Support:** You can now use all properties of `DateTime`, `DateOnly`, and `TimeOnly` in your queries (e.g., `where x.CreatedAt.Year == 2025` or `where x.LoginTime.Hour < 9`).
+    *   **String Function Support:** Added support for common string functions like `.ToUpper()`, `.ToLower()`, `.Trim()`, and `string.IsNullOrEmpty()`.
+*   **Major LINQ Provider Refactoring:** The core query translation logic has been completely refactored from a monolithic `WhereVisitor` into a new, cleaner `QueryBuilder` class. This makes the code more robust, easier to maintain, and significantly simplifies the process of adding new LINQ features in the future.
+*   **Source-Generated Static `Get` Methods:** Models now have a source-generated static `Get()` method, allowing for a much cleaner and more discoverable way to fetch single entities by their primary key (e.g., `Employee.Get(123, transaction)`).
+
+### ✨ Features & Enhancements
+
+*   **Backend Improvements:**
+    *   **Dedicated MariaDB & MySQL Support:** The single MySQL provider has been split to provide dedicated, robust support for both databases. This resolves previous inconsistencies and allows for better, dialect-specific feature implementation and testing.
+    *   **MariaDB Native UUID Support:** The new MariaDB provider correctly parses and generates the native `UUID` data type for MariaDB 10.7+.
+*   **New Data Access Methods:**
+    *   A static, source-generated `Get(primaryKey, IDataSourceAccess)` method is now available on all table models for direct and efficient entity retrieval.
+    *   `Transaction<T>` now has a `Get<M>(primaryKey)` method for easily fetching entities within a transaction's scope.
+*   **Expanded LINQ Functionality:**
+    *   **Date/Time Properties:** Full support for `.Year`, `.Month`, `.Day`, `.DayOfYear`, `.DayOfWeek`, `.Hour`, `.Minute`, `.Second`, and `.Millisecond` in `WHERE` clauses.
+    *   **String Functions:** Support for `.ToUpper()`, `.ToLower()`, `.Trim()`, `.Substring()`, `string.IsNullOrEmpty()`, and `string.IsNullOrWhiteSpace()` in `WHERE` clauses.
+*   **Corrected Nullability Logic:**
+    *   **Nullable Booleans:** The logic for handling nullable boolean comparisons (`x.IsDeleted != true`) has been completely fixed to correctly include `NULL` values, matching C# semantics.
+    *   **Default Values:** Fixed a regression where properties with a `[DefaultValue]` attribute were incorrectly generated as non-nullable. They are now correctly nullable.
+*   **Default UUID Values:** Added support for `[DefaultNewUUID]` attribute for models, which translates to `UUID()` in generated SQL for MySQL/MariaDB.
+
+### 🛠️ Refactoring & Architectural Changes
+
+*   **`WhereVisitor` to `QueryBuilder`:** The complex logic for parsing LINQ `WHERE` clauses has been moved from the `WhereVisitor` into a new, dedicated `QueryBuilder` class. This separates the concerns of expression tree traversal from SQL construction, improving code clarity and stability.
+*   **Instance Creation Refactoring:** The internal logic for creating model instances now relies on `IRowData` and `IDataSourceAccess` interfaces, improving testability and architectural consistency.
+
+### 🐛 Bug Fixes
+
+*   Fixed a bug where relations for newly created models were not being added correctly during metadata transformation.
+*   Fixed incorrect casing for property names when using the `CapitaliseNames` option, especially for relation properties.
+*   Resolved an issue where `Transaction<T>.Commit()` returned a non-generic `Transaction`, which has been corrected to return `Transaction<T>`.
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.5.4...0.6.0
+
+---
+
 ## [DataLinq v0.5.4 - Critical Memory Leak Fixes & Schema Generation Improvements](https://github.com/bazer/DataLinq/releases/tag/0.5.4)
 
 **Released on:** 2025-06-11
