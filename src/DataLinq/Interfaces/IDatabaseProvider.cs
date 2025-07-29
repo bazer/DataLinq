@@ -53,6 +53,7 @@ public interface IDatabaseProvider : IDisposable
     void Commit(Action<Transaction> action);
     bool TableExists(string tableName, string? databaseName = null);
     IDbConnection GetDbConnection();
+    Sql GetCreateSql();
 }
 
 public interface IDatabaseProvider<T> : IDatabaseProvider
