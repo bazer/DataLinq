@@ -36,17 +36,28 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
     public SqlProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName) : base(connectionString, databaseType, loggingConfiguration, databaseName)
     {
-        if (string.IsNullOrWhiteSpace(databaseName))
-        {
-            var connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+        var builder = new MySqlConnectionStringBuilder(connectionString);
 
-            if (!string.IsNullOrWhiteSpace(connectionStringBuilder.Database))
-                DatabaseName = connectionStringBuilder.Database;
-        }
+        if (string.IsNullOrWhiteSpace(databaseName) && !string.IsNullOrWhiteSpace(builder.Database))
+            DatabaseName = builder.Database;
 
-        dataSource = new MySqlDataSourceBuilder(ConnectionString)
-             .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
-             .Build();
+        //// If the user has not specified a GuidFormat, default to the one that works best with .NET Guids.
+        //if (!builder.ContainsKey("GuidFormat"))
+        //{
+        //    builder.GuidFormat = MySqlGuidFormat.LittleEndianBinary16;
+        //}
+
+        //if (string.IsNullOrWhiteSpace(databaseName))
+        //{
+        //    var connectionStringBuilder = new MySqlConnectionStringBuilder(connectionString);
+
+        //    if (!string.IsNullOrWhiteSpace(connectionStringBuilder.Database))
+        //        DatabaseName = connectionStringBuilder.Database;
+        //}
+
+        dataSource = new MySqlDataSourceBuilder(builder.ConnectionString)
+            .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
+            .Build();
 
         dbAccess = new SqlDbAccess(dataSource, LoggingConfiguration);
         sqlFromMetadataFactory = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType);
