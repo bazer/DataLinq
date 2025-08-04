@@ -504,10 +504,12 @@ public class GeneratorFileFactory
 
     private bool IsMutablePropertyRequired(ValueProperty property)
     {
+        // A property is required if it's not nullable, not auto-incrementing, not a default value,
+        // AND it's either NOT a foreign key OR it IS a primary key.
         return !property.CsNullable &&
                !property.Column.Nullable &&
                !property.Column.AutoIncrement &&
-               !property.Column.ForeignKey &&
+               (!property.Column.ForeignKey || property.Column.PrimaryKey) &&
                !property.HasDefaultValue();
     }
 
