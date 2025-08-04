@@ -103,24 +103,18 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             {
                 var keyName = reader.GetString(0);
                 var tableName = reader.GetString(1);
-                var fromColumn = reader.GetString(2);
-                var toColumn = reader.GetString(3);
+                var fromColumnName = reader.GetString(2);
+                var toColumnName = reader.GetString(3);
 
                 var foreignKeyColumn = tableModel
-                    .Table.Columns.Single(x => x.DbName == fromColumn);
+                    .Table.Columns.SingleOrDefault(x => x.DbName == fromColumnName);
 
+                if (foreignKeyColumn == null)
+                    continue;
+
+                // The only job of this method is to mark the column and add the attribute.
                 foreignKeyColumn.SetForeignKey();
-                foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumn, keyName));
-
-                var referencedColumn = database
-                   .TableModels.SingleOrDefault(x => x.Table.DbName == tableName)?
-                   .Table.Columns.SingleOrDefault(x => x.DbName == toColumn);
-
-                if (referencedColumn != null)
-                {
-                    MetadataFactory.AddRelationProperty(referencedColumn, foreignKeyColumn, keyName);
-                    MetadataFactory.AddRelationProperty(foreignKeyColumn, referencedColumn, keyName);
-                }
+                foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumnName, keyName));
             }
         }
     }

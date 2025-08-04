@@ -108,18 +108,9 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
             if (foreignKeyColumn == null || key.REFERENCED_TABLE_NAME == null || key.REFERENCED_COLUMN_NAME == null)
                 continue;
 
+            // The only job of this method is to mark the column and add the attribute.
             foreignKeyColumn.SetForeignKey();
             foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
-
-            var referencedColumn = database
-                .TableModels.SingleOrDefault(x => x.Table.DbName == key.REFERENCED_TABLE_NAME)?
-                .Table.Columns.SingleOrDefault(x => x.DbName == key.REFERENCED_COLUMN_NAME);
-
-            if (referencedColumn != null)
-            {
-                MetadataFactory.AddRelationProperty(referencedColumn, foreignKeyColumn, key.CONSTRAINT_NAME);
-                MetadataFactory.AddRelationProperty(foreignKeyColumn, referencedColumn, key.CONSTRAINT_NAME);
-            }
         }
     }
 

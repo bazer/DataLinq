@@ -198,8 +198,10 @@ public class MetadataFromMySqlFactoryTests(DatabaseFixture fixture) : IClassFixt
         // Check Relation Properties were added (names are default based on table)
         Assert.Contains(employeesTable.Model.RelationProperties, rp => rp.Key == "dept-emp");
         Assert.Contains(departmentsTable.Model.RelationProperties, rp => rp.Key == "dept-emp");
-        Assert.Contains(deptEmpTable.Model.RelationProperties, rp => rp.Key == "employees");
-        Assert.Contains(deptEmpTable.Model.RelationProperties, rp => rp.Key == "departments");
+        // The name is derived from the FK column name, "emp_no" -> "Emp"
+        Assert.Contains(deptEmpTable.Model.RelationProperties, rp => rp.Key == "EmpNo");
+        // The name is derived from the FK column name, "dept_no" -> "Dept"
+        Assert.Contains(deptEmpTable.Model.RelationProperties, rp => rp.Key == "DeptNo");
     }
 
     [Theory]
