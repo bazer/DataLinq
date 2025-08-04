@@ -27,6 +27,22 @@ public class GeneratorFileFactory
 
     public GeneratorFileFactoryOptions Options { get; }
 
+    // Parameterless methods in the Mutable base class that we need to declare as 'new' in derived classes to avoid hiding base methods.
+    private static readonly HashSet<string> MutableBaseMethodNames = new(StringComparer.Ordinal)
+    {
+        "IsNew",
+        "IsDeleted",
+        "HasChanges",
+        "Metadata",
+        "GetImmutableInstance",
+        "GetRowData",
+        "PrimaryKeys",
+        "HasPrimaryKeysSet",
+        "Reset",
+        "SetDeleted",
+        "ClearLazy"
+    };
+
     public GeneratorFileFactory(GeneratorFileFactoryOptions options)
     {
         this.Options = options;
@@ -246,8 +262,13 @@ public class GeneratorFileFactory
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
             {
+                var nullableChar = relationProperty.CsNullable ? "?" : "";
+                // Conditionally add parentheses and the null-forgiving operator.
+                var expressionPrefix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? "(" : "";
+                var expressionSuffix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? ")!" : "";
+
                 yield return $"{namespaceTab}{tab}private ImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
-                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name} {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= GetImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
+                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => {expressionPrefix}_{relationProperty.PropertyName} ??= GetImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName})){expressionSuffix};";
             }
             else
             {
@@ -309,8 +330,10 @@ public class GeneratorFileFactory
 
         // Constructor that accepts an immutable instance.
         yield return $"";
+        yield return $"{namespaceTab}{tab}#pragma warning disable CS8618 // We know that the base constructor sets all required properties";
         yield return $"{namespaceTab}{tab}[SetsRequiredMembers]";
         yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}({model.CsType.Name} immutable{model.CsType.Name}) : base(immutable{model.CsType.Name}) {{}}";
+        yield return $"{namespaceTab}{tab}#pragma warning restore CS8618";
 
         // Generate the properties as before.
         foreach (var valueProperty in valueProps)
@@ -321,8 +344,13 @@ public class GeneratorFileFactory
             // The null-forgiving operator is only needed if NRTs are enabled AND the property is non-nullable.
             var nullForgivingOperator = (Options.UseNullableReferenceTypes && nullableAnnotation == "") ? "!" : "";
 
+            // Determine if the 'new' keyword is needed to hide a base member.
+            var newModifier = MutableBaseMethodNames.Contains(valueProperty.PropertyName)
+                ? "new "
+                : "";
+
             yield return "";
-            yield return $"{namespaceTab}{tab}public virtual {GetMutablePropertyRequired(c.ValueProperty)}{GetCsTypeName(c.ValueProperty)}{nullableAnnotation} {c.ValueProperty.PropertyName}";
+            yield return $"{namespaceTab}{tab}public {newModifier}virtual {GetMutablePropertyRequired(c.ValueProperty)}{GetCsTypeName(c.ValueProperty)}{nullableAnnotation} {c.ValueProperty.PropertyName}";
             yield return $"{namespaceTab}{tab}" + "{";
             yield return $"{namespaceTab}{tab}{tab}get => ({GetCsTypeName(c.ValueProperty)}{nullableAnnotation})GetValue(nameof({c.ValueProperty.PropertyName})){nullForgivingOperator};";
             yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.PropertyName}), value);";

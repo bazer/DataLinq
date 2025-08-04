@@ -21,6 +21,8 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     public void SetPropertyName(string propertyName) => PropertyName = propertyName;
     public CsTypeDeclaration CsType { get; private set; } = csType;
     public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
+    public bool CsNullable { get; private set; }
+    public void SetCsNullable(bool csNullable = true) => CsNullable = csNullable;
     public ModelDefinition Model { get; private set; } = model;
     public PropertyType Type { get; protected private set; }
 
@@ -33,8 +35,6 @@ public class ValueProperty : PropertyDefinition
 {
     public ColumnDefinition Column { get; private set; }
     public void SetColumn(ColumnDefinition column) => Column = column;
-    public bool CsNullable { get; private set; }
-    public void SetCsNullable(bool csNullable = true) => CsNullable = csNullable;
     public int? CsSize { get; private set; }
     public void SetCsSize(int? csSize) => CsSize = csSize;
     public EnumProperty? EnumProperty { get; private set; }

@@ -41,6 +41,6 @@ public abstract partial class Userprofile(IRowData rowData, IDataSourceAccess da
     public abstract IImmutableRelation<Usercontact> usercontacts { get; }
 
     [Relation("users", "UserId", "userprofiles_ibfk_1")]
-    public abstract User users { get; }
+    public abstract User? users { get; }
 
 }

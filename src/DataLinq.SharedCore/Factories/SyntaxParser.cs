@@ -381,10 +381,10 @@ public class SyntaxParser
             ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes)
             : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes);
 
+        property.SetCsNullable(propSyntax.Type is NullableTypeSyntax);
+
         if (property is ValueProperty valueProp)
         {
-            valueProp.SetCsNullable(propSyntax.Type is NullableTypeSyntax);
-
             if (attributes.Any(attribute => attribute is EnumAttribute))
             {
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));

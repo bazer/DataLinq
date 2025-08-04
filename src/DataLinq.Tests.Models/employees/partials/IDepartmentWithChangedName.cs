@@ -6,6 +6,6 @@ public partial interface IDepartmentWithChangedName : IModelInstance<EmployeesDb
 
 public abstract partial class Department
 {
-    public string NameTest { get; }
+    public string? NameTest { get; }
 }
 
