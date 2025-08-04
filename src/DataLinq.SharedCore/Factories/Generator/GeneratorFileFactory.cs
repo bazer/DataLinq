@@ -316,10 +316,15 @@ public class GeneratorFileFactory
         foreach (var valueProperty in valueProps)
         {
             var c = valueProperty.Column;
+            var nullableAnnotation = GetMutablePropertyNullable(c.ValueProperty);
+
+            // The null-forgiving operator is only needed if NRTs are enabled AND the property is non-nullable.
+            var nullForgivingOperator = (Options.UseNullableReferenceTypes && nullableAnnotation == "") ? "!" : "";
+
             yield return "";
-            yield return $"{namespaceTab}{tab}public virtual {GetMutablePropertyRequired(c.ValueProperty)}{GetCsTypeName(c.ValueProperty)}{GetMutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName}";
+            yield return $"{namespaceTab}{tab}public virtual {GetMutablePropertyRequired(c.ValueProperty)}{GetCsTypeName(c.ValueProperty)}{nullableAnnotation} {c.ValueProperty.PropertyName}";
             yield return $"{namespaceTab}{tab}" + "{";
-            yield return $"{namespaceTab}{tab}{tab}get => ({GetCsTypeName(c.ValueProperty)}{GetMutablePropertyNullable(c.ValueProperty)})GetValue(nameof({c.ValueProperty.PropertyName}));";
+            yield return $"{namespaceTab}{tab}{tab}get => ({GetCsTypeName(c.ValueProperty)}{nullableAnnotation})GetValue(nameof({c.ValueProperty.PropertyName})){nullForgivingOperator};";
             yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.PropertyName}), value);";
             yield return $"{namespaceTab}{tab}" + "}";
         }
