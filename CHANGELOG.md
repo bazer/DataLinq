@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.1 - Stability and Code Generation Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.1)
+
+**Released on:** 2025-08-04
+
+This is a maintenance release that focuses on improving the correctness and robustness of the metadata parsing and source generation engines. It resolves critical bugs related to recursive table relationships and properties that serve as both a primary and foreign key. It also cleans up all known C# compiler warnings in the generated model code for a smoother developer experience.
+
+### 🐛 Bug Fixes
+
+*   **Fixed Recursive Relation Parsing:** A critical bug was fixed where a table with a self-referencing foreign key (e.g., an `employee` table with a `manager_id`) would cause the metadata parser to generate incorrect and duplicate relation properties. [d33c7bc]
+    *   The relation parsing logic in the `MetadataFactory` has been refactored to be direction-aware. It now correctly generates one single-entity property for the "many-to-one" side (e.g., `Manager`) and one collection property for the "one-to-many" side (e.g., `Subordinates`) with the appropriate `IImmutableRelation<T>` type.
+    *   This fixes crashes in both the `datalinq create-models` command and the source generator when encountering this common database pattern.
+*   **Corrected `required` Members for Primary Keys that are also Foreign Keys:** Fixed a bug in the source generator where a column that was both a `[PrimaryKey]` and a `[ForeignKey]` was incorrectly omitted from the required members' constructor in mutable classes. The generator now correctly identifies these properties as required. [dda5e8e]
+
+### 🛠️ Code Generation & Developer Experience Improvements
+
+*   **Resolved All Known Nullability Warnings in Generated Code:**
+    *   Fixed `CS8603` ('Possible null reference return') for non-nullable relation properties (e.g., `public override Employee employees`) by correctly applying the null-forgiving operator (`!`) only when nullable reference types are enabled and the property is non-nullable. [8efe6b1]
+    *   Fixed `CS8618` warnings in the getters of `required` properties by using the null-forgiving operator on the `GetValue(...)` cast, assuring the compiler that the value will not be null after construction. [00af93d]
+    *   Suppressed `CS8618` warnings ('Non-nullable property must contain a non-null value') in mutable constructors that take an immutable object, acknowledging that the base constructor correctly initializes all required members. [8efe6b1]
+*   **Resolved Member Hiding Warnings:** Added the `new` keyword to generated properties (like `IsDeleted`) that intentionally hide methods from the `Mutable<T>` base class, resolving `CS0108` compiler warnings. [8efe6b1]
+*   **Improved Nullability Metadata Parsing:** The logic for parsing relation properties from source files (`SyntaxParser`) now correctly detects and stores whether a relation is declared as nullable (e.g., `public abstract Employee? Manager`). [8efe6b1]
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.6.0...0.6.1
+
+---
+
 ## [DataLinq v0.6.0 - Powerful Queries, Dedicated Backends](https://github.com/bazer/DataLinq/releases/tag/0.6.0)
 
 **Released on:** 2025-07-29
