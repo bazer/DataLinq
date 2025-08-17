@@ -21,63 +21,71 @@ public interface ICacheNotification
 
 public class TableCache
 {
-    // In src/DataLinq/Cache/TableCache.cs
-
     internal sealed class CacheNotificationManager
     {
-        // The backing store is now a simple, volatile array.
+        // The public, lock-free snapshot for Notify()
         internal volatile WeakReference<ICacheNotification>[] subscribers = [];
+
+        // A private lock object for write operations.
+        private readonly Lock _subscriberLock = new();
+
+        // A mutable list for fast additions and removals inside the lock.
+        private readonly List<WeakReference<ICacheNotification>> _internalList = [];
+
+        // A flag to track if the list has changed.
+        private bool _isDirty = false;
 
         internal void Subscribe(ICacheNotification subscriber)
         {
-            // The lock-free Compare-And-Swap (CAS) loop pattern.
-            WeakReference<ICacheNotification>[] oldSubscribers, newSubscribers;
-            do
+            lock (_subscriberLock)
             {
-                // 1. Get a local reference to the current array.
-                oldSubscribers = subscribers;
+                // 1. Fast, amortized O(1) operation.
+                _internalList.Add(new WeakReference<ICacheNotification>(subscriber));
 
-                // 2. Create a new array that is one larger.
-                newSubscribers = new WeakReference<ICacheNotification>[oldSubscribers.Length + 1];
-
-                // 3. Copy the old elements and add the new one.
-                oldSubscribers.CopyTo(newSubscribers, 0);
-                newSubscribers[^1] = new WeakReference<ICacheNotification>(subscriber);
+                // 2. Mark that a new snapshot is needed.
+                _isDirty = true;
             }
-            // 4. Atomically swap the main array with our new one if no other thread beat us to it.
-            while (Interlocked.CompareExchange(ref subscribers, newSubscribers, oldSubscribers) != oldSubscribers);
         }
 
         internal void Notify()
         {
-            // We can iterate this local snapshot safely, even if other threads are calling Subscribe.
+            // Capture the current snapshot. This might be slightly stale, which is acceptable.
             var currentSubscribers = subscribers;
+
+            // --- Brief Lock to Publish Changes ---
+            // Check if a new snapshot needs to be published for the *next* notification.
+            if (_isDirty)
+            {
+                lock (_subscriberLock)
+                {
+                    // Double-check the flag inside the lock in case another thread just did this.
+                    if (_isDirty)
+                    {
+                        // 1. Clean the internal list first by removing dead references.
+                        _internalList.RemoveAll(wr => !wr.TryGetTarget(out _));
+
+                        // 2. Now, create the new snapshot from the cleaned list.
+                        currentSubscribers = _internalList.ToArray();
+
+                        // 3. Publish the new, clean snapshot and reset the flag.
+                        subscribers = currentSubscribers;
+                        _isDirty = false;
+                    }
+                    else
+                    {
+                        // Another thread already cleaned and published, so just grab the latest.
+                        currentSubscribers = subscribers;
+                    }
+                }
+            }
+
+            // --- Lock-Free Notification Loop ---
+            // Iterate over the captured snapshot. This is 100% lock-free.
             foreach (var weakRef in currentSubscribers)
             {
                 if (weakRef.TryGetTarget(out var subscriber))
                     subscriber.Clear();
             }
-        }
-
-        internal void Clean()
-        {
-            if (subscribers.Length == 0)
-                return; // Nothing to clean, exit early.
-
-            WeakReference<ICacheNotification>[] oldSubscribers, newSubscribers;
-
-            do
-            {
-                oldSubscribers = subscribers;
-
-                // Use LINQ to create a new array containing only the live references.
-                newSubscribers = [.. oldSubscribers.Where(wr => wr.TryGetTarget(out _))];
-
-                // If nothing changed, we can exit early to avoid an unnecessary swap.
-                if (newSubscribers.Length == oldSubscribers.Length)
-                    return;
-            }
-            while (Interlocked.CompareExchange(ref subscribers, newSubscribers, oldSubscribers) != oldSubscribers); // Atomically swap the old array with the new, clean array.
         }
     }
 
@@ -219,7 +227,6 @@ public class TableCache
     {
         ClearRows();
         ClearIndex();
-        notificationManager.Clean();
     }
 
     public void ClearRows()
@@ -236,7 +243,7 @@ public class TableCache
 
     public void CleanRelationNotifications()
     {
-        notificationManager.Clean();
+        //notificationManager.Clean();
     }
 
     public int RemoveRowsByLimit(CacheLimitType limitType, long amount) => limitType switch

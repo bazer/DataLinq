@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -50,22 +51,25 @@ public class CacheNotificationManagerTests
     // A helper to get the internal subscriber count for assertions
     private int GetSubscriberCount()
     {
-        var fieldInfo = typeof(TableCache.CacheNotificationManager).GetField("subscribers", BindingFlags.NonPublic | BindingFlags.Instance);
-        var array = (Array)fieldInfo!.GetValue(_manager)!;
-        return array.Length;
+        var fieldInfo = typeof(TableCache.CacheNotificationManager).GetField("_internalList", BindingFlags.NonPublic | BindingFlags.Instance);
+        var array = (List<WeakReference<ICacheNotification>>)fieldInfo!.GetValue(_manager)!;
+        return array.Count;
     }
 
     [Fact]
     public void Clean_RemovesDeadSubscribers()
     {
         var weakRef = SubscribeAndForget();
+
+        Assert.Equal(1, GetSubscriberCount()); // It contains the dead reference
+
         GC.Collect();
         GC.WaitForPendingFinalizers();
         Assert.False(weakRef.TryGetTarget(out _));
 
         Assert.Equal(1, GetSubscriberCount()); // It contains the dead reference
 
-        _manager.Clean();
+        _manager.Notify();
 
         Assert.Equal(0, GetSubscriberCount()); // The dead reference should be gone
     }
