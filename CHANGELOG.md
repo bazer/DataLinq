@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.2 - Performance, Stability, and LINQ Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.2)
+
+**Released on:** 2025-08-17
+
+This is a focused maintenance release that addresses critical performance issues under high thread contention, improves the correctness of the code generation CLI, and adds a commonly requested feature to the LINQ provider.
+
+### 🚀 Highlights
+
+*   **Fixed Critical Performance Issue in Cache Notifications:** Resolved a thread starvation bug in the `CacheNotificationManager` that occurred under high-contention scenarios (many threads, thousands of relations). The previous lock-free `Subscribe` method has been replaced with a more robust and efficient lock-based write and lock-free read pattern, eliminating excessive CPU usage and potential application hangs. [11323da]
+*   **Implemented `string.Length` in LINQ Queries:** Added support for using the `.Length` property on string columns within LINQ `WHERE` clauses. [ff3d480]
+
+### 🐛 Bug Fixes & Improvements
+
+*   **Corrected Nullable Reference Type Generation in CLI:** The `datalinq create-models` command now correctly respects the `"UseNullableReferenceTypes": false` setting in `datalinq.json`. It will no longer incorrectly add a `?` to nullable reference types (like `string`) when the feature is disabled, ensuring the generated abstract models are correct for non-NRT projects. [d122ed9]
+*   **Improved CLI Help Text:** Corrected a misleading error message in the CLI that suggested an unimplemented `--all` option, preventing user confusion. [a26a8f5]
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.6.1...0.6.2
+
+---
+
 ## [DataLinq v0.6.1 - Stability and Code Generation Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.1)
 
 **Released on:** 2025-08-04
