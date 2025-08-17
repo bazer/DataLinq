@@ -257,23 +257,36 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
             };
         }
 
-        // String Methods
-        if (functionType == null && underlyingType == typeof(string) && methodCallExpr != null)
+        // String Properties and Methods
+        if (functionType == null && underlyingType == typeof(string))
         {
-            functionType = methodCallExpr.Method.Name switch
+            // Handle property access like .Length
+            if (methodCallExpr == null)
             {
-                "ToUpper" => SqlFunctionType.StringToUpper,
-                "ToLower" => SqlFunctionType.StringToLower,
-                "Trim" => SqlFunctionType.StringTrim,
-                "Substring" => SqlFunctionType.StringSubstring,
-                _ => null
-            };
+                functionType = functionExpr.Member.Name switch
+                {
+                    "Length" => SqlFunctionType.StringLength,
+                    _ => null
+                };
+            }
+            // Handle method calls like .ToUpper()
+            else
+            {
+                functionType = methodCallExpr.Method.Name switch
+                {
+                    "ToUpper" => SqlFunctionType.StringToUpper,
+                    "ToLower" => SqlFunctionType.StringToLower,
+                    "Trim" => SqlFunctionType.StringTrim,
+                    "Substring" => SqlFunctionType.StringSubstring,
+                    _ => null
+                };
 
-            if (functionType == SqlFunctionType.StringSubstring)
-            {
-                var startIndex = (int)GetConstant(methodCallExpr.Arguments[0])! + 1; // SQL is 1-indexed
-                var length = (int)GetConstant(methodCallExpr.Arguments[1])!;
-                arguments = [startIndex, length];
+                if (functionType == SqlFunctionType.StringSubstring)
+                {
+                    var startIndex = (int)GetConstant(methodCallExpr.Arguments[0])! + 1; // SQL is 1-indexed
+                    var length = (int)GetConstant(methodCallExpr.Arguments[1])!;
+                    arguments = [startIndex, length];
+                }
             }
         }
 

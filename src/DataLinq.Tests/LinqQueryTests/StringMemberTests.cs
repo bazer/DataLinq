@@ -132,4 +132,48 @@ public class StringMemberTests : BaseTests
         Assert.Contains(result, x => x.emp_no == 2012);
         Assert.Equal(expected.Count, result.Count);
     }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void Where_String_Length(Database<EmployeesDb> employeesDb)
+    {
+        SetupStringTestData(employeesDb);
+        // We test against 'first_name', where one employee is " John " (length 6).
+
+        // In-memory LINQ-to-Objects for comparison
+        var expected = employeesDb.Query().Employees.ToList()
+            .Where(e => empIds.Contains(e.emp_no!.Value) && e.first_name.Length == 6)
+            .ToList();
+
+        // DataLinq query
+        var result = employeesDb.Query().Employees
+            .Where(e => empIds.Contains(e.emp_no!.Value) && e.first_name.Length == 6)
+            .ToList();
+
+        Assert.Single(result);
+        Assert.Equal(2010, result.Single().emp_no);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetEmployees))]
+    public void Where_String_Trim_Length(Database<EmployeesDb> employeesDb)
+    {
+        SetupStringTestData(employeesDb);
+        // We test against 'first_name', where one employee is " John " which becomes "John" (length 4) after trimming.
+
+        // In-memory LINQ-to-Objects for comparison
+        var expected = employeesDb.Query().Employees.ToList()
+            .Where(e => empIds.Contains(e.emp_no!.Value) && e.first_name.Trim().Length == 4)
+            .ToList();
+
+        // DataLinq query
+        var result = employeesDb.Query().Employees
+            .Where(e => empIds.Contains(e.emp_no!.Value) && e.first_name.Trim().Length == 4)
+            .ToList();
+
+        Assert.Single(result);
+        Assert.Equal(2010, result.Single().emp_no);
+        Assert.Equal(expected, result);
+    }
 }
