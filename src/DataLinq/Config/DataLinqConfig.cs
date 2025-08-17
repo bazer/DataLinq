@@ -88,7 +88,7 @@ public record DataLinqConfig
     public Option<(DataLinqDatabaseConfig db, DataLinqDatabaseConnection connection)> GetConnection(string? dbName, DatabaseType databaseType)
     {
         if (string.IsNullOrEmpty(dbName) && Databases.Count != 1)
-            return $"The config file has more than one database specified. Use (-a or --all) to use all configured databases, or name (-n or --name) one:\n{Databases.Select(x => x.Name).ToJoinedString()}";
+            return $"The config file has more than one database specified. Use name (-n or --name) to select one:\n{Databases.Select(x => x.Name).ToJoinedString()}";
 
 
         var db = string.IsNullOrEmpty(dbName)
