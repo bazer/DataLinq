@@ -260,7 +260,7 @@ public class ModelFileFactory
         {
             var otherPart = relationProperty.RelationPart.GetOtherSide();
 
-            List<string> relationParameters = [ $"\"{otherPart.ColumnIndex.Table.DbName}\"" ];
+            List<string> relationParameters = [$"\"{otherPart.ColumnIndex.Table.DbName}\""];
 
             if (otherPart.ColumnIndex.Columns.Count == 1)
                 relationParameters.Add($"\"{otherPart.ColumnIndex.Columns[0].DbName}\"");
@@ -322,16 +322,21 @@ public class ModelFileFactory
         // At this point, we know the property MUST be nullable in C#.
         // Now, we determine if we need to add a '?' to the type name.
 
-        // For value types (int, bool, etc.), we ALWAYS add '?' to make them nullable.
-        // We assume it's a value type if we don't have the full System.Type info.
-        bool isValueType = column.ValueProperty.CsType.Type?.IsValueType ?? true;
+        // Identify the few known C# reference types that are mapped to columns.
+        string csTypeName = column.ValueProperty.CsType.Name;
+        bool isReferenceType = (csTypeName == "string" || csTypeName == "byte[]");
 
-        if (isValueType)
-            return "?"; // Generates: int?, bool?
-
-        // For reference types (string), they are inherently nullable. We only add the '?'
-        // if the project has enabled nullable reference types.
-        return options.UseNullableReferenceTypes ? "?" : "";
+        if (isReferenceType)
+        {
+            // For reference types, only add '?' if Nullable Reference Types are enabled in the config.
+            return options.UseNullableReferenceTypes ? "?" : "";
+        }
+        else
+        {
+            // For ALL other types (int, bool, DateTime, Guid, and user-defined enums/structs),
+            // treat them as value types. If they need to be nullable, they MUST have a '?'.
+            return "?";
+        }
     }
 
     private IEnumerable<string> WriteEnum(ModelFileFactoryOptions options, ValueProperty property)
