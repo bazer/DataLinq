@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.3 - Improved Key Handling and Robustness](https://github.com/bazer/DataLinq/releases/tag/0.6.3)
+
+**Released on:** 2025-08-17
+
+This release focuses on improving the internal robustness of the core data access logic by addressing a key deficiency in index handling and providing a more resilient and correct foundation for future development.
+
+### 🚀 Highlights
+
+*   **Enhanced Key Generation and Indexing:** Improved handling of key types in the index. The `KeyFactory` has been refactored to correctly generate and compare primary keys for all supported data types. This fixes a potential issue where indexes on specific column types (`byte[]`, enums, and other value types) might lead to incorrect results or stability problems.
+
+### 🐛 Bug Fixes
+
+*   **Fixed Incorrect Indexing with `byte[]` and Enums:** Resolved a critical bug in the `KeyFactory` where the comparison logic for `byte[]` and enum-based primary keys did not correctly consider the *content* of the `byte[]` data or the enum value. This could lead to incorrect lookups in caches and index maintenance, especially for the indexes that reference those columns. [91a8eaae]
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.6.2...0.6.3
+
+---
+
 ## [DataLinq v0.6.2 - Performance, Stability, and LINQ Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.2)
 
 **Released on:** 2025-08-17
