@@ -83,10 +83,10 @@ public class DatabaseFixture : IDisposable
         if (EmployeeConnections.Count == 0)
             Assert.Fail("No employee connections found in datalinq.json");
 
-        if (EmployeeConnections.Count(x => x.Type == DatabaseType.MariaDB) != 1)
+        if (EmployeeConnections.Count(x => x.Type == DatabaseType.MariaDB) == 1)
             MariaDB_information_schema = new MariaDBDatabase<MariaDBInformationSchema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MariaDB).ConnectionString.Original);
 
-        if (EmployeeConnections.Count(x => x.Type == DatabaseType.MySQL) != 1)
+        if (EmployeeConnections.Count(x => x.Type == DatabaseType.MySQL) == 1)
             MySQL_information_schema = new MySqlDatabase<MySQLInformationSchema>(EmployeeConnections.Single(x => x.Type == DatabaseType.MySQL).ConnectionString.Original);
     }
 
