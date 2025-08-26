@@ -10,11 +10,14 @@ namespace DataLinq.Instances;
 public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : ICacheNotification
     where T : IImmutableInstance
 {
-    protected T? cachedValue;
-    protected bool isValueCached;
+    // A simple private class to hold our value. This is our "tuple on the heap".
+    // A reference to this class can be read and written atomically.
+    private sealed class ValueHolder(T? value)
+    {
+        internal readonly T? Value = value;
+    }
 
-    // Flag to ensure we only attach our listener once.
-    protected bool isSubscribed = false;
+    private volatile ValueHolder? valueHolder;
     protected readonly Lock loadLock = new();
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
@@ -31,50 +34,46 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
 
     protected T? GetInstance()
     {
-        if (!isValueCached)
+        var localHolder = valueHolder;
+        if (localHolder != null)
         {
-            lock (loadLock)
-            {
-                if (!isValueCached)
-                {
-                    if (foreignKey is NullKey)
-                    {
-                        cachedValue = default;
-                    }
-                    else
-                    {
-                        var source = GetDataSource();
-                        var tableCache = GetTableCache(source);
-
-                        if (!isSubscribed)
-                        {
-                            tableCache.SubscribeToChanges(this);
-                            isSubscribed = true;
-                        }
-
-                        cachedValue = (T?)tableCache
-                            .GetRows(foreignKey, property, dataSource)
-                            .SingleOrDefault();
-                    }
-
-                    isValueCached = true;
-                }
-            }
+            return localHolder.Value;
         }
 
-        return cachedValue;
+        lock (loadLock)
+        {
+            if (valueHolder == null)
+            {
+                if (foreignKey is NullKey)
+                {
+                    valueHolder = new (default);
+                }
+                else
+                {
+                    var source = GetDataSource();
+                    var tableCache = GetTableCache(source);
+
+                    tableCache.SubscribeToChanges(this);
+
+                    valueHolder = new((T?)tableCache
+                        .GetRows(foreignKey, property, dataSource)
+                        .SingleOrDefault());
+                }
+            }
+
+            return valueHolder.Value;
+        }
     }
 
     public void Clear()
     {
-        if (isValueCached)
+        if (valueHolder != null)
         {
             lock (loadLock)
             {
-                if (isValueCached)
+                if (valueHolder != null)
                 {
-                    cachedValue = default;
-                    isValueCached = false;
+                    valueHolder = null;
                 }
             }
         }

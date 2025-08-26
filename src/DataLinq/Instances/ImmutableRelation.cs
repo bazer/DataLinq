@@ -82,9 +82,7 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
 public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
     where T : IImmutableInstance
 {
-    protected FrozenDictionary<IKey, T>? relationInstances;
-    // Flag to ensure we only attach our listener once.
-    protected bool isSubscribed = false;
+    private volatile FrozenDictionary<IKey, T>? relationInstances;
     protected readonly Lock loadLock = new();
 
     /// <summary>
@@ -119,32 +117,32 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
 
     protected FrozenDictionary<IKey, T> GetInstances()
     {
-        // Use double-check locking to load the dictionary only once.
-        if (relationInstances == null)
+        // Copy to local instance in case relationInstance gets changed
+        // by another thread inbetween the null check and return.
+        var localInstance = relationInstances;
+        if (localInstance != null)
+            return localInstance;
+
+        lock (loadLock)
         {
-            lock (loadLock)
+            // Check if another thread loaded relationInstances while we were waiting for the lock.
+            if (relationInstances == null)
             {
-                if (relationInstances == null)
-                {
-                    // Load the relation instances from the data source.
-                    // This will only happen once, and subsequent calls will return the cached value.
-                    var source = GetDataSource();
-                    var tableCache = GetTableCache(source);
+                // Load the relation instances from the data source.
+                // This will only happen once, and subsequent calls will return the cached value.
+                var source = GetDataSource();
+                var tableCache = GetTableCache(source);
 
-                    if (!isSubscribed)
-                    {
-                        tableCache.SubscribeToChanges(this);
-                        isSubscribed = true;
-                    }
+                tableCache.SubscribeToChanges(this);
 
-                    relationInstances = tableCache
-                        .GetRows(foreignKey, property, source)
-                        .Select(x => (T)x)
-                        .ToFrozenDictionary(x => x.PrimaryKeys());
-                }
+                relationInstances = tableCache
+                    .GetRows(foreignKey, property, source)
+                    .Select(x => (T)x)
+                    .ToFrozenDictionary(x => x.PrimaryKeys());
             }
+
+            return relationInstances;
         }
-        return relationInstances;
     }
 
     public void Clear()

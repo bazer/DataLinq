@@ -23,68 +23,40 @@ public class TableCache
 {
     internal sealed class CacheNotificationManager
     {
-        // The public, lock-free snapshot for Notify()
-        internal volatile WeakReference<ICacheNotification>[] subscribers = [];
-
-        // A private lock object for write operations.
-        private readonly Lock _subscriberLock = new();
-
-        // A mutable list for fast additions and removals inside the lock.
-        private readonly List<WeakReference<ICacheNotification>> _internalList = [];
-
-        // A flag to track if the list has changed.
-        private bool _isDirty = false;
+        // Use ConcurrentQueue. It's lock-free for Enqueue and doesn't leak memory.
+        private ConcurrentQueue<WeakReference<ICacheNotification>> _subscribers = new();
 
         internal void Subscribe(ICacheNotification subscriber)
         {
-            lock (_subscriberLock)
-            {
-                // 1. Fast, amortized O(1) operation.
-                _internalList.Add(new WeakReference<ICacheNotification>(subscriber));
-
-                // 2. Mark that a new snapshot is needed.
-                _isDirty = true;
-            }
+            // This is a fully thread-safe, lock-free, O(1) operation.
+            _subscribers.Enqueue(new WeakReference<ICacheNotification>(subscriber));
         }
 
         internal void Notify()
         {
-            // Capture the current snapshot. This might be slightly stale, which is acceptable.
-            var currentSubscribers = subscribers;
-
-            // --- Brief Lock to Publish Changes ---
-            // Check if a new snapshot needs to be published for the *next* notification.
-            if (_isDirty)
+            // 1. Check if there's anything to do. This is a quick, lock-free check.
+            if (_subscribers.IsEmpty)
             {
-                lock (_subscriberLock)
-                {
-                    // Double-check the flag inside the lock in case another thread just did this.
-                    if (_isDirty)
-                    {
-                        // 1. Clean the internal list first by removing dead references.
-                        _internalList.RemoveAll(wr => !wr.TryGetTarget(out _));
-
-                        // 2. Now, create the new snapshot from the cleaned list.
-                        currentSubscribers = _internalList.ToArray();
-
-                        // 3. Publish the new, clean snapshot and reset the flag.
-                        subscribers = currentSubscribers;
-                        _isDirty = false;
-                    }
-                    else
-                    {
-                        // Another thread already cleaned and published, so just grab the latest.
-                        currentSubscribers = subscribers;
-                    }
-                }
+                return;
             }
 
-            // --- Lock-Free Notification Loop ---
-            // Iterate over the captured snapshot. This is 100% lock-free.
-            foreach (var weakRef in currentSubscribers)
+            // 2. Atomically swap the current queue with a new, empty one.
+            // This is an O(1) operation. 'subscribersToNotify' now holds a private
+            // snapshot of all subscribers that existed up to this exact moment.
+            var subscribersToNotify = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+
+            // Any new calls to Subscribe() from other threads will now add to the new, empty queue
+            // without interfering with our notification process.
+
+            // 3. Iterate over our local snapshot and notify each live subscriber.
+            // This loop is completely lock-free and operates on a contained set of items.
+            // The old queue and its WeakReference objects will be garbage collected after this.
+            foreach (var weakRef in subscribersToNotify)
             {
                 if (weakRef.TryGetTarget(out var subscriber))
+                {
                     subscriber.Clear();
+                }
             }
         }
     }
@@ -99,8 +71,6 @@ public class TableCache
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
     // This table weakly maps a relation object to its subscription manager.
-    // When the relation object (key) is GC'd, the entry is removed, 
-    // making the SubscriptionManager (value) eligible for GC, which then triggers its finalizer.
     private readonly CacheNotificationManager notificationManager = new();
 
     public void SubscribeToChanges(ICacheNotification subscriber)
