@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.4 - Critical Concurrency & Performance Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.4)
+
+**Released on:** 2025-08-26
+
+This is a high-priority release that resolves critical performance and stability issues related to the relation caching system under high thread contention. It introduces a more robust, leak-free, and highly performant pattern for handling cache invalidation notifications.
+
+### 🚀 Highlights
+
+*   **Fixed Critical Threading & Performance Issue:** A major bug has been fixed where applications with a high number of loaded relations and concurrent threads could experience severe performance degradation or hangs.
+    *   The `CacheNotificationManager` has been re-engineered to use a "fire-and-forget" pattern with a `ConcurrentQueue`. This makes the `Subscribe` operation a lock-free, O(1) action, drastically improving performance in scenarios with many relation accesses.
+    *   The `ImmutableRelation` and `ImmutableForeignKey` classes have been hardened with a robust double-checked locking pattern using `volatile`, ensuring that lazy-loaded data is fetched only once and is safe from race conditions, while keeping the "hot path" for accessing already-loaded data lock-free and extremely fast.
+
+### 🐛 Bug Fixes & Internal Improvements
+
+*   **Resolved High-Contention Concurrency Bugs:** Replaced the previous cache notification logic with a new, more robust implementation to prevent thread starvation and potential hangs. This completely overhauls the internal mechanics of relation cache invalidation for better performance and stability. [c1f7380]
+*   **Fixed Test Suite Initialization:** Corrected a bug in the `DatabaseFixture` that could prevent test databases from being set up correctly in certain configurations. [8a1c76c]
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.6.3...0.6.4
+
+---
+
 ## [DataLinq v0.6.3 - Improved Key Handling and Robustness](https://github.com/bazer/DataLinq/releases/tag/0.6.3)
 
 **Released on:** 2025-08-17
