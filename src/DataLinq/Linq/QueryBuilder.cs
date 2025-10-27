@@ -174,6 +174,10 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
         if (expression is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
             expression = unary.Operand;
 
+        // Detect chained string functions like x.first_name.Trim().Length
+        if (expression is MemberExpression m1 && TryGetChainedStringFunction(m1, out var chainSql))
+            return Operand.RawSql(chainSql);
+
         if (expression is MemberExpression memberExpr)
         {
             // Is it a simple column? (e.g., x.emp_no)
@@ -196,6 +200,76 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
         // If it's anything else, it must be a literal value to be evaluated
         return Operand.Value(GetConstant(expression));
+    }
+
+    private bool TryGetChainedStringFunction(MemberExpression outerMember, out string sql)
+    {
+        sql = null!;
+        // Allow outerMember.Expression to be either a MethodCallExpression (e.g., Length after Trim) or another MemberExpression in longer chains
+        if (outerMember.Expression is not MethodCallExpression && outerMember.Expression is not MemberExpression)
+            return false;
+
+        var rootColumnExpr = FindRootColumn(outerMember);
+        if (rootColumnExpr == null)
+            return false;
+        var current = GetColumnMaybe(rootColumnExpr)?.DbName ?? rootColumnExpr.Member.Name;
+
+        var steps = new List<(SqlFunctionType type, object[]? args)>();
+
+        void Collect(Expression expr)
+        {
+            switch (expr)
+            {
+                case MemberExpression me when me.Member.Name == "Length":
+                    steps.Add((SqlFunctionType.StringLength, null));
+                    if (me.Expression != null)
+                        Collect(me.Expression);
+                    break;
+                case MethodCallExpression mc:
+                    SqlFunctionType? f = mc.Method.Name switch
+                    {
+                        "Trim" => SqlFunctionType.StringTrim,
+                        "ToUpper" => SqlFunctionType.StringToUpper,
+                        "ToLower" => SqlFunctionType.StringToLower,
+                        "Substring" => SqlFunctionType.StringSubstring,
+                        _ => null
+                    };
+                    object[]? args = null;
+                    if (f == SqlFunctionType.StringSubstring)
+                    {
+                        var startIndex = (int)GetConstant(mc.Arguments[0])! + 1; // SQL 1-indexed
+                        var length = (int)GetConstant(mc.Arguments[1])!;
+                        args = new object[] { startIndex, length };
+                    }
+                    if (f.HasValue)
+                        steps.Add((f.Value, args));
+                    if (mc.Object != null)
+                        Collect(mc.Object);
+                    break;
+                case MemberExpression me2 when me2.Expression is QuerySourceReferenceExpression:
+                    // base column reached
+                    break;
+                case MemberExpression me3:
+                    if (me3.Expression != null)
+                        Collect(me3.Expression);
+                    break;
+            }
+        }
+
+        Collect(outerMember);
+        if (steps.Count == 0)
+            return false;
+
+        // steps currently ordered outer -> inner (e.g., Length, Trim). We need to apply inner -> outer.
+        // Instead of reversing enumeration, build a nested expression manually: START from root applying inner-most last collected element first.
+        for (int i = steps.Count - 1; i >= 0; i--)
+        {
+            var (type, args) = steps[i];
+            current = GetSqlForFunction(type, current, args);
+        }
+
+        sql = current;
+        return true;
     }
 
     internal object? GetConstant(Expression expression)
@@ -305,6 +379,8 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
             MemberExpression { Expression: QuerySourceReferenceExpression } memberExpr => memberExpr,
             // Recursive step: Unwrap a member of a member (e.g., the ".Value" in "x.created_at.Value")
             MemberExpression { Expression: not null } memberExpr => FindRootColumn(memberExpr.Expression),
+            // Recursive step: Method call chain (e.g., Trim()/ToUpper()/Substring())
+            MethodCallExpression { Object: not null } methodCall => FindRootColumn(methodCall.Object),
             // Recursive step: Unwrap a conversion (e.g., the Convert in "Convert(x.created_at, DateTime)")
             UnaryExpression { NodeType: ExpressionType.Convert } unaryExpr => FindRootColumn(unaryExpr.Operand),
             _ => null,

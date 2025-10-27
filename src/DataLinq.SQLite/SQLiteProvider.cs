@@ -120,9 +120,6 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
-        //if (type == TransactionType.ReadOnly)
-        //    return new SQLiteDbAccess(ConnectionString, type);
-        //else
         return new SQLiteDatabaseTransaction(ConnectionString, type);
     }
 
@@ -138,7 +135,10 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
         if (SqlFunctionType.StringSubstring == functionType && (arguments == null || arguments.Length != 2))
             throw new ArgumentException("StringSubstring requires two arguments: start index and length.");
 
-        var quotedColumnName = $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
+        // Avoid quoting nested function expressions
+        var quotedColumnName = columnName.Contains('(')
+            ? columnName
+            : $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
 
         return functionType switch
         {

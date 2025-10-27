@@ -120,7 +120,10 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         if (SqlFunctionType.StringSubstring == functionType && (arguments == null || arguments.Length != 2))
             throw new ArgumentException("StringSubstring requires two arguments: start index and length.");
 
-        var quotedColumnName = $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
+        // If columnName already looks like an expression (contains '(' ) then don't quote it again.
+        var quotedColumnName = columnName.Contains('(')
+            ? columnName
+            : $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
 
         return functionType switch
         {

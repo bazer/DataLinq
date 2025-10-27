@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using Remotion.Linq.Clauses.Expressions; // Added to detect QuerySourceReferenceExpression / SubQueryExpression
 
 namespace DataLinq.Linq;
 
@@ -55,6 +56,11 @@ internal static class Evaluator
             {
                 return null;
             }
+            // Short-circuit Remotion extension expressions that are not reducible
+            if (node is QuerySourceReferenceExpression || node is SubQueryExpression)
+            {
+                return node; // Do not call base.Visit (would hit VisitExtension and throw for non-reducible)
+            }
             if (this.candidates.Contains(node))
             {
                 return this.Evaluate(node);
@@ -100,6 +106,16 @@ internal static class Evaluator
         {
             if (node != null)
             {
+                // IMPORTANT: Remotion introduces extension expression types (QuerySourceReferenceExpression, SubQueryExpression)
+                // that are not reducible (CanReduce == false). The default ExpressionVisitor will throw
+                // ArgumentException("must be reducible node") for such nodes when visited via VisitExtension.
+                // We short-circuit them here so PartialEval never attempts to traverse/compile them.
+                if (node is QuerySourceReferenceExpression || node is SubQueryExpression)
+                {
+                    cannotBeEvaluated = true; // Anything depending on a query source cannot be locally evaluated.
+                    return node; // Do not call base.Visit(node) to avoid the reducibility check.
+                }
+
                 bool saveCannotBeEvaluated = this.cannotBeEvaluated;
                 this.cannotBeEvaluated = false;
                 base.Visit(node);
