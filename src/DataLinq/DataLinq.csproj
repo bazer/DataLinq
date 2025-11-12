@@ -27,7 +27,7 @@
 		
 		<!-- Runtime Package References for DataLinq.dll -->
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="All" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.7" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
 		<PackageReference Include="Remotion.Linq" Version="2.2.0" />
 		<PackageReference Include="ThrowAway" Version="0.3.0" GeneratePathProperty="true" />
 
@@ -53,10 +53,11 @@
 	<!-- This target MANUALLY places ALL required DLLs into the package -->
 	<Target Name="IncludeReferenceAssemblies">
 		<ItemGroup>
-			<!-- Add the MAIN DataLinq.dll to lib/net8.0 and lib/net9.0 -->
+			<!-- Add the MAIN DataLinq.dll to lib/net8.0, lib/net9.0 and lib/net10.0 -->
 			<!-- $(TargetPath) refers to the output DLL of THIS project -->
 			<TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="lib/net8.0/$(TargetFileName)" Condition="'$(TargetFramework)' == 'net8.0'" />
 			<TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="lib/net9.0/$(TargetFileName)" Condition="'$(TargetFramework)' == 'net9.0'" />
+			<TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="lib/net10.0/$(TargetFileName)" Condition="'$(TargetFramework)' == 'net10.0'" />
 
 			<!-- The Generator itself placed in analyzers -->
 			<TfmSpecificPackageFile Include="$(DLGeneratorsProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Generators.dll">
