@@ -18,7 +18,12 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
     }
 
     private volatile ValueHolder? valueHolder;
+
+#if NET9_0_OR_GREATER
     protected readonly Lock loadLock = new();
+#else
+    protected readonly object loadLock = new();
+#endif
 
     protected TableCache GetTableCache() => GetTableCache(GetDataSource());
     protected TableCache GetTableCache(IDataSourceAccess source) => source.Provider.GetTableCache(property.RelationPart.GetOtherSide().ColumnIndex.Table);
