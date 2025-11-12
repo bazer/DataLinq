@@ -24,7 +24,18 @@ internal class WhereVisitor<T> : ExpressionVisitor
         Visit(whereClause.Predicate);
     }
 
-    protected override Expression VisitConstant(ConstantExpression node) => base.VisitConstant(node);
+    protected override Expression VisitConstant(ConstantExpression node)
+    {
+        // Handle constant boolean expressions so they are not ignored (e.g. reduced Contains / Any)
+        if (node.Type == typeof(bool) && node.Value is bool b)
+        {
+            var connectionType = builder.GetNextConnectionType();
+            builder.CurrentParentGroup.AddFixedCondition(b ? Operator.AlwaysTrue : Operator.AlwaysFalse, connectionType);
+            return node; // Fully handled
+        }
+        return base.VisitConstant(node);
+    }
+
     protected override Expression VisitConditional(ConditionalExpression node) => base.VisitConditional(node);
 
     protected override Expression VisitUnary(UnaryExpression node)
@@ -115,33 +126,16 @@ internal class WhereVisitor<T> : ExpressionVisitor
                         }
                         else if (itemToFindInListExpression is ConstantExpression constantItem)
                         {
+                            // Both collection and item are constants (no outer query member). Evaluate immediately.
                             object? itemValue = constantItem.Value;
-                            bool found = false;
-                            foreach (var listItem in listToProcess)
-                            {
-                                if (object.Equals(listItem, itemValue))
-                                {
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            // If Contains is true (found) AND subquery is negated -> result is False (1=0)
-                            // If Contains is true (found) AND subquery is NOT negated -> result is True (1=1)
-                            // If Contains is false (not found) AND subquery is negated -> result is True (1=1)
-                            // If Contains is false (not found) AND subquery is NOT negated -> result is False (1=0)
-                            // This is equivalent to: (found XOR isSubQueryGloballyNegated) ? Relation.AlwaysTrue : Relation.AlwaysFalse,
-                            // but simpler: (found == !isSubQueryGloballyNegated)
-                            Operator effectiveRelation;
-                            if (isSubQueryGloballyNegated)
-                            { // Corrected logic for direct boolean to Relation.
-                                effectiveRelation = found ? Operator.AlwaysFalse : Operator.AlwaysTrue;
-                            }
-                            else
-                            {
-                                effectiveRelation = found ? Operator.AlwaysTrue : Operator.AlwaysFalse;
-                            }
-
+                            bool found = listToProcess.Any(li => object.Equals(li, itemValue));
+                            // If list DOES NOT contain item -> AlwaysFalse (unless negated)
+                            // If list DOES contain item -> AlwaysTrue (unless negated)
+                            Operator effectiveRelation = isSubQueryGloballyNegated
+                                ? (found ? Operator.AlwaysFalse : Operator.AlwaysTrue)
+                                : (found ? Operator.AlwaysTrue : Operator.AlwaysFalse);
                             builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
+                            return node; // Short-circuit: fully evaluated
                         }
                         else
                         {
@@ -157,15 +151,9 @@ internal class WhereVisitor<T> : ExpressionVisitor
                     if (subQuery.QueryModel.BodyClauses.Count == 0) // .Any() without predicate
                     {
                         bool listHasItems = listToProcess.Length > 0;
-                        Operator effectiveRelation;
-                        if (isSubQueryGloballyNegated)
-                        {
-                            effectiveRelation = listHasItems ? Operator.AlwaysFalse : Operator.AlwaysTrue;
-                        }
-                        else
-                        {
-                            effectiveRelation = listHasItems ? Operator.AlwaysTrue : Operator.AlwaysFalse;
-                        }
+                        Operator effectiveRelation = isSubQueryGloballyNegated
+                            ? listHasItems ? Operator.AlwaysFalse : Operator.AlwaysTrue
+                            : listHasItems ? Operator.AlwaysTrue : Operator.AlwaysFalse;
                         builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
                         return node;
                     }
@@ -302,8 +290,55 @@ internal class WhereVisitor<T> : ExpressionVisitor
             var field = builder.GetColumnMaybe(memberObject)?.DbName ?? memberObject.Member.Name;
             var valueArgument = Visit(node.Arguments[0])!;
             var value = builder.GetConstant(valueArgument);
-
             builder.AddWhereToGroup(builder.CurrentParentGroup, connectionType, SqlOperation.GetOperationForMethodName(node.Method.Name), field, value);
+        }
+        else if (node.Method.Name == "Contains" && node.Arguments.Count == 2 && node.Object == null)
+        {
+            var collectionExpr = Visit(node.Arguments[0])!;
+            var collectionValue = builder.GetConstant(collectionExpr);
+            var listToProcess = ConvertToList(collectionValue);
+
+            bool isCallNegated = builder.Negations > 0;
+            if (isCallNegated)
+                builder.DecrementNegations();
+
+            Expression itemExpr = node.Arguments[1];
+            if (itemExpr is UnaryExpression u && u.NodeType == ExpressionType.Convert)
+                itemExpr = u.Operand;
+
+            if (listToProcess.Length == 0)
+            {
+                var effectiveRelation = isCallNegated ? Operator.AlwaysTrue : Operator.AlwaysFalse;
+                builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
+            }
+            else if (itemExpr is MemberExpression member && member.Expression is QuerySourceReferenceExpression)
+            {
+                var fieldName = builder.GetColumnMaybe(member)?.DbName ?? member.Member.Name;
+                var whereClause = builder.CurrentParentGroup.AddWhere(fieldName, null, connectionType);
+                if (isCallNegated)
+                    whereClause.NotIn(listToProcess);
+                else
+                    whereClause.In(listToProcess);
+            }
+            else if (itemExpr is ConstantExpression constItem)
+            {
+                // Contains on fully constant collection & item -> evaluate immediately
+                bool found = listToProcess.Any(li => object.Equals(li, constItem.Value));
+                Operator effectiveRelation = isCallNegated
+                    ? (found ? Operator.AlwaysFalse : Operator.AlwaysTrue)
+                    : (found ? Operator.AlwaysTrue : Operator.AlwaysFalse);
+                builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
+                return node; // Short-circuit
+            }
+            else
+            {
+                throw new NotImplementedException($"Contains item expression '{itemExpr}' is not supported. Expected member access on query source or constant.");
+            }
+        }
+        // Gracefully handle op_Implicit wrapping an array/span; just visit its single argument
+        else if (node.Method.Name == "op_Implicit" && node.Arguments.Count == 1)
+        {
+            return Visit(node.Arguments[0]);
         }
         // Handle Enumerable.Any<TSource>(IEnumerable<TSource>) (without predicate)
         else if (node.Method.IsGenericMethod &&

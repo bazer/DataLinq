@@ -133,26 +133,71 @@ internal class QueryExecutor : IQueryExecutor
 
     private static Func<object?, T?> GetSelectFunc<T>(SelectClause selectClause)
     {
-        if (selectClause != null && selectClause.Selector.NodeType == ExpressionType.MemberAccess)
+        if (selectClause == null)
+            throw new ArgumentNullException(nameof(selectClause));
+
+        // Normalize selector: unwrap Convert/Quote nodes commonly introduced by nullable/value conversions
+        Expression selector = selectClause.Selector;
+        while (selector is UnaryExpression unary &&
+               (unary.NodeType == ExpressionType.Convert || unary.NodeType == ExpressionType.ConvertChecked || unary.NodeType == ExpressionType.Quote))
         {
-            if (selectClause.Selector is not MemberExpression memberExpression)
-                throw new NotImplementedException($"'{selectClause.Selector}' selector is not implemented");
-
-            if (memberExpression.Member is not PropertyInfo prop)
-                throw new NotImplementedException($"'{memberExpression.Member}' member is not implemented");
-
-            return x => (T?)prop.GetValue(x);
+            selector = unary.Operand;
         }
-        else if (selectClause?.Selector.NodeType == ExpressionType.New)
+
+        // NEW: Handle selecting the full entity (QuerySourceReferenceExpression) e.g. source.SingleOrDefault(x => ...)
+        if (selector is QuerySourceReferenceExpression)
         {
-            if (selectClause.Selector is not NewExpression newExpression)
-                throw new NotImplementedException($"'{selectClause.Selector}' selector is not implemented");
+            var param = Expression.Parameter(typeof(object), "x");
+            Expression body = typeof(T) == typeof(object)
+                ? param
+                : Expression.Convert(param, typeof(T));
+            return Expression.Lambda<Func<object?, T?>>(body, param).Compile();
+        }
 
-            if (newExpression.Arguments[0] is not MemberExpression argumentExpression)
+        // Handle member access (single or chained) by rebuilding lambda with correct root parameter cast
+        if (selector is MemberExpression memberExpression)
+        {
+            // Find ultimate root expression (should be the query source parameter)
+            Expression root = memberExpression;
+            while (root is MemberExpression m && m.Expression != null)
+            {
+                root = m.Expression;
+            }
+
+            var entityType = root.Type; // Expected type of the row instance
+            var param = Expression.Parameter(typeof(object), "x");
+            var castParam = Expression.Convert(param, entityType);
+
+            // Rebuild the member access chain replacing original root with castParam
+            Expression rebuilt = ReplaceRoot(memberExpression, root, castParam);
+
+            // Ensure resulting type matches T (apply conversion if needed)
+            if (rebuilt.Type != typeof(T))
+            {
+                // Attempt implicit conversion (handles Nullable<T> -> T etc.)
+                if (Nullable.GetUnderlyingType(rebuilt.Type) == typeof(T))
+                {
+                    // Access .Value for Nullable<T>
+                    var valueProp = rebuilt.Type.GetProperty("Value");
+                    if (valueProp != null)
+                        rebuilt = Expression.Property(rebuilt, valueProp);
+                }
+                else
+                {
+                    rebuilt = Expression.Convert(rebuilt, typeof(T));
+                }
+            }
+
+            var lambda = Expression.Lambda<Func<object?, T?>>(rebuilt, param);
+            return lambda.Compile();
+        }
+        else if (selector.NodeType == ExpressionType.New && selector is NewExpression newExpression)
+        {
+            if (newExpression.Arguments.Count == 0)
+                throw new NotImplementedException($"'{newExpression}' constructor without arguments is not implemented");
+
+            if (newExpression.Arguments[0] is not MemberExpression argumentExpression || argumentExpression.Expression == null)
                 throw new NotImplementedException($"'{newExpression.Arguments[0]}' argument is not implemented");
-
-            if (argumentExpression.Expression == null)
-                throw new NotImplementedException($"'{argumentExpression}' expression is not implemented");
 
             var memberType = argumentExpression.Expression.Type;
             var param = Expression.Parameter(typeof(object));
@@ -171,11 +216,25 @@ internal class QueryExecutor : IQueryExecutor
 
             var expression = Expression.New(newExpression.Constructor, arguments, newExpression.Members);
             var lambda = Expression.Lambda<Func<object?, T?>>(expression, param);
-
             return lambda.Compile();
         }
 
-        return x => (T?)x;
+        throw new NotImplementedException($"Unsupported selector expression '{selectClause.Selector}' of type '{selectClause.Selector.NodeType}'");
+
+        // Local helper to rebuild chain replacing root
+        static Expression ReplaceRoot(MemberExpression memberExpr, Expression originalRoot, Expression newRoot)
+        {
+            if (memberExpr.Expression == originalRoot)
+            {
+                return Expression.MakeMemberAccess(newRoot, memberExpr.Member);
+            }
+            if (memberExpr.Expression is MemberExpression inner)
+            {
+                var replacedInner = ReplaceRoot(inner, originalRoot, newRoot);
+                return Expression.MakeMemberAccess(replacedInner, memberExpr.Member);
+            }
+            return memberExpr; // Fallback (should not occur for expected patterns)
+        }
     }
 
     /// <summary>
