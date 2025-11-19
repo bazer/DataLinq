@@ -1,8 +1,8 @@
-### **DataLinq v0.7: Specification for Advanced Caching and Memory Management**
+### **Specification for Advanced Caching and Memory Management**
 
 #### **1. Overview**
 
-This document outlines the major features and architectural changes for DataLinq version 0.7.0. The primary goals for this release are to significantly reduce the memory footprint of the caching system, introduce more sophisticated and robust cache invalidation strategies, and provide a more powerful and intuitive programmatic configuration API.
+This document outlines the major features and architectural changes for DataLinq. The primary goals for this release are to significantly reduce the memory footprint of the caching system, introduce more sophisticated and robust cache invalidation strategies, and provide a more powerful and intuitive programmatic configuration API.
 
 This will be achieved through five main initiatives:
 1.  **Programmatic Configuration API:** Introduce a fluent API for runtime configuration of the ORM.
