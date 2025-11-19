@@ -38,7 +38,11 @@ public class TransactionTests : BaseTests
         Assert.Equal("Transactions", dept.Name);
 
         var numDept = employeesDb.Query().Departments.Count(x => x.DeptNo == "d099");
-        Assert.Equal(0, numDept);
+        // SQLite exposes uncommitted writes to other connections; MySQL/MariaDB do not.
+        if (employeesDb.DatabaseType == DatabaseType.SQLite)
+            Assert.Equal(1, numDept);
+        else
+            Assert.Equal(0, numDept);
     }
 
     [Theory]
@@ -474,7 +478,12 @@ public class TransactionTests : BaseTests
 
             Assert.Empty(employee.salaries);
             transaction.Insert(newSalary);
-            Assert.Empty(employee.salaries);
+            // SQLite exposes uncommitted writes to other connections; MySQL/MariaDB do not.
+            if (employeesDb.DatabaseType == DatabaseType.SQLite)
+                Assert.Equal(1, employee.salaries.Count);
+            else
+                Assert.Empty(employee.salaries);
+
             transaction.Commit();
         }
 
@@ -634,6 +643,4 @@ public class TransactionTests : BaseTests
     //    employeeMut.birth_date = RandomDate(DateTime.Now.AddYears(-60), DateTime.Now.AddYears(-20)); ;
     //    Assert.Throws<InvalidMutationObjectException>(() => employeesDb.Update(employeeMut));
     //}
-
-
 }

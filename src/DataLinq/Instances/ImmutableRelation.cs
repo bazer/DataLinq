@@ -83,7 +83,12 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
     where T : IImmutableInstance
 {
     private volatile FrozenDictionary<IKey, T>? relationInstances;
+
+#if NET9_0_OR_GREATER
     protected readonly Lock loadLock = new();
+#else
+    protected readonly object loadLock = new();
+#endif
 
     /// <summary>
     /// Indexer to get an instance by its primary key.

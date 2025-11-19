@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>netstandard2.0</TargetFramework>
+		<TargetFrameworks>netstandard2.0</TargetFrameworks>
 		<IsRoslynComponent>true</IsRoslynComponent>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
 		<!--<GeneratePackageOnBuild>true</GeneratePackageOnBuild>-->
@@ -30,7 +30,7 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="ThrowAway" Version="0.3.0" PrivateAssets="all" GeneratePathProperty="true" />
+		<PackageReference Include="ThrowAway" Version="0.3.1" PrivateAssets="all" GeneratePathProperty="true" />
 		<PackageReference Include="SourceGenerator.Foundations" Version="2.0.13">
 			<PrivateAssets>All</PrivateAssets>
 		</PackageReference>
