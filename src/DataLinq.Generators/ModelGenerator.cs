@@ -24,47 +24,42 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
 
     public override void OnInitialize(SgfInitializationContext context)
     {
-        // Create a provider for model declarations
+        // 1. Get the class declarations
         IncrementalValuesProvider<TypeDeclarationSyntax> modelDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (s, _) => IsModelDeclaration(s),
                 transform: static (ctx, _) => GetModelDeclaration(ctx))
             .Where(static m => m is not null)!;
 
-        // Combine the compilation and model declarations
-        IncrementalValueProvider<(Compilation, ImmutableArray<TypeDeclarationSyntax>)> compilationAndClasses = context.CompilationProvider
-            .Combine(modelDeclarations.Collect());
+        // 2. Collect them into a list
+        IncrementalValueProvider<ImmutableArray<TypeDeclarationSyntax>> collectedClasses =
+            modelDeclarations.Collect();
 
-        // Cache the metadata
-        //IncrementalValuesProvider<DatabaseDefinition> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
-        //    metadataFactory.ReadSyntaxTrees(source.Item2));
-
-        IncrementalValuesProvider<Option<DatabaseDefinition, IDLOptionFailure>> cachedMetadata = compilationAndClasses.SelectMany((source, _) =>
-        {
-            try
+        // 3. Pass ONLY the classes to the factory.
+        IncrementalValuesProvider<Option<DatabaseDefinition, IDLOptionFailure>> cachedMetadata =
+            collectedClasses.SelectMany((syntaxTrees, ct) =>
             {
-                return metadataFactory.ReadSyntaxTrees(source.Item2);
+                try
+                {
+                    if (ct.IsCancellationRequested)
+                        return Enumerable.Empty<Option<DatabaseDefinition, IDLOptionFailure>>();
 
-                //if (Option.CatchAll<List<Option<DatabaseDefinition, IDataLinqOptionFailure>>>(() => metadataFactory.ReadSyntaxTrees(source.Item2))
-                //    .TryUnwrap(out var value, out var failure))
-                //    return value;
-                //else
-                //    return [failure];
-            }
-            catch (Exception e)
-            {
-                return [DLOptionFailure.Fail(e)];
-            }
-        });
+                    return metadataFactory.ReadSyntaxTrees(syntaxTrees);
+                }
+                catch (Exception e)
+                {
+                    // Return a failure option wrapped in an array
+                    return new Option<DatabaseDefinition, IDLOptionFailure>[] { DLOptionFailure.Fail(e) };
+                }
+            });
 
-
-        // Check if nullable reference types are enabled and set the option
+        // 4. Check if nullable reference types are enabled
         context.RegisterSourceOutput(context.CompilationProvider, (spc, compilation) =>
         {
             fileFactory.Options.UseNullableReferenceTypes = IsNullableEnabled(compilation);
         });
 
-        // Generate source files based on the cached metadata
+        // 5. Register Output
         context.RegisterSourceOutput(cachedMetadata, (spc, metadata) =>
         {
             if (spc.CancellationToken.IsCancellationRequested)
