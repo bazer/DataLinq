@@ -74,6 +74,27 @@ internal static class Evaluator
             {
                 return e;
             }
+
+            // Optimization: Handle field/property access on a constant (closure) without compilation
+            // This handles cases like: db.Users.Where(x => x.Id == localVariable)
+            // This is significantly faster than compiling a lambda for every query execution.
+            if (e.NodeType == ExpressionType.MemberAccess && e is MemberExpression memberExpr)
+            {
+                if (memberExpr.Expression is ConstantExpression constExpr)
+                {
+                    object? val = null;
+                    if (memberExpr.Member is System.Reflection.FieldInfo field)
+                        val = field.GetValue(constExpr.Value);
+                    else if (memberExpr.Member is System.Reflection.PropertyInfo prop)
+                        val = prop.GetValue(constExpr.Value);
+                    else
+                        goto Compile; // Fallback to compilation if it's not a simple field/prop
+
+                    return Expression.Constant(val, e.Type);
+                }
+            }
+
+        Compile:
             LambdaExpression lambda = Expression.Lambda(e);
             Delegate fn = lambda.Compile();
             return Expression.Constant(fn.DynamicInvoke(null), e.Type);

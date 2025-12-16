@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using DataLinq.Instances;
 using DataLinq.Metadata;
 
 namespace DataLinq.Query;
@@ -180,6 +182,66 @@ public class WhereGroup<T> : IWhere<T>
         var newSubGroup = new WhereGroup<T>(this.Query, BooleanType.And); // Subgroup children are ANDed by default
         populateAction(newSubGroup);
         return AddSubGroupInternal(newSubGroup, BooleanType.Or);
+    }
+
+    /// <summary>
+    /// Analyzes the group to see if it represents a simple equality check for the specified Primary Key columns.
+    /// </summary>
+    internal IKey? TryGetSimplePrimaryKey(ColumnDefinition[] pkColumns)
+    {
+        // 1. Empty or negated group cannot be a simple key lookup
+        if (whereList == null || whereList.Count == 0 || IsNegated) return null;
+
+        // 2. All connections in this group must be AND. (ID = 1 AND ID2 = 2)
+        // Index 0 doesn't have a previous connection to check.
+        for (int i = 1; i < whereList.Count; i++)
+        {
+            if (whereList[i].connectionToPrevious != BooleanType.And)
+                return null;
+        }
+
+        var collectedValues = new object?[pkColumns.Length];
+        var foundColumns = 0;
+
+        // 3. Iterate conditions
+        foreach (var (part, _) in whereList)
+        {
+            if (part is Where<T> w)
+            {
+                // Negated comparisons cannot represent a direct PK lookup (e.g. NOT (Id = 5))
+                if (w.IsNegated)
+                    return null;
+
+                // We only support Column == Value
+                if (w.Left is ColumnOperand colOp && w.Operator == Operator.Equal && w.Right is ValueOperand valOp && valOp.HasOneValue)
+                {
+                    // Check if this column is part of the PK
+                    int pkIndex = Array.FindIndex(pkColumns, c => c.DbName == colOp.Name);
+
+                    if (pkIndex != -1)
+                    {
+                        // Found a PK column constraint.
+                        collectedValues[pkIndex] = valOp.FirstValue;
+                        foundColumns++;
+                    }
+                    else
+                    {
+                        // Constraint on a non-PK column (e.g. Id == 1 AND Active == true).
+                        // Optimization unsafe.
+                        return null;
+                    }
+                }
+                else return null; // Unsupported operator or operands
+            }
+            else return null; // Nested groups not supported for this optimization
+        }
+
+        // 4. Did we find values for ALL primary key columns?
+        if (foundColumns != pkColumns.Length)
+            return null;
+
+        // 5. Create the key
+        return KeyFactory.CreateKeyFromValues(collectedValues);
     }
 
     // --- Methods to pass through to SqlQuery<T> ---

@@ -33,9 +33,9 @@ public interface IWhere<T> : IQueryPart
 
 public class Where<T> : IWhere<T>
 {
-    private Operand? Left;
-    private Operand? Right;
-    private Operator Operator;
+    internal Operand? Left;
+    internal Operand? Right;
+    internal Operator Operator;
     internal bool IsNegated = false;
     protected WhereGroup<T> WhereGroup;
 

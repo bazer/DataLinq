@@ -13,6 +13,16 @@ using Remotion.Linq.Clauses.ResultOperators;
 
 namespace DataLinq.Linq;
 
+internal static class SelectFuncCache<T>
+{
+    // Cache for the "Identity" function (Select(x => x))
+    public static readonly Func<object?, T?> Identity = x => (T?)x;
+
+    // Cache for complex projections
+    // Note: Expression equality is complex. For now, we can optimize the Identity case 
+    // which covers 90% of DataLinq usage (fetching entities).
+}
+
 /// <summary>
 /// The QueryExecutor class is responsible for converting a QueryModel into SQL queries and executing them
 /// against a database using a provided Transaction context and TableMetadata.
@@ -136,6 +146,14 @@ internal class QueryExecutor : IQueryExecutor
         if (selectClause == null)
             throw new ArgumentNullException(nameof(selectClause));
 
+        // Optimization: If selecting the entity itself (QuerySourceReferenceExpression), return cached Identity
+        // This removes JIT compilation for standard queries
+        if (selectClause.Selector is QuerySourceReferenceExpression)
+        {
+            // If T is the Model type, just cast.
+            return SelectFuncCache<T>.Identity;
+        }
+
         // Normalize selector: unwrap Convert/Quote nodes commonly introduced by nullable/value conversions
         Expression selector = selectClause.Selector;
         while (selector is UnaryExpression unary &&
@@ -145,13 +163,18 @@ internal class QueryExecutor : IQueryExecutor
         }
 
         // NEW: Handle selecting the full entity (QuerySourceReferenceExpression) e.g. source.SingleOrDefault(x => ...)
+        // Optimization: If selecting the entity itself (QuerySourceReferenceExpression), return cached Identity
+        // This removes JIT compilation for standard queries
         if (selector is QuerySourceReferenceExpression)
         {
-            var param = Expression.Parameter(typeof(object), "x");
-            Expression body = typeof(T) == typeof(object)
-                ? param
-                : Expression.Convert(param, typeof(T));
-            return Expression.Lambda<Func<object?, T?>>(body, param).Compile();
+            // If T is the Model type, just cast.
+            return SelectFuncCache<T>.Identity;
+
+            //var param = Expression.Parameter(typeof(object), "x");
+            //Expression body = typeof(T) == typeof(object)
+            //    ? param
+            //    : Expression.Convert(param, typeof(T));
+            //return Expression.Lambda<Func<object?, T?>>(body, param).Compile();
         }
 
         // Handle member access (single or chained) by rebuilding lambda with correct root parameter cast

@@ -96,9 +96,13 @@ public class Select<T> : IQuery
         {
             this.What(query.Table.PrimaryKeyColumns);
 
-            var keys = this
-                .ReadKeys()
-                .ToArray();
+            // OPTIMIZATION: Try to extract keys directly from the query structure (e.g. Single(x => x.Id == 1))
+            // This avoids the first round-trip to fetch keys if the query is a simple PK lookup.
+            var simpleKey = query.TryGetSimplePrimaryKey();
+
+            var keys = simpleKey != null
+                ? [simpleKey]
+                : this.ReadKeys().ToArray();
 
             foreach (var row in query.DataSource.Provider.GetTableCache(query.Table).GetRows(keys, query.DataSource, orderings: query.OrderByList))
                 yield return row;
