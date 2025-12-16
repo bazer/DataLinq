@@ -21,7 +21,7 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="All" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="All" />
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -31,7 +31,7 @@
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="ThrowAway" Version="0.3.1" PrivateAssets="all" GeneratePathProperty="true" />
-		<PackageReference Include="SourceGenerator.Foundations" Version="2.0.13">
+		<PackageReference Include="SourceGenerator.Foundations" Version="2.0.14">
 			<PrivateAssets>All</PrivateAssets>
 		</PackageReference>
 	</ItemGroup>
