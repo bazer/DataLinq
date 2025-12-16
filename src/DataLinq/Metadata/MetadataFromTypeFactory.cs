@@ -24,6 +24,7 @@ public static class MetadataFromTypeFactory
 
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
+        MetadataFactory.IndexColumns(database);
 
         return database;
     });

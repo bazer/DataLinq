@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
+using System.Reflection.PortableExecutable;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
@@ -20,15 +22,24 @@ public interface IRowData
     IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns);
 }
 
-public class RowData : IRowData, IEquatable<RowData>
+public sealed class RowData : IRowData, IEquatable<RowData>
 {
-    public RowData(IDataLinqDataReader reader, TableDefinition table, ReadOnlySpan<ColumnDefinition> columns)
+    private readonly object?[] data;
+
+    public RowData(IDataLinqDataReader reader, TableDefinition table, ReadOnlySpan<ColumnDefinition> columns, bool hasIndexedColumns)
     {
         Table = table;
-        (Data, Size) = ReadReader(reader, columns);
+
+        // Initialize array sized to the total number of columns in the table definition
+        // This allows O(1) access by Column.Index
+        data = new object?[table.Columns.Length];
+
+        // Read values based on the *requested* columns (which match the reader's ordinal order)
+        // and place them into their correct slots in the dense array.
+        Size = hasIndexedColumns ? ReadOrderedIndexReader(reader, columns, data) : ReadUnorderedReader(reader, columns, data);
     }
 
-    protected Dictionary<ColumnDefinition, object?> Data { get; }
+    //protected Dictionary<ColumnDefinition, object?> Data { get; }
 
     public TableDefinition Table { get; }
 
@@ -38,15 +49,13 @@ public class RowData : IRowData, IEquatable<RowData>
 
     public object? GetValue(ColumnDefinition column)
     {
-        if (Data == null || !Data.TryGetValue(column, out var value))
-            throw new InvalidOperationException($"Data dictionary is not initialized or column '{column.DbName}' key does not exist.");
-
-        return value;
+        // Fast array access using the pre-calculated index
+        return data[column.Index];
     }
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()
     {
-        return Data.AsEnumerable();
+        return Table.Columns.Select(col => new KeyValuePair<ColumnDefinition, object?>(col, data[col.Index]));
     }
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns)
@@ -61,9 +70,23 @@ public class RowData : IRowData, IEquatable<RowData>
             yield return GetValue(column);
     }
 
-    private static (Dictionary<ColumnDefinition, object?> data, int size) ReadReader(IDataLinqDataReader reader, ReadOnlySpan<ColumnDefinition> columns)
+    private static int ReadOrderedIndexReader(IDataLinqDataReader reader, ReadOnlySpan<ColumnDefinition> columns, object?[] data)
     {
-        var data = new Dictionary<ColumnDefinition, object?>();
+        var size = 0;
+
+        // Iterate using the span length. The reader ordinals 0..N match this span's order.
+        for (int i = 0; i < columns.Length; i++)
+        {
+            var column = columns[i];
+            var value = reader.GetValue<object>(column, i); // Pass 'i' directly as ordinal!
+            size += GetSize(column, value); // Keep existing size calc logic
+            data[column.Index] = value;
+        }
+        return size;
+    }
+
+    private static int ReadUnorderedReader(IDataLinqDataReader reader, ReadOnlySpan<ColumnDefinition> columns, object?[] data)
+    {
         var size = 0;
 
         foreach (var column in columns)
@@ -71,11 +94,12 @@ public class RowData : IRowData, IEquatable<RowData>
             var value = reader.GetValue<object>(column);
             size += GetSize(column, value);
 
-            data.Add(column, value);
+            data[column.Index] = value;
         }
-
-        return (data, size);
+        return size;
     }
+
+    
 
     private static int GetSize(ColumnDefinition column, object? value)
     {
@@ -96,13 +120,12 @@ public class RowData : IRowData, IEquatable<RowData>
 
     public bool Equals(RowData? other)
     {
-        if (Data.Count != other?.Data.Count)
-            return false;
+        if (other == null) return false;
+        if (data.Length != other.data.Length) return false;
 
-        foreach (var kvp in Data)
+        for (int i = 0; i < data.Length; i++)
         {
-            if (!other.Data.TryGetValue(kvp.Key, out var value) && value != kvp.Value)
-                return false;
+            if (!object.Equals(data[i], other.data[i])) return false;
         }
 
         return true;
@@ -117,11 +140,9 @@ public class RowData : IRowData, IEquatable<RowData>
     {
         var hash = new HashCode();
 
-        foreach (var kvp in Data.OrderBy(kvp => kvp.Key))
-        {
-            hash.Add(kvp.Key);
-            hash.Add(kvp.Value);
-        }
+        // Hash based on content
+        foreach (var item in data)
+            hash.Add(item);
 
         return hash.ToHashCode();
     }

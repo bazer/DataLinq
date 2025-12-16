@@ -51,6 +51,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
         MetadataFactory.ParseInterfaces(database);
+        MetadataFactory.IndexColumns(database);
 
         return database;
     });

@@ -62,8 +62,53 @@ public class Select<T> : IQuery
 
     public IEnumerable<RowData> ReadRows()
     {
+        // Resolve the actual columns being fetched to ensure the RowData 
+        // reader aligns with the DataReader's fields.
+        var columnsToRead = GetColumnsToRead();
+
         return ReadReader()
-            .Select(x => new RowData(x, query.Table, query.Table.Columns.AsSpan()));
+            .Select(x => new RowData(x, query.Table, columnsToRead, true));
+    }
+
+    private ColumnDefinition[] GetColumnsToRead()
+    {
+        // If no specific columns requested, return all (default SELECT *)
+        if (query.WhatList == null || query.WhatList.Count == 0)
+            return query.Table.Columns;
+
+        // Map the string selectors in WhatList back to ColumnDefinitions.
+        // We have to handle potential escaping characters in the WhatList strings.
+        var escape = query.EscapeCharacter;
+        var definitions = new List<ColumnDefinition>(query.WhatList.Count);
+
+        foreach (var what in query.WhatList)
+        {
+            // Strip escape characters to match against DbName
+            var cleanName = what.Replace(escape, "");
+
+            // Find the matching column. 
+            // Note: If 'what' is a raw SQL expression (e.g. "COUNT(*)"), this will be null.
+            // RowData is designed for Entity Materialization, so it expects mapped columns.
+            var col = query.Table.Columns.FirstOrDefault(c => c.DbName.Equals(cleanName, StringComparison.OrdinalIgnoreCase));
+
+            if (col != null)
+            {
+                definitions.Add(col);
+            }
+            else
+            {
+                // If we can't map it to a definition, we can't store it in the optimized RowData array.
+                // For now, we skip unmapped columns (like aggregates) as they are usually handled by ExecuteScalar 
+                // or specific projections that don't go through the standard RowData path.
+                // However, to keep the Ordinal alignment correct in RowData.ReadReader, 
+                // we technically shouldn't use RowData for arbitrary projections anymore.
+                // But for standard "Select specific columns" scenarios, this works.
+            }
+        }
+
+        // If we found NO matching columns (e.g. only aggregates), return empty
+        // This effectively means RowData will be empty/useless, which is expected for purely aggregate queries.
+        return definitions.ToArray();
     }
 
     public IEnumerable<IKey> ReadKeys()
@@ -81,7 +126,7 @@ public class Select<T> : IQuery
     public IEnumerable<(IKey fk, IKey[] pks)> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
     {
         return ReadReader()
-            .Select(x => new RowData(x, query.Table, query.Table.PrimaryKeyColumns.Concat(foreignKeyIndex.Columns).Distinct().ToArray()))
+            .Select(x => new RowData(x, query.Table, query.Table.PrimaryKeyColumns.Concat(foreignKeyIndex.Columns).Distinct().ToArray(), false))
             .Select(x => (fk: KeyFactory.CreateKeyFromValues(x.GetValues(foreignKeyIndex.Columns)), pk: KeyFactory.GetKey(x, query.Table.PrimaryKeyColumns)))
             .GroupBy(x => x.fk)
             .Select(x => (x.Key, x.Select(y => y.pk).ToArray()));

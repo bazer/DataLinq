@@ -301,7 +301,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         return DatabaseAccess
             .ReadReader(query)
-            .Select(x => new RowData(x, table, table.Columns.AsSpan()))
+            .Select(x => new RowData(x, table, table.Columns, false))
             .Select(x => InstanceFactory.NewImmutableRow<T>(x, this));
     }
 
@@ -317,7 +317,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 
         return DatabaseAccess
             .ReadReader(dbCommand)
-            .Select(x => new RowData(x, table, table.Columns.AsSpan()))
+            .Select(x => new RowData(x, table, table.Columns, false))
             .Select(x => InstanceFactory.NewImmutableRow<T>(x, this));
     }
 

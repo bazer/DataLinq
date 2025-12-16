@@ -32,6 +32,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     public void SetDbName(string value) => DbName = value;
     public DatabaseColumnType[] DbTypes { get; private set; } = [];
     public int Index { get; private set; }
+    public void SetIndex(int index) => Index = index;
     public bool ForeignKey { get; private set; }
     public void SetForeignKey(bool value = true) => ForeignKey = value;
     public bool PrimaryKey { get; private set; }
@@ -40,7 +41,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     public void SetAutoIncrement(bool value = true) => AutoIncrement = value;
     public bool Nullable { get; private set; }
     public void SetNullable(bool value = true) => Nullable = value;
-    
+
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
     public ValueProperty ValueProperty { get; private set; }
 

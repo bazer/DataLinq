@@ -38,7 +38,7 @@ public class ReadOnlyAccess : DataSourceAccess
         return Provider
             .DatabaseAccess
             .ReadReader(query)
-            .Select(x => new RowData(x, table, table.Columns))
+            .Select(x => new RowData(x, table, table.Columns, false))
             .Select(x => InstanceFactory.NewImmutableRow<T>(x, this));
     }
 
@@ -55,7 +55,7 @@ public class ReadOnlyAccess : DataSourceAccess
         return Provider
             .DatabaseAccess
             .ReadReader(dbCommand)
-            .Select(x => new RowData(x, table, table.Columns))
+            .Select(x => new RowData(x, table, table.Columns, false))
             .Select(x => InstanceFactory.NewImmutableRow<T>(x, this));
     }
 }

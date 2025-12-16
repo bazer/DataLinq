@@ -28,7 +28,7 @@ public static class MetadataFactory
         foreach (var tableModel in database.TableModels)
         {
             var model = tableModel.Model;
-            
+
             if (model.ModelInstanceInterface == null)
             {
                 var interfaceName = $"I{model.CsType.Name}";
@@ -75,6 +75,13 @@ public static class MetadataFactory
         table.SetColumns(model.ValueProperties.Values.Select(table.ParseColumn));
 
         return table;
+    }
+
+    public static void IndexColumns(DatabaseDefinition database)
+    {
+        foreach (var table in database.TableModels.Select(x => x.Table))
+            for (var i = 0; i < table.Columns.Length; i++)
+                table.Columns[i].SetIndex(i);
     }
 
     public static void ParseIndices(DatabaseDefinition database)

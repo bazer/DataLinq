@@ -47,6 +47,7 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
         MetadataFactory.ParseInterfaces(database);
+        MetadataFactory.IndexColumns(database);
 
         return database;
     });
