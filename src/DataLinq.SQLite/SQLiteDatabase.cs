@@ -16,7 +16,7 @@ public class SQLiteDatabaseCreator : IDatabaseProviderCreator
 
     Database<T> IDatabaseProviderCreator.GetDatabaseProvider<T>(string connectionString, string databaseName) //Ignore databaseName for SQLite, use filename instead since SQlite only supports one database per file.
     {
-        return new SQLiteDatabase<T>(connectionString);
+        return new SQLiteDatabase<T>(connectionString, loggerFactory);
     }
 
     public SQLiteDatabaseCreator UseLoggerFactory(ILoggerFactory? loggerFactory)
