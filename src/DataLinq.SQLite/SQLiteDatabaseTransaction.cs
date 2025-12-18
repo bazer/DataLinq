@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using DataLinq.Logging;
 using DataLinq.Mutation;
 using Microsoft.Data.Sqlite;
 
@@ -9,19 +10,22 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
 {
     private IDbConnection dbConnection;
     private readonly string connectionString;
+    readonly DataLinqLoggingConfiguration _loggingConfiguration;
 
     //private SqliteTransaction dbTransaction;
 
-    public SQLiteDatabaseTransaction(string connectionString, TransactionType type) : base(type)
+    public SQLiteDatabaseTransaction(string connectionString, TransactionType type, DataLinqLoggingConfiguration loggingConfiguration) : base(type)
     {
         this.connectionString = connectionString;
+        _loggingConfiguration = loggingConfiguration;
     }
 
-    public SQLiteDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) : base(dbTransaction, type)
+    public SQLiteDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, DataLinqLoggingConfiguration loggingConfiguration) : base(dbTransaction, type)
     {
         if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
         if (dbTransaction.Connection is not SqliteConnection) throw new ArgumentException("The transaction connection must be an SqliteConnection", "dbTransaction.Connection");
         if (dbTransaction.Connection.State != ConnectionState.Open) throw new Exception("The transaction connection is not open");
+        _loggingConfiguration = loggingConfiguration;
 
         SetStatus(DatabaseTransactionStatus.Open);
         dbConnection = dbTransaction.Connection;
@@ -72,16 +76,10 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
 
     public override int ExecuteNonQuery(IDbCommand command)
     {
-        try
-        {
-            command.Connection = DbConnection;
-            command.Transaction = DbTransaction;
-            return command.ExecuteNonQuery();
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        command.Connection = DbConnection;
+        command.Transaction = DbTransaction;
+        Log.SqlCommand(_loggingConfiguration.SqlCommandLogger, command);
+        return command.ExecuteNonQuery();
     }
 
     public override int ExecuteNonQuery(string query) =>
@@ -98,16 +96,10 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
 
     public override object ExecuteScalar(IDbCommand command)
     {
-        try
-        {
-            command.Connection = DbConnection;
-            command.Transaction = DbTransaction;
-            return command.ExecuteScalar();
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        command.Connection = DbConnection;
+        command.Transaction = DbTransaction;
+        Log.SqlCommand(_loggingConfiguration.SqlCommandLogger, command);
+        return command.ExecuteScalar();
     }
 
     public override IDataLinqDataReader ExecuteReader(string query)
@@ -122,19 +114,12 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     /// <returns></returns>
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
-        try
-        {
-            command.Connection = DbConnection;
-            command.Transaction = DbTransaction;
+        command.Connection = DbConnection;
+        command.Transaction = DbTransaction;
+        Log.SqlCommand(_loggingConfiguration.SqlCommandLogger, command);
 
-            //return command.ExecuteReader() as IDataLinqDataReader;
-            return new SQLiteDataLinqDataReader(command.ExecuteReader() as SqliteDataReader);
-        }
-        catch (Exception)
-        {
-            //Rollback();
-            throw;
-        }
+        //return command.ExecuteReader() as IDataLinqDataReader;
+        return new SQLiteDataLinqDataReader(command.ExecuteReader() as SqliteDataReader);
     }
 
     public override void Commit()

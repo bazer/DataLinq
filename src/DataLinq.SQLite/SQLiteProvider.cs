@@ -63,7 +63,8 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
         SQLiteProvider.RegisterProvider();
     }
 
-    public SQLiteProvider(string connectionString) : base(connectionString, DatabaseType.SQLite, DataLinqLoggingConfiguration.NullConfiguration)
+    public SQLiteProvider(string connectionString, DataLinqLoggingConfiguration? loggerFactory = null) :
+        base(connectionString, DatabaseType.SQLite, loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration)
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
         DatabaseName = Path.GetFileNameWithoutExtension(connectionStringBuilder.DataSource);
@@ -120,12 +121,12 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
-        return new SQLiteDatabaseTransaction(ConnectionString, type);
+        return new SQLiteDatabaseTransaction(ConnectionString, type, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
-        return new SQLiteDatabaseTransaction(dbTransaction, type);
+        return new SQLiteDatabaseTransaction(dbTransaction, type, LoggingConfiguration);
     }
 
     public override string GetLastIdQuery() => "SELECT last_insert_rowid()";

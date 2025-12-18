@@ -1,4 +1,5 @@
 ﻿using DataLinq.Interfaces;
+using DataLinq.Logging;
 using DataLinq.Metadata;
 using Microsoft.Extensions.Logging;
 
@@ -31,9 +32,12 @@ public class SQLiteDatabaseCreator : IDatabaseProviderCreator
 public class SQLiteDatabase<T> : Database<T>
      where T : class, IDatabaseModel
 {
-    public SQLiteDatabase(string connectionString) : base(new SQLiteProvider<T>(connectionString))
-    {
-    }
+    public SQLiteDatabase(string connectionString, ILoggerFactory? loggerFactory = null) :
+        base(new SQLiteProvider<T>(
+            connectionString,
+            loggerFactory is null ?
+                DataLinqLoggingConfiguration.NullConfiguration :
+                new DataLinqLoggingConfiguration(loggerFactory))) { }
 
     //public SQLiteDatabase(string connectionString, string databaseName) : base(new SQLiteProvider<T>(connectionString, databaseName))
     //{
