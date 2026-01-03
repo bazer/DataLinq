@@ -10,14 +10,14 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
 {
     private IDbConnection dbConnection;
     private readonly string connectionString;
-    readonly DataLinqLoggingConfiguration _loggingConfiguration;
+    readonly DataLinqLoggingConfiguration loggingConfiguration;
 
     //private SqliteTransaction dbTransaction;
 
     public SQLiteDatabaseTransaction(string connectionString, TransactionType type, DataLinqLoggingConfiguration loggingConfiguration) : base(type)
     {
         this.connectionString = connectionString;
-        _loggingConfiguration = loggingConfiguration;
+        this.loggingConfiguration = loggingConfiguration;
     }
 
     public SQLiteDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, DataLinqLoggingConfiguration loggingConfiguration) : base(dbTransaction, type)
@@ -25,7 +25,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
         if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
         if (dbTransaction.Connection is not SqliteConnection) throw new ArgumentException("The transaction connection must be an SqliteConnection", "dbTransaction.Connection");
         if (dbTransaction.Connection.State != ConnectionState.Open) throw new Exception("The transaction connection is not open");
-        _loggingConfiguration = loggingConfiguration;
+        this.loggingConfiguration = loggingConfiguration;
 
         SetStatus(DatabaseTransactionStatus.Open);
         dbConnection = dbTransaction.Connection;
@@ -78,7 +78,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(_loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
         return command.ExecuteNonQuery();
     }
 
@@ -98,7 +98,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(_loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
         return command.ExecuteScalar();
     }
 
@@ -116,7 +116,7 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
-        Log.SqlCommand(_loggingConfiguration.SqlCommandLogger, command);
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
         //return command.ExecuteReader() as IDataLinqDataReader;
         return new SQLiteDataLinqDataReader(command.ExecuteReader() as SqliteDataReader);

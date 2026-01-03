@@ -3,7 +3,6 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
-using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
@@ -68,7 +67,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
         DatabaseName = Path.GetFileNameWithoutExtension(connectionStringBuilder.DataSource);
-        dbAccess = new SQLiteDbAccess(connectionString);
+        dbAccess = new SQLiteDbAccess(connectionString, LoggingConfiguration);
         SetJournalMode(SQLiteJournalMode.WAL);
 
     }

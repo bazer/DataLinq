@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using DataLinq.Logging;
 using Microsoft.Data.Sqlite;
 
 namespace DataLinq.SQLite;
@@ -6,10 +7,12 @@ namespace DataLinq.SQLite;
 public class SQLiteDbAccess : DatabaseAccess
 {
     private readonly string connectionString;
+    private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public SQLiteDbAccess(string connectionString) : base()
+    public SQLiteDbAccess(string connectionString, DataLinqLoggingConfiguration loggingConfiguration) : base()
     {
         this.connectionString = connectionString;
+        this.loggingConfiguration = loggingConfiguration;
     }
 
     private void SetIsolationLevel(SqliteConnection connection, IsolationLevel isolationLevel)
@@ -41,6 +44,7 @@ public class SQLiteDbAccess : DatabaseAccess
             connection.Open();
             command.Connection = connection;
             SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
             int result = command.ExecuteNonQuery();
             connection.Close();
 
@@ -67,6 +71,7 @@ public class SQLiteDbAccess : DatabaseAccess
             connection.Open();
             command.Connection = connection;
             SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
+            Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
             var result = command.ExecuteScalar();
             connection.Close();
 
@@ -80,6 +85,7 @@ public class SQLiteDbAccess : DatabaseAccess
         connection.Open();
         command.Connection = connection;
         SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
+        Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
         //using (var pragma = new SqliteCommand("PRAGMA journal_mode=WAL;", connection))
         //{
