@@ -205,11 +205,11 @@ public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
     /// <summary>
     /// Commits a transaction with the specified function.
     /// </summary>
-    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <typeparam name="V">The type of the return value.</typeparam>
     /// <param name="func">The function to perform in the transaction.</param>
     /// <param name="transactionType">The type of the transaction.</param>
     /// <returns>The result of the function.</returns>
-    public M Commit<M>(Func<Transaction<T>, M> func, TransactionType transactionType = TransactionType.ReadAndWrite) where M : IImmutableInstance
+    public V Commit<V>(Func<Transaction<T>, V> func, TransactionType transactionType = TransactionType.ReadAndWrite)
     {
         using var transaction = Transaction(transactionType);
         var result = func(transaction);
