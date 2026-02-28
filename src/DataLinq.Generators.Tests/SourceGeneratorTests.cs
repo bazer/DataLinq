@@ -32,7 +32,7 @@ public class SourceGeneratorTests : GeneratorTestBase // Inherit from the base c
     [Fact]
     public void TestEmployees()
     {
-        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models\\employees\\gen"], true).ToList();
+        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/employees/gen"], true).ToList();
         var code = SyntaxTreesToString(syntax);
 
         Assert.Contains("public partial class ImmutableEmployee", code);
@@ -41,7 +41,7 @@ public class SourceGeneratorTests : GeneratorTestBase // Inherit from the base c
     [Fact]
     public void TestEmployeesOnlyDb()
     {
-        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models\\employees\\gen"], false).ToList();
+        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/employees/gen"], false).ToList();
         var code = SyntaxTreesToString(syntax);
 
         Assert.Contains(code, "public partial class EmployeesDb");
@@ -50,7 +50,7 @@ public class SourceGeneratorTests : GeneratorTestBase // Inherit from the base c
     [Fact]
     public void TestAllround()
     {
-        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models\\Allround"], true).ToList();
+        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/Allround"], true).ToList();
         var code = SyntaxTreesToString(syntax);
 
         Assert.Contains("public partial class ImmutablePayment", code);
@@ -60,7 +60,7 @@ public class SourceGeneratorTests : GeneratorTestBase // Inherit from the base c
     [Fact]
     public void TestAllroundOnlyDb()
     {
-        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models\\Allround"], false).ToList();
+        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/Allround"], false).ToList();
         var code = SyntaxTreesToString(syntax);
 
         Assert.Empty(code);
@@ -69,7 +69,7 @@ public class SourceGeneratorTests : GeneratorTestBase // Inherit from the base c
     [Fact]
     public void TestAllModels()
     {
-        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models\\employees\\gen", "DataLinq.Tests.Models\\Allround"], true).ToList();
+        var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/employees/gen", "DataLinq.Tests.Models/Allround"], true).ToList();
         var code = SyntaxTreesToString(syntax);
 
         Assert.Contains("public partial class ImmutableLocation", code);
