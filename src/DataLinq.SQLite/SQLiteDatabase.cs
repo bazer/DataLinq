@@ -14,9 +14,9 @@ public class SQLiteDatabaseCreator : IDatabaseProviderCreator
         return typeName.Equals("sqlite", System.StringComparison.OrdinalIgnoreCase);
     }
 
-    Database<T> IDatabaseProviderCreator.GetDatabaseProvider<T>(string connectionString, string databaseName) //Ignore databaseName for SQLite, use filename instead since SQlite only supports one database per file.
+    Database<T> IDatabaseProviderCreator.GetDatabaseProvider<T>(string connectionString, string databaseName)
     {
-        return new SQLiteDatabase<T>(connectionString, loggerFactory);
+        return new SQLiteDatabase<T>(connectionString, databaseName, loggerFactory);
     }
 
     public SQLiteDatabaseCreator UseLoggerFactory(ILoggerFactory? loggerFactory)
@@ -33,8 +33,13 @@ public class SQLiteDatabase<T> : Database<T>
      where T : class, IDatabaseModel
 {
     public SQLiteDatabase(string connectionString, ILoggerFactory? loggerFactory = null) :
+        this(connectionString, null, loggerFactory)
+    { }
+
+    public SQLiteDatabase(string connectionString, string? databaseName, ILoggerFactory? loggerFactory = null) :
         base(new SQLiteProvider<T>(
             connectionString,
+            databaseName,
             loggerFactory is null ?
                 DataLinqLoggingConfiguration.NullConfiguration :
                 new DataLinqLoggingConfiguration(loggerFactory))) { }
