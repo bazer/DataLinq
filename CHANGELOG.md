@@ -4,6 +4,74 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.6 - Performance Improvements and SQLite Logging](https://github.com/bazer/DataLinq/releases/tag/0.6.6)
+
+**Released on:** 2025-12-18
+
+This maintenance release improves core query and materialization performance, reduces memory overhead in hot paths, and makes SQLite logging behavior more consistent. It also includes a dependency refresh, source generator cleanup, and a large set of internal planning documents for upcoming releases.
+
+### Highlights
+
+*   **Faster Primary-Key Lookups and LINQ Execution:** Several internal optimizations make common read scenarios faster and cheaper. [31fd6f3]
+    *   `Select` can now detect simple primary-key predicates and short-circuit to a direct lookup instead of building and executing a full query.
+    *   Expression evaluation now uses a reflection-based fast path for local variable access, avoiding unnecessary lambda compilation in many cases.
+    *   `QueryExecutor` now caches standard identity projection delegates to reduce repeated overhead for common queries.
+*   **Lower-Overhead `RowData` Storage:** `RowData` has been redesigned to use an indexed object array instead of a dictionary, giving O(1) column access and reducing allocations during row materialization. [2ce6b41]
+    *   This change is supported by new column indexing metadata assigned during metadata parsing, ensuring correct alignment even for partial `SELECT` queries.
+*   **Improved SQLite Logging Integration:** Logging configuration is now propagated more consistently through SQLite database and transaction classes, improving diagnostics and making SQLite behavior more aligned with the other providers. [db25a31] [07fc896]
+
+### Internal Improvements
+
+*   **Source Generator Cleanup:** Refactored `ModelGenerator` to streamline class declaration processing and improve metadata caching in the generator pipeline. [3300f0f]
+*   **Dependency Refresh:** Updated NuGet package dependencies across the runtime, generator, tooling, benchmark, and test projects to newer stable versions. [d16ae98]
+*   **Minor Code Cleanup:** Removed unused `using` directives and small bits of dead code as part of the performance work. [ba088a7]
+
+### Documentation & Planning
+
+*   Added a substantial new set of development-plan documents covering batched mutations and optimistic concurrency, in-memory provider support, JSON data type support, metadata architecture, migrations and validation, performance benchmarking, projections and views, query pipeline abstraction, source generator optimizations, SQL generation optimization, result-set caching, testing infrastructure, and recommended application patterns. [59f3de0] [2242bc3] [c2f3547] [ef00311]
+*   Updated the documentation workflow to use .NET 10 for static site generation. [ebf70a7]
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.6.5...0.6.6
+
+---
+
+## [DataLinq v0.6.5 - LINQ Enhancements & Multi-Targeting](https://github.com/bazer/DataLinq/releases/tag/0.6.5)
+
+**Released on:** 2025-11-12
+
+This release expands framework support to include .NET 8, 9, and 10, introduces significant improvements to the LINQ query parser for string manipulation and collection handling, and includes internal optimizations for newer .NET runtimes.
+
+### Highlights
+
+*   **Multi-Targeting Support:** DataLinq now explicitly targets **.NET 8.0, .NET 9.0, and .NET 10.0**.
+*   **Performance Optimization on .NET 9+:** Implemented conditional compilation to utilize the new `System.Threading.Lock` on .NET 9 and greater, improving thread synchronization performance in `ImmutableRelation` and `ImmutableForeignKey`.
+*   **Advanced LINQ Chains:** Added support for chained string functions in queries. You can now write LINQ expressions like `x.Name.Trim().Length`, and they will correctly translate to the corresponding SQL.
+
+### LINQ & Query Engine
+
+*   **Chained String Functions:** The `QueryBuilder` now supports parsing and generating SQL for chained string operations (e.g., `Trim().ToUpper().Length`).
+*   **Enhanced Collection Handling:** Improved translation logic for `Contains` and `Any` methods.
+    *   Added robust handling for empty lists in `Contains` queries (resolving to `1=0` or `1=1`).
+    *   Fixed handling of negated `Contains` conditions.
+    *   Added support for `op_Implicit` calls wrapping arrays or spans within queries.
+*   **Entity Selection:** Improved `QueryExecutor` to handle selecting the full entity directly in projections (e.g., `source.Select(x => x)`).
+*   **Expression Evaluation:** Updated the `Evaluator` to safely handle non-reducible expressions (like `QuerySourceReferenceExpression`), preventing runtime errors during partial evaluation of query trees.
+
+### Bug Fixes & Internal Improvements
+
+*   **Dependency Update:** Updated `ThrowAway` package to version 0.3.1 and updated various test dependencies (Bogus, xUnit, etc.).
+*   **SQL Generation:** Added argument validation for `Substring` functions in SQL providers to ensure correct usage.
+*   **Test Suite Reliability:** Adjusted transaction tests to correctly account for isolation level differences between SQLite (which may expose uncommitted writes) and MySQL/MariaDB.
+*   **Type Safety:** Added specific handling to skip unsupported tests in MariaDB relating to GUID formats until upstream connector support is clarified.
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.6.4...0.6.5
+
+---
+
 ## [DataLinq v0.6.4 - Critical Concurrency & Performance Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.4)
 
 **Released on:** 2025-08-26
