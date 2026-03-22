@@ -61,15 +61,18 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
 
     public Option<int, IDLOptionFailure> CreateDatabase(Sql sql, string databaseName, string connectionString, bool foreignKeyRestrict)
     {
-        var builder = new SqliteConnectionStringBuilder(connectionString);
+        var normalizedConnectionString = SQLiteConnectionStringFactory.NormalizeConnectionString(connectionString, databaseName);
+        SQLiteConnectionStringFactory.EnsureKeepAliveIfInMemory(normalizedConnectionString);
+
+        var builder = new SqliteConnectionStringBuilder(normalizedConnectionString);
         var file = builder.DataSource;
 
-        if (file != "memory" && file != ":memory:" && !File.Exists(file))
+        if (!SQLiteConnectionStringFactory.IsInMemory(builder) && !File.Exists(file))
         {
             File.WriteAllBytes(file, []);
         }
 
-        using var connection = new SqliteConnection(connectionString);
+        using var connection = new SqliteConnection(normalizedConnectionString);
         connection.Open();
         var command = connection.CreateCommand();
         command.CommandText = sql.Text;

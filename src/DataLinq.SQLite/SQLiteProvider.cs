@@ -63,11 +63,19 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     }
 
     public SQLiteProvider(string connectionString, DataLinqLoggingConfiguration? loggerFactory = null) :
-        base(connectionString, DatabaseType.SQLite, loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration)
+        this(connectionString, null, loggerFactory)
+    { }
+
+    public SQLiteProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration? loggerFactory = null) :
+        base(
+            SQLiteConnectionStringFactory.NormalizeConnectionString(connectionString, databaseName),
+            DatabaseType.SQLite,
+            loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration)
     {
-        connectionStringBuilder = new SqliteConnectionStringBuilder(connectionString);
-        DatabaseName = Path.GetFileNameWithoutExtension(connectionStringBuilder.DataSource);
-        dbAccess = new SQLiteDbAccess(connectionString, LoggingConfiguration);
+        connectionStringBuilder = new SqliteConnectionStringBuilder(ConnectionString);
+        DatabaseName = databaseName ?? Path.GetFileNameWithoutExtension(connectionStringBuilder.DataSource);
+        SQLiteConnectionStringFactory.EnsureKeepAliveIfInMemory(connectionStringBuilder.ConnectionString);
+        dbAccess = new SQLiteDbAccess(ConnectionString, LoggingConfiguration);
         SetJournalMode(SQLiteJournalMode.WAL);
 
     }
@@ -283,11 +291,10 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override bool FileOrServerExists()
     {
-        var source = connectionStringBuilder.DataSource;
-
-        if (source == "memory")
+        if (SQLiteConnectionStringFactory.IsInMemory(connectionStringBuilder))
             return true;
 
+        var source = connectionStringBuilder.DataSource;
         return File.Exists(source);
     }
 

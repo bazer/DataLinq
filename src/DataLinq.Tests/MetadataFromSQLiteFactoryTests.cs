@@ -43,8 +43,13 @@ namespace DataLinq.Tests
         public MetadataFromSQLiteFactoryTests(DatabaseFixture fixture)
         {
             _fixture = fixture;
-            // Get the SQLite connection details from the fixture
-            _sqliteConnection = _fixture.EmployeeConnections.SingleOrDefault(c => c.Type == DatabaseType.SQLite)
+            // Prefer the file-based SQLite connection because these tests parse schema from a physical .db file.
+            var sqliteConnections = _fixture.EmployeeConnections.Where(c => c.Type == DatabaseType.SQLite).ToList();
+            _sqliteConnection = sqliteConnections
+                .FirstOrDefault(c =>
+                    !string.Equals(c.ConnectionString.Path, ":memory:", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(c.ConnectionString.Path, "memory", StringComparison.OrdinalIgnoreCase))
+                ?? sqliteConnections.FirstOrDefault()
                 ?? throw new InvalidOperationException("SQLite connection not found in fixture. Ensure SQLite tests are configured.");
 
             if (_sqliteConnection.ConnectionString.Path == null)

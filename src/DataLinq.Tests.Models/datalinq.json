@@ -5,7 +5,7 @@
       "Namespace": "DataLinq.Tests.Models.Employees",
       "CsType": "EmployeesDb",
       "SourceDirectories": [ "employees" ],
-      "DestinationDirectory": "employees\\gen",
+      "DestinationDirectory": "employees/gen",
       "UseCache": true,
       "UseRecord": false,
       "UseFileScopedNamespaces": true,
