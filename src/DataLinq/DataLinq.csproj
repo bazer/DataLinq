@@ -26,7 +26,7 @@
 		</Compile>
 		
 		<!-- Runtime Package References for DataLinq.dll -->
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="All" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="Remotion.Linq" />
 		<PackageReference Include="ThrowAway" />
