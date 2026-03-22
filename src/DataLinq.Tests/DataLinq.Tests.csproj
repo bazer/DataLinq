@@ -30,6 +30,9 @@
 		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<Analyzer Include="$(NuGetPackageRoot)throwaway\$(ThrowAwayVersion)\lib\netstandard2.0\ThrowAway.dll" />
+		<Analyzer Include="$(NuGetPackageRoot)sourcegenerator.foundations\$(SourceGeneratorFoundationsVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Contracts.dll" />
+		<Analyzer Include="$(NuGetPackageRoot)sourcegenerator.foundations\$(SourceGeneratorFoundationsVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Windows.dll" />
 	</ItemGroup>
 
 	<ItemGroup>

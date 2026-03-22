@@ -30,8 +30,8 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="ThrowAway" Version="0.3.1" PrivateAssets="all" GeneratePathProperty="true" />
-		<PackageReference Include="SourceGenerator.Foundations" Version="2.0.14">
+		<PackageReference Include="ThrowAway" Version="$(ThrowAwayVersion)" PrivateAssets="all" />
+		<PackageReference Include="SourceGenerator.Foundations" Version="$(SourceGeneratorFoundationsVersion)">
 			<PrivateAssets>All</PrivateAssets>
 		</PackageReference>
 	</ItemGroup>
@@ -43,11 +43,21 @@
 	<ItemGroup>
 		<!-- Package the generator in the analyzer directory of the nuget package -->
 		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
-
-		<!-- Package the ThrowAway dependency alongside the generator assembly -->
-		<None Include="$(PKGThrowAway)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
+		<None Include="$(OutputPath)\$(AssemblyName).deps.json" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
 	</ItemGroup>
     
+    <Target Name="CopyAnalyzerDependencies" AfterTargets="Build">
+		<ItemGroup>
+			<!-- Visual Studio design-time analyzer loading is stricter than command-line builds.
+			     Keep the generator's private dependencies beside the analyzer assembly. -->
+			<AnalyzerDependency Include="$(NuGetPackageRoot)throwaway\$(ThrowAwayVersion)\lib\netstandard2.0\ThrowAway.dll" />
+			<AnalyzerDependency Include="$(NuGetPackageRoot)sourcegenerator.foundations\$(SourceGeneratorFoundationsVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Contracts.dll" />
+			<AnalyzerDependency Include="$(NuGetPackageRoot)sourcegenerator.foundations\$(SourceGeneratorFoundationsVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Windows.dll" />
+		</ItemGroup>
+
+		<Copy SourceFiles="@(AnalyzerDependency)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+	</Target>
+
     <Target Name="ReloadSourceGenerator" BeforeTargets="BeforeBuild" DependsOnTargets="$(BeforeBuildDependsOn)">
 		<Exec Command="dotnet build-server shutdown" />
 	</Target>

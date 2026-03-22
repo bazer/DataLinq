@@ -27,6 +27,8 @@
 		<DLSourceDir>$(MSBuildThisFileDirectory)</DLSourceDir>
 		<DLProjectDir>$(DLSourceDir)DataLinq\</DLProjectDir>
 		<DLGeneratorsProjectDir>$(DLSourceDir)DataLinq.Generators\</DLGeneratorsProjectDir>
+		<ThrowAwayVersion>0.3.1</ThrowAwayVersion>
+		<SourceGeneratorFoundationsVersion>2.0.14</SourceGeneratorFoundationsVersion>
     </PropertyGroup>
 
 	<ItemGroup>
