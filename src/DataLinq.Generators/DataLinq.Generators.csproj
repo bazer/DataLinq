@@ -17,21 +17,21 @@
 			<Link>Core\%(RecursiveDir)%(FileName)%(Extension)</Link>
 		</Compile>
 		
-		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0">
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="All" />
-		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.201">
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="All" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MinVer" Version="7.0.0">
+		<PackageReference Include="MinVer">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="ThrowAway" Version="$(ThrowAwayVersion)" PrivateAssets="all" />
-		<PackageReference Include="SourceGenerator.Foundations" Version="$(SourceGeneratorFoundationsVersion)">
+		<PackageReference Include="ThrowAway" PrivateAssets="all" />
+		<PackageReference Include="SourceGenerator.Foundations">
 			<PrivateAssets>All</PrivateAssets>
 		</PackageReference>
 	</ItemGroup>
@@ -50,9 +50,9 @@
 		<ItemGroup>
 			<!-- Visual Studio design-time analyzer loading is stricter than command-line builds.
 			     Keep the generator's private dependencies beside the analyzer assembly. -->
-			<AnalyzerDependency Include="$(NuGetPackageRoot)throwaway\$(ThrowAwayVersion)\lib\netstandard2.0\ThrowAway.dll" />
-			<AnalyzerDependency Include="$(NuGetPackageRoot)sourcegenerator.foundations\$(SourceGeneratorFoundationsVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Contracts.dll" />
-			<AnalyzerDependency Include="$(NuGetPackageRoot)sourcegenerator.foundations\$(SourceGeneratorFoundationsVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Windows.dll" />
+			<AnalyzerDependency Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
+			<AnalyzerDependency Include="@(_SourceGeneratorFoundationsPackageVersion->'$(NuGetPackageRoot)sourcegenerator.foundations\%(ResolvedVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Contracts.dll')" />
+			<AnalyzerDependency Include="@(_SourceGeneratorFoundationsPackageVersion->'$(NuGetPackageRoot)sourcegenerator.foundations\%(ResolvedVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Windows.dll')" />
 		</ItemGroup>
 
 		<Copy SourceFiles="@(AnalyzerDependency)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />

@@ -7,17 +7,17 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Bogus" Version="35.6.5" />
-		<PackageReference Include="coverlet.collector" Version="8.0.1">
+		<PackageReference Include="Bogus" />
+		<PackageReference Include="coverlet.collector">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.5" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
-		<PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
-		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-		<PackageReference Include="xunit" Version="2.9.3" />
-		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="Serilog.Extensions.Logging" />
+		<PackageReference Include="Serilog.Sinks.File" />
+		<PackageReference Include="xunit" />
+		<PackageReference Include="xunit.runner.visualstudio">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 		</PackageReference>
@@ -29,9 +29,9 @@
 		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
 		<ProjectReference Include="..\DataLinq.Tools\DataLinq.Tools.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-		<Analyzer Include="$(NuGetPackageRoot)throwaway\$(ThrowAwayVersion)\lib\netstandard2.0\ThrowAway.dll" />
-		<Analyzer Include="$(NuGetPackageRoot)sourcegenerator.foundations\$(SourceGeneratorFoundationsVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Contracts.dll" />
-		<Analyzer Include="$(NuGetPackageRoot)sourcegenerator.foundations\$(SourceGeneratorFoundationsVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Windows.dll" />
+		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
+		<Analyzer Include="@(_SourceGeneratorFoundationsPackageVersion->'$(NuGetPackageRoot)sourcegenerator.foundations\%(ResolvedVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Contracts.dll')" />
+		<Analyzer Include="@(_SourceGeneratorFoundationsPackageVersion->'$(NuGetPackageRoot)sourcegenerator.foundations\%(ResolvedVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Windows.dll')" />
 	</ItemGroup>
 
 </Project>
