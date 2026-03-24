@@ -87,7 +87,7 @@ public class CoreTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployeeConnections))]
+    [MemberData(nameof(GetEmployeeConnections), DisableDiscoveryEnumeration = true)]
     public void TestMetadataFromSqlFactory(DataLinqDatabaseConnection connection)
     {
         var factory = PluginHook.MetadataFromSqlFactories[connection.Type]
@@ -102,7 +102,7 @@ public class CoreTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployeeConnections))]
+    [MemberData(nameof(GetEmployeeConnections), DisableDiscoveryEnumeration = true)]
     public void TestMetadataFromSqlAndMergeWithFiles(DataLinqDatabaseConnection connection)
     {
         var factory = PluginHook.MetadataFromSqlFactories[connection.Type]

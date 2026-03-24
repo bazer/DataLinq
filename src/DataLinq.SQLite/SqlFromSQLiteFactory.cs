@@ -63,7 +63,6 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
     {
         var normalizedConnectionString = SQLiteConnectionStringFactory.NormalizeConnectionString(connectionString, databaseName);
         SQLiteConnectionStringFactory.EnsureKeepAliveIfInMemory(normalizedConnectionString);
-
         var builder = new SqliteConnectionStringBuilder(normalizedConnectionString);
         var file = builder.DataSource;
 

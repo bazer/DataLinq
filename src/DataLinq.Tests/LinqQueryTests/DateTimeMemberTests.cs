@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using DataLinq.Tests.Models.Employees;
 using Xunit;
@@ -17,7 +17,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_DateOnly_Year(Database<EmployeesDb> employeesDb)
     {
         var (testDate, _, _) = GetTestDateAndTime(employeesDb);
@@ -27,7 +27,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_DateOnly_Month(Database<EmployeesDb> employeesDb)
     {
         var (testDate, _, _) = GetTestDateAndTime(employeesDb);
@@ -37,7 +37,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_DateOnly_Day(Database<EmployeesDb> employeesDb)
     {
         var (testDate, _, _) = GetTestDateAndTime(employeesDb);
@@ -47,7 +47,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_DateOnly_DayOfYear(Database<EmployeesDb> employeesDb)
     {
         var (testDate, _, _) = GetTestDateAndTime(employeesDb);
@@ -57,7 +57,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_DateOnly_DayOfWeek(Database<EmployeesDb> employeesDb)
     {
         var (testDate, _, _) = GetTestDateAndTime(employeesDb);
@@ -67,7 +67,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_TimeOnly_Hour(Database<EmployeesDb> employeesDb)
     {
         var (_, testTime, _) = GetTestDateAndTime(employeesDb);
@@ -77,7 +77,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_DateTime_Minute(Database<EmployeesDb> employeesDb)
     {
         var (_, _, testDateTime) = GetTestDateAndTime(employeesDb);
@@ -87,7 +87,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_DateTime_Second(Database<EmployeesDb> employeesDb)
     {
         var (_, _, testDateTime) = GetTestDateAndTime(employeesDb);
@@ -97,7 +97,7 @@ public class DateTimeMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_DateTime_Millisecond(Database<EmployeesDb> employeesDb)
     {
         var (_, _, testDateTime) = GetTestDateAndTime(employeesDb);

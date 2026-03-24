@@ -12,7 +12,7 @@ public class TransactionTests : BaseTests
     private Helpers helpers = new Helpers();
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void AttachTransaction(Database<EmployeesDb> employeesDb)
     {
         using IDbConnection dbConnection = employeesDb.Provider.GetDbConnection();
@@ -46,7 +46,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void AttachMutateTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999700;
@@ -78,7 +78,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void GetTransaction(Database<EmployeesDb> employeesDb)
     {
         using var transaction = employeesDb.Transaction();
@@ -114,7 +114,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Insert(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999999;
@@ -162,7 +162,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void InsertAutoIncrement(Database<EmployeesDb> employeesDb)
     {
         var employee = helpers.NewEmployee();
@@ -191,7 +191,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void InsertAndUpdateAutoIncrement(Database<EmployeesDb> employeesDb)
     {
         var employee = helpers.NewEmployee();
@@ -227,7 +227,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void UpdateNoChanges(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999795;
@@ -241,7 +241,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void UpdateImplicitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999998;
@@ -265,7 +265,7 @@ public class TransactionTests : BaseTests
 
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void UpdateExplicitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999997;
@@ -292,7 +292,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void RollbackTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999996;
@@ -327,7 +327,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void DoubleCommitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999995;
@@ -349,7 +349,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void DoubleRollbackTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999994;
@@ -371,7 +371,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void CommitRollbackTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999993;
@@ -393,7 +393,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void RollbackCommitTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999992;
@@ -415,7 +415,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TransactionCache(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999991;
@@ -441,7 +441,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Save(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999800;
@@ -455,7 +455,7 @@ public class TransactionTests : BaseTests
 
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void InsertRelations(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999799;
@@ -493,7 +493,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void InsertRelationsInTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999798;
@@ -534,7 +534,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void InsertRelationsReadAfterTransaction(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999797;
@@ -591,7 +591,7 @@ public class TransactionTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void UpdateOldModel(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999796;

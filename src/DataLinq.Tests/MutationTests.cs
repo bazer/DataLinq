@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using DataLinq.Tests.Models.Employees;
 using Xunit;
@@ -10,7 +10,7 @@ public class MutationTests : BaseTests
     private Helpers helpers = new Helpers();
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TestMutateNull(Database<EmployeesDb> employeesDb)
     {
         Assert.Throws<ArgumentNullException>(() =>
@@ -22,7 +22,7 @@ public class MutationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TestMutateNullNew(Database<EmployeesDb> employeesDb)
     {
         var employee = employeesDb.Query().Employees
@@ -34,7 +34,7 @@ public class MutationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Reset_Should_ResetToNewInstance(Database<EmployeesDb> employeesDb)
     {
         // Arrange
@@ -50,7 +50,7 @@ public class MutationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Reset_WithModel_Should_ResetToModelInstance(Database<EmployeesDb> employeesDb)
     {
         // Arrange
@@ -67,7 +67,7 @@ public class MutationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TestMutationSave_Should_NotHaveChanges(Database<EmployeesDb> employeesDb)
     {
         // Arrange
@@ -90,7 +90,7 @@ public class MutationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TestMutation_Should_HaveChanges(Database<EmployeesDb> employeesDb)
     {
         // Arrange

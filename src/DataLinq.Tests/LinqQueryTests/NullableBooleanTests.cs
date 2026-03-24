@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Tests.Models.Employees;
 using Xunit;
@@ -34,7 +34,7 @@ public class NullableBooleanTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_NullableBool_Equals_True(Database<EmployeesDb> employeesDb)
     {
         var empIds = SetupNullableBoolTestData(employeesDb);
@@ -53,7 +53,7 @@ public class NullableBooleanTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_NullableBool_NotEquals_True(Database<EmployeesDb> employeesDb)
     {
         var empIds = SetupNullableBoolTestData(employeesDb);
@@ -73,7 +73,7 @@ public class NullableBooleanTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_NullableBool_Equals_False(Database<EmployeesDb> employeesDb)
     {
         var empIds = SetupNullableBoolTestData(employeesDb);
@@ -92,7 +92,7 @@ public class NullableBooleanTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_NullableBool_NotEquals_False(Database<EmployeesDb> employeesDb)
     {
         var empIds = SetupNullableBoolTestData(employeesDb);
@@ -112,7 +112,7 @@ public class NullableBooleanTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_NullableBool_Equals_Null(Database<EmployeesDb> employeesDb)
     {
         var empIds = SetupNullableBoolTestData(employeesDb);

@@ -31,7 +31,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     public Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) => DLOptionFailure.CatchAll<DatabaseDefinition>(() =>
     {
-        var dbAccess = new SQLiteDatabaseTransaction(connectionString, Mutation.TransactionType.ReadOnly, DataLinqLoggingConfiguration.NullConfiguration);
+        var normalizedConnectionString = SQLiteConnectionStringFactory.NormalizeConnectionString(connectionString, dbName);
+        using var keepAliveLease = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(normalizedConnectionString);
+        var dbAccess = new SQLiteDbAccess(normalizedConnectionString, DataLinqLoggingConfiguration.NullConfiguration);
 
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
         database.SetTableModels(dbAccess
@@ -72,7 +74,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void ParseIndices(DatabaseDefinition database, SQLiteDatabaseTransaction dbAccess)
+    private void ParseIndices(DatabaseDefinition database, DatabaseAccess dbAccess)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
@@ -96,7 +98,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         }
     }
 
-    private void ParseRelations(DatabaseDefinition database, SQLiteDatabaseTransaction dbAccess)
+    private void ParseRelations(DatabaseDefinition database, DatabaseAccess dbAccess)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
@@ -120,7 +122,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         }
     }
 
-    private TableModel ParseTable(DatabaseDefinition database, IDataLinqDataReader reader, SQLiteDatabaseTransaction dbAccess)
+    private TableModel ParseTable(DatabaseDefinition database, IDataLinqDataReader reader, DatabaseAccess dbAccess)
     {
         var type = reader.GetString(0) == "table" ? TableType.Table : TableType.View;
         var table = type == TableType.Table
@@ -157,7 +159,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return definition;
     }
 
-    private ColumnDefinition ParseColumn(TableDefinition table, IDataLinqDataReader reader, SQLiteDatabaseTransaction dbAccess)
+    private ColumnDefinition ParseColumn(TableDefinition table, IDataLinqDataReader reader, DatabaseAccess dbAccess)
     {
         var dbType = new DatabaseColumnType(DatabaseType.SQLite, reader.GetString(2).ToLower());
 

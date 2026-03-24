@@ -8,7 +8,7 @@ namespace DataLinq.Tests;
 public class SqlQueryTests : BaseTests
 {
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhere(Database<EmployeesDb> employeesDb)
     {
         var departement = employeesDb
@@ -21,7 +21,7 @@ public class SqlQueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void GetFromQueryWhere(Database<EmployeesDb> employeesDb)
     {
         var departement = employeesDb.Transaction().GetFromQuery<Department>("SELECT * FROM departments WHERE dept_no = 'd005'");

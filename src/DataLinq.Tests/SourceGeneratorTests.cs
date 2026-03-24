@@ -23,7 +23,7 @@ public class SourceGeneratorTests
 
     public static IEnumerable<object[]> GetEmployees()
     {
-        foreach (var db in fixture.AllEmployeesDb)
+        foreach (var db in fixture.CreateEmployeeDatabases())
             yield return new object[] { db };
     }
 

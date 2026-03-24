@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Tests.Models.Employees;
 using Xunit;
@@ -33,7 +33,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_ToUpper(Database<EmployeesDb> employeesDb)
     {
         var (_, department) = SetupStringTestData(employeesDb);
@@ -45,7 +45,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_ToLower(Database<EmployeesDb> employeesDb)
     {
         var (_, department) = SetupStringTestData(employeesDb);
@@ -57,7 +57,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_Trim(Database<EmployeesDb> employeesDb)
     {
         var (employee, _) = SetupStringTestData(employeesDb);
@@ -70,7 +70,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_Substring(Database<EmployeesDb> employeesDb)
     {
         SetupStringTestData(employeesDb);
@@ -82,7 +82,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_IsNullOrEmpty_False(Database<EmployeesDb> employeesDb)
     {
         SetupStringTestData(employeesDb);
@@ -94,7 +94,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_IsNullOrEmpty_True(Database<EmployeesDb> employeesDb)
     {
         SetupStringTestData(employeesDb);
@@ -107,7 +107,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_IsNullOrWhiteSpace_False(Database<EmployeesDb> employeesDb)
     {
         SetupStringTestData(employeesDb);
@@ -120,7 +120,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_IsNullOrWhiteSpace_True(Database<EmployeesDb> employeesDb)
     {
         SetupStringTestData(employeesDb);
@@ -134,7 +134,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_Length(Database<EmployeesDb> employeesDb)
     {
         SetupStringTestData(employeesDb);
@@ -156,7 +156,7 @@ public class StringMemberTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_String_Trim_Length(Database<EmployeesDb> employeesDb)
     {
         SetupStringTestData(employeesDb);

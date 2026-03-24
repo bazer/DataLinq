@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Linq.Expressions;
 using DataLinq.Instances;
@@ -29,7 +29,7 @@ public class OptimizationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TryGetSimplePrimaryKey_SinglePK_ReturnsKey(Database<EmployeesDb> db)
     {
         // Arrange
@@ -46,7 +46,7 @@ public class OptimizationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TryGetSimplePrimaryKey_CompositePK_ReturnsKey(Database<EmployeesDb> db)
     {
         // Arrange
@@ -67,7 +67,7 @@ public class OptimizationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TryGetSimplePrimaryKey_NonPK_ReturnsNull(Database<EmployeesDb> db)
     {
         // Arrange
@@ -82,7 +82,7 @@ public class OptimizationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TryGetSimplePrimaryKey_PK_And_OtherColumn_ReturnsNull(Database<EmployeesDb> db)
     {
         // Arrange
@@ -98,7 +98,7 @@ public class OptimizationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TryGetSimplePrimaryKey_PartialCompositePK_ReturnsNull(Database<EmployeesDb> db)
     {
         // Arrange: dept-emp has PK (dept_no, emp_no)
@@ -113,7 +113,7 @@ public class OptimizationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TryGetSimplePrimaryKey_OrCondition_ReturnsNull(Database<EmployeesDb> db)
     {
         // Arrange
@@ -129,7 +129,7 @@ public class OptimizationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TryGetSimplePrimaryKey_Negated_ReturnsNull(Database<EmployeesDb> db)
     {
         // Arrange
@@ -144,7 +144,7 @@ public class OptimizationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TryGetSimplePrimaryKey_WorksWithVariables(Database<EmployeesDb> db)
     {
         // Tests the integration of Evaluator optimization + PK Short-circuit logic

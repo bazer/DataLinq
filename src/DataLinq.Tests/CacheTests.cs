@@ -40,7 +40,7 @@ public class CacheTests
 
     public static IEnumerable<object[]> GetEmployees()
     {
-        foreach (var db in fixture.AllEmployeesDb)
+        foreach (var db in fixture.CreateEmployeeDatabases())
             yield return new object[] { db };
     }
 
@@ -54,7 +54,7 @@ public class CacheTests
 
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void CheckRowDuplicates(Database<EmployeesDb> employeesDb)
     {
         var setup = new SharedSetup(employeesDb);
@@ -86,7 +86,7 @@ public class CacheTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TimeLimit(Database<EmployeesDb> employeesDb)
     {
         var setup = new SharedSetup(employeesDb);
@@ -156,7 +156,7 @@ public class CacheTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void RowLimit(Database<EmployeesDb> employeesDb)
     {
         var setup = new SharedSetup(employeesDb);
@@ -185,7 +185,7 @@ public class CacheTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SizeLimit(Database<EmployeesDb> employeesDb)
     {
         var setup = new SharedSetup(employeesDb);

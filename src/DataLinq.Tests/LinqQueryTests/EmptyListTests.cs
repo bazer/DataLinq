@@ -9,7 +9,7 @@ public class EmptyListTests : BaseTests
 {
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Contains_EmptyList_ShouldReturnEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -18,7 +18,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Contains_EmptyList_And_TrueCondition_ShouldReturnEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -29,7 +29,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Contains_EmptyList_Or_TrueCondition_ShouldReturnMatchingTrueCondition(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -49,7 +49,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Not_Contains_EmptyList_ShouldReturnAll(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -64,7 +64,7 @@ public class EmptyListTests : BaseTests
 
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Contains_EmptyList_Or_OtherNonEmptyContains_ShouldReturnMatchingNonEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -82,7 +82,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Contains_EmptyList_And_OtherNonEmptyContains_ShouldReturnEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -96,7 +96,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Any_EmptyList_ShouldReturnEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -107,7 +107,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Any_EmptyList_And_TrueCondition_ShouldReturnEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -118,7 +118,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Any_EmptyList_Or_TrueCondition_ShouldReturnMatchingTrueCondition(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -137,7 +137,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Not_Any_EmptyList_ShouldEffectivelyReturnAll_Robust(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -183,7 +183,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Any_EmptyList_Or_OtherNonEmptyAny_ShouldReturnMatchingNonEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -208,7 +208,7 @@ public class EmptyListTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Any_EmptyList_And_OtherNonEmptyAny_ShouldReturnEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();
@@ -228,7 +228,7 @@ public class EmptyListTests : BaseTests
     // Test for Any() with a more complex inner predicate
     // emptyList.Any(y => y > 100 && y == e.emp_no.Value) - result should be same (false if emptyList)
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_Any_EmptyList_WithComplexPredicate_ShouldReturnEmpty(Database<EmployeesDb> employeesDb)
     {
         var emptyList = new List<int>();

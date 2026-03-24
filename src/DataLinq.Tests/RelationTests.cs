@@ -8,7 +8,7 @@ namespace DataLinq.Tests;
 public class RelationTests : BaseTests
 {
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void LazyLoadSingleValue(Database<EmployeesDb> employeesDb)
     {
         var manager = employeesDb.Query().Managers.Single(x => x.dept_fk == "d005" && x.emp_no == 576);
@@ -18,7 +18,7 @@ public class RelationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void LazyLoadList(Database<EmployeesDb> employeesDb)
     {
         var department = Department.Get("d005", employeesDb);
@@ -31,7 +31,7 @@ public class RelationTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void EmptyList(Database<EmployeesDb> employeesDb)
     {
         var employee = employeesDb.Query().Employees.Single(x => x.emp_no == 1000);

@@ -192,7 +192,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// <summary>
     /// Releases all resources used by the DatabaseProvider.
     /// </summary>
-    public void Dispose()
+    public virtual void Dispose()
     {
         State.Dispose();
     }

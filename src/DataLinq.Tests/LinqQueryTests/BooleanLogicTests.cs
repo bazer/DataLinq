@@ -33,7 +33,7 @@ public class BooleanLogicTests : BaseTests
     // --- Test Group 1: Nested Groups and Operator Precedence ---
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G1_1_GroupedAnd_Or_Simple(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -54,7 +54,7 @@ public class BooleanLogicTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G1_2_SimpleAnd_GroupedOr(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -77,7 +77,7 @@ public class BooleanLogicTests : BaseTests
     // --- Test Group 2: Negation of Groups ---
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G2_1_NegatedGroupedAnd(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -98,7 +98,7 @@ public class BooleanLogicTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G2_2_NegatedGroupedOr_Robust(Database<EmployeesDb> employeesDb)
     {
         // 1. Get specific employee details for our conditions
@@ -192,7 +192,7 @@ public class BooleanLogicTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G2_3_SimpleAnd_NegatedGroupedOr(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -213,7 +213,7 @@ public class BooleanLogicTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G2_4_Negated_GroupedAnd_Or_GroupedAnd(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -236,7 +236,7 @@ public class BooleanLogicTests : BaseTests
     // --- Test Group 3: Negation of Contains / Any with Empty Lists within Groups ---
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G3_1_GroupedAnd_With_NegatedEmptyContains_Or_Simple(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -263,7 +263,7 @@ public class BooleanLogicTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G3_2_SimpleAnd_Negated_EmptyContains_Or_Simple(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -289,7 +289,7 @@ public class BooleanLogicTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G3_3_GroupedOr_With_NegatedEmptyAny_And_Simple(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -319,7 +319,7 @@ public class BooleanLogicTests : BaseTests
     // --- Test Group 4: Edge Cases with negations and ors consumption ---
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G4_1_NegatedSimple_Or_Simple_Robust(Database<EmployeesDb> employeesDb)
     {
         // 1. Get specific employee details for our conditions
@@ -399,7 +399,7 @@ public class BooleanLogicTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G4_2_Simple_Or_NegatedSimple(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);
@@ -420,7 +420,7 @@ public class BooleanLogicTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void G4_3_Negated_GroupedOr_With_InnerNegation_And_Simple(Database<EmployeesDb> employeesDb)
     {
         var details = GetTestEmployeeDetails(employeesDb);

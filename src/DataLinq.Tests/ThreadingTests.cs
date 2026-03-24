@@ -13,7 +13,7 @@ public class ThreadingTests : BaseTests
     private Helpers helpers = new Helpers();
     
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void StressTest(Database<EmployeesDb> employeesDb)
     {
         var amount = 100;
@@ -43,7 +43,7 @@ public class ThreadingTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void ReadParallel(Database<EmployeesDb> employeesDb)
     {
         Parallel.For(0, 100, i =>
@@ -63,7 +63,7 @@ public class ThreadingTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void CommitTransactionParallel(Database<EmployeesDb> employeesDb)
     {
         var emp_no = 999990;
@@ -92,7 +92,7 @@ public class ThreadingTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void LazyLoadSingleValue(Database<EmployeesDb> employeesDb)
     {
         Parallel.For(1, 10, i =>
@@ -105,7 +105,7 @@ public class ThreadingTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void LazyLoadList(Database<EmployeesDb> employeesDb)
     {
         Parallel.For(0, 100, i =>
@@ -120,7 +120,7 @@ public class ThreadingTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void MakeSnapshot(Database<EmployeesDb> employeesDb)
     {
         var rand = Random.Shared;

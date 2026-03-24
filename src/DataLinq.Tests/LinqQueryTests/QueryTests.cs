@@ -19,35 +19,35 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void ToList(Database<EmployeesDb> employeesDb)
     {
         Assert.True(10 < employeesDb.Query().Departments.ToList().Count);
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void ToListView(Database<EmployeesDb> employeesDb)
     {
         Assert.NotEmpty(employeesDb.Query().current_dept_emp.ToList());
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Count(Database<EmployeesDb> employeesDb)
     {
         Assert.True(10 < employeesDb.Query().Departments.Count());
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void CountView(Database<EmployeesDb> employeesDb)
     {
         Assert.NotEqual(0, employeesDb.Query().dept_emp_latest_date.Count());
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void StaticGet(Database<EmployeesDb> employeesDb)
     {
         var dep = employeesDb.Get<Department>(new StringKey("d005"));
@@ -60,7 +60,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhere(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => x.DeptNo == "d005").ToList();
@@ -69,7 +69,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereReverse(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => "d005" == x.DeptNo).ToList();
@@ -78,7 +78,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereNot(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => x.DeptNo != "d005").ToList();
@@ -87,7 +87,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereStartsWith(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => x.DeptNo.StartsWith("d00")).ToList();
@@ -96,7 +96,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereStartsWithAndToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => x.dept_fk.StartsWith("d00") && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
@@ -104,7 +104,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereNotStartsWithAndToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
@@ -112,7 +112,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereNotStartsWithAndStartsWithAndToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && x.dept_fk.EndsWith("2") && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
@@ -120,7 +120,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereNotStartsWithAndStartsWithAndNotToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && x.dept_fk.EndsWith("2") && !(x.from_date > DateOnly.Parse("2010-01-01"))).ToList();
@@ -128,7 +128,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereNotStartsWithAndGroupNotStartsWithToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") && x.from_date > DateOnly.Parse("2010-01-01"))).ToList();
@@ -136,7 +136,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereNotStartsWithAndGroupNotStartsWithAndNotToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") && !(x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
@@ -144,7 +144,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereNotStartsWithOrGroupNotStartsWithToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") && x.from_date > DateOnly.Parse("2010-01-01"))).ToList();
@@ -152,7 +152,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereNotStartsWithAndGroupNotStartsWithOrNotToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") && !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
@@ -160,7 +160,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereNotStartsWithOrGroupNotStartsWithOrNotToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => !x.dept_fk.StartsWith("d00") || !(x.dept_fk.EndsWith("2") || !(x.from_date > DateOnly.Parse("2010-01-01")))).ToList();
@@ -168,7 +168,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereIntEnumEqualsBackwards(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => ManagerType.FestiveManager == x.Type).ToList();
@@ -176,7 +176,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereIntEnumNotEqualsBackwards(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => ManagerType.AssistantManager != x.Type).ToList();
@@ -184,7 +184,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereIntEnumEquals(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => x.Type == ManagerType.FestiveManager).ToList();
@@ -192,7 +192,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereIntEnumNotEquals(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => x.Type != ManagerType.AssistantManager).ToList();
@@ -200,7 +200,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereValueEnumTypeEquals(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Employees.Where(x => x.gender == Employee.Employeegender.M).ToList();
@@ -208,7 +208,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereValueEnumTypeNotEquals(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Employees.Where(x => x.gender != Employee.Employeegender.M).ToList();
@@ -216,7 +216,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereValueEqualsNegated(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Employees.Where(x => !(x.gender == Employee.Employeegender.F)).ToList();
@@ -224,7 +224,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereValueNotEqualsNegated(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Employees.Where(x => !(x.gender != Employee.Employeegender.F)).ToList();
@@ -248,7 +248,7 @@ public class QueryTests : BaseTests
     //}
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereNotStartsWith(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => !x.DeptNo.StartsWith("d00")).ToList();
@@ -258,7 +258,7 @@ public class QueryTests : BaseTests
 
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereEndsWith(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => x.DeptNo.EndsWith("2")).ToList();
@@ -267,7 +267,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereNotEndsWith(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Departments.Where(x => !x.DeptNo.EndsWith("2")).ToList();
@@ -276,7 +276,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereContains(Database<EmployeesDb> employeesDb)
     {
         var ids = new[] { "d001", "d002", "d003" };
@@ -290,7 +290,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereNotContains(Database<EmployeesDb> employeesDb)
     {
         var ids = new[] { "d001", "d002", "d003" };
@@ -304,7 +304,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereContainsWithList(Database<EmployeesDb> employeesDb)
     {
         var ids = new List<string> { "d001", "d002", "d003" };
@@ -318,7 +318,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereContainsWithHashSet(Database<EmployeesDb> employeesDb)
     {
         var ids = new HashSet<string> { "d001", "d002", "d003" };
@@ -332,7 +332,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereMultipleContains(Database<EmployeesDb> employeesDb)
     {
         var deptIds = new[] { "d001", "d002", "d003" };
@@ -353,7 +353,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereContainsAndStartsWith(Database<EmployeesDb> employeesDb)
     {
         var deptIds = new[] { "d001", "d002", "d003" };
@@ -367,7 +367,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereContainsAndGreaterThan(Database<EmployeesDb> employeesDb)
     {
         var deptIds = new[] { "d001", "d002", "d003" };
@@ -384,7 +384,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereMultipleContainsAndStartsWith(Database<EmployeesDb> employeesDb)
     {
         var deptIds = new[] { "d001", "d002", "d003" };
@@ -405,7 +405,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereAndToList(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => x.dept_fk == "d004" && x.from_date > DateOnly.Parse("2010-01-01")).ToList();
@@ -413,7 +413,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void WhereAndCount(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => x.dept_fk == "d004" && x.from_date > DateOnly.Parse("2010-01-01"));
@@ -421,7 +421,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Single(Database<EmployeesDb> employeesDb)
     {
         var dept = employeesDb.Query().Departments.Single(x => x.DeptNo == "d005");
@@ -430,7 +430,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SingleOrDefault(Database<EmployeesDb> employeesDb)
     {
         var dept = employeesDb.Query().Departments.SingleOrDefault(x => x.DeptNo == "d005");
@@ -439,7 +439,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SingleOrDefaultNull(Database<EmployeesDb> employeesDb)
     {
         var dept = employeesDb.Query().Departments.SingleOrDefault(x => x.DeptNo == "1234");
@@ -447,21 +447,21 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SingleThrow(Database<EmployeesDb> employeesDb)
     {
         Assert.Throws<InvalidOperationException>(() => employeesDb.Query().salaries.Single(x => x.salary > 70000));
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SingleOrDefaultThrow(Database<EmployeesDb> employeesDb)
     {
         Assert.Throws<InvalidOperationException>(() => employeesDb.Query().salaries.SingleOrDefault(x => x.salary > 70000));
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void First(Database<EmployeesDb> employeesDb)
     {
         var salary = employeesDb.Query().salaries.First(x => x.salary > 70000);
@@ -470,7 +470,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void FirstOrDefault(Database<EmployeesDb> employeesDb)
     {
         var salary = employeesDb.Query().salaries.FirstOrDefault(x => x.salary > 70000);
@@ -479,7 +479,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void FirstOrderBy(Database<EmployeesDb> employeesDb)
     {
         var salary = employeesDb.Query().salaries.OrderBy(x => x.salary).First(x => x.salary > 70000);
@@ -489,7 +489,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void FirstOrDefaultOrderBy(Database<EmployeesDb> employeesDb)
     {
         var salary = employeesDb.Query().salaries.OrderBy(x => x.salary).FirstOrDefault(x => x.salary > 70000);
@@ -500,7 +500,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void LastOrDefaultOrderBy(Database<EmployeesDb> employeesDb)
     {
         var salary = employeesDb.Query().salaries.OrderByDescending(x => x.salary).LastOrDefault(x => x.salary > 70000);
@@ -511,7 +511,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void FirstOrDefaultNull(Database<EmployeesDb> employeesDb)
     {
         var salary = employeesDb.Query().salaries.FirstOrDefault(x => x.salary < 10000);
@@ -519,7 +519,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void LastOrDefaultNull(Database<EmployeesDb> employeesDb)
     {
         var salary = employeesDb.Query().salaries.LastOrDefault(x => x.salary < 10000);
@@ -527,7 +527,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Any(Database<EmployeesDb> employeesDb)
     {
         Assert.True(employeesDb.Query().Departments.Any(x => x.DeptNo == "d005"));
@@ -537,7 +537,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void OrderBy(Database<EmployeesDb> employeesDb)
     {
         SharedSetup(employeesDb);
@@ -550,7 +550,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void OrderBySelect(Database<EmployeesDb> employeesDb)
     {
         SharedSetup(employeesDb);
@@ -563,7 +563,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void OrderBySelectAnonymous(Database<EmployeesDb> employeesDb)
     {
         SharedSetup(employeesDb);
@@ -580,7 +580,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TakeAndSkip(Database<EmployeesDb> employeesDb)
     {
         var elevenEmployees = employeesDb.Query().Employees.OrderBy(x => x.emp_no).Take(11).ToList().Select(x => x.emp_no).ToList();
@@ -592,7 +592,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SkipAndTakeWithOrderBy(Database<EmployeesDb> employeesDb)
     {
         var employeesOrderedOrm = employeesDb.Query().Employees.Where(x => x.emp_no < 990000).OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(5).Take(10).ToList();
@@ -602,7 +602,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SkipAndTakeWithOrderByDescending(Database<EmployeesDb> employeesDb)
     {
         var employeesOrderedDescOrm = employeesDb.Query().Employees.Where(x => x.emp_no < 990000).OrderByDescending(e => e.birth_date).ThenByDescending(e => e.emp_no).Skip(5).Take(10).ToList();
@@ -612,7 +612,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SkipWithOrderBy(Database<EmployeesDb> employeesDb)
     {
         var employeesSkippedOrm = employeesDb.Query().Employees.Where(x => x.emp_no < 990000).OrderBy(e => e.birth_date).ThenBy(e => e.emp_no).Skip(10).ToList();
@@ -622,7 +622,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TakeWithOrderByDescending(Database<EmployeesDb> employeesDb)
     {
         var topEmployeesOrm = employeesDb.Query().Employees.OrderByDescending(e => e.hire_date).Take(5).ToList();
@@ -633,7 +633,7 @@ public class QueryTests : BaseTests
 
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void ComplexQueryWithTakeSkipAndMultipleOrderings(Database<EmployeesDb> employeesDb)
     {
         var complexQueryResultOrm = employeesDb.Query().Employees
@@ -654,7 +654,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public async Task TakeLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
     {
         await Assert.ThrowsAsync<NotSupportedException>(() =>
@@ -662,7 +662,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public async Task SkipLastThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
     {
         await Assert.ThrowsAsync<NotSupportedException>(() =>
@@ -670,7 +670,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void TakeWhileThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
     {
         Assert.Throws<NotSupportedException>(() =>
@@ -678,7 +678,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SkipWhileThrowsNotImplementedException(Database<EmployeesDb> employeesDb)
     {
         Assert.Throws<NotSupportedException>(() =>
@@ -687,7 +687,7 @@ public class QueryTests : BaseTests
 
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereTwoPropertiesEquals(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => x.emp_no == x.emp_no).ToList();
@@ -695,7 +695,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void SimpleWhereTwoPropertiesNotEquals(Database<EmployeesDb> employeesDb)
     {
         var where = employeesDb.Query().Managers.Where(x => x.emp_no != x.emp_no).ToList();
@@ -703,7 +703,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_TwoProperties_Equals(Database<EmployeesDb> employeesDb)
     {
         var expected = employeesDb.Query().DepartmentEmployees
@@ -726,7 +726,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_TwoProperties_NotEquals(Database<EmployeesDb> employeesDb)
     {
         var expected = employeesDb.Query().DepartmentEmployees
@@ -749,7 +749,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_TwoProperties_GreaterThan(Database<EmployeesDb> employeesDb)
     {
         var expected = employeesDb.Query().DepartmentEmployees
@@ -772,7 +772,7 @@ public class QueryTests : BaseTests
     }
 
     [Theory]
-    [MemberData(nameof(GetEmployees))]
+    [MemberData(nameof(GetEmployees), DisableDiscoveryEnumeration = true)]
     public void Where_TwoProperties_LessThanOrEqual(Database<EmployeesDb> employeesDb)
     {
         var expected = employeesDb.Query().DepartmentEmployees

@@ -17,7 +17,7 @@ public abstract class BaseTests
 
     public static IEnumerable<object[]> GetEmployees()
     {
-        foreach (var db in Fixture.AllEmployeesDb)
+        foreach (var db in Fixture.CreateEmployeeDatabases())
             yield return new object[] { db };
     }
 

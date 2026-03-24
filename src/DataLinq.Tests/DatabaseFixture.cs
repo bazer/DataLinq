@@ -11,6 +11,7 @@ using DataLinq.MySql;
 using DataLinq.MySql.information_schema;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models.Employees;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Xunit;
@@ -19,6 +20,8 @@ namespace DataLinq.Tests;
 
 public class DatabaseFixture : IDisposable
 {
+    private readonly string fixtureInstanceId = Guid.NewGuid().ToString("N");
+
     static DatabaseFixture()
     {
         MySQLProvider.RegisterProvider();
@@ -32,7 +35,9 @@ public class DatabaseFixture : IDisposable
     {
         var employees = DataLinqConfig.Databases.Single(x => x.Name == "employees");
 
-        EmployeeConnections = employees.Connections;
+        EmployeeConnections = employees.Connections
+            .Select(CreateEffectiveConnection)
+            .ToList();
         var lockObject = new object();
 
         // Configure Serilog
@@ -54,15 +59,16 @@ public class DatabaseFixture : IDisposable
         {
             var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
             provider.UseLoggerFactory(loggerFactory);
+            var effectiveDataSourceName = connection.DataSourceName;
 
-            var dbEmployees = provider.GetDatabaseProvider<EmployeesDb>(connection.ConnectionString.Original, connection.DataSourceName);
+            var dbEmployees = provider.GetDatabaseProvider<EmployeesDb>(connection.ConnectionString.Original, effectiveDataSourceName);
 
             lock (lockObject)
             {
                 if (!dbEmployees.FileOrServerExists() || !dbEmployees.DatabaseExists() || !dbEmployees.TableExists("employees"))
                 {
                     var result = PluginHook.CreateDatabaseFromMetadata(connection.Type,
-                        dbEmployees.Provider.Metadata, connection.DataSourceName, connection.ConnectionString.Original, true);
+                        dbEmployees.Provider.Metadata, effectiveDataSourceName, connection.ConnectionString.Original, true);
 
                     if (result.HasFailed)
                         Assert.Fail(result.Failure.ToString());
@@ -77,6 +83,7 @@ public class DatabaseFixture : IDisposable
             }
 
             AllEmployeesDb.Add(dbEmployees);
+            EmployeeDatabaseMap[connection] = dbEmployees;
 
         }
 
@@ -93,8 +100,52 @@ public class DatabaseFixture : IDisposable
     public static DataLinqConfig DataLinqConfig { get; set; }
     public List<DataLinqDatabaseConnection> EmployeeConnections { get; set; } = new();
     public List<Database<EmployeesDb>> AllEmployeesDb { get; set; } = new();
+    public Dictionary<DataLinqDatabaseConnection, Database<EmployeesDb>> EmployeeDatabaseMap { get; } = new();
     public MariaDBDatabase<MariaDBInformationSchema>? MariaDB_information_schema { get; set; }
     public MySqlDatabase<MySQLInformationSchema>? MySQL_information_schema { get; set; }
+
+    private DataLinqDatabaseConnection CreateEffectiveConnection(DataLinqDatabaseConnection connection)
+    {
+        var effectiveDataSourceName = GetEffectiveDataSourceName(connection);
+        if (effectiveDataSourceName == connection.DataSourceName)
+            return connection;
+
+        var effectiveConnectionString = connection.ConnectionString.Original;
+        if (connection.Type == DatabaseType.SQLite)
+        {
+            var builder = new SqliteConnectionStringBuilder(connection.ConnectionString.Original)
+            {
+                DataSource = effectiveDataSourceName,
+                Mode = SqliteOpenMode.Memory,
+                Cache = SqliteCacheMode.Shared
+            };
+            effectiveConnectionString = builder.ConnectionString;
+        }
+
+        return new DataLinqDatabaseConnection(
+            connection.DatabaseConfig,
+            new ConfigFileDatabaseConnection
+            {
+                Type = connection.Type.ToString(),
+                DataSourceName = effectiveDataSourceName,
+                ConnectionString = effectiveConnectionString
+            });
+    }
+
+    private string GetEffectiveDataSourceName(DataLinqDatabaseConnection connection)
+    {
+        if (connection.Type != DatabaseType.SQLite)
+            return connection.DataSourceName;
+
+        var source = connection.ConnectionString.Path;
+        if (string.IsNullOrWhiteSpace(source))
+            return connection.DataSourceName;
+
+        if (source == ":memory:" || source.Equals("memory", StringComparison.OrdinalIgnoreCase))
+            return $"{connection.DataSourceName}_{fixtureInstanceId}";
+
+        return connection.DataSourceName;
+    }
 
     public void FillEmployeesWithBogusData(Database<EmployeesDb> database)
     {
@@ -181,6 +232,32 @@ public class DatabaseFixture : IDisposable
         }
 
         transaction.Commit();
+    }
+
+    public IEnumerable<Database<EmployeesDb>> CreateEmployeeDatabases()
+    {
+        foreach (var connection in EmployeeConnections)
+        {
+            if (IsInMemorySQLiteConnection(connection))
+            {
+                var provider = PluginHook.DatabaseProviders.Single(x => x.Key == connection.Type).Value;
+                yield return provider.GetDatabaseProvider<EmployeesDb>(connection.ConnectionString.Original, connection.DataSourceName);
+                continue;
+            }
+
+            yield return EmployeeDatabaseMap[connection];
+        }
+    }
+
+    private static bool IsInMemorySQLiteConnection(DataLinqDatabaseConnection connection)
+    {
+        if (connection.Type != DatabaseType.SQLite)
+            return false;
+
+        var builder = new SqliteConnectionStringBuilder(connection.ConnectionString.Original);
+        return builder.Mode == SqliteOpenMode.Memory ||
+            builder.DataSource == ":memory:" ||
+            builder.DataSource.Equals("memory", StringComparison.OrdinalIgnoreCase);
     }
 
     // Helper to clean up specific test employees to avoid PK conflicts across test runs
