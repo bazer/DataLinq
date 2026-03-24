@@ -272,7 +272,13 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override Sql GetParameter(Sql sql, string key, object? value)
     {
-        return sql.AddParameters(new SqliteParameter("@" + key, value ?? DBNull.Value));
+        var normalizedValue = value switch
+        {
+            Guid guid => guid.ToString("D"),
+            _ => value ?? DBNull.Value
+        };
+
+        return sql.AddParameters(new SqliteParameter("@" + key, normalizedValue));
     }
 
     public override Sql GetLimitOffset(Sql sql, int? limit, int? offset)

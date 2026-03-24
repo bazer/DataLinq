@@ -32,7 +32,7 @@ public class CoreTests : BaseTests
     [Fact]
     public void TestMetadataFromFixture()
     {
-        Assert.Equal(3, DatabaseDefinition.LoadedDatabases.Count);
+        Assert.True(DatabaseDefinition.LoadedDatabases.Count >= 3);
         Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(EmployeesDb));
         Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(MariaDBInformationSchema));
         Assert.Contains(DatabaseDefinition.LoadedDatabases, x => x.Key == typeof(MySQLInformationSchema));

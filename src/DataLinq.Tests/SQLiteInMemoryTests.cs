@@ -1,7 +1,12 @@
 using System;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
+using DataLinq.Query;
 using DataLinq.SQLite;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Data.Sqlite;
@@ -99,4 +104,90 @@ public class SQLiteInMemoryTests
         var objectCount = Convert.ToInt32(command.ExecuteScalar());
         Assert.True(objectCount > 0, $"Expected schema objects in '{connection.ConnectionString.Original}', but found none.");
     }
+
+    [Fact]
+    public void SqlQueryGuidPredicateMatchesRawTextGuidInSQLite()
+    {
+        using var db = CreateGuidTextDatabase();
+        var guid = Guid.NewGuid();
+
+        var inserted = db.Provider.DatabaseAccess.ExecuteNonQuery(
+            $"INSERT INTO sqliteguidrows (guid) VALUES ('{guid:D}')");
+
+        Assert.Equal(1, inserted);
+
+        var keys = new SqlQuery<SQLiteGuidRow>(db.Provider.ReadOnlyAccess)
+            .Where("guid")
+            .EqualTo(guid)
+            .SelectQuery()
+            .ReadKeys()
+            .ToArray();
+
+        Assert.Single(keys);
+    }
+
+    [Fact]
+    public void LinqGuidPredicateMatchesRawTextGuidInSQLite()
+    {
+        using var db = CreateGuidTextDatabase();
+        var guid = Guid.NewGuid();
+
+        var inserted = db.Provider.DatabaseAccess.ExecuteNonQuery(
+            $"INSERT INTO sqliteguidrows (guid) VALUES ('{guid:D}')");
+
+        Assert.Equal(1, inserted);
+
+        var row = db.Query().GuidRows.SingleOrDefault(x => x.Guid == guid);
+        Assert.NotNull(row);
+        Assert.Equal(guid, row.Guid);
+    }
+
+    private static SQLiteDatabase<SQLiteGuidTextDb> CreateGuidTextDatabase()
+    {
+        var databaseName = $"sqlite_guid_text_{Guid.NewGuid():N}";
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = databaseName,
+            Mode = SqliteOpenMode.Memory,
+            Cache = SqliteCacheMode.Shared
+        }.ConnectionString;
+
+        var db = new SQLiteDatabase<SQLiteGuidTextDb>(connectionString, databaseName);
+
+        var createResult = PluginHook.CreateDatabaseFromMetadata(
+            DatabaseType.SQLite,
+            db.Provider.Metadata,
+            databaseName,
+            connectionString,
+            true);
+
+        if (createResult.HasFailed)
+        {
+            db.Dispose();
+            Assert.Fail(createResult.Failure.ToString());
+        }
+
+        return db;
+    }
+}
+
+[Database("sqliteguidtext")]
+public sealed partial class SQLiteGuidTextDb(DataSourceAccess dataSource) : IDatabaseModel
+{
+    public DbRead<SQLiteGuidRow> GuidRows { get; } = new(dataSource);
+}
+
+[Table("sqliteguidrows")]
+public abstract partial class SQLiteGuidRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<SQLiteGuidRow, SQLiteGuidTextDb>(rowData, dataSource), ITableModel<SQLiteGuidTextDb>
+{
+    [PrimaryKey]
+    [AutoIncrement]
+    [Type(DatabaseType.SQLite, "INTEGER")]
+    [Column("id")]
+    public abstract int? Id { get; }
+
+    [Type(DatabaseType.SQLite, "TEXT")]
+    [Column("guid")]
+    public abstract Guid Guid { get; }
 }
