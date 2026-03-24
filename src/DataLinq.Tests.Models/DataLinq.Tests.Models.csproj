@@ -11,8 +11,6 @@
 		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
-		<Analyzer Include="@(_SourceGeneratorFoundationsPackageVersion->'$(NuGetPackageRoot)sourcegenerator.foundations\%(ResolvedVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Contracts.dll')" />
-		<Analyzer Include="@(_SourceGeneratorFoundationsPackageVersion->'$(NuGetPackageRoot)sourcegenerator.foundations\%(ResolvedVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Windows.dll')" />
 	</ItemGroup>
 
 	<ItemGroup>

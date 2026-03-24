@@ -9,64 +9,70 @@ using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using SGF;
 using ThrowAway;
 
 [assembly: InternalsVisibleTo("DataLinq.Generators.Tests")]
 
 namespace DataLinq.SourceGenerators;
 
-[IncrementalGenerator]
-public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
+[Generator]
+public sealed class ModelGenerator : IIncrementalGenerator
 {
+    private const string GeneratorName = "DataLinqSourceGenerator";
     private readonly MetadataFromModelsFactory metadataFactory = new(new MetadataFromInterfacesFactoryOptions());
     private readonly GeneratorFileFactory fileFactory = new(new GeneratorFileFactoryOptions());
 
-    public override void OnInitialize(SgfInitializationContext context)
+    public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        // 1. Get the class declarations
+        try
+        {
+            InitializeCore(context);
+        }
+        catch (Exception exception)
+        {
+            context.ReportInitializationException(exception, GeneratorName);
+        }
+    }
+
+    private void InitializeCore(IncrementalGeneratorInitializationContext context)
+    {
         IncrementalValuesProvider<TypeDeclarationSyntax> modelDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
-                predicate: static (s, _) => IsModelDeclaration(s),
-                transform: static (ctx, _) => GetModelDeclaration(ctx))
-            .Where(static m => m is not null)!;
+                predicate: static (node, _) => IsModelDeclaration(node),
+                transform: static (syntaxContext, _) => GetModelDeclaration(syntaxContext))
+            .Where(static declaration => declaration is not null)!;
 
-        // 2. Collect them into a list
         IncrementalValueProvider<ImmutableArray<TypeDeclarationSyntax>> collectedClasses =
             modelDeclarations.Collect();
 
-        // 3. Pass ONLY the classes to the factory.
         IncrementalValuesProvider<Option<DatabaseDefinition, IDLOptionFailure>> cachedMetadata =
-            collectedClasses.SelectMany((syntaxTrees, ct) =>
+            collectedClasses.SelectMany((syntaxTrees, cancellationToken) =>
             {
                 try
                 {
-                    if (ct.IsCancellationRequested)
+                    if (cancellationToken.IsCancellationRequested)
                         return Enumerable.Empty<Option<DatabaseDefinition, IDLOptionFailure>>();
 
                     return metadataFactory.ReadSyntaxTrees(syntaxTrees);
                 }
                 catch (Exception e)
                 {
-                    // Return a failure option wrapped in an array
                     return new Option<DatabaseDefinition, IDLOptionFailure>[] { DLOptionFailure.Fail(e) };
                 }
             });
 
-        // 4. Check if nullable reference types are enabled
-        context.RegisterSourceOutput(context.CompilationProvider, (spc, compilation) =>
+        context.RegisterSourceOutputSafely(context.CompilationProvider, (sourceProductionContext, compilation) =>
         {
             fileFactory.Options.UseNullableReferenceTypes = IsNullableEnabled(compilation);
-        });
+        }, GeneratorName);
 
-        // 5. Register Output
-        context.RegisterSourceOutput(cachedMetadata, (spc, metadata) =>
+        context.RegisterSourceOutputSafely(cachedMetadata, (sourceProductionContext, metadata) =>
         {
-            if (spc.CancellationToken.IsCancellationRequested)
+            if (sourceProductionContext.CancellationToken.IsCancellationRequested)
                 return;
 
-            ExecuteForDatabase(metadata, spc);
-        });
+            ExecuteForDatabase(metadata, sourceProductionContext);
+        }, GeneratorName);
     }
 
     private static bool IsModelDeclaration(SyntaxNode node)
@@ -79,13 +85,11 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;
 
-    private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, SgfSourceProductionContext context)
+    private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, SourceProductionContext context)
     {
         if (db.HasFailed)
         {
-            // Create more detailed diagnostics with error location if available
             var failure = db.Failure;
-            var location = Location.None;
             context.ReportDiagnostic(Diagnostic.Create(
                 new DiagnosticDescriptor(
                     "DLG001",
@@ -94,7 +98,7 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
                     "DataLinq.Generators",
                     DiagnosticSeverity.Error,
                     true),
-                location));
+                Location.None));
             return;
         }
 
@@ -129,20 +133,4 @@ public class ModelGenerator() : IncrementalGenerator("DataLinqSourceGenerator")
             _ => false,
         };
     }
-
-    private void LogInfo(SgfSourceProductionContext context, string message)
-    {
-#if DEBUG
-        context.ReportDiagnostic(Diagnostic.Create(
-            new DiagnosticDescriptor(
-                "DLG999",
-                "Info",
-                message,
-                "DataLinq.Generators",
-                DiagnosticSeverity.Info,
-                true),
-            Location.None));
-#endif
-    }
-
 }

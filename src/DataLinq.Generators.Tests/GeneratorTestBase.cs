@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using DataLinq.SourceGenerators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
+using DataLinq.SourceGenerators;
 
 namespace DataLinq.Generators.Tests;
 
@@ -38,9 +38,8 @@ public abstract class GeneratorTestBase
         //    Assert.Fail($"Test source has compilation errors before generator run:\n{string.Join('\n', preGenDiagnostics.Select(e => e.ToString()))}");
         //}
 
-        var generator = new ModelGenerator();
-        ModelGeneratorHoist host = new(generator);
-        var driver = CSharpGeneratorDriver.Create(host); //.WithParseOptions(parseOptions);
+        IIncrementalGenerator generator = new ModelGenerator();
+        var driver = CSharpGeneratorDriver.Create(generator.AsSourceGenerator()); //.WithParseOptions(parseOptions);
         driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
 
         var generatorErrors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();

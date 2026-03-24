@@ -31,9 +31,6 @@
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="ThrowAway" PrivateAssets="all" />
-		<PackageReference Include="SourceGenerator.Foundations">
-			<PrivateAssets>All</PrivateAssets>
-		</PackageReference>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -46,13 +43,11 @@
 		<None Include="$(OutputPath)\$(AssemblyName).deps.json" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
 	</ItemGroup>
     
-    <Target Name="CopyAnalyzerDependencies" AfterTargets="Build">
+	<Target Name="CopyAnalyzerDependencies" AfterTargets="Build">
 		<ItemGroup>
 			<!-- Visual Studio design-time analyzer loading is stricter than command-line builds.
 			     Keep the generator's private dependencies beside the analyzer assembly. -->
 			<AnalyzerDependency Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
-			<AnalyzerDependency Include="@(_SourceGeneratorFoundationsPackageVersion->'$(NuGetPackageRoot)sourcegenerator.foundations\%(ResolvedVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Contracts.dll')" />
-			<AnalyzerDependency Include="@(_SourceGeneratorFoundationsPackageVersion->'$(NuGetPackageRoot)sourcegenerator.foundations\%(ResolvedVersion)\lib\netstandard2.0\SourceGenerator.Foundations.Windows.dll')" />
 		</ItemGroup>
 
 		<Copy SourceFiles="@(AnalyzerDependency)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
