@@ -164,9 +164,37 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
     {
         var left = GetOperand(node.Left);
         var right = GetOperand(node.Right);
+        (left, right) = NormalizeValueOperandsForColumnTypes(left, right);
 
         return new Comparison(left, GetOperator(node.NodeType), right);
     }
+
+    private static (Operand left, Operand right) NormalizeValueOperandsForColumnTypes(Operand left, Operand right)
+    {
+        if (left is ColumnOperandWithDefinition leftColumn && right is ValueOperand rightValue)
+            right = NormalizeValueOperandForColumnType(leftColumn.ColumnDefinition, rightValue);
+
+        if (right is ColumnOperandWithDefinition rightColumn && left is ValueOperand leftValue)
+            left = NormalizeValueOperandForColumnType(rightColumn.ColumnDefinition, leftValue);
+
+        return (left, right);
+    }
+
+    private static ValueOperand NormalizeValueOperandForColumnType(ColumnDefinition column, ValueOperand valueOperand)
+    {
+        var columnType = Nullable.GetUnderlyingType(column.ValueProperty.CsType.Type) ?? column.ValueProperty.CsType.Type;
+        if (columnType != typeof(char))
+            return valueOperand;
+
+        return Operand.Value(valueOperand.Values.Select(NormalizeCharComparisonValue).ToArray());
+    }
+
+    private static object? NormalizeCharComparisonValue(object? value) => value switch
+    {
+        int intValue when intValue >= char.MinValue && intValue <= char.MaxValue => (char)intValue,
+        string stringValue when stringValue.Length == 1 => stringValue[0],
+        _ => value
+    };
 
     protected Operand GetOperand(Expression expression)
     {

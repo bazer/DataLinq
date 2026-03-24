@@ -142,6 +142,41 @@ public class SQLiteInMemoryTests
         Assert.Equal(guid, row.Guid);
     }
 
+    [Fact]
+    public void SqlQueryCharPredicateMatchesRawTextCharInSQLite()
+    {
+        using var db = CreateCharTextDatabase();
+
+        var inserted = db.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO sqlitecharrows (status) VALUES ('N')");
+
+        Assert.Equal(1, inserted);
+
+        var keys = new SqlQuery<SQLiteCharRow>(db.Provider.ReadOnlyAccess)
+            .Where("status")
+            .EqualTo('N')
+            .SelectQuery()
+            .ReadKeys()
+            .ToArray();
+
+        Assert.Single(keys);
+    }
+
+    [Fact]
+    public void LinqCharPredicateMatchesRawTextCharInSQLite()
+    {
+        using var db = CreateCharTextDatabase();
+
+        var inserted = db.Provider.DatabaseAccess.ExecuteNonQuery(
+            "INSERT INTO sqlitecharrows (status) VALUES ('N')");
+
+        Assert.Equal(1, inserted);
+
+        var row = db.Query().CharRows.SingleOrDefault(x => x.Status == 'N');
+        Assert.NotNull(row);
+        Assert.Equal('N', row.Status);
+    }
+
     private static SQLiteDatabase<SQLiteGuidTextDb> CreateGuidTextDatabase()
     {
         var databaseName = $"sqlite_guid_text_{Guid.NewGuid():N}";
@@ -153,6 +188,34 @@ public class SQLiteInMemoryTests
         }.ConnectionString;
 
         var db = new SQLiteDatabase<SQLiteGuidTextDb>(connectionString, databaseName);
+
+        var createResult = PluginHook.CreateDatabaseFromMetadata(
+            DatabaseType.SQLite,
+            db.Provider.Metadata,
+            databaseName,
+            connectionString,
+            true);
+
+        if (createResult.HasFailed)
+        {
+            db.Dispose();
+            Assert.Fail(createResult.Failure.ToString());
+        }
+
+        return db;
+    }
+
+    private static SQLiteDatabase<SQLiteCharTextDb> CreateCharTextDatabase()
+    {
+        var databaseName = $"sqlite_char_text_{Guid.NewGuid():N}";
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = databaseName,
+            Mode = SqliteOpenMode.Memory,
+            Cache = SqliteCacheMode.Shared
+        }.ConnectionString;
+
+        var db = new SQLiteDatabase<SQLiteCharTextDb>(connectionString, databaseName);
 
         var createResult = PluginHook.CreateDatabaseFromMetadata(
             DatabaseType.SQLite,
@@ -190,4 +253,25 @@ public abstract partial class SQLiteGuidRow(IRowData rowData, IDataSourceAccess 
     [Type(DatabaseType.SQLite, "TEXT")]
     [Column("guid")]
     public abstract Guid Guid { get; }
+}
+
+[Database("sqlitechartext")]
+public sealed partial class SQLiteCharTextDb(DataSourceAccess dataSource) : IDatabaseModel
+{
+    public DbRead<SQLiteCharRow> CharRows { get; } = new(dataSource);
+}
+
+[Table("sqlitecharrows")]
+public abstract partial class SQLiteCharRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<SQLiteCharRow, SQLiteCharTextDb>(rowData, dataSource), ITableModel<SQLiteCharTextDb>
+{
+    [PrimaryKey]
+    [AutoIncrement]
+    [Type(DatabaseType.SQLite, "INTEGER")]
+    [Column("id")]
+    public abstract int? Id { get; }
+
+    [Type(DatabaseType.SQLite, "TEXT")]
+    [Column("status")]
+    public abstract char Status { get; }
 }
