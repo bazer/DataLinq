@@ -184,6 +184,10 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             ? columnName
             : $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
 
+        var columnText = $"CAST({quotedColumnName} AS TEXT)";
+        var fractionStart = $"instr({columnText}, '.') + 1";
+        var truncatedMillisecond = $"CAST(substr(substr({columnText}, {fractionStart}) || '000', 1, 3) AS INTEGER)";
+
         return functionType switch
         {
             // Date Parts
@@ -198,8 +202,9 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             SqlFunctionType.TimePartHour => $"CAST(strftime('%H', {quotedColumnName}) AS INTEGER)",
             SqlFunctionType.TimePartMinute => $"CAST(strftime('%M', {quotedColumnName}) AS INTEGER)",
             SqlFunctionType.TimePartSecond => $"CAST(strftime('%S', {quotedColumnName}) AS INTEGER)",
-            // strftime('%f') returns seconds with fractional part. Multiply by 1000 and take integer part.
-            SqlFunctionType.TimePartMillisecond => $"CAST((strftime('%f', {quotedColumnName}) * 1000) % 1000 AS INTEGER)",
+            // .NET's DateTime.Millisecond truncates ticks to the millisecond component.
+            // SQLite's strftime('%f') rounds to 3 decimals, so use the stored fractional text when available.
+            SqlFunctionType.TimePartMillisecond => $"CASE WHEN instr({columnText}, '.') > 0 THEN {truncatedMillisecond} ELSE CAST(SUBSTR(strftime('%f', {quotedColumnName}), 4, 3) AS INTEGER) END",
 
             // String Parts
             SqlFunctionType.StringLength => $"LENGTH({quotedColumnName})",
