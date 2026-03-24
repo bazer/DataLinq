@@ -30,3 +30,4 @@ launchSettings.json
 /gitlog-detailed.md
 /.dotnet
 /artifacts/nupkg-test
+/artifacts
