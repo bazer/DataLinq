@@ -241,6 +241,18 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
             Assert.True(result.HasValue);
             var attribute = Assert.IsType<DefaultAttribute>(result.Value);
             Assert.Equal("Hello", attribute.Value);
+            Assert.Equal(@"""Hello""", attribute.CodeExpression);
+        }
+
+        [Fact]
+        public void TestParseAttributeSyntax_DefaultValue_EnumExpression_PreservesCodeExpression()
+        {
+            var (parser, syntax) = GetAttributeSyntax(@"[Default(StatusEnum.Active)]");
+            var result = parser.ParseAttribute(syntax);
+            Assert.True(result.HasValue);
+            var attribute = Assert.IsType<DefaultAttribute>(result.Value);
+            Assert.Equal("StatusEnum.Active", attribute.Value);
+            Assert.Equal("StatusEnum.Active", attribute.CodeExpression);
         }
 
         [Fact]

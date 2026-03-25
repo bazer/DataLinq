@@ -2,6 +2,7 @@
 using System.Linq;
 using DataLinq.Config;
 using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using MySqlConnector;
 using Xunit;
 
@@ -171,6 +172,48 @@ public class MySqlTypeMappingTests : IClassFixture<MySqlTypeMappingFixture>
     public void TestIntegerTypeMappings(string mysqlType, string csharpType)
     {
         TestTypeMapping(mysqlType, csharpType);
+    }
+
+    [Fact]
+    public void TestStringDefaultWithEmbeddedDoubleQuotes_GeneratesCleanCSharpDefault()
+    {
+        var tableName = "default_string_quotes_test";
+
+        using var transaction = new SqlDatabaseTransaction(
+             new MySqlDataSourceBuilder(_mySqlConnection.ConnectionString.Original).Build(),
+             Mutation.TransactionType.ReadAndWrite,
+             _dbName,
+             Logging.DataLinqLoggingConfiguration.NullConfiguration);
+
+        try
+        {
+            transaction.ExecuteNonQuery($"""
+                CREATE TABLE `{tableName}` (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    quote_text VARCHAR(355) NOT NULL DEFAULT '""'
+                );
+                """);
+
+            var options = new MetadataFromDatabaseFactoryOptions { Include = [tableName], CapitaliseNames = true };
+            var factory = MetadataFromSqlFactory.GetSqlFactory(options, DatabaseType.MariaDB);
+            var dbDefinition = factory.ParseDatabase(
+                _dbName,
+                "TestDb",
+                "TestNamespace",
+                _dbName,
+                _mySqlConnection.ConnectionString.Original).Value;
+
+            var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(dbDefinition)
+                .Single(file => file.path == "DefaultStringQuotesTest.cs");
+
+            Assert.Contains("[Default(\"\\\"\\\"\")]", generatedFile.contents);
+            Assert.DoesNotContain("[Default(\"'\\\"\\\"'\")]", generatedFile.contents);
+        }
+        finally
+        {
+            transaction.ExecuteNonQuery($"DROP TABLE IF EXISTS `{tableName}`;");
+        }
     }
 
     // --- Floating Point and Decimal Types ---

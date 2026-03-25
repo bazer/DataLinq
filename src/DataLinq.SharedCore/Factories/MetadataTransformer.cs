@@ -130,6 +130,16 @@ public class MetadataTransformer
                 destProperty.SetCsSize(srcProperty.CsSize);
             }
 
+            if (srcProperty.HasDefaultValue() &&
+                (srcProperty.EnumProperty != null || !MetadataTypeConverter.IsKnownCsType(srcProperty.CsType.Name)))
+            {
+                var sourceDefault = srcProperty.GetDefaultAttribute();
+                destProperty.SetAttributes(
+                    destProperty.Attributes
+                        .Where(x => x is not DefaultAttribute)
+                        .Concat(sourceDefault != null ? [sourceDefault] : []));
+            }
+
             foreach (var srcAttribute in srcProperty.Attributes.OfType<TypeAttribute>())
             {
                 if (!destProperty.Attributes.OfType<TypeAttribute>().Any(x => x.DatabaseType == srcAttribute.DatabaseType))

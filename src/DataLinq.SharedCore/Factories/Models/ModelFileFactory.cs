@@ -246,7 +246,7 @@ public class ModelFileFactory
                 else if (defaultAttr is DefaultNewUUIDAttribute)
                     yield return $"{namespaceTab}{tab}[DefaultNewUUID]";
                 else if (defaultAttr != null)
-                    yield return $"{namespaceTab}{tab}[Default({FormatDefaultValue(defaultAttr.Value)})]";
+                    yield return $"{namespaceTab}{tab}[Default({valueProperty.GetDefaultValueCode()})]";
             }
 
             if (valueProperty.EnumProperty != null)
@@ -283,29 +283,6 @@ public class ModelFileFactory
         }
 
         yield return namespaceTab + "}";
-    }
-
-    private string FormatDefaultValue(object value)
-    {
-        if (value is string str)
-            return SymbolDisplay.FormatLiteral(str, quote: true);
-
-        if (value is char ch)
-            return SymbolDisplay.FormatLiteral(ch, quote: true);
-
-        if (value is bool b)
-            return b ? "true" : "false";
-
-        if (value is DateTime dt)
-            return $"DateTime.Parse({SymbolDisplay.FormatLiteral($"{dt:yyyy-MM-dd HH:mm:ss}", quote: true)})";
-
-        if (value is DateTimeOffset dto)
-            return $"DateTimeOffset.Parse({SymbolDisplay.FormatLiteral($"{dto:yyyy-MM-dd HH:mm:ss}", quote: true)})";
-
-        if (value is TimeSpan ts)
-            return $"TimeSpan.Parse({SymbolDisplay.FormatLiteral($"{ts:hh\\:mm\\:ss}", quote: true)})";
-
-        return value.ToString();
     }
 
     private string GetPropertyNullable(ColumnDefinition column)

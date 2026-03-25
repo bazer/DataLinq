@@ -255,7 +255,8 @@ public class SyntaxParser
             if (arguments.Count != 1)
                 return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
 
-            return new DefaultAttribute(arguments[0]);
+            var codeExpression = attributeSyntax.ArgumentList?.Arguments[0].Expression.ToString();
+            return new DefaultAttribute(arguments[0]).SetCodeExpression(codeExpression);
         }
 
         if (name == "DefaultCurrentTimestamp")

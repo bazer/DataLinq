@@ -123,12 +123,24 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         if (property.CsType.Type == typeof(bool) && dbColumns.COLUMN_DEFAULT.StartsWith("b'"))
             return new DefaultAttribute(dbColumns.COLUMN_DEFAULT == "b'1'");
 
+        var normalizedDefault = property.CsType.Type == typeof(string)
+            ? NormalizeSqlStringDefault(dbColumns.COLUMN_DEFAULT)
+            : dbColumns.COLUMN_DEFAULT;
+
         var value = property.CsType.Type != null ?
-                Convert.ChangeType(dbColumns.COLUMN_DEFAULT, property.CsType.Type, CultureInfo.InvariantCulture)
-                : dbColumns.COLUMN_DEFAULT;
+                Convert.ChangeType(normalizedDefault, property.CsType.Type, CultureInfo.InvariantCulture)
+                : normalizedDefault;
 
         return new DefaultAttribute(value);
 
+    }
+
+    private static string NormalizeSqlStringDefault(string defaultValue)
+    {
+        if (defaultValue.Length >= 2 && defaultValue[0] == '\'' && defaultValue[^1] == '\'')
+            return defaultValue[1..^1].Replace("''", "'");
+
+        return defaultValue;
     }
 
     protected uint? ParseLengthFromColumnType(string columnType)

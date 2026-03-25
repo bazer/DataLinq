@@ -94,6 +94,9 @@ public class ValueProperty : PropertyDefinition
         if (defaultAttr == null)
             return null;
 
+        if (!string.IsNullOrWhiteSpace(defaultAttr.CodeExpression))
+            return defaultAttr.CodeExpression;
+
         if (EnumProperty != null)
             return FormatEnumDefaultValue(defaultAttr.Value);
 

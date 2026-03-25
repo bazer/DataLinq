@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
 using Xunit;
@@ -15,7 +16,7 @@ namespace DataLinq.Tests.Core
         #region Test Helper Methods
 
         // Represents what might be parsed directly from a DB schema (raw names)
-        private DatabaseDefinition CreateDestinationDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "raw_table")
+        private DatabaseDefinition CreateDestinationDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "raw_table", bool includeStatusDefault = false)
         {
             var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
             var dbCsType = new CsTypeDeclaration(dbName, "RawNamespace", ModelCsType.Class);
@@ -31,7 +32,10 @@ namespace DataLinq.Tests.Core
             // 1. Define columns for the main table
             var col1Vp = new ValueProperty("col1_db", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("col1_db"), new PrimaryKeyAttribute()]);
             var col2Vp = new ValueProperty("col2_db", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("col2_db")]);
-            var col3Vp = new ValueProperty("status_db", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("status_db")]);
+            var col3Attributes = includeStatusDefault
+                ? new Attribute[] { new ColumnAttribute("status_db"), new DefaultAttribute(1) }
+                : [new ColumnAttribute("status_db")];
+            var col3Vp = new ValueProperty("status_db", new CsTypeDeclaration(typeof(int)), model, col3Attributes);
             model.AddProperty(col1Vp); model.AddProperty(col2Vp); model.AddProperty(col3Vp);
 
             var col1 = table.ParseColumn(col1Vp);
@@ -67,7 +71,7 @@ namespace DataLinq.Tests.Core
         // Represents what might be parsed from developer source code (intended names, attributes)
         // In src/DataLinq.Tests/Core/MetadataTransformerTests.cs
 
-        private DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel")
+        private DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false)
         {
             var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
             var dbCsType = new CsTypeDeclaration("MyDatabaseCsType", "SourceNamespace", ModelCsType.Class);
@@ -93,7 +97,15 @@ namespace DataLinq.Tests.Core
             var col2Vp = CreateTestValueProperty(model, "Name", typeof(string), [new ColumnAttribute("col2_db")]);
             col2Vp.SetCsNullable(true);
             var enumCsType = new CsTypeDeclaration("MyStatusEnum", "SourceNamespace", ModelCsType.Enum);
-            var statusVp = new ValueProperty("Status", enumCsType, model, [new ColumnAttribute("status_db"), new EnumAttribute("Active", "Inactive")]);
+            var statusAttributes = includeEnumDefault
+                ? new Attribute[]
+                {
+                    new ColumnAttribute("status_db"),
+                    new EnumAttribute("Active", "Inactive"),
+                    new DefaultAttribute("MyStatusEnum.Inactive").SetCodeExpression("MyStatusEnum.Inactive")
+                }
+                : [new ColumnAttribute("status_db"), new EnumAttribute("Active", "Inactive")];
+            var statusVp = new ValueProperty("Status", enumCsType, model, statusAttributes);
             statusVp.SetEnumProperty(new EnumProperty(
                 enumValues: new[] { ("Active", 1), ("Inactive", 2) },
                 csEnumValues: new[] { ("Active", 1), ("Inactive", 2) },
@@ -287,6 +299,23 @@ namespace DataLinq.Tests.Core
             Assert.Equal("MyStatusEnum", transformedProperty.CsType.Name);
             Assert.NotNull(transformedProperty.EnumProperty);
             Assert.Equal("status_db", transformedProperty.Column.DbName);
+        }
+
+        [Fact]
+        public void OverwriteTypes_True_PreservesSourceEnumDefaultExpression()
+        {
+            var srcDb = CreateSourceDatabase(includeEnumDefault: true);
+            var destDb = CreateDestinationDatabase(includeStatusDefault: true);
+            var transformer = new MetadataTransformer(new MetadataTransformerOptions { OverwritePropertyTypes = true });
+
+            transformer.TransformDatabase(srcDb, destDb);
+
+            var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(destDb)
+                .Single(file => file.path == "MyModel.cs");
+
+            Assert.Contains("[Default(MyStatusEnum.Inactive)]", generatedFile.contents);
+            Assert.DoesNotContain("[Default(1)]", generatedFile.contents);
         }
 
         #endregion
