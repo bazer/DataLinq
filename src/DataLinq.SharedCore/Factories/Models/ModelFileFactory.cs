@@ -5,6 +5,7 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace DataLinq.Core.Factories.Models;
 
@@ -287,19 +288,22 @@ public class ModelFileFactory
     private string FormatDefaultValue(object value)
     {
         if (value is string str)
-            return $"\"{str}\"";
+            return SymbolDisplay.FormatLiteral(str, quote: true);
+
+        if (value is char ch)
+            return SymbolDisplay.FormatLiteral(ch, quote: true);
 
         if (value is bool b)
             return b ? "true" : "false";
 
         if (value is DateTime dt)
-            return $"DateTime.Parse(\"{dt:yyyy-MM-dd HH:mm:ss}\")";
+            return $"DateTime.Parse({SymbolDisplay.FormatLiteral($"{dt:yyyy-MM-dd HH:mm:ss}", quote: true)})";
 
         if (value is DateTimeOffset dto)
-            return $"DateTimeOffset.Parse(\"{dto:yyyy-MM-dd HH:mm:ss}\")";
+            return $"DateTimeOffset.Parse({SymbolDisplay.FormatLiteral($"{dto:yyyy-MM-dd HH:mm:ss}", quote: true)})";
 
         if (value is TimeSpan ts)
-            return $"TimeSpan.Parse(\"{ts:hh\\:mm\\:ss}\")";
+            return $"TimeSpan.Parse({SymbolDisplay.FormatLiteral($"{ts:hh\\:mm\\:ss}", quote: true)})";
 
         return value.ToString();
     }
