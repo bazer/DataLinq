@@ -1,14 +1,22 @@
 # DataLinq + SQLite
 
-DataLinq provides full support for SQLite through the `DataLinq.SQLite` NuGet package. It uses the `Microsoft.Data.Sqlite` ADO.NET driver to interact with the database.
+DataLinq provides SQLite support through the `DataLinq.SQLite` NuGet package. It uses the `Microsoft.Data.Sqlite` ADO.NET driver.
+
+## What This Provider Actually Covers
+
+SQLite support is not just runtime connectivity. The provider also includes:
+
+- schema introspection from `sqlite_master` and PRAGMA queries
+- SQLite-specific SQL generation
+- SQLite transaction handling
+
+That is important because SQLite is structurally different from the MySQL/MariaDB path. It does not have `information_schema`, and pretending otherwise would be lazy documentation.
 
 ## Type Mapping and Affinities
 
-SQLite uses a flexible type system with "type affinities" rather than strict static types. A column with an `INTEGER` affinity can still store text if needed. DataLinq's `create-sql` command generates schemas using these standard affinities, while the `create-models` command interprets them to generate appropriate C# types.
+SQLite uses a flexible affinity system rather than strict static types. DataLinq's `create-models` behavior for SQLite is therefore partly type-based and partly convention-based.
 
 ### Standard Affinity Mapping
-
-When reading an SQLite schema, DataLinq maps the affinities to C# types as follows:
 
 | SQLite Affinity | Maps to C# Type |
 | :--- | :--- |
@@ -17,37 +25,42 @@ When reading an SQLite schema, DataLinq maps the affinities to C# types as follo
 | `TEXT` | `string` |
 | `BLOB` | `byte[]` |
 
-### Convention-Based "Smart" Mapping
+### Convention-Based Smart Mapping
 
-To provide a richer and more convenient developer experience, DataLinq's `create-models` command for SQLite also uses a **convention-based mapping** that overrides the default affinity mapping when a column's name follows a common pattern.
-
-This means you can get more specific C# types like `DateOnly`, `Guid`, and `bool` generated automatically by simply naming your columns appropriately.
+SQLite "smart" typing in DataLinq is based on column naming conventions, not magic. If your existing schema uses generic names, the generator will fall back to plain `string`, `int`, or `byte[]`.
 
 | SQLite Affinity | If Column Name... | Generated C# Type |
 | :--- | :--- | :--- |
-| `TEXT` | Ends with `_date` (e.g., `hire_date`) | `DateOnly` |
-| `TEXT` | Ends with `_time` (e.g., `start_time`) | `TimeOnly` |
+| `TEXT` | Ends with `_date` | `DateOnly` |
+| `TEXT` | Ends with `_time` | `TimeOnly` |
 | `TEXT` | Ends with `_at` or contains `datetime` or `timestamp` | `DateTime` |
-| `TEXT` | Is `guid`/`uuid` or ends with `_guid`/`_uuid` | `Guid` |
-| `INTEGER` | Starts with `is_` or `has_` (e.g., `is_active`) | `bool` |
-| `BLOB` | Is `guid`/`uuid` or ends with `_guid`/`_uuid` | `Guid` |
-
-**Example:**
-A column named `created_at` with a `TEXT` affinity will be mapped to a C# `DateTime` property, not a `string`. A column named `is_deleted` with an `INTEGER` affinity will be mapped to a `bool`.
+| `TEXT` | Is `guid` or `uuid`, or ends with `_guid` or `_uuid` | `Guid` |
+| `INTEGER` | Starts with `is_` or `has_` | `bool` |
+| `BLOB` | Is `guid` or `uuid`, or ends with `_guid` or `_uuid` | `Guid` |
 
 ### Enum Handling
-SQLite does not have a native `ENUM` type. DataLinq recommends storing enum values as either `INTEGER` or `TEXT` in the database. When you define a C# `enum` property in your source model, the source generator will handle the mapping correctly, but the `create-models` command **will not** attempt to infer an `enum` from an `INTEGER` column automatically.
+
+SQLite does not have a native `ENUM` type. Define enums in your C# models if you want enum semantics. `create-models` will not infer them from an `INTEGER` column.
 
 ## SQL Generation
 
-When generating a schema for SQLite from your DataLinq models:
-- C# `Guid` properties are mapped to `TEXT`.
-- C# `bool` properties are mapped to `INTEGER`.
-- C# `DateOnly`, `DateTime`, etc., are mapped to `TEXT`.
-- `AUTOINCREMENT` is correctly used for integer primary keys.
+When generating a schema for SQLite from DataLinq models:
+
+- `Guid` maps to `TEXT`
+- `bool` maps to `INTEGER`
+- `DateOnly`, `DateTime`, `TimeOnly`, and similar temporal values map to `TEXT`
+- integer primary keys can use `AUTOINCREMENT`
+
+The SQL generation layer also maps the default DataLinq type system onto SQLite's smaller affinity set. For example, default `json`, `xml`, `datetime`, `timestamp`, `date`, `time`, and `uuid` all end up as `TEXT`.
+
+## Transaction Behavior
+
+The SQLite transaction implementation currently opens transactions with `IsolationLevel.ReadUncommitted`.
+
+That matters because visibility of uncommitted writes can differ from MySQL and MariaDB in the tests. If you are comparing provider behavior directly, account for that instead of calling it flaky.
 
 ## Best Practices
 
-- **Use Conventions:** Name your columns according to the smart mapping conventions to get richly typed C# models automatically.
-- **`Guid` Storage:** It is recommended to store `Guid` values as `TEXT` for readability and compatibility. The provider handles the conversion automatically.
-- **Enums:** Define your `enum` types in your C# source models to ensure type safety.
+- Use naming conventions if you want richer generated types from an existing SQLite schema.
+- Prefer `Guid` as `TEXT` unless you have a very specific reason not to.
+- Define enums in your source models rather than expecting SQLite introspection to infer them.

@@ -1,136 +1,180 @@
 # Querying
 
-DataLinq’s querying interface is built on a simple, intuitive, and high-performance foundation. In this chapter, you will learn how to set up your database connection, execute basic queries using LINQ, and leverage additional query syntaxes available in DataLinq.
+DataLinq's runtime query story is centered on strongly typed access plus a deliberately limited LINQ translation layer.
 
-## 1. Database Setup
+That is a good thing, not a defect. A small, test-backed query surface is far better than a magical one that fails only after you ship.
 
-When using DataLinq, configuration via JSON files is only required for the CLI tool. At runtime, you set up your ORM using a connection string. For example, you might initialize your database as follows:
+For the exact query shapes that are currently safe to rely on, see [Supported LINQ Queries](Supported%20LINQ%20Queries.md).
+
+## Runtime Setup
+
+At runtime you connect with a normal connection string. The JSON config files are for the CLI, not for ordinary application queries.
 
 ```csharp
 using DataLinq;
 using DataLinq.Tests.Models.Employees;
 
-// Provide your connection string (this example uses MySQL)
 var connectionString = "server=localhost;user=root;database=employees;password=yourpassword;";
-
-// Instantiate your strongly-typed database object.
 var db = new MySqlDatabase<EmployeesDb>(connectionString);
 ```
 
-This creates an instance of your database (here, `EmployeesDb`), which exposes properties for accessing tables and views through strongly typed collections.
+Once instantiated, `db.Query()` gives you the generated database model surface.
 
+## Typical Query Shapes
+
+The usual entry point is standard LINQ over the generated table properties:
+
+```csharp
+var recentManagers = db.Query().Managers
+    .Where(x => x.dept_fk.StartsWith("d00") && x.from_date > new DateOnly(2010, 1, 1))
+    .OrderBy(x => x.dept_fk)
+    .Take(10)
+    .ToList();
+```
+
+Direct primary-key lookup also exists when you already know the key and do not need a LINQ pipeline:
+
+```csharp
+var department = db.Get<Department>(new StringKey("d005"));
+```
+
+If you need lower-level SQL-builder access, `Database<T>` also exposes `From(...)` and `From<TModel>()`. That is a different API surface from LINQ and should not be confused with "LINQ join support".
+
+## Query Execution Flow
+
+```mermaid
 ---
-
-## 2. Basic LINQ Query Syntax
-
-DataLinq’s primary querying interface is built on standard LINQ expressions. Currently, only basic methods have been implemented, and these are parsed and translated into efficient SQL commands. The supported LINQ methods include:
-
-### Where
-
-**Purpose:** Filters records based on a Boolean condition.  
-**Example:**
-
-```csharp
-// Retrieve all employees with the name "John"
-var johns = db.Query().Employees
-    .Where(e => e.Name == "John")
-    .ToList();
-```
-
-In this example, the `Where` method filters the `Employees` collection so that only records where the `Name` property equals "John" are returned.
-
-### OrderBy
-
-**Purpose:** Sorts records based on a specified key in ascending order.  
-**Example:**
-
-```csharp
-// Retrieve employees ordered by their ID in ascending order
-var orderedEmployees = db.Query().Employees
-    .OrderBy(e => e.Id)
-    .ToList();
-```
-
-Here, `OrderBy` instructs DataLinq to generate an SQL ORDER BY clause using the `Id` column, ensuring that the returned employees are sorted by their IDs.
-
-### Skip and Take
-
-**Purpose:** Implements pagination by skipping a specified number of records and then taking a defined number of subsequent records.  
-**Example:**
-
-```csharp
-// Retrieve the second page of results, where each page contains 10 records.
-var secondPage = db.Query().Employees
-    .OrderBy(e => e.Id)
-    .Skip(10)   // Skip the first 10 records.
-    .Take(10)   // Take the next 10 records.
-    .ToList();
-```
-
-This combination of `Skip` and `Take` lets you control which subset of records is returned, useful for paginating large result sets.
-
-### First
-
-**Purpose:** Retrieves the first element in a sequence.  
-**Example:**
-
-```csharp
-// Retrieve the first employee in the ordered list.
-var firstEmployee = db.Query().Employees
-    .OrderBy(e => e.Id)
-    .First();
-```
-
-This method returns the first employee according to the ordering provided. Note that if no record exists, an exception will be thrown.
-
-### Single
-
-**Purpose:** Retrieves a unique element from the sequence; it throws an exception if more than one element matches or if none are found.  
-**Example:**
-
-```csharp
-// Retrieve the employee with a specific ID.
-var uniqueEmployee = db.Query().Employees
-    .Where(e => e.Id == 1)
-    .Single();
-```
-
-Here, `Single` ensures that exactly one employee with `Id == 1` exists; if the condition matches zero or multiple records, an exception will be raised.
-
-### ToList
-
-**Purpose:** Executes the query and materializes the results as a list of immutable objects.  
-**Example:**
-
-```csharp
-// Execute the query and convert the result set into a list.
-var employeeList = db.Query().Employees.ToList();
-```
-
-Calling `ToList` forces the execution of the query, causing DataLinq to fetch the data from the database (or cache) and convert the result into a list for further processing.
-
+config:
+  theme: neo
+  look: handDrawn
 ---
+flowchart TD
+    subgraph Application
+        A["Start: App Code Runs<br/><div style='font-family:monospace; font-size:0.9em;'>db.Query().Employees...</div>"] --> B{"Issue LINQ Query"}
+        K["End: Use Combined<br/>Immutable Instance(s)<br/>(From Cache & DB)"]:::AppStyle
+    end
 
-For further technical details on how these expressions are parsed and translated, please refer to the [Query Translator](Query%20Translator.md) documentation  and the associated test cases in the repository. These examples provide a clear understanding of the current capabilities, while advanced features such as projection, grouping, and joins are planned for future releases.
+    subgraph "DataLinq Runtime & Cache"
+        C["Translate LINQ to<br/>'SELECT PKs' SQL"] --> D[("Execute PK Query<br/>on Database")]:::DatabaseStyle
+        D -- Returns PKs --> E{"Got Primary Keys<br/>(e.g., [101, 102, 103])"}
+        E --> F{"Check Cache for each PK"}
 
-## 3. Lazy Loading of Foreign Key Relations
+        subgraph "For PKs Found in Cache (Cache Hit)"
+          direction LR
+          G["Retrieve Existing<br/>Immutable Instance(s)<br/>from Cache"]:::Aqua
+        end
 
-DataLinq supports lazy loading for foreign key relationships. When you access a navigation property that represents a foreign key relation, the ORM automatically triggers a lazy load. The first time you access the property, DataLinq fetches the related record from the database and caches the result. Subsequent accesses return the cached object, reducing redundant database calls and ensuring efficient data retrieval.
+        subgraph "For PKs NOT Found in Cache (Cache Miss)"
+          direction TB
+          H["Identify Missing PKs<br/>(e.g., [102])"] --> I["Generate 'SELECT * ... WHERE PK IN (...)' SQL"]
+          I --> J[("Execute Fetch Query<br/>on Database")]:::DatabaseStyle
+          J -- Returns Row Data --> L["Create NEW<br/>Immutable Instance(s)"]:::Sky
+          L --> M["Add New Instance(s)<br/>to Cache"]:::Aqua
+        end
 
-Tests in the repository illustrate this behavior by checking that the foreign key property is only loaded on demand. This approach ensures that related data is available when needed without incurring the cost of loading all relationships upfront.
+        F -- PKs Found --> G
+        F -- PKs Missing --> H
 
-## 4. Alternative Query Syntaxes
+        G --> CombineEnd("Combine Results")
+        M --> CombineEnd
+    end
 
-In addition to the standard LINQ interface, DataLinq provides alternative ways to query data that do not depend on LINQ.
+    CombineEnd --> K
+    B --> C
 
-TODO
+    classDef Aqua stroke-width:1px, stroke:#46EDC8, fill:#DEFFF8, color:#378E7A
+    classDef Sky stroke-width:1px, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
+    classDef AppStyle stroke-width:1px, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
+    classDef DatabaseStyle stroke-width:1px, stroke:#AAAAAA, fill:#EAEAEA, color:#555555
+    linkStyle default stroke:#000000
+```
 
-## 5. Summary
+## What the Runtime Actually Does
 
-DataLinq offers a straightforward and performant querying experience:
-- **Setup:** Initialize your ORM with a connection string (JSON files are used only by the CLI tool).
-- **LINQ Queries:** Use simple LINQ expressions to filter and order data.
-- **Lazy Loading:** Access foreign key relations on demand; the first access loads and caches the related object.
-- **Alternative Queries:** Choose from a SQL string–based query interface or instantiate immutable objects directly from raw SQL queries.
+The important behavior is this:
 
-These various approaches allow you to select the method that best fits your development style while ensuring high performance and minimal overhead.
+1. DataLinq translates the supported LINQ shape into SQL that first identifies primary keys.
+2. It checks the row cache for those keys.
+3. It bulk-fetches only the missing rows.
+4. It materializes immutable instances and reuses cached ones where possible.
+
+That primary-key-first path is why DataLinq can stay fast on repeated reads without pretending every query shape is supported.
+
+For more on the translation pipeline, see [Query Translator](Query%20Translator.md).
+
+## Relation Loading
+
+Relation properties are lazy. Accessing a navigation property causes DataLinq to resolve the relation, cache the key mapping, and then hydrate any missing rows.
+
+That means relation traversal is cheap after the first resolution, but it is still driven by the real relation metadata and cache state, not by speculative eager loading.
+
+```mermaid
+---
+config:
+  theme: neo
+  look: handDrawn
+---
+flowchart TD
+    subgraph Application
+        A["Start: Access Relation Property<br/><div style='font-family:monospace; font-size:0.9em;'>dept.Managers <i>or</i> emp.Salaries</div>"] --> B{"Check 'ImmutableRelation'<br/>Internal Cache"}
+        O["End: Use Related<br/>Immutable Instance(s)"]:::AppStyle
+    end
+
+    subgraph "DataLinq Runtime & Cache - Relation Load Path"
+        C{"Get Parent's<br/>Relevant Key(s)<br/>(PK or FK values)"} --> D{"Check Index Cache<br/>(FK -> PKs Mapping)"}
+
+        D -- Mapping Found --> E["Got Related PKs<br/>from Index Cache"]:::Aqua
+        D -- Mapping NOT Found --> F["Generate 'SELECT PKs...<br/>WHERE FK = ?' SQL"]
+        F --> G[("Execute PK Query<br/>on Database")]:::DatabaseStyle
+        G -- Returns PKs --> H["Got Related PKs<br/>from Database"]
+        H --> I["Add/Update FK->PKs Mapping<br/>in Index Cache"]:::Aqua
+        I --> E
+
+        E --> J{"Check Row Cache<br/>for each Related PK"}
+
+        subgraph "For PKs Found in Row Cache (Row Hit)"
+            K["Retrieve Existing<br/>Immutable Instance(s)<br/>from Row Cache"]:::Aqua
+        end
+
+        subgraph "For PKs NOT Found in Row Cache (Row Miss)"
+            L["Identify Missing PKs"] --> M["Generate 'SELECT * ...<br/>WHERE PK IN (...)' SQL"]
+            M --> N[("Execute Fetch Query<br/>on Database")]:::DatabaseStyle
+            N -- Returns Row Data --> P["Create NEW<br/>Immutable Instance(s)"]:::Sky
+            P --> Q["Add New Instance(s)<br/>to Row Cache"]:::Aqua
+        end
+
+        J -- PKs Found --> K
+        J -- PKs Missing --> L
+
+        K --> CombineResults("Combine Results")
+        Q --> CombineResults
+        CombineResults --> R["Store Combined Instances<br/>in relation cache"]:::Aqua
+    end
+
+    B -- Cache Hit --> O
+    B -- Cache Miss --> C
+    R --> O
+
+    classDef Aqua stroke-width:1px, stroke:#46EDC8, fill:#DEFFF8, color:#378E7A
+    classDef Sky stroke-width:1px, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
+    classDef AppStyle stroke-width:1px, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
+    classDef DatabaseStyle stroke-width:1px, stroke:#AAAAAA, fill:#EAEAEA, color:#555555
+    linkStyle default stroke:#000000
+```
+
+## Practical Caveats
+
+- If row order matters, order explicitly before calling `First`, `Last`, or paging operators. Unordered "first" is fake determinism.
+- Unsupported LINQ shapes typically fail with `NotImplementedException` during translation. They do not silently become good ideas.
+- `Last()` and `LastOrDefault()` are supported in tested cases, but they are not the fast path. If what you really mean is "highest by X", write that as `OrderByDescending(...).First()` and be done with it.
+- If you are unsure whether a query shape is supported, simplify it to the documented surface or add a test before depending on it.
+
+## Lower-Level Query APIs
+
+DataLinq also exposes lower-level query construction through `From(...)` and `SqlQuery`.
+
+That API is real and useful, but it is not the same thing as the LINQ translator. The existence of raw SQL builder classes does not mean LINQ `Join`, `GroupBy`, or arbitrary aggregates are supported.
+
+## Summary
+
+Use the LINQ surface that is already covered by tests, lean on explicit ordering, and treat relation access as lazy and cache-backed. That is the honest mental model for querying with DataLinq today.

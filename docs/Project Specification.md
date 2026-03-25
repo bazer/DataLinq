@@ -1,3 +1,5 @@
+> [!NOTE]
+> This document is a high-level specification and vision document. It is useful for direction and design context, but it should not be treated as the authoritative source for current DataLinq behavior.
 # DataLinq Project Specification
 
 ## 1. Introduction
@@ -371,3 +373,4 @@ Below is a draft for the remaining sections of the DataLinq specification docume
 - **Entity Framework Documentation:** Provides context for LINQ-based querying and ORM design patterns.
 - **Design Patterns Literature:** Sources on the adapter pattern, immutability, and caching strategies that inform DataLinq’s architecture.
 - **Performance Benchmarking Tools:** Documentation for the benchmarking tools and techniques used within the project.
+

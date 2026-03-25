@@ -1,3 +1,5 @@
+> [!WARNING]
+> This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **DataLinq: Specification for Dependency-Tracked Result-Set Caching**
 
 #### **1. Vision and Principle: Beyond TTL Caching**

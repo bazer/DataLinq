@@ -31,3 +31,5 @@ launchSettings.json
 /.dotnet
 /artifacts/nupkg-test
 /artifacts
+/_site
+/_site_content_only

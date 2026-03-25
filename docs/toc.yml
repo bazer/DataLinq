@@ -7,11 +7,30 @@
       href: CLI Documentation.md
     - name: Configuration Files
       href: Configuration files.md
-- name: Internals & Architecture
+    - name: Querying
+      href: Querying.md
+    - name: Caching and Mutation
+      href: Caching and Mutation.md
+    - name: Supported LINQ Queries
+      href: Supported LINQ Queries.md
+    - name: Transactions
+      href: Transactions.md
+    - name: Attributes and Model Definitions
+      href: Attributes and Model Definitions.md
+    - name: Troubleshooting
+      href: Troubleshooting.md
+- name: Providers
   expanded: true
   items:
-    - name: Project Specification
-      href: Project Specification.md
+    - name: MySQL & MariaDB
+      href: backends/MySQL-MariaDB.md
+    - name: SQLite
+      href: backends/SQLite.md
+    - name: Implementing a new backend
+      href: Implementing a new backend.md
+- name: Internals
+  expanded: true
+  items:
     - name: Technical Documentation
       href: Technical documentation.md
     - name: Metadata Structure
@@ -20,19 +39,13 @@
       href: Source Generator.md
     - name: Query Translator
       href: Query Translator.md
-    - name: Caching and Mutation
-      href: Caching and Mutation.md
-- name: Backend Providers
-  expanded: true
-  items:
-    - name: Implementing a new backend
-      href: Implementing a new backend.md
-    - name: MySQL & MariaDB
-      href: backends/MySQL-MariaDB.md
-    - name: SQLite
-      href: backends/SQLite.md
-- name: Extensibility & Advanced Development
+- name: Contributing
   expanded: true
   items:
     - name: Contribution Guidelines
       href: Contributing.md
+- name: Roadmap and Specs
+  expanded: true
+  items:
+    - name: Project Specification
+      href: Project Specification.md

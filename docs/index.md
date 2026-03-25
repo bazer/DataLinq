@@ -1,74 +1,68 @@
 # DataLinq Documentation Index
 
-Welcome to the DataLinq documentation! This index is designed to help you quickly find the resources you need—whether you’re just starting to use DataLinq or diving into advanced customization and backend development.
+This index is meant to help you get to the right document quickly.
 
 ---
 
-## 1. Getting Started & Usage
+## Getting Started
 
 ### [CLI Documentation](CLI%20Documentation.md)
-Provides an overview of the DataLinq CLI tool and its commands (`create-database`, `create-sql`, `create-models`, `list`) along with usage examples.
+Command reference for the `datalinq` tool, including config loading, database selection rules, and generation commands.
 
 ### [Configuration Files](Configuration%20files.md)
-Describes the structure and options for `datalinq.json` and `datalinq.user.json`, explaining how to configure your database connections, model generation settings, and more.
+Describes `datalinq.json` and `datalinq.user.json`, including database definitions, connections, and generation settings.
 
-### Querying (TBD)
+## User Guide
 
-### Mutation (TBD)
-
-### Transactions (TBD)
-
-### Required, Optional and Default Values (TBD)
-
-### Supported LINQ Queries (TBD)
-
-### Alternative Query Syntax (TBD)
-
-### Cache Invalidation (TBD)
-
-### Attributes (TBD)
-
-### API Documentation with Examples (TBD)
-
----
-
-## 2. Internals & Architecture
-
-### [Project Specification](Project%20Specification.md)
-Outlines DataLinq’s overarching goals, design principles, and architectural vision.
-
-### [Technical Documentation](Technical%20documentation.md)
-Offers an in-depth overview of the library’s core components, covering caching, mutation, query processing, and general design decisions.
-
-### [Metadata Structure](Metadata%20Structure.md)
-Explains how DataLinq maps databases to C# models through its metadata model—covering tables, columns, relationships, and more.
-
-### [Source Generator](Source%20Generator.md)
-Describes how DataLinq’s source generator creates immutable and mutable model classes from the metadata, minimizing boilerplate and ensuring consistency.
-
-### [Query Translator](Query%20Translator.md)
-Details how LINQ expressions are converted into backend-specific SQL, including an explanation of expression visitors and other helper classes.
+### [Querying](Querying.md)
+How runtime queries work, what the current LINQ-focused surface looks like, and how relations are loaded.
 
 ### [Caching and Mutation](Caching%20and%20Mutation.md)
-A dedicated guide to DataLinq’s caching architecture (including the primary-key-first approach) and mutation workflow (immutable data, transactional updates, commits, and rollbacks).
+Explains the primary-key-first fetch path, row and relation caching, mutation flow, and transaction-aware updates.
 
----
+### [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
+Test-backed overview of which query operators and predicate shapes are currently safe to rely on.
 
-## 3. Extensibility & Advanced Development
+### [Transactions](Transactions.md)
+Explains implicit transactions, explicit transactions, attached ADO.NET transactions, and provider-specific caveats.
+
+### [Attributes and Model Definitions](Attributes%20and%20Model%20Definitions.md)
+Guide to the public attribute set used to define databases, tables, views, relations, indexes, defaults, and cache behavior.
+
+### [Troubleshooting](Troubleshooting.md)
+Common failure modes and the shortest honest path to fixing them.
+
+## Providers
+
+### [MySQL & MariaDB](backends/MySQL-MariaDB.md)
+Provider-specific notes for schema reading, SQL generation, type handling, and provider caveats.
+
+### [SQLite](backends/SQLite.md)
+Provider-specific notes for SQLite affinity handling, smart type inference, and SQL generation.
 
 ### [Implementing a new backend](Implementing%20a%20new%20backend.md)
-Walks through creating support for additional data sources by implementing metadata readers, SQL generation logic, and data read/write classes behind DataLinq’s provider interfaces.
+Technical guide for extending DataLinq with another provider.
 
-#### Additional Topics
+## Internals
 
-- **[Contribution Guidelines](Contributing.md)**  
-  A guide for new contributors covering coding standards, how to run tests, and submission guidelines.
-  
-- **Testing & Benchmarking (TBD)**  
-  Documentation detailing how to run and write tests for DataLinq, as well as interpret performance benchmarks.
+### [Technical Documentation](Technical%20documentation.md)
+Overview of the runtime architecture, cache layers, and how the major pieces fit together.
 
-- **FAQ / Troubleshooting (TBD)**  
-  A list of frequently asked questions, common issues, and troubleshooting tips.
+### [Metadata Structure](Metadata%20Structure.md)
+Reference for the metadata model used to represent tables, columns, relations, and generated types.
 
-- **Migration & Extensibility (TBD)**  
-  Guidance on migrating from earlier versions or more advanced customizations—some aspects are partially covered in “Implementing a new backend.”
+### [Source Generator](Source%20Generator.md)
+Explains the source generator pipeline and the generated model surface.
+
+### [Query Translator](Query%20Translator.md)
+Explains the expression translation pipeline that turns supported LINQ query shapes into backend-specific SQL.
+
+## Contributing
+
+### [Contribution Guidelines](Contributing.md)
+Guide for contributors working on the repo itself.
+
+## Roadmap and Specs
+
+### [Project Specification](Project%20Specification.md)
+High-level design and roadmap-oriented specification material. This is not the best source for verifying current behavior.

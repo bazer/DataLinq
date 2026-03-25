@@ -1,141 +1,72 @@
 # DataLinq Configuration Files
 
-DataLinq uses JSON-based configuration files to define your databases, connections, and model-generation settings. There are two configuration files:
- 
-- **datalinq.json**: The primary configuration file.
-- **datalinq.user.json**: An optional file used to override or extend settings from datalinq.json for user-specific or local changes.
+DataLinq uses JSON configuration files for the CLI and model-generation workflow.
 
-These files are used by the DataLinq CLI tool, it reads the main configuration file and then checks if a corresponding datalinq.user.json exists (by replacing the extension); if found, its settings are merged with the main configuration file.
+There are two files:
 
----
+- `datalinq.json`
+- `datalinq.user.json`
 
-## Overall Structure
+The CLI reads the main file first, then looks for a matching `.user.json` file next to it by replacing the extension. The user file is then merged on top.
 
-Both configuration files adhere to the same schema. The top-level JSON object contains:
+## What This Config Is For
 
-- **Databases**: An array of database configuration objects.
+This config is used by the `datalinq` CLI.
 
----
-
-## Database Configuration Object
-
-Each entry in the **Databases** array represents a database and includes the following properties:
-
-- **Name** (string, *required*):  
-  The unique name of the database configuration. This name is later used to select a specific database.
-
-- **CsType** (string, *optional*):  
-  The C# type name to be used when generating database classes. If not specified, the value of `Name` is used by default.
-
-- **Namespace** (string, *optional*):  
-  The C# namespace for generated models. Defaults to `"Models"` if not provided.
-
-- **SourceDirectories** (array of strings, *optional*):  
-  A list of directories where the source model files are located. These paths are used during model generation.
-
-- **DestinationDirectory** (string, *optional*):  
-  The output directory for generated model files.
-
-- **Include** (array of strings, *optional*):  
-  A filter list specifying which tables and views to include when generating models. If this list is omitted or left empty, DataLinq will include all tables and views found in the database schema.
-
-- **UseRecord** (boolean, *optional*):  
-  Determines whether generated models should use C# record types. Defaults to `false`.
-
-- **UseFileScopedNamespaces** (boolean, *optional*):  
-  When set to true, the generated code will use file-scoped namespaces (available in C# 10+).
-
-- **UseNullableReferenceTypes** (boolean, *optional*):  
-  Enables nullable reference types in the generated code.
-
-- **CapitalizeNames** (boolean, *optional*):  
-  If true, property names and other generated identifiers will be capitalized.
-
-- **RemoveInterfacePrefix** (boolean, *optional*):  
-  When true (the default), any leading "I" on interface names is removed during code generation.
-
-- **SeparateTablesAndViews** (boolean, *optional*):  
-  Indicates whether generated files should be placed in separate folders based on whether they represent tables or views.
-
-- **Connections** (array, *required*):  
-  An array of connection objects (see below) that specify how to connect to the database.
-
-- **FileEncoding** (string, *required*):  
-  The encoding to use when reading/writing files (for example, `"UTF8"` or `"UTF8BOM"`). If omitted, UTF-8 without BOM is used by default.  
+It is not required for runtime database access if you are instantiating `MySqlDatabase<T>`, `MariaDBDatabase<T>`, or `SQLiteDatabase<T>` directly in application code.
 
 ---
 
-## Connection Configuration Object
+## Config Discovery
 
-Each connection object (found in the **Connections** array) defines how to connect to the database. Its properties include:
+By default, the CLI looks for `datalinq.json` in the current working directory.
 
-- **Type** (string, *required*):  
-  A string that identifies the type of database connection. This value is parsed to match a supported database provider (for example, `"MySQL"` or `"SQLite"`).  
+You can also pass:
 
-- **DatabaseName** (string, *optional*):  
-  An alternative name for the database; if not provided, the value of `DataSourceName` is used.
+- a file path with `-c` or `--config`
+- a directory path with `-c` or `--config`, in which case DataLinq appends `datalinq.json`
 
-- **DataSourceName** (string, *required*):  
-  The primary name for the data source. Depending on the connection type, this might represent a server name, file name, or other identifier.
+If the main file is:
 
-- **ConnectionString** (string, *required*):  
-  The full connection string used to establish a connection with the database.
+```text
+C:\repo\MyApp\datalinq.json
+```
 
----
+then the CLI will also look for:
 
-## Merging datalinq.user.json
-
-When DataLinq reads the configuration using the `DataLinqConfig.FindAndReadConfigs` method citeturn1file0, it:
-  
-1. Reads the main `datalinq.json` file.
-2. Checks for a corresponding `datalinq.user.json` file (by replacing the extension).
-3. Merges the settings from the user file into the main configuration. In this process, for any matching database (by name), properties in the user file override those in the main file. For example, if `CapitalizeNames` or the list of `Connections` are specified in the user file, those values will replace or augment the main configuration.
-
----
-
-## Example: datalinq.json
-
-Below is a simplified example of a `datalinq.json` file:
-
-```json
-{
-  "Databases": [
-    {
-      "Name": "MyDatabase",
-      "CsType": "MyDatabase",
-      "Namespace": "MyApp.Models",
-      "SourceDirectories": [ "Models/Source" ],
-      "DestinationDirectory": "Models/Generated",
-      "Include": [ "Users", "Orders", "ActiveUsers" ], // To include all tables and views, just omit "Include" entirely or leave the array empty.
-      "UseRecord": true,
-      "UseFileScopedNamespaces": false,
-      "UseNullableReferenceTypes": true,
-      "CapitalizeNames": true,
-      "RemoveInterfacePrefix": true,
-      "SeparateTablesAndViews": false,
-      "FileEncoding": "UTF8"
-    }
-  ]
-}
+```text
+C:\repo\MyApp\datalinq.user.json
 ```
 
 ---
 
-## Example: datalinq.user.json
+## Comments in JSON
 
-A `datalinq.user.json` file may override or extend the main settings. For example:
+The config reader strips both:
+
+- `// single-line comments`
+- `/* multi-line comments */`
+
+That means comment-bearing JSON examples work in practice even though standard JSON does not normally allow comments.
+
+---
+
+## Minimal Example: MariaDB or MySQL
 
 ```json
 {
   "Databases": [
     {
-      "Name": "MyDatabase",
-      "CapitalizeNames": false,
+      "Name": "AppDb",
+      "CsType": "AppDb",
+      "Namespace": "MyApp.Models",
+      "SourceDirectories": [ "Models/Source" ],
+      "DestinationDirectory": "Models/Generated",
       "Connections": [
         {
-          "Type": "SQLite",
-          "DataSourceName": "MyDatabase.db",
-          "ConnectionString": "Data Source=MyDatabase.db;Cache=Shared;"
+          "Type": "MariaDB",
+          "DataSourceName": "appdb",
+          "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=secret;"
         }
       ]
     }
@@ -143,11 +74,185 @@ A `datalinq.user.json` file may override or extend the main settings. For exampl
 }
 ```
 
-In this example, for the database named "MyDatabase", the user-specific file turns off name capitalization and provides a connection using SQLite. During initialization, these settings will be merged with the ones from the main file.
+Generate models:
+
+```bash
+datalinq create-models -n AppDb
+```
+
+Generate SQL:
+
+```bash
+datalinq create-sql -n AppDb -o schema.sql
+```
+
+If you want MySQL instead of MariaDB, change `"Type": "MariaDB"` to `"Type": "MySQL"`.
+
+---
+
+## Minimal Example: SQLite
+
+```json
+{
+  "Databases": [
+    {
+      "Name": "AppDb",
+      "CsType": "AppDb",
+      "Namespace": "MyApp.Models",
+      "DestinationDirectory": "Models/Generated",
+      "Connections": [
+        {
+          "Type": "SQLite",
+          "DataSourceName": "app.db",
+          "ConnectionString": "Data Source=app.db;Cache=Shared;"
+        }
+      ]
+    }
+  ]
+}
+```
+
+The `DataSourceName` is also used as the default target file name for SQLite operations unless you override it with `-d`.
+
+---
+
+## Using `datalinq.user.json`
+
+The normal pattern is:
+
+- keep shared structure in `datalinq.json`
+- keep local connection details or secrets in `datalinq.user.json`
+
+Example shared config:
+
+```json
+{
+  "Databases": [
+    {
+      "Name": "AppDb",
+      "CsType": "AppDb",
+      "Namespace": "MyApp.Models",
+      "SourceDirectories": [ "Models/Source" ],
+      "DestinationDirectory": "Models/Generated"
+    }
+  ]
+}
+```
+
+Example local override:
+
+```json
+{
+  "Databases": [
+    {
+      "Name": "AppDb",
+      "Connections": [
+        {
+          "Type": "SQLite",
+          "DataSourceName": "app.local.db",
+          "ConnectionString": "Data Source=app.local.db;Cache=Shared;"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Important merge behavior
+
+Overrides are applied per database name.
+
+In practice, you should treat `Connections` as a replacing value, not as a deep-merged list. If you override a database entry in `datalinq.user.json`, include the full `Connections` array you want to use.
+
+That matters for secrets too. If your shared config does not contain safe-to-commit connection strings, put the real connection details in `datalinq.user.json` and keep that file out of source control.
+
+---
+
+## Database Object Fields
+
+Each item in `Databases` describes one logical database definition.
+
+- `Name`  
+  Required. Used by CLI selection via `-n` / `--name`.
+
+- `CsType`  
+  Optional. Defaults to `Name`.
+
+- `Namespace`  
+  Optional. Defaults to `Models`.
+
+- `SourceDirectories`  
+  Optional. Source model paths used when `create-models` reads existing source models.
+
+- `DestinationDirectory`  
+  Optional in the raw schema, but effectively required for generation commands that write files.
+
+- `Include`  
+  Optional. Limits generation to selected tables or views.
+
+- `UseRecord`  
+  Optional. Defaults to `false`.
+
+- `UseFileScopedNamespaces`  
+  Optional. Defaults to `false`.
+
+- `UseNullableReferenceTypes`  
+  Optional. Defaults to `false`.
+
+- `CapitalizeNames`  
+  Optional. Defaults to `false`.
+
+- `RemoveInterfacePrefix`  
+  Optional. Defaults to `true`.
+
+- `SeparateTablesAndViews`  
+  Optional. Defaults to `false`.
+
+- `Connections`  
+  Required by actual CLI usage. If no usable connections exist, commands that need a provider will fail.
+
+- `FileEncoding`  
+  Optional. Defaults to UTF-8 without BOM. Supported examples include `UTF8` and `UTF8BOM`.
+
+---
+
+## Connection Fields
+
+Each entry in `Connections` describes one provider-specific connection.
+
+- `Type`  
+  Required in practice. For the built-in CLI providers, use `MySQL`, `MariaDB`, or `SQLite`.
+
+- `DatabaseName`  
+  Optional alias. If `DataSourceName` is missing, this value is used instead.
+
+- `DataSourceName`  
+  Required in practice unless `DatabaseName` is present. This is the logical database name, server-side database name, or file name depending on provider.
+
+- `ConnectionString`  
+  Required in practice. The runtime connection-string parser expects a real connection string here.
+
+---
+
+## Selection Rules in the CLI
+
+- If the config contains more than one database, pass `-n`.
+- If the selected database contains more than one connection type, pass `-t`.
+- If the config path points to a directory, the CLI resolves `datalinq.json` inside it.
+
+---
+
+## Practical Notes
+
+- `create-models` writes generated files directly to `DestinationDirectory`.
+- When `--skip-source` is not used, `create-models` will also read from `SourceDirectories` if they are configured.
+- For SQLite, the CLI may rewrite the `Data Source` value in the connection string based on the resolved target path.
 
 ---
 
 ## Summary
 
-- The **datalinq.json** file is the main configuration file and defines an array of databases with their settings. This file should be checked in to source control.
-- **datalinq.user.json** is an optional file that overrides or extends settings from datalinq.json, allowing local or user-specific configuration changes, like connections strings and secret passwords. **This file should typically not be checked in to source control.**
+- `datalinq.json` is the main CLI config file.
+- `datalinq.user.json` is the local override file discovered next to it.
+- Comments are allowed because the reader strips them before JSON deserialization.
+- The safest pattern is to keep shared structure in `datalinq.json` and local connection details in `datalinq.user.json`.

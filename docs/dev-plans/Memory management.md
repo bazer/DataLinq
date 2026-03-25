@@ -1,3 +1,5 @@
+> [!WARNING]
+> This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **Specification for Advanced Caching and Memory Management**
 
 #### **1. Overview**

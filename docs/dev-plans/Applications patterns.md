@@ -1,3 +1,5 @@
+> [!WARNING]
+> This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **Architectural Vision: Application Patterns for DataLinq**
 
 #### **1. Introduction & Guiding Philosophy**
