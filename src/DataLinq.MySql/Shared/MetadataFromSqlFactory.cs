@@ -123,19 +123,59 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         if (property.CsType.Type == typeof(bool) && dbColumns.COLUMN_DEFAULT.StartsWith("b'"))
             return new DefaultAttribute(dbColumns.COLUMN_DEFAULT == "b'1'");
 
-        var normalizedDefault = property.CsType.Type == typeof(string)
-            ? NormalizeSqlStringDefault(dbColumns.COLUMN_DEFAULT)
-            : dbColumns.COLUMN_DEFAULT;
-
-        var value = property.CsType.Type != null ?
-                Convert.ChangeType(normalizedDefault, property.CsType.Type, CultureInfo.InvariantCulture)
-                : normalizedDefault;
+        var normalizedDefault = NormalizeSqlLiteral(dbColumns.COLUMN_DEFAULT);
+        var value = ConvertDefaultValue(normalizedDefault, property);
 
         return new DefaultAttribute(value);
 
     }
 
-    private static string NormalizeSqlStringDefault(string defaultValue)
+    private static object ConvertDefaultValue(string defaultValue, ValueProperty property)
+    {
+        if (property.EnumProperty != null)
+        {
+            if (int.TryParse(defaultValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var enumNumericValue))
+                return enumNumericValue;
+
+            var enumValue = property.EnumProperty.Value.DbValuesOrCsValues
+                .FirstOrDefault(x => string.Equals(x.name, defaultValue, StringComparison.Ordinal));
+
+            if (enumValue.name != null)
+                return enumValue.value;
+
+            return defaultValue;
+        }
+
+        if (property.CsType.Type == typeof(bool))
+        {
+            if (defaultValue == "0")
+                return false;
+
+            if (defaultValue == "1")
+                return true;
+
+            return Convert.ChangeType(defaultValue, property.CsType.Type, CultureInfo.InvariantCulture);
+        }
+
+        if (property.CsType.Type == typeof(DateOnly))
+            return DateOnly.Parse(defaultValue, CultureInfo.InvariantCulture);
+
+        if (property.CsType.Type == typeof(TimeOnly))
+            return TimeOnly.Parse(defaultValue, CultureInfo.InvariantCulture);
+
+        if (property.CsType.Type == typeof(TimeSpan))
+            return TimeSpan.Parse(defaultValue, CultureInfo.InvariantCulture);
+
+        if (property.CsType.Type == typeof(Guid))
+            return Guid.Parse(defaultValue);
+
+        if (property.CsType.Type != null)
+            return Convert.ChangeType(defaultValue, property.CsType.Type, CultureInfo.InvariantCulture);
+
+        return defaultValue;
+    }
+
+    private static string NormalizeSqlLiteral(string defaultValue)
     {
         if (defaultValue.Length >= 2 && defaultValue[0] == '\'' && defaultValue[^1] == '\'')
             return defaultValue[1..^1].Replace("''", "'");

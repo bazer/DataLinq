@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
@@ -209,6 +210,67 @@ public class MySqlTypeMappingTests : IClassFixture<MySqlTypeMappingFixture>
 
             Assert.Contains("[Default(\"\\\"\\\"\")]", generatedFile.contents);
             Assert.DoesNotContain("[Default(\"'\\\"\\\"'\")]", generatedFile.contents);
+        }
+        finally
+        {
+            transaction.ExecuteNonQuery($"DROP TABLE IF EXISTS `{tableName}`;");
+        }
+    }
+
+    [Fact]
+    public void TestQuotedNumericDefault_Int_IsParsedToColumnType() =>
+        TestQuotedNumericDefaultParsing("INT", typeof(int), 0, "[Default(0)]");
+
+    [Fact]
+    public void TestQuotedNumericDefault_BigInt_IsParsedToColumnType() =>
+        TestQuotedNumericDefaultParsing("BIGINT", typeof(long), 0L, "[Default(0L)]");
+
+    [Fact]
+    public void TestQuotedNumericDefault_Decimal_IsParsedToColumnType() =>
+        TestQuotedNumericDefaultParsing("DECIMAL(10, 2)", typeof(decimal), 0m, "[Default(0.00M)]");
+
+    private void TestQuotedNumericDefaultParsing(string mysqlType, Type expectedValueType, object expectedValue, string expectedDefaultCode)
+    {
+        var tableName = "quoted_numeric_default_test";
+
+        using var transaction = new SqlDatabaseTransaction(
+             new MySqlDataSourceBuilder(_mySqlConnection.ConnectionString.Original).Build(),
+             Mutation.TransactionType.ReadAndWrite,
+             _dbName,
+             Logging.DataLinqLoggingConfiguration.NullConfiguration);
+
+        try
+        {
+            transaction.ExecuteNonQuery($"""
+                CREATE TABLE `{tableName}` (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    typed_default {mysqlType} NOT NULL DEFAULT '0'
+                );
+                """);
+
+            var options = new MetadataFromDatabaseFactoryOptions { Include = [tableName], CapitaliseNames = true };
+            var factory = MetadataFromSqlFactory.GetSqlFactory(options, DatabaseType.MariaDB);
+            var dbDefinition = factory.ParseDatabase(
+                _dbName,
+                "TestDb",
+                "TestNamespace",
+                _dbName,
+                _mySqlConnection.ConnectionString.Original).Value;
+
+            var property = dbDefinition.TableModels.Single()
+                .Model.ValueProperties["TypedDefault"];
+
+            var defaultAttr = Assert.IsType<DefaultAttribute>(property.GetDefaultAttribute());
+            Assert.IsType(expectedValueType, defaultAttr.Value);
+            Assert.Equal(expectedValue, defaultAttr.Value);
+
+            var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+                .CreateModelFiles(dbDefinition)
+                .Single(file => file.path == "QuotedNumericDefaultTest.cs");
+
+            Assert.Contains(expectedDefaultCode, generatedFile.contents);
+            Assert.DoesNotContain("[Default(\"0\")]", generatedFile.contents);
+            Assert.DoesNotContain("[Default(\"'0'\")]", generatedFile.contents);
         }
         finally
         {
