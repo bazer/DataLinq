@@ -1,12 +1,17 @@
-- name: Introduction
+- name: Intro
   href: index.md
-- name: Getting Started & Usage
+- name: Getting Started
   expanded: true
   items:
-    - name: CLI Documentation
-      href: CLI Documentation.md
-    - name: Configuration Files
-      href: Configuration files.md
+    - name: Installation
+      href: getting-started/Installation.md
+    - name: Configuration and Model Generation
+      href: getting-started/Configuration and Model Generation.md
+    - name: Your First Query and Update
+      href: getting-started/Your First Query and Update.md
+- name: Usage
+  expanded: true
+  items:
     - name: Querying
       href: Querying.md
     - name: Caching and Mutation
@@ -17,6 +22,10 @@
       href: Transactions.md
     - name: Attributes and Model Definitions
       href: Attributes and Model Definitions.md
+    - name: CLI Documentation
+      href: CLI Documentation.md
+    - name: Configuration Files
+      href: Configuration files.md
     - name: Troubleshooting
       href: Troubleshooting.md
 - name: Providers

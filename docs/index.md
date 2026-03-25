@@ -1,68 +1,87 @@
-# DataLinq Documentation Index
+# Intro
 
-This index is meant to help you get to the right document quickly.
+Welcome to the DataLinq documentation.
 
----
+These docs are structured to help two kinds of readers:
 
-## Getting Started
+- developers who are new to DataLinq and need a clear path to first success
+- contributors or maintainers who need reference material and internals
 
-### [CLI Documentation](CLI%20Documentation.md)
-Command reference for the `datalinq` tool, including config loading, database selection rules, and generation commands.
+If you are new here, do not start by wandering through every reference page in the menu. Start with the guided onboarding path.
 
-### [Configuration Files](Configuration%20files.md)
-Describes `datalinq.json` and `datalinq.user.json`, including database definitions, connections, and generation settings.
+## What DataLinq Is
 
-## User Guide
+DataLinq is an immutable-first, source-generated ORM for .NET.
 
-### [Querying](Querying.md)
-How runtime queries work, what the current LINQ-focused surface looks like, and how relations are loaded.
+Its core trade is simple:
 
-### [Caching and Mutation](Caching%20and%20Mutation.md)
-Explains the primary-key-first fetch path, row and relation caching, mutation flow, and transaction-aware updates.
+- more work in generation, metadata, and cache structure
+- less ambiguity at runtime
 
-### [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
-Test-backed overview of which query operators and predicate shapes are currently safe to rely on.
+That leads to a model where:
 
-### [Transactions](Transactions.md)
-Explains implicit transactions, explicit transactions, attached ADO.NET transactions, and provider-specific caveats.
+- queries return immutable instances
+- relations are lazy and cache-aware
+- updates happen through mutable wrappers and transactions
+- supported LINQ is documented conservatively instead of being hand-waved as "probably works"
 
-### [Attributes and Model Definitions](Attributes%20and%20Model%20Definitions.md)
-Guide to the public attribute set used to define databases, tables, views, relations, indexes, defaults, and cache behavior.
+## Why New Developers Should Care
 
-### [Troubleshooting](Troubleshooting.md)
-Common failure modes and the shortest honest path to fixing them.
+If you have only used mainstream ORMs, DataLinq can feel a bit different at first.
 
-## Providers
+That is because it is optimizing for:
 
-### [MySQL & MariaDB](backends/MySQL-MariaDB.md)
-Provider-specific notes for schema reading, SQL generation, type handling, and provider caveats.
+- predictable reads
+- strong generated typing
+- cache-aware relation traversal
+- clearer mutation flow
 
-### [SQLite](backends/SQLite.md)
-Provider-specific notes for SQLite affinity handling, smart type inference, and SQL generation.
+It is not trying to be the most permissive ORM in the ecosystem. It is trying to be coherent.
 
-### [Implementing a new backend](Implementing%20a%20new%20backend.md)
-Technical guide for extending DataLinq with another provider.
+## Start Here
 
-## Internals
+If you want the shortest path to understanding the library, follow this order:
 
-### [Technical Documentation](Technical%20documentation.md)
-Overview of the runtime architecture, cache layers, and how the major pieces fit together.
+1. [Installation](getting-started/Installation.md)
+2. [Configuration and Model Generation](getting-started/Configuration%20and%20Model%20Generation.md)
+3. [Your First Query and Update](getting-started/Your%20First%20Query%20and%20Update.md)
 
-### [Metadata Structure](Metadata%20Structure.md)
-Reference for the metadata model used to represent tables, columns, relations, and generated types.
+That sequence gets you from zero to a real generated model surface and a working query/update loop.
 
-### [Source Generator](Source%20Generator.md)
-Explains the source generator pipeline and the generated model surface.
+## After That
 
-### [Query Translator](Query%20Translator.md)
-Explains the expression translation pipeline that turns supported LINQ query shapes into backend-specific SQL.
+Once the basics are in place, move into the deeper working docs:
 
-## Contributing
+- [Querying](Querying.md)
+- [Caching and Mutation](Caching%20and%20Mutation.md)
+- [Transactions](Transactions.md)
+- [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
 
-### [Contribution Guidelines](Contributing.md)
-Guide for contributors working on the repo itself.
+## Documentation Areas
 
-## Roadmap and Specs
+If you already know what you need, jump directly to the major sections:
 
-### [Project Specification](Project%20Specification.md)
-High-level design and roadmap-oriented specification material. This is not the best source for verifying current behavior.
+### Getting Started
+
+- [Installation](getting-started/Installation.md)
+- [Configuration and Model Generation](getting-started/Configuration%20and%20Model%20Generation.md)
+- [Your First Query and Update](getting-started/Your%20First%20Query%20and%20Update.md)
+
+### Usage
+
+- [Querying](Querying.md)
+- [Caching and Mutation](Caching%20and%20Mutation.md)
+- [Transactions](Transactions.md)
+- [Attributes and Model Definitions](Attributes%20and%20Model%20Definitions.md)
+- [Troubleshooting](Troubleshooting.md)
+
+### Providers
+
+- [MySQL & MariaDB](backends/MySQL-MariaDB.md)
+- [SQLite](backends/SQLite.md)
+
+### Internals
+
+- [Technical Documentation](Technical%20documentation.md)
+- [Source Generator](Source%20Generator.md)
+- [Query Translator](Query%20Translator.md)

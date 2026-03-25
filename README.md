@@ -71,19 +71,10 @@ Minimal example:
 }
 ```
 
-For a more complete explanation of config discovery, overrides, and provider selection, see [Configuration Files](docs/Configuration%20files.md).
-
-### Model Creation
-Generate your data models directly from your database schema using the CLI:
+Generate your data models directly from your database schema:
 
 ```bash
-datalinq create-models -n YourDatabaseName
-```
-
-And then to generate SQL scripts from the models:
-
-```bash
-datalinq create-sql -o output.sql -n YourDatabaseName
+datalinq create-models -n AppDb
 ```
 
 If your config contains more than one database, pass `-n`.
@@ -91,53 +82,39 @@ If the selected database contains more than one connection type, pass `-t`.
 
 ---
 
-## Code Examples & Usage
-
-### Performing a Simple Query
-Retrieve all active users using LINQ:
+## Code Example
 
 ```csharp
-var activeUsers = usersDb.Query().Users
-    .Where(x => x.Status == UserStatus.Active)
+var db = new MySqlDatabase<AppDb>(connectionString);
+
+var activeUsers = db.Query().Users
+    .Where(x => x.IsActive)
     .ToList();
-```
 
-### Updating Data with Immutability
-Fetch an immutable record, mutate it, and then save the changes:
-
-```csharp
-var user = usersDb.Query().Users.Single(u => u.Id == 1);
-var updatedUser = user.Mutate(u => u.Name = "New Name").Save();
-```
-
-### Accessing Related Entities
-Fetch a department and its associated managers:
-
-```csharp
-var department = employeesDb.Query().Departments.Single(d => d.DeptNo == "d005");
-var managers = department.Managers;
+var user = db.Query().Users.Single(x => x.UserId == userId);
+var updatedUser = user.Mutate(x => x.DisplayName = "Updated Name").Save();
 ```
 
 ---
 
-## Contributing & Further Resources
+## Documentation
 
-### Documentation
-Start with the [documentation index](docs/index.md). The most useful entry points right now are:
+If you want the website-first docs experience, start here:
 
-- [CLI Documentation](docs/CLI%20Documentation.md)
-- [Configuration Files](docs/Configuration%20files.md)
+- [Website Home](home.md)
+- [Docs Intro](docs/index.md)
+- [Installation](docs/getting-started/Installation.md)
+- [Configuration and Model Generation](docs/getting-started/Configuration%20and%20Model%20Generation.md)
+- [Your First Query and Update](docs/getting-started/Your%20First%20Query%20and%20Update.md)
+
+After that, the deeper working docs are:
+
 - [Querying](docs/Querying.md)
-- [Supported LINQ Queries](docs/Supported%20LINQ%20Queries.md)
 - [Caching and Mutation](docs/Caching%20and%20Mutation.md)
+- [Supported LINQ Queries](docs/Supported%20LINQ%20Queries.md)
 - [Transactions](docs/Transactions.md)
 - [Attributes and Model Definitions](docs/Attributes%20and%20Model%20Definitions.md)
 - [Troubleshooting](docs/Troubleshooting.md)
-- [MySQL & MariaDB Provider Notes](docs/backends/MySQL-MariaDB.md)
-- [SQLite Provider Notes](docs/backends/SQLite.md)
-
-### Contributing
-We welcome contributions from the community. Please see our [Contributing Guide](docs/Contributing.md) for details.
 
 ### License
 DataLinq is open source and distributed under the MIT License. See the [LICENSE](LICENSE.md) file for more details.
