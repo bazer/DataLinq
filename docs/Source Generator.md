@@ -6,7 +6,7 @@ The DataLinq source generator automates the creation of immutable and mutable mo
 ---
 config:
   theme: neo
-  look: handDrawn
+  look: classic
 ---
 flowchart TD
     A["Developer Defines Model<br>(Using Abstract Classes<br>and Attributes)"] -- Compile Time --> B(("DataLinq Source Generator"))

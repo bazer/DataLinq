@@ -26,7 +26,7 @@ The important building blocks are:
 ---
 config:
   theme: neo
-  look: handDrawn
+  look: classic
 ---
 flowchart LR
     subgraph subGraph0["Dev Tools"]

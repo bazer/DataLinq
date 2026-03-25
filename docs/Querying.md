@@ -46,7 +46,7 @@ If you need lower-level SQL-builder access, `Database<T>` also exposes `From(...
 ---
 config:
   theme: neo
-  look: handDrawn
+  look: classic
 ---
 flowchart TD
     subgraph Application
@@ -112,7 +112,7 @@ That means relation traversal is cheap after the first resolution, but it is sti
 ---
 config:
   theme: neo
-  look: handDrawn
+  look: classic
 ---
 flowchart TD
     subgraph Application

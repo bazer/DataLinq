@@ -8,7 +8,7 @@ The DataLinq CLI tool lets you inspect configuration, generate models, generate 
 ---
 config:
   theme: neo
-  look: handDrawn
+  look: classic
 ---
 graph TD
     subgraph "DataLinq CLI Tool"

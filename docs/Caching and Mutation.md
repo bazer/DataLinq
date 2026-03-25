@@ -24,7 +24,7 @@ That matters because it keeps the normal read path cheap while preserving object
 ---
 config:
   theme: neo
-  look: handDrawn
+  look: classic
 ---
 flowchart TD
     subgraph Application
@@ -95,7 +95,7 @@ There is also generator-backed `MutateOrNew(...)` support for the common "edit e
 ---
 config:
   theme: neo
-  look: handDrawn
+  look: classic
 ---
 flowchart TD
     A["Fetch Immutable<br/>Instance (EmpX)"] --> B{"Call .Mutate()"}
