@@ -302,7 +302,7 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}" + "{";
 
         foreach (var v in defaultProps)
-            yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValue()};";
+            yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValueCode()};";
 
         yield return $"{namespaceTab}{tab}" + "}";
 
@@ -319,7 +319,7 @@ public class GeneratorFileFactory
             yield return $"{namespaceTab}{tab}" + "{";
 
             foreach (var v in defaultProps)
-                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValue()};";
+                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValueCode()};";
 
             // For each required property, assign the passed parameter to the property.
             foreach (var v in requiredProps)

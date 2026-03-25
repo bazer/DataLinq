@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace DataLinq.Metadata;
 
@@ -78,8 +80,65 @@ public class ValueProperty : PropertyDefinition
                 _ => throw new NotImplementedException(),
             };
         }
-            
+
         return defaultAttr?.Value.ToString();
+    }
+
+    public string? GetDefaultValueCode()
+    {
+        var defaultAttr = GetDefaultAttribute();
+
+        if (defaultAttr is DefaultCurrentTimestampAttribute || defaultAttr is DefaultNewUUIDAttribute)
+            return GetDefaultValue();
+
+        if (defaultAttr == null)
+            return null;
+
+        if (EnumProperty != null)
+            return FormatEnumDefaultValue(defaultAttr.Value);
+
+        return FormatDefaultValueForPropertyType(defaultAttr.Value);
+    }
+
+    private string FormatEnumDefaultValue(object value)
+    {
+        var enumProperty = EnumProperty!.Value;
+        var enumTypeName = $"{(enumProperty.DeclaredInClass ? $"{Model.CsType.Name}." : "")}{CsType.Name}";
+        var numericValue = Convert.ToInt32(value, CultureInfo.InvariantCulture);
+        var enumMember = enumProperty.CsValuesOrDbValues.FirstOrDefault(x => x.value == numericValue);
+
+        if (enumMember.name != null)
+            return $"{enumTypeName}.{enumMember.name}";
+
+        return $"({enumTypeName}){numericValue.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    private string FormatDefaultValueForPropertyType(object value)
+    {
+        return CsType.Name switch
+        {
+            "string" => SymbolDisplay.FormatLiteral(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty, quote: true),
+            "char" => SymbolDisplay.FormatLiteral(Convert.ToChar(value, CultureInfo.InvariantCulture), quote: true),
+            "bool" => Convert.ToBoolean(value, CultureInfo.InvariantCulture) ? "true" : "false",
+            "sbyte" => $"(sbyte){Convert.ToSByte(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}",
+            "byte" => $"(byte){Convert.ToByte(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}",
+            "short" => $"(short){Convert.ToInt16(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}",
+            "ushort" => $"(ushort){Convert.ToUInt16(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}",
+            "int" => Convert.ToInt32(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "uint" => $"{Convert.ToUInt32(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}U",
+            "long" => $"{Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}L",
+            "ulong" => $"{Convert.ToUInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}UL",
+            "float" => $"{Convert.ToSingle(value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture)}F",
+            "double" => $"{Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture)}D",
+            "decimal" => $"{Convert.ToDecimal(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}M",
+            "DateTime" => $"DateTime.Parse({SymbolDisplay.FormatLiteral(((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture), quote: true)})",
+            "DateTimeOffset" => $"DateTimeOffset.Parse({SymbolDisplay.FormatLiteral(((DateTimeOffset)value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture), quote: true)})",
+            "TimeSpan" => $"TimeSpan.Parse({SymbolDisplay.FormatLiteral(((TimeSpan)value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture), quote: true)})",
+            "DateOnly" => $"DateOnly.Parse({SymbolDisplay.FormatLiteral(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty, quote: true)})",
+            "TimeOnly" => $"TimeOnly.Parse({SymbolDisplay.FormatLiteral(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty, quote: true)})",
+            "Guid" or "System.Guid" => $"Guid.Parse({SymbolDisplay.FormatLiteral(((Guid)value).ToString(), quote: true)})",
+            _ => value.ToString() ?? string.Empty,
+        };
     }
 }
 
