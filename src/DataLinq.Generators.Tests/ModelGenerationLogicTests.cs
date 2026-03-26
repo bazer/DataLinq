@@ -9,6 +9,8 @@ namespace DataLinq.Generators.Tests;
 
 public class ModelGenerationLogicTests : GeneratorTestBase
 {
+    private const string InvalidDefaultValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidDefaultModel.cs";
+
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
     using DataLinq.Interfaces;
@@ -44,6 +46,33 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 
         [Nullable, Column(""optional_value"")]
         public abstract int? OptionalValue { get; }
+    }";
+
+    private const string InvalidDefaultValueTestModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidDefaultNamespace;
+
+    public partial class InvalidDefaultDb : IDatabaseModel
+    {
+        public InvalidDefaultDb(DataSourceAccess dsa){}
+        public DbRead<InvalidDefaultModel> Betalningar { get; }
+    }
+
+    [Table(""betalningar"")]
+    public abstract partial class InvalidDefaultModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<InvalidDefaultModel, InvalidDefaultDb>(rowData, dataSource), ITableModel<InvalidDefaultDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""betal_id"")]
+        public abstract int? BetalId { get; }
+
+        [Column(""kontotexten"")]
+        [Default(56)]
+        public abstract string Kontotexten { get; }
     }";
 
     private PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDecl, string name)
@@ -160,5 +189,23 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 
         Assert.IsType<NullableTypeSyntax>(optionalOnInterface.Type); // int?
         Assert.IsType<NullableTypeSyntax>(optionalOnClass.Type);   // int?
+    }
+
+    [Fact]
+    public void Property_WithInvalidDefault_ShouldReportDiagnosticOnSourceAttribute_AndSkipBrokenAssignment()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidDefaultValueTestModelSource, path: InvalidDefaultValueSourcePath);
+
+        var (outputCompilation, diagnostics, generatedTrees) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = Assert.Single(diagnostics.Where(x => x.Id == "DLG003"));
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal(InvalidDefaultValueSourcePath, diagnostic.Location.GetLineSpan().Path);
+        Assert.Equal("56", inputTree.GetText().ToString(diagnostic.Location.SourceSpan));
+
+        Assert.DoesNotContain(outputCompilation.GetDiagnostics(), x => x.Id == "CS0029");
+
+        var generatedCode = string.Join("\n", generatedTrees.Select(x => x.ToString()));
+        Assert.DoesNotContain("this.Kontotexten = 56;", generatedCode);
     }
 }

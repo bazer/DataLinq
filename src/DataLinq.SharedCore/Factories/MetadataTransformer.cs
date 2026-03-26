@@ -80,6 +80,8 @@ public class MetadataTransformer
     public void TransformTable(TableModel srcTable, TableModel destTable)
     {
         destTable.Model.SetCsType(TransformCsType(srcTable.Model.CsType, destTable.Model.CsType));
+        if (srcTable.Model.CsFile != null)
+            destTable.Model.SetCsFile(srcTable.Model.CsFile.Value);
 
         if (srcTable.Model.ModelInstanceInterface != null)
             destTable.Model.SetModelInstanceInterface(srcTable.Model.ModelInstanceInterface);
@@ -113,6 +115,8 @@ public class MetadataTransformer
             }
 
             destProperty.SetPropertyName(srcProperty.PropertyName);
+            if (srcProperty.SourceInfo != null)
+                destProperty.SetSourceInfo(srcProperty.SourceInfo.Value);
 
             if (srcProperty.EnumProperty != null)
                 destProperty.SetEnumProperty(srcProperty.EnumProperty.Value);

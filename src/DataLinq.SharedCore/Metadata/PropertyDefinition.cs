@@ -27,6 +27,8 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     public void SetCsNullable(bool csNullable = true) => CsNullable = csNullable;
     public ModelDefinition Model { get; private set; } = model;
     public PropertyType Type { get; protected private set; }
+    public PropertySourceInfo? SourceInfo { get; private set; }
+    public void SetSourceInfo(PropertySourceInfo sourceInfo) => SourceInfo = sourceInfo;
 
     public CsFileDeclaration? CsFile => Model?.CsFile;
 

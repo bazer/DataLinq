@@ -7,6 +7,7 @@ using DataLinq.Metadata;
 using DataLinq.Mutation;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using Xunit;
 
 namespace DataLinq.Tests.Core
@@ -325,6 +326,24 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
             Assert.Equal(2, prop.EnumProperty.Value.CsValuesOrDbValues.Count);
             Assert.Equal("Active", prop.EnumProperty.Value.CsValuesOrDbValues[0].name);
             Assert.Equal("Inactive", prop.EnumProperty.Value.CsValuesOrDbValues[1].name);
+        }
+
+        [Fact]
+        public void TestParsePropertySyntax_DefaultValue_PopulatesSourceInfo()
+        {
+            var (parser, syntax, model) = GetPropertySyntax(@"[Column(""kontotexten""), Default(56)] public string Kontotexten { get; }");
+            var result = parser.ParseProperty(syntax, model);
+            Assert.True(result.HasValue);
+
+            var prop = Assert.IsType<ValueProperty>(result.Value);
+            Assert.NotNull(prop.SourceInfo);
+            Assert.NotNull(prop.SourceInfo.Value.DefaultValueExpressionSpan);
+
+            var propertySpan = new TextSpan(prop.SourceInfo.Value.PropertySpan.Start, prop.SourceInfo.Value.PropertySpan.Length);
+            var defaultSpan = new TextSpan(prop.SourceInfo.Value.DefaultValueExpressionSpan!.Value.Start, prop.SourceInfo.Value.DefaultValueExpressionSpan.Value.Length);
+
+            Assert.Equal(syntax.ToString(), syntax.SyntaxTree.GetText().ToString(propertySpan));
+            Assert.Equal("56", syntax.SyntaxTree.GetText().ToString(defaultSpan));
         }
 
         // --- Model Parsing Tests ---

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -19,6 +19,10 @@ namespace DataLinq.SourceGenerators;
 public sealed class ModelGenerator : IIncrementalGenerator
 {
     private const string GeneratorName = "DataLinqSourceGenerator";
+    private static readonly IGeneratorDatabaseValidator[] validators =
+    [
+        new DefaultValueCompatibilityValidator()
+    ];
     private readonly MetadataFromModelsFactory metadataFactory = new(new MetadataFromInterfacesFactoryOptions());
     private readonly GeneratorFileFactory fileFactory = new(new GeneratorFileFactoryOptions());
 
@@ -45,33 +49,18 @@ public sealed class ModelGenerator : IIncrementalGenerator
         IncrementalValueProvider<ImmutableArray<TypeDeclarationSyntax>> collectedClasses =
             modelDeclarations.Collect();
 
-        IncrementalValuesProvider<Option<DatabaseDefinition, IDLOptionFailure>> cachedMetadata =
-            collectedClasses.SelectMany((syntaxTrees, cancellationToken) =>
-            {
-                try
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                        return Enumerable.Empty<Option<DatabaseDefinition, IDLOptionFailure>>();
+        var generatorInputs = context.CompilationProvider.Combine(collectedClasses);
 
-                    return metadataFactory.ReadSyntaxTrees(syntaxTrees);
-                }
-                catch (Exception e)
-                {
-                    return new Option<DatabaseDefinition, IDLOptionFailure>[] { DLOptionFailure.Fail(e) };
-                }
-            });
-
-        context.RegisterSourceOutputSafely(context.CompilationProvider, (sourceProductionContext, compilation) =>
-        {
-            fileFactory.Options.UseNullableReferenceTypes = IsNullableEnabled(compilation);
-        }, GeneratorName);
-
-        context.RegisterSourceOutputSafely(cachedMetadata, (sourceProductionContext, metadata) =>
+        context.RegisterSourceOutputSafely(generatorInputs, (sourceProductionContext, input) =>
         {
             if (sourceProductionContext.CancellationToken.IsCancellationRequested)
                 return;
 
-            ExecuteForDatabase(metadata, sourceProductionContext);
+            var (compilation, syntaxTrees) = input;
+            fileFactory.Options.UseNullableReferenceTypes = IsNullableEnabled(compilation);
+
+            foreach (var metadata in ReadMetadataSafely(syntaxTrees, sourceProductionContext.CancellationToken))
+                ExecuteForDatabase(metadata, compilation, sourceProductionContext);
         }, GeneratorName);
     }
 
@@ -81,45 +70,45 @@ public sealed class ModelGenerator : IIncrementalGenerator
                classDeclaration.BaseList?.Types.Any(t => SyntaxParser.IsModelInterface(t.ToString())) == true;
     }
 
-
     private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
         (TypeDeclarationSyntax)context.Node;
 
-    private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, SourceProductionContext context)
+    private IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ReadMetadataSafely(
+        ImmutableArray<TypeDeclarationSyntax> syntaxTrees,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return [];
+
+            return metadataFactory.ReadSyntaxTrees(syntaxTrees);
+        }
+        catch (Exception e)
+        {
+            return [DLOptionFailure.Fail(e)];
+        }
+    }
+
+    private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, Compilation compilation, SourceProductionContext context)
     {
         if (db.HasFailed)
         {
-            var failure = db.Failure;
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "DLG001",
-                    "Database Metadata Generation Failed",
-                    $"{failure.Value}",
-                    "DataLinq.Generators",
-                    DiagnosticSeverity.Error,
-                    true),
-                Location.None));
+            context.ReportDiagnostic(Diagnostic.Create(GeneratorDiagnostics.MetadataGenerationFailed, Location.None, $"{db.Failure.Value}"));
             return;
         }
 
         try
         {
+            foreach (var validator in validators)
+                validator.Validate(db.Value, compilation, context);
+
             foreach (var (path, contents) in fileFactory.CreateModelFiles(db.Value))
-            {
                 context.AddSource($"{db.Value.Name}/{path}", contents);
-            }
         }
         catch (Exception e)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "DLG002",
-                    "Model File Generation Failed",
-                    $"{e.Message}\n{e.StackTrace}",
-                    "DataLinq.Generators",
-                    DiagnosticSeverity.Error,
-                    true),
-                Location.None));
+            context.ReportDiagnostic(Diagnostic.Create(GeneratorDiagnostics.ModelFileGenerationFailed, Location.None, $"{e.Message}\n{e.StackTrace}"));
         }
     }
 

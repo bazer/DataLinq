@@ -383,6 +383,9 @@ public class SyntaxParser
             : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes);
 
         property.SetCsNullable(propSyntax.Type is NullableTypeSyntax);
+        property.SetSourceInfo(new PropertySourceInfo(
+            new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
+            GetDefaultValueExpressionSourceSpan(propSyntax)));
 
         if (property is ValueProperty valueProp)
         {
@@ -431,6 +434,24 @@ public class SyntaxParser
         }
 
         return property;
+    }
+
+    private static SourceTextSpan? GetDefaultValueExpressionSourceSpan(PropertyDeclarationSyntax propSyntax)
+    {
+        var defaultExpression = propSyntax.AttributeLists
+            .SelectMany(attrList => attrList.Attributes)
+            .Where(attr =>
+            {
+                var name = attr.Name.ToString();
+                return name == "Default" || name == "DefaultAttribute";
+            })
+            .Select(attr => attr.ArgumentList?.Arguments.SingleOrDefault()?.Expression)
+            .FirstOrDefault(expr => expr != null);
+
+        if (defaultExpression == null)
+            return null;
+
+        return new SourceTextSpan(defaultExpression.SpanStart, defaultExpression.Span.Length);
     }
 
     public Option<(string csPropertyName, TypeDeclarationSyntax classSyntax), IDLOptionFailure> GetTableType(PropertyDeclarationSyntax property, List<TypeDeclarationSyntax> modelTypeSyntaxes)
