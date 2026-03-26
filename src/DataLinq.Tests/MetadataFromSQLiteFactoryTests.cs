@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
@@ -6,6 +7,7 @@ using DataLinq.Config;
 using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using DataLinq.SQLite; // Namespace for the factory
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace DataLinq.Tests
@@ -87,6 +89,51 @@ namespace DataLinq.Tests
 
             Assert.True(result.HasValue, result.HasFailed ? result.Failure.ToString() : "Parsing failed");
             return result.Value;
+        }
+
+        private static string CreateTemporarySqliteDatabase(params string[] statements)
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"datalinq-defaults-{Guid.NewGuid():N}.db");
+            using var connection = new SqliteConnection($"Data Source={path}");
+            connection.Open();
+
+            foreach (var statement in statements)
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = statement;
+                command.ExecuteNonQuery();
+            }
+
+            return path;
+        }
+
+        private static DatabaseDefinition ParseSqliteDatabase(string sqliteDbPath, MetadataFromDatabaseFactoryOptions? options = null)
+        {
+            var factory = new MetadataFromSQLiteFactory(options ?? new MetadataFromDatabaseFactoryOptions());
+            var result = factory.ParseDatabase(
+                "TempSqliteDb",
+                "TempSqliteDb",
+                "DataLinq.Tests",
+                sqliteDbPath,
+                $"Data Source={sqliteDbPath}");
+
+            Assert.True(result.HasValue, result.HasFailed ? result.Failure.ToString() : "Parsing failed");
+            return result.Value;
+        }
+
+        private static void DeleteTemporarySqliteDatabase(string sqliteDbPath)
+        {
+            try
+            {
+                if (File.Exists(sqliteDbPath))
+                    File.Delete(sqliteDbPath);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         [Fact]
@@ -302,6 +349,122 @@ namespace DataLinq.Tests
             Assert.Single(dbDefinition.TableModels);
             Assert.Contains(dbDefinition.TableModels, tm => tm.Table.DbName == "current_dept_emp");
             Assert.All(dbDefinition.TableModels, tm => Assert.Equal(TableType.View, tm.Table.Type));
+        }
+
+        [Fact]
+        public void TestParseDefaults_SQLite_TypedDefaultsAreImported()
+        {
+            var sqliteDbPath = CreateTemporarySqliteDatabase(
+                """
+                CREATE TABLE default_values (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    count INTEGER NOT NULL DEFAULT '0',
+                    is_deleted INTEGER DEFAULT '1',
+                    amount REAL NOT NULL DEFAULT (1.5),
+                    note TEXT NOT NULL DEFAULT '0',
+                    display_name TEXT NOT NULL DEFAULT 'abc',
+                    birth_date TEXT NOT NULL DEFAULT '2024-01-02',
+                    alarm_time TEXT NOT NULL DEFAULT '12:34:56',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    created_date TEXT NOT NULL DEFAULT CURRENT_DATE,
+                    created_time TEXT NOT NULL DEFAULT CURRENT_TIME
+                );
+                """);
+
+            try
+            {
+                var dbDefinition = ParseSqliteDatabase(sqliteDbPath);
+                var table = dbDefinition.TableModels.Single(tm => tm.Table.DbName == "default_values").Table;
+
+                Assert.Equal(0, table.Columns.Single(c => c.DbName == "count").ValueProperty.GetDefaultAttribute()!.Value);
+                Assert.Equal(true, table.Columns.Single(c => c.DbName == "is_deleted").ValueProperty.GetDefaultAttribute()!.Value);
+                Assert.Equal(1.5D, table.Columns.Single(c => c.DbName == "amount").ValueProperty.GetDefaultAttribute()!.Value);
+                Assert.Equal("0", table.Columns.Single(c => c.DbName == "note").ValueProperty.GetDefaultAttribute()!.Value);
+                Assert.Equal("abc", table.Columns.Single(c => c.DbName == "display_name").ValueProperty.GetDefaultAttribute()!.Value);
+                Assert.Equal(new DateOnly(2024, 1, 2), table.Columns.Single(c => c.DbName == "birth_date").ValueProperty.GetDefaultAttribute()!.Value);
+                Assert.Equal(new TimeOnly(12, 34, 56), table.Columns.Single(c => c.DbName == "alarm_time").ValueProperty.GetDefaultAttribute()!.Value);
+
+                Assert.IsType<DefaultCurrentTimestampAttribute>(table.Columns.Single(c => c.DbName == "created_at").ValueProperty.GetDefaultAttribute());
+                Assert.IsType<DefaultCurrentTimestampAttribute>(table.Columns.Single(c => c.DbName == "created_date").ValueProperty.GetDefaultAttribute());
+                Assert.IsType<DefaultCurrentTimestampAttribute>(table.Columns.Single(c => c.DbName == "created_time").ValueProperty.GetDefaultAttribute());
+            }
+            finally
+            {
+                DeleteTemporarySqliteDatabase(sqliteDbPath);
+            }
+        }
+
+        [Fact]
+        public void TestParseDefaults_SQLite_UnsupportedExpressionWarnsAndSkips()
+        {
+            var sqliteDbPath = CreateTemporarySqliteDatabase(
+                """
+                CREATE TABLE unsupported_defaults (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    count INTEGER NOT NULL DEFAULT (0 + 1)
+                );
+                """);
+
+            var warnings = new List<string>();
+
+            try
+            {
+                var dbDefinition = ParseSqliteDatabase(sqliteDbPath, new MetadataFromDatabaseFactoryOptions
+                {
+                    Log = warnings.Add
+                });
+
+                var countProperty = dbDefinition.TableModels
+                    .Single(tm => tm.Table.DbName == "unsupported_defaults")
+                    .Table.Columns.Single(c => c.DbName == "count")
+                    .ValueProperty;
+
+                Assert.Null(countProperty.GetDefaultAttribute());
+                Assert.Contains(warnings, x =>
+                    x.Contains("Skipping unsupported SQLite default", StringComparison.Ordinal) &&
+                    x.Contains("unsupported_defaults.count", StringComparison.Ordinal));
+            }
+            finally
+            {
+                DeleteTemporarySqliteDatabase(sqliteDbPath);
+            }
+        }
+
+        [Fact]
+        public void TestCreateTables_SQLite_EmitsDefaults()
+        {
+            var sqliteDbPath = CreateTemporarySqliteDatabase(
+                """
+                CREATE TABLE generated_defaults (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    count INTEGER NOT NULL DEFAULT '0',
+                    is_deleted INTEGER DEFAULT '1',
+                    display_name TEXT NOT NULL DEFAULT 'abc',
+                    created_date TEXT NOT NULL DEFAULT CURRENT_DATE,
+                    created_time TEXT NOT NULL DEFAULT CURRENT_TIME,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                """);
+
+            try
+            {
+                var dbDefinition = ParseSqliteDatabase(sqliteDbPath);
+                var sqlResult = new SqlFromSQLiteFactory().GetCreateTables(dbDefinition, foreignKeyRestrict: false);
+
+                Assert.True(sqlResult.HasValue, sqlResult.HasFailed ? sqlResult.Failure.ToString() : "SQL generation failed");
+
+                var sql = sqlResult.Value.Text;
+                Assert.Contains("DEFAULT 0", sql, StringComparison.Ordinal);
+                Assert.Contains("DEFAULT 1", sql, StringComparison.Ordinal);
+                Assert.Contains("DEFAULT 'abc'", sql, StringComparison.Ordinal);
+                Assert.Contains("DEFAULT CURRENT_DATE", sql, StringComparison.Ordinal);
+                Assert.Contains("DEFAULT CURRENT_TIME", sql, StringComparison.Ordinal);
+                Assert.Contains("DEFAULT CURRENT_TIMESTAMP", sql, StringComparison.Ordinal);
+            }
+            finally
+            {
+                DeleteTemporarySqliteDatabase(sqliteDbPath);
+            }
         }
     }
 }

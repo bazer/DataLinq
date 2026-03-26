@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using DataLinq.Attributes;
@@ -185,10 +186,46 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         column.AddDbType(dbType);
 
         var csType = ParseCsType(dbType, dbName);
-
-        MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
+        var valueProperty = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
+        var defaultValue = ParseDefaultValue(table, column, reader, valueProperty);
+        if (defaultValue != null)
+            valueProperty.AddAttribute(defaultValue);
 
         return column;
+    }
+
+    private DefaultAttribute? ParseDefaultValue(TableDefinition table, ColumnDefinition column, IDataLinqDataReader reader, ValueProperty property)
+    {
+        var defaultOrdinal = reader.GetOrdinal("dflt_value");
+        if (reader.IsDbNull(defaultOrdinal))
+            return null;
+
+        var rawDefault = reader.GetString(defaultOrdinal);
+        if (string.IsNullOrWhiteSpace(rawDefault))
+            return null;
+
+        var normalizedExpression = UnwrapParenthesizedDefaultExpression(rawDefault).Trim();
+        if (string.Equals(normalizedExpression, "NULL", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (IsCurrentTimestampDefault(normalizedExpression) ||
+            (property.CsType.Type == typeof(DateOnly) && IsCurrentDateDefault(normalizedExpression)) ||
+            (property.CsType.Type == typeof(TimeOnly) && IsCurrentTimeDefault(normalizedExpression)))
+            return new DefaultCurrentTimestampAttribute();
+
+        if (IsBlobLiteral(normalizedExpression))
+        {
+            options.Log?.Invoke($"Warning: Skipping unsupported SQLite blob default '{rawDefault}' for {table.DbName}.{column.DbName}.");
+            return null;
+        }
+
+        if (!TryConvertDefaultValue(normalizedExpression, property, out var value))
+        {
+            options.Log?.Invoke($"Warning: Skipping unsupported SQLite default '{rawDefault}' for {table.DbName}.{column.DbName}.");
+            return null;
+        }
+
+        return new DefaultAttribute(value);
     }
 
     private string ParseCsType(DatabaseColumnType dbType, string columnName)
@@ -222,4 +259,180 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             _ => throw new NotImplementedException($"Unknown type '{dbType.Name}' for column '{columnName}'"),
         };
     }
+
+    private static bool TryConvertDefaultValue(string defaultValue, ValueProperty property, out object value)
+    {
+        value = null!;
+
+        if (property.EnumProperty != null)
+        {
+            if (TryParseIntegerLiteral(defaultValue, out var enumValue))
+            {
+                value = enumValue;
+                return true;
+            }
+
+            return false;
+        }
+
+        if (TryParseSqlStringLiteral(defaultValue, out var stringValue))
+            return TryConvertLiteralValue(stringValue, property, out value);
+
+        if (TryParseIntegerLiteral(defaultValue, out var integerValue))
+            return TryConvertLiteralValue(integerValue.ToString(CultureInfo.InvariantCulture), property, out value);
+
+        if (TryParseRealLiteral(defaultValue, out var realValue))
+            return TryConvertLiteralValue(realValue.ToString(CultureInfo.InvariantCulture), property, out value);
+
+        if (string.Equals(defaultValue, "TRUE", StringComparison.OrdinalIgnoreCase))
+            return TryConvertLiteralValue("1", property, out value);
+
+        if (string.Equals(defaultValue, "FALSE", StringComparison.OrdinalIgnoreCase))
+            return TryConvertLiteralValue("0", property, out value);
+
+        return false;
+    }
+
+    private static bool TryConvertLiteralValue(string literalValue, ValueProperty property, out object value)
+    {
+        value = null!;
+
+        if (property.CsType.Type == typeof(string))
+        {
+            value = literalValue;
+            return true;
+        }
+
+        if (property.CsType.Type == typeof(char))
+        {
+            if (literalValue.Length != 1)
+                return false;
+
+            value = literalValue[0];
+            return true;
+        }
+
+        if (property.CsType.Type == typeof(bool))
+        {
+            if (literalValue == "0")
+            {
+                value = false;
+                return true;
+            }
+
+            if (literalValue == "1")
+            {
+                value = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        if (property.CsType.Type == typeof(DateOnly) && DateOnly.TryParse(literalValue, CultureInfo.InvariantCulture, out var dateOnlyValue))
+        {
+            value = dateOnlyValue;
+            return true;
+        }
+
+        if (property.CsType.Type == typeof(TimeOnly) && TimeOnly.TryParse(literalValue, CultureInfo.InvariantCulture, out var timeOnlyValue))
+        {
+            value = timeOnlyValue;
+            return true;
+        }
+
+        if (property.CsType.Type == typeof(DateTime) && DateTime.TryParse(literalValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateTimeValue))
+        {
+            value = dateTimeValue;
+            return true;
+        }
+
+        if (property.CsType.Type == typeof(DateTimeOffset) && DateTimeOffset.TryParse(literalValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateTimeOffsetValue))
+        {
+            value = dateTimeOffsetValue;
+            return true;
+        }
+
+        if (property.CsType.Type == typeof(TimeSpan) && TimeSpan.TryParse(literalValue, CultureInfo.InvariantCulture, out var timeSpanValue))
+        {
+            value = timeSpanValue;
+            return true;
+        }
+
+        if (property.CsType.Type == typeof(Guid) && Guid.TryParse(literalValue, out var guidValue))
+        {
+            value = guidValue;
+            return true;
+        }
+
+        if (property.CsType.Type == null || property.CsType.Type == typeof(byte[]))
+            return false;
+
+        try
+        {
+            value = Convert.ChangeType(literalValue, property.CsType.Type, CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string UnwrapParenthesizedDefaultExpression(string defaultValue)
+    {
+        var trimmed = defaultValue.Trim();
+
+        while (trimmed.Length >= 2 && trimmed[0] == '(' && trimmed[^1] == ')' && HasBalancedOuterParentheses(trimmed))
+            trimmed = trimmed[1..^1].Trim();
+
+        return trimmed;
+    }
+
+    private static bool HasBalancedOuterParentheses(string value)
+    {
+        var depth = 0;
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (value[i] == '(')
+                depth++;
+            else if (value[i] == ')')
+                depth--;
+
+            if (depth == 0 && i < value.Length - 1)
+                return false;
+        }
+
+        return depth == 0;
+    }
+
+    private static bool TryParseSqlStringLiteral(string defaultValue, out string value)
+    {
+        value = string.Empty;
+
+        if (defaultValue.Length < 2 || defaultValue[0] != '\'' || defaultValue[^1] != '\'')
+            return false;
+
+        value = defaultValue[1..^1].Replace("''", "'");
+        return true;
+    }
+
+    private static bool IsBlobLiteral(string defaultValue) =>
+        defaultValue.StartsWith("X'", StringComparison.OrdinalIgnoreCase) &&
+        defaultValue.EndsWith("'", StringComparison.Ordinal);
+
+    private static bool TryParseIntegerLiteral(string defaultValue, out long value) =>
+        long.TryParse(defaultValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+
+    private static bool TryParseRealLiteral(string defaultValue, out double value) =>
+        double.TryParse(defaultValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out value);
+
+    private static bool IsCurrentTimestampDefault(string defaultValue) =>
+        string.Equals(defaultValue, "CURRENT_TIMESTAMP", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCurrentDateDefault(string defaultValue) =>
+        string.Equals(defaultValue, "CURRENT_DATE", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCurrentTimeDefault(string defaultValue) =>
+        string.Equals(defaultValue, "CURRENT_TIME", StringComparison.OrdinalIgnoreCase);
 }

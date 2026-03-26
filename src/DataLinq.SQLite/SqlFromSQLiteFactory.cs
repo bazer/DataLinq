@@ -1,6 +1,7 @@
 using System;
 using System.Data;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
@@ -31,6 +32,10 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
                         .Type(dbType.Name.ToUpper(), column.DbName, longestName)
                         .Add(column.PrimaryKey && table.PrimaryKeyColumns.Length == 1 ? " PRIMARY KEY" : "")
                         .Add(column.AutoIncrement ? " AUTOINCREMENT" : "");
+
+                    var defaultValue = GetDefaultValue(column);
+                    if (defaultValue != null)
+                        sql.DefaultValue(defaultValue);
 
                     sql.Nullable(column.PrimaryKey ? false : column.Nullable);
                 }
@@ -96,6 +101,43 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
         return type;
     }
 
+    public virtual string? GetDefaultValue(ColumnDefinition column)
+    {
+        var defaultAttr = column.ValueProperty.GetDefaultAttribute();
+        if (defaultAttr == null)
+            return null;
+
+        if (defaultAttr is DefaultCurrentTimestampAttribute)
+        {
+            return column.ValueProperty.CsType.Name switch
+            {
+                "DateOnly" => "CURRENT_DATE",
+                "TimeOnly" => "CURRENT_TIME",
+                _ => "CURRENT_TIMESTAMP"
+            };
+        }
+
+        if (column.ValueProperty.EnumProperty.HasValue)
+            return Convert.ToInt32(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
+
+        return column.ValueProperty.CsType.Name switch
+        {
+            "string" => QuoteSqlString(Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture) ?? string.Empty),
+            "char" => QuoteSqlString(Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture) ?? string.Empty),
+            "bool" => Convert.ToBoolean(defaultAttr.Value, CultureInfo.InvariantCulture) ? "1" : "0",
+            "float" => Convert.ToSingle(defaultAttr.Value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
+            "double" => Convert.ToDouble(defaultAttr.Value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
+            "decimal" => Convert.ToDecimal(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "DateOnly" => QuoteSqlString(((DateOnly)defaultAttr.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+            "TimeOnly" => QuoteSqlString(((TimeOnly)defaultAttr.Value).ToString("HH:mm:ss", CultureInfo.InvariantCulture)),
+            "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
+            "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
+            "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)),
+            "Guid" or "System.Guid" => QuoteSqlString(((Guid)defaultAttr.Value).ToString()),
+            _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
+        };
+    }
+
     protected virtual DatabaseColumnType? TryGetColumnType(DatabaseColumnType dbType)
     {
         return dbType.DatabaseType switch
@@ -158,6 +200,8 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
             _ => null
         };
     }
+
+    private static string QuoteSqlString(string value) => $"'{value.Replace("'", "''")}'";
 }
 
 public class SQLiteGeneration : SqlGeneration
