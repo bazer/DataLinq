@@ -110,12 +110,81 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .FirstOrDefault();
 
         if (defaultAttr is DefaultCurrentTimestampAttribute)
-            return "CURRENT_TIMESTAMP";
+        {
+            return column.ValueProperty.CsType.Name switch
+            {
+                "DateOnly" => "CURRENT_DATE",
+                "TimeOnly" => "CURRENT_TIME",
+                _ => "CURRENT_TIMESTAMP"
+            };
+        }
 
         if (defaultAttr is DefaultNewUUIDAttribute)
             return "UUID()";
 
+        if (column.ValueProperty.EnumProperty.HasValue)
+        {
+            var enumDefaultValue = ResolveEnumDefaultValue(column.ValueProperty, defaultAttr);
+            if (enumDefaultValue != null)
+                return $"'{enumDefaultValue.Replace("'", "''")}'";
+        }
+
         return defaultAttr?.Value.ToString();
+    }
+
+    private static string? ResolveEnumDefaultValue(ValueProperty property, DefaultAttribute? defaultAttr)
+    {
+        if (defaultAttr == null || !property.EnumProperty.HasValue)
+            return null;
+
+        var enumProperty = property.EnumProperty.Value;
+
+        if (TryGetEnumNumericValue(enumProperty, defaultAttr, out var numericValue))
+        {
+            return enumProperty.DbValuesOrCsValues
+                .FirstOrDefault(x => x.value == numericValue)
+                .name;
+        }
+
+        return null;
+    }
+
+    private static bool TryGetEnumNumericValue(EnumProperty enumProperty, DefaultAttribute defaultAttr, out int numericValue)
+    {
+        if (defaultAttr.Value is Enum enumValue)
+        {
+            numericValue = Convert.ToInt32(enumValue);
+            return true;
+        }
+
+        if (defaultAttr.Value is string stringValue)
+        {
+            if (int.TryParse(stringValue, out numericValue))
+                return true;
+
+            var memberName = stringValue.Split('.').Last();
+            var enumMatch = enumProperty.CsValuesOrDbValues.FirstOrDefault(x => x.name == memberName)
+                .name != null
+                    ? enumProperty.CsValuesOrDbValues.First(x => x.name == memberName)
+                    : enumProperty.DbValuesOrCsValues.FirstOrDefault(x => x.name == stringValue);
+
+            if (enumMatch.name != null)
+            {
+                numericValue = enumMatch.value;
+                return true;
+            }
+        }
+
+        try
+        {
+            numericValue = Convert.ToInt32(defaultAttr.Value);
+            return true;
+        }
+        catch
+        {
+            numericValue = default;
+            return false;
+        }
     }
 
     protected virtual DatabaseColumnType? ParseDefaultType(DatabaseColumnType defaultType, DatabaseType databaseType)
