@@ -44,6 +44,34 @@ Additional notes:
 - `BINARY(16)` is the normal `Guid` representation
 - enums are emitted as generated C# enums with value metadata
 
+## Default Value Handling
+
+`create-models` imports MySQL and MariaDB defaults into DataLinq metadata instead of treating them as raw schema text.
+
+That includes:
+
+- quoted string defaults
+- quoted numeric defaults such as `DEFAULT '0'`, converted to the actual C# property type instead of being treated as strings
+- enum defaults, including enum labels reported from schema metadata
+- `CURRENT_DATE`, `CURRENT_TIME`, `CURRENT_TIMESTAMP`
+- MySQL/MariaDB temporal aliases such as `NOW()`, `LOCALTIME`, and `LOCALTIMESTAMP`
+- parenthesized defaults such as `(0)` and `('abc')`
+
+This matters because MySQL and MariaDB are loose about how defaults are represented in schema metadata. DataLinq normalizes the SQL literal first, then converts it according to the target property type.
+
+Examples:
+
+- `INT DEFAULT '0'` -> C# `int` default `0`
+- `BIGINT DEFAULT '0'` -> C# `long` default `0L`
+- `ENUM('standard','premium') DEFAULT 'premium'` -> generated enum member default
+- `VARCHAR DEFAULT '""'` -> C# string default containing two double-quote characters, not leaked SQL quoting syntax
+
+### Unsupported or Dangerous Defaults
+
+Zero-date defaults such as `0000-00-00` and `0000-00-00 00:00:00` are not generated into typed date properties.
+
+DataLinq warns and skips those defaults instead of emitting broken C# or pretending that invalid MySQL date garbage is fine.
+
 ## MariaDB-Specific Features
 
 MariaDB can use a native `UUID` type. DataLinq supports that, but only when you actually use MariaDB-specific type metadata.
@@ -52,7 +80,7 @@ MariaDB can use a native `UUID` type. DataLinq supports that, but only when you 
 
 - **Reading schema:** A MariaDB `UUID` column maps to `Guid`.
 - **Generating schema:** To emit a native MariaDB `UUID`, use `[Type(DatabaseType.MariaDB, "uuid")]`.
-- **Default behavior:** A plain `Guid` still defaults to `BINARY(16)` unless you override it.
+- **Default behavior:** MariaDB SQL generation prefers native `UUID` for plain `Guid` properties.
 
 ### Provider Configuration
 
@@ -81,8 +109,18 @@ Native MariaDB `UUID` avoids that pain. `BINARY(16)` does not. This is a real ca
 When generating a schema from your DataLinq models:
 
 - MySQL maps `Guid` to `BINARY(16)` by default
-- MariaDB also maps `Guid` to `BINARY(16)` by default unless you explicitly request native `UUID`
+- MariaDB maps `Guid` to native `UUID` by default
 - view definitions use `CREATE OR REPLACE VIEW`
+
+Default SQL generation is typed, not stringly:
+
+- string and char defaults are SQL-quoted and escaped correctly
+- `bit` defaults are emitted as `b'0'` and `b'1'`
+- numeric defaults use invariant formatting
+- `DateOnly`, `TimeOnly`, `DateTime`, and related values are emitted as provider-safe SQL literals
+- MariaDB `uuid` defaults and MySQL `binary(16)` `Guid` defaults are emitted differently because they are genuinely different storage shapes
+
+If DataLinq can parse a supported MySQL/MariaDB default and represent it in metadata, it should also be able to emit it back out correctly in generated SQL. That roundtrip is now something the test suite actually checks.
 
 ## Transaction Behavior
 

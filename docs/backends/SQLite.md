@@ -42,6 +42,31 @@ SQLite "smart" typing in DataLinq is based on column naming conventions, not mag
 
 SQLite does not have a native `ENUM` type. Define enums in your C# models if you want enum semantics. `create-models` will not infer them from an `INTEGER` column.
 
+## Default Value Handling
+
+SQLite defaults are now imported from `PRAGMA table_info(...).dflt_value` and converted into typed DataLinq metadata where that can be done honestly.
+
+Supported cases include:
+
+- numeric literals
+- quoted numeric literals such as `DEFAULT '0'`, converted according to the target property type
+- string literals
+- parseable temporal literals for `DateOnly`, `TimeOnly`, `DateTime`, `DateTimeOffset`, `TimeSpan`, and `Guid`
+- `CURRENT_DATE`, `CURRENT_TIME`, and `CURRENT_TIMESTAMP`
+- parenthesized scalar defaults such as `(1.5)` or `('abc')`
+
+Examples:
+
+- `INTEGER DEFAULT '0'` can become `int`, `long`, or `bool` depending on the target model property
+- `TEXT DEFAULT '2024-01-02'` can become a `DateOnly` default if the property type is `DateOnly`
+- `TEXT DEFAULT CURRENT_TIMESTAMP` maps to DataLinq's dynamic current-timestamp default metadata
+
+### Unsupported SQLite Default Expressions
+
+SQLite will happily store arbitrary expression text as a default. DataLinq does not pretend all of those expressions are portable or safe to regenerate.
+
+For unsupported expression-shaped defaults, DataLinq warns and skips the default rather than emitting questionable model code or fake provider parity.
+
 ## SQL Generation
 
 When generating a schema for SQLite from DataLinq models:
@@ -52,6 +77,8 @@ When generating a schema for SQLite from DataLinq models:
 - integer primary keys can use `AUTOINCREMENT`
 
 The SQL generation layer also maps the default DataLinq type system onto SQLite's smaller affinity set. For example, default `json`, `xml`, `datetime`, `timestamp`, `date`, `time`, and `uuid` all end up as `TEXT`.
+
+Supported imported defaults are also emitted back out as `DEFAULT` clauses during SQLite SQL generation. Unsupported SQLite expressions are intentionally not round-tripped as if DataLinq understood them when it does not.
 
 ## Transaction Behavior
 

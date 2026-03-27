@@ -152,24 +152,46 @@ Associates enum values with a database enum representation.
 
 ### `[Default(...)]`
 
-Assigns a literal default value in the metadata model.
+Assigns a default value in the DataLinq metadata model.
 
-Example:
+This is not just decorative schema metadata. DataLinq uses these defaults in generated mutable models so default behavior stays consistent across providers instead of depending on whether the backend happens to support SQL defaults well.
+
+Practical implications:
+
+- the default expression must be compatible with the property type
+- source-defined defaults are validated by the source generator
+- invalid defaults are reported on the model source itself rather than surfacing later as broken generated code
+- when `create-models` preserves an overridden C# property type from an existing source model, it also preserves the existing source default expression for that property instead of blindly replacing it with a database primitive
+
+Examples:
 
 ```csharp
 [Default("active")]
 public abstract string Status { get; }
 ```
 
+```csharp
+[Default(AccountStatus.Active)]
+public abstract AccountStatus Status { get; }
+```
+
 ### `[DefaultCurrentTimestamp]`
 
-Marks a property as using the provider's current timestamp default.
+Marks a property as using the provider's current date/time default.
+
+DataLinq maps this to the right provider expression based on the property type:
+
+- `DateOnly` -> provider current date
+- `TimeOnly` -> provider current time
+- `DateTime` -> provider current timestamp
 
 ### `[DefaultNewUUID]`
 
 Marks a property as using a generated UUID default.
 
 This attribute supports a `UUIDVersion` argument, including `Version4` and `Version7`.
+
+Use it on `Guid` properties. Anything else is a model error, not a meaningful configuration.
 
 ## Index Attributes
 
