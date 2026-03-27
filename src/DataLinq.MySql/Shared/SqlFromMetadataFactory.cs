@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
@@ -129,7 +130,61 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
                 return $"'{enumDefaultValue.Replace("'", "''")}'";
         }
 
-        return defaultAttr?.Value.ToString();
+        if (defaultAttr == null)
+            return null;
+
+        var dbType = GetDbType(column);
+
+        return column.ValueProperty.CsType.Name switch
+        {
+            "string" => QuoteSqlString(Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture) ?? string.Empty),
+            "char" => QuoteSqlString(Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture) ?? string.Empty),
+            "bool" => FormatBooleanDefaultValue(defaultAttr.Value, dbType),
+            "sbyte" => Convert.ToSByte(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "byte" => Convert.ToByte(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "short" => Convert.ToInt16(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "ushort" => Convert.ToUInt16(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "int" => Convert.ToInt32(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "uint" => Convert.ToUInt32(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "long" => Convert.ToInt64(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "ulong" => Convert.ToUInt64(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "float" => Convert.ToSingle(defaultAttr.Value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
+            "double" => Convert.ToDouble(defaultAttr.Value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
+            "decimal" => Convert.ToDecimal(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "DateOnly" => QuoteSqlString(((DateOnly)defaultAttr.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+            "TimeOnly" => QuoteSqlString(((TimeOnly)defaultAttr.Value).ToString("HH:mm:ss", CultureInfo.InvariantCulture)),
+            "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
+            "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
+            "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)),
+            "Guid" or "System.Guid" => FormatGuidDefaultValue((Guid)defaultAttr.Value, dbType),
+            _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
+        };
+    }
+
+    private static string QuoteSqlString(string value) => $"'{value.Replace("'", "''")}'";
+
+    private static string FormatBooleanDefaultValue(object value, DatabaseColumnType dbType)
+    {
+        var boolValue = Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+
+        return dbType.Name.Equals("bit", StringComparison.OrdinalIgnoreCase)
+            ? (boolValue ? "b'1'" : "b'0'")
+            : (boolValue ? "1" : "0");
+    }
+
+    private static string FormatGuidDefaultValue(Guid value, DatabaseColumnType dbType)
+    {
+        if (dbType.Name.Equals("uuid", StringComparison.OrdinalIgnoreCase) ||
+            (dbType.Name.Equals("char", StringComparison.OrdinalIgnoreCase) && dbType.Length == 36) ||
+            (dbType.Name.Equals("varchar", StringComparison.OrdinalIgnoreCase) && dbType.Length == 36))
+        {
+            return QuoteSqlString(value.ToString());
+        }
+
+        if (dbType.Name.Equals("binary", StringComparison.OrdinalIgnoreCase) && dbType.Length == 16)
+            return $"X'{Convert.ToHexString(value.ToByteArray())}'";
+
+        return QuoteSqlString(value.ToString());
     }
 
     private static string? ResolveEnumDefaultValue(ValueProperty property, DefaultAttribute? defaultAttr)

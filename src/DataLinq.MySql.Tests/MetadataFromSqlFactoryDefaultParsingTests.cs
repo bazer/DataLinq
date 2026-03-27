@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Globalization;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
@@ -132,15 +133,138 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         Assert.Equal("'premium'", sqlDefault);
     }
 
+    [Theory]
+    [MemberData(nameof(SqlLiteralFormattingCases))]
+    public void GetDefaultValue_FormatsTypedSqlLiterals(CsTypeDeclaration csType, object defaultValue, string expectedSqlDefault)
+    {
+        var (_, column, property) = CreateProperty("test_col", csType);
+        property.AddAttribute(new DefaultAttribute(defaultValue));
+
+        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType.MariaDB).GetDefaultValue(column);
+
+        Assert.Equal(expectedSqlDefault, sqlDefault);
+    }
+
+    [Fact]
+    public void GetDefaultValue_GuidMariaDbDefault_FormatsAsUuidStringLiteral()
+    {
+        var guid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var (_, column, property) = CreateProperty("test_col", new CsTypeDeclaration(typeof(Guid)));
+        property.AddAttribute(new DefaultAttribute(guid));
+
+        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType.MariaDB).GetDefaultValue(column);
+
+        Assert.Equal($"'{guid}'", sqlDefault);
+    }
+
+    [Fact]
+    public void GetDefaultValue_GuidMySqlBinaryDefault_FormatsAsHexLiteral()
+    {
+        var guid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var (_, column, property) = CreateProperty("test_col", new CsTypeDeclaration(typeof(Guid)));
+        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "binary", 16));
+        property.AddAttribute(new DefaultAttribute(guid));
+
+        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType.MySQL).GetDefaultValue(column);
+
+        Assert.Equal($"X'{Convert.ToHexString(guid.ToByteArray())}'", sqlDefault);
+    }
+
+    [Fact]
+    public void GetDefaultValue_DefaultNewUuid_RoundTripsToUuidFunction()
+    {
+        var (_, column, property) = CreateProperty("test_col", new CsTypeDeclaration(typeof(Guid)));
+        property.AddAttribute(new DefaultNewUUIDAttribute());
+
+        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType.MariaDB).GetDefaultValue(column);
+
+        Assert.Equal("UUID()", sqlDefault);
+    }
+
+    [Fact]
+    public void GetCreateTables_EmitsFormattedMariaDbDefaults()
+    {
+        var database = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("TestModel", "TestNamespace", ModelCsType.Class));
+        var table = new TableDefinition("test_table");
+        var tableModel = new TableModel("TestModels", database, model, table);
+        database.SetTableModels([tableModel]);
+
+        var idProperty = new ValueProperty("Id", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("id")]);
+        var idColumn = new ColumnDefinition("id", table);
+        idColumn.SetValueProperty(idProperty);
+        idColumn.SetPrimaryKey();
+        idColumn.SetAutoIncrement();
+
+        var nameProperty = new ValueProperty("DisplayName", new CsTypeDeclaration(typeof(string)), model, [new ColumnAttribute("display_name"), new DefaultAttribute("O'Reilly")]);
+        var nameColumn = new ColumnDefinition("display_name", table);
+        nameColumn.SetValueProperty(nameProperty);
+
+        var enabledProperty = new ValueProperty("IsEnabled", new CsTypeDeclaration(typeof(bool)), model, [new ColumnAttribute("is_enabled"), new DefaultAttribute(true)]);
+        var enabledColumn = new ColumnDefinition("is_enabled", table);
+        enabledColumn.SetValueProperty(enabledProperty);
+
+        var createdProperty = new ValueProperty("CreatedOn", new CsTypeDeclaration(typeof(DateOnly)), model, [new ColumnAttribute("created_on"), new DefaultAttribute(new DateOnly(2024, 1, 2))]);
+        var createdColumn = new ColumnDefinition("created_on", table);
+        createdColumn.SetValueProperty(createdProperty);
+
+        var guidProperty = new ValueProperty("PublicId", new CsTypeDeclaration(typeof(Guid)), model, [new ColumnAttribute("public_id"), new DefaultNewUUIDAttribute()]);
+        var guidColumn = new ColumnDefinition("public_id", table);
+        guidColumn.SetValueProperty(guidProperty);
+
+        table.SetColumns([idColumn, nameColumn, enabledColumn, createdColumn, guidColumn]);
+        model.AddProperty(idProperty);
+        model.AddProperty(nameProperty);
+        model.AddProperty(enabledProperty);
+        model.AddProperty(createdProperty);
+        model.AddProperty(guidProperty);
+
+        var sqlResult = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType.MariaDB).GetCreateTables(database, foreignKeyRestrict: false);
+
+        Assert.True(sqlResult.HasValue, sqlResult.HasFailed ? sqlResult.Failure.ToString() : "SQL generation failed");
+
+        var sql = sqlResult.Value.Text;
+        Assert.Contains("DEFAULT 'O''Reilly'", sql, StringComparison.Ordinal);
+        Assert.Contains("DEFAULT b'1'", sql, StringComparison.Ordinal);
+        Assert.Contains("DEFAULT '2024-01-02'", sql, StringComparison.Ordinal);
+        Assert.Contains("DEFAULT UUID()", sql, StringComparison.Ordinal);
+    }
+
+    public static IEnumerable<object[]> SqlLiteralFormattingCases()
+    {
+        yield return [new CsTypeDeclaration(typeof(string)), "abc", "'abc'"];
+        yield return [new CsTypeDeclaration(typeof(string)), "O'Reilly", "'O''Reilly'"];
+        yield return [new CsTypeDeclaration(typeof(string)), "\"\"", "'\"\"'"];
+        yield return [new CsTypeDeclaration(typeof(char)), '\'', "''''"];
+        yield return [new CsTypeDeclaration(typeof(bool)), true, "b'1'"];
+        yield return [new CsTypeDeclaration(typeof(bool)), false, "b'0'"];
+        yield return [new CsTypeDeclaration(typeof(int)), 12, "12"];
+        yield return [new CsTypeDeclaration(typeof(long)), 12L, "12"];
+        yield return [new CsTypeDeclaration(typeof(decimal)), 12.50m, "12.50"];
+        yield return [new CsTypeDeclaration(typeof(float)), 1.5f, "1.5"];
+        yield return [new CsTypeDeclaration(typeof(double)), 1.5d, "1.5"];
+        yield return [new CsTypeDeclaration(typeof(DateOnly)), new DateOnly(2024, 1, 2), "'2024-01-02'"];
+        yield return [new CsTypeDeclaration(typeof(TimeOnly)), new TimeOnly(12, 34, 56), "'12:34:56'"];
+        yield return [new CsTypeDeclaration(typeof(DateTime)), new DateTime(2024, 1, 2, 3, 4, 5), "'2024-01-02 03:04:05'"];
+    }
+
     private static (TableDefinition table, ColumnDefinition column, ValueProperty property) CreateValueProperty(string columnName, string csTypeName)
     {
         var csType = csTypeName switch
         {
             "int" => new CsTypeDeclaration(typeof(int)),
+            "long" => new CsTypeDeclaration(typeof(long)),
+            "bool" => new CsTypeDeclaration(typeof(bool)),
+            "char" => new CsTypeDeclaration(typeof(char)),
+            "decimal" => new CsTypeDeclaration(typeof(decimal)),
+            "float" => new CsTypeDeclaration(typeof(float)),
+            "double" => new CsTypeDeclaration(typeof(double)),
             "string" => new CsTypeDeclaration(typeof(string)),
             "DateOnly" => new CsTypeDeclaration(typeof(DateOnly)),
             "TimeOnly" => new CsTypeDeclaration(typeof(TimeOnly)),
             "DateTime" => new CsTypeDeclaration(typeof(DateTime)),
+            "TimeSpan" => new CsTypeDeclaration(typeof(TimeSpan)),
+            "Guid" => new CsTypeDeclaration(typeof(Guid)),
             _ => throw new NotImplementedException($"Unsupported test type {csTypeName}")
         };
 
