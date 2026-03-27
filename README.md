@@ -101,7 +101,7 @@ var updatedUser = user.Mutate(x => x.DisplayName = "Updated Name").Save();
 
 If you want the website-first docs experience, start here:
 
-- [Website Home](home.md)
+- [Website Home](index.md)
 - [Docs Intro](docs/index.md)
 - [Installation](docs/getting-started/Installation.md)
 - [Configuration and Model Generation](docs/getting-started/Configuration%20and%20Model%20Generation.md)
