@@ -4,6 +4,73 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.7 - Generator Reliability, Default Handling, and Release Tooling](https://github.com/bazer/DataLinq/releases/tag/0.6.7)
+
+**Released on:** 2026-03-27
+
+This release is mostly about correctness and maintainability, and that is exactly what it needed to be. The biggest themes are a cleaner source-generator pipeline, much better handling of default values across providers, several SQLite and MySQL/MariaDB correctness fixes, a large documentation overhaul, and a far more practical local NuGet publishing workflow.
+
+### Highlights
+
+* **Replaced the old SGF-based generator pipeline with a native Roslyn incremental generator.**
+  This is the most important internal change in the release. It reduces moving parts, aligns the generator with the platform it actually runs on, and gives DataLinq a more stable foundation for future analyzer and generation work.
+
+* **Default value handling is significantly more correct across generation, metadata parsing, and SQL output.**
+  A large portion of this release fixes subtle but important bugs around default values:
+  * generated models now preserve source defaults more accurately, including overridden property types
+  * default literal escaping has been fixed in generated models
+  * MySQL, MariaDB, and SQLite now parse and emit default values more reliably
+  * typed default compatibility is validated more aggressively during generation
+
+* **SQLite behavior is more consistent and less fragile.**
+  This release fixes several SQLite-specific issues:
+  * in-memory database lifetime and test isolation were improved
+  * `Guid` parameter matching for `TEXT` columns was corrected
+  * millisecond precision handling was aligned more closely with .NET `DateTime` behavior
+  * SQLite default value parsing and SQL generation were expanded and tightened up
+
+* **MySQL and MariaDB SQL/default handling got a substantial correctness pass.**
+  Multiple fixes in this release address quoted defaults, typed model properties, date defaults, enum defaults, view parsing fallback behavior, and SQL generation for provider-specific edge cases.
+
+### LINQ and Query Fixes
+
+* Fixed LINQ `char` equality translation across SQLite, MySQL, and MariaDB.
+* Corrected several provider-level query and metadata edge cases that were previously easy to miss but could produce the wrong SQL or incorrect defaults.
+
+### Source Generator and Analyzer Improvements
+
+* Added analyzer release tracking for `DLG000`.
+* Improved validation for model default values.
+* Tightened generator test coverage around defaults, syntax parsing, and model generation behavior.
+* Fixed transitive Roslyn/source-generator packaging issues so the NuGet experience is more reliable in Visual Studio and downstream projects.
+
+### Packaging and Tooling
+
+* Added a new local `publish-nuget.ps1` release script for packing and publishing public packages.
+* The script now stages release artifacts in a fresh folder, prompts for the NuGet API key at publish time, and publishes packages and symbol packages explicitly.
+* Fixed `DataLinq` symbol packaging so `.snupkg` files actually contain real PDBs and can be published successfully.
+* Improved the local release flow for `DataLinq`, `DataLinq.SQLite`, `DataLinq.MySql`, `DataLinq.CLI`, and `DataLinq.Tools`.
+
+### Documentation
+
+* Performed a broad documentation overhaul and website restructuring.
+* Added or substantially improved docs for:
+  * installation and getting started
+  * configuration and model generation
+  * CLI usage
+  * LINQ query support
+  * transactions
+  * troubleshooting
+  * backend-specific behavior for SQLite and MySQL/MariaDB
+* Fixed docfx homepage routing and cleaned up the site structure.
+
+### Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.6.6...0.6.7
+
+
+---
+
 ## [DataLinq v0.6.6 - Performance Improvements and SQLite Logging](https://github.com/bazer/DataLinq/releases/tag/0.6.6)
 
 **Released on:** 2025-12-18
