@@ -6,11 +6,10 @@
 		<!-- This is a source generator package -->
 		<IsRoslynComponent>true</IsRoslynComponent>
 
-		<!-- Tell the standard packing process to NOT include the build output -->
-		<!-- We will manually specify everything via IncludeReferenceAssemblies -->
-		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<!-- Let pack include the main DataLinq build output so symbols flow into snupkg automatically -->
+		<IncludeBuildOutput>true</IncludeBuildOutput>
 
-		<!-- Target for manually including the DLLs further down -->
+		<!-- Target for manually including analyzer payload further down -->
 		<TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeReferenceAssemblies</TargetsForTfmSpecificContentInPackage>
 	</PropertyGroup>
 
@@ -46,15 +45,9 @@
 		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
 	</ItemGroup>
 
-	<!-- This target MANUALLY places ALL required DLLs into the package -->
+	<!-- This target manually places the analyzer payload into the package -->
 	<Target Name="IncludeReferenceAssemblies">
 		<ItemGroup>
-			<!-- Add the MAIN DataLinq.dll to lib/net8.0, lib/net9.0 and lib/net10.0 -->
-			<!-- $(TargetPath) refers to the output DLL of THIS project -->
-			<TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="lib/net8.0/$(TargetFileName)" Condition="'$(TargetFramework)' == 'net8.0'" />
-			<TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="lib/net9.0/$(TargetFileName)" Condition="'$(TargetFramework)' == 'net9.0'" />
-			<TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="lib/net10.0/$(TargetFileName)" Condition="'$(TargetFramework)' == 'net10.0'" />
-
 			<!-- The Generator itself placed in analyzers -->
 			<TfmSpecificPackageFile Include="$(DLGeneratorsProjectDir)\bin\$(Configuration)\netstandard2.0\DataLinq.Generators.dll" Condition="'$(TargetFramework)' == 'net8.0'">
 				<PackagePath>analyzers/dotnet/cs/DataLinq.Generators.dll</PackagePath>
