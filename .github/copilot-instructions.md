@@ -1,7 +1,7 @@
 # DataLinq Project: Context, Learnings, and Status for AI Assistant
 
-**Last Updated:** 2026-03-22
-**Last Discussed Topics:** Drafted and published release notes for `v0.6.6`, refreshed `CHANGELOG.md` from GitHub releases, reviewed recent performance optimizations around PK lookups and `RowData`, and noted improved SQLite logging propagation.
+**Last Updated:** 2026-03-31
+**Last Discussed Topics:** Released `v0.6.7`, added and validated a local `publish-nuget.ps1` workflow, fixed `DataLinq` symbol package contents, cleaned up stale CLI tool install behavior, and drafted the `v0.6.7` release message from the detailed git log.
 
 ## 1. Project Overview & Core Concepts
 
@@ -34,11 +34,13 @@ DataLinq is a lightweight, high-performance .NET ORM focused on efficient read o
 *   `DataLinq.SharedCore` contains shared types that are linked into the main runtime and generator projects.
 *   `DataLinq.Generators` is the Roslyn source generator.
 *   `DataLinq` is the main runtime package and manually packages the generator into `analyzers/`.
+*   `DataLinq` should let normal build output flow into the package so `.snupkg` files include real PDBs; only the analyzer payload should be added manually.
 *   Provider projects include `DataLinq.MySql` and `DataLinq.SQLite`.
 *   Supporting projects include `DataLinq.Tools`, `DataLinq.CLI`, `DataLinq.Benchmark`, and several test projects.
 *   Development plans and architectural notes now live under `docs/dev-plans/`.
 *   `CHANGELOG.md` is generated from GitHub releases by `generate-changelog.ps1`, which calls the GitHub Releases API and uses each release tag's commit date as the displayed release date.
 *   `gitlog-detailed.md` is a local helper artifact used to summarize commits between releases when preparing release notes.
+*   Local NuGet publishing now goes through `publish-nuget.ps1`, which packs `DataLinq`, `DataLinq.SQLite`, `DataLinq.MySql`, `DataLinq.CLI`, and `DataLinq.Tools` into a fresh staging directory and pushes `.nupkg` and `.snupkg` files explicitly.
 
 ## 3. Current Status & Focus Areas
 
@@ -55,9 +57,9 @@ DataLinq is a lightweight, high-performance .NET ORM focused on efficient read o
     *   Refactored `ModelGenerator`, refreshed package dependencies, and added a large set of planning/specification docs for upcoming releases.
 
 ### 3.2. Immediate Release Direction
-*   The next planned version is **`v0.6.7`**.
-*   `v0.6.7` should be treated as a **bugfix-focused** release rather than a large feature release.
-*   There are many forward-looking design documents for `v0.7` and `v0.8`, but short-term work should stay grounded in bug fixing, stability, and polishing existing features unless the user explicitly shifts priorities.
+*   **`v0.6.7` has shipped** and was correctly treated as a bugfix/stability release rather than a feature release.
+*   The release centered on source-generator modernization, default-value correctness across providers, SQLite/MySQL/MariaDB parsing and SQL fixes, documentation cleanup, and NuGet release tooling.
+*   There are many forward-looking design documents for `v0.7` and `v0.8`, but short-term work should stay grounded in bug fixing, stability, packaging reliability, and polishing existing behavior unless the user explicitly shifts priorities.
 
 ### 3.3. Longer-Term Roadmap Notes
 Recent planning documents cover:
@@ -91,12 +93,16 @@ Recent planning documents cover:
 *   **Provider behavior can differ subtly:** Transaction visibility, GUID handling, SQL syntax, and function support may differ between SQLite and MySQL/MariaDB, so assumptions should be validated in provider-specific tests.
 *   **Performance work often centers on hot paths:** Query execution, row materialization, cache invalidation, and key/index handling are recurring hotspots worth checking before assuming a bug is elsewhere.
 *   **Release notes workflow:** When asked to update release notes, prefer drafting the GitHub release body first, then regenerate `CHANGELOG.md` with `generate-changelog.ps1` rather than editing the changelog manually as the final source of truth.
+*   **Manual release workflow is preferred:** The user wants to run NuGet publishes personally; helpers should improve the local release flow rather than assuming CI-first publishing.
+*   **Prompt for release secrets, do not persist them by default:** For local/manual publishing, prompting for the NuGet API key at execution time is preferred over recommending long-lived environment variables or `NuGet.Config` storage.
+*   **Be careful with `DOTNET_CLI_HOME`:** If a script temporarily sets `DOTNET_CLI_HOME`, it should restore the previous environment afterward; leaking it can redirect later `dotnet tool --global` installs and uninstalls into confusing locations.
 
 ## 5. Practical Tips
 
 *   Check `.github/copilot-instructions.md` and `CHANGELOG.md` first when you need quick project context.
 *   Look in `docs/dev-plans/` before proposing larger architectural changes, because many future ideas are already documented there.
 *   For release-note work, use `gitlog-detailed.md`, `git log`, and the existing GitHub release style to separate real user-facing changes from internal planning/docs commits.
+*   `generate-detailed-gitlog.ps1` validates end tags against GitHub releases, not just local git tags. When drafting notes for a local tag that has not been published as a GitHub release yet, use the previous release tag to `HEAD`.
 *   When working on SQLite, remember that logging/configuration and in-memory behavior have both been active areas of change.
 
 ## 6. Future Ideas & Long-Term
