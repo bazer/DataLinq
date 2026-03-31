@@ -7,6 +7,11 @@
 - Documentation should be grounded in the current code and tests, and should not present roadmap material as shipped behavior.
 - Prefer embedding diagrams into the docs where they belong rather than keeping standalone presentation-style diagram pages.
 - For repo-wide documentation changes, prefer a final verification pass and run a docs build when feasible.
+- For DocFX in this repo, prefer a real root `index.md` as the website homepage. Do not rely on `README.md` for the site landing page, because DocFX may treat it as the default root target if `index.md` is missing.
+- Keep the docs entry pages separate by purpose: `README.md` for GitHub, root `index.md` for the website homepage, and `docs/index.md` for the documentation intro.
+- For documentation structure, prefer an onboarding-first flow: `Intro`, then `Getting Started`, then `Usage`, followed by providers, internals, and deeper reference material.
+- When changing docs navigation or site presentation, verify the generated `_site` output, not just the source markdown.
+- When previewing DocFX locally, do not open built pages via `file://`; use a local HTTP server or `docfx serve`, because browser security will block module scripts.
 - For NuGet release work, prefer the local `publish-nuget.ps1` workflow over ad hoc `dotnet pack`/portal upload steps.
 - The user prefers to run NuGet publishes personally. Do not publish packages or automate releases unless explicitly asked in the current conversation.
 - For local release tooling, prefer prompting for secrets at execution time over storing long-lived NuGet API keys in environment variables or config when manual execution is sufficient.

@@ -101,6 +101,14 @@ Recent planning documents cover:
 
 *   Check `.github/copilot-instructions.md` and `CHANGELOG.md` first when you need quick project context.
 *   Look in `docs/dev-plans/` before proposing larger architectural changes, because many future ideas are already documented there.
+*   The repository has three distinct documentation entry points with different purposes:
+    *   `README.md` is GitHub-facing.
+    *   `index.md` is the DocFX website homepage.
+    *   `docs/index.md` is the documentation intro page.
+*   For DocFX in this repo, keep a real root `index.md`. If it is missing, DocFX may route the site root to `README.md`, which is not the intended website landing page.
+*   The docs structure is intentionally onboarding-first: `Intro`, then `Getting Started`, then `Usage`, followed by providers, internals, and deeper reference material.
+*   When changing docs navigation or site presentation, verify the generated `_site` output and not just the source markdown, because DocFX can introduce behavior that is not obvious from the source files alone.
+*   Preview the built DocFX site over HTTP with `docfx serve` or another local web server. Do not rely on opening `_site/*.html` via `file://`, because browsers commonly block the module scripts in that mode.
 *   For release-note work, use `gitlog-detailed.md`, `git log`, and the existing GitHub release style to separate real user-facing changes from internal planning/docs commits.
 *   `generate-detailed-gitlog.ps1` validates end tags against GitHub releases, not just local git tags. When drafting notes for a local tag that has not been published as a GitHub release yet, use the previous release tag to `HEAD`.
 *   When working on SQLite, remember that logging/configuration and in-memory behavior have both been active areas of change.
