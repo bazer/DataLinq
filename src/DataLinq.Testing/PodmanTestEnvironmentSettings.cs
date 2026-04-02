@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
 
@@ -34,19 +36,20 @@ public sealed record PodmanTestEnvironmentSettings(
     {
         var root = repositoryRoot ?? RepositoryLayout.FindRepositoryRoot();
         var artifactRoot = Path.Combine(root, "artifacts", "testdata");
+        var persistedState = LoadPersistedState(artifactRoot);
 
         return new PodmanTestEnvironmentSettings(
             RepositoryRoot: root,
             ArtifactRoot: artifactRoot,
-            PodName: GetEnvironmentVariable(PodNameEnvironmentVariable, "datalinq-tests"),
-            ProfileId: GetEnvironmentVariable(ProfileEnvironmentVariable, "current-lts"),
-            Host: GetEnvironmentVariable(HostEnvironmentVariable, "127.0.0.1"),
-            MySqlPort: GetEnvironmentVariable(MySqlPortEnvironmentVariable, 3307),
-            MariaDbPort: GetEnvironmentVariable(MariaDbPortEnvironmentVariable, 3308),
-            AdminUser: GetEnvironmentVariable(AdminUserEnvironmentVariable, "root"),
-            AdminPassword: GetEnvironmentVariable(AdminPasswordEnvironmentVariable, "datalinq-root"),
-            ApplicationUser: GetEnvironmentVariable(ApplicationUserEnvironmentVariable, "datalinq"),
-            ApplicationPassword: GetEnvironmentVariable(ApplicationPasswordEnvironmentVariable, "datalinq"));
+            PodName: GetEnvironmentVariable(PodNameEnvironmentVariable, persistedState?.PodName ?? "datalinq-tests"),
+            ProfileId: GetEnvironmentVariable(ProfileEnvironmentVariable, persistedState?.ProfileId ?? "current-lts"),
+            Host: GetEnvironmentVariable(HostEnvironmentVariable, persistedState?.Host ?? "127.0.0.1"),
+            MySqlPort: GetEnvironmentVariable(MySqlPortEnvironmentVariable, persistedState?.MySqlPort ?? 3307),
+            MariaDbPort: GetEnvironmentVariable(MariaDbPortEnvironmentVariable, persistedState?.MariaDbPort ?? 3308),
+            AdminUser: GetEnvironmentVariable(AdminUserEnvironmentVariable, persistedState?.AdminUser ?? "datalinq"),
+            AdminPassword: GetEnvironmentVariable(AdminPasswordEnvironmentVariable, persistedState?.AdminPassword ?? "datalinq"),
+            ApplicationUser: GetEnvironmentVariable(ApplicationUserEnvironmentVariable, persistedState?.ApplicationUser ?? "datalinq"),
+            ApplicationPassword: GetEnvironmentVariable(ApplicationPasswordEnvironmentVariable, persistedState?.ApplicationPassword ?? "datalinq"));
     }
 
     public DatabaseServerProfile ActiveProfile => DatabaseServerMatrix.GetProfile(ProfileId);
@@ -168,7 +171,14 @@ public sealed record PodmanTestEnvironmentSettings(
             builder.Append(char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '_');
         }
 
-        return builder.ToString().Trim('_');
+        var normalized = builder.ToString().Trim('_');
+        if (normalized.Length <= 64)
+            return normalized;
+
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+        var hash = Convert.ToHexString(hashBytes).ToLowerInvariant()[..12];
+        var prefixLength = 64 - hash.Length - 1;
+        return $"{normalized[..prefixLength].TrimEnd('_')}_{hash}";
     }
 
     private static string GetEnvironmentVariable(string key, string fallback) =>
@@ -181,4 +191,36 @@ public sealed record PodmanTestEnvironmentSettings(
         var value = Environment.GetEnvironmentVariable(key);
         return int.TryParse(value, out var parsed) ? parsed : fallback;
     }
+
+    private static PersistedPodmanState? LoadPersistedState(string artifactRoot)
+    {
+        var statePath = Path.Combine(artifactRoot, "podman-settings.json");
+        if (!File.Exists(statePath))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<PersistedPodmanState>(
+                File.ReadAllText(statePath),
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private sealed record PersistedPodmanState(
+        string? PodName,
+        string? ProfileId,
+        string? Host,
+        int? MySqlPort,
+        int? MariaDbPort,
+        string? AdminUser,
+        string? AdminPassword,
+        string? ApplicationUser,
+        string? ApplicationPassword);
 }
