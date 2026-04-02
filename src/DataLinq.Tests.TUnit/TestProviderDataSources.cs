@@ -18,4 +18,10 @@ public static class TestProviderDataSources
         foreach (var provider in TestProviderMatrix.AllLtsServerProviders)
             yield return () => provider with { };
     }
+
+    public static IEnumerable<Func<TestProviderDescriptor>> SqliteProviders()
+    {
+        foreach (var provider in TestProviderMatrix.SQLiteOnly)
+            yield return () => provider with { };
+    }
 }

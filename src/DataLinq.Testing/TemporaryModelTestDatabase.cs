@@ -1,19 +1,19 @@
 using System;
-using System.Linq;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
-using DataLinq.Tests.Models.Employees;
 
 namespace DataLinq.Testing;
 
-public sealed class EmployeesTestDatabase : IDisposable
+public sealed class TemporaryModelTestDatabase<TDatabase> : IDisposable
+    where TDatabase : class, IDatabaseModel
 {
     private readonly PodmanTestEnvironmentSettings _settings;
     private bool _disposed;
 
-    private EmployeesTestDatabase(
+    private TemporaryModelTestDatabase(
         TestProviderDescriptor provider,
         TestConnectionDefinition connection,
-        Database<EmployeesDb> database,
+        Database<TDatabase> database,
         PodmanTestEnvironmentSettings settings)
     {
         Provider = provider;
@@ -24,12 +24,11 @@ public sealed class EmployeesTestDatabase : IDisposable
 
     public TestProviderDescriptor Provider { get; }
     public TestConnectionDefinition Connection { get; }
-    public Database<EmployeesDb> Database { get; }
+    public Database<TDatabase> Database { get; }
 
-    public static EmployeesTestDatabase Create(
+    public static TemporaryModelTestDatabase<TDatabase> Create(
         TestProviderDescriptor provider,
         string scenarioName,
-        EmployeesSeedMode seedMode = EmployeesSeedMode.None,
         PodmanTestEnvironmentSettings? settings = null)
     {
         ProviderRegistration.EnsureRegistered();
@@ -41,38 +40,20 @@ public sealed class EmployeesTestDatabase : IDisposable
         if (provider.ServerTarget is not null)
             TestDatabaseLifecycle.EnsureServerDatabaseReady(provider.ServerTarget, connection, resolvedSettings);
 
-        var database = CreateDatabase(connection);
-
-        EnsureSchema(database, connection);
-        EnsureSeedData(database, seedMode);
-
-        return new EmployeesTestDatabase(provider, connection, database, resolvedSettings);
-    }
-
-    private static Database<EmployeesDb> CreateDatabase(TestConnectionDefinition connection)
-        => TestDatabaseLifecycle.CreateDatabase<EmployeesDb>(connection);
-
-    private static void EnsureSchema(Database<EmployeesDb> database, TestConnectionDefinition connection)
-    {
-        if (database.FileOrServerExists() && database.DatabaseExists() && database.TableExists("employees"))
-            return;
-
-        var result = connection.DatabaseType.CreateDatabaseFromMetadata(
+        var database = TestDatabaseLifecycle.CreateDatabase<TDatabase>(connection);
+        var createResult = connection.DatabaseType.CreateDatabaseFromMetadata(
             database.Provider.Metadata,
             connection.DataSourceName,
             connection.ConnectionString,
             true);
 
-        if (result.HasFailed)
-            throw new InvalidOperationException($"Failed to create employees test database '{connection.DataSourceName}': {result.Failure}");
-    }
+        if (createResult.HasFailed)
+        {
+            database.Dispose();
+            throw new InvalidOperationException($"Failed to create temporary test database '{connection.DataSourceName}': {createResult.Failure}");
+        }
 
-    private static void EnsureSeedData(Database<EmployeesDb> database, EmployeesSeedMode seedMode)
-    {
-        if (seedMode == EmployeesSeedMode.None || database.Query().Employees.Any())
-            return;
-
-        EmployeesBogusSeeder.Seed(database);
+        return new TemporaryModelTestDatabase<TDatabase>(provider, connection, database, resolvedSettings);
     }
 
     public void Dispose()
