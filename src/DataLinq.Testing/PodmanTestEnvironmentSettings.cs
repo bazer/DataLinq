@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
@@ -10,6 +11,7 @@ public sealed record PodmanTestEnvironmentSettings(
     string RepositoryRoot,
     string ArtifactRoot,
     string PodName,
+    string ProfileId,
     string Host,
     int MySqlPort,
     int MariaDbPort,
@@ -19,6 +21,7 @@ public sealed record PodmanTestEnvironmentSettings(
     string ApplicationPassword)
 {
     public const string PodNameEnvironmentVariable = "DATALINQ_TEST_PODMAN_POD";
+    public const string ProfileEnvironmentVariable = "DATALINQ_TEST_PROFILE";
     public const string HostEnvironmentVariable = "DATALINQ_TEST_DB_HOST";
     public const string MySqlPortEnvironmentVariable = "DATALINQ_TEST_MYSQL_PORT";
     public const string MariaDbPortEnvironmentVariable = "DATALINQ_TEST_MARIADB_PORT";
@@ -36,6 +39,7 @@ public sealed record PodmanTestEnvironmentSettings(
             RepositoryRoot: root,
             ArtifactRoot: artifactRoot,
             PodName: GetEnvironmentVariable(PodNameEnvironmentVariable, "datalinq-tests"),
+            ProfileId: GetEnvironmentVariable(ProfileEnvironmentVariable, "current-lts"),
             Host: GetEnvironmentVariable(HostEnvironmentVariable, "127.0.0.1"),
             MySqlPort: GetEnvironmentVariable(MySqlPortEnvironmentVariable, 3307),
             MariaDbPort: GetEnvironmentVariable(MariaDbPortEnvironmentVariable, 3308),
@@ -45,22 +49,31 @@ public sealed record PodmanTestEnvironmentSettings(
             ApplicationPassword: GetEnvironmentVariable(ApplicationPasswordEnvironmentVariable, "datalinq"));
     }
 
+    public DatabaseServerProfile ActiveProfile => DatabaseServerMatrix.GetProfile(ProfileId);
+
     public int GetPort(TestProviderDescriptor provider) => provider.Kind switch
     {
-        TestProviderKind.MySql => MySqlPort,
-        TestProviderKind.MariaDb => MariaDbPort,
+        TestProviderKind.Server when provider.ServerTarget?.Family == DatabaseServerFamily.MySql => MySqlPort,
+        TestProviderKind.Server when provider.ServerTarget?.Family == DatabaseServerFamily.MariaDb => MariaDbPort,
         _ => throw new InvalidOperationException($"Provider '{provider.Name}' does not expose a server port.")
     };
 
-    public string CreateAdminConnectionString(TestProviderDescriptor provider)
+    public int GetPort(DatabaseServerTarget target) => target.Family switch
     {
-        if (!provider.RequiresExternalServer)
-            throw new InvalidOperationException($"Provider '{provider.Name}' does not use an external server.");
+        DatabaseServerFamily.MySql => MySqlPort,
+        DatabaseServerFamily.MariaDb => MariaDbPort,
+        _ => throw new InvalidOperationException($"Server target '{target.Id}' does not expose a configured port.")
+    };
+
+    public string CreateAdminConnectionString(DatabaseServerTarget target)
+    {
+        if (!ActiveProfile.Targets.Any(x => x.Id == target.Id))
+            throw new InvalidOperationException($"Server target '{target.Id}' is not part of the active profile '{ActiveProfile.Id}'.");
 
         var builder = new MySqlConnectionStringBuilder
         {
             Server = Host,
-            Port = (uint)GetPort(provider),
+            Port = (uint)GetPort(target),
             UserID = AdminUser,
             Password = AdminPassword,
             Pooling = true,
@@ -79,17 +92,20 @@ public sealed record PodmanTestEnvironmentSettings(
         {
             TestProviderKind.SQLiteFile => CreateSqliteFileConnection(normalizedName),
             TestProviderKind.SQLiteInMemory => CreateSqliteInMemoryConnection(normalizedName),
-            TestProviderKind.MySql or TestProviderKind.MariaDb => CreateServerConnection(provider, normalizedName),
+            TestProviderKind.Server when provider.ServerTarget is not null => CreateServerConnection(provider.ServerTarget, normalizedName),
             _ => throw new InvalidOperationException($"Unsupported provider kind '{provider.Kind}'.")
         };
     }
 
-    private TestConnectionDefinition CreateServerConnection(TestProviderDescriptor provider, string logicalDatabaseName)
+    private TestConnectionDefinition CreateServerConnection(DatabaseServerTarget target, string logicalDatabaseName)
     {
+        if (!ActiveProfile.Targets.Any(x => x.Id == target.Id))
+            throw new InvalidOperationException($"Server target '{target.Id}' is not part of the active profile '{ActiveProfile.Id}'.");
+
         var builder = new MySqlConnectionStringBuilder
         {
             Server = Host,
-            Port = (uint)GetPort(provider),
+            Port = (uint)GetPort(target),
             Database = logicalDatabaseName,
             UserID = ApplicationUser,
             Password = ApplicationPassword,
@@ -101,7 +117,7 @@ public sealed record PodmanTestEnvironmentSettings(
         return new TestConnectionDefinition(
             LogicalDatabaseName: logicalDatabaseName,
             DataSourceName: logicalDatabaseName,
-            DatabaseType: provider.DatabaseType,
+            DatabaseType: target.DatabaseType,
             ConnectionString: builder.ConnectionString);
     }
 

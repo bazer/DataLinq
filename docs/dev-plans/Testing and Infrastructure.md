@@ -239,6 +239,30 @@ Podman references:
 * [What is Podman?](https://docs.podman.io/en/v4.1.1/)
 * [`podman play kube`](https://docs.podman.io/en/v4.0.0/markdown/podman-play-kube.1.html)
 
+### 5.1.1. Version Matrix Strategy
+
+The environment must support **versioned server targets**, not just generic provider families.
+
+That means the test matrix should distinguish:
+
+* SQLite using the current .NET provider version only
+* MySQL by supported LTS server line
+* MariaDB by supported LTS server line
+
+The repository should own this matrix explicitly in a file such as `test-infra/podman/matrix.json`.
+
+The current direction is:
+
+* MySQL LTS target: `8.4`
+* MariaDB LTS targets: `10.11`, `11.4`, `11.8`
+
+The default local profile should use the newest stable combination, while extended CI should fan out across the full supported LTS set.
+
+Important constraint:
+
+* We should run one MySQL target and one MariaDB target at a time on stable ports.
+* We should vary the **profile** across runs instead of trying to run every server version simultaneously in one giant pod.
+
 ### 5.2. Infrastructure Ownership
 
 The infrastructure layer should own:

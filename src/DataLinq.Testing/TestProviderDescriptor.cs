@@ -7,7 +7,8 @@ public sealed record TestProviderDescriptor(
     TestProviderKind Kind,
     DatabaseType DatabaseType,
     bool RequiresExternalServer,
-    bool UsesPodman)
+    bool UsesPodman,
+    DatabaseServerTarget? ServerTarget)
 {
     public bool IsSQLite => DatabaseType == DatabaseType.SQLite;
     public bool IsServerDatabase => RequiresExternalServer;

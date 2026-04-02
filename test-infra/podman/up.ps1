@@ -1,11 +1,15 @@
 [CmdletBinding()]
 param(
+    [string]$Profile,
     [switch]$Recreate
 )
 
 . "$PSScriptRoot\common.ps1"
 
 $settings = Get-TestInfraSettings
+$profileConfig = Get-ServerProfile -Settings $settings -ProfileId $Profile
+$mySqlTarget = Get-ProfileTargetByFamily -Settings $settings -Profile $profileConfig -Family 'MySql'
+$mariaDbTarget = Get-ProfileTargetByFamily -Settings $settings -Profile $profileConfig -Family 'MariaDb'
 Assert-PodmanAvailable
 
 if ($Recreate) {
@@ -20,7 +24,7 @@ if (-not (Test-PodExists -Name $settings.PodName)) {
     }
 }
 
-if (-not (Test-ContainerExists -Name $settings.MySqlContainerName)) {
+if ($null -ne $mySqlTarget -and -not (Test-ContainerExists -Name $settings.MySqlContainerName)) {
     Write-Host "Creating MySQL container '$($settings.MySqlContainerName)'..."
     & podman run -d `
         --name $settings.MySqlContainerName `
@@ -29,7 +33,7 @@ if (-not (Test-ContainerExists -Name $settings.MySqlContainerName)) {
         -e "MYSQL_DATABASE=$($settings.EmployeesDatabase)" `
         -e "MYSQL_USER=$($settings.ApplicationUser)" `
         -e "MYSQL_PASSWORD=$($settings.ApplicationPassword)" `
-        $settings.MySqlImage `
+        $mySqlTarget.image `
         --character-set-server=utf8mb4 `
         --collation-server=utf8mb4_unicode_ci
 
@@ -37,7 +41,7 @@ if (-not (Test-ContainerExists -Name $settings.MySqlContainerName)) {
         throw "Failed to create MySQL container '$($settings.MySqlContainerName)'."
     }
 }
-elseif (-not (Test-ContainerRunning -Name $settings.MySqlContainerName)) {
+elseif ($null -ne $mySqlTarget -and -not (Test-ContainerRunning -Name $settings.MySqlContainerName)) {
     Write-Host "Starting MySQL container '$($settings.MySqlContainerName)'..."
     & podman start $settings.MySqlContainerName
     if ($LASTEXITCODE -ne 0) {
@@ -45,7 +49,7 @@ elseif (-not (Test-ContainerRunning -Name $settings.MySqlContainerName)) {
     }
 }
 
-if (-not (Test-ContainerExists -Name $settings.MariaDbContainerName)) {
+if ($null -ne $mariaDbTarget -and -not (Test-ContainerExists -Name $settings.MariaDbContainerName)) {
     Write-Host "Creating MariaDB container '$($settings.MariaDbContainerName)'..."
     & podman run -d `
         --name $settings.MariaDbContainerName `
@@ -54,7 +58,7 @@ if (-not (Test-ContainerExists -Name $settings.MariaDbContainerName)) {
         -e "MARIADB_DATABASE=$($settings.EmployeesDatabase)" `
         -e "MARIADB_USER=$($settings.ApplicationUser)" `
         -e "MARIADB_PASSWORD=$($settings.ApplicationPassword)" `
-        $settings.MariaDbImage `
+        $mariaDbTarget.image `
         --character-set-server=utf8mb4 `
         --collation-server=utf8mb4_unicode_ci
 
@@ -62,7 +66,7 @@ if (-not (Test-ContainerExists -Name $settings.MariaDbContainerName)) {
         throw "Failed to create MariaDB container '$($settings.MariaDbContainerName)'."
     }
 }
-elseif (-not (Test-ContainerRunning -Name $settings.MariaDbContainerName)) {
+elseif ($null -ne $mariaDbTarget -and -not (Test-ContainerRunning -Name $settings.MariaDbContainerName)) {
     Write-Host "Starting MariaDB container '$($settings.MariaDbContainerName)'..."
     & podman start $settings.MariaDbContainerName
     if ($LASTEXITCODE -ne 0) {
@@ -70,4 +74,4 @@ elseif (-not (Test-ContainerRunning -Name $settings.MariaDbContainerName)) {
     }
 }
 
-& "$PSScriptRoot\wait.ps1"
+& "$PSScriptRoot\wait.ps1" -Profile $profileConfig.id

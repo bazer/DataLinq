@@ -4,6 +4,5 @@ public enum TestProviderKind
 {
     SQLiteFile,
     SQLiteInMemory,
-    MySql,
-    MariaDb
+    Server
 }

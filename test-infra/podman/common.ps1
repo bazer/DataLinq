@@ -35,9 +35,20 @@ function Get-IntEnvOrDefault {
 
 function Get-TestInfraSettings {
     $podName = Get-EnvOrDefault -Name 'DATALINQ_TEST_PODMAN_POD' -DefaultValue 'datalinq-tests'
+    $profileId = Get-EnvOrDefault -Name 'DATALINQ_TEST_PROFILE' -DefaultValue 'current-lts'
+    $matrixPath = Join-Path $PSScriptRoot 'matrix.json'
+
+    if (-not (Test-Path $matrixPath)) {
+        throw "The Podman matrix file was not found at '$matrixPath'."
+    }
+
+    $matrix = Get-Content -Raw $matrixPath | ConvertFrom-Json -Depth 8
 
     return [pscustomobject]@{
         PodName = $podName
+        ProfileId = $profileId
+        MatrixPath = $matrixPath
+        Matrix = $matrix
         Host = Get-EnvOrDefault -Name 'DATALINQ_TEST_DB_HOST' -DefaultValue '127.0.0.1'
         MySqlPort = Get-IntEnvOrDefault -Name 'DATALINQ_TEST_MYSQL_PORT' -DefaultValue 3307
         MariaDbPort = Get-IntEnvOrDefault -Name 'DATALINQ_TEST_MARIADB_PORT' -DefaultValue 3308
@@ -46,11 +57,65 @@ function Get-TestInfraSettings {
         ApplicationUser = Get-EnvOrDefault -Name 'DATALINQ_TEST_DB_APP_USER' -DefaultValue 'datalinq'
         ApplicationPassword = Get-EnvOrDefault -Name 'DATALINQ_TEST_DB_APP_PASSWORD' -DefaultValue 'datalinq'
         EmployeesDatabase = Get-EnvOrDefault -Name 'DATALINQ_TEST_EMPLOYEES_DB' -DefaultValue 'datalinq_employees'
-        MySqlImage = Get-EnvOrDefault -Name 'DATALINQ_TEST_MYSQL_IMAGE' -DefaultValue 'mysql:8.4'
-        MariaDbImage = Get-EnvOrDefault -Name 'DATALINQ_TEST_MARIADB_IMAGE' -DefaultValue 'mariadb:lts'
         MySqlContainerName = "$podName-mysql"
         MariaDbContainerName = "$podName-mariadb"
     }
+}
+
+function Get-ServerTarget {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Settings,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TargetId
+    )
+
+    $target = $Settings.Matrix.targets | Where-Object { $_.id -eq $TargetId } | Select-Object -First 1
+    if ($null -eq $target) {
+        throw "Could not find server target '$TargetId' in '$($Settings.MatrixPath)'."
+    }
+
+    return $target
+}
+
+function Get-ServerProfile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Settings,
+
+        [string]$ProfileId
+    )
+
+    $resolvedId = if ([string]::IsNullOrWhiteSpace($ProfileId)) { $Settings.ProfileId } else { $ProfileId }
+    $profile = $Settings.Matrix.profiles | Where-Object { $_.id -eq $resolvedId } | Select-Object -First 1
+    if ($null -eq $profile) {
+        throw "Could not find server profile '$resolvedId' in '$($Settings.MatrixPath)'."
+    }
+
+    return $profile
+}
+
+function Get-ProfileTargetByFamily {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Settings,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Profile,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Family
+    )
+
+    foreach ($targetId in $Profile.targets) {
+        $target = Get-ServerTarget -Settings $Settings -TargetId $targetId
+        if ($target.family -eq $Family) {
+            return $target
+        }
+    }
+
+    return $null
 }
 
 function Assert-PodmanAvailable {

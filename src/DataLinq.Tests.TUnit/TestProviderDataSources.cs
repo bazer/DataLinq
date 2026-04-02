@@ -6,15 +6,16 @@ namespace DataLinq.Tests.TUnit;
 
 public static class TestProviderDataSources
 {
-    public static IEnumerable<Func<TestProviderDescriptor>> AllProviders()
+    public static IEnumerable<Func<TestProviderDescriptor>> ActiveProviders()
     {
-        foreach (var provider in TestProviderMatrix.All)
+        var settings = PodmanTestEnvironmentSettings.FromEnvironment();
+        foreach (var provider in TestProviderMatrix.ForActiveProfile(settings))
             yield return () => provider with { };
     }
 
-    public static IEnumerable<Func<TestProviderDescriptor>> ServerBackedProviders()
+    public static IEnumerable<Func<TestProviderDescriptor>> AllLtsServerProviders()
     {
-        foreach (var provider in TestProviderMatrix.ServerBacked)
+        foreach (var provider in TestProviderMatrix.AllLtsServerProviders)
             yield return () => provider with { };
     }
 }
