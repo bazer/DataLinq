@@ -2,8 +2,7 @@
 <RunSettings>
   <RunConfiguration>
     <EnvironmentVariables>
-      <DATALINQ_TEST_PROVIDER_SET>fast</DATALINQ_TEST_PROVIDER_SET>
-      <DATALINQ_TEST_PROFILE>current-lts</DATALINQ_TEST_PROFILE>
+      <DATALINQ_TEST_PROVIDER_SET>all</DATALINQ_TEST_PROVIDER_SET>
     </EnvironmentVariables>
   </RunConfiguration>
 </RunSettings>

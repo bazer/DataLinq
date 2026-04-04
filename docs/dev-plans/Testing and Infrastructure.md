@@ -503,6 +503,14 @@ Some of the current MySQL and MariaDB tests create databases, tables, and schema
 5. Add a dedicated GitHub Actions test workflow.
 6. Only after that, start broad migration of legacy xUnit tests.
 
+## 10.1. Next Infrastructure Phase
+
+The next planning phase for the local and CI test environment now lives in:
+
+* `docs/dev-plans/Test Infrastructure CLI.md`
+
+That document covers the planned replacement of the current PowerShell orchestration with a cross-platform `DataLinq.Testing.CLI` tool based on explicit targets and the `quick`, `latest`, and `all` aliases.
+
 ## 11. Summary
 
 The old draft was too optimistic. The hard part is not "convert xUnit to TUnit." The hard part is untangling test responsibilities, centralizing infrastructure, and proving parity without breaking coverage.

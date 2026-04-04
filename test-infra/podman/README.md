@@ -1,10 +1,62 @@
 # Podman Test Infrastructure
 
-These scripts are the first step toward a Podman-first test environment for DataLinq.
+The preferred entry point is now `DataLinq.Testing.CLI`.
+
+The old PowerShell scripts still exist for the moment, but they are transitional. The CLI is the real direction because it is cross-platform, target-based, and owns the runtime state that `DataLinq.Testing` consumes.
 
 The version matrix lives in `test-infra/podman/matrix.json`.
 
-## Commands
+## Preferred CLI Commands
+
+List known aliases, targets, and the current runtime state:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- list
+```
+
+Start the default local lane:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- up --alias latest
+```
+
+Run the SQLite-only quick lane:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- run --alias quick
+```
+
+Run the latest local lane:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest
+```
+
+Run the full supported matrix in batches:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- run --alias all --batch-size 2
+```
+
+Start every LTS server target at once:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- up --alias all
+```
+
+Stop all running test containers:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- down
+```
+
+Remove all test containers:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- down --remove
+```
+
+## Transitional PowerShell Commands
 
 Start or resume the test databases:
 
@@ -72,18 +124,12 @@ Use `Test -> Configure Run Settings -> Select Solution Wide runsettings File` in
 
 Available files in the solution root (`src`):
 
-* `src/tests.fast.runsettings`
-  Runs SQLite plus the preferred local fast server target. This now prefers the MariaDB target from the active profile.
-* `src/tests.profile.runsettings`
-  Runs SQLite plus every server target in the active profile. By default that means `current-lts`.
-* `src/tests.mariadb-10.11-lts.runsettings`
-  Runs the profile lane against `mysql-8.4 + mariadb-10.11`.
-* `src/tests.mariadb-11.4-lts.runsettings`
-  Runs the profile lane against `mysql-8.4 + mariadb-11.4`.
-* `src/tests.mariadb-11.8-lts.runsettings`
-  Runs the profile lane against `mysql-8.4 + mariadb-11.8`.
-* `src/tests.all-lts.runsettings`
-  Requests the full logical LTS matrix. This only works when every LTS server target is currently provisioned, for example after `.\test-infra\podman\up.ps1 -AllLts`. If the running target set is incomplete, the suite fails immediately with a clear error instead of silently running too little.
+* `src/tests.quick.runsettings`
+  Runs only `sqlite-file` and `sqlite-memory`.
+* `src/tests.latest.runsettings`
+  Runs `sqlite-file`, `sqlite-memory`, `mysql-8.4`, and `mariadb-11.8`.
+* `src/tests.all.runsettings`
+  Requests the full supported target set. This only works when every supported LTS server target is currently provisioned, for example after `dotnet run --project src/DataLinq.Testing.CLI -- up --alias all`. If the running target set is incomplete, the suite fails immediately with a clear error instead of silently running too little.
 
 ## Defaults
 
@@ -115,16 +161,16 @@ You can override the defaults with environment variables:
 * `DATALINQ_TEST_EMPLOYEES_DB`
 * `DATALINQ_TEST_PROVIDER_SET`
   Controls which provider lane the compliance suite uses by default. Supported values are:
-  `fast` for SQLite plus one primary server target,
-  `profile` for SQLite plus every server in the active Podman profile,
-  `targets` for SQLite plus an explicit target list,
-  `all-lts` for the full LTS matrix.
+  `quick` for `sqlite-file` and `sqlite-memory`,
+  `latest` for SQLite plus the newest supported MySQL and MariaDB LTS targets,
+  `targets` for an explicit target list,
+  `all` for the full supported matrix.
 * `DATALINQ_TEST_TARGETS`
-  Comma-separated server target ids used when `DATALINQ_TEST_PROVIDER_SET=targets`.
-* `DATALINQ_TEST_INCLUDE_SQLITE`
-  Set this to `false` when you want a batch to skip SQLite and SQLite in-memory so they only run once across a larger matrix pass.
+  Comma-separated target ids used when `DATALINQ_TEST_PROVIDER_SET=targets`.
+* `DATALINQ_TEST_TARGET_ALIAS`
+  Explicit alias expansion used by the new CLI when it wants the harness to resolve `quick`, `latest`, or `all` through the shared target model.
 
-When you run `up.ps1` or `wait.ps1`, the scripts also persist the resolved runtime settings to `artifacts/testdata/podman-settings.json`. `DataLinq.Testing` reads that file automatically, so tests can pick up the right Podman host and the currently provisioned target ports even if they are launched from a different shell.
+When you run the new CLI, it persists the resolved runtime settings to `artifacts/testdata/testinfra-state.json`. `DataLinq.Testing` reads that file automatically, so tests can pick up the right Podman host and the currently provisioned target ports even if they are launched from a different shell. The legacy PowerShell scripts still write `podman-settings.json`, and the harness can read that as a fallback during the transition.
 
 ## Supported LTS Targets
 
@@ -144,7 +190,7 @@ The important point is that images are pinned by series, not floating tags. That
 The local matrix flow now has two modes on purpose:
 
 * `.\test-infra\podman\up.ps1 -AllLts`
-  Starts every LTS server target at once so `src/tests.all-lts.runsettings` can run the whole matrix in a single pass.
+  Starts every LTS server target at once so `src/tests.all.runsettings` can run the whole matrix in a single pass.
 * `.\test-infra\podman\run-all-lts.ps1 -BatchSize <n>`
   Fans out across the same targets in batches when you do not want every container running at once.
 

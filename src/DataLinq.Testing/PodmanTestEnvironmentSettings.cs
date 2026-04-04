@@ -33,6 +33,7 @@ public sealed record PodmanTestEnvironmentSettings(
     public const string ApplicationUserEnvironmentVariable = "DATALINQ_TEST_DB_APP_USER";
     public const string ApplicationPasswordEnvironmentVariable = "DATALINQ_TEST_DB_APP_PASSWORD";
     public const string ProviderSetEnvironmentVariable = "DATALINQ_TEST_PROVIDER_SET";
+    public const string TargetAliasEnvironmentVariable = "DATALINQ_TEST_TARGET_ALIAS";
     public const string TargetIdsEnvironmentVariable = "DATALINQ_TEST_TARGETS";
     public const string IncludeSQLiteEnvironmentVariable = "DATALINQ_TEST_INCLUDE_SQLITE";
 
@@ -51,6 +52,7 @@ public sealed record PodmanTestEnvironmentSettings(
         var availableTargetIds = persistedState?.Targets?
             .Select(x => x.Id)
             .OfType<string>()
+            .Where(static x => !TestTargetCatalog.IsSQLiteTarget(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray()
             ?? Array.Empty<string>();
@@ -59,7 +61,7 @@ public sealed record PodmanTestEnvironmentSettings(
             RepositoryRoot: root,
             ArtifactRoot: artifactRoot,
             PodName: GetEnvironmentVariable(PodNameEnvironmentVariable, persistedState?.PodName ?? "datalinq-tests"),
-            ProfileId: GetEnvironmentVariable(ProfileEnvironmentVariable, persistedState?.ProfileId ?? "current-lts"),
+            ProfileId: GetEnvironmentVariable(ProfileEnvironmentVariable, persistedState?.ProfileId ?? DatabaseServerMatrix.DefaultProfile.Id),
             Host: GetEnvironmentVariable(HostEnvironmentVariable, persistedState?.Host ?? "127.0.0.1"),
             AdminUser: GetEnvironmentVariable(AdminUserEnvironmentVariable, persistedState?.AdminUser ?? "datalinq"),
             AdminPassword: GetEnvironmentVariable(AdminPasswordEnvironmentVariable, persistedState?.AdminPassword ?? "datalinq"),
@@ -70,11 +72,15 @@ public sealed record PodmanTestEnvironmentSettings(
     }
 
     public DatabaseServerProfile ActiveProfile => DatabaseServerMatrix.GetProfile(ProfileId);
-    public string ProviderSet => GetEnvironmentVariable(ProviderSetEnvironmentVariable, "fast");
-    public bool IncludeSQLite => GetBooleanEnvironmentVariable(IncludeSQLiteEnvironmentVariable, true);
+    public string? TargetAlias => GetOptionalEnvironmentVariable(TargetAliasEnvironmentVariable);
+    public string ProviderSet => GetEnvironmentVariable(ProviderSetEnvironmentVariable, TargetAlias is null ? "fast" : "alias");
+    public bool IncludeSQLite =>
+        SelectedTargetIds.Any(TestTargetCatalog.IsSQLiteTarget)
+        || GetBooleanEnvironmentVariable(IncludeSQLiteEnvironmentVariable, true);
 
     public IReadOnlyList<string> SelectedTargetIds =>
         ParseTargetIds(Environment.GetEnvironmentVariable(TargetIdsEnvironmentVariable))
+        ?? (TargetAlias is null ? null : TestTargetCatalog.ResolveAlias(TargetAlias))
         ?? AvailableTargetIds;
 
     public int GetPort(TestProviderDescriptor provider)
@@ -264,6 +270,12 @@ public sealed record PodmanTestEnvironmentSettings(
         return fallback;
     }
 
+    private static string? GetOptionalEnvironmentVariable(string key)
+    {
+        var value = Environment.GetEnvironmentVariable(key);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
     private static bool GetBooleanEnvironmentVariable(string key, bool fallback)
     {
         var value = Environment.GetEnvironmentVariable(key);
@@ -287,14 +299,46 @@ public sealed record PodmanTestEnvironmentSettings(
 
     private static PersistedPodmanState? LoadPersistedState(string artifactRoot)
     {
-        var statePath = Path.Combine(artifactRoot, "podman-settings.json");
-        if (!File.Exists(statePath))
+        var currentStatePath = Path.Combine(artifactRoot, "testinfra-state.json");
+        if (File.Exists(currentStatePath))
+        {
+            try
+            {
+                var currentState = JsonSerializer.Deserialize<CurrentPersistedState>(
+                    File.ReadAllText(currentStatePath),
+                    new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                if (currentState is not null)
+                {
+                    return new PersistedPodmanState(
+                        PodName: null,
+                        ProfileId: null,
+                        Host: currentState.Host,
+                        AdminUser: currentState.AdminUser,
+                        AdminPassword: currentState.AdminPassword,
+                        ApplicationUser: currentState.ApplicationUser,
+                        ApplicationPassword: currentState.ApplicationPassword,
+                        Targets: currentState.Targets?
+                            .Select(x => new PersistedTargetState(x.Id, x.Port))
+                            .ToArray());
+                }
+            }
+            catch (JsonException)
+            {
+            }
+        }
+
+        var legacyStatePath = Path.Combine(artifactRoot, "podman-settings.json");
+        if (!File.Exists(legacyStatePath))
             return null;
 
         try
         {
             return JsonSerializer.Deserialize<PersistedPodmanState>(
-                File.ReadAllText(statePath),
+                File.ReadAllText(legacyStatePath),
                 new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
@@ -317,6 +361,19 @@ public sealed record PodmanTestEnvironmentSettings(
         PersistedTargetState[]? Targets);
 
     private sealed record PersistedTargetState(
+        string? Id,
+        int? Port);
+
+    private sealed record CurrentPersistedState(
+        string? AliasName,
+        string? Host,
+        string? AdminUser,
+        string? AdminPassword,
+        string? ApplicationUser,
+        string? ApplicationPassword,
+        CurrentPersistedTargetState[]? Targets);
+
+    private sealed record CurrentPersistedTargetState(
         string? Id,
         int? Port);
 }

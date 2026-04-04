@@ -53,6 +53,9 @@ public static class TestProviderMatrix
     {
         return settings.ProviderSet.ToLowerInvariant() switch
         {
+            "quick" => ProvidersForTargetIds(TestTargetCatalog.ResolveAlias(TestTargetCatalog.QuickAlias)),
+            "latest" => ProvidersForTargetIds(TestTargetCatalog.ResolveAlias(TestTargetCatalog.LatestAlias)),
+            "alias" => ProvidersForTargetIds(settings.SelectedTargetIds),
             "fast" => FastForProfile(settings.ActiveProfile),
             "profile" => ForProfile(settings.ActiveProfile),
             "targets" or "batch" => TargetsForCurrentRun(settings),
@@ -78,16 +81,7 @@ public static class TestProviderMatrix
 
     private static IReadOnlyList<TestProviderDescriptor> TargetsForCurrentRun(PodmanTestEnvironmentSettings settings)
     {
-        var targetIds = settings.SelectedTargetIds;
-        var serverProviders = targetIds
-            .Select(DatabaseServerMatrix.GetTarget)
-            .Select(CreateServerProvider);
-
-        var providers = settings.IncludeSQLite
-            ? SQLiteOnly.Concat(serverProviders)
-            : serverProviders;
-
-        return new ReadOnlyCollection<TestProviderDescriptor>(providers.ToArray());
+        return ProvidersForTargetIds(settings.SelectedTargetIds);
     }
 
     private static IReadOnlyList<TestProviderDescriptor> AllLtsForCurrentRun(PodmanTestEnvironmentSettings settings)
@@ -131,5 +125,20 @@ public static class TestProviderMatrix
             RequiresExternalServer: true,
             UsesPodman: true,
             ServerTarget: target);
+    }
+
+    private static IReadOnlyList<TestProviderDescriptor> ProvidersForTargetIds(IEnumerable<string> targetIds)
+    {
+        var providers = targetIds
+            .Distinct(System.StringComparer.OrdinalIgnoreCase)
+            .Select(static targetId => targetId.ToLowerInvariant() switch
+            {
+                TestTargetCatalog.SQLiteFileTargetId => SQLiteFile,
+                TestTargetCatalog.SQLiteMemoryTargetId => SQLiteInMemory,
+                _ => CreateServerProvider(DatabaseServerMatrix.GetTarget(targetId))
+            })
+            .ToArray();
+
+        return new ReadOnlyCollection<TestProviderDescriptor>(providers);
     }
 }

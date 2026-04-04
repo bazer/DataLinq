@@ -99,7 +99,7 @@ internal static class TestDatabaseLifecycle
         {
             return
                 $"Could not connect to '{target.Id}' with the configured admin account '{settings.AdminUser}'. " +
-                $"Recreate the Podman profile with '.\\test-infra\\podman\\reset.ps1 -Profile {settings.ActiveProfile.Id}' so the container startup can provision the host admin privileges correctly. " +
+                $"Recreate the target with 'dotnet run --project src\\DataLinq.Testing.CLI -- reset --targets {target.Id}' so the test infrastructure CLI can provision the host admin privileges correctly. " +
                 $"Current admin endpoint: {settings.Host}:{settings.GetPort(target)}.";
         }
 
@@ -107,7 +107,7 @@ internal static class TestDatabaseLifecycle
         {
             return
                 $"Could not connect to '{target.Id}' with the configured admin account '{settings.AdminUser}'. " +
-                $"Recreate the Podman profile with '.\\test-infra\\podman\\reset.ps1 -Profile {settings.ActiveProfile.Id}' so the container startup can reapply the elevated grants for that user. " +
+                $"Recreate the target with 'dotnet run --project src\\DataLinq.Testing.CLI -- reset --targets {target.Id}' so the test infrastructure CLI can reapply the elevated grants for that user. " +
                 $"Current admin endpoint: {settings.Host}:{settings.GetPort(target)}.";
         }
 
@@ -120,6 +120,6 @@ internal static class TestDatabaseLifecycle
 
         return
             $"Could not reach the '{target.Id}' test server at {settings.Host}:{settings.GetPort(target)}. " +
-            $"Start the active Podman profile with '.\\test-infra\\podman\\up.ps1 -Profile {settings.ActiveProfile.Id}' and wait for it to become ready before running server-backed TUnit tests.";
+            $"Start the required target with 'dotnet run --project src\\DataLinq.Testing.CLI -- up --targets {target.Id}' and wait for it to become ready before running server-backed TUnit tests.";
     }
 }

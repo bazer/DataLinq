@@ -2,8 +2,7 @@
 <RunSettings>
   <RunConfiguration>
     <EnvironmentVariables>
-      <DATALINQ_TEST_PROVIDER_SET>profile</DATALINQ_TEST_PROVIDER_SET>
-      <DATALINQ_TEST_PROFILE>mariadb-11.8-lts</DATALINQ_TEST_PROFILE>
+      <DATALINQ_TEST_PROVIDER_SET>latest</DATALINQ_TEST_PROVIDER_SET>
     </EnvironmentVariables>
   </RunConfiguration>
 </RunSettings>
