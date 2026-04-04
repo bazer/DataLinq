@@ -42,7 +42,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLinq.MySql.Tests", "Dat
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLinq.Testing", "DataLinq.Testing\DataLinq.Testing.csproj", "{B56B32FD-0A43-4244-8509-C166EA26A2A2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLinq.Tests.TUnit", "DataLinq.Tests.TUnit\DataLinq.Tests.TUnit.csproj", "{B37C06E3-188F-4951-A2D0-68CD066D121B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLinq.Tests.Compliance", "DataLinq.Tests.Compliance\DataLinq.Tests.Compliance.csproj", "{B37C06E3-188F-4951-A2D0-68CD066D121B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

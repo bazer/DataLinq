@@ -11,7 +11,7 @@ using DataLinq.Query;
 using DataLinq.Testing;
 using Remotion.Linq.Parsing.Structure;
 
-namespace DataLinq.Tests.TUnit;
+namespace DataLinq.Tests.Compliance;
 
 public class CharPredicateTranslationTests
 {

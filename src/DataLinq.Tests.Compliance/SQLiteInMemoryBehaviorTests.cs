@@ -13,7 +13,7 @@ using DataLinq.Testing;
 using DataLinq.Tests.Models.Employees;
 using Microsoft.Data.Sqlite;
 
-namespace DataLinq.Tests.TUnit;
+namespace DataLinq.Tests.Compliance;
 
 public class SQLiteInMemoryBehaviorTests
 {

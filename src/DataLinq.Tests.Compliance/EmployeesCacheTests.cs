@@ -8,7 +8,7 @@ using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
 
-namespace DataLinq.Tests.TUnit;
+namespace DataLinq.Tests.Compliance;
 
 public class EmployeesCacheTests
 {

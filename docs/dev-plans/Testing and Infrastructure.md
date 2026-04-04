@@ -126,7 +126,7 @@ Recommended target shape:
 
 * `src/DataLinq.Tests.Unit`
   Pure library tests with no external database dependency.
-* `src/DataLinq.Tests.Integration`
+* `src/DataLinq.Tests.Compliance`
   Provider-behavior and provider-compliance tests across SQLite, MySQL, and MariaDB.
 * `src/DataLinq.Generators.Tests`
   Keep as its own project, but migrate it to TUnit separately.
@@ -135,11 +135,13 @@ Recommended target shape:
 
 ### 3.2. Transitional Starting Point
 
-For the first migration step, it is reasonable to create a single new project such as:
+For the first migration step, it was reasonable to create a single new proving-ground project.
 
-* `src/DataLinq.Tests.TUnit`
+That work has now effectively become:
 
-That project should be a proving ground, not the final architecture.
+* `src/DataLinq.Tests.Compliance`
+
+That project is no longer just a proving ground. It is now the practical compliance lane and should keep absorbing the cross-provider TUnit migration work until the other target projects exist.
 
 It should contain:
 
@@ -386,7 +388,7 @@ Exit criteria:
 
 Deliverables:
 
-* A new TUnit test project, initially `src/DataLinq.Tests.TUnit`
+* A new TUnit test project, initially `src/DataLinq.Tests.TUnit`, now evolved into `src/DataLinq.Tests.Compliance`
 * Basic TUnit wiring and package references
 * Shared provider descriptors and setup types
 * A small set of smoke tests across SQLite, MySQL, and MariaDB

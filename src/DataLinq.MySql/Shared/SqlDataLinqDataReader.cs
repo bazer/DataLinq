@@ -55,7 +55,11 @@ public struct SqlDataLinqDataReader : IDataLinqDataReader, IDisposable
     {
         // MySqlConnector returns TimeSpan for TIME columns.
         var timeSpan = dataReader.GetTimeSpan(ordinal);
-        return TimeOnly.FromTimeSpan(timeSpan);
+        var ticks = timeSpan.Ticks % TimeSpan.TicksPerDay;
+        if (ticks < 0)
+            ticks += TimeSpan.TicksPerDay;
+
+        return new TimeOnly(ticks);
     }
 
     public Guid GetGuid(int ordinal)

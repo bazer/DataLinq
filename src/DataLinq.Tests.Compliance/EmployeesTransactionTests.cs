@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Testing;
 
-namespace DataLinq.Tests.TUnit;
+namespace DataLinq.Tests.Compliance;
 
 public class EmployeesTransactionTests
 {

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using DataLinq.Testing;
 
-namespace DataLinq.Tests.TUnit;
+namespace DataLinq.Tests.Compliance;
 
 public static class TestProviderDataSources
 {

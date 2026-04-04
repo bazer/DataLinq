@@ -31,7 +31,7 @@ The right structure for the new suite is not "one new TUnit project." The right 
 * `src/DataLinq.Tests.MySql`
 * `src/DataLinq.Generators.Tests`
 
-That is the recommended end state. For the first implementation slice, a temporary `src/DataLinq.Tests.TUnit` project is still fine as a proving ground.
+That is the recommended end state. The initial proving-ground project has now effectively become `src/DataLinq.Tests.Compliance`, which is the right home for the cross-provider TUnit migration work already completed.
 
 ## 2. Current Inventory
 
@@ -368,7 +368,7 @@ Without this, the TUnit migration will just reproduce the current fixture mess i
 
 Create:
 
-* `src/DataLinq.Tests.TUnit`
+* `src/DataLinq.Tests.Compliance`
 
 Populate it with one vertical slice:
 
@@ -443,7 +443,7 @@ The next implementation step should be:
 1. Create `src/DataLinq.Testing`
 2. Define the provider matrix abstraction there
 3. Decide the Podman orchestration shape for MySQL and MariaDB
-4. Create `src/DataLinq.Tests.TUnit`
+4. Continue building `src/DataLinq.Tests.Compliance`
 5. Port a very small vertical slice
 
 Do **not** start by mass-converting `DataLinq.Tests` file by file. The architecture is still wrong, and brute-force conversion would lock that mess in.
