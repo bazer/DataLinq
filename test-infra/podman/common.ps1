@@ -87,22 +87,23 @@ function Get-TestInfraSettings {
         MatrixPath = $matrixPath
         Matrix = $matrix
         Host = Resolve-PublishedDatabaseHost
-        MySqlPort = Get-IntEnvOrDefault -Name 'DATALINQ_TEST_MYSQL_PORT' -DefaultValue 3307
-        MariaDbPort = Get-IntEnvOrDefault -Name 'DATALINQ_TEST_MARIADB_PORT' -DefaultValue 3308
         AdminUser = Get-EnvOrDefault -Name 'DATALINQ_TEST_DB_ADMIN_USER' -DefaultValue 'datalinq'
         AdminPassword = Get-EnvOrDefault -Name 'DATALINQ_TEST_DB_ADMIN_PASSWORD' -DefaultValue 'datalinq'
         ApplicationUser = Get-EnvOrDefault -Name 'DATALINQ_TEST_DB_APP_USER' -DefaultValue 'datalinq'
         ApplicationPassword = Get-EnvOrDefault -Name 'DATALINQ_TEST_DB_APP_PASSWORD' -DefaultValue 'datalinq'
         EmployeesDatabase = Get-EnvOrDefault -Name 'DATALINQ_TEST_EMPLOYEES_DB' -DefaultValue 'datalinq_employees'
-        MySqlContainerName = "$podName-mysql"
-        MariaDbContainerName = "$podName-mariadb"
+        LegacyMySqlContainerName = "$podName-mysql"
+        LegacyMariaDbContainerName = "$podName-mariadb"
     }
 }
 
 function Write-TestInfraState {
     param(
         [Parameter(Mandatory = $true)]
-        [object]$Settings
+        [object]$Settings,
+
+        [Parameter(Mandatory = $true)]
+        [object[]]$Targets
     )
 
     $statePath = Get-TestInfraStatePath
@@ -115,15 +116,21 @@ function Write-TestInfraState {
         podName = $Settings.PodName
         profileId = $Settings.ProfileId
         host = $Settings.Host
-        mySqlPort = $Settings.MySqlPort
-        mariaDbPort = $Settings.MariaDbPort
         adminUser = $Settings.AdminUser
         adminPassword = $Settings.AdminPassword
         applicationUser = $Settings.ApplicationUser
         applicationPassword = $Settings.ApplicationPassword
+        targets = @(
+            $Targets | ForEach-Object {
+                [pscustomobject]@{
+                    id = $_.id
+                    port = Get-TargetHostPort -Settings $Settings -Target $_
+                }
+            }
+        )
     }
 
-    $state | ConvertTo-Json | Set-Content -Path $statePath -Encoding UTF8
+    $state | ConvertTo-Json -Depth 8 | Set-Content -Path $statePath -Encoding UTF8
 }
 
 function Remove-TestInfraState {
@@ -187,6 +194,106 @@ function Get-ProfileTargetByFamily {
     }
 
     return $null
+}
+
+function Get-TargetContainerName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Settings,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Target
+    )
+
+    return "$($Settings.PodName)-$($Target.id.ToLowerInvariant())"
+}
+
+function Get-TargetHostPort {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Settings,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Target
+    )
+
+    if ($Target.PSObject.Properties.Name -contains 'hostPort') {
+        return [int]$Target.hostPort
+    }
+
+    switch ($Target.family) {
+        'MySql' {
+            return Get-IntEnvOrDefault -Name 'DATALINQ_TEST_MYSQL_PORT' -DefaultValue 3307
+        }
+        'MariaDb' {
+            return Get-IntEnvOrDefault -Name 'DATALINQ_TEST_MARIADB_PORT' -DefaultValue 3308
+        }
+        default {
+            throw "Server target '$($Target.id)' has no configured host port."
+        }
+    }
+}
+
+function Resolve-ServerTargets {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Settings,
+
+        [string]$ProfileId,
+
+        [string[]]$TargetIds,
+
+        [switch]$AllLts
+    )
+
+    $hasProfile = -not [string]::IsNullOrWhiteSpace($ProfileId)
+    $hasTargetIds = $null -ne $TargetIds -and $TargetIds.Count -gt 0
+
+    if ($AllLts -and ($hasProfile -or $hasTargetIds)) {
+        throw "Use either -AllLts, -Profile, or -TargetIds. These selection options are mutually exclusive."
+    }
+
+    if ($hasProfile -and $hasTargetIds) {
+        throw "Use either -Profile or -TargetIds, not both."
+    }
+
+    if ($AllLts) {
+        return @(
+            $Settings.Matrix.targets |
+                Where-Object { $_.isLts } |
+                Sort-Object -Property family, version
+        )
+    }
+
+    if ($hasTargetIds) {
+        return @(
+            $TargetIds |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                Select-Object -Unique |
+                ForEach-Object { Get-ServerTarget -Settings $Settings -TargetId $_ }
+        )
+    }
+
+    $profile = Get-ServerProfile -Settings $Settings -ProfileId $ProfileId
+    return @(
+        $profile.targets | ForEach-Object { Get-ServerTarget -Settings $Settings -TargetId $_ }
+    )
+}
+
+function Get-AllKnownTargetContainers {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Settings
+    )
+
+    return @(
+        $Settings.Matrix.targets | ForEach-Object {
+            [pscustomobject]@{
+                Target = $_
+                ContainerName = Get-TargetContainerName -Settings $Settings -Target $_
+            }
+        }
+    )
 }
 
 function Assert-PodmanAvailable {
@@ -313,10 +420,24 @@ function Initialize-MySqlHostAdminUser {
         [string]$ContainerName
     )
 
-    $sql = @(
-        "GRANT ALL PRIVILEGES ON *.* TO '$($Settings.AdminUser)'@'%' WITH GRANT OPTION;"
-        "FLUSH PRIVILEGES;"
-    ) -join ' '
+    $escapedAppPassword = $Settings.ApplicationPassword.Replace("'", "''")
+    $escapedAdminPassword = $Settings.AdminPassword.Replace("'", "''")
+    $statements = [System.Collections.Generic.List[string]]::new()
+    $statements.Add("CREATE USER IF NOT EXISTS '$($Settings.ApplicationUser)'@'%' IDENTIFIED BY '$escapedAppPassword';")
+    $statements.Add("ALTER USER '$($Settings.ApplicationUser)'@'%' IDENTIFIED BY '$escapedAppPassword';")
+
+    if ($Settings.AdminUser -eq $Settings.ApplicationUser) {
+        $statements.Add("GRANT ALL PRIVILEGES ON *.* TO '$($Settings.ApplicationUser)'@'%' WITH GRANT OPTION;")
+    }
+    else {
+        $statements.Add("GRANT ALL PRIVILEGES ON *.* TO '$($Settings.ApplicationUser)'@'%';")
+        $statements.Add("CREATE USER IF NOT EXISTS '$($Settings.AdminUser)'@'%' IDENTIFIED BY '$escapedAdminPassword';")
+        $statements.Add("ALTER USER '$($Settings.AdminUser)'@'%' IDENTIFIED BY '$escapedAdminPassword';")
+        $statements.Add("GRANT ALL PRIVILEGES ON *.* TO '$($Settings.AdminUser)'@'%' WITH GRANT OPTION;")
+    }
+
+    $statements.Add("FLUSH PRIVILEGES;")
+    $sql = $statements -join ' '
 
     & podman exec $ContainerName mysql -h 127.0.0.1 -u root "-p$($Settings.AdminPassword)" -e $sql *> $null
     if ($LASTEXITCODE -ne 0) {
@@ -333,12 +454,24 @@ function Initialize-MariaDbHostAdminUser {
         [string]$ContainerName
     )
 
-    $escapedPassword = $Settings.AdminPassword.Replace("'", "''")
-    $sql = @(
-        "ALTER USER '$($Settings.ApplicationUser)'@'%' IDENTIFIED BY '$($Settings.ApplicationPassword.Replace("'", "''"))';"
-        "GRANT ALL PRIVILEGES ON *.* TO '$($Settings.AdminUser)'@'%' WITH GRANT OPTION;"
-        "FLUSH PRIVILEGES;"
-    ) -join ' '
+    $escapedAppPassword = $Settings.ApplicationPassword.Replace("'", "''")
+    $escapedAdminPassword = $Settings.AdminPassword.Replace("'", "''")
+    $statements = [System.Collections.Generic.List[string]]::new()
+    $statements.Add("CREATE USER IF NOT EXISTS '$($Settings.ApplicationUser)'@'%' IDENTIFIED BY '$escapedAppPassword';")
+    $statements.Add("ALTER USER '$($Settings.ApplicationUser)'@'%' IDENTIFIED BY '$escapedAppPassword';")
+
+    if ($Settings.AdminUser -eq $Settings.ApplicationUser) {
+        $statements.Add("GRANT ALL PRIVILEGES ON *.* TO '$($Settings.ApplicationUser)'@'%' WITH GRANT OPTION;")
+    }
+    else {
+        $statements.Add("GRANT ALL PRIVILEGES ON *.* TO '$($Settings.ApplicationUser)'@'%';")
+        $statements.Add("CREATE USER IF NOT EXISTS '$($Settings.AdminUser)'@'%' IDENTIFIED BY '$escapedAdminPassword';")
+        $statements.Add("ALTER USER '$($Settings.AdminUser)'@'%' IDENTIFIED BY '$escapedAdminPassword';")
+        $statements.Add("GRANT ALL PRIVILEGES ON *.* TO '$($Settings.AdminUser)'@'%' WITH GRANT OPTION;")
+    }
+
+    $statements.Add("FLUSH PRIVILEGES;")
+    $sql = $statements -join ' '
 
     & podman exec $ContainerName mariadb -h 127.0.0.1 -u root "-p$($Settings.AdminPassword)" -e $sql *> $null
     if ($LASTEXITCODE -ne 0) {

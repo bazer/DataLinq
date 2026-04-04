@@ -12,7 +12,7 @@ public class EmployeesMutationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_MutateOnMissingModel_ThrowsArgumentNullException(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_MutateOnMissingModel_ThrowsArgumentNullException),
             EmployeesSeedMode.Bogus);
@@ -32,7 +32,7 @@ public class EmployeesMutationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_MutateOrNewOnMissingModel_ReturnsNewMutableEmployee(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_MutateOrNewOnMissingModel_ReturnsNewMutableEmployee),
             EmployeesSeedMode.Bogus);
@@ -56,7 +56,7 @@ public class EmployeesMutationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ResetWithoutModel_RevertsToOriginalState(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ResetWithoutModel_RevertsToOriginalState),
             EmployeesSeedMode.Bogus);
@@ -76,7 +76,7 @@ public class EmployeesMutationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ResetWithModel_RevertsToProvidedModel(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ResetWithModel_RevertsToProvidedModel),
             EmployeesSeedMode.Bogus);
@@ -97,7 +97,7 @@ public class EmployeesMutationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_SaveResetsChangeTrackingAndPersistsValues(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_SaveResetsChangeTrackingAndPersistsValues),
             EmployeesSeedMode.Bogus);
@@ -123,7 +123,7 @@ public class EmployeesMutationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Mutation_ChangingPropertyMarksMutableAsChanged(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(Mutation_ChangingPropertyMarksMutableAsChanged),
             EmployeesSeedMode.Bogus);

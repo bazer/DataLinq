@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Testing;
 
@@ -13,17 +14,18 @@ public class ProviderMatrixTests
         await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-10.11").IsLts).IsTrue();
         await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-11.4").IsLts).IsTrue();
         await Assert.That(DatabaseServerMatrix.GetTarget("mariadb-11.8").IsLts).IsTrue();
+        await Assert.That(DatabaseServerMatrix.Targets.Select(x => x.HostPort).Distinct().Count()).IsEqualTo(DatabaseServerMatrix.Targets.Count);
         await Assert.That(DatabaseServerMatrix.DefaultProfile.Id).IsEqualTo("current-lts");
     }
 
     [Test]
-    public async Task ActiveProfile_DefaultsToCurrentLts()
+    public async Task ActiveProfile_ResolvesTheConfiguredProfile()
     {
         var settings = PodmanTestEnvironmentSettings.FromEnvironment();
 
-        await Assert.That(settings.ActiveProfile.Id).IsEqualTo("current-lts");
-        await Assert.That(settings.ActiveProfile.MySqlTarget!.Id).IsEqualTo("mysql-8.4");
-        await Assert.That(settings.ActiveProfile.MariaDbTarget!.Id).IsEqualTo("mariadb-11.8");
+        await Assert.That(settings.ActiveProfile.Id).IsEqualTo(settings.ProfileId);
+        await Assert.That(settings.ActiveProfile.MySqlTarget).IsNotNull();
+        await Assert.That(settings.ActiveProfile.MariaDbTarget).IsNotNull();
     }
 
     [Test]

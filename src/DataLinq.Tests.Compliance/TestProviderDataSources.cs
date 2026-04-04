@@ -9,6 +9,13 @@ public static class TestProviderDataSources
     public static IEnumerable<Func<TestProviderDescriptor>> ActiveProviders()
     {
         var settings = PodmanTestEnvironmentSettings.FromEnvironment();
+        foreach (var provider in TestProviderMatrix.ForCurrentRun(settings))
+            yield return () => provider with { };
+    }
+
+    public static IEnumerable<Func<TestProviderDescriptor>> ProfileProviders()
+    {
+        var settings = PodmanTestEnvironmentSettings.FromEnvironment();
         foreach (var provider in TestProviderMatrix.ForActiveProfile(settings))
             yield return () => provider with { };
     }

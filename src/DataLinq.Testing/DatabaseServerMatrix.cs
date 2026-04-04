@@ -39,6 +39,7 @@ public static class DatabaseServerMatrix
                 Enum.Parse<DatabaseServerFamily>(x.Family, ignoreCase: true),
                 x.Version,
                 x.Image,
+                x.HostPort,
                 x.IsLts,
                 x.IsDefault))
             .ToArray();
@@ -68,6 +69,7 @@ public static class DatabaseServerMatrix
         string Family,
         string Version,
         string Image,
+        int HostPort,
         bool IsLts,
         bool IsDefault);
 

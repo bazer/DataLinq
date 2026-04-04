@@ -1,6 +1,9 @@
 [CmdletBinding()]
 param(
-    [switch]$Remove
+    [switch]$Remove,
+    [string]$Profile,
+    [string[]]$TargetIds,
+    [switch]$AllLts
 )
 
 . "$PSScriptRoot\common.ps1"
@@ -8,38 +11,55 @@ param(
 $settings = Get-TestInfraSettings
 Assert-PodmanAvailable
 
-if (Test-ContainerExists -Name $settings.MySqlContainerName) {
-    if (Test-ContainerRunning -Name $settings.MySqlContainerName) {
-        Write-Host "Stopping container '$($settings.MySqlContainerName)'..."
-        & podman stop $settings.MySqlContainerName *> $null
+$selectedTargets = if (-not [string]::IsNullOrWhiteSpace($Profile) -or ($null -ne $TargetIds -and $TargetIds.Count -gt 0) -or $AllLts) {
+    Resolve-ServerTargets -Settings $settings -ProfileId $Profile -TargetIds $TargetIds -AllLts:$AllLts
+}
+else {
+    Get-AllKnownTargetContainers -Settings $settings | ForEach-Object { $_.Target }
+}
+
+foreach ($target in $selectedTargets) {
+    $containerName = Get-TargetContainerName -Settings $settings -Target $target
+
+    if (-not (Test-ContainerExists -Name $containerName)) {
+        continue
+    }
+
+    if (Test-ContainerRunning -Name $containerName) {
+        Write-Host "Stopping container '$containerName'..."
+        & podman stop $containerName *> $null
         if ($LASTEXITCODE -ne 0) {
-            throw "Failed to stop container '$($settings.MySqlContainerName)'."
+            throw "Failed to stop container '$containerName'."
         }
     }
 
     if ($Remove) {
-        Write-Host "Removing container '$($settings.MySqlContainerName)'..."
-        & podman rm -f $settings.MySqlContainerName *> $null
+        Write-Host "Removing container '$containerName'..."
+        & podman rm -f $containerName *> $null
         if ($LASTEXITCODE -ne 0) {
-            throw "Failed to remove container '$($settings.MySqlContainerName)'."
+            throw "Failed to remove container '$containerName'."
         }
     }
 }
 
-if (Test-ContainerExists -Name $settings.MariaDbContainerName) {
-    if (Test-ContainerRunning -Name $settings.MariaDbContainerName) {
-        Write-Host "Stopping container '$($settings.MariaDbContainerName)'..."
-        & podman stop $settings.MariaDbContainerName *> $null
+foreach ($legacyContainerName in @($settings.LegacyMySqlContainerName, $settings.LegacyMariaDbContainerName)) {
+    if (-not (Test-ContainerExists -Name $legacyContainerName)) {
+        continue
+    }
+
+    if (Test-ContainerRunning -Name $legacyContainerName) {
+        Write-Host "Stopping legacy container '$legacyContainerName'..."
+        & podman stop $legacyContainerName *> $null
         if ($LASTEXITCODE -ne 0) {
-            throw "Failed to stop container '$($settings.MariaDbContainerName)'."
+            throw "Failed to stop legacy container '$legacyContainerName'."
         }
     }
 
     if ($Remove) {
-        Write-Host "Removing container '$($settings.MariaDbContainerName)'..."
-        & podman rm -f $settings.MariaDbContainerName *> $null
+        Write-Host "Removing legacy container '$legacyContainerName'..."
+        & podman rm -f $legacyContainerName *> $null
         if ($LASTEXITCODE -ne 0) {
-            throw "Failed to remove container '$($settings.MariaDbContainerName)'."
+            throw "Failed to remove legacy container '$legacyContainerName'."
         }
     }
 }
@@ -52,11 +72,20 @@ if (Test-PodExists -Name $settings.PodName) {
     }
 }
 
-if (-not (Test-ContainerExists -Name $settings.MySqlContainerName) -and
-    -not (Test-ContainerExists -Name $settings.MariaDbContainerName) -and
-    -not (Test-PodExists -Name $settings.PodName)) {
-    if ($Remove) {
-        Remove-TestInfraState
-    }
+$runningContainers = @(
+    Get-AllKnownTargetContainers -Settings $settings | Where-Object { Test-ContainerRunning -Name $_.ContainerName }
+)
+$remainingContainers = @(
+    Get-AllKnownTargetContainers -Settings $settings | Where-Object { Test-ContainerExists -Name $_.ContainerName }
+)
+
+if ($remainingContainers.Count -eq 0 -and -not (Test-PodExists -Name $settings.PodName)) {
+    Remove-TestInfraState
     Write-Host "No Podman test containers are present."
+}
+elseif ($runningContainers.Count -gt 0) {
+    Write-TestInfraState -Settings $settings -Targets ($runningContainers | ForEach-Object { $_.Target })
+}
+else {
+    Remove-TestInfraState
 }

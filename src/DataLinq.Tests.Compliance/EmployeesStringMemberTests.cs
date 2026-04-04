@@ -13,7 +13,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_ToUpperMatchesDepartment(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_ToUpperMatchesDepartment),
             EmployeesSeedMode.Bogus);
@@ -39,7 +39,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_ToLowerMatchesDepartment(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_ToLowerMatchesDepartment),
             EmployeesSeedMode.Bogus);
@@ -65,7 +65,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_TrimMatchesInsertedEmployee(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_TrimMatchesInsertedEmployee),
             EmployeesSeedMode.Bogus);
@@ -85,7 +85,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_SubstringMatchesInsertedEmployee(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_SubstringMatchesInsertedEmployee),
             EmployeesSeedMode.Bogus);
@@ -111,7 +111,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_IsNullOrEmptyFalseFiltersEmptyString(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_IsNullOrEmptyFalseFiltersEmptyString),
             EmployeesSeedMode.Bogus);
@@ -137,7 +137,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_IsNullOrEmptyTrueReturnsOnlyEmptyString(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_IsNullOrEmptyTrueReturnsOnlyEmptyString),
             EmployeesSeedMode.Bogus);
@@ -164,7 +164,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_IsNullOrWhiteSpaceFalseFiltersWhitespaceRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_IsNullOrWhiteSpaceFalseFiltersWhitespaceRows),
             EmployeesSeedMode.Bogus);
@@ -191,7 +191,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_IsNullOrWhiteSpaceTrueReturnsEmptyAndWhitespaceRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_IsNullOrWhiteSpaceTrueReturnsEmptyAndWhitespaceRows),
             EmployeesSeedMode.Bogus);
@@ -219,7 +219,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_LengthMatchesInsertedEmployee(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_LengthMatchesInsertedEmployee),
             EmployeesSeedMode.Bogus);
@@ -246,7 +246,7 @@ public class EmployeesStringMemberTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task String_TrimLengthMatchesInsertedEmployee(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(String_TrimLengthMatchesInsertedEmployee),
             EmployeesSeedMode.Bogus);

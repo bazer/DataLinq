@@ -14,7 +14,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_ToListAndCountOnTablesAndViews_WorkAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_ToListAndCountOnTablesAndViews_WorkAcrossProviders),
             EmployeesSeedMode.Bogus);
@@ -31,7 +31,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_StaticGetAndSimpleDepartmentPredicates_WorkAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_StaticGetAndSimpleDepartmentPredicates_WorkAcrossProviders),
             EmployeesSeedMode.Bogus);
@@ -55,7 +55,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_DepartmentStringPredicates_WorkAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_DepartmentStringPredicates_WorkAcrossProviders),
             EmployeesSeedMode.Bogus);
@@ -77,7 +77,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_ManagerStringAndDatePredicates_MatchInMemoryFiltering(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_ManagerStringAndDatePredicates_MatchInMemoryFiltering),
             EmployeesSeedMode.Bogus);
@@ -127,7 +127,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_EnumPredicates_MatchInMemoryFiltering(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_EnumPredicates_MatchInMemoryFiltering),
             EmployeesSeedMode.Bogus);
@@ -173,7 +173,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_DepartmentContainsCollections_WorkAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_DepartmentContainsCollections_WorkAcrossProviders),
             EmployeesSeedMode.Bogus);
@@ -198,7 +198,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_MultipleContainsPredicates_MatchDynamicSeededRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_MultipleContainsPredicates_MatchDynamicSeededRows),
             EmployeesSeedMode.Bogus);
@@ -237,7 +237,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_MultipleContainsWithAdditionalPredicates_MatchDynamicSeededRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_MultipleContainsWithAdditionalPredicates_MatchDynamicSeededRows),
             EmployeesSeedMode.Bogus);
@@ -311,7 +311,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_AnySingleAndFirstOperators_WorkAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_AnySingleAndFirstOperators_WorkAcrossProviders),
             EmployeesSeedMode.Bogus);
@@ -344,7 +344,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_OrderedFirstAndLastVariants_WorkAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_OrderedFirstAndLastVariants_WorkAcrossProviders),
             EmployeesSeedMode.Bogus);
@@ -373,7 +373,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_OrderByProjectionAndPaging_MatchInMemoryBehavior(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_OrderByProjectionAndPaging_MatchInMemoryBehavior),
             EmployeesSeedMode.Bogus);
@@ -495,7 +495,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_TwoPropertyComparisons_MatchInMemoryFiltering(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_TwoPropertyComparisons_MatchInMemoryFiltering),
             EmployeesSeedMode.Bogus);
@@ -533,7 +533,7 @@ public class EmployeesQueryBehaviorTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Query_UnsupportedTailAndWhileOperators_ThrowNotSupportedException(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Query_UnsupportedTailAndWhileOperators_ThrowNotSupportedException),
             EmployeesSeedMode.Bogus);

@@ -16,7 +16,7 @@ public class EmployeesCacheTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_DoesNotAccumulateDuplicateDeptEmployeeRowsAcrossRepeatedQueries(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_DoesNotAccumulateDuplicateDeptEmployeeRowsAcrossRepeatedQueries),
             EmployeesSeedMode.Bogus);
@@ -42,7 +42,7 @@ public class EmployeesCacheTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsInsertedBeforeTick_EvictsRowsInLoadOrder(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsInsertedBeforeTick_EvictsRowsInLoadOrder),
             EmployeesSeedMode.Bogus);
@@ -105,7 +105,7 @@ public class EmployeesCacheTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsByRowLimit_KeepsConfiguredRowCount(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsByRowLimit_KeepsConfiguredRowCount),
             EmployeesSeedMode.Bogus);
@@ -135,7 +135,7 @@ public class EmployeesCacheTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsByByteLimit_CapsTotalBytes(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Cache_RemoveRowsByByteLimit_CapsTotalBytes),
             EmployeesSeedMode.Bogus);

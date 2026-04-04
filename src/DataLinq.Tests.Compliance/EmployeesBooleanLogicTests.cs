@@ -13,7 +13,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_GroupedAndOr_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_GroupedAndOr_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -37,7 +37,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_SimpleAndGroupedOr_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_SimpleAndGroupedOr_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -61,7 +61,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedGroupedAnd_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedGroupedAnd_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -85,7 +85,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedGroupedOrWithinSuperset_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedGroupedOrWithinSuperset_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -113,7 +113,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_SimpleAndNegatedGroupedOr_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_SimpleAndNegatedGroupedOr_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -137,7 +137,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedGroupedAndOrGroupedAnd_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedGroupedAndOrGroupedAnd_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -163,7 +163,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedEmptyContainsInsideGroup_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedEmptyContainsInsideGroup_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -187,7 +187,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_SimpleAndNegatedEmptyContainsOrSimple_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_SimpleAndNegatedEmptyContainsOrSimple_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -211,7 +211,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_GroupedOrWithNegatedEmptyAny_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_GroupedOrWithNegatedEmptyAny_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -235,7 +235,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedSimpleOrSimpleWithinSuperset_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedSimpleOrSimpleWithinSuperset_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -263,7 +263,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_SimpleOrNegatedSimple_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_SimpleOrNegatedSimple_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);
@@ -287,7 +287,7 @@ public class EmployeesBooleanLogicTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedGroupedOrWithInnerNegation_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Boolean_NegatedGroupedOrWithInnerNegation_ReturnsExpectedRows),
             EmployeesSeedMode.Bogus);

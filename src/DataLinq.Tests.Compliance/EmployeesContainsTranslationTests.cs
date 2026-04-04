@@ -12,7 +12,7 @@ public class EmployeesContainsTranslationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_EmptyArrayReturnsNoRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_EmptyArrayReturnsNoRows),
             EmployeesSeedMode.Bogus);
@@ -29,7 +29,7 @@ public class EmployeesContainsTranslationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_NegatedContainsFiltersRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_NegatedContainsFiltersRows),
             EmployeesSeedMode.Bogus);
@@ -56,7 +56,7 @@ public class EmployeesContainsTranslationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ReadOnlySpanFiltersRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_ReadOnlySpanFiltersRows),
             EmployeesSeedMode.Bogus);
@@ -84,7 +84,7 @@ public class EmployeesContainsTranslationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ConstantTrueReturnsAllRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_ConstantTrueReturnsAllRows),
             EmployeesSeedMode.Bogus);
@@ -106,7 +106,7 @@ public class EmployeesContainsTranslationTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ConstantFalseReturnsNoRows(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(Contains_ConstantFalseReturnsNoRows),
             EmployeesSeedMode.Bogus);

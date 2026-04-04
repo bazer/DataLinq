@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <DATALINQ_TEST_PROVIDER_SET>profile</DATALINQ_TEST_PROVIDER_SET>
+      <DATALINQ_TEST_PROFILE>mariadb-11.4-lts</DATALINQ_TEST_PROFILE>
+    </EnvironmentVariables>
+  </RunConfiguration>
+</RunSettings>

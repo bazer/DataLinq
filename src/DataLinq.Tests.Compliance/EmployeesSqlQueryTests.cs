@@ -12,7 +12,7 @@ public class EmployeesSqlQueryTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlQuery_SimpleWhereSelectsDepartmentAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SqlQuery_SimpleWhereSelectsDepartmentAcrossProviders),
             EmployeesSeedMode.Bogus);
@@ -30,7 +30,7 @@ public class EmployeesSqlQueryTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlQuery_GetFromQueryReturnsExpectedDepartmentAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SqlQuery_GetFromQueryReturnsExpectedDepartmentAcrossProviders),
             EmployeesSeedMode.Bogus);
@@ -47,7 +47,7 @@ public class EmployeesSqlQueryTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task SqlBuilder_JoinWhereOrderLimitRendersProviderSpecificSql(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
             nameof(SqlBuilder_JoinWhereOrderLimitRendersProviderSpecificSql));
 

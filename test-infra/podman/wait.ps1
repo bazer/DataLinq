@@ -1,29 +1,38 @@
 [CmdletBinding()]
 param(
-    [string]$Profile
+    [string]$Profile,
+    [string[]]$TargetIds,
+    [switch]$AllLts
 )
 
 . "$PSScriptRoot\common.ps1"
 
 $settings = Get-TestInfraSettings
-$profileConfig = Get-ServerProfile -Settings $settings -ProfileId $Profile
-$mySqlTarget = Get-ProfileTargetByFamily -Settings $settings -Profile $profileConfig -Family 'MySql'
-$mariaDbTarget = Get-ProfileTargetByFamily -Settings $settings -Profile $profileConfig -Family 'MariaDb'
+$targets = Resolve-ServerTargets -Settings $settings -ProfileId $Profile -TargetIds $TargetIds -AllLts:$AllLts
 Assert-PodmanAvailable
 
-if ($null -ne $mySqlTarget) {
-    Write-Host "Waiting for $($mySqlTarget.displayName) on port $($settings.MySqlPort)..."
-    Wait-ForMySqlAdmin -ContainerName $settings.MySqlContainerName -Password $settings.AdminPassword
-    Initialize-MySqlHostAdminUser -Settings $settings -ContainerName $settings.MySqlContainerName
-    Wait-ForHostPort -HostName $settings.Host -Port $settings.MySqlPort -Description "host TCP port $($settings.Host):$($settings.MySqlPort)"
+foreach ($target in $targets) {
+    $containerName = Get-TargetContainerName -Settings $settings -Target $target
+    $hostPort = Get-TargetHostPort -Settings $settings -Target $target
+
+    Write-Host "Waiting for $($target.displayName) on port $hostPort..."
+
+    switch ($target.family) {
+        'MySql' {
+            Wait-ForMySqlAdmin -ContainerName $containerName -Password $settings.AdminPassword
+            Initialize-MySqlHostAdminUser -Settings $settings -ContainerName $containerName
+        }
+        'MariaDb' {
+            Wait-ForMariaDbReady -ContainerName $containerName
+            Initialize-MariaDbHostAdminUser -Settings $settings -ContainerName $containerName
+        }
+        default {
+            throw "Unsupported database family '$($target.family)' for target '$($target.id)'."
+        }
+    }
+
+    Wait-ForHostPort -HostName $settings.Host -Port $hostPort -Description "host TCP port $($settings.Host):$hostPort"
 }
 
-if ($null -ne $mariaDbTarget) {
-    Write-Host "Waiting for $($mariaDbTarget.displayName) on port $($settings.MariaDbPort)..."
-    Wait-ForMariaDbReady -ContainerName $settings.MariaDbContainerName
-    Initialize-MariaDbHostAdminUser -Settings $settings -ContainerName $settings.MariaDbContainerName
-    Wait-ForHostPort -HostName $settings.Host -Port $settings.MariaDbPort -Description "host TCP port $($settings.Host):$($settings.MariaDbPort)"
-}
-
-Write-TestInfraState -Settings $settings
-Write-Host "Podman test databases for profile '$($profileConfig.id)' are ready."
+Write-TestInfraState -Settings $settings -Targets $targets
+Write-Host "Podman test databases are ready for targets [$($targets.id -join ', ')]."

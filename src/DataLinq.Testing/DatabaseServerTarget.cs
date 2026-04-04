@@ -9,6 +9,7 @@ public sealed record DatabaseServerTarget(
     DatabaseServerFamily Family,
     string Version,
     string Image,
+    int HostPort,
     bool IsLts,
     bool IsDefault)
 {

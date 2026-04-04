@@ -31,14 +31,6 @@ internal static class TestDatabaseLifecycle
             using var createDatabase = adminConnection.CreateCommand();
             createDatabase.CommandText = $"CREATE DATABASE IF NOT EXISTS {QuoteIdentifier(connection.LogicalDatabaseName)} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
             createDatabase.ExecuteNonQuery();
-
-            using var createUser = adminConnection.CreateCommand();
-            createUser.CommandText = $"CREATE USER IF NOT EXISTS '{EscapeSqlLiteral(settings.ApplicationUser)}'@'%' IDENTIFIED BY '{EscapeSqlLiteral(settings.ApplicationPassword)}';";
-            createUser.ExecuteNonQuery();
-
-            using var grantPrivileges = adminConnection.CreateCommand();
-            grantPrivileges.CommandText = $"GRANT ALL PRIVILEGES ON {QuoteIdentifier(connection.LogicalDatabaseName)}.* TO '{EscapeSqlLiteral(settings.ApplicationUser)}'@'%';";
-            grantPrivileges.ExecuteNonQuery();
         }
         catch (MySqlException exception)
         {
@@ -98,9 +90,6 @@ internal static class TestDatabaseLifecycle
     }
 
     private static string QuoteIdentifier(string value) => $"`{value.Replace("`", "``", StringComparison.Ordinal)}`";
-
-    private static string EscapeSqlLiteral(string value) => value.Replace("'", "''", StringComparison.Ordinal);
-
     private static string BuildServerSetupErrorMessage(
         DatabaseServerTarget target,
         PodmanTestEnvironmentSettings settings,

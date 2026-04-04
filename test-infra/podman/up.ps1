@@ -1,71 +1,76 @@
 [CmdletBinding()]
 param(
     [string]$Profile,
+    [string[]]$TargetIds,
+    [switch]$AllLts,
     [switch]$Recreate
 )
 
 . "$PSScriptRoot\common.ps1"
 
 $settings = Get-TestInfraSettings
-$profileConfig = Get-ServerProfile -Settings $settings -ProfileId $Profile
-$mySqlTarget = Get-ProfileTargetByFamily -Settings $settings -Profile $profileConfig -Family 'MySql'
-$mariaDbTarget = Get-ProfileTargetByFamily -Settings $settings -Profile $profileConfig -Family 'MariaDb'
+$targets = Resolve-ServerTargets -Settings $settings -ProfileId $Profile -TargetIds $TargetIds -AllLts:$AllLts
 Assert-PodmanAvailable
 
 if ($Recreate) {
     & "$PSScriptRoot\down.ps1" -Remove
 }
 
-if ($null -ne $mySqlTarget -and -not (Test-ContainerExists -Name $settings.MySqlContainerName)) {
-    Write-Host "Creating MySQL container '$($settings.MySqlContainerName)'..."
-    & podman run -d `
-        --name $settings.MySqlContainerName `
-        -p "$($settings.MySqlPort):3306" `
-        -e "MYSQL_ROOT_PASSWORD=$($settings.AdminPassword)" `
-        -e "MYSQL_ROOT_HOST=%" `
-        -e "MYSQL_DATABASE=$($settings.EmployeesDatabase)" `
-        -e "MYSQL_USER=$($settings.ApplicationUser)" `
-        -e "MYSQL_PASSWORD=$($settings.ApplicationPassword)" `
-        $mySqlTarget.image `
-        --character-set-server=utf8mb4 `
-        --collation-server=utf8mb4_unicode_ci
+foreach ($target in $targets) {
+    $containerName = Get-TargetContainerName -Settings $settings -Target $target
+    $hostPort = Get-TargetHostPort -Settings $settings -Target $target
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to create MySQL container '$($settings.MySqlContainerName)'."
+    if (-not (Test-ContainerExists -Name $containerName)) {
+        Write-Host "Creating $($target.displayName) container '$containerName'..."
+
+        $envVars = switch ($target.family) {
+            'MySql' {
+                @(
+                    "-e", "MYSQL_ROOT_PASSWORD=$($settings.AdminPassword)",
+                    "-e", "MYSQL_ROOT_HOST=%",
+                    "-e", "MYSQL_DATABASE=$($settings.EmployeesDatabase)",
+                    "-e", "MYSQL_USER=$($settings.ApplicationUser)",
+                    "-e", "MYSQL_PASSWORD=$($settings.ApplicationPassword)"
+                )
+            }
+            'MariaDb' {
+                @(
+                    "-e", "MARIADB_ROOT_PASSWORD=$($settings.AdminPassword)",
+                    "-e", "MARIADB_ROOT_HOST=%",
+                    "-e", "MARIADB_DATABASE=$($settings.EmployeesDatabase)",
+                    "-e", "MARIADB_USER=$($settings.ApplicationUser)",
+                    "-e", "MARIADB_PASSWORD=$($settings.ApplicationPassword)"
+                )
+            }
+            default {
+                throw "Unsupported database family '$($target.family)' for target '$($target.id)'."
+            }
+        }
+
+        $arguments = @(
+            'run',
+            '-d',
+            '--name', $containerName,
+            '-p', "$hostPort`:3306"
+        ) + $envVars + @(
+            $target.image,
+            '--character-set-server=utf8mb4',
+            '--collation-server=utf8mb4_unicode_ci'
+        )
+
+        & podman @arguments
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create $($target.displayName) container '$containerName'."
+        }
+    }
+    elseif (-not (Test-ContainerRunning -Name $containerName)) {
+        Write-Host "Starting $($target.displayName) container '$containerName'..."
+        & podman start $containerName
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to start $($target.displayName) container '$containerName'."
+        }
     }
 }
-elseif ($null -ne $mySqlTarget -and -not (Test-ContainerRunning -Name $settings.MySqlContainerName)) {
-    Write-Host "Starting MySQL container '$($settings.MySqlContainerName)'..."
-    & podman start $settings.MySqlContainerName
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to start MySQL container '$($settings.MySqlContainerName)'."
-    }
-}
 
-if ($null -ne $mariaDbTarget -and -not (Test-ContainerExists -Name $settings.MariaDbContainerName)) {
-    Write-Host "Creating MariaDB container '$($settings.MariaDbContainerName)'..."
-    & podman run -d `
-        --name $settings.MariaDbContainerName `
-        -p "$($settings.MariaDbPort):3306" `
-        -e "MARIADB_ROOT_PASSWORD=$($settings.AdminPassword)" `
-        -e "MARIADB_ROOT_HOST=%" `
-        -e "MARIADB_DATABASE=$($settings.EmployeesDatabase)" `
-        -e "MARIADB_USER=$($settings.ApplicationUser)" `
-        -e "MARIADB_PASSWORD=$($settings.ApplicationPassword)" `
-        $mariaDbTarget.image `
-        --character-set-server=utf8mb4 `
-        --collation-server=utf8mb4_unicode_ci
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to create MariaDB container '$($settings.MariaDbContainerName)'."
-    }
-}
-elseif ($null -ne $mariaDbTarget -and -not (Test-ContainerRunning -Name $settings.MariaDbContainerName)) {
-    Write-Host "Starting MariaDB container '$($settings.MariaDbContainerName)'..."
-    & podman start $settings.MariaDbContainerName
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to start MariaDB container '$($settings.MariaDbContainerName)'."
-    }
-}
-
-& "$PSScriptRoot\wait.ps1" -Profile $profileConfig.id
+& "$PSScriptRoot\wait.ps1" -Profile $Profile -TargetIds $TargetIds -AllLts:$AllLts

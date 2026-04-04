@@ -13,7 +13,7 @@ public class EmployeesTransactionTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Insert_CommitsInsertedEmployeeAcrossProviders(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(provider, nameof(Insert_CommitsInsertedEmployeeAcrossProviders));
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(provider, nameof(Insert_CommitsInsertedEmployeeAcrossProviders));
         var employeesDatabase = databaseScope.Database;
         var employeeNumber = 999999;
 

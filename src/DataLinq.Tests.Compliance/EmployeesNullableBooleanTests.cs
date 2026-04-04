@@ -13,7 +13,7 @@ public class EmployeesNullableBooleanTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_EqualsTrue(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_EqualsTrue),
             EmployeesSeedMode.Bogus);
@@ -43,7 +43,7 @@ public class EmployeesNullableBooleanTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_NotEqualsTrue(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_NotEqualsTrue),
             EmployeesSeedMode.Bogus);
@@ -74,7 +74,7 @@ public class EmployeesNullableBooleanTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_EqualsFalse(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_EqualsFalse),
             EmployeesSeedMode.Bogus);
@@ -104,7 +104,7 @@ public class EmployeesNullableBooleanTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_NotEqualsFalse(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_NotEqualsFalse),
             EmployeesSeedMode.Bogus);
@@ -135,7 +135,7 @@ public class EmployeesNullableBooleanTests
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task NullableBool_EqualsNull(TestProviderDescriptor provider)
     {
-        using var databaseScope = EmployeesTestDatabase.Create(
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
             nameof(NullableBool_EqualsNull),
             EmployeesSeedMode.Bogus);
