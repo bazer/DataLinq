@@ -70,19 +70,19 @@ Start a specific LTS compatibility profile:
 
 Use `Test -> Configure Run Settings -> Select Solution Wide runsettings File` in Visual Studio.
 
-Available files:
+Available files in the solution root (`src`):
 
-* `tests.fast.runsettings`
+* `src/tests.fast.runsettings`
   Runs SQLite plus the preferred local fast server target. This now prefers the MariaDB target from the active profile.
-* `tests.profile.runsettings`
+* `src/tests.profile.runsettings`
   Runs SQLite plus every server target in the active profile. By default that means `current-lts`.
-* `tests.mariadb-10.11-lts.runsettings`
+* `src/tests.mariadb-10.11-lts.runsettings`
   Runs the profile lane against `mysql-8.4 + mariadb-10.11`.
-* `tests.mariadb-11.4-lts.runsettings`
+* `src/tests.mariadb-11.4-lts.runsettings`
   Runs the profile lane against `mysql-8.4 + mariadb-11.4`.
-* `tests.mariadb-11.8-lts.runsettings`
+* `src/tests.mariadb-11.8-lts.runsettings`
   Runs the profile lane against `mysql-8.4 + mariadb-11.8`.
-* `tests.all-lts.runsettings`
+* `src/tests.all-lts.runsettings`
   Requests the full logical LTS matrix. This only works when every LTS server target is currently provisioned, for example after `.\test-infra\podman\up.ps1 -AllLts`. If the running target set is incomplete, the suite fails immediately with a clear error instead of silently running too little.
 
 ## Defaults
@@ -144,7 +144,7 @@ The important point is that images are pinned by series, not floating tags. That
 The local matrix flow now has two modes on purpose:
 
 * `.\test-infra\podman\up.ps1 -AllLts`
-  Starts every LTS server target at once so `tests.all-lts.runsettings` can run the whole matrix in a single pass.
+  Starts every LTS server target at once so `src/tests.all-lts.runsettings` can run the whole matrix in a single pass.
 * `.\test-infra\podman\run-all-lts.ps1 -BatchSize <n>`
   Fans out across the same targets in batches when you do not want every container running at once.
 
