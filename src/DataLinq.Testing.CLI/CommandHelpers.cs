@@ -13,4 +13,9 @@ internal static class CommandHelpers
     {
         Description = "Uses a comma-separated target list such as 'sqlite-file,mariadb-11.8'."
     };
+
+    public static Option<bool> InteractiveOption() => new("--interactive")
+    {
+        Description = "Prompts for command values interactively."
+    };
 }

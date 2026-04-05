@@ -8,6 +8,7 @@ internal static class UpCommand
     {
         var aliasOption = CommandHelpers.AliasOption();
         var targetsOption = CommandHelpers.TargetsOption();
+        var interactiveOption = CommandHelpers.InteractiveOption();
         var recreateOption = new Option<bool>("--recreate")
         {
             Description = "Removes existing containers before starting the selected targets."
@@ -16,10 +17,17 @@ internal static class UpCommand
         var command = new Command("up", "Starts the selected server targets and waits for readiness.");
         command.Options.Add(aliasOption);
         command.Options.Add(targetsOption);
+        command.Options.Add(interactiveOption);
         command.Options.Add(recreateOption);
 
         command.SetAction(parseResult =>
         {
+            if (parseResult.GetValue(interactiveOption))
+            {
+                InteractiveCliRunner.RunUp(orchestrator);
+                return;
+            }
+
             var selection = TargetSelectionResolver.Resolve(
                 parseResult.GetValue(aliasOption),
                 parseResult.GetValue(targetsOption),

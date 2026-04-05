@@ -2,7 +2,7 @@
 > This document is roadmap and implementation planning material. It describes planned tooling and migration stages rather than current shipped behavior.
 # Specification: Cross-Platform Test Infrastructure CLI
 
-**Status:** In Progress  
+**Status:** Implemented  
 **Goal:** Replace the growing PowerShell-based test infrastructure scripts with a cross-platform .NET CLI that owns target selection, Podman orchestration, local matrix runs, and interactive test-environment workflows.
 
 ## 1. Why We Are Changing Direction
@@ -282,7 +282,7 @@ Exit criteria:
 
 ### Stage 3: Runtime State and Podman Abstraction
 
-Current status: **Mostly Done**
+Current status: **Done**
 
 Deliverables:
 
@@ -328,7 +328,7 @@ Exit criteria:
 
 ### Stage 6: Interactive Flows
 
-Current status: **Not started**
+Current status: **Done**
 
 Deliverables:
 
@@ -343,7 +343,7 @@ Exit criteria:
 
 ### Stage 7: Cutover and Cleanup
 
-Current status: **Started**
+Current status: **Done**
 
 Deliverables:
 
@@ -355,13 +355,15 @@ Exit criteria:
 
 * one source of truth remains for local and CI test infra orchestration
 
-## 10. Immediate Next Step
+## 10. Implemented End State
 
-The first implementation step should be:
+The repo now has:
 
-1. create `src/DataLinq.Testing.CLI`
-2. wire in `System.CommandLine` and `Spectre.Console`
-3. implement `list`
-4. codify `quick`, `latest`, and `all`
+1. `src/DataLinq.Testing.CLI` as the cross-platform entry point
+2. first-class target aliases `quick`, `latest`, and `all`
+3. interactive and non-interactive command flows
+4. target-based batching and runtime-state persistence
+5. three solution-wide runsettings files that match the alias model
+6. no PowerShell orchestration scripts left in the supported workflow
 
-That is the right thin slice because it proves the project shape and the target model before we rewrite any orchestration.
+The next work should happen in the test migration itself, not by reopening the infrastructure abstraction unless a real limitation appears.

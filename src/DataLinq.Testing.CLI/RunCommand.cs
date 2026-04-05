@@ -14,6 +14,7 @@ internal static class RunCommand
     {
         var aliasOption = CommandHelpers.AliasOption();
         var targetsOption = CommandHelpers.TargetsOption();
+        var interactiveOption = CommandHelpers.InteractiveOption();
         var projectOption = new Option<string>("--project")
         {
             Description = "Path to the test project to run.",
@@ -41,6 +42,7 @@ internal static class RunCommand
         var command = new Command("run", "Runs the compliance suite against the selected targets, optionally in batches.");
         command.Options.Add(aliasOption);
         command.Options.Add(targetsOption);
+        command.Options.Add(interactiveOption);
         command.Options.Add(projectOption);
         command.Options.Add(configurationOption);
         command.Options.Add(buildOption);
@@ -49,6 +51,12 @@ internal static class RunCommand
 
         command.SetAction(parseResult =>
         {
+            if (parseResult.GetValue(interactiveOption))
+            {
+                InteractiveCliRunner.RunTests(orchestrator, settings);
+                return;
+            }
+
             var batchSize = parseResult.GetValue(batchSizeOption);
             if (batchSize < 1 || batchSize > 32)
                 throw new InvalidOperationException("'--batch-size' must be between 1 and 32.");
@@ -70,6 +78,19 @@ internal static class RunCommand
         });
 
         return command;
+    }
+
+    public static void Execute(
+        TestInfraOrchestrator orchestrator,
+        TestInfraCliSettings settings,
+        CliTargetSelection selection,
+        string projectPath,
+        string configuration,
+        bool buildProject,
+        int batchSize,
+        bool tearDown)
+    {
+        RunSelection(orchestrator, settings, selection, projectPath, configuration, buildProject, batchSize, tearDown);
     }
 
     private static void RunSelection(

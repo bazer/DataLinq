@@ -331,23 +331,7 @@ public sealed record PodmanTestEnvironmentSettings(
             }
         }
 
-        var legacyStatePath = Path.Combine(artifactRoot, "podman-settings.json");
-        if (!File.Exists(legacyStatePath))
-            return null;
-
-        try
-        {
-            return JsonSerializer.Deserialize<PersistedPodmanState>(
-                File.ReadAllText(legacyStatePath),
-                new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
+        return null;
     }
 
     private sealed record PersistedPodmanState(

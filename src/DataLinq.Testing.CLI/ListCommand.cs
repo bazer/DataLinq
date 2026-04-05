@@ -10,15 +10,17 @@ internal static class ListCommand
     {
         var command = new Command("list", "Lists known targets and aliases for the test infrastructure CLI.");
 
-        command.SetAction(_ =>
-        {
-            RenderAliases();
-            AnsiConsole.WriteLine();
-            RenderTargets();
-            RenderState(stateStore.Load());
-        });
+        command.SetAction(_ => Render(stateStore));
 
         return command;
+    }
+
+    public static void Render(TestInfraRuntimeStateStore stateStore)
+    {
+        RenderAliases();
+        AnsiConsole.WriteLine();
+        RenderTargets();
+        RenderState(stateStore.Load());
     }
 
     private static void RenderAliases()

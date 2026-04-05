@@ -73,7 +73,7 @@ The previous draft was directionally fine but practically incomplete. It needs t
 
 The old draft used `docker-compose.yml` as the primary infrastructure artifact. That is not the right center of gravity if the stated goal is Podman.
 
-We should treat Podman as the first-class runtime and keep orchestration in repo-owned scripts and manifests that call Podman directly.
+We should treat Podman as the first-class runtime and keep orchestration in a repo-owned cross-platform CLI that calls Podman directly.
 
 Why:
 
@@ -229,12 +229,11 @@ Use **Podman** as the supported local and CI container runtime.
 
 Recommended repository structure:
 
-* `test-infra/podman/`
-* `test-infra/podman/up.ps1`
-* `test-infra/podman/down.ps1`
-* `test-infra/podman/reset.ps1`
-* `test-infra/podman/wait.ps1`
-* `test-infra/podman/` manifest files if we use `podman kube play`
+* `src/DataLinq.Testing.CLI`
+* `test-infra/podman/matrix.json`
+* `artifacts/testdata/testinfra-state.json`
+
+The PowerShell orchestration scripts were a transitional step and should not be treated as the target architecture anymore.
 
 Podman references:
 
@@ -258,12 +257,13 @@ The current direction is:
 * MySQL LTS target: `8.4`
 * MariaDB LTS targets: `10.11`, `11.4`, `11.8`
 
-The default local profile should use the newest stable combination, while extended CI should fan out across the full supported LTS set.
+The default local alias should use the newest stable combination, while extended CI should fan out across the full supported LTS set.
 
 Important constraint:
 
-* We should run one MySQL target and one MariaDB target at a time on stable ports.
-* We should vary the **profile** across runs instead of trying to run every server version simultaneously in one giant pod.
+* We should support running all supported server targets at once when needed.
+* We should also support target batching so local matrix runs do not need every container live simultaneously.
+* We should keep the user-facing selection model target- or alias-based (`quick`, `latest`, `all`), not profile-based.
 
 ### 5.2. Infrastructure Ownership
 
@@ -509,7 +509,7 @@ The next planning phase for the local and CI test environment now lives in:
 
 * `docs/dev-plans/Test Infrastructure CLI.md`
 
-That document covers the planned replacement of the current PowerShell orchestration with a cross-platform `DataLinq.Testing.CLI` tool based on explicit targets and the `quick`, `latest`, and `all` aliases.
+That document covers the implemented cross-platform `DataLinq.Testing.CLI` tool based on explicit targets and the `quick`, `latest`, and `all` aliases.
 
 ## 11. Summary
 

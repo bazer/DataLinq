@@ -107,8 +107,8 @@ public static class TestProviderMatrix
                 $"The requested provider set '{settings.ProviderSet}' requires all LTS server targets, " +
                 $"but the currently provisioned Podman targets only expose [{string.Join(", ", availableTargets)}]. " +
                 $"Missing targets: [{string.Join(", ", missingTargets)}]. " +
-                $"Run '.\\test-infra\\podman\\up.ps1 -AllLts' to provision every LTS target locally, " +
-                $"or use '.\\test-infra\\podman\\run-all-lts.ps1 -BatchSize <n>' to fan out across the matrix in batches.");
+                $"Run 'dotnet run --project src\\DataLinq.Testing.CLI -- up --alias all' to provision every LTS target locally, " +
+                $"or use 'dotnet run --project src\\DataLinq.Testing.CLI -- run --alias all --batch-size <n>' to fan out across the matrix in batches.");
         }
 
         return settings.IncludeSQLite

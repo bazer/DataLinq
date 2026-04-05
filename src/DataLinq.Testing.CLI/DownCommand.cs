@@ -8,6 +8,7 @@ internal static class DownCommand
     {
         var aliasOption = CommandHelpers.AliasOption();
         var targetsOption = CommandHelpers.TargetsOption();
+        var interactiveOption = CommandHelpers.InteractiveOption();
         var removeOption = new Option<bool>("--remove")
         {
             Description = "Removes the selected containers after stopping them."
@@ -16,10 +17,17 @@ internal static class DownCommand
         var command = new Command("down", "Stops or removes the selected server targets.");
         command.Options.Add(aliasOption);
         command.Options.Add(targetsOption);
+        command.Options.Add(interactiveOption);
         command.Options.Add(removeOption);
 
         command.SetAction(parseResult =>
         {
+            if (parseResult.GetValue(interactiveOption))
+            {
+                InteractiveCliRunner.RunDown(orchestrator);
+                return;
+            }
+
             var aliasName = parseResult.GetValue(aliasOption);
             var targetList = parseResult.GetValue(targetsOption);
             var selection = string.IsNullOrWhiteSpace(aliasName) && string.IsNullOrWhiteSpace(targetList)
