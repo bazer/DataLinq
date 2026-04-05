@@ -66,7 +66,7 @@ internal static class RunCommand
                 parseResult.GetValue(targetsOption),
                 defaultAlias: "latest");
 
-            RunSelection(
+            var exitCode = RunSelection(
                 orchestrator,
                 settings,
                 selection,
@@ -75,6 +75,9 @@ internal static class RunCommand
                 parseResult.GetValue(buildOption),
                 batchSize,
                 parseResult.GetValue(tearDownOption));
+
+            if (exitCode != 0)
+                Environment.ExitCode = exitCode;
         });
 
         return command;
@@ -90,10 +93,12 @@ internal static class RunCommand
         int batchSize,
         bool tearDown)
     {
-        RunSelection(orchestrator, settings, selection, projectPath, configuration, buildProject, batchSize, tearDown);
+        var exitCode = RunSelection(orchestrator, settings, selection, projectPath, configuration, buildProject, batchSize, tearDown);
+        if (exitCode != 0)
+            Environment.ExitCode = exitCode;
     }
 
-    private static void RunSelection(
+    private static int RunSelection(
         TestInfraOrchestrator orchestrator,
         TestInfraCliSettings settings,
         CliTargetSelection selection,
@@ -119,6 +124,7 @@ internal static class RunCommand
             .ToArray();
 
         var results = new List<BatchResult>();
+        var overallExitCode = 0;
         try
         {
             for (var index = 0; index < batches.Length; index++)
@@ -143,10 +149,11 @@ internal static class RunCommand
                     Total: ParseSummaryCount(result.StandardOutput, "total"),
                     Succeeded: ParseSummaryCount(result.StandardOutput, "succeeded"),
                     Failed: ParseSummaryCount(result.StandardOutput, "failed"),
-                    Skipped: ParseSummaryCount(result.StandardOutput, "skipped")));
+                    Skipped: ParseSummaryCount(result.StandardOutput, "skipped"),
+                    FailedTests: ParseFailedTests(result.StandardOutput)));
 
                 if (result.ExitCode != 0)
-                    throw new InvalidOperationException($"Compliance suite failed for target batch [{string.Join(", ", batch.Targets.Select(x => x.Id))}].");
+                    overallExitCode = result.ExitCode;
             }
 
             orchestrator.PersistState(selection);
@@ -158,6 +165,8 @@ internal static class RunCommand
         }
 
         RenderSummary(results);
+        RenderFailedTests(results);
+        return overallExitCode;
     }
 
     private static void BuildProject(string projectPath, string configuration, string workingDirectory)
@@ -255,6 +264,27 @@ internal static class RunCommand
         AnsiConsole.Write(table);
     }
 
+    private static void RenderFailedTests(IReadOnlyList<BatchResult> results)
+    {
+        var failedBatches = results
+            .Where(x => x.FailedTests.Count > 0)
+            .ToArray();
+
+        if (failedBatches.Length == 0)
+            return;
+
+        Console.WriteLine();
+        AnsiConsole.Write(new Rule("[red]Failed Tests[/]"));
+
+        foreach (var batch in failedBatches)
+        {
+            AnsiConsole.MarkupLine($"[red]Batch {batch.Index}[/]: {Markup.Escape(batch.Targets)}");
+
+            foreach (var failedTest in batch.FailedTests)
+                AnsiConsole.MarkupLine($"  - {Markup.Escape(failedTest)}");
+        }
+    }
+
     private static int? ParseSummaryCount(string output, string label)
     {
         var lines = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
@@ -272,6 +302,23 @@ internal static class RunCommand
         return null;
     }
 
+    private static IReadOnlyList<string> ParseFailedTests(string output)
+    {
+        var failedTests = new List<string>();
+        var lines = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("failed ", StringComparison.Ordinal))
+                continue;
+
+            failedTests.Add(trimmed["failed ".Length..]);
+        }
+
+        return failedTests;
+    }
+
     private static string FormatNullableCount(int? value) => value?.ToString() ?? "-";
 
     private sealed record BatchResult(
@@ -282,5 +329,6 @@ internal static class RunCommand
         int? Total,
         int? Succeeded,
         int? Failed,
-        int? Skipped);
+        int? Skipped,
+        IReadOnlyList<string> FailedTests);
 }
