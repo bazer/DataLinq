@@ -33,3 +33,5 @@ launchSettings.json
 /artifacts
 /_site
 /_site_content_only
+/build-diag.log
+/testing-build-diag.log
