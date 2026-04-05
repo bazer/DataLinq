@@ -35,7 +35,7 @@ src/DataLinq.Benchmarks/
 ├── Config.cs               # BenchmarkDotNet configurations (MemoryDiagnoser, Exporters)
 ├── Program.cs              # Runner
 ├── Utils/
-│   └── BenchmarkContext.cs # Setup logic (Docker spin-up, Seeding)
+│   └── BenchmarkContext.cs # Setup logic (CLI provisioning, deterministic seeding)
 ├── Scenarios/              # The actual tests
 │   ├── Micro/
 │   │   ├── KeyGeneration.cs
@@ -51,8 +51,8 @@ src/DataLinq.Benchmarks/
 
 ### 2.2. Data Strategy
 Benchmarks must use **Deterministic Data** to be reproducible.
-*   We will leverage the `DataLinq.Seeder` logic (Bogus with fixed seed) to populate a local SQLite file or In-Memory provider.
-*   **Note:** Benchmarking against a real network database (MySQL/Docker) mostly tests *network latency*. For architectural optimization, **In-Memory** or **SQLite (File)** is preferred to expose CPU bottlenecks.
+*   We should leverage the deterministic seed logic that now lives in `DataLinq.Testing` to populate a local SQLite file or in-memory provider.
+*   **Note:** Benchmarking against a real network database (MySQL/Podman) mostly tests *network latency*. For architectural optimization, **In-Memory** or **SQLite (File)** is preferred to expose CPU bottlenecks.
 
 ---
 

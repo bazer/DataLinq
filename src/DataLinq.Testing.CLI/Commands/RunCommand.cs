@@ -181,8 +181,7 @@ internal static class RunCommand
             ["DOTNET_NOLOGO"] = "1",
             [DataLinq.Testing.PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable] = "targets",
             [DataLinq.Testing.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = string.Join(",", selection.Targets.Select(x => x.Id)),
-            [DataLinq.Testing.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null,
-            [DataLinq.Testing.PodmanTestEnvironmentSettings.IncludeSQLiteEnvironmentVariable] = null
+            [DataLinq.Testing.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null
         };
 
         return ExecuteDotnet(

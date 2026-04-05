@@ -1,5 +1,5 @@
-> [!WARNING]
-> This document is roadmap and implementation planning material. It describes planned tooling and migration stages rather than current shipped behavior.
+> [!NOTE]
+> This document records the implemented test infrastructure CLI design and the migration stages that led to it. It is no longer just a speculative plan.
 # Specification: Cross-Platform Test Infrastructure CLI
 
 **Status:** Implemented  
@@ -7,7 +7,7 @@
 
 ## 1. Why We Are Changing Direction
 
-The current PowerShell scripts were good enough to prove the workflow. They are no longer a good long-term home for it.
+The old PowerShell scripts were good enough to prove the workflow. They were not a good long-term home for it.
 
 What has changed:
 
@@ -312,7 +312,7 @@ Exit criteria:
 
 ### Stage 5: `run` and Batching
 
-Current status: **Done for non-interactive flows**
+Current status: **Done**
 
 Deliverables:
 

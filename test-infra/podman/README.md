@@ -20,6 +20,12 @@ Launch the interactive workflow:
 dotnet run --project src/DataLinq.Testing.CLI
 ```
 
+Launch a specific command interactively:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- wait --interactive
+```
+
 Start the latest server-backed lane:
 
 ```powershell
@@ -61,6 +67,8 @@ Remove every test container:
 ```powershell
 dotnet run --project src/DataLinq.Testing.CLI -- down --remove
 ```
+
+If you are invoking the CLI repeatedly from the same build output, prefer `--no-build` on `dotnet run`. The CLI itself does not need to rebuild every time; that extra build check is just default `dotnet run` behavior.
 
 ## Aliases
 
@@ -118,20 +126,24 @@ That matters especially on Windows, where Podman machine host resolution is not 
 
 Supported overrides:
 
-* `DATALINQ_TEST_PODMAN_POD`
-  This is only a naming prefix now. The infrastructure no longer uses Podman pods for MySQL and MariaDB because that was a bad design and caused `3306` conflicts inside a shared network namespace.
+* `DATALINQ_TEST_CONTAINER_PREFIX`
+  Naming prefix for the test containers. The infrastructure no longer uses Podman pods for MySQL and MariaDB because that was a bad design and caused `3306` conflicts inside a shared network namespace.
 * `DATALINQ_TEST_DB_HOST`
 * `DATALINQ_TEST_DB_ADMIN_USER`
 * `DATALINQ_TEST_DB_ADMIN_PASSWORD`
 * `DATALINQ_TEST_DB_APP_USER`
 * `DATALINQ_TEST_DB_APP_PASSWORD`
 * `DATALINQ_TEST_EMPLOYEES_DB`
+* `DATALINQ_TEST_PODMAN_PATH`
+  Explicit path to the Podman executable if auto-discovery is not good enough on the current machine.
 * `DATALINQ_TEST_PROVIDER_SET`
   Supported values are `quick`, `latest`, `all`, `targets`, and `alias`.
 * `DATALINQ_TEST_TARGETS`
   Comma-separated target ids used when `DATALINQ_TEST_PROVIDER_SET=targets`.
 * `DATALINQ_TEST_TARGET_ALIAS`
   Explicit alias used when `DATALINQ_TEST_PROVIDER_SET=alias`.
+
+The old `DATALINQ_TEST_PODMAN_POD` name is still accepted as a compatibility fallback, but it is obsolete and should not be used in new setup.
 
 ## Supported Server Targets
 

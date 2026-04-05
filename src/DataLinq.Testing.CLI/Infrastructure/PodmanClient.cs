@@ -56,7 +56,7 @@ internal sealed class PodmanClient
 
     private static string ResolveExecutablePath()
     {
-        var configuredPath = Environment.GetEnvironmentVariable("DATALINQ_TEST_PODMAN_PATH");
+        var configuredPath = Environment.GetEnvironmentVariable(DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(configuredPath))
             return configuredPath;
 

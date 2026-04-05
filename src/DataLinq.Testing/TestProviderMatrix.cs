@@ -111,9 +111,7 @@ public static class TestProviderMatrix
                 $"or use 'dotnet run --project src\\DataLinq.Testing.CLI -- run --alias all --batch-size <n>' to fan out across the matrix in batches.");
         }
 
-        return settings.IncludeSQLite
-            ? All
-            : new ReadOnlyCollection<TestProviderDescriptor>(AllLtsServerProviders.ToArray());
+        return All;
     }
 
     private static TestProviderDescriptor CreateServerProvider(DatabaseServerTarget target)

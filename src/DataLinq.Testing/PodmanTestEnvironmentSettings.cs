@@ -13,7 +13,7 @@ namespace DataLinq.Testing;
 public sealed record PodmanTestEnvironmentSettings(
     string RepositoryRoot,
     string ArtifactRoot,
-    string PodName,
+    string ContainerPrefix,
     string ProfileId,
     string Host,
     string AdminUser,
@@ -23,19 +23,22 @@ public sealed record PodmanTestEnvironmentSettings(
     IReadOnlyDictionary<string, int> TargetPorts,
     IReadOnlyList<string> AvailableTargetIds)
 {
-    public const string PodNameEnvironmentVariable = "DATALINQ_TEST_PODMAN_POD";
-    public const string ProfileEnvironmentVariable = "DATALINQ_TEST_PROFILE";
+    public const string ContainerPrefixEnvironmentVariable = "DATALINQ_TEST_CONTAINER_PREFIX";
     public const string HostEnvironmentVariable = "DATALINQ_TEST_DB_HOST";
-    public const string MySqlPortEnvironmentVariable = "DATALINQ_TEST_MYSQL_PORT";
-    public const string MariaDbPortEnvironmentVariable = "DATALINQ_TEST_MARIADB_PORT";
     public const string AdminUserEnvironmentVariable = "DATALINQ_TEST_DB_ADMIN_USER";
     public const string AdminPasswordEnvironmentVariable = "DATALINQ_TEST_DB_ADMIN_PASSWORD";
     public const string ApplicationUserEnvironmentVariable = "DATALINQ_TEST_DB_APP_USER";
     public const string ApplicationPasswordEnvironmentVariable = "DATALINQ_TEST_DB_APP_PASSWORD";
+    public const string EmployeesDatabaseEnvironmentVariable = "DATALINQ_TEST_EMPLOYEES_DB";
     public const string ProviderSetEnvironmentVariable = "DATALINQ_TEST_PROVIDER_SET";
     public const string TargetAliasEnvironmentVariable = "DATALINQ_TEST_TARGET_ALIAS";
     public const string TargetIdsEnvironmentVariable = "DATALINQ_TEST_TARGETS";
-    public const string IncludeSQLiteEnvironmentVariable = "DATALINQ_TEST_INCLUDE_SQLITE";
+    public const string PodmanExecutablePathEnvironmentVariable = "DATALINQ_TEST_PODMAN_PATH";
+
+    private const string LegacyContainerPrefixEnvironmentVariable = "DATALINQ_TEST_PODMAN_POD";
+
+    public static string ResolveContainerPrefix(string fallback) =>
+        GetEnvironmentVariable(fallback, ContainerPrefixEnvironmentVariable, LegacyContainerPrefixEnvironmentVariable);
 
     public static PodmanTestEnvironmentSettings FromEnvironment(string? repositoryRoot = null)
     {
@@ -60,23 +63,20 @@ public sealed record PodmanTestEnvironmentSettings(
         return new PodmanTestEnvironmentSettings(
             RepositoryRoot: root,
             ArtifactRoot: artifactRoot,
-            PodName: GetEnvironmentVariable(PodNameEnvironmentVariable, persistedState?.PodName ?? "datalinq-tests"),
-            ProfileId: GetEnvironmentVariable(ProfileEnvironmentVariable, persistedState?.ProfileId ?? DatabaseServerMatrix.DefaultProfile.Id),
-            Host: GetEnvironmentVariable(HostEnvironmentVariable, persistedState?.Host ?? "127.0.0.1"),
-            AdminUser: GetEnvironmentVariable(AdminUserEnvironmentVariable, persistedState?.AdminUser ?? "datalinq"),
-            AdminPassword: GetEnvironmentVariable(AdminPasswordEnvironmentVariable, persistedState?.AdminPassword ?? "datalinq"),
-            ApplicationUser: GetEnvironmentVariable(ApplicationUserEnvironmentVariable, persistedState?.ApplicationUser ?? "datalinq"),
-            ApplicationPassword: GetEnvironmentVariable(ApplicationPasswordEnvironmentVariable, persistedState?.ApplicationPassword ?? "datalinq"),
+            ContainerPrefix: ResolveContainerPrefix(persistedState?.ContainerPrefix ?? "datalinq-tests"),
+            ProfileId: persistedState?.ProfileId ?? DatabaseServerMatrix.DefaultProfile.Id,
+            Host: GetEnvironmentVariable(persistedState?.Host ?? "127.0.0.1", HostEnvironmentVariable),
+            AdminUser: GetEnvironmentVariable(persistedState?.AdminUser ?? "datalinq", AdminUserEnvironmentVariable),
+            AdminPassword: GetEnvironmentVariable(persistedState?.AdminPassword ?? "datalinq", AdminPasswordEnvironmentVariable),
+            ApplicationUser: GetEnvironmentVariable(persistedState?.ApplicationUser ?? "datalinq", ApplicationUserEnvironmentVariable),
+            ApplicationPassword: GetEnvironmentVariable(persistedState?.ApplicationPassword ?? "datalinq", ApplicationPasswordEnvironmentVariable),
             TargetPorts: targetPorts,
             AvailableTargetIds: availableTargetIds);
     }
 
     public DatabaseServerProfile ActiveProfile => DatabaseServerMatrix.GetProfile(ProfileId);
     public string? TargetAlias => GetOptionalEnvironmentVariable(TargetAliasEnvironmentVariable);
-    public string ProviderSet => GetEnvironmentVariable(ProviderSetEnvironmentVariable, TargetAlias is null ? "fast" : "alias");
-    public bool IncludeSQLite =>
-        SelectedTargetIds.Any(TestTargetCatalog.IsSQLiteTarget)
-        || GetBooleanEnvironmentVariable(IncludeSQLiteEnvironmentVariable, true);
+    public string ProviderSet => GetEnvironmentVariable(TargetAlias is null ? "fast" : "alias", ProviderSetEnvironmentVariable);
 
     public IReadOnlyList<string> SelectedTargetIds =>
         ParseTargetIds(Environment.GetEnvironmentVariable(TargetIdsEnvironmentVariable))
@@ -224,20 +224,6 @@ public sealed record PodmanTestEnvironmentSettings(
                 : target.HostPort;
         }
 
-        var mySqlOverride = Environment.GetEnvironmentVariable(MySqlPortEnvironmentVariable);
-        if (int.TryParse(mySqlOverride, out var overriddenMySqlPort))
-        {
-            foreach (var target in DatabaseServerMatrix.Targets.Where(x => x.Family == DatabaseServerFamily.MySql))
-                ports[target.Id] = overriddenMySqlPort;
-        }
-
-        var mariaDbOverride = Environment.GetEnvironmentVariable(MariaDbPortEnvironmentVariable);
-        if (int.TryParse(mariaDbOverride, out var overriddenMariaDbPort))
-        {
-            foreach (var target in DatabaseServerMatrix.Targets.Where(x => x.Family == DatabaseServerFamily.MariaDb))
-                ports[target.Id] = overriddenMariaDbPort;
-        }
-
         return ports;
     }
 
@@ -262,10 +248,13 @@ public sealed record PodmanTestEnvironmentSettings(
         return $"{normalized[..prefixLength].TrimEnd('_')}_{hash}";
     }
 
-    private static string GetEnvironmentVariable(string key, string fallback)
+    private static string GetEnvironmentVariable(string fallback, params string[] keys)
     {
-        if (Environment.GetEnvironmentVariable(key) is { Length: > 0 } value)
-            return value;
+        foreach (var key in keys)
+        {
+            if (Environment.GetEnvironmentVariable(key) is { Length: > 0 } value)
+                return value;
+        }
 
         return fallback;
     }
@@ -274,16 +263,6 @@ public sealed record PodmanTestEnvironmentSettings(
     {
         var value = Environment.GetEnvironmentVariable(key);
         return string.IsNullOrWhiteSpace(value) ? null : value;
-    }
-
-    private static bool GetBooleanEnvironmentVariable(string key, bool fallback)
-    {
-        var value = Environment.GetEnvironmentVariable(key);
-        return value is null
-            ? fallback
-            : value.Equals("1", StringComparison.OrdinalIgnoreCase)
-              || value.Equals("true", StringComparison.OrdinalIgnoreCase)
-              || value.Equals("yes", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyList<string>? ParseTargetIds(string? value)
@@ -314,7 +293,7 @@ public sealed record PodmanTestEnvironmentSettings(
                 if (currentState is not null)
                 {
                     return new PersistedPodmanState(
-                        PodName: null,
+                        ContainerPrefix: null,
                         ProfileId: null,
                         Host: currentState.Host,
                         AdminUser: currentState.AdminUser,
@@ -335,7 +314,7 @@ public sealed record PodmanTestEnvironmentSettings(
     }
 
     private sealed record PersistedPodmanState(
-        string? PodName,
+        string? ContainerPrefix,
         string? ProfileId,
         string? Host,
         string? AdminUser,

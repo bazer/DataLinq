@@ -315,16 +315,13 @@ This should be built as a real workflow, not implied by documentation prose.
 
 The current Bogus-based employee seeding lives inside `src/DataLinq.Tests/DatabaseFixture.cs`. That is the wrong place for it.
 
-### 6.1. Extract Shared Seeding Logic
+### 6.1. Shared Seeding Logic
 
-Create:
+The seeded-database logic currently lives inside `src/DataLinq.Testing`, which is the right place for it today.
 
-* `src/DataLinq.Seeding`
-  Shared library containing deterministic schema bootstrap and data generation logic
-* `src/DataLinq.Seeder`
-  Thin CLI wrapper for local setup and CI orchestration
+That is a better fit than forcing an early extraction into `DataLinq.Seeding` and `DataLinq.Seeder` just because those names sound tidy. Right now the code is primarily test-harness logic, not a reusable product surface.
 
-This is better than a CLI-only approach because tests should be able to call the shared logic directly when appropriate.
+If that logic later needs to be reused outside the compliance suite or from CI flows that are independent of the harness, then an extraction can make sense. It does not need to happen preemptively.
 
 ### 6.2. Determinism Rules
 
@@ -372,11 +369,12 @@ Notes:
 
 Deliverables:
 
-* Podman scripts and manifests under `test-infra/podman/`
+* `src/DataLinq.Testing.CLI`
+* `test-infra/podman/matrix.json`
+* `artifacts/testdata/testinfra-state.json`
 * Stable local test credentials and endpoints
-* `DataLinq.Seeding` library
-* `DataLinq.Seeder` CLI
 * A shared `DataLinq.Testing` library
+* Deterministic seeded-database support inside `DataLinq.Testing`
 
 Exit criteria:
 
