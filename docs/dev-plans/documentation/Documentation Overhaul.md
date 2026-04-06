@@ -41,7 +41,7 @@ The correct standard is simple:
 - `docs/Diagrams.md` is not discoverable from the docs index or docs TOC.
 - `docs/Project Specification.md` overclaims current capabilities and reads like a stitched roadmap/spec draft rather than a maintained source of truth.
 - Several internal docs still talk as if JSON, CSV, XML, in-memory, or broader non-SQL backends are current platform scope. In the repo today, the concrete providers are MySQL/MariaDB and SQLite.
-- `docs/dev-plans/*` contains roadmap/specification material and must not be allowed to blur into normative documentation.
+- `docs/dev-plans/**` contains roadmap/specification material and must not be allowed to blur into normative documentation.
 
 ### Documentation classes
 
@@ -70,7 +70,7 @@ The current documentation falls into four categories:
 
 4. **Roadmap/spec docs**
    - `docs/Project Specification.md`
-   - `docs/dev-plans/*`
+   - `docs/dev-plans/**`
 
 ### Working classification
 
@@ -95,7 +95,7 @@ This is the current rough classification to guide the rewrite:
 | `docs/Implementing a new backend.md` | Needs validation | Good candidate for rewrite into a grounded provider guide. |
 | `docs/Diagrams.md` | Orphaned | Keep only if linked and still helpful. |
 | `docs/Project Specification.md` | Spec / roadmap | Overclaims current behavior and should not be treated as authoritative docs. |
-| `docs/dev-plans/*` | Roadmap | Keep clearly separate from shipped docs. |
+| `docs/dev-plans/**` | Roadmap | Keep clearly separate from shipped docs. |
 
 ---
 
@@ -140,7 +140,7 @@ The docs should be reorganized around how people actually approach the project.
 ### 6. Roadmap
 
 - Project Specification
-- `docs/dev-plans/*`
+- `docs/dev-plans/**`
 
 Roadmap content can stay public if desired, but it must be obviously separated from current behavior.
 
@@ -245,7 +245,7 @@ Goal: stop future plans from pretending to be current features.
 Tasks:
 
 - Mark `Project Specification.md` as a specification/vision document if retained.
-- Keep `docs/dev-plans/*` explicitly framed as roadmap/work-in-progress.
+- Keep `docs/dev-plans/**` explicitly framed as roadmap/work-in-progress.
 - Ensure public index pages do not imply roadmap items are implemented.
 
 Deliverable:
@@ -317,7 +317,7 @@ This work parallelizes well, but only if the integration stays centralized.
 
 4. **Roadmap/spec separation**
    - `docs/Project Specification.md`
-   - `docs/dev-plans/*`
+   - `docs/dev-plans/**`
 
 ### Important constraint
 

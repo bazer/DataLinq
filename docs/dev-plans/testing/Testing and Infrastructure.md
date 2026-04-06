@@ -1,5 +1,5 @@
 > [!WARNING]
-> This document is now mostly a migration record. The target architecture described here is largely implemented; use `docs/dev-plans/Test Suite Parity Checklist.md` for the current cutover status.
+> This document is now mostly a migration record. The target architecture described here is largely implemented; use `docs/dev-plans/testing/Test Suite Parity Checklist.md` for the current cutover status.
 # Specification: Test Suite Reorganization, TUnit Migration, and Podman Infrastructure
 
 **Status:** Mostly implemented; retained as migration history  
@@ -354,7 +354,7 @@ This should be done in phases. Trying to port everything in one pass would be re
 
 Deliverables:
 
-* `docs/dev-plans/Test Suite Audit.md`
+* `docs/dev-plans/testing/Test Suite Audit.md`
 * Inventory the current test files and categorize them
 * Identify obviously dead, duplicate, or misplaced tests
 * Record current pass/fail status for each existing test project
@@ -432,7 +432,7 @@ Recommended artifact:
 
 * A parity checklist mapping old test classes or behaviors to new TUnit replacements
 
-That checklist now exists in `docs/dev-plans/Test Suite Parity Checklist.md`.
+That checklist now exists in `docs/dev-plans/testing/Test Suite Parity Checklist.md`.
 
 ### Phase 5: Cut Over and Remove Legacy xUnit
 
@@ -509,7 +509,7 @@ Some of the current MySQL and MariaDB tests create databases, tables, and schema
 
 The next planning phase for the local and CI test environment now lives in:
 
-* `docs/dev-plans/Test Infrastructure CLI.md`
+* `docs/dev-plans/testing/Test Infrastructure CLI.md`
 
 That document covers the implemented cross-platform `DataLinq.Testing.CLI` tool based on explicit targets and the `quick`, `latest`, and `all` aliases.
 
