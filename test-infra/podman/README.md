@@ -14,6 +14,12 @@ List aliases, targets, and current runtime state:
 dotnet run --project src/DataLinq.Testing.CLI -- list
 ```
 
+Validate that every legacy test file is accounted for in the parity manifest:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- validate-parity
+```
+
 Launch the interactive workflow:
 
 ```powershell

@@ -32,8 +32,11 @@ jobs:
       - name: Build solution
         run: dotnet build src/DataLinq.sln -c Debug --no-restore
 
+      - name: Validate parity manifest
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll validate-parity
+
       - name: Run quick suite set
-        run: dotnet run --no-build --project src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj -c Debug --framework net10.0 -- run --suite all --alias quick --batch-size 2
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias quick --batch-size 2
 
       - name: Upload test results
         if: always()
@@ -73,11 +76,11 @@ jobs:
         run: dotnet build src/DataLinq.sln -c Debug --no-restore
 
       - name: Run latest suite set
-        run: dotnet run --no-build --project src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj -c Debug --framework net10.0 -- run --suite all --alias latest --batch-size 4
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias latest --batch-size 4
 
       - name: Tear down test infrastructure
         if: always()
-        run: dotnet run --no-build --project src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj -c Debug --framework net10.0 -- down --remove
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll down --remove
 
       - name: Upload test results
         if: always()

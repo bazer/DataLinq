@@ -1,5 +1,6 @@
 > [!NOTE]
 > This checklist tracks legacy-to-TUnit cutover status. It is the current source of truth for which old test files have real replacements, which ones are intentionally retired, and which legacy projects still remain only for transition purposes.
+> The machine-readable source for the validator lives in `docs/dev-plans/test-suite-parity.json`.
 # Test Suite Parity Checklist
 
 **Status:** Active cutover checklist

@@ -12,11 +12,12 @@ internal static class InteractiveCliRunner
             new SelectionPrompt<string>()
                 .Title("Choose a [green]test infrastructure[/] command")
                 .PageSize(10)
-                .AddChoices("list", "up", "wait", "down", "reset", "run"));
+                .AddChoices("list", "validate-parity", "up", "wait", "down", "reset", "run"));
 
         return command switch
         {
             "list" => RunList(stateStore),
+            "validate-parity" => RunValidateParity(settings),
             "up" => RunUp(orchestrator),
             "wait" => RunWait(orchestrator),
             "down" => RunDown(orchestrator),
@@ -31,6 +32,9 @@ internal static class InteractiveCliRunner
         ListCommand.Render(stateStore);
         return 0;
     }
+
+    public static int RunValidateParity(TestInfraCliSettings settings) =>
+        ValidateParityCommand.Execute(settings);
 
     public static int RunUp(TestInfraOrchestrator orchestrator)
     {

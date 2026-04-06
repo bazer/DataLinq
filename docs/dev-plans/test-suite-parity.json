@@ -1,0 +1,314 @@
+{
+  "entries": [
+    {
+      "legacyFile": "src/DataLinq.Tests/CacheNotificationManagerTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/CacheNotificationManagerTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/CacheTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/State/EmployeesCacheTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/CharPredicateTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Translation/CharPredicateTranslationTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/CoreTests.cs",
+      "status": "split",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/MetadataFactoryTests.cs",
+        "src/DataLinq.Tests.Unit/Core/MetadataFromFileFactoryTests.cs",
+        "src/DataLinq.Tests.Unit/Core/MetadataFromTypeFactoryTests.cs",
+        "src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs",
+        "src/DataLinq.Tests.MySql/MetadataMergeTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/InstanceEqualityTests.cs",
+      "status": "split",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/MutableInstanceEqualityTests.cs",
+        "src/DataLinq.Tests.Compliance/State/EmployeesInstanceEqualityTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/MetadataFromSQLiteFactoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/SQLite/MetadataFromSQLiteFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/MutationTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/State/EmployeesMutationTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/RelationTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Relations/EmployeesRelationAndThreadingTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/SourceGeneratorTests.cs",
+      "status": "retired",
+      "replacementFiles": [
+        "src/DataLinq.Generators.Tests/SourceGeneratorTests.cs"
+      ],
+      "note": "The legacy file was effectively dead and lived in the wrong project. Generator coverage now lives in DataLinq.Generators.Tests."
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/SQLiteInMemoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Query/SQLiteInMemoryBehaviorTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/SqlQueryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Sql/EmployeesSqlQueryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/SqlTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Sql/EmployeesSqlBuilderTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/ThreadingTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Relations/EmployeesRelationAndThreadingTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/TransactionTests.cs",
+      "status": "split",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Transactions/EmployeesTransactionTests.cs",
+        "src/DataLinq.Tests.Compliance/Transactions/EmployeesTransactionLifecycleTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/GeneratorFileFactoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/GeneratorFileFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/KeyFactoryAndEqualityTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/KeyFactoryAndEqualityTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/MetadataFactoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/MetadataFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/MetadataFromFileFactoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/MetadataFromFileFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/MetadataFromModelsFactoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/MetadataFromModelsFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/MetadataFromTypeFactoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/MetadataFromTypeFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/MetadataTransformerTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/MetadataTransformerTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/MetadataTypeConverterTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/MetadataTypeConverterTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/ModelFileFactoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/ModelFileFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/OptimizationTests.cs",
+      "status": "split",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/EvaluatorTests.cs",
+        "src/DataLinq.Tests.Compliance/Query/EmployeesOptimizationTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Core/SyntaxParserTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/Core/SyntaxParserTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/Linq/ContainsTranslationTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Translation/EmployeesContainsTranslationTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/LinqQueryTests/BooleanLogicTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Translation/EmployeesBooleanLogicTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/LinqQueryTests/DateTimeMemberTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Translation/EmployeesDateTimeMemberTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/LinqQueryTests/EmptyListTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Translation/EmployeesEmptyListQueryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/LinqQueryTests/NullableBooleanTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Translation/EmployeesNullableBooleanTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/LinqQueryTests/QueryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Query/EmployeesQueryBehaviorTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/LinqQueryTests/StringMemberTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Compliance/Translation/EmployeesStringMemberTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/WeakEventManagerTests/WeakEventManagerConcurrencyTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/WeakEventManagerTests/WeakEventManagerConcurrencyTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Tests/WeakEventManagerTests/WeakEventManagerTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.Unit/WeakEventManagerTests/WeakEventManagerTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.MySql.Tests/MariaDB/MariaDBTypeMappingTests.cs",
+      "status": "split",
+      "replacementFiles": [
+        "src/DataLinq.Tests.MySql/MariaDbGuidTypeMappingTests.cs",
+        "src/DataLinq.Tests.MySql/ServerTypeMappingTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.MySql.Tests/MetadataFromMySqlFactoryTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.MySql.Tests/MetadataFromSqlFactoryDefaultParsingTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.MySql/MetadataFromSqlFactoryDefaultParsingTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.MySql.Tests/MySqlMetadataFilteringTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.MySql.Tests/MySqlTypeMappingTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.MySql/ServerTypeMappingTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.MySql.Tests/PkIsFkTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.MySql.Tests/RecursiveRelationTests.cs",
+      "status": "migrated",
+      "replacementFiles": [
+        "src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Generators.Tests/ModelGenerationLogicTests.cs",
+      "status": "migrated-in-place",
+      "replacementFiles": [
+        "src/DataLinq.Generators.Tests/ModelGenerationLogicTests.cs"
+      ]
+    },
+    {
+      "legacyFile": "src/DataLinq.Generators.Tests/SourceGeneratorTests.cs",
+      "status": "migrated-in-place",
+      "replacementFiles": [
+        "src/DataLinq.Generators.Tests/SourceGeneratorTests.cs"
+      ]
+    }
+  ]
+}

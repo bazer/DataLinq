@@ -71,6 +71,12 @@ List the available targets, aliases, suites, and current runtime state:
 dotnet run --project src/DataLinq.Testing.CLI -- list
 ```
 
+Validate that every legacy test file is explicitly accounted for in the parity manifest:
+
+```bash
+dotnet run --project src/DataLinq.Testing.CLI -- validate-parity
+```
+
 Run the fast local lane:
 
 ```bash
