@@ -38,10 +38,22 @@ Run the quick lane:
 dotnet run --project src/DataLinq.Testing.CLI -- run --alias quick
 ```
 
+Run the unit lane only:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite unit
+```
+
 Run the latest lane:
 
 ```powershell
 dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest
+```
+
+Run both suites with the default behavior:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- run
 ```
 
 Run the full supported matrix in batches of two targets:
@@ -68,7 +80,7 @@ Remove every test container:
 dotnet run --project src/DataLinq.Testing.CLI -- down --remove
 ```
 
-If you are invoking the CLI repeatedly from the same build output, prefer `--no-build` on `dotnet run`. The CLI itself does not need to rebuild every time; that extra build check is just default `dotnet run` behavior.
+If you are invoking the CLI repeatedly from the same build output, prefer `--no-build` on `dotnet run`. In practice, use it together with `-c Debug --framework net10.0` so `dotnet run` picks the expected output deterministically. The CLI itself does not need to rebuild every time; that extra build check is just default `dotnet run` behavior.
 
 ## Aliases
 
@@ -82,6 +94,19 @@ The supported aliases are:
   every supported target
 
 These aliases are the same model used by the CLI, the test harness, and the Visual Studio runsettings files.
+
+## Suites
+
+The CLI supports three suite modes:
+
+* `unit`
+  Runs `src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj` once.
+* `compliance`
+  Runs `src/DataLinq.Tests.Compliance/DataLinq.Tests.Compliance.csproj` against the selected target batches.
+* `all`
+  Runs the unit suite once, then the compliance suite against the selected target batches.
+
+`run` now defaults to `--suite all`. That is the right default now that the new unit lane is real.
 
 ## Visual Studio Runsettings
 

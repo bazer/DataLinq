@@ -14,6 +14,12 @@ internal static class CommandHelpers
         Description = "Uses a comma-separated target list such as 'sqlite-file,mariadb-11.8'."
     };
 
+    public static Option<string> SuiteOption() => new("--suite")
+    {
+        Description = "Chooses which test suite to run: unit, compliance, or all.",
+        DefaultValueFactory = _ => TestCliSuiteCatalog.AllSuites
+    };
+
     public static Option<bool> InteractiveOption() => new("--interactive")
     {
         Description = "Prompts for command values interactively."

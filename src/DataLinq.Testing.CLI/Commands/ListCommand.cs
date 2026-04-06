@@ -17,10 +17,37 @@ internal static class ListCommand
 
     public static void Render(TestInfraRuntimeStateStore stateStore)
     {
+        RenderSuites();
+        AnsiConsole.WriteLine();
         RenderAliases();
         AnsiConsole.WriteLine();
         RenderTargets();
         RenderState(stateStore.Load());
+    }
+
+    private static void RenderSuites()
+    {
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .AddColumn("Suite")
+            .AddColumn("Description")
+            .AddColumn("Project");
+
+        foreach (var suite in TestCliSuiteCatalog.Suites)
+        {
+            table.AddRow(
+                suite.Name,
+                suite.Description,
+                suite.ProjectPath);
+        }
+
+        table.AddRow(
+            TestCliSuiteCatalog.AllSuites,
+            "Runs the unit lane once, then the compliance lane against the selected targets.",
+            "(composite)");
+
+        AnsiConsole.Write(new Rule("[yellow]Suites[/]"));
+        AnsiConsole.Write(table);
     }
 
     private static void RenderAliases()

@@ -14,11 +14,11 @@ internal static class RunCommand
     {
         var aliasOption = CommandHelpers.AliasOption();
         var targetsOption = CommandHelpers.TargetsOption();
+        var suiteOption = CommandHelpers.SuiteOption();
         var interactiveOption = CommandHelpers.InteractiveOption();
-        var projectOption = new Option<string>("--project")
+        var projectOption = new Option<string?>("--project")
         {
-            Description = "Path to the test project to run.",
-            DefaultValueFactory = _ => Path.Combine("src", "DataLinq.Tests.Compliance", "DataLinq.Tests.Compliance.csproj")
+            Description = "Optional project path override for a single-suite run."
         };
         var configurationOption = new Option<string>("--configuration")
         {
@@ -39,9 +39,10 @@ internal static class RunCommand
             Description = "Stops the provisioned server targets after the run completes."
         };
 
-        var command = new Command("run", "Runs the compliance suite against the selected targets, optionally in batches.");
+        var command = new Command("run", "Runs the selected test suite or suites.");
         command.Options.Add(aliasOption);
         command.Options.Add(targetsOption);
+        command.Options.Add(suiteOption);
         command.Options.Add(interactiveOption);
         command.Options.Add(projectOption);
         command.Options.Add(configurationOption);
@@ -70,7 +71,8 @@ internal static class RunCommand
                 orchestrator,
                 settings,
                 selection,
-                parseResult.GetValue(projectOption) ?? throw new InvalidOperationException("A test project path is required."),
+                parseResult.GetValue(suiteOption) ?? TestCliSuiteCatalog.AllSuites,
+                parseResult.GetValue(projectOption),
                 parseResult.GetValue(configurationOption) ?? throw new InvalidOperationException("A build configuration is required."),
                 parseResult.GetValue(buildOption),
                 batchSize,
@@ -87,13 +89,14 @@ internal static class RunCommand
         TestInfraOrchestrator orchestrator,
         TestInfraCliSettings settings,
         CliTargetSelection selection,
-        string projectPath,
+        string suiteName,
+        string? projectPathOverride,
         string configuration,
         bool buildProject,
         int batchSize,
         bool tearDown)
     {
-        var exitCode = RunSelection(orchestrator, settings, selection, projectPath, configuration, buildProject, batchSize, tearDown);
+        var exitCode = RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, configuration, buildProject, batchSize, tearDown);
         if (exitCode != 0)
             Environment.ExitCode = exitCode;
     }
@@ -102,65 +105,93 @@ internal static class RunCommand
         TestInfraOrchestrator orchestrator,
         TestInfraCliSettings settings,
         CliTargetSelection selection,
-        string projectPath,
+        string suiteName,
+        string? projectPathOverride,
         string configuration,
         bool buildProject,
         int batchSize,
         bool tearDown)
     {
         var repositoryRoot = settings.RepositoryRoot;
-        var fullProjectPath = Path.IsPathRooted(projectPath)
-            ? projectPath
-            : Path.Combine(repositoryRoot, projectPath);
-
-        if (!File.Exists(fullProjectPath))
-            throw new FileNotFoundException($"The requested test project was not found: '{fullProjectPath}'.", fullProjectPath);
+        var suites = ResolveSuites(suiteName, projectPathOverride);
 
         if (buildProject)
-            BuildProject(fullProjectPath, configuration, repositoryRoot);
+        {
+            foreach (var suite in suites)
+                BuildProject(ResolveProjectPath(repositoryRoot, suite.ProjectPath), configuration, repositoryRoot);
+        }
 
-        var batches = CreateBatches(selection.Targets.ToArray(), batchSize)
-            .Select(batchTargets => new CliTargetSelection(selection.AliasName, batchTargets))
-            .ToArray();
-
-        var results = new List<BatchResult>();
+        var results = new List<RunResult>();
         var overallExitCode = 0;
+        var usedTargets = false;
         try
         {
-            for (var index = 0; index < batches.Length; index++)
+            foreach (var suite in suites)
             {
-                var batch = batches[index];
+                var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
+                if (!File.Exists(projectPath))
+                    throw new FileNotFoundException($"The requested test project was not found: '{projectPath}'.", projectPath);
 
-                Console.WriteLine();
-                Console.WriteLine($"=== Running target batch [{string.Join(", ", batch.Targets.Select(x => x.Id))}] ===");
+                if (suite.UsesTargetBatches)
+                {
+                    usedTargets = true;
+                    var batches = CreateBatches(selection.Targets.ToArray(), batchSize)
+                        .Select(batchTargets => new CliTargetSelection(selection.AliasName, batchTargets))
+                        .ToArray();
 
-                orchestrator.Up(batch, recreate: false);
+                    for (var index = 0; index < batches.Length; index++)
+                    {
+                        var batch = batches[index];
 
-                var start = Stopwatch.StartNew();
-                var result = ExecuteTestRun(fullProjectPath, configuration, repositoryRoot, batch);
-                start.Stop();
+                        Console.WriteLine();
+                        Console.WriteLine($"=== Running suite [{suite.Name}] target batch [{string.Join(", ", batch.Targets.Select(x => x.Id))}] ===");
 
-                WriteProcessOutput(result);
-                results.Add(new BatchResult(
-                    Index: index + 1,
-                    Targets: string.Join(", ", batch.Targets.Select(x => x.Id)),
-                    ExitCode: result.ExitCode,
-                    DurationSeconds: Math.Round(start.Elapsed.TotalSeconds, 1),
-                    Total: ParseSummaryCount(result.StandardOutput, "total"),
-                    Succeeded: ParseSummaryCount(result.StandardOutput, "succeeded"),
-                    Failed: ParseSummaryCount(result.StandardOutput, "failed"),
-                    Skipped: ParseSummaryCount(result.StandardOutput, "skipped"),
-                    FailedTests: ParseFailedTests(result.StandardOutput)));
+                        orchestrator.Up(batch, recreate: false);
 
-                if (result.ExitCode != 0)
-                    overallExitCode = result.ExitCode;
+                        var start = Stopwatch.StartNew();
+                        var result = ExecuteTestRun(projectPath, configuration, repositoryRoot, batch);
+                        start.Stop();
+
+                        WriteProcessOutput(result);
+                        results.Add(CreateRunResult(
+                            suite.Name,
+                            index + 1,
+                            string.Join(", ", batch.Targets.Select(x => x.Id)),
+                            start.Elapsed,
+                            result));
+
+                        if (result.ExitCode != 0)
+                            overallExitCode = result.ExitCode;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"=== Running suite [{suite.Name}] ===");
+
+                    var start = Stopwatch.StartNew();
+                    var result = ExecuteTestRun(projectPath, configuration, repositoryRoot, selection: null);
+                    start.Stop();
+
+                    WriteProcessOutput(result);
+                    results.Add(CreateRunResult(
+                        suite.Name,
+                        batchIndex: null,
+                        targets: "-",
+                        start.Elapsed,
+                        result));
+
+                    if (result.ExitCode != 0)
+                        overallExitCode = result.ExitCode;
+                }
             }
 
-            orchestrator.PersistState(selection);
+            if (usedTargets)
+                orchestrator.PersistState(selection);
         }
         finally
         {
-            if (tearDown)
+            if (tearDown && usedTargets)
                 orchestrator.Down(remove: false, selection: null);
         }
 
@@ -181,17 +212,21 @@ internal static class RunCommand
             throw new InvalidOperationException($"Failed to build '{projectPath}'.");
     }
 
-    private static ExternalCommandResult ExecuteTestRun(string projectPath, string configuration, string workingDirectory, CliTargetSelection selection)
+    private static ExternalCommandResult ExecuteTestRun(string projectPath, string configuration, string workingDirectory, CliTargetSelection? selection)
     {
         var environmentVariables = new Dictionary<string, string?>
         {
             ["DOTNET_CLI_HOME"] = Path.Combine(workingDirectory, ".dotnet"),
             ["DOTNET_SKIP_FIRST_TIME_EXPERIENCE"] = "1",
-            ["DOTNET_NOLOGO"] = "1",
-            [DataLinq.Testing.PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable] = "targets",
-            [DataLinq.Testing.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = string.Join(",", selection.Targets.Select(x => x.Id)),
-            [DataLinq.Testing.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null
+            ["DOTNET_NOLOGO"] = "1"
         };
+
+        if (selection is not null)
+        {
+            environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.ProviderSetEnvironmentVariable] = "targets";
+            environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.TargetIdsEnvironmentVariable] = string.Join(",", selection.Targets.Select(x => x.Id));
+            environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null;
+        }
 
         return ExecuteDotnet(
             ["run", "--project", projectPath, "-c", configuration, "--no-build"],
@@ -232,13 +267,14 @@ internal static class RunCommand
             Console.Error.WriteLine(result.StandardError.TrimEnd());
     }
 
-    private static void RenderSummary(IReadOnlyList<BatchResult> results)
+    private static void RenderSummary(IReadOnlyList<RunResult> results)
     {
         Console.WriteLine();
         AnsiConsole.Write(new Rule("[yellow]Run Summary[/]"));
 
         var table = new Table()
             .Border(TableBorder.Rounded)
+            .AddColumn("Suite")
             .AddColumn("Batch")
             .AddColumn("Targets")
             .AddColumn("Exit")
@@ -251,7 +287,8 @@ internal static class RunCommand
         foreach (var result in results)
         {
             table.AddRow(
-                result.Index.ToString(),
+                result.Suite,
+                result.BatchIndex?.ToString() ?? "-",
                 result.Targets,
                 result.ExitCode.ToString(),
                 FormatNullableCount(result.Total),
@@ -264,7 +301,7 @@ internal static class RunCommand
         AnsiConsole.Write(table);
     }
 
-    private static void RenderFailedTests(IReadOnlyList<BatchResult> results)
+    private static void RenderFailedTests(IReadOnlyList<RunResult> results)
     {
         var failedBatches = results
             .Where(x => x.FailedTests.Count > 0)
@@ -278,12 +315,45 @@ internal static class RunCommand
 
         foreach (var batch in failedBatches)
         {
-            AnsiConsole.MarkupLine($"[red]Batch {batch.Index}[/]: {Markup.Escape(batch.Targets)}");
+            var label = batch.BatchIndex.HasValue
+                ? $"Suite {batch.Suite}, batch {batch.BatchIndex}"
+                : $"Suite {batch.Suite}";
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(label)}[/]: {Markup.Escape(batch.Targets)}");
 
             foreach (var failedTest in batch.FailedTests)
                 AnsiConsole.MarkupLine($"  - {Markup.Escape(failedTest)}");
         }
     }
+
+    private static IReadOnlyList<TestCliSuite> ResolveSuites(string suiteName, string? projectPathOverride)
+    {
+        if (string.IsNullOrWhiteSpace(projectPathOverride))
+            return TestCliSuiteCatalog.Resolve(suiteName);
+
+        if (string.Equals(suiteName, TestCliSuiteCatalog.AllSuites, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("'--project' cannot be combined with '--suite all'. Choose 'unit' or 'compliance', or omit '--project'.");
+
+        var suite = TestCliSuiteCatalog.GetSuite(suiteName);
+        return [suite with { ProjectPath = projectPathOverride }];
+    }
+
+    private static string ResolveProjectPath(string repositoryRoot, string projectPath) =>
+        Path.IsPathRooted(projectPath)
+            ? projectPath
+            : Path.Combine(repositoryRoot, projectPath);
+
+    private static RunResult CreateRunResult(string suite, int? batchIndex, string targets, TimeSpan elapsed, ExternalCommandResult result) =>
+        new(
+            Suite: suite,
+            BatchIndex: batchIndex,
+            Targets: targets,
+            ExitCode: result.ExitCode,
+            DurationSeconds: Math.Round(elapsed.TotalSeconds, 1),
+            Total: ParseSummaryCount(result.StandardOutput, "total"),
+            Succeeded: ParseSummaryCount(result.StandardOutput, "succeeded"),
+            Failed: ParseSummaryCount(result.StandardOutput, "failed"),
+            Skipped: ParseSummaryCount(result.StandardOutput, "skipped"),
+            FailedTests: ParseFailedTests(result.StandardOutput));
 
     private static int? ParseSummaryCount(string output, string label)
     {
@@ -321,8 +391,9 @@ internal static class RunCommand
 
     private static string FormatNullableCount(int? value) => value?.ToString() ?? "-";
 
-    private sealed record BatchResult(
-        int Index,
+    private sealed record RunResult(
+        string Suite,
+        int? BatchIndex,
         string Targets,
         int ExitCode,
         double DurationSeconds,

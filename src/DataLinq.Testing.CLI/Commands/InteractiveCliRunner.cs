@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using Spectre.Console;
 
@@ -83,10 +82,13 @@ internal static class InteractiveCliRunner
 
     public static int RunTests(TestInfraOrchestrator orchestrator, TestInfraCliSettings settings)
     {
-        var selection = PromptSelection(defaultAlias: TestTargetCatalog.LatestAlias);
-        var projectPath = AnsiConsole.Prompt(
-            new TextPrompt<string>("Test project path")
-                .DefaultValue(Path.Combine("src", "DataLinq.Tests.Compliance", "DataLinq.Tests.Compliance.csproj")));
+        var suite = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Which test suite should run?")
+                .AddChoices(TestCliSuiteCatalog.AllSuites, TestCliSuiteCatalog.UnitSuite, TestCliSuiteCatalog.ComplianceSuite));
+        var selection = string.Equals(suite, TestCliSuiteCatalog.UnitSuite, StringComparison.OrdinalIgnoreCase)
+            ? TargetSelectionResolver.ResolveAlias(TestTargetCatalog.LatestAlias)
+            : PromptSelection(defaultAlias: TestTargetCatalog.LatestAlias);
         var configuration = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Build configuration")
@@ -106,7 +108,7 @@ internal static class InteractiveCliRunner
             DefaultValue = false
         });
 
-        RunCommand.Execute(orchestrator, settings, selection, projectPath, configuration, build, batchSize, tearDown);
+        RunCommand.Execute(orchestrator, settings, selection, suite, null, configuration, build, batchSize, tearDown);
         return 0;
     }
 
