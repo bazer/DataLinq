@@ -9,6 +9,7 @@ internal static class TestCliSuiteCatalog
 {
     public const string UnitSuite = "unit";
     public const string ComplianceSuite = "compliance";
+    public const string MySqlSuite = "mysql";
     public const string AllSuites = "all";
 
     public static IReadOnlyList<TestCliSuite> Suites { get; } =
@@ -22,7 +23,13 @@ internal static class TestCliSuiteCatalog
             Name: ComplianceSuite,
             Description: "Runs the cross-provider compliance lane against the selected targets.",
             ProjectPath: Path.Combine("src", "DataLinq.Tests.Compliance", "DataLinq.Tests.Compliance.csproj"),
-            UsesTargetBatches: true)
+            UsesTargetBatches: true),
+        new(
+            Name: MySqlSuite,
+            Description: "Runs the provider-specific MySQL and MariaDB lane against the selected server targets.",
+            ProjectPath: Path.Combine("src", "DataLinq.Tests.MySql", "DataLinq.Tests.MySql.csproj"),
+            UsesTargetBatches: true,
+            IncludeSqliteTargets: false)
     ];
 
     public static IReadOnlyList<TestCliSuite> Resolve(string suiteName)

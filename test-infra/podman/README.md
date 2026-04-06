@@ -103,8 +103,10 @@ The CLI supports three suite modes:
   Runs `src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj` once.
 * `compliance`
   Runs `src/DataLinq.Tests.Compliance/DataLinq.Tests.Compliance.csproj` against the selected target batches.
+* `mysql`
+  Runs `src/DataLinq.Tests.MySql/DataLinq.Tests.MySql.csproj` against the selected server target batches.
 * `all`
-  Runs the unit suite once, then the compliance suite against the selected target batches.
+  Runs the unit suite once, then the compliance and MySQL/MariaDB suites against the selected target batches.
 
 `run` now defaults to `--suite all`. That is the right default now that the new unit lane is real.
 

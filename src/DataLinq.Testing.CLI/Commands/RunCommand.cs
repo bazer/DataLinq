@@ -135,7 +135,14 @@ internal static class RunCommand
                 if (suite.UsesTargetBatches)
                 {
                     usedTargets = true;
-                    var batches = CreateBatches(selection.Targets.ToArray(), batchSize)
+                    var suiteTargets = suite.IncludeSqliteTargets
+                        ? selection.Targets.ToArray()
+                        : selection.Targets.Where(static x => !TestTargetCatalog.IsSQLiteTarget(x.Id)).ToArray();
+
+                    if (suiteTargets.Length == 0)
+                        continue;
+
+                    var batches = CreateBatches(suiteTargets, batchSize)
                         .Select(batchTargets => new CliTargetSelection(selection.AliasName, batchTargets))
                         .ToArray();
 
@@ -331,7 +338,7 @@ internal static class RunCommand
             return TestCliSuiteCatalog.Resolve(suiteName);
 
         if (string.Equals(suiteName, TestCliSuiteCatalog.AllSuites, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("'--project' cannot be combined with '--suite all'. Choose 'unit' or 'compliance', or omit '--project'.");
+            throw new InvalidOperationException("'--project' cannot be combined with '--suite all'. Choose a single suite or omit '--project'.");
 
         var suite = TestCliSuiteCatalog.GetSuite(suiteName);
         return [suite with { ProjectPath = projectPathOverride }];

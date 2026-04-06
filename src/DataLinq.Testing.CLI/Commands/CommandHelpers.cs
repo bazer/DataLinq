@@ -16,7 +16,7 @@ internal static class CommandHelpers
 
     public static Option<string> SuiteOption() => new("--suite")
     {
-        Description = "Chooses which test suite to run: unit, compliance, or all.",
+        Description = "Chooses which test suite to run: unit, compliance, mysql, or all.",
         DefaultValueFactory = _ => TestCliSuiteCatalog.AllSuites
     };
 
