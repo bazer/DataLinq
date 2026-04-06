@@ -15,6 +15,7 @@
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="DataLinq.Tests" />
+		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
 	</ItemGroup>
 
 	<ItemGroup>

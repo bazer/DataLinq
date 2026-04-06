@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net10.0</TargetFrameworks>
+		<OutputType>Exe</OutputType>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="TUnit" />
+		<PackageReference Include="ThrowAway" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
+		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
+	</ItemGroup>
+
+</Project>
