@@ -12,6 +12,8 @@ namespace DataLinq.Testing.CLI;
 
 internal static class RunCommand
 {
+    private static readonly Regex AnsiEscapePattern = new(@"\x1B\[[0-9;?]*[ -/]*[@-~]", RegexOptions.CultureInvariant);
+
     public static Command Create(TestInfraOrchestrator orchestrator, TestInfraCliSettings settings)
     {
         var aliasOption = CommandHelpers.AliasOption();
@@ -464,11 +466,16 @@ internal static class RunCommand
             Targets: targets,
             ExitCode: result.ExitCode,
             DurationSeconds: Math.Round(elapsed.TotalSeconds, 1),
-            Total: ParseSummaryCount(result.StandardOutput, "total"),
-            Succeeded: ParseSummaryCount(result.StandardOutput, "succeeded"),
-            Failed: ParseSummaryCount(result.StandardOutput, "failed"),
-            Skipped: ParseSummaryCount(result.StandardOutput, "skipped"),
-            FailedTests: ParseFailedTests(result.StandardOutput));
+            Total: ParseSummaryCount(SanitizeConsoleOutput(result.StandardOutput), "total"),
+            Succeeded: ParseSummaryCount(SanitizeConsoleOutput(result.StandardOutput), "succeeded"),
+            Failed: ParseSummaryCount(SanitizeConsoleOutput(result.StandardOutput), "failed"),
+            Skipped: ParseSummaryCount(SanitizeConsoleOutput(result.StandardOutput), "skipped"),
+            FailedTests: ParseFailedTests(SanitizeConsoleOutput(result.StandardOutput)));
+
+    private static string SanitizeConsoleOutput(string output) =>
+        string.IsNullOrEmpty(output)
+            ? output
+            : AnsiEscapePattern.Replace(output, string.Empty);
 
     private static int? ParseSummaryCount(string output, string label)
     {

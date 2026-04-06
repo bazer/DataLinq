@@ -89,8 +89,7 @@ internal sealed class TestInfraOrchestrator(
 
                 if (remove)
                 {
-                    ConsoleSync.WriteLine($"Removing container '{containerName}'...");
-                    podman.Execute(["rm", "-f", containerName]).ThrowIfFailed($"Failed to remove container '{containerName}'.");
+                    RemoveContainerForcefully(containerName);
                     continue;
                 }
 
@@ -232,7 +231,7 @@ internal sealed class TestInfraOrchestrator(
 
             if (remove)
             {
-                podman.Execute(["rm", "-f", legacyContainerName]).ThrowIfFailed($"Failed to remove legacy container '{legacyContainerName}'.");
+                RemoveContainerForcefully(legacyContainerName);
                 continue;
             }
 
@@ -253,6 +252,35 @@ internal sealed class TestInfraOrchestrator(
     {
         var result = podman.Execute(["inspect", "--format", "{{.State.Running}}", containerName]);
         return result.ExitCode == 0 && result.StandardOutput.Contains("true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ForceKillIfRunning(string containerName)
+    {
+        if (!ContainerRunning(containerName))
+            return;
+
+        ConsoleSync.WriteLine($"Killing container '{containerName}'...");
+        podman.Execute(["kill", containerName]).ThrowIfFailed($"Failed to kill container '{containerName}'.");
+    }
+
+    private void RemoveContainerForcefully(string containerName)
+    {
+        const int maxAttempts = 3;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            ForceKillIfRunning(containerName);
+
+            ConsoleSync.WriteLine($"Removing container '{containerName}'...");
+            var result = podman.Execute(["rm", "-f", containerName]);
+            if (result.ExitCode == 0 || !ContainerExists(containerName))
+                return;
+
+            if (attempt == maxAttempts)
+                result.ThrowIfFailed($"Failed to remove container '{containerName}'.");
+
+            Thread.Sleep(TimeSpan.FromSeconds(1));
+        }
     }
 
     private void WaitForMySqlAdmin(string containerName, string password)
