@@ -82,6 +82,15 @@ internal sealed class ServerSchemaDatabase : IDisposable
             .ValueOrException();
     }
 
+    public void ExecuteNonQuery(string commandText)
+    {
+        using var connection = new MySqlConnection(Connection.ConnectionString);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        command.ExecuteNonQuery();
+    }
+
     public void Dispose()
     {
         if (_disposed)

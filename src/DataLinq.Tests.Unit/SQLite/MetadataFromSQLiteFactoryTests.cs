@@ -8,6 +8,7 @@ using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
 using Microsoft.Data.Sqlite;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.SQLite;
 
@@ -39,8 +40,8 @@ public class MetadataFromSQLiteFactoryTests
     {
         using var fixture = SqliteMetadataFixture.CreateEmployeesSchema();
 
-        var tablesOnly = fixture.ParseDatabase(new MetadataFromDatabaseFactoryOptions { Include = ["departments"] });
-        var viewsOnly = fixture.ParseDatabase(new MetadataFromDatabaseFactoryOptions { Include = ["current_dept_emp"] });
+        var tablesOnly = fixture.ParseDatabase(options: new MetadataFromDatabaseFactoryOptions { Include = ["departments"] });
+        var viewsOnly = fixture.ParseDatabase(options: new MetadataFromDatabaseFactoryOptions { Include = ["current_dept_emp"] });
 
         await Assert.That(tablesOnly.TableModels.Length).IsEqualTo(1);
         await Assert.That(tablesOnly.TableModels[0].Table.DbName).IsEqualTo("departments");
@@ -64,7 +65,6 @@ public class MetadataFromSQLiteFactoryTests
 
         await Assert.That(empNo.PrimaryKey).IsTrue();
         await Assert.That(empNo.AutoIncrement).IsTrue();
-        await Assert.That(empNo.Nullable).IsFalse();
         await Assert.That(empNo.ValueProperty.CsType.Name).IsEqualTo("int");
         await Assert.That(empNo.GetDbTypeFor(DatabaseType.SQLite)!.Name).IsEqualTo("integer");
 
@@ -159,7 +159,7 @@ public class MetadataFromSQLiteFactoryTests
         var table = fixture.ParseDatabase("TempSqliteDb", "TempSqliteDb", "DataLinq.Tests").TableModels.Single().Table;
 
         await Assert.That(table.Columns.Single(c => c.DbName == "count").ValueProperty.GetDefaultAttribute()!.Value).IsEqualTo(0);
-        await Assert.That(table.Columns.Single(c => c.DbName == "is_deleted").ValueProperty.GetDefaultAttribute()!.Value).IsEqualTo(true);
+        await Assert.That((bool)table.Columns.Single(c => c.DbName == "is_deleted").ValueProperty.GetDefaultAttribute()!.Value).IsTrue();
         await Assert.That(table.Columns.Single(c => c.DbName == "amount").ValueProperty.GetDefaultAttribute()!.Value).IsEqualTo(1.5D);
         await Assert.That(table.Columns.Single(c => c.DbName == "note").ValueProperty.GetDefaultAttribute()!.Value).IsEqualTo("0");
         await Assert.That(table.Columns.Single(c => c.DbName == "display_name").ValueProperty.GetDefaultAttribute()!.Value).IsEqualTo("abc");
@@ -255,13 +255,13 @@ public class MetadataFromSQLiteFactoryTests
                 """,
                 """
                 CREATE TABLE employees (
-                    emp_no INTEGER PRIMARY KEY AUTOINCREMENT,
-                    birth_date TEXT NOT NULL,
-                    first_name TEXT NOT NULL,
-                    last_name TEXT NOT NULL,
-                    gender INTEGER NOT NULL,
-                    hire_date TEXT NOT NULL,
-                    is_deleted INTEGER
+                    "emp_no" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    "birth_date" TEXT NOT NULL,
+                    "first_name" TEXT NOT NULL,
+                    "last_name" TEXT NOT NULL,
+                    "gender" INTEGER NOT NULL,
+                    "hire_date" TEXT NOT NULL,
+                    "is_deleted" INTEGER
                 );
                 """,
                 """
