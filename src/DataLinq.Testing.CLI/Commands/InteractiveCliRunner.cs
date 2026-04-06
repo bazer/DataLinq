@@ -85,8 +85,14 @@ internal static class InteractiveCliRunner
         var suite = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Which test suite should run?")
-                .AddChoices(TestCliSuiteCatalog.AllSuites, TestCliSuiteCatalog.UnitSuite, TestCliSuiteCatalog.ComplianceSuite));
-        var selection = string.Equals(suite, TestCliSuiteCatalog.UnitSuite, StringComparison.OrdinalIgnoreCase)
+                .AddChoices(
+                    TestCliSuiteCatalog.AllSuites,
+                    TestCliSuiteCatalog.GeneratorsSuite,
+                    TestCliSuiteCatalog.UnitSuite,
+                    TestCliSuiteCatalog.ComplianceSuite,
+                    TestCliSuiteCatalog.MySqlSuite));
+        var selection = string.Equals(suite, TestCliSuiteCatalog.UnitSuite, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(suite, TestCliSuiteCatalog.GeneratorsSuite, StringComparison.OrdinalIgnoreCase)
             ? TargetSelectionResolver.ResolveAlias(TestTargetCatalog.LatestAlias)
             : PromptSelection(defaultAlias: TestTargetCatalog.LatestAlias);
         var configuration = AnsiConsole.Prompt(

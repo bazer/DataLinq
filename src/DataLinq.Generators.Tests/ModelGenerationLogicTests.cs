@@ -1,9 +1,10 @@
-﻿using System.IO;
+using System;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Xunit;
 
 namespace DataLinq.Generators.Tests;
 
@@ -75,25 +76,21 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         public abstract string Kontotexten { get; }
     }";
 
-    private PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDecl, string name)
-    {
-        return typeDecl.Members.OfType<PropertyDeclarationSyntax>().Single(m => m.Identifier.ValueText == name);
-    }
+    private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
+        => typeDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single(member => member.Identifier.ValueText == name);
 
-    [Fact]
-    public void Property_WithDefault_ShouldBeNonNullable()
+    [Test]
+    public async Task Property_WithDefault_ShouldBeNonNullable()
     {
-        // Arrange
         var inputTree = CSharpSyntaxTree.ParseText(DefaultValueTestModelSource);
-        var generatedTrees = RunGenerator(new[] { inputTree }).ToList();
+        var generatedTrees = RunGenerator([inputTree]).ToList();
 
-        var modelTree = generatedTrees.Single(t => Path.GetFileName(t.FilePath).EndsWith("TestDefaultModel.cs"));
+        var modelTree = generatedTrees.Single(t => Path.GetFileName(t.FilePath).EndsWith("TestDefaultModel.cs", StringComparison.Ordinal));
         var root = modelTree.GetCompilationUnitRoot();
 
         var @interface = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(i => i.Identifier.ValueText == "ITestDefaultModel");
         var @class = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "ImmutableTestDefaultModel");
 
-        // Act
         var countOnInterface = GetPropertyFromType(@interface, "Count");
         var idOnInterface = GetPropertyFromType(@interface, "Id");
         var optionalOnInterface = GetPropertyFromType(@interface, "OptionalValue");
@@ -102,31 +99,26 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         var idOnClass = GetPropertyFromType(@class, "Id");
         var optionalOnClass = GetPropertyFromType(@class, "OptionalValue");
 
-        // Assert
-        Assert.IsNotType<NullableTypeSyntax>(countOnInterface.Type);
-        Assert.IsNotType<NullableTypeSyntax>(countOnClass.Type);
-
-        Assert.IsType<NullableTypeSyntax>(idOnInterface.Type);
-        Assert.IsType<NullableTypeSyntax>(idOnClass.Type);
-
-        Assert.IsType<NullableTypeSyntax>(optionalOnInterface.Type);
-        Assert.IsType<NullableTypeSyntax>(optionalOnClass.Type);
+        await Assert.That(countOnInterface.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(countOnClass.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(idOnInterface.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(idOnClass.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(optionalOnInterface.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(optionalOnClass.Type is NullableTypeSyntax).IsTrue();
     }
 
-    [Fact]
-    public void Property_WithDefault_ShouldNotBeNullable_WhenNullableContextIsDisabled()
+    [Test]
+    public async Task Property_WithDefault_ShouldNotBeNullable_WhenNullableContextIsDisabled()
     {
-        // Arrange
         var inputTree = CSharpSyntaxTree.ParseText(DefaultValueTestModelSource);
-        var generatedTrees = RunGenerator(new[] { inputTree }).ToList();
+        var generatedTrees = RunGenerator([inputTree]).ToList();
 
-        var modelTree = generatedTrees.Single(t => Path.GetFileName(t.FilePath).EndsWith("TestDefaultModel.cs"));
+        var modelTree = generatedTrees.Single(t => Path.GetFileName(t.FilePath).EndsWith("TestDefaultModel.cs", StringComparison.Ordinal));
         var root = modelTree.GetCompilationUnitRoot();
 
         var @interface = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(i => i.Identifier.ValueText == "ITestDefaultModel");
         var @class = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "ImmutableTestDefaultModel");
 
-        // Act
         var countOnInterface = GetPropertyFromType(@interface, "Count");
         var idOnInterface = GetPropertyFromType(@interface, "Id");
         var nameOnInterface = GetPropertyFromType(@interface, "Name");
@@ -137,34 +129,28 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         var nameOnClass = GetPropertyFromType(@class, "Name");
         var optionalOnClass = GetPropertyFromType(@class, "OptionalValue");
 
-        // Assert
-        Assert.IsNotType<NullableTypeSyntax>(countOnInterface.Type); // int
-        Assert.IsNotType<NullableTypeSyntax>(countOnClass.Type);   // int
-
-        Assert.IsType<NullableTypeSyntax>(idOnInterface.Type);     // int?
-        Assert.IsType<NullableTypeSyntax>(idOnClass.Type);       // int?
-
-        Assert.IsNotType<NullableTypeSyntax>(nameOnInterface.Type);  // string
-        Assert.IsNotType<NullableTypeSyntax>(nameOnClass.Type);    // string
-
-        Assert.IsType<NullableTypeSyntax>(optionalOnInterface.Type); // int?
-        Assert.IsType<NullableTypeSyntax>(optionalOnClass.Type);   // int?
+        await Assert.That(countOnInterface.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(countOnClass.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(idOnInterface.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(idOnClass.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(nameOnInterface.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(nameOnClass.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(optionalOnInterface.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(optionalOnClass.Type is NullableTypeSyntax).IsTrue();
     }
 
-    [Fact]
-    public void Property_WithDefault_ShouldNotBeNullable_WhenNullableContextIsEnabled()
+    [Test]
+    public async Task Property_WithDefault_ShouldNotBeNullable_WhenNullableContextIsEnabled()
     {
-        // Arrange
         var inputTree = CSharpSyntaxTree.ParseText(DefaultValueTestModelSource);
-        var generatedTrees = RunGenerator(new[] { inputTree }).ToList();
+        var generatedTrees = RunGenerator([inputTree]).ToList();
 
-        var modelTree = generatedTrees.Single(t => Path.GetFileName(t.FilePath).EndsWith("TestDefaultModel.cs"));
+        var modelTree = generatedTrees.Single(t => Path.GetFileName(t.FilePath).EndsWith("TestDefaultModel.cs", StringComparison.Ordinal));
         var root = modelTree.GetCompilationUnitRoot();
 
         var @interface = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(i => i.Identifier.ValueText == "ITestDefaultModel");
         var @class = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "ImmutableTestDefaultModel");
 
-        // Act
         var countOnInterface = GetPropertyFromType(@interface, "Count");
         var idOnInterface = GetPropertyFromType(@interface, "Id");
         var nameOnInterface = GetPropertyFromType(@interface, "Name");
@@ -175,37 +161,33 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         var nameOnClass = GetPropertyFromType(@class, "Name");
         var optionalOnClass = GetPropertyFromType(@class, "OptionalValue");
 
-        // Assert
-        Assert.IsNotType<NullableTypeSyntax>(countOnInterface.Type); // int
-        Assert.IsNotType<NullableTypeSyntax>(countOnClass.Type);   // int
-
-        Assert.IsType<NullableTypeSyntax>(idOnInterface.Type);     // int?
-        Assert.IsType<NullableTypeSyntax>(idOnClass.Type);       // int?
-
-        // string is a reference type, so it won't be NullableTypeSyntax, 
-        // but the compiler will enforce nullability based on the project setting.
-        Assert.IsNotType<NullableTypeSyntax>(nameOnInterface.Type);
-        Assert.IsNotType<NullableTypeSyntax>(nameOnClass.Type);
-
-        Assert.IsType<NullableTypeSyntax>(optionalOnInterface.Type); // int?
-        Assert.IsType<NullableTypeSyntax>(optionalOnClass.Type);   // int?
+        await Assert.That(countOnInterface.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(countOnClass.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(idOnInterface.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(idOnClass.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(nameOnInterface.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(nameOnClass.Type is not NullableTypeSyntax).IsTrue();
+        await Assert.That(optionalOnInterface.Type is NullableTypeSyntax).IsTrue();
+        await Assert.That(optionalOnClass.Type is NullableTypeSyntax).IsTrue();
     }
 
-    [Fact]
-    public void Property_WithInvalidDefault_ShouldReportDiagnosticOnSourceAttribute_AndSkipBrokenAssignment()
+    [Test]
+    public async Task Property_WithInvalidDefault_ShouldReportDiagnosticOnSourceAttribute_AndSkipBrokenAssignment()
     {
         var inputTree = CSharpSyntaxTree.ParseText(InvalidDefaultValueTestModelSource, path: InvalidDefaultValueSourcePath);
 
         var (outputCompilation, diagnostics, generatedTrees) = RunGeneratorWithDiagnostics([inputTree]);
 
-        var diagnostic = Assert.Single(diagnostics.Where(x => x.Id == "DLG003"));
-        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-        Assert.Equal(InvalidDefaultValueSourcePath, diagnostic.Location.GetLineSpan().Path);
-        Assert.Equal("56", inputTree.GetText().ToString(diagnostic.Location.SourceSpan));
+        var diagnosticsWithId = diagnostics.Where(x => x.Id == "DLG003").ToList();
+        await Assert.That(diagnosticsWithId.Count).IsEqualTo(1);
 
-        Assert.DoesNotContain(outputCompilation.GetDiagnostics(), x => x.Id == "CS0029");
+        var diagnostic = diagnosticsWithId.Single();
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidDefaultValueSourcePath);
+        await Assert.That(inputTree.GetText().ToString(diagnostic.Location.SourceSpan)).IsEqualTo("56");
+        await Assert.That(outputCompilation.GetDiagnostics().Any(x => x.Id == "CS0029")).IsFalse();
 
-        var generatedCode = string.Join("\n", generatedTrees.Select(x => x.ToString()));
-        Assert.DoesNotContain("this.Kontotexten = 56;", generatedCode);
+        var generatedCode = string.Join(Environment.NewLine, generatedTrees.Select(x => x.ToString()));
+        await Assert.That(generatedCode.Contains("this.Kontotexten = 56;", StringComparison.Ordinal)).IsFalse();
     }
 }

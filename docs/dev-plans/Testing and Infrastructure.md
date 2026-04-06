@@ -1,8 +1,8 @@
 > [!WARNING]
-> This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
+> This document is now mostly a migration record. The target architecture described here is largely implemented; use `docs/dev-plans/Test Suite Parity Checklist.md` for the current cutover status.
 # Specification: Test Suite Reorganization, TUnit Migration, and Podman Infrastructure
 
-**Status:** Draft  
+**Status:** Mostly implemented; retained as migration history  
 **Goal:** Replace the current ad hoc xUnit-based test setup with a staged, TUnit-based test architecture that has clear project boundaries, deterministic database state, and a reproducible Podman-backed environment for local development and CI.
 
 ## 1. Current State Audit
@@ -137,11 +137,11 @@ Recommended target shape:
 
 For the first migration step, it was reasonable to create a single new proving-ground project.
 
-That work has now effectively become:
+That work became:
 
 * `src/DataLinq.Tests.Compliance`
 
-That project is no longer just a proving ground. It is now the practical compliance lane and should keep absorbing the cross-provider TUnit migration work until the other target projects exist.
+That project is no longer just a proving ground. It is the real compliance lane now.
 
 It should contain:
 
@@ -403,6 +403,8 @@ Why:
 * This proves the framework, the infra, and the test-harness design together.
 * If this step is ugly, the broader migration will be worse.
 
+This phase is complete. The remaining work is legacy cutover, not “prove TUnit can work.”
+
 ### Phase 3: Migrate by Category, Not File Name
 
 Migration order should be:
@@ -429,6 +431,8 @@ During the coexistence phase:
 Recommended artifact:
 
 * A parity checklist mapping old test classes or behaviors to new TUnit replacements
+
+That checklist now exists in `docs/dev-plans/Test Suite Parity Checklist.md`.
 
 ### Phase 5: Cut Over and Remove Legacy xUnit
 

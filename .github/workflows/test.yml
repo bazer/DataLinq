@@ -1,0 +1,87 @@
+name: Test
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quick:
+    name: Quick Lane
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      DOTNET_NOLOGO: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore solution
+        run: dotnet restore src/DataLinq.sln
+
+      - name: Build solution
+        run: dotnet build src/DataLinq.sln -c Debug --no-restore
+
+      - name: Run quick suite set
+        run: dotnet run --no-build --project src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj -c Debug --framework net10.0 -- run --suite all --alias quick --batch-size 2
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-test-results
+          path: TestResults
+
+  latest:
+    name: Latest Server-Backed Lane
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      DOTNET_NOLOGO: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Show Podman version
+        run: podman --version
+
+      - name: Restore solution
+        run: dotnet restore src/DataLinq.sln
+
+      - name: Build solution
+        run: dotnet build src/DataLinq.sln -c Debug --no-restore
+
+      - name: Run latest suite set
+        run: dotnet run --no-build --project src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj -c Debug --framework net10.0 -- run --suite all --alias latest --batch-size 4
+
+      - name: Tear down test infrastructure
+        if: always()
+        run: dotnet run --no-build --project src/DataLinq.Testing.CLI/DataLinq.Testing.CLI.csproj -c Debug --framework net10.0 -- down --remove
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-test-results
+          path: TestResults

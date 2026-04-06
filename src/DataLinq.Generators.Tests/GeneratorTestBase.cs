@@ -5,7 +5,6 @@ using System.Linq;
 using DataLinq.SourceGenerators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Xunit;
 
 namespace DataLinq.Generators.Tests;
 
@@ -46,7 +45,7 @@ public abstract class GeneratorTestBase
 
         var generatorErrors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (generatorErrors.Any())
-            Assert.Fail($"Generator produced errors:\n{string.Join('\n', generatorErrors.Select(e => e.ToString()))}");
+            throw new InvalidOperationException($"Generator produced errors:{Environment.NewLine}{string.Join(Environment.NewLine, generatorErrors.Select(e => e.ToString()))}");
 
         return generatedTrees;
     }

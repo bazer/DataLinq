@@ -43,7 +43,7 @@ internal static class ListCommand
 
         table.AddRow(
             TestCliSuiteCatalog.AllSuites,
-            "Runs the unit lane once, then the compliance lane against the selected targets.",
+            "Runs the generators and unit lanes once, then the compliance and MySQL/MariaDB lanes against the selected targets.",
             "(composite)");
 
         AnsiConsole.Write(new Rule("[yellow]Suites[/]"));

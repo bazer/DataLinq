@@ -1,8 +1,8 @@
 > [!WARNING]
-> This document is audit and planning material. It describes the current test suite, proposed structure, and migration decisions. It is not user-facing product documentation.
+> This document is a historical audit plus structure record. Use `docs/dev-plans/Test Suite Parity Checklist.md` for the current migration cutover status.
 # Phase 0: Test Suite Audit and Target Structure
 
-**Status:** Draft  
+**Status:** Audit complete; retained as baseline  
 **Scope:** Inventory the current test suite, classify what exists today, and define the recommended structure for the new TUnit-based suite.
 
 ## 1. Executive Summary
@@ -31,7 +31,7 @@ The right structure for the new suite is not "one new TUnit project." The right 
 * `src/DataLinq.Tests.MySql`
 * `src/DataLinq.Generators.Tests`
 
-That is the recommended end state. The initial proving-ground project has now effectively become `src/DataLinq.Tests.Compliance`, which is the right home for the cross-provider TUnit migration work already completed.
+That target structure is now mostly implemented. `src/DataLinq.Tests.Compliance` is no longer a proving-ground experiment; it is the real compliance lane.
 
 ## 2. Current Inventory
 
@@ -376,7 +376,7 @@ Populate it with one vertical slice:
 * one SQLite-specific test
 * one MySQL/MariaDB live integration test
 
-This project is temporary. Its job is to prove the harness and infrastructure, not to become the permanent home for everything.
+This project was the proving ground. It is now the permanent compliance lane for cross-provider behavior coverage.
 
 ### Slice 3: `DataLinq.Tests.Unit`
 
@@ -400,6 +400,8 @@ It should only start after the provider matrix and Podman story are stable.
 This comes after compliance because the provider-specific fixtures and temp-schema helpers should be built on top of the shared infrastructure rather than invented ad hoc again.
 
 ### Slice 6: `DataLinq.Generators.Tests`
+
+This slice is now complete. The generator project stayed in place and was migrated to TUnit in its existing project.
 
 This can be migrated in parallel later, but it does not need to block the infrastructure work.
 

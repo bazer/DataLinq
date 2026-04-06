@@ -44,13 +44,19 @@ Run the unit lane only:
 dotnet run --project src/DataLinq.Testing.CLI -- run --suite unit
 ```
 
+Run the generator lane only:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite generators
+```
+
 Run the latest lane:
 
 ```powershell
 dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest
 ```
 
-Run both suites with the default behavior:
+Run every active suite with the default behavior:
 
 ```powershell
 dotnet run --project src/DataLinq.Testing.CLI -- run
@@ -103,7 +109,10 @@ These aliases are the same model used by the CLI, the test harness, and the Visu
 
 ## Suites
 
-The CLI supports three suite modes:
+The CLI supports four concrete suite modes:
+
+* `generators`
+  Runs `src/DataLinq.Generators.Tests/DataLinq.Generators.Tests.csproj` once.
 
 * `unit`
   Runs `src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj` once.
@@ -112,9 +121,9 @@ The CLI supports three suite modes:
 * `mysql`
   Runs `src/DataLinq.Tests.MySql/DataLinq.Tests.MySql.csproj` against the selected server target batches.
 * `all`
-  Runs the unit suite once, then the compliance and MySQL/MariaDB suites against the selected target batches.
+  Runs the generators and unit suites once, then the compliance and MySQL/MariaDB suites against the selected target batches.
 
-`run` now defaults to `--suite all`. That is the right default now that the new unit lane is real.
+`run` now defaults to `--suite all`. That is the right default now that the generator, unit, compliance, and provider-specific lanes are all real.
 
 By default, suites run serially. Use `--parallel` if you explicitly want to overlap them. That can be faster, but it also increases contention against shared MySQL and MariaDB targets, so it should be an opt-in knob instead of a clever default.
 

@@ -2,79 +2,79 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using DataLinq.Extensions.Helpers;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Xunit;
 
 namespace DataLinq.Generators.Tests;
 
-public class SourceGeneratorTests : GeneratorTestBase // Inherit from the base class
+public class SourceGeneratorTests : GeneratorTestBase
 {
-    private string SyntaxTreesToString(IEnumerable<SyntaxTree> syntaxTrees)
-    {
-        return syntaxTrees.Select(x => x.ToString()).ToJoinedString();
-    }
+    private static string SyntaxTreesToString(IEnumerable<SyntaxTree> syntaxTrees)
+        => string.Join(Environment.NewLine, syntaxTrees.Select(x => x.ToString()));
 
-    private IEnumerable<SyntaxTree> GenerateCodeFromFolder(string[] dirs, bool includeSubfolders)
+    private IEnumerable<SyntaxTree> GenerateCodeFromFolder(string[] directories, bool includeSubfolders)
     {
         var projectRoot = Directory.GetParent(Environment.CurrentDirectory)?.Parent?.Parent?.Parent;
+        if (projectRoot is null)
+            throw new InvalidOperationException("Could not locate the generator test project root.");
 
-        Assert.NotNull(projectRoot); // Ensure we found the project root
+        var sources = directories
+            .SelectMany(directory => Directory.EnumerateFiles(
+                Path.Combine(projectRoot.FullName, directory),
+                "*.cs",
+                new EnumerationOptions { RecurseSubdirectories = includeSubfolders }))
+            .Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path), path: path));
 
-        var sources = dirs
-            .SelectMany(x => Directory.EnumerateFiles(Path.Combine(projectRoot.FullName, x), "*.cs", new EnumerationOptions { RecurseSubdirectories = includeSubfolders }))
-            .Select(x => CSharpSyntaxTree.ParseText(File.ReadAllText(x), path: x)); // Pass file path
-
-        return RunGenerator(sources); // Use the helper from the base class
+        return RunGenerator(sources);
     }
 
-    [Fact]
-    public void TestEmployees()
+    [Test]
+    public async Task TestEmployees()
     {
         var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/employees/gen"], true).ToList();
         var code = SyntaxTreesToString(syntax);
 
-        Assert.Contains("public partial class ImmutableEmployee", code);
+        await Assert.That(code.Contains("public partial class ImmutableEmployee", StringComparison.Ordinal)).IsTrue();
     }
 
-    [Fact]
-    public void TestEmployeesOnlyDb()
+    [Test]
+    public async Task TestEmployeesOnlyDb()
     {
         var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/employees/gen"], false).ToList();
         var code = SyntaxTreesToString(syntax);
 
-        Assert.Contains(code, "public partial class EmployeesDb");
+        await Assert.That(string.IsNullOrEmpty(code)).IsTrue();
     }
 
-    [Fact]
-    public void TestAllround()
+    [Test]
+    public async Task TestAllround()
     {
         var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/Allround"], true).ToList();
         var code = SyntaxTreesToString(syntax);
 
-        Assert.Contains("public partial class ImmutablePayment", code);
-        Assert.Contains("public partial class MutablePayment", code);
+        await Assert.That(code.Contains("public partial class ImmutablePayment", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public partial class MutablePayment", StringComparison.Ordinal)).IsTrue();
     }
 
-    [Fact]
-    public void TestAllroundOnlyDb()
+    [Test]
+    public async Task TestAllroundOnlyDb()
     {
         var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/Allround"], false).ToList();
         var code = SyntaxTreesToString(syntax);
 
-        Assert.Empty(code);
+        await Assert.That(string.IsNullOrEmpty(code)).IsTrue();
     }
 
-    [Fact]
-    public void TestAllModels()
+    [Test]
+    public async Task TestAllModels()
     {
         var syntax = GenerateCodeFromFolder(["DataLinq.Tests.Models/employees/gen", "DataLinq.Tests.Models/Allround"], true).ToList();
         var code = SyntaxTreesToString(syntax);
 
-        Assert.Contains("public partial class ImmutableLocation", code);
-        Assert.Contains("public partial class MutableLocation", code);
-        Assert.Contains("public partial class ImmutablePayment", code);
-        Assert.Contains("public partial class MutableEmployee", code);
+        await Assert.That(code.Contains("public partial class ImmutableLocation", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public partial class MutableLocation", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public partial class ImmutablePayment", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public partial class MutableEmployee", StringComparison.Ordinal)).IsTrue();
     }
 }

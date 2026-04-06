@@ -7,6 +7,7 @@ namespace DataLinq.Testing.CLI;
 
 internal static class TestCliSuiteCatalog
 {
+    public const string GeneratorsSuite = "generators";
     public const string UnitSuite = "unit";
     public const string ComplianceSuite = "compliance";
     public const string MySqlSuite = "mysql";
@@ -14,6 +15,11 @@ internal static class TestCliSuiteCatalog
 
     public static IReadOnlyList<TestCliSuite> Suites { get; } =
     [
+        new(
+            Name: GeneratorsSuite,
+            Description: "Runs the source-generator lane once.",
+            ProjectPath: Path.Combine("src", "DataLinq.Generators.Tests", "DataLinq.Generators.Tests.csproj"),
+            UsesTargetBatches: false),
         new(
             Name: UnitSuite,
             Description: "Runs the pure in-process unit lane once.",
