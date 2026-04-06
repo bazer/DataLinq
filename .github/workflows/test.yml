@@ -84,6 +84,7 @@ jobs:
 
       - name: Tear down test infrastructure
         if: always()
+        continue-on-error: true
         run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll down --remove
 
       - name: Upload test results

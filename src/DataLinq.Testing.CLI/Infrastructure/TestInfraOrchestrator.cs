@@ -260,7 +260,12 @@ internal sealed class TestInfraOrchestrator(
             return;
 
         ConsoleSync.WriteLine($"Killing container '{containerName}'...");
-        podman.Execute(["kill", containerName]).ThrowIfFailed($"Failed to kill container '{containerName}'.");
+        var result = podman.Execute(["kill", containerName]);
+        if (result.ExitCode == 0)
+            return;
+
+        var detail = string.IsNullOrWhiteSpace(result.StandardError) ? result.StandardOutput : result.StandardError;
+        ConsoleSync.WriteLine($"Warning: failed to kill container '{containerName}'. Continuing with forced removal. {detail}".TrimEnd());
     }
 
     private void RemoveContainerForcefully(string containerName)
