@@ -56,6 +56,12 @@ Run both suites with the default behavior:
 dotnet run --project src/DataLinq.Testing.CLI -- run
 ```
 
+Run every selected suite in parallel:
+
+```powershell
+dotnet run --project src/DataLinq.Testing.CLI -- run --parallel
+```
+
 Run the full supported matrix in batches of two targets:
 
 ```powershell
@@ -109,6 +115,8 @@ The CLI supports three suite modes:
   Runs the unit suite once, then the compliance and MySQL/MariaDB suites against the selected target batches.
 
 `run` now defaults to `--suite all`. That is the right default now that the new unit lane is real.
+
+By default, suites run serially. Use `--parallel` if you explicitly want to overlap them. That can be faster, but it also increases contention against shared MySQL and MariaDB targets, so it should be an opt-in knob instead of a clever default.
 
 ## Visual Studio Runsettings
 

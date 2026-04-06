@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using DataLinq.Testing;
 
 namespace DataLinq.Testing.CLI;
@@ -12,50 +13,55 @@ internal sealed class TestInfraOrchestrator(
     PodmanClient podman,
     TestInfraRuntimeStateStore stateStore)
 {
+    private readonly object lifecycleSync = new();
+
     public void Up(CliTargetSelection selection, bool recreate)
     {
-        if (selection.ServerTargets.Count > 0)
-            podman.EnsureAvailable();
+        lock (lifecycleSync)
+        {
+            if (selection.ServerTargets.Count > 0)
+                podman.EnsureAvailable();
 
-        if (recreate)
-            Down(remove: true, selection: null);
+            if (recreate)
+                Down(remove: true, selection: null);
 
-        foreach (var target in selection.ServerTargets)
-            EnsureContainerStarted(target);
+            foreach (var target in selection.ServerTargets)
+                EnsureContainerStarted(target);
 
-        Wait(selection);
+            Wait(selection, holdLifecycleLock: true);
+        }
     }
 
-    public void Wait(CliTargetSelection selection)
+    public void Wait(CliTargetSelection selection) => Wait(selection, holdLifecycleLock: false);
+
+    private void Wait(CliTargetSelection selection, bool holdLifecycleLock)
+    {
+        if (holdLifecycleLock)
+        {
+            WaitCore(selection);
+            return;
+        }
+
+        lock (lifecycleSync)
+            WaitCore(selection);
+    }
+
+    private void WaitCore(CliTargetSelection selection)
     {
         if (selection.ServerTargets.Count > 0)
             podman.EnsureAvailable();
 
         var host = ResolveHost(selection);
+        var waitTasks = new List<Task>(selection.ServerTargets.Count);
         foreach (var target in selection.ServerTargets)
         {
-            var containerName = settings.GetContainerName(target);
-            Console.WriteLine($"Waiting for {target.DisplayName} on port {target.HostPort}...");
-
-            switch (target.Family)
-            {
-                case DatabaseServerFamily.MySql:
-                    WaitForMySqlAdmin(containerName, settings.AdminPassword);
-                    InitializeMySqlHostAdminUser(containerName);
-                    break;
-                case DatabaseServerFamily.MariaDb:
-                    WaitForMariaDbReady(containerName);
-                    InitializeMariaDbHostAdminUser(containerName);
-                    break;
-                default:
-                    throw new InvalidOperationException($"Unsupported database family '{target.Family}'.");
-            }
-
-            WaitForHostPort(host, target.HostPort, $"host TCP port {host}:{target.HostPort}");
+            ConsoleSync.WriteLine($"Waiting for {target.DisplayName} on port {target.HostPort}...");
+            waitTasks.Add(Task.Run(() => WaitForTarget(target, host)));
         }
 
+        Task.WhenAll(waitTasks).GetAwaiter().GetResult();
         PersistState(selection, host);
-        Console.WriteLine($"Test infrastructure is ready for targets [{string.Join(", ", selection.Targets.Select(x => x.Id))}].");
+        ConsoleSync.WriteLine($"Test infrastructure is ready for targets [{string.Join(", ", selection.Targets.Select(x => x.Id))}].");
     }
 
     public void PersistState(CliTargetSelection selection)
@@ -65,34 +71,37 @@ internal sealed class TestInfraOrchestrator(
 
     public void Down(bool remove, CliTargetSelection? selection)
     {
-        podman.EnsureAvailable();
-
-        var targets = selection?.ServerTargets ?? TestCliCatalog.Targets
-            .Where(x => x.ServerTarget is not null)
-            .Select(x => x.ServerTarget!)
-            .ToArray();
-
-        foreach (var target in targets)
+        lock (lifecycleSync)
         {
-            var containerName = settings.GetContainerName(target);
-            if (!ContainerExists(containerName))
-                continue;
+            podman.EnsureAvailable();
 
-            if (ContainerRunning(containerName))
+            var targets = selection?.ServerTargets ?? TestCliCatalog.Targets
+                .Where(x => x.ServerTarget is not null)
+                .Select(x => x.ServerTarget!)
+                .ToArray();
+
+            foreach (var target in targets)
             {
-                Console.WriteLine($"Stopping container '{containerName}'...");
-                podman.Execute(["stop", containerName]).ThrowIfFailed($"Failed to stop container '{containerName}'.");
+                var containerName = settings.GetContainerName(target);
+                if (!ContainerExists(containerName))
+                    continue;
+
+                if (ContainerRunning(containerName))
+                {
+                    ConsoleSync.WriteLine($"Stopping container '{containerName}'...");
+                    podman.Execute(["stop", containerName]).ThrowIfFailed($"Failed to stop container '{containerName}'.");
+                }
+
+                if (remove)
+                {
+                    ConsoleSync.WriteLine($"Removing container '{containerName}'...");
+                    podman.Execute(["rm", "-f", containerName]).ThrowIfFailed($"Failed to remove container '{containerName}'.");
+                }
             }
 
-            if (remove)
-            {
-                Console.WriteLine($"Removing container '{containerName}'...");
-                podman.Execute(["rm", "-f", containerName]).ThrowIfFailed($"Failed to remove container '{containerName}'.");
-            }
+            CleanupLegacyArtifacts(remove);
+            RefreshRuntimeState();
         }
-
-        CleanupLegacyArtifacts(remove);
-        RefreshRuntimeState();
     }
 
     public void Reset(CliTargetSelection selection)
@@ -106,16 +115,37 @@ internal sealed class TestInfraOrchestrator(
         var containerName = settings.GetContainerName(target);
         if (!ContainerExists(containerName))
         {
-            Console.WriteLine($"Creating {target.DisplayName} container '{containerName}'...");
+            ConsoleSync.WriteLine($"Creating {target.DisplayName} container '{containerName}'...");
             CreateContainer(target, containerName);
             return;
         }
 
         if (!ContainerRunning(containerName))
         {
-            Console.WriteLine($"Starting {target.DisplayName} container '{containerName}'...");
+            ConsoleSync.WriteLine($"Starting {target.DisplayName} container '{containerName}'...");
             podman.Execute(["start", containerName]).ThrowIfFailed($"Failed to start container '{containerName}'.");
         }
+    }
+
+    private void WaitForTarget(DatabaseServerTarget target, string host)
+    {
+        var containerName = settings.GetContainerName(target);
+
+        switch (target.Family)
+        {
+            case DatabaseServerFamily.MySql:
+                WaitForMySqlAdmin(containerName, settings.AdminPassword);
+                InitializeMySqlHostAdminUser(containerName);
+                break;
+            case DatabaseServerFamily.MariaDb:
+                WaitForMariaDbReady(containerName);
+                InitializeMariaDbHostAdminUser(containerName);
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported database family '{target.Family}'.");
+        }
+
+        WaitForHostPort(host, target.HostPort, $"host TCP port {host}:{target.HostPort}");
     }
 
     private void CreateContainer(DatabaseServerTarget target, string containerName)
@@ -165,7 +195,7 @@ internal sealed class TestInfraOrchestrator(
         if (runningServerTargets.Length == 0)
         {
             stateStore.Delete();
-            Console.WriteLine("No Podman test containers are present.");
+            ConsoleSync.WriteLine("No Podman test containers are present.");
             return;
         }
 

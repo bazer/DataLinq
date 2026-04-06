@@ -103,12 +103,16 @@ internal static class InteractiveCliRunner
                 .Validate(value => value is >= 1 and <= 32
                     ? ValidationResult.Success()
                     : ValidationResult.Error("[red]Batch size must be between 1 and 32.[/]")));
+        var parallelSuites = AnsiConsole.Prompt(new ConfirmationPrompt("Run selected suites in parallel?")
+        {
+            DefaultValue = false
+        });
         var tearDown = AnsiConsole.Prompt(new ConfirmationPrompt("Stop provisioned server targets after the run?")
         {
             DefaultValue = false
         });
 
-        RunCommand.Execute(orchestrator, settings, selection, suite, null, configuration, build, batchSize, tearDown);
+        RunCommand.Execute(orchestrator, settings, selection, suite, null, configuration, build, batchSize, parallelSuites, tearDown);
         return 0;
     }
 

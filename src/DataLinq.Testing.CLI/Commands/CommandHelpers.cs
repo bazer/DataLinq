@@ -24,4 +24,15 @@ internal static class CommandHelpers
     {
         Description = "Prompts for command values interactively."
     };
+
+    public static Option<bool> ParallelSuitesOption()
+    {
+        var option = new Option<bool>("--parallel")
+        {
+            Description = "Runs all selected suites in parallel instead of serially. This is faster, but it can increase contention against shared test targets."
+        };
+
+        option.Aliases.Add("--parallel-suites");
+        return option;
+    }
 }
