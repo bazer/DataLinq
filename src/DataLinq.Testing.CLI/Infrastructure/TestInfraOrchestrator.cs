@@ -87,16 +87,17 @@ internal sealed class TestInfraOrchestrator(
                 if (!ContainerExists(containerName))
                     continue;
 
-                if (ContainerRunning(containerName))
-                {
-                    ConsoleSync.WriteLine($"Stopping container '{containerName}'...");
-                    podman.Execute(["stop", containerName]).ThrowIfFailed($"Failed to stop container '{containerName}'.");
-                }
-
                 if (remove)
                 {
                     ConsoleSync.WriteLine($"Removing container '{containerName}'...");
                     podman.Execute(["rm", "-f", containerName]).ThrowIfFailed($"Failed to remove container '{containerName}'.");
+                    continue;
+                }
+
+                if (ContainerRunning(containerName))
+                {
+                    ConsoleSync.WriteLine($"Stopping container '{containerName}'...");
+                    podman.Execute(["stop", containerName]).ThrowIfFailed($"Failed to stop container '{containerName}'.");
                 }
             }
 
@@ -229,11 +230,14 @@ internal sealed class TestInfraOrchestrator(
             if (!ContainerExists(legacyContainerName))
                 continue;
 
+            if (remove)
+            {
+                podman.Execute(["rm", "-f", legacyContainerName]).ThrowIfFailed($"Failed to remove legacy container '{legacyContainerName}'.");
+                continue;
+            }
+
             if (ContainerRunning(legacyContainerName))
                 podman.Execute(["stop", legacyContainerName]).ThrowIfFailed($"Failed to stop legacy container '{legacyContainerName}'.");
-
-            if (remove)
-                podman.Execute(["rm", "-f", legacyContainerName]).ThrowIfFailed($"Failed to remove legacy container '{legacyContainerName}'.");
         }
 
         var legacyPod = settings.ContainerPrefix;

@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   quick:
     name: Quick Lane
@@ -44,6 +47,7 @@ jobs:
         with:
           name: quick-test-results
           path: TestResults
+          if-no-files-found: ignore
 
   latest:
     name: Latest Server-Backed Lane
@@ -88,3 +92,4 @@ jobs:
         with:
           name: latest-test-results
           path: TestResults
+          if-no-files-found: ignore

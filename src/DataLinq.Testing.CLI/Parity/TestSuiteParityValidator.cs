@@ -19,7 +19,7 @@ internal static class TestSuiteParityValidator
 
     public static TestSuiteParityValidationResult Validate(string repositoryRoot)
     {
-        var manifestPath = Path.Combine(repositoryRoot, "docs", "dev-plans", "test-suite-parity.json");
+        var manifestPath = Path.Combine(repositoryRoot, "docs", "dev-plans", "testing", "test-suite-parity.json");
         if (!File.Exists(manifestPath))
         {
             return new TestSuiteParityValidationResult(
