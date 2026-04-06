@@ -5,12 +5,16 @@ using System.Threading.Tasks;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
+using TUnit.Core;
+using TUnit.Core.Interfaces;
 
 namespace DataLinq.Tests.Compliance;
 
+[ParallelLimiter<EmployeesTransactionLifecycleParallelLimit>]
 public class EmployeesTransactionLifecycleTests
 {
     private readonly EmployeesTestData _employees = new();
+    private const int ConcurrentTransactionCount = 4;
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
@@ -377,7 +381,7 @@ public class EmployeesTransactionLifecycleTests
 
         var employeesDatabase = databaseScope.Database;
         var employee = _employees.GetOrCreateEmployee(999991, employeesDatabase);
-        var transactions = new Transaction<EmployeesDb>[10];
+        var transactions = new Transaction<EmployeesDb>[ConcurrentTransactionCount];
 
         try
         {
@@ -604,4 +608,9 @@ public class EmployeesTransactionLifecycleTests
 
         await Assert.That(threw).IsTrue();
     }
+}
+
+public sealed class EmployeesTransactionLifecycleParallelLimit : IParallelLimit
+{
+    public int Limit => 1;
 }

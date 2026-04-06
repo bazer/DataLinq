@@ -30,12 +30,14 @@ public sealed record PodmanTestEnvironmentSettings(
     public const string ApplicationUserEnvironmentVariable = "DATALINQ_TEST_DB_APP_USER";
     public const string ApplicationPasswordEnvironmentVariable = "DATALINQ_TEST_DB_APP_PASSWORD";
     public const string EmployeesDatabaseEnvironmentVariable = "DATALINQ_TEST_EMPLOYEES_DB";
+    public const string ServerMaxConnectionsEnvironmentVariable = "DATALINQ_TEST_DB_MAX_CONNECTIONS";
     public const string ProviderSetEnvironmentVariable = "DATALINQ_TEST_PROVIDER_SET";
     public const string TargetAliasEnvironmentVariable = "DATALINQ_TEST_TARGET_ALIAS";
     public const string TargetIdsEnvironmentVariable = "DATALINQ_TEST_TARGETS";
     public const string PodmanExecutablePathEnvironmentVariable = "DATALINQ_TEST_PODMAN_PATH";
 
     private const string LegacyContainerPrefixEnvironmentVariable = "DATALINQ_TEST_PODMAN_POD";
+    private const uint AdminMaximumPoolSize = 1;
 
     public static string ResolveContainerPrefix(string fallback) =>
         GetEnvironmentVariable(fallback, ContainerPrefixEnvironmentVariable, LegacyContainerPrefixEnvironmentVariable);
@@ -109,8 +111,8 @@ public sealed record PodmanTestEnvironmentSettings(
             Port = (uint)GetPort(target),
             UserID = AdminUser,
             Password = AdminPassword,
-            Pooling = true,
-            MaximumPoolSize = 20,
+            Pooling = false,
+            MaximumPoolSize = AdminMaximumPoolSize,
             CharacterSet = "utf8mb4"
         };
 
@@ -153,8 +155,7 @@ public sealed record PodmanTestEnvironmentSettings(
             Database = logicalDatabaseName,
             UserID = ApplicationUser,
             Password = ApplicationPassword,
-            Pooling = true,
-            MaximumPoolSize = 100,
+            Pooling = false,
             CharacterSet = "utf8mb4"
         };
 

@@ -60,7 +60,8 @@ internal sealed class TestInfraOrchestrator(
         }
 
         Task.WhenAll(waitTasks).GetAwaiter().GetResult();
-        PersistState(selection, host);
+        if (selection.ServerTargets.Count > 0)
+            PersistState(selection, host);
         ConsoleSync.WriteLine($"Test infrastructure is ready for targets [{string.Join(", ", selection.Targets.Select(x => x.Id))}].");
     }
 
@@ -180,6 +181,7 @@ internal sealed class TestInfraOrchestrator(
         });
 
         arguments.Add(target.Image);
+        arguments.Add($"--max_connections={settings.ServerMaxConnections}");
         arguments.Add("--character-set-server=utf8mb4");
         arguments.Add("--collation-server=utf8mb4_unicode_ci");
 

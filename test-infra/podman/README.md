@@ -156,6 +156,7 @@ That matters especially on Windows, where Podman machine host resolution is not 
 * Admin user/password: `datalinq` / `datalinq`
 * Application user/password: `datalinq` / `datalinq`
 * Initial database: `datalinq_employees`
+* Server `max_connections`: `250`
 
 ## Environment Variables
 
@@ -169,6 +170,8 @@ Supported overrides:
 * `DATALINQ_TEST_DB_APP_USER`
 * `DATALINQ_TEST_DB_APP_PASSWORD`
 * `DATALINQ_TEST_EMPLOYEES_DB`
+* `DATALINQ_TEST_DB_MAX_CONNECTIONS`
+  Overrides the server-side `max_connections` setting applied when MySQL and MariaDB test containers are created.
 * `DATALINQ_TEST_PODMAN_PATH`
   Explicit path to the Podman executable if auto-discovery is not good enough on the current machine.
 * `DATALINQ_TEST_PROVIDER_SET`

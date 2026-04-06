@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -11,6 +12,9 @@ namespace DataLinq.Testing;
 
 internal static class TestDatabaseLifecycle
 {
+    private const int ServerAdminRetryAttempts = 30;
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> ServerAdminLocks = new(StringComparer.OrdinalIgnoreCase);
+
     public static Database<TDatabase> CreateDatabase<TDatabase>(TestConnectionDefinition connection)
         where TDatabase : class, IDatabaseModel
     {
@@ -25,12 +29,12 @@ internal static class TestDatabaseLifecycle
     {
         try
         {
-            using var adminConnection = new MySqlConnection(settings.CreateAdminConnectionString(target));
-            adminConnection.Open();
-
-            using var createDatabase = adminConnection.CreateCommand();
-            createDatabase.CommandText = $"CREATE DATABASE IF NOT EXISTS {QuoteIdentifier(connection.LogicalDatabaseName)} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
-            createDatabase.ExecuteNonQuery();
+            ExecuteServerAdminCommand(target, settings, adminConnection =>
+            {
+                using var createDatabase = adminConnection.CreateCommand();
+                createDatabase.CommandText = $"CREATE DATABASE IF NOT EXISTS {QuoteIdentifier(connection.LogicalDatabaseName)} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+                createDatabase.ExecuteNonQuery();
+            });
         }
         catch (MySqlException exception)
         {
@@ -43,13 +47,13 @@ internal static class TestDatabaseLifecycle
         TestConnectionDefinition connection,
         PodmanTestEnvironmentSettings settings)
     {
-        MySqlConnection.ClearAllPools();
-        using var adminConnection = new MySqlConnection(settings.CreateAdminConnectionString(target));
-        adminConnection.Open();
-
-        using var dropDatabase = adminConnection.CreateCommand();
-        dropDatabase.CommandText = $"DROP DATABASE IF EXISTS {QuoteIdentifier(connection.LogicalDatabaseName)};";
-        dropDatabase.ExecuteNonQuery();
+        ExecuteServerAdminCommand(target, settings, adminConnection =>
+        {
+            using var dropDatabase = adminConnection.CreateCommand();
+            dropDatabase.CommandText = $"DROP DATABASE IF EXISTS {QuoteIdentifier(connection.LogicalDatabaseName)};";
+            dropDatabase.ExecuteNonQuery();
+        },
+        clearPools: true);
     }
 
     public static void DeleteSqliteFile(string connectionString)
@@ -90,6 +94,57 @@ internal static class TestDatabaseLifecycle
     }
 
     private static string QuoteIdentifier(string value) => $"`{value.Replace("`", "``", StringComparison.Ordinal)}`";
+
+    private static void ExecuteServerAdminCommand(
+        DatabaseServerTarget target,
+        PodmanTestEnvironmentSettings settings,
+        Action<MySqlConnection> action,
+        bool clearPools = false)
+    {
+        var serverLock = ServerAdminLocks.GetOrAdd(target.Id, _ => new SemaphoreSlim(1, 1));
+        serverLock.Wait();
+
+        try
+        {
+            MySqlException? lastException = null;
+
+            for (var attempt = 1; attempt <= ServerAdminRetryAttempts; attempt++)
+            {
+                try
+                {
+                    if (clearPools)
+                        MySqlConnection.ClearAllPools();
+
+                    using var adminConnection = new MySqlConnection(settings.CreateAdminConnectionString(target));
+                    adminConnection.Open();
+                    action(adminConnection);
+                    return;
+                }
+                catch (MySqlException exception) when (IsTooManyConnections(exception) && attempt < ServerAdminRetryAttempts)
+                {
+                    lastException = exception;
+                    Thread.Sleep(GetRetryDelay(attempt));
+                }
+            }
+
+            if (lastException is not null)
+                throw lastException;
+
+            throw new InvalidOperationException("Server admin command failed without a captured MySqlException.");
+        }
+        finally
+        {
+            serverLock.Release();
+        }
+    }
+
+    private static bool IsTooManyConnections(MySqlException exception)
+        => exception.Number == 1040
+        || exception.Message.Contains("Too many connections", StringComparison.OrdinalIgnoreCase);
+
+    private static int GetRetryDelay(int attempt)
+        => Math.Min(1000, 100 + (attempt * 100));
+
     private static string BuildServerSetupErrorMessage(
         DatabaseServerTarget target,
         PodmanTestEnvironmentSettings settings,

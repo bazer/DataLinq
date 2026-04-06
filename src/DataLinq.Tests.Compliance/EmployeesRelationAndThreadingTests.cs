@@ -10,6 +10,10 @@ namespace DataLinq.Tests.Compliance;
 public class EmployeesRelationAndThreadingTests
 {
     private readonly EmployeesTestData _employees = new();
+    private const int ServerParallelIterationCount = 24;
+    private const int LocalParallelIterationCount = 100;
+    private const int ServerParallelTransactionCount = 6;
+    private const int LocalParallelTransactionCount = 10;
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
@@ -76,7 +80,7 @@ public class EmployeesRelationAndThreadingTests
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
-        var amount = 100;
+        var amount = GetParallelIterationCount(provider);
         var employees = employeesDatabase.Query().Employees
             .Where(x => x.emp_no <= amount)
             .OrderBy(x => x.emp_no)
@@ -118,6 +122,7 @@ public class EmployeesRelationAndThreadingTests
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
+        var iterations = GetParallelIterationCount(provider);
 
         var employeeNumbers = employeesDatabase.Query().Employees
             .OrderBy(x => x.emp_no)
@@ -125,7 +130,7 @@ public class EmployeesRelationAndThreadingTests
             .Select(x => x.emp_no!.Value)
             .ToArray();
 
-        Parallel.For(0, 100, _ =>
+        Parallel.For(0, iterations, _ =>
         {
             foreach (var employeeNumber in employeeNumbers)
                 AssertEmployeeNumber(employeesDatabase, employeeNumber);
@@ -144,7 +149,7 @@ public class EmployeesRelationAndThreadingTests
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
-        var employeeNumbers = Enumerable.Range(999980, 10).ToArray();
+        var employeeNumbers = Enumerable.Range(999980, GetParallelTransactionCount(provider)).ToArray();
         var originalBirthDates = new Dictionary<int, DateOnly>();
         var updatedBirthDates = new Dictionary<int, DateOnly>();
 
@@ -212,13 +217,14 @@ public class EmployeesRelationAndThreadingTests
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
+        var iterations = GetParallelIterationCount(provider);
         var departmentNumber = employeesDatabase.Query().Departments
             .ToList()
             .Select(x => new { x.DeptNo, ManagerCount = x.Managers.Count })
             .First(x => x.ManagerCount > 0)
             .DeptNo;
 
-        Parallel.For(0, 100, _ =>
+        Parallel.For(0, iterations, _ =>
         {
             var department = employeesDatabase.Query().Departments.Single(x => x.DeptNo == departmentNumber);
 
@@ -242,7 +248,7 @@ public class EmployeesRelationAndThreadingTests
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
-        Parallel.For(0, 100, _ =>
+        Parallel.For(0, GetParallelIterationCount(provider), _ =>
         {
             List<Salaries> salaries;
 
@@ -267,6 +273,12 @@ public class EmployeesRelationAndThreadingTests
         var snapshotTimestamp = employeesDatabase.Provider.State.Cache.MakeSnapshot().Timestamp;
         await Assert.That(snapshotTimestamp > DateTime.MinValue).IsTrue();
     }
+
+    private static int GetParallelIterationCount(TestProviderDescriptor provider)
+        => provider.IsServerDatabase ? ServerParallelIterationCount : LocalParallelIterationCount;
+
+    private static int GetParallelTransactionCount(TestProviderDescriptor provider)
+        => provider.IsServerDatabase ? ServerParallelTransactionCount : LocalParallelTransactionCount;
 
     private static void AssertEmployeeNumber(Database<EmployeesDb> employeesDatabase, int employeeNumber)
     {

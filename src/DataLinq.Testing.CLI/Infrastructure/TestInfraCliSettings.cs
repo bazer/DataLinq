@@ -13,7 +13,8 @@ internal sealed record TestInfraCliSettings(
     string AdminPassword,
     string ApplicationUser,
     string ApplicationPassword,
-    string EmployeesDatabase)
+    string EmployeesDatabase,
+    int ServerMaxConnections)
 {
     public static TestInfraCliSettings FromEnvironment()
     {
@@ -29,7 +30,8 @@ internal sealed record TestInfraCliSettings(
             AdminPassword: GetEnvironmentVariable("datalinq", PodmanTestEnvironmentSettings.AdminPasswordEnvironmentVariable),
             ApplicationUser: GetEnvironmentVariable("datalinq", PodmanTestEnvironmentSettings.ApplicationUserEnvironmentVariable),
             ApplicationPassword: GetEnvironmentVariable("datalinq", PodmanTestEnvironmentSettings.ApplicationPasswordEnvironmentVariable),
-            EmployeesDatabase: GetEnvironmentVariable("datalinq_employees", PodmanTestEnvironmentSettings.EmployeesDatabaseEnvironmentVariable));
+            EmployeesDatabase: GetEnvironmentVariable("datalinq_employees", PodmanTestEnvironmentSettings.EmployeesDatabaseEnvironmentVariable),
+            ServerMaxConnections: GetEnvironmentVariable(250, PodmanTestEnvironmentSettings.ServerMaxConnectionsEnvironmentVariable));
     }
 
     public string GetContainerName(DatabaseServerTarget target) =>
@@ -42,6 +44,18 @@ internal sealed record TestInfraCliSettings(
             var value = Environment.GetEnvironmentVariable(key);
             if (!string.IsNullOrWhiteSpace(value))
                 return value;
+        }
+
+        return fallback;
+    }
+
+    private static int GetEnvironmentVariable(int fallback, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = Environment.GetEnvironmentVariable(key);
+            if (!string.IsNullOrWhiteSpace(value) && int.TryParse(value, out var parsed) && parsed > 0)
+                return parsed;
         }
 
         return fallback;
