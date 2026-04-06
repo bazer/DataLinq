@@ -92,7 +92,8 @@ jobs:
           fi
 
       - name: Nightly decision
-        run: echo "Recent commit count in the nightly window: ${{ steps.detect.outputs.commit_count }}"
+        run: |
+          echo "Recent commit count in the nightly window: ${{ steps.detect.outputs.commit_count }}"
 
   full-matrix:
     name: Full Matrix Nightly
