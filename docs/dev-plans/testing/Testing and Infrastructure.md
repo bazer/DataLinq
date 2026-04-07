@@ -294,7 +294,8 @@ For local and CI test containers, static test credentials are fine if they are o
 
 We need a dedicated test workflow, for example:
 
-* `.github/workflows/test.yml`
+* `.github/workflows/latest.yml`
+* `.github/workflows/full-matrix.yml`
 
 The workflow should:
 

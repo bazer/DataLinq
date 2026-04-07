@@ -122,7 +122,7 @@ internal static class InteractiveCliRunner
             DefaultValue = false
         });
 
-        RunCommand.Execute(orchestrator, settings, selection, suite, null, configuration, build, batchSize, parallelSuites, tearDown);
+        RunCommand.Execute(orchestrator, settings, selection, suite, null, configuration, build, batchSize, parallelSuites, tearDown, summaryJsonPath: null);
         return 0;
     }
 

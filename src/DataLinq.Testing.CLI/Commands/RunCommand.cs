@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Spectre.Console;
 
@@ -43,6 +44,10 @@ internal static class RunCommand
         {
             Description = "Stops the provisioned server targets after the run completes."
         };
+        var summaryJsonOption = new Option<string?>("--summary-json")
+        {
+            Description = "Optional path to write a machine-readable run summary JSON file."
+        };
 
         var command = new Command("run", "Runs the selected test suite or suites.");
         command.Options.Add(aliasOption);
@@ -55,6 +60,7 @@ internal static class RunCommand
         command.Options.Add(buildOption);
         command.Options.Add(batchSizeOption);
         command.Options.Add(tearDownOption);
+        command.Options.Add(summaryJsonOption);
 
         command.SetAction(parseResult =>
         {
@@ -83,7 +89,8 @@ internal static class RunCommand
                 parseResult.GetValue(buildOption),
                 batchSize,
                 parseResult.GetValue(parallelSuitesOption),
-                parseResult.GetValue(tearDownOption));
+                parseResult.GetValue(tearDownOption),
+                parseResult.GetValue(summaryJsonOption));
 
             if (exitCode != 0)
                 Environment.ExitCode = exitCode;
@@ -102,9 +109,10 @@ internal static class RunCommand
         bool buildProject,
         int batchSize,
         bool parallelSuites,
-        bool tearDown)
+        bool tearDown,
+        string? summaryJsonPath)
     {
-        var exitCode = RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, configuration, buildProject, batchSize, parallelSuites, tearDown);
+        var exitCode = RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath);
         if (exitCode != 0)
             Environment.ExitCode = exitCode;
     }
@@ -119,7 +127,8 @@ internal static class RunCommand
         bool buildProject,
         int batchSize,
         bool parallelSuites,
-        bool tearDown)
+        bool tearDown,
+        string? summaryJsonPath)
     {
         var repositoryRoot = settings.RepositoryRoot;
         var suites = ResolveSuites(suiteName, projectPathOverride);
@@ -206,6 +215,7 @@ internal static class RunCommand
         var orderedResults = OrderResults(results);
         RenderSummary(orderedResults);
         RenderFailedTests(orderedResults);
+        WriteSummaryJson(summaryJsonPath, orderedResults, overallExitCode);
         return overallExitCode;
     }
 
@@ -611,6 +621,47 @@ internal static class RunCommand
 
     private static string FormatNullableCount(int? value) => value?.ToString() ?? "-";
 
+    private static void WriteSummaryJson(string? summaryJsonPath, IReadOnlyList<RunResult> results, int overallExitCode)
+    {
+        if (string.IsNullOrWhiteSpace(summaryJsonPath))
+            return;
+
+        var resolvedPath = Path.GetFullPath(summaryJsonPath);
+        var directory = Path.GetDirectoryName(resolvedPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+            Directory.CreateDirectory(directory);
+
+        var payload = new RunSummaryPayload(
+            OverallExitCode: overallExitCode,
+            Total: SumCounts(results.Select(static x => x.Total)),
+            Passed: SumCounts(results.Select(static x => x.Succeeded)),
+            Failed: SumCounts(results.Select(static x => x.Failed)),
+            Skipped: SumCounts(results.Select(static x => x.Skipped)),
+            Results: results.Select(static x => new RunSummaryEntryPayload(
+                x.Suite,
+                x.BatchIndex,
+                x.Targets,
+                x.ExitCode,
+                x.DurationSeconds,
+                x.Total,
+                x.Succeeded,
+                x.Failed,
+                x.Skipped)).ToArray());
+
+        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText(resolvedPath, json);
+    }
+
+    private static int? SumCounts(IEnumerable<int?> values)
+    {
+        var knownValues = values.Where(static x => x.HasValue).Select(static x => x!.Value).ToArray();
+        return knownValues.Length == 0 ? null : knownValues.Sum();
+    }
+
     private static IReadOnlyList<RunResult> OrderResults(IEnumerable<RunResult> results) =>
         results
             .OrderBy(x => GetSuiteOrder(x.Suite))
@@ -655,4 +706,23 @@ internal static class RunCommand
     private sealed record SuiteRunResult(
         int ExitCode,
         IReadOnlyList<RunResult> Results);
+
+    private sealed record RunSummaryPayload(
+        int OverallExitCode,
+        int? Total,
+        int? Passed,
+        int? Failed,
+        int? Skipped,
+        IReadOnlyList<RunSummaryEntryPayload> Results);
+
+    private sealed record RunSummaryEntryPayload(
+        string Suite,
+        int? BatchIndex,
+        string Targets,
+        int ExitCode,
+        double DurationSeconds,
+        int? Total,
+        int? Passed,
+        int? Failed,
+        int? Skipped);
 }

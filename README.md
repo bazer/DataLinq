@@ -1,5 +1,16 @@
 # DataLinq
 
+[![Latest CI](https://github.com/bazer/DataLinq/actions/workflows/latest.yml/badge.svg?branch=master)](https://github.com/bazer/DataLinq/actions/workflows/latest.yml)
+[![Full Matrix Nightly](https://github.com/bazer/DataLinq/actions/workflows/full-matrix.yml/badge.svg?branch=master)](https://github.com/bazer/DataLinq/actions/workflows/full-matrix.yml)
+[![Full matrix tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/bazer/DataLinq/badge-data/.github/badges/full-matrix-tests.json)](https://github.com/bazer/DataLinq/actions/workflows/full-matrix.yml)
+[![Docs](https://github.com/bazer/DataLinq/actions/workflows/static.yml/badge.svg?branch=master)](https://github.com/bazer/DataLinq/actions/workflows/static.yml)
+[![NuGet DataLinq.SQLite](https://img.shields.io/nuget/v/DataLinq.SQLite?logo=nuget)](https://www.nuget.org/packages/DataLinq.SQLite/)
+[![NuGet DataLinq.MySql](https://img.shields.io/nuget/v/DataLinq.MySql?logo=nuget)](https://www.nuget.org/packages/DataLinq.MySql/)
+[![NuGet DataLinq.CLI](https://img.shields.io/nuget/v/DataLinq.CLI?logo=nuget)](https://www.nuget.org/packages/DataLinq.CLI/)
+[![License: MIT](https://img.shields.io/github/license/bazer/DataLinq)](https://github.com/bazer/DataLinq/blob/master/LICENSE.md)
+[![.NET 8, 9, 10](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4?logo=dotnet)](https://github.com/bazer/DataLinq#installation)
+[![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%20%7C%20MariaDB%2010.11%2F11.4%2F11.8-0A7BBB)](https://bazer.github.io/datalinq/)
+
 DataLinq is a lightweight, high-performance ORM that uses source generators and immutable models to prioritize data integrity, thread safety, and efficient caching. It is designed to lean heavily on the cache to trade memory usage for speed.
 
 ### Goal

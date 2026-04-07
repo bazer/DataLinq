@@ -1,0 +1,153 @@
+name: Full Matrix Nightly
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  detect-nightly-activity:
+    name: Detect Nightly Activity
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.detect.outputs.should_run }}
+      commit_count: ${{ steps.detect.outputs.commit_count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect recent commits
+        id: detect
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "commit_count=manual" >> "$GITHUB_OUTPUT"
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          commit_count=$(git rev-list --count --since="30 hours ago" HEAD)
+          echo "commit_count=$commit_count" >> "$GITHUB_OUTPUT"
+          if [ "$commit_count" -gt 0 ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Nightly decision
+        run: |
+          echo "Recent commit count in the nightly window: ${{ steps.detect.outputs.commit_count }}"
+
+  full-matrix:
+    name: Full Matrix Nightly
+    if: github.event_name == 'workflow_dispatch' || needs.detect-nightly-activity.outputs.should_run == 'true'
+    needs: [detect-nightly-activity]
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      DOTNET_NOLOGO: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Show Podman version
+        run: podman --version
+
+      - name: Restore solution
+        run: dotnet restore src/DataLinq.sln
+
+      - name: Build solution
+        run: dotnet build src/DataLinq.sln -c Debug --no-restore
+
+      - name: Validate parity manifest
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll validate-parity
+
+      - name: Run full matrix suite set
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias all --batch-size 2 --summary-json artifacts/ci/full-matrix-summary.json
+
+      - name: Update full matrix test count badge data
+        if: success()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary_path = Path("artifacts/ci/full-matrix-summary.json")
+          badge_path = Path("artifacts/ci/full-matrix-tests.json")
+
+          summary = json.loads(summary_path.read_text(encoding="utf-8"))
+          total = summary.get("Total")
+
+          badge = {
+              "schemaVersion": 1,
+              "label": "full matrix tests",
+              "message": str(total) if total is not None else "unknown",
+              "color": "brightgreen" if total is not None else "lightgrey"
+          }
+
+          badge_path.parent.mkdir(parents=True, exist_ok=True)
+          badge_path.write_text(json.dumps(badge, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Publish badge data to badge-data branch
+        if: success() && github.ref == 'refs/heads/master'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin badge-data || true
+
+          if git show-ref --verify --quiet refs/remotes/origin/badge-data; then
+            git worktree add badge-data-worktree refs/remotes/origin/badge-data
+          else
+            git worktree add --detach badge-data-worktree
+            pushd badge-data-worktree
+            git switch --orphan badge-data
+            git rm -rf . > /dev/null 2>&1 || true
+            popd
+          fi
+
+          mkdir -p badge-data-worktree/.github/badges
+          cp artifacts/ci/full-matrix-tests.json badge-data-worktree/.github/badges/full-matrix-tests.json
+
+          pushd badge-data-worktree
+
+          git add .github/badges/full-matrix-tests.json
+          if git diff --cached --quiet; then
+            echo "No badge changes to push."
+            popd
+            exit 0
+          fi
+
+          git commit -m "Update full matrix test count badge [skip ci]"
+          git push origin HEAD:badge-data
+          popd
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-matrix-test-results
+          path: TestResults
+          if-no-files-found: ignore
