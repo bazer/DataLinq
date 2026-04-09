@@ -10,16 +10,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="BenchmarkDotNet" />
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
-		<PackageReference Include="Serilog.Extensions.Logging" />
-		<PackageReference Include="Serilog.Sinks.File" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
-		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
-		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
+		<ProjectReference Include="..\DataLinq.Testing\DataLinq.Testing.csproj" />
 		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
 	</ItemGroup>
 

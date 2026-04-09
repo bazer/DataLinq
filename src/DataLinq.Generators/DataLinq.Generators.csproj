@@ -4,6 +4,8 @@
 		<TargetFrameworks>netstandard2.0</TargetFrameworks>
 		<IsRoslynComponent>true</IsRoslynComponent>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+		<_EnableDefaultWindowsPlatform>false</_EnableDefaultWindowsPlatform>
+		<ReloadSourceGeneratorBeforeBuild>false</ReloadSourceGeneratorBeforeBuild>
 		<!--<GeneratePackageOnBuild>true</GeneratePackageOnBuild>-->
 		<!-- Do not include the generator as a lib dependency -->
 		<IncludeBuildOutput>false</IncludeBuildOutput>
@@ -52,13 +54,16 @@
 		<ItemGroup>
 			<!-- Visual Studio design-time analyzer loading is stricter than command-line builds.
 			     Keep the generator's private dependencies beside the analyzer assembly. -->
-			<AnalyzerDependency Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
+			<AnalyzerDependency Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)\throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
 		</ItemGroup>
 
 		<Copy SourceFiles="@(AnalyzerDependency)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
 	</Target>
 
-    <Target Name="ReloadSourceGenerator" BeforeTargets="BeforeBuild" DependsOnTargets="$(BeforeBuildDependsOn)">
-		<Exec Command="dotnet build-server shutdown" />
+    <Target Name="ReloadSourceGenerator"
+            BeforeTargets="BeforeBuild"
+            DependsOnTargets="$(BeforeBuildDependsOn)"
+            Condition="'$(ReloadSourceGeneratorBeforeBuild)' == 'true'">
+		<Exec Command="dotnet build-server shutdown" IgnoreExitCode="true" />
 	</Target>
 </Project>
