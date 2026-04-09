@@ -11,6 +11,10 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ## Structure
 
+### Cross-cutting
+
+- `Roadmap.md`
+
 ### Architecture
 
 - `architecture/Applications patterns.md`
@@ -38,6 +42,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ### Query and runtime
 
+- `query-and-runtime/Async and Lazy Loading.md`
 - `query-and-runtime/Batched mutations.md`
 - `query-and-runtime/Projections and Views.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
