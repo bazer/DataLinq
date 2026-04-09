@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using DataLinq.Diagnostics;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -88,6 +89,8 @@ public static class InstanceFactory
 
     public static IImmutableInstance NewImmutableRow(IRowData rowData, IDataSourceAccess dataSource)
     {
+        DataLinqRuntimeMetrics.RecordRowMaterialization();
+
         var type = rowData.Table.Model.ImmutableType?.Type;
 
         if (type == null)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using DataLinq.Diagnostics;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -137,6 +138,8 @@ public class Select<T> : IQuery
 
     public IEnumerable<IImmutableInstance> Execute()
     {
+        DataLinqRuntimeMetrics.RecordEntityQueryExecution();
+
         if (query.Table.PrimaryKeyColumns.Length != 0)
         {
             this.What(query.Table.PrimaryKeyColumns);
@@ -165,11 +168,13 @@ public class Select<T> : IQuery
 
     public V ExecuteScalar<V>()
     {
+        DataLinqRuntimeMetrics.RecordScalarQueryExecution();
         return query.DataSource.DatabaseAccess.ExecuteScalar<V>(query.DataSource.Provider.ToDbCommand(this));
     }
 
     public object? ExecuteScalar()
     {
+        DataLinqRuntimeMetrics.RecordScalarQueryExecution();
         return query.DataSource.DatabaseAccess.ExecuteScalar(query.DataSource.Provider.ToDbCommand(this));
     }
 

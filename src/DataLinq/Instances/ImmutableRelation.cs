@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using DataLinq.Cache;
+using DataLinq.Diagnostics;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -126,7 +127,10 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
         // by another thread inbetween the null check and return.
         var localInstance = relationInstances;
         if (localInstance != null)
+        {
+            DataLinqRuntimeMetrics.RecordRelationCollectionCacheHit();
             return localInstance;
+        }
 
         lock (loadLock)
         {
@@ -144,6 +148,8 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
                     .GetRows(foreignKey, property, source)
                     .Select(x => (T)x)
                     .ToFrozenDictionary(x => x.PrimaryKeys());
+
+                DataLinqRuntimeMetrics.RecordRelationCollectionLoad();
             }
 
             return relationInstances;

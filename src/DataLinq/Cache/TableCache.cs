@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using DataLinq.Attributes;
+using DataLinq.Diagnostics;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -383,6 +384,9 @@ public class TableCache
                 keysToLoad.Add(key);
         }
 
+        DataLinqRuntimeMetrics.RecordRowCacheHits(primaryKeys.Length - keysToLoad.Count);
+        DataLinqRuntimeMetrics.RecordRowCacheMisses(keysToLoad.Count);
+
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, primaryKeys.Length - keysToLoad.Count);
 
         if (keysToLoad.Count != 0)
@@ -391,6 +395,7 @@ public class TableCache
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource))
                 {
+                    DataLinqRuntimeMetrics.RecordDatabaseRowsLoaded(1);
                     yield return AddRow(rowData, dataSource);
                 }
             }
@@ -414,6 +419,9 @@ public class TableCache
                 keysToLoad.Add(key);
         }
 
+        DataLinqRuntimeMetrics.RecordRowCacheHits(loadedRows.Count);
+        DataLinqRuntimeMetrics.RecordRowCacheMisses(keysToLoad.Count);
+
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, loadedRows.Count);
 
         if (keysToLoad.Count != 0)
@@ -422,6 +430,7 @@ public class TableCache
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource, orderings))
                 {
+                    DataLinqRuntimeMetrics.RecordDatabaseRowsLoaded(1);
                     loadedRows.Add(AddRow(rowData, dataSource));
                 }
             }
@@ -523,8 +532,13 @@ public class TableCache
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
         var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
 
-        return (dataSource is ReadOnlyAccess && (!Table.UseCache || RowCache.TryAddRow(keys, rowData, row)))
+        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || RowCache.TryAddRow(keys, rowData, row)))
             || (dataSource is Transaction transaction && TransactionRows.TryGetValue(transaction, out var rowCache) && rowCache.TryAddRow(keys, rowData, row));
+
+        if (added)
+            DataLinqRuntimeMetrics.RecordRowCacheStore();
+
+        return added;
     }
 
     public TableCacheSnapshot MakeSnapshot()
