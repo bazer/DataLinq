@@ -35,3 +35,4 @@ launchSettings.json
 /_site_content_only
 /build-diag.log
 /testing-build-diag.log
+/BenchmarkDotNet.Artifacts
