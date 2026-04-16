@@ -62,19 +62,25 @@ public class CacheNotificationManagerTests
     [Fact]
     public void Clean_RemovesDeadSubscribers()
     {
+        var liveSubscriber = new MockSubscriber();
+        _manager.Subscribe(liveSubscriber);
         var weakRef = SubscribeAndForget();
- 
-        Assert.Equal(1, GetSubscriberCount()); // Contains the dead reference
- 
+
+        Assert.Equal(2, GetSubscriberCount());
+
         GC.Collect();
         GC.WaitForPendingFinalizers();
         Assert.False(weakRef.TryGetTarget(out _));
- 
-        Assert.Equal(1, GetSubscriberCount()); // Still present before notify
- 
+
+        _manager.Clean();
+
+        Assert.Equal(1, GetSubscriberCount());
+        Assert.Equal(0, liveSubscriber.ClearCacheCallCount);
+
         _manager.Notify();
- 
-        Assert.Equal(0, GetSubscriberCount()); // Snapshot consumed; queue empty
+
+        Assert.Equal(1, liveSubscriber.ClearCacheCallCount);
+        Assert.Equal(0, GetSubscriberCount());
     }
  
     [Fact]
@@ -124,6 +130,22 @@ public class CacheNotificationManagerTests
  
         Assert.False(weakRef.TryGetTarget(out _));
         Assert.Equal(1, liveSubscriber.ClearCacheCallCount);
+    }
+
+    [Fact]
+    public void Clean_DoesNotDropLiveSubscribers()
+    {
+        var subscriber = new MockSubscriber();
+        _manager.Subscribe(subscriber);
+
+        _manager.Clean();
+
+        Assert.Equal(1, GetSubscriberCount());
+        Assert.Equal(0, subscriber.ClearCacheCallCount);
+
+        _manager.Notify();
+
+        Assert.Equal(1, subscriber.ClearCacheCallCount);
     }
  
     [MethodImpl(MethodImplOptions.NoInlining)]

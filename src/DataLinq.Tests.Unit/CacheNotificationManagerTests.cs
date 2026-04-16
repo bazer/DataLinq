@@ -21,18 +21,24 @@ public class CacheNotificationManagerTests
     [Test]
     public async Task Clean_RemovesDeadSubscribers()
     {
+        var liveSubscriber = new MockSubscriber();
+        manager.Subscribe(liveSubscriber);
         var weakReference = SubscribeAndForget();
 
-        await Assert.That(GetSubscriberCount()).IsEqualTo(1);
+        await Assert.That(GetSubscriberCount()).IsEqualTo(2);
 
         GC.Collect();
         GC.WaitForPendingFinalizers();
 
         await Assert.That(weakReference.TryGetTarget(out _)).IsFalse();
+        manager.Clean();
+
         await Assert.That(GetSubscriberCount()).IsEqualTo(1);
+        await Assert.That(liveSubscriber.ClearCacheCallCount).IsEqualTo(0);
 
         manager.Notify();
 
+        await Assert.That(liveSubscriber.ClearCacheCallCount).IsEqualTo(1);
         await Assert.That(GetSubscriberCount()).IsEqualTo(0);
     }
 
@@ -82,6 +88,22 @@ public class CacheNotificationManagerTests
 
         await Assert.That(weakReference.TryGetTarget(out _)).IsFalse();
         await Assert.That(liveSubscriber.ClearCacheCallCount).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Clean_DoesNotDropLiveSubscribers()
+    {
+        var subscriber = new MockSubscriber();
+        manager.Subscribe(subscriber);
+
+        manager.Clean();
+
+        await Assert.That(GetSubscriberCount()).IsEqualTo(1);
+        await Assert.That(subscriber.ClearCacheCallCount).IsEqualTo(0);
+
+        manager.Notify();
+
+        await Assert.That(subscriber.ClearCacheCallCount).IsEqualTo(1);
     }
 
     private int GetSubscriberCount()

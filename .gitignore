@@ -37,3 +37,4 @@ launchSettings.json
 /testing-build-diag.log
 /BenchmarkDotNet.Artifacts
 /.dotnet-cli
+/crm-dumps

@@ -24,13 +24,19 @@ public class TableCache
 {
     internal sealed class CacheNotificationManager
     {
-        // Use ConcurrentQueue. It's lock-free for Enqueue and doesn't leak memory.
+        // Use ConcurrentQueue. Subscribe stays lock-free and O(1).
+        // Notify self-clears by swapping the queue, and Clean compacts dead
+        // weak references for read-heavy workloads that don't notify often.
         private ConcurrentQueue<WeakReference<ICacheNotification>> _subscribers = new();
+        private int _maintenanceState = 0;
+        private int _approximateSubscriberCount = 0;
 
         internal void Subscribe(ICacheNotification subscriber)
         {
             // This is a fully thread-safe, lock-free, O(1) operation.
             _subscribers.Enqueue(new WeakReference<ICacheNotification>(subscriber));
+            var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
+            DataLinqRuntimeMetrics.RecordCacheNotificationSubscribe(approximateQueueDepth);
         }
 
         internal void Notify()
@@ -41,23 +47,93 @@ public class TableCache
                 return;
             }
 
-            // 2. Atomically swap the current queue with a new, empty one.
-            // This is an O(1) operation. 'subscribersToNotify' now holds a private
-            // snapshot of all subscribers that existed up to this exact moment.
-            var subscribersToNotify = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+            // 2. Serialize the queue swap with Clean() without blocking Subscribe().
+            // We only hold this gate long enough to take a private snapshot.
+            var spinWait = new SpinWait();
+            while (Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
+                spinWait.SpinOnce();
 
-            // Any new calls to Subscribe() from other threads will now add to the new, empty queue
-            // without interfering with our notification process.
+            ConcurrentQueue<WeakReference<ICacheNotification>>? subscribersToNotify = null;
+            try
+            {
+                // Another maintenance operation may already have swapped the queue
+                // while we were waiting, so re-check after acquiring the gate.
+                if (_subscribers.IsEmpty)
+                {
+                    return;
+                }
 
-            // 3. Iterate over our local snapshot and notify each live subscriber.
-            // This loop is completely lock-free and operates on a contained set of items.
-            // The old queue and its WeakReference objects will be garbage collected after this.
+                // 3. Atomically swap the current queue with a new, empty one.
+                // Any new calls to Subscribe() from other threads will now add
+                // to the new queue without interfering with this notification pass.
+                subscribersToNotify = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+                Interlocked.Exchange(ref _approximateSubscriberCount, 0);
+            }
+            finally
+            {
+                Volatile.Write(ref _maintenanceState, 0);
+            }
+
+            // 4. Iterate over our private snapshot outside the maintenance gate.
+            var snapshotEntries = 0;
+            var liveSubscribers = 0;
             foreach (var weakRef in subscribersToNotify)
             {
+                snapshotEntries++;
                 if (weakRef.TryGetTarget(out var subscriber))
                 {
+                    liveSubscribers++;
                     subscriber.Clear();
                 }
+            }
+
+            DataLinqRuntimeMetrics.RecordCacheNotificationNotifySweep(snapshotEntries, liveSubscribers);
+        }
+
+        internal void Clean()
+        {
+            // Best-effort compaction. If Notify() is already in progress, skip this
+            // cycle and let the next background sweep retry.
+            if (_subscribers.IsEmpty || Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
+            {
+                if (!_subscribers.IsEmpty)
+                    DataLinqRuntimeMetrics.RecordCacheNotificationCleanBusySkip();
+                return;
+            }
+
+            try
+            {
+                // Clean keeps the maintenance gate for the full compaction pass.
+                // If Notify() were allowed to swap the queue between our Exchange()
+                // and re-enqueue of live subscribers, it could miss an invalidation.
+                if (_subscribers.IsEmpty)
+                {
+                    return;
+                }
+
+                var subscribersToKeep = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+                Interlocked.Exchange(ref _approximateSubscriberCount, 0);
+                var snapshotEntries = 0;
+                var requeuedSubscribers = 0;
+                foreach (var weakRef in subscribersToKeep)
+                {
+                    snapshotEntries++;
+                    if (weakRef.TryGetTarget(out _))
+                    {
+                        _subscribers.Enqueue(weakRef);
+                        requeuedSubscribers++;
+                    }
+                }
+
+                Interlocked.Add(ref _approximateSubscriberCount, requeuedSubscribers);
+                DataLinqRuntimeMetrics.RecordCacheNotificationCleanSweep(
+                    snapshotEntries,
+                    requeuedSubscribers,
+                    snapshotEntries - requeuedSubscribers);
+            }
+            finally
+            {
+                Volatile.Write(ref _maintenanceState, 0);
             }
         }
     }
@@ -214,7 +290,7 @@ public class TableCache
 
     public void CleanRelationNotifications()
     {
-        //notificationManager.Clean();
+        notificationManager.Clean();
     }
 
     public int RemoveRowsByLimit(CacheLimitType limitType, long amount) => limitType switch
