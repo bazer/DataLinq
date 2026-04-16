@@ -7,6 +7,7 @@ using DataLinq.Cache;
 using DataLinq.Metadata;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
+using TUnit.Core;
 
 namespace DataLinq.Tests.Compliance;
 
@@ -163,6 +164,9 @@ public class EmployeesCacheTests
     }
 
     [Test]
+    // DatabaseProvider caches DatabaseDefinition instances per model type, and this
+    // test temporarily mutates cache-limit metadata on that shared definition.
+    [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsBySettings_OnlyAppliesTableSpecificLimitsToThatTable(TestProviderDescriptor provider)
     {
