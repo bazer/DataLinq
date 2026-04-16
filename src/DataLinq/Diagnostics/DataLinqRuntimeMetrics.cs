@@ -15,9 +15,15 @@ public readonly record struct DataLinqRuntimeMetricsSnapshot(
     long RelationCollectionCacheHits,
     long RelationCollectionLoads,
     long CacheNotificationSubscriptions,
+    long CacheNotificationApproximateCurrentQueueDepth,
+    long CacheNotificationLastNotifySnapshotEntries,
+    long CacheNotificationLastNotifyLiveSubscribers,
     long CacheNotificationNotifySweeps,
     long CacheNotificationNotifySnapshotEntries,
     long CacheNotificationNotifyLiveSubscribers,
+    long CacheNotificationLastCleanSnapshotEntries,
+    long CacheNotificationLastCleanRequeuedSubscribers,
+    long CacheNotificationLastCleanDroppedSubscribers,
     long CacheNotificationCleanSweeps,
     long CacheNotificationCleanSnapshotEntries,
     long CacheNotificationCleanRequeuedSubscribers,
@@ -32,9 +38,15 @@ public readonly record struct DataLinqRuntimeMetricsSnapshot(
            $"relation-ref-hits={RelationReferenceCacheHits}, relation-ref-loads={RelationReferenceLoads}, " +
            $"relation-collection-hits={RelationCollectionCacheHits}, relation-collection-loads={RelationCollectionLoads}, " +
            $"cache-notification-subscriptions={CacheNotificationSubscriptions}, " +
+           $"cache-notification-approx-current-depth={CacheNotificationApproximateCurrentQueueDepth}, " +
+           $"cache-notification-last-notify-snapshot-entries={CacheNotificationLastNotifySnapshotEntries}, " +
+           $"cache-notification-last-notify-live={CacheNotificationLastNotifyLiveSubscribers}, " +
            $"cache-notification-notify-sweeps={CacheNotificationNotifySweeps}, " +
            $"cache-notification-notify-snapshot-entries={CacheNotificationNotifySnapshotEntries}, " +
            $"cache-notification-notify-live={CacheNotificationNotifyLiveSubscribers}, " +
+           $"cache-notification-last-clean-snapshot-entries={CacheNotificationLastCleanSnapshotEntries}, " +
+           $"cache-notification-last-clean-requeued={CacheNotificationLastCleanRequeuedSubscribers}, " +
+           $"cache-notification-last-clean-dropped={CacheNotificationLastCleanDroppedSubscribers}, " +
            $"cache-notification-clean-sweeps={CacheNotificationCleanSweeps}, " +
            $"cache-notification-clean-snapshot-entries={CacheNotificationCleanSnapshotEntries}, " +
            $"cache-notification-clean-requeued={CacheNotificationCleanRequeuedSubscribers}, " +
@@ -57,9 +69,15 @@ public static class DataLinqRuntimeMetrics
     private static long _relationCollectionCacheHits;
     private static long _relationCollectionLoads;
     private static long _cacheNotificationSubscriptions;
+    private static long _cacheNotificationApproximateCurrentQueueDepth;
+    private static long _cacheNotificationLastNotifySnapshotEntries;
+    private static long _cacheNotificationLastNotifyLiveSubscribers;
     private static long _cacheNotificationNotifySweeps;
     private static long _cacheNotificationNotifySnapshotEntries;
     private static long _cacheNotificationNotifyLiveSubscribers;
+    private static long _cacheNotificationLastCleanSnapshotEntries;
+    private static long _cacheNotificationLastCleanRequeuedSubscribers;
+    private static long _cacheNotificationLastCleanDroppedSubscribers;
     private static long _cacheNotificationCleanSweeps;
     private static long _cacheNotificationCleanSnapshotEntries;
     private static long _cacheNotificationCleanRequeuedSubscribers;
@@ -81,9 +99,15 @@ public static class DataLinqRuntimeMetrics
             RelationCollectionCacheHits: Interlocked.Read(ref _relationCollectionCacheHits),
             RelationCollectionLoads: Interlocked.Read(ref _relationCollectionLoads),
             CacheNotificationSubscriptions: Interlocked.Read(ref _cacheNotificationSubscriptions),
+            CacheNotificationApproximateCurrentQueueDepth: Interlocked.Read(ref _cacheNotificationApproximateCurrentQueueDepth),
+            CacheNotificationLastNotifySnapshotEntries: Interlocked.Read(ref _cacheNotificationLastNotifySnapshotEntries),
+            CacheNotificationLastNotifyLiveSubscribers: Interlocked.Read(ref _cacheNotificationLastNotifyLiveSubscribers),
             CacheNotificationNotifySweeps: Interlocked.Read(ref _cacheNotificationNotifySweeps),
             CacheNotificationNotifySnapshotEntries: Interlocked.Read(ref _cacheNotificationNotifySnapshotEntries),
             CacheNotificationNotifyLiveSubscribers: Interlocked.Read(ref _cacheNotificationNotifyLiveSubscribers),
+            CacheNotificationLastCleanSnapshotEntries: Interlocked.Read(ref _cacheNotificationLastCleanSnapshotEntries),
+            CacheNotificationLastCleanRequeuedSubscribers: Interlocked.Read(ref _cacheNotificationLastCleanRequeuedSubscribers),
+            CacheNotificationLastCleanDroppedSubscribers: Interlocked.Read(ref _cacheNotificationLastCleanDroppedSubscribers),
             CacheNotificationCleanSweeps: Interlocked.Read(ref _cacheNotificationCleanSweeps),
             CacheNotificationCleanSnapshotEntries: Interlocked.Read(ref _cacheNotificationCleanSnapshotEntries),
             CacheNotificationCleanRequeuedSubscribers: Interlocked.Read(ref _cacheNotificationCleanRequeuedSubscribers),
@@ -105,9 +129,15 @@ public static class DataLinqRuntimeMetrics
         Interlocked.Exchange(ref _relationCollectionCacheHits, 0);
         Interlocked.Exchange(ref _relationCollectionLoads, 0);
         Interlocked.Exchange(ref _cacheNotificationSubscriptions, 0);
+        Interlocked.Exchange(ref _cacheNotificationApproximateCurrentQueueDepth, 0);
+        Interlocked.Exchange(ref _cacheNotificationLastNotifySnapshotEntries, 0);
+        Interlocked.Exchange(ref _cacheNotificationLastNotifyLiveSubscribers, 0);
         Interlocked.Exchange(ref _cacheNotificationNotifySweeps, 0);
         Interlocked.Exchange(ref _cacheNotificationNotifySnapshotEntries, 0);
         Interlocked.Exchange(ref _cacheNotificationNotifyLiveSubscribers, 0);
+        Interlocked.Exchange(ref _cacheNotificationLastCleanSnapshotEntries, 0);
+        Interlocked.Exchange(ref _cacheNotificationLastCleanRequeuedSubscribers, 0);
+        Interlocked.Exchange(ref _cacheNotificationLastCleanDroppedSubscribers, 0);
         Interlocked.Exchange(ref _cacheNotificationCleanSweeps, 0);
         Interlocked.Exchange(ref _cacheNotificationCleanSnapshotEntries, 0);
         Interlocked.Exchange(ref _cacheNotificationCleanRequeuedSubscribers, 0);
@@ -130,17 +160,25 @@ public static class DataLinqRuntimeMetrics
     internal static void RecordCacheNotificationSubscribe(int approximateQueueDepth)
     {
         Interlocked.Increment(ref _cacheNotificationSubscriptions);
+        Interlocked.Exchange(ref _cacheNotificationApproximateCurrentQueueDepth, approximateQueueDepth);
         RecordCacheNotificationApproximatePeakQueueDepth(approximateQueueDepth);
     }
-    internal static void RecordCacheNotificationNotifySweep(int snapshotEntries, int liveSubscribers)
+    internal static void RecordCacheNotificationNotifySweep(int snapshotEntries, int liveSubscribers, int currentQueueDepth)
     {
         Interlocked.Increment(ref _cacheNotificationNotifySweeps);
+        Interlocked.Exchange(ref _cacheNotificationApproximateCurrentQueueDepth, currentQueueDepth);
+        Interlocked.Exchange(ref _cacheNotificationLastNotifySnapshotEntries, snapshotEntries);
+        Interlocked.Exchange(ref _cacheNotificationLastNotifyLiveSubscribers, liveSubscribers);
         Interlocked.Add(ref _cacheNotificationNotifySnapshotEntries, snapshotEntries);
         Interlocked.Add(ref _cacheNotificationNotifyLiveSubscribers, liveSubscribers);
     }
-    internal static void RecordCacheNotificationCleanSweep(int snapshotEntries, int requeuedSubscribers, int droppedSubscribers)
+    internal static void RecordCacheNotificationCleanSweep(int snapshotEntries, int requeuedSubscribers, int droppedSubscribers, int currentQueueDepth)
     {
         Interlocked.Increment(ref _cacheNotificationCleanSweeps);
+        Interlocked.Exchange(ref _cacheNotificationApproximateCurrentQueueDepth, currentQueueDepth);
+        Interlocked.Exchange(ref _cacheNotificationLastCleanSnapshotEntries, snapshotEntries);
+        Interlocked.Exchange(ref _cacheNotificationLastCleanRequeuedSubscribers, requeuedSubscribers);
+        Interlocked.Exchange(ref _cacheNotificationLastCleanDroppedSubscribers, droppedSubscribers);
         Interlocked.Add(ref _cacheNotificationCleanSnapshotEntries, snapshotEntries);
         Interlocked.Add(ref _cacheNotificationCleanRequeuedSubscribers, requeuedSubscribers);
         Interlocked.Add(ref _cacheNotificationCleanDroppedSubscribers, droppedSubscribers);

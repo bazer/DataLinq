@@ -87,7 +87,8 @@ public class TableCache
                 }
             }
 
-            DataLinqRuntimeMetrics.RecordCacheNotificationNotifySweep(snapshotEntries, liveSubscribers);
+            var approximateQueueDepth = Volatile.Read(ref _approximateSubscriberCount);
+            DataLinqRuntimeMetrics.RecordCacheNotificationNotifySweep(snapshotEntries, liveSubscribers, approximateQueueDepth);
         }
 
         internal void Clean()
@@ -125,11 +126,12 @@ public class TableCache
                     }
                 }
 
-                Interlocked.Add(ref _approximateSubscriberCount, requeuedSubscribers);
+                var approximateQueueDepth = Interlocked.Add(ref _approximateSubscriberCount, requeuedSubscribers);
                 DataLinqRuntimeMetrics.RecordCacheNotificationCleanSweep(
                     snapshotEntries,
                     requeuedSubscribers,
-                    snapshotEntries - requeuedSubscribers);
+                    snapshotEntries - requeuedSubscribers,
+                    approximateQueueDepth);
             }
             finally
             {
