@@ -36,3 +36,4 @@ launchSettings.json
 /build-diag.log
 /testing-build-diag.log
 /BenchmarkDotNet.Artifacts
+/.dotnet-cli

@@ -123,8 +123,10 @@ public class DatabaseCache : IDisposable
         {
             foreach (var (limitType, amount) in table.Table.CacheLimits)
             {
-                foreach (var rows in RemoveRowsByLimit(limitType, amount))
-                    yield return rows;
+                var numRows = table.RemoveRowsByLimit(limitType, amount);
+
+                if (numRows > 0)
+                    yield return (table, numRows);
             }
         }
 

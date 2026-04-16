@@ -162,6 +162,74 @@ public class EmployeesCacheTests
         await Assert.That(cache.TotalBytes).IsLessThanOrEqualTo(targetBytes);
     }
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_RemoveRowsBySettings_OnlyAppliesTableSpecificLimitsToThatTable(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Cache_RemoveRowsBySettings_OnlyAppliesTableSpecificLimitsToThatTable),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        employeesDatabase.Provider.State.ClearCache();
+
+        var metadata = employeesDatabase.Provider.Metadata;
+        var databaseLimits = metadata.CacheLimits.ToList();
+        var departmentsTable = employeesDatabase.Provider.Metadata.TableModels
+            .Single(x => x.Table.DbName == "departments")
+            .Table;
+        var deptEmployeeTable = employeesDatabase.Provider.Metadata.TableModels
+            .Single(x => x.Table.DbName == "dept-emp")
+            .Table;
+        var departmentTableLimits = departmentsTable.CacheLimits.ToList();
+        var deptEmployeeTableLimits = deptEmployeeTable.CacheLimits.ToList();
+
+        try
+        {
+            metadata.CacheLimits.Clear();
+            departmentsTable.CacheLimits.Clear();
+            deptEmployeeTable.CacheLimits.Clear();
+            deptEmployeeTable.CacheLimits.Add((CacheLimitType.Rows, 1));
+
+            var departmentsCache = employeesDatabase.Provider.GetTableCache(departmentsTable);
+            var deptEmployeeCache = employeesDatabase.Provider.GetTableCache(deptEmployeeTable);
+
+            var departments = employeesDatabase.Query().Departments.ToList();
+            _ = departments
+                .Select(x => x.DepartmentEmployees.Count())
+                .Max();
+
+            var departmentsRowCount = departmentsCache.RowCount;
+            var deptEmployeeRowCount = deptEmployeeCache.RowCount;
+
+            await Assert.That(departmentsRowCount).IsGreaterThan(1);
+            await Assert.That(deptEmployeeRowCount).IsGreaterThan(1);
+
+            var removedTables = employeesDatabase.Provider.State.Cache
+                .RemoveRowsBySettings()
+                .ToDictionary(x => x.table.Table.DbName, x => x.numRows, StringComparer.Ordinal);
+
+            await Assert.That(removedTables.ContainsKey("departments")).IsFalse();
+            await Assert.That(removedTables["dept-emp"]).IsEqualTo(deptEmployeeRowCount - 1);
+            await Assert.That(departmentsCache.RowCount).IsEqualTo(departmentsRowCount);
+            await Assert.That(deptEmployeeCache.RowCount).IsEqualTo(1);
+        }
+        finally
+        {
+            metadata.CacheLimits.Clear();
+            metadata.CacheLimits.AddRange(databaseLimits);
+
+            departmentsTable.CacheLimits.Clear();
+            departmentsTable.CacheLimits.AddRange(departmentTableLimits);
+
+            deptEmployeeTable.CacheLimits.Clear();
+            deptEmployeeTable.CacheLimits.AddRange(deptEmployeeTableLimits);
+
+            employeesDatabase.Provider.State.ClearCache();
+        }
+    }
+
     private static CacheScenario PrepareScenario(Database<EmployeesDb> employeesDatabase)
     {
         employeesDatabase.Provider.State.ClearCache();
