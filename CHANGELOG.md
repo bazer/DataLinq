@@ -4,6 +4,60 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.8 - Cache Diagnostics, Correctness, and Test Infrastructure](https://github.com/bazer/DataLinq/releases/tag/0.6.8)
+
+**Released on:** 2026-04-17
+
+This is a maintenance-heavy release, but it is not filler. The important work here is cache correctness and observability: a real cache-eviction bug was fixed, cache-notification cleanup is more reliable, and DataLinq now ships its first real metrics API with a hierarchy that matches the actual runtime shape. Around that, this release also starts and finishes a large test-infrastructure transition: the project moves from the old mixed xUnit setup to a TUnit-centered test architecture with new CLI and CI support, and adds a proper benchmark harness.
+
+### Highlights
+
+* **Fixed a real cache correctness bug where table-specific cache cleanup could evict rows from every table.**
+  A table-level row limit in `RemoveRowsBySettings` was incorrectly routed through the database-wide cleanup path. In practice, that meant cache limits configured for one table could cause unnecessary evictions and extra churn in unrelated tables. That behavior is now fixed, and regression coverage was added to make sure it stays fixed.
+
+* **Cache-notification cleanup is more robust and much easier to diagnose.**
+  `CacheNotificationManager` now compacts dead weak subscribers correctly again in read-heavy workloads, and `Notify()` / `Clean()` were tightened so they do not race each other and lose invalidations. DataLinq also now exposes live notification telemetry such as queue depth, sweep sizes, dropped dead subscribers, and peak queue growth.
+
+* **DataLinq now ships a real hierarchical runtime metrics API.**
+  `DataLinqMetrics` is new in this release and reports:
+  * runtime totals
+  * per-provider-instance metrics
+  * per-table metrics within each provider
+
+  That matters because query execution, row-cache behavior, relation loading, and cache-notification churn do not belong to the same scope. The shipped API avoids misleading aggregation and makes multi-provider diagnostics much more trustworthy from day one.
+
+### Runtime Fixes and Observability
+
+* Added a new public diagnostics surface under `DataLinq.Diagnostics.DataLinqMetrics`, including typed snapshot models for runtime, provider, table, query, relation, row-cache, and cache-notification metrics.
+* Scoped cache-notification telemetry by provider instance and table so multiple loaded providers with the same logical database name are tracked independently.
+* Added stable provider telemetry instance ids so aggregation does not collapse unrelated provider instances together.
+* Added live and cumulative cache-notification metrics, including current queue depth, last notify/clean sweep values, sweep totals, dropped dead references, busy clean skips, and approximate peak queue depth.
+* Added a dedicated diagnostics and metrics documentation page that explains how to interpret the new hierarchy and which values are counters, gauges, sums, or maxima, without pretending there was an earlier released flat metrics API.
+* Fixed a `ThreadWorker` teardown race during fast disposal, improving shutdown reliability in scenarios that rapidly create and dispose providers.
+
+### Benchmarking, Testing, and Tooling
+
+* This release contains a full test suite migration from xUnit to TUnit. The project moved to a TUnit-centered structure across unit, compliance, and generator coverage.
+* Added a cross-platform `DataLinq.Testing.CLI` workflow for bringing test infrastructure up/down, waiting, resetting, running suites, listing targets, and validating legacy-to-TUnit parity.
+* Moved the test suite completely to Podman containers, with support for all the current LTS versions of MySQL and MariaDB. 
+* Added a parity gate so legacy xUnit coverage cannot silently disappear during the migration.
+* Cleaned up the test structure and provider matrix so the suite is easier to reason about and less dependent on ad hoc local scripts.
+* Added real CI for the project, including a main automated lane plus broader matrix coverage, instead of relying on purely local validation.
+* Built that CI around the new testing workflow with more resilient teardown, dedicated MySQL/MariaDB coverage, and machine-readable summaries for badges and reporting.
+* Replaced the old benchmark stub with a real BenchmarkDotNet harness, including deterministic SQLite-backed employee benchmarks for cold/warm primary-key fetches and relation traversal.
+
+### Documentation and Maintenance
+
+* Added first-class documentation for diagnostics and metrics, and linked it from the README, site index, and usage docs so it is actually discoverable.
+* Reorganized development-plan docs and refined roadmap/async planning material.
+* Refreshed NuGet dependencies across the solution.
+
+### Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.6.7...0.6.8
+
+---
+
 ## [DataLinq v0.6.7 - Generator Reliability, Default Handling, and Release Tooling](https://github.com/bazer/DataLinq/releases/tag/0.6.7)
 
 **Released on:** 2026-03-27
