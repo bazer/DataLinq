@@ -27,16 +27,22 @@ public class TableCache
         // Use ConcurrentQueue. Subscribe stays lock-free and O(1).
         // Notify self-clears by swapping the queue, and Clean compacts dead
         // weak references for read-heavy workloads that don't notify often.
+        private readonly DataLinqCacheNotificationTableMetricsHandle metricsHandle;
         private ConcurrentQueue<WeakReference<ICacheNotification>> _subscribers = new();
         private int _maintenanceState = 0;
         private int _approximateSubscriberCount = 0;
+
+        internal CacheNotificationManager(DataLinqCacheNotificationTableMetricsHandle metricsHandle)
+        {
+            this.metricsHandle = metricsHandle;
+        }
 
         internal void Subscribe(ICacheNotification subscriber)
         {
             // This is a fully thread-safe, lock-free, O(1) operation.
             _subscribers.Enqueue(new WeakReference<ICacheNotification>(subscriber));
             var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
-            DataLinqRuntimeMetrics.RecordCacheNotificationSubscribe(approximateQueueDepth);
+            DataLinqRuntimeMetrics.RecordCacheNotificationSubscribe(metricsHandle, approximateQueueDepth);
         }
 
         internal void Notify()
@@ -88,7 +94,7 @@ public class TableCache
             }
 
             var approximateQueueDepth = Volatile.Read(ref _approximateSubscriberCount);
-            DataLinqRuntimeMetrics.RecordCacheNotificationNotifySweep(snapshotEntries, liveSubscribers, approximateQueueDepth);
+            DataLinqRuntimeMetrics.RecordCacheNotificationNotifySweep(metricsHandle, snapshotEntries, liveSubscribers, approximateQueueDepth);
         }
 
         internal void Clean()
@@ -98,7 +104,7 @@ public class TableCache
             if (_subscribers.IsEmpty || Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
             {
                 if (!_subscribers.IsEmpty)
-                    DataLinqRuntimeMetrics.RecordCacheNotificationCleanBusySkip();
+                    DataLinqRuntimeMetrics.RecordCacheNotificationCleanBusySkip(metricsHandle);
                 return;
             }
 
@@ -128,6 +134,7 @@ public class TableCache
 
                 var approximateQueueDepth = Interlocked.Add(ref _approximateSubscriberCount, requeuedSubscribers);
                 DataLinqRuntimeMetrics.RecordCacheNotificationCleanSweep(
+                    metricsHandle,
                     snapshotEntries,
                     requeuedSubscribers,
                     snapshotEntries - requeuedSubscribers,
@@ -150,7 +157,7 @@ public class TableCache
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
     // This table weakly maps a relation object to its subscription manager.
-    private readonly CacheNotificationManager notificationManager = new();
+    private readonly CacheNotificationManager notificationManager;
 
     public void SubscribeToChanges(ICacheNotification subscriber)
     {
@@ -165,6 +172,8 @@ public class TableCache
         this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Length;
         this.indices = Table.ColumnIndices;
         this.indexCachePolicy = GetIndexCachePolicy();
+        this.notificationManager = new CacheNotificationManager(
+            DataLinqRuntimeMetrics.RegisterCacheNotificationTable(databaseCache.Database, table.DbName));
 
         IndexCaches = indices.ToDictionary(x => x, _ => new IndexCache());
     }
