@@ -38,7 +38,7 @@ internal sealed class BenchmarkContext : IDisposable
         if (clearCache)
             Database.Provider.State.ClearCache();
 
-        DataLinqRuntimeMetrics.Reset();
+        DataLinqMetrics.Reset();
     }
 
     public Employee LoadEmployeeByPrimaryKey()
@@ -50,7 +50,7 @@ internal sealed class BenchmarkContext : IDisposable
         return employee.dept_emp.First().departments.Name;
     }
 
-    public DataLinqRuntimeMetricsSnapshot SnapshotMetrics() => DataLinqRuntimeMetrics.Snapshot();
+    public DataLinqMetricsSnapshot SnapshotMetrics() => DataLinqMetrics.Snapshot();
 
     public void Dispose()
     {

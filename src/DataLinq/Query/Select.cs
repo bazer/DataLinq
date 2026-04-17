@@ -138,7 +138,7 @@ public class Select<T> : IQuery
 
     public IEnumerable<IImmutableInstance> Execute()
     {
-        DataLinqRuntimeMetrics.RecordEntityQueryExecution();
+        DataLinqMetrics.RecordEntityQueryExecution(query.DataSource.Provider);
 
         if (query.Table.PrimaryKeyColumns.Length != 0)
         {
@@ -168,13 +168,13 @@ public class Select<T> : IQuery
 
     public V ExecuteScalar<V>()
     {
-        DataLinqRuntimeMetrics.RecordScalarQueryExecution();
+        DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
         return query.DataSource.DatabaseAccess.ExecuteScalar<V>(query.DataSource.Provider.ToDbCommand(this));
     }
 
     public object? ExecuteScalar()
     {
-        DataLinqRuntimeMetrics.RecordScalarQueryExecution();
+        DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
         return query.DataSource.DatabaseAccess.ExecuteScalar(query.DataSource.Provider.ToDbCommand(this));
     }
 

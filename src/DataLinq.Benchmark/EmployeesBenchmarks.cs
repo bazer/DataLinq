@@ -44,7 +44,7 @@ public class EmployeesBenchmarks : IDisposable
     {
         context!.ResetState(clearCache: true);
         _ = context.LoadEmployeeByPrimaryKey();
-        DataLinqRuntimeMetrics.Reset();
+        DataLinqMetrics.Reset();
     }
 
     [Benchmark(Description = "Warm primary-key fetch")]
@@ -70,7 +70,7 @@ public class EmployeesBenchmarks : IDisposable
     {
         context!.ResetState(clearCache: true);
         _ = context.TraverseDepartmentName();
-        DataLinqRuntimeMetrics.Reset();
+        DataLinqMetrics.Reset();
     }
 
     [Benchmark(Description = "Warm relation traversal")]

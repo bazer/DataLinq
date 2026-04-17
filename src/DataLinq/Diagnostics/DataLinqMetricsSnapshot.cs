@@ -1,0 +1,41 @@
+namespace DataLinq.Diagnostics;
+
+/// <summary>
+/// Process-wide snapshot of DataLinq metrics for the current runtime instance.
+/// </summary>
+/// <param name="Queries">Query metrics summed across all provider instances.</param>
+/// <param name="Relations">Relation metrics summed across all provider instances.</param>
+/// <param name="RowCache">Row cache metrics summed across all provider instances.</param>
+/// <param name="CacheNotifications">Cache notification metrics summed across all provider instances.</param>
+/// <param name="Providers">Per-provider metrics for the current DataLinq runtime instance.</param>
+public readonly record struct DataLinqMetricsSnapshot(
+    QueryMetricsSnapshot Queries,
+    RelationMetricsSnapshot Relations,
+    RowCacheMetricsSnapshot RowCache,
+    CacheNotificationMetricsSnapshot CacheNotifications,
+    DataLinqProviderMetricsSnapshot[] Providers)
+{
+    public override string ToString()
+        => $"entity-queries={Queries.EntityExecutions}, scalar-queries={Queries.ScalarExecutions}, " +
+           $"row-cache-hits={RowCache.Hits}, row-cache-misses={RowCache.Misses}, database-rows={RowCache.DatabaseRowsLoaded}, " +
+           $"materializations={RowCache.Materializations}, row-cache-stores={RowCache.Stores}, " +
+           $"relation-ref-hits={Relations.ReferenceCacheHits}, relation-ref-loads={Relations.ReferenceLoads}, " +
+           $"relation-collection-hits={Relations.CollectionCacheHits}, relation-collection-loads={Relations.CollectionLoads}, " +
+           $"cache-notification-subscriptions={CacheNotifications.Subscriptions}, " +
+           $"cache-notification-approx-current-depth={CacheNotifications.ApproximateCurrentQueueDepth}, " +
+           $"cache-notification-last-notify-snapshot-entries={CacheNotifications.LastNotifySnapshotEntries}, " +
+           $"cache-notification-last-notify-live={CacheNotifications.LastNotifyLiveSubscribers}, " +
+           $"cache-notification-notify-sweeps={CacheNotifications.NotifySweeps}, " +
+           $"cache-notification-notify-snapshot-entries={CacheNotifications.NotifySnapshotEntries}, " +
+           $"cache-notification-notify-live={CacheNotifications.NotifyLiveSubscribers}, " +
+           $"cache-notification-last-clean-snapshot-entries={CacheNotifications.LastCleanSnapshotEntries}, " +
+           $"cache-notification-last-clean-requeued={CacheNotifications.LastCleanRequeuedSubscribers}, " +
+           $"cache-notification-last-clean-dropped={CacheNotifications.LastCleanDroppedSubscribers}, " +
+           $"cache-notification-clean-sweeps={CacheNotifications.CleanSweeps}, " +
+           $"cache-notification-clean-snapshot-entries={CacheNotifications.CleanSnapshotEntries}, " +
+           $"cache-notification-clean-requeued={CacheNotifications.CleanRequeuedSubscribers}, " +
+           $"cache-notification-clean-dropped={CacheNotifications.CleanDroppedSubscribers}, " +
+           $"cache-notification-clean-busy-skips={CacheNotifications.CleanBusySkips}, " +
+           $"cache-notification-approx-peak-depth={CacheNotifications.ApproximatePeakQueueDepth}, " +
+           $"providers={Providers.Length}";
+}

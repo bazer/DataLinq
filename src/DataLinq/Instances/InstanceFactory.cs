@@ -89,7 +89,7 @@ public static class InstanceFactory
 
     public static IImmutableInstance NewImmutableRow(IRowData rowData, IDataSourceAccess dataSource)
     {
-        DataLinqRuntimeMetrics.RecordRowMaterialization();
+        dataSource.Provider.GetTableCache(rowData.Table).MetricsHandle.RecordRowMaterialization();
 
         var type = rowData.Table.Model.ImmutableType?.Type;
 

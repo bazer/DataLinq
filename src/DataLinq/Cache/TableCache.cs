@@ -27,12 +27,12 @@ public class TableCache
         // Use ConcurrentQueue. Subscribe stays lock-free and O(1).
         // Notify self-clears by swapping the queue, and Clean compacts dead
         // weak references for read-heavy workloads that don't notify often.
-        private readonly DataLinqCacheNotificationTableMetricsHandle metricsHandle;
+        private readonly DataLinqTableMetricsHandle metricsHandle;
         private ConcurrentQueue<WeakReference<ICacheNotification>> _subscribers = new();
         private int _maintenanceState = 0;
         private int _approximateSubscriberCount = 0;
 
-        internal CacheNotificationManager(DataLinqCacheNotificationTableMetricsHandle metricsHandle)
+        internal CacheNotificationManager(DataLinqTableMetricsHandle metricsHandle)
         {
             this.metricsHandle = metricsHandle;
         }
@@ -42,7 +42,7 @@ public class TableCache
             // This is a fully thread-safe, lock-free, O(1) operation.
             _subscribers.Enqueue(new WeakReference<ICacheNotification>(subscriber));
             var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
-            DataLinqRuntimeMetrics.RecordCacheNotificationSubscribe(metricsHandle, approximateQueueDepth);
+            metricsHandle.RecordCacheNotificationSubscribe(approximateQueueDepth);
         }
 
         internal void Notify()
@@ -94,7 +94,7 @@ public class TableCache
             }
 
             var approximateQueueDepth = Volatile.Read(ref _approximateSubscriberCount);
-            DataLinqRuntimeMetrics.RecordCacheNotificationNotifySweep(metricsHandle, snapshotEntries, liveSubscribers, approximateQueueDepth);
+            metricsHandle.RecordCacheNotificationNotifySweep(snapshotEntries, liveSubscribers, approximateQueueDepth);
         }
 
         internal void Clean()
@@ -104,7 +104,7 @@ public class TableCache
             if (_subscribers.IsEmpty || Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
             {
                 if (!_subscribers.IsEmpty)
-                    DataLinqRuntimeMetrics.RecordCacheNotificationCleanBusySkip(metricsHandle);
+                    metricsHandle.RecordCacheNotificationCleanBusySkip();
                 return;
             }
 
@@ -133,8 +133,7 @@ public class TableCache
                 }
 
                 var approximateQueueDepth = Interlocked.Add(ref _approximateSubscriberCount, requeuedSubscribers);
-                DataLinqRuntimeMetrics.RecordCacheNotificationCleanSweep(
-                    metricsHandle,
+                metricsHandle.RecordCacheNotificationCleanSweep(
                     snapshotEntries,
                     requeuedSubscribers,
                     snapshotEntries - requeuedSubscribers,
@@ -155,6 +154,7 @@ public class TableCache
     protected List<ColumnIndex> indices;
     protected (IndexCacheType type, int? amount) indexCachePolicy;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    internal DataLinqTableMetricsHandle MetricsHandle { get; }
 
     // This table weakly maps a relation object to its subscription manager.
     private readonly CacheNotificationManager notificationManager;
@@ -172,8 +172,8 @@ public class TableCache
         this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Length;
         this.indices = Table.ColumnIndices;
         this.indexCachePolicy = GetIndexCachePolicy();
-        this.notificationManager = new CacheNotificationManager(
-            DataLinqRuntimeMetrics.RegisterCacheNotificationTable(databaseCache.Database, table.DbName));
+        MetricsHandle = DataLinqMetrics.RegisterTable(databaseCache.Database, table.DbName);
+        this.notificationManager = new CacheNotificationManager(MetricsHandle);
 
         IndexCaches = indices.ToDictionary(x => x, _ => new IndexCache());
     }
@@ -471,8 +471,8 @@ public class TableCache
                 keysToLoad.Add(key);
         }
 
-        DataLinqRuntimeMetrics.RecordRowCacheHits(primaryKeys.Length - keysToLoad.Count);
-        DataLinqRuntimeMetrics.RecordRowCacheMisses(keysToLoad.Count);
+        MetricsHandle.RecordRowCacheHits(primaryKeys.Length - keysToLoad.Count);
+        MetricsHandle.RecordRowCacheMisses(keysToLoad.Count);
 
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, primaryKeys.Length - keysToLoad.Count);
 
@@ -482,7 +482,7 @@ public class TableCache
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource))
                 {
-                    DataLinqRuntimeMetrics.RecordDatabaseRowsLoaded(1);
+                    MetricsHandle.RecordDatabaseRowsLoaded(1);
                     yield return AddRow(rowData, dataSource);
                 }
             }
@@ -506,8 +506,8 @@ public class TableCache
                 keysToLoad.Add(key);
         }
 
-        DataLinqRuntimeMetrics.RecordRowCacheHits(loadedRows.Count);
-        DataLinqRuntimeMetrics.RecordRowCacheMisses(keysToLoad.Count);
+        MetricsHandle.RecordRowCacheHits(loadedRows.Count);
+        MetricsHandle.RecordRowCacheMisses(keysToLoad.Count);
 
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, loadedRows.Count);
 
@@ -517,7 +517,7 @@ public class TableCache
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource, orderings))
                 {
-                    DataLinqRuntimeMetrics.RecordDatabaseRowsLoaded(1);
+                    MetricsHandle.RecordDatabaseRowsLoaded(1);
                     loadedRows.Add(AddRow(rowData, dataSource));
                 }
             }
@@ -623,7 +623,7 @@ public class TableCache
             || (dataSource is Transaction transaction && TransactionRows.TryGetValue(transaction, out var rowCache) && rowCache.TryAddRow(keys, rowData, row));
 
         if (added)
-            DataLinqRuntimeMetrics.RecordRowCacheStore();
+            MetricsHandle.RecordRowCacheStore();
 
         return added;
     }

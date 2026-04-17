@@ -43,7 +43,7 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
         var localHolder = valueHolder;
         if (localHolder != null)
         {
-            DataLinqRuntimeMetrics.RecordRelationReferenceCacheHit();
+            GetTableCache().MetricsHandle.RecordRelationReferenceCacheHit();
             return localHolder.Value;
         }
 
@@ -65,9 +65,9 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
                     valueHolder = new((T?)tableCache
                         .GetRows(foreignKey, property, dataSource)
                         .SingleOrDefault());
-                }
 
-                DataLinqRuntimeMetrics.RecordRelationReferenceLoad();
+                    tableCache.MetricsHandle.RecordRelationReferenceLoad();
+                }
             }
 
             return valueHolder.Value;

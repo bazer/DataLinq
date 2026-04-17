@@ -128,7 +128,7 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
         var localInstance = relationInstances;
         if (localInstance != null)
         {
-            DataLinqRuntimeMetrics.RecordRelationCollectionCacheHit();
+            GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
             return localInstance;
         }
 
@@ -149,7 +149,7 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
                     .Select(x => (T)x)
                     .ToFrozenDictionary(x => x.PrimaryKeys());
 
-                DataLinqRuntimeMetrics.RecordRelationCollectionLoad();
+                tableCache.MetricsHandle.RecordRelationCollectionLoad();
             }
 
             return relationInstances;

@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Concurrent;
-using System.Reflection;
+using System.Data;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DataLinq.Cache;
+using DataLinq.Diagnostics;
+using DataLinq.Interfaces;
+using DataLinq.Metadata;
+using DataLinq.Mutation;
+using DataLinq.Query;
 
 namespace DataLinq.Tests.Unit;
 
@@ -14,8 +19,10 @@ public class CacheNotificationManagerTests
 
     public CacheNotificationManagerTests()
     {
-        var managerType = typeof(TableCache).GetNestedType("CacheNotificationManager", BindingFlags.NonPublic | BindingFlags.Public);
-        manager = (TableCache.CacheNotificationManager)Activator.CreateInstance(managerType!, true)!;
+        DataLinqMetrics.Reset();
+        var provider = new FakeDatabaseProvider();
+        var metricsHandle = DataLinqMetrics.RegisterTable(provider, "test-table");
+        manager = new TableCache.CacheNotificationManager(metricsHandle);
     }
 
     [Test]
@@ -108,7 +115,7 @@ public class CacheNotificationManagerTests
 
     private int GetSubscriberCount()
     {
-        var subscribersField = typeof(TableCache.CacheNotificationManager).GetField("_subscribers", BindingFlags.NonPublic | BindingFlags.Instance);
+        var subscribersField = typeof(TableCache.CacheNotificationManager).GetField("_subscribers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         var queue = (ConcurrentQueue<WeakReference<ICacheNotification>>)subscribersField!.GetValue(manager)!;
         return queue.Count;
     }
@@ -135,5 +142,42 @@ public class CacheNotificationManagerTests
             Interlocked.Increment(ref clearCacheCallCount);
             waitHandle?.Set();
         }
+    }
+
+    private sealed class FakeDatabaseProvider : IDatabaseProvider
+    {
+        public string TelemetryInstanceId { get; } = Guid.NewGuid().ToString("N");
+        public string DatabaseName => "test-db";
+        public string ConnectionString => throw new NotSupportedException();
+        public DatabaseDefinition Metadata => throw new NotSupportedException();
+        public DatabaseAccess DatabaseAccess => throw new NotSupportedException();
+        public State State => throw new NotSupportedException();
+        public IDatabaseProviderConstants Constants => throw new NotSupportedException();
+        public ReadOnlyAccess ReadOnlyAccess => throw new NotSupportedException();
+        public DatabaseType DatabaseType => DatabaseType.SQLite;
+
+        public IDbCommand ToDbCommand(IQuery query) => throw new NotSupportedException();
+        public Transaction StartTransaction(TransactionType transactionType = TransactionType.ReadAndWrite) => throw new NotSupportedException();
+        public DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) => throw new NotSupportedException();
+        public DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) => throw new NotSupportedException();
+        public string GetLastIdQuery() => throw new NotSupportedException();
+        public string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments) => throw new NotSupportedException();
+        public TableCache GetTableCache(TableDefinition table) => throw new NotSupportedException();
+        public string GetOperatorSql(Operator @operator) => throw new NotSupportedException();
+        public Sql GetParameter(Sql sql, string key, object? value) => throw new NotSupportedException();
+        public Sql GetParameterValue(Sql sql, string key) => throw new NotSupportedException();
+        public string GetParameterName(Operator relation, string[] key) => throw new NotSupportedException();
+        public Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] prefix) => throw new NotSupportedException();
+        public Sql GetLimitOffset(Sql sql, int? limit, int? offset) => throw new NotSupportedException();
+        public bool DatabaseExists(string? databaseName = null) => throw new NotSupportedException();
+        public bool FileOrServerExists() => throw new NotSupportedException();
+        public IDataLinqDataWriter GetWriter() => throw new NotSupportedException();
+        public Sql GetTableName(Sql sql, string tableName, string? alias = null) => throw new NotSupportedException();
+        public M Commit<M>(Func<Transaction, M> func) => throw new NotSupportedException();
+        public void Commit(Action<Transaction> action) => throw new NotSupportedException();
+        public bool TableExists(string tableName, string? databaseName = null) => throw new NotSupportedException();
+        public IDbConnection GetDbConnection() => throw new NotSupportedException();
+        public Sql GetCreateSql() => throw new NotSupportedException();
+        public void Dispose() { }
     }
 }
