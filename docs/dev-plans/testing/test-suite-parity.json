@@ -1,13 +1,6 @@
 {
   "entries": [
     {
-      "legacyFile": "src/DataLinq.Tests/CacheNotificationManagerTests.cs",
-      "status": "migrated",
-      "replacementFiles": [
-        "src/DataLinq.Tests.Unit/CacheNotificationManagerTests.cs"
-      ]
-    },
-    {
       "legacyFile": "src/DataLinq.Tests/CacheTests.cs",
       "status": "migrated",
       "replacementFiles": [

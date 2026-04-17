@@ -59,7 +59,6 @@ That means the project is majority integration behavior, even though it also hol
 
 These tests do not require MySQL or MariaDB and should move out of the current mixed project:
 
-* `src/DataLinq.Tests/CacheNotificationManagerTests.cs`
 * `src/DataLinq.Tests/Core/GeneratorFileFactoryTests.cs`
 * `src/DataLinq.Tests/Core/KeyFactoryAndEqualityTests.cs`
 * `src/DataLinq.Tests/Core/MetadataFactoryTests.cs`
@@ -259,7 +258,6 @@ Purpose:
 
 Recommended contents:
 
-* `src/DataLinq.Tests/CacheNotificationManagerTests.cs`
 * `src/DataLinq.Tests/Core/GeneratorFileFactoryTests.cs`
 * `src/DataLinq.Tests/Core/KeyFactoryAndEqualityTests.cs`
 * `src/DataLinq.Tests/Core/MetadataFactoryTests.cs`

@@ -22,7 +22,6 @@ That is the real structure. Anything still living only in the legacy xUnit proje
 
 | Legacy file or slice | Replacement status | New home |
 | --- | --- | --- |
-| `CacheNotificationManagerTests.cs` | Migrated | `src/DataLinq.Tests.Unit/CacheNotificationManagerTests.cs` |
 | `Core/GeneratorFileFactoryTests.cs` | Migrated | `src/DataLinq.Tests.Unit/Core/GeneratorFileFactoryTests.cs` |
 | `Core/KeyFactoryAndEqualityTests.cs` | Migrated | `src/DataLinq.Tests.Unit/Core/KeyFactoryAndEqualityTests.cs` |
 | `Core/MetadataFactoryTests.cs` | Migrated | `src/DataLinq.Tests.Unit/Core/MetadataFactoryTests.cs` |
