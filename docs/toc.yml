@@ -16,6 +16,8 @@
       href: Querying.md
     - name: Caching and Mutation
       href: Caching and Mutation.md
+    - name: Diagnostics and Metrics
+      href: Diagnostics and Metrics.md
     - name: Supported LINQ Queries
       href: Supported LINQ Queries.md
     - name: Transactions

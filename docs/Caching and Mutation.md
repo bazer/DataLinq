@@ -72,6 +72,8 @@ Relations are backed by index caches that map foreign-key values to related prim
 
 The useful consequence is simple: relation traversal gets cheaper after the first lookup, and relation-aware writes can update what the in-memory graph sees.
 
+If you need to inspect what the cache subsystem is actually doing at runtime, see [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md). That page documents the shipped `DataLinqMetrics` API, including row-cache, relation, and cache-notification metrics.
+
 ## Mutation Model
 
 Rows are immutable by default. To change one, you move through a mutable wrapper.
@@ -151,6 +153,26 @@ Those are not decoration. They are part of how the mutation flow avoids accident
 ### Relation caches update with writes
 
 When inserts, updates, or deletes affect a relation, DataLinq updates the relation-aware cache state as part of the transaction flow. That is why relation reads inside a transaction can reflect transaction-local changes.
+
+## Diagnostics for Cache Behavior
+
+When cache behavior looks wrong in production, the first thing to do is stop guessing and read the metrics.
+
+DataLinq now exposes cache and relation telemetry through `DataLinqMetrics.Snapshot()`, with:
+
+- runtime totals
+- per-provider-instance drilldown
+- per-table drilldown
+
+That matters because cache churn is almost never evenly distributed. One provider or one table is usually doing the damage.
+
+For example:
+
+- row cache hits and misses tell you whether you are actually reusing rows
+- relation metrics show whether relation traversal is repeatedly reloading instead of hitting cache
+- cache-notification metrics show whether subscriber queues are growing, draining, or getting compacted
+
+The detailed semantics and migration notes are documented in [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md).
 
 ## Practical Code Examples
 

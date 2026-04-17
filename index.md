@@ -69,6 +69,7 @@ Once you are through the onboarding flow, the docs split into the main working a
 - [Intro](docs/index.md)
 - [Getting Started](docs/getting-started/Installation.md)
 - [Usage](docs/Querying.md)
+- [Diagnostics and Metrics](docs/Diagnostics%20and%20Metrics.md)
 - [Providers](docs/backends/MySQL-MariaDB.md)
 - [Internals](docs/Technical%20documentation.md)
 - [Contributing](docs/Contributing.md)

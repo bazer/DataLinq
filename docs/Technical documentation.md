@@ -91,6 +91,8 @@ DataLinq is organized into several interconnected layers:
   Providers abstract backend-specific behavior behind a common runtime model.
 - **Testing Infrastructure:**
   The repo has broad unit and integration coverage around metadata, query behavior, caching, and mutation.
+- **Metrics and Diagnostics:**
+  The runtime exposes a hierarchical metrics tree so application code can inspect behavior by runtime, provider instance, and table instead of flattening everything into one misleading blob.
 
 ## 3. Core Components
 
@@ -121,6 +123,30 @@ DataLinq is organized into several interconnected layers:
   Store relation and key lookup data.
 - **TableCache:**
   Owns the cache state for a table and coordinates updates after writes.
+
+### 3.6 Runtime Metrics
+
+The shipped metrics API is `DataLinq.Diagnostics.DataLinqMetrics`.
+
+That API is intentionally shaped around ownership:
+
+- runtime totals at the top
+- provider-instance metrics under runtime
+- table metrics under each provider
+
+This is not cosmetic. It avoids two bad failure modes that a flat model would create:
+
+- merging different provider instances together because they happened to share a name
+- pretending every metric can be honestly attributed at the same level
+
+The ownership rules are:
+
+- query metrics are provider-owned
+- row-cache metrics are table-owned
+- relation metrics are table-owned
+- cache-notification metrics are table-owned
+
+Runtime values are then computed by summing the right children. Peak queue depth is the notable exception: that one is a max, not a sum.
 
 ### 3.4 Query Handling
 
@@ -166,6 +192,8 @@ The repo clearly has room to grow, but the current technical center of gravity i
 - cache-aware reads
 - transaction-aware writes
 - a limited but tested LINQ translator
+
+The metrics story is also now part of shipped behavior, not just benchmark-only plumbing. For the public snapshot shapes and usage guidance, see [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md).
 
 ## 7. Conclusion
 
