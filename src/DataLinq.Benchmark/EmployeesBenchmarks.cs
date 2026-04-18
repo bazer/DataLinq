@@ -85,6 +85,27 @@ public class EmployeesBenchmarks : IDisposable
         return context!.LoadEmployeeByPrimaryKeyOnFreshScope();
     }
 
+    [IterationSetup(Target = nameof(CrudWorkflow))]
+    public void SetupCrudWorkflow()
+    {
+        context!.CleanupCrudWorkflowEmployees();
+        context.ResetState(clearCache: true);
+    }
+
+    [IterationCleanup(Target = nameof(CrudWorkflow))]
+    public void CleanupCrudWorkflow()
+    {
+        context!.CleanupCrudWorkflowEmployees();
+    }
+
+    [BenchmarkCategory("experimental", "macro")]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.CrudWorkflowOperationCount, Description = "CRUD workflow")]
+    public int CrudWorkflow()
+    {
+        executedScenario = BenchmarkScenario.CrudWorkflowBatch;
+        return context!.RunCrudWorkflowBatch();
+    }
+
     [IterationSetup(Target = nameof(InsertEmployees))]
     public void SetupInsertEmployees()
     {

@@ -254,6 +254,8 @@ The important part is not the exporter. The important part is that the app liste
 - `Meter("DataLinq")`
 - `ActivitySource("DataLinq")`
 
+If you want a fuller example instead of a short setup snippet, see [Telemetry Integration Example](Telemetry%20Integration%20Example.md).
+
 ## Choosing Between Snapshot and Exported Telemetry
 
 Use `DataLinqMetrics.Snapshot()` when you need:

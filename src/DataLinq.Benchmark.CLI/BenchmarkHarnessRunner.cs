@@ -889,6 +889,7 @@ internal sealed class BenchmarkHarnessRunner
         {
             "Provider initialization" => "Provider init",
             "Startup primary-key fetch" => "Startup PK",
+            "CRUD workflow" => "CRUD flow",
             "Insert employees" => "Insert",
             "Update employees" => "Update",
             "Warm relation traversal" => "Warm rel",

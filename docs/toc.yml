@@ -18,6 +18,8 @@
       href: Caching and Mutation.md
     - name: Diagnostics and Metrics
       href: Diagnostics and Metrics.md
+    - name: Telemetry Integration Example
+      href: Telemetry Integration Example.md
     - name: Supported LINQ Queries
       href: Supported LINQ Queries.md
     - name: Transactions

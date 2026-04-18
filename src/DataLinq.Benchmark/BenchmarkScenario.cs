@@ -4,6 +4,7 @@ internal enum BenchmarkScenario
 {
     ProviderInitialization,
     StartupPrimaryKeyFetch,
+    CrudWorkflowBatch,
     InsertEmployeesBatch,
     UpdateEmployeesBatch,
     ColdPrimaryKeyFetch,

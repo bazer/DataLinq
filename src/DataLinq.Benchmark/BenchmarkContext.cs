@@ -13,12 +13,14 @@ internal sealed class BenchmarkContext : IDisposable
     private const int SeedEmployeeCount = 1000;
     internal const int BatchOperationCount = 1000;
     internal const int MutationBatchOperationCount = 1000;
+    internal const int CrudWorkflowOperationCount = 300;
 
     private readonly TestProviderDescriptor provider;
     private readonly EmployeesTestDatabase databaseScope;
     private readonly int[] sampleEmployeeNumbers;
     private readonly int[] sampleEmployeeWithDepartmentNumbers;
     private readonly int[] sampleMutationEmployeeNumbers;
+    private readonly int[] sampleCrudWorkflowEmployeeNumbers;
     private readonly InsertEmployeeTemplate[] insertEmployeeTemplates;
     private readonly Dictionary<int, string> originalMutationLastNames;
     private readonly int startupEmployeeNumber;
@@ -50,6 +52,9 @@ internal sealed class BenchmarkContext : IDisposable
             .Select(x => x.emp_no!.Value)
             .Take(MutationBatchOperationCount)
             .ToArray();
+        sampleCrudWorkflowEmployeeNumbers = sampleMutationEmployeeNumbers
+            .Take(CrudWorkflowOperationCount)
+            .ToArray();
         insertEmployeeTemplates = Enumerable.Range(0, MutationBatchOperationCount)
             .Select(CreateInsertTemplate)
             .ToArray();
@@ -69,6 +74,10 @@ internal sealed class BenchmarkContext : IDisposable
         if (sampleMutationEmployeeNumbers.Length != MutationBatchOperationCount)
             throw new InvalidOperationException(
                 $"The deterministic employees benchmark dataset only yielded {sampleMutationEmployeeNumbers.Length} mutation samples. Expected at least {MutationBatchOperationCount}.");
+
+        if (sampleCrudWorkflowEmployeeNumbers.Length != CrudWorkflowOperationCount)
+            throw new InvalidOperationException(
+                $"The deterministic employees benchmark dataset only yielded {sampleCrudWorkflowEmployeeNumbers.Length} CRUD workflow samples. Expected at least {CrudWorkflowOperationCount}.");
 
         using var startupScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
@@ -166,6 +175,44 @@ internal sealed class BenchmarkContext : IDisposable
         return checksum;
     }
 
+    public int RunCrudWorkflowBatch()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < CrudWorkflowOperationCount; i++)
+        {
+            var employeeNumber = sampleCrudWorkflowEmployeeNumbers[i];
+            var template = insertEmployeeTemplates[i];
+
+            using var transaction = Database.Transaction();
+
+            var employee = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber);
+            checksum += employee.emp_no!.Value;
+            checksum += employee.dept_emp.First().departments.Name.Length;
+
+            var updated = transaction.Update(employee, mutable => mutable.last_name = $"Workflow-{employeeNumber}");
+            checksum += updated.last_name.Length;
+
+            var inserted = transaction.Insert(new MutableEmployee
+            {
+                birth_date = template.BirthDate,
+                first_name = $"{template.FirstName}-Flow",
+                last_name = $"{template.LastName}-Flow",
+                gender = template.Gender,
+                hire_date = template.HireDate
+            });
+            checksum += inserted.emp_no!.Value;
+
+            var insertedReloaded = transaction.Query().Employees.Single(x => x.emp_no == inserted.emp_no);
+            checksum += insertedReloaded.first_name.Length;
+
+            transaction.Delete(insertedReloaded);
+            transaction.Commit();
+        }
+
+        return checksum;
+    }
+
     public void CleanupInsertedEmployees()
     {
         if (insertedEmployees.Count == 0)
@@ -197,16 +244,12 @@ internal sealed class BenchmarkContext : IDisposable
 
     public void CleanupUpdatedEmployees()
     {
-        using var transaction = Database.Transaction();
+        CleanupUpdatedEmployees(sampleMutationEmployeeNumbers);
+    }
 
-        foreach (var employeeNumber in sampleMutationEmployeeNumbers)
-        {
-            var employee = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber);
-            var originalLastName = originalMutationLastNames[employeeNumber];
-            transaction.Update(employee, mutable => mutable.last_name = originalLastName);
-        }
-
-        transaction.Commit();
+    public void CleanupCrudWorkflowEmployees()
+    {
+        CleanupUpdatedEmployees(sampleCrudWorkflowEmployeeNumbers);
     }
 
     public BenchmarkTelemetryDeltaArtifact CaptureTelemetryDelta(BenchmarkScenario scenario, string providerName)
@@ -225,6 +268,9 @@ internal sealed class BenchmarkContext : IDisposable
                 case BenchmarkScenario.WarmRelationTraversal:
                     _ = TraverseDepartmentNamesBatch();
                     DataLinqMetrics.Reset();
+                    break;
+                case BenchmarkScenario.CrudWorkflowBatch:
+                    CleanupCrudWorkflowEmployees();
                     break;
                 case BenchmarkScenario.InsertEmployeesBatch:
                     CleanupInsertedEmployees();
@@ -245,6 +291,7 @@ internal sealed class BenchmarkContext : IDisposable
         {
             BenchmarkScenario.ProviderInitialization => InitializeProviderAndMetadataOnFreshScope(),
             BenchmarkScenario.StartupPrimaryKeyFetch => LoadEmployeeByPrimaryKeyOnFreshScope(),
+            BenchmarkScenario.CrudWorkflowBatch => RunCrudWorkflowBatch(),
             BenchmarkScenario.InsertEmployeesBatch => InsertEmployeesBatch(),
             BenchmarkScenario.UpdateEmployeesBatch => UpdateEmployeesBatch(),
             BenchmarkScenario.ColdPrimaryKeyFetch or BenchmarkScenario.WarmPrimaryKeyFetch => LoadEmployeesByPrimaryKeyBatch(),
@@ -257,6 +304,9 @@ internal sealed class BenchmarkContext : IDisposable
 
         switch (scenario)
         {
+            case BenchmarkScenario.CrudWorkflowBatch:
+                CleanupCrudWorkflowEmployees();
+                break;
             case BenchmarkScenario.InsertEmployeesBatch:
                 CleanupInsertedEmployees();
                 break;
@@ -321,6 +371,7 @@ internal sealed class BenchmarkContext : IDisposable
         {
             BenchmarkScenario.ProviderInitialization => 1,
             BenchmarkScenario.StartupPrimaryKeyFetch => 1,
+            BenchmarkScenario.CrudWorkflowBatch => CrudWorkflowOperationCount,
             BenchmarkScenario.InsertEmployeesBatch => MutationBatchOperationCount,
             BenchmarkScenario.UpdateEmployeesBatch => MutationBatchOperationCount,
             BenchmarkScenario.ColdPrimaryKeyFetch => BatchOperationCount,
@@ -342,11 +393,26 @@ internal sealed class BenchmarkContext : IDisposable
             new DateOnly(2000 + (index % 20), month, day));
     }
 
+    private void CleanupUpdatedEmployees(IEnumerable<int> employeeNumbers)
+    {
+        using var transaction = Database.Transaction();
+
+        foreach (var employeeNumber in employeeNumbers)
+        {
+            var employee = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber);
+            var originalLastName = originalMutationLastNames[employeeNumber];
+            transaction.Update(employee, mutable => mutable.last_name = originalLastName);
+        }
+
+        transaction.Commit();
+    }
+
     private static string GetScenarioDisplayName(BenchmarkScenario scenario)
         => scenario switch
         {
             BenchmarkScenario.ProviderInitialization => "Provider initialization",
             BenchmarkScenario.StartupPrimaryKeyFetch => "Startup primary-key fetch",
+            BenchmarkScenario.CrudWorkflowBatch => "CRUD workflow",
             BenchmarkScenario.InsertEmployeesBatch => "Insert employees",
             BenchmarkScenario.UpdateEmployeesBatch => "Update employees",
             BenchmarkScenario.ColdPrimaryKeyFetch => "Cold primary-key fetch",

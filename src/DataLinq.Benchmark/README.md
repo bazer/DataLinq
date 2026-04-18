@@ -30,6 +30,12 @@ Run only the stable benchmark category:
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run -- --anyCategories stable
 ```
 
+Run the broader macro workflow benchmark locally:
+
+```bash
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --filter "*CrudWorkflow*" -- --anyCategories macro
+```
+
 Run only one provider variant, which is useful for CI or cleaner local trend runs:
 
 ```bash
@@ -92,4 +98,4 @@ The published benchmark history is intentionally narrower than the full local ma
 
 - CI uses the `stable` benchmark category
 - CI currently trends the `sqlite-memory` provider only
-- noisy experimental scenarios such as insert benchmarks stay available locally, but they do not belong in regression history until they earn that right
+- noisy or broader experimental scenarios such as insert and macro workflow benchmarks stay available locally, but they do not belong in regression history until they earn that right
