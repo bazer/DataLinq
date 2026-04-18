@@ -120,18 +120,21 @@ article h4 {
 }
 
 .benchmark-axis {
-  stroke: color-mix(in srgb, var(--color-fg-default) 45%, transparent);
+  stroke: var(--color-fg-default);
+  opacity: 0.45;
   stroke-width: 1;
 }
 
 .benchmark-grid {
-  stroke: color-mix(in srgb, var(--color-fg-default) 22%, transparent);
+  stroke: var(--color-fg-default);
+  opacity: 0.22;
   stroke-width: 1;
   stroke-dasharray: 3 4;
 }
 
 .benchmark-axis-label {
-  fill: color-mix(in srgb, var(--color-fg-default) 92%, transparent);
+  fill: var(--color-fg-default);
+  opacity: 0.92;
   font-size: 0.72rem;
   font-weight: 500;
 }
