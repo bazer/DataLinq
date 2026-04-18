@@ -220,19 +220,42 @@ function renderTrendChart(points, selector, color) {
   `
 }
 
-function renderLatestTable(latest) {
-  const rows = [...(latest?.Rows ?? [])]
+function renderLatestSnapshotTable(latest, comparison) {
+  const latestRows = latest?.Rows ?? []
+  const comparisonRows = comparison?.Rows ?? []
+  const comparisonByKey = new Map(
+    comparisonRows.map(row => [`${row.Method}__${row.ProviderName}`, row])
+  )
+
+  const rows = [...latestRows]
     .sort((left, right) => (left.MeanMicroseconds ?? Number.MAX_VALUE) - (right.MeanMicroseconds ?? Number.MAX_VALUE))
 
-  const body = rows.map(row => `
-    <tr>
-      <td>${escapeHtml(row.Method)}</td>
-      <td>${escapeHtml(row.ProviderName)}</td>
-      <td>${formatMicroseconds(row.MeanMicroseconds)}</td>
-      <td>${formatBytes(row.AllocatedBytes)}</td>
-      <td>${row.NoisePercent === null || row.NoisePercent === undefined ? '-' : `${formatNumber(row.NoisePercent, 1)}%`}</td>
-    </tr>
-  `).join('')
+  if (rows.length === 0) {
+    return '<p class="benchmark-muted">No latest benchmark summary has been published yet.</p>'
+  }
+
+  const body = rows.map(row => {
+    const key = `${row.Method}__${row.ProviderName}`
+    const comparisonRow = comparisonByKey.get(key)
+    const statusClass = comparisonRow?.Status === 'warning'
+      ? 'benchmark-status-warning'
+      : comparisonRow?.Status === 'improved'
+        ? 'benchmark-status-good'
+        : ''
+
+    return `
+      <tr>
+        <td>${escapeHtml(row.Method)}</td>
+        <td>${escapeHtml(row.ProviderName)}</td>
+        <td>${formatMicroseconds(row.MeanMicroseconds)}</td>
+        <td>${formatBytes(row.AllocatedBytes)}</td>
+        <td>${row.NoisePercent === null || row.NoisePercent === undefined ? '-' : `${formatNumber(row.NoisePercent, 1)}%`}</td>
+        <td class="${statusClass}">${comparisonRow ? formatPercent(comparisonRow.MeanDeltaPercent) : '-'}</td>
+        <td class="${statusClass}">${comparisonRow ? formatPercent(comparisonRow.AllocatedDeltaPercent) : '-'}</td>
+        <td class="${statusClass}">${escapeHtml(comparisonRow?.Status ?? '-')}</td>
+      </tr>
+    `
+  }).join('')
 
   return `
     <table class="benchmark-table">
@@ -243,34 +266,6 @@ function renderLatestTable(latest) {
           <th>Mean</th>
           <th>Allocated</th>
           <th>Noise</th>
-        </tr>
-      </thead>
-      <tbody>${body}</tbody>
-    </table>
-  `
-}
-
-function renderComparisonTable(comparison) {
-  if (!comparison?.Rows?.length) {
-    return '<p class="benchmark-muted">No baseline comparison has been published yet.</p>'
-  }
-
-  const body = comparison.Rows.map(row => `
-    <tr>
-      <td>${escapeHtml(row.Method)}</td>
-      <td>${escapeHtml(row.ProviderName)}</td>
-      <td class="${row.Status === 'warning' ? 'benchmark-status-warning' : row.Status === 'improved' ? 'benchmark-status-good' : ''}">${formatPercent(row.MeanDeltaPercent)}</td>
-      <td class="${row.Status === 'warning' ? 'benchmark-status-warning' : row.Status === 'improved' ? 'benchmark-status-good' : ''}">${formatPercent(row.AllocatedDeltaPercent)}</td>
-      <td>${escapeHtml(row.Status)}</td>
-    </tr>
-  `).join('')
-
-  return `
-    <table class="benchmark-table">
-      <thead>
-        <tr>
-          <th>Method</th>
-          <th>Provider</th>
           <th>Mean Δ</th>
           <th>Allocated Δ</th>
           <th>Status</th>
@@ -368,10 +363,8 @@ async function renderBenchmarkResults() {
           <span>${escapeHtml(providerScope)}</span>
         </div>
       </section>
-      <h2>Latest Summary</h2>
-      ${renderLatestTable(latest)}
-      <h2>Latest Comparison</h2>
-      ${renderComparisonTable(comparison)}
+      <h2>Latest Snapshot</h2>
+      ${renderLatestSnapshotTable(latest, comparison)}
       <h2>Trends</h2>
       <div class="benchmark-card-list">
         ${renderTrendCards(history)}
