@@ -39,6 +39,11 @@
       href: backends/SQLite.md
     - name: Implementing a new backend
       href: Implementing a new backend.md
+- name: Performance
+  expanded: true
+  items:
+    - name: Benchmark Results
+      href: Benchmark Results.md
 - name: Internals
   expanded: true
   items:

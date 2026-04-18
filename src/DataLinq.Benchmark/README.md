@@ -30,6 +30,18 @@ Run a fast smoke pass:
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --profile smoke
 ```
 
+Write a stable history entry artifact for later comparison or CI publishing:
+
+```bash
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --history-json artifacts/benchmarks/latest-history.json
+```
+
+Compare a run against a previous history artifact:
+
+```bash
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --baseline benchmarks/latest.json --comparison-json artifacts/benchmarks/latest-comparison.json
+```
+
 Skip restore/build when you know the harness is already up to date:
 
 ```bash
@@ -50,5 +62,7 @@ Benchmark artifacts are written under `artifacts/benchmarks/`.
 - `results/*-report.csv`: machine-readable benchmark data
 - `results/*-telemetry.json`: per benchmark/provider telemetry deltas normalized per operation
 - `results/*-summary.json`: merged summary artifact with timing, allocations, noise, and telemetry deltas
+- optional `--history-json` output: stable per-run history entry for CI publishing and website graphs
+- optional `--comparison-json` output: baseline comparison artifact with regression status per scenario/provider
 - `benchmark-run-*.log`: full captured console output for that run
 - `benchmark-list-*.log`: full captured console output for a `list` run

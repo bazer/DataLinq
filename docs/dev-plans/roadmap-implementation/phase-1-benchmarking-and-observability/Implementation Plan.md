@@ -276,13 +276,24 @@ The snapshot API is still the best place for rich, in-process drilldown. Exporte
 
 ### Tasks
 
-1. Define where benchmark artifacts and baselines live in-repo.
+1. Define a stable benchmark history schema before wiring CI or website output.
+   The schema should carry:
+   - run metadata such as commit, branch, timestamp, runner, OS, and benchmark profile
+   - per-scenario timing, allocation, noise, and telemetry-delta values
+   - comparison-friendly identifiers for scenario and provider
+2. Define where benchmark artifacts, accepted baselines, and published history live.
+   The storage model should separate:
+   - ephemeral CI artifacts
+   - accepted baseline files used for comparison
+   - published history data consumed by the documentation site
 2. Standardize which outputs are kept:
    - human-readable markdown summary
    - machine-readable artifact suitable for comparison
-3. Add a repeatable local runner script or documented command surface for producing those artifacts.
-4. Add a CI lane for a small, stable subset of benchmarks once the scenarios are trustworthy.
-5. Start with warning/reporting thresholds before treating regressions as hard failures.
+   - machine-readable history snapshot suitable for trend graphs
+4. Add a repeatable local runner script or documented command surface for producing those artifacts and comparing them to a baseline.
+5. Add a CI lane for a small, stable subset of benchmarks once the scenarios are trustworthy.
+6. Persist CI benchmark history in a way that survives individual workflow runs and can be consumed by the website without scraping workflow artifacts.
+7. Start with warning/reporting thresholds before treating regressions as hard failures.
 
 ### Why this matters
 
@@ -302,7 +313,8 @@ If nobody can compare today's run to last month's accepted baseline, the benchma
 3. Document at least two practical workflows:
    - local ad hoc inspection with `dotnet-counters`
    - application integration with OpenTelemetry
-4. Keep roadmap and implementation docs separate from shipped docs.
+4. Add a benchmark results page to the website that presents the current stable benchmark subset and trend graphs from published history data.
+5. Keep roadmap and implementation docs separate from shipped docs.
 
 ## Proposed Execution Order
 
@@ -337,6 +349,13 @@ Capture scenario deltas and expose them in benchmark output.
 ### Step 7: Add baseline storage and a small regression lane
 
 Do not wait until the very end to think about artifact shape and CI viability.
+
+The practical order inside this step should be:
+
+1. lock the machine-readable history schema
+2. add baseline comparison in the benchmark CLI
+3. add a small CI benchmark lane that publishes long-lived history data
+4. add website reporting on top of that published history
 
 ### Step 8: Document and harden
 

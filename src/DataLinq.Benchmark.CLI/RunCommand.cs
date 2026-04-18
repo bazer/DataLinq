@@ -29,6 +29,23 @@ internal static class RunCommand
         {
             Description = "Prints the underlying restore/build/BenchmarkDotNet output."
         };
+        var historyJsonOption = new Option<string?>("--history-json")
+        {
+            Description = "Optional output path for a stable benchmark history entry JSON artifact."
+        };
+        var baselineOption = new Option<string?>("--baseline")
+        {
+            Description = "Optional path to a benchmark history entry JSON artifact to compare against."
+        };
+        var comparisonJsonOption = new Option<string?>("--comparison-json")
+        {
+            Description = "Optional output path for a machine-readable comparison JSON artifact."
+        };
+        var warningThresholdOption = new Option<double>("--warning-threshold-percent")
+        {
+            Description = "Percent regression threshold used for comparison warnings when noise is acceptable.",
+            DefaultValueFactory = _ => 10d
+        };
         var additionalArgsArgument = new Argument<string[]>("additional-args")
         {
             Description = "Optional additional BenchmarkDotNet arguments. Pass them after '--'.",
@@ -41,6 +58,10 @@ internal static class RunCommand
         command.Options.Add(noBuildOption);
         command.Options.Add(keepFilesOption);
         command.Options.Add(verboseOption);
+        command.Options.Add(historyJsonOption);
+        command.Options.Add(baselineOption);
+        command.Options.Add(comparisonJsonOption);
+        command.Options.Add(warningThresholdOption);
         command.Arguments.Add(additionalArgsArgument);
 
         command.SetAction(parseResult =>
@@ -52,6 +73,10 @@ internal static class RunCommand
                 parseResult.GetValue(noBuildOption),
                 parseResult.GetValue(keepFilesOption),
                 parseResult.GetValue(verboseOption),
+                parseResult.GetValue(historyJsonOption),
+                parseResult.GetValue(baselineOption),
+                parseResult.GetValue(comparisonJsonOption),
+                parseResult.GetValue(warningThresholdOption),
                 parseResult.GetValue(additionalArgsArgument) ?? Array.Empty<string>());
 
             if (exitCode != 0)

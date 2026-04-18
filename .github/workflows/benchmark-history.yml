@@ -1,0 +1,149 @@
+name: Benchmark History
+
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * *"
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  benchmark-history:
+    name: Benchmark History
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      DOTNET_NOLOGO: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore benchmark CLI
+        run: dotnet restore src/DataLinq.Benchmark.CLI/DataLinq.Benchmark.CLI.csproj -p:NuGetAudit=false
+
+      - name: Build benchmark CLI
+        run: dotnet build src/DataLinq.Benchmark.CLI/DataLinq.Benchmark.CLI.csproj -c Release --no-restore -p:NuGetAudit=false
+
+      - name: Prepare benchmark data worktree
+        shell: bash
+        run: |
+          git fetch origin benchmark-data || true
+
+          if git show-ref --verify --quiet refs/remotes/origin/benchmark-data; then
+            git worktree add benchmark-data-worktree refs/remotes/origin/benchmark-data
+          else
+            git worktree add --detach benchmark-data-worktree
+            pushd benchmark-data-worktree
+            git switch --orphan benchmark-data
+            git rm -rf . > /dev/null 2>&1 || true
+            popd
+          fi
+
+      - name: Run stable benchmark subset
+        shell: bash
+        run: |
+          mkdir -p artifacts/benchmarks/ci
+
+          baseline_args=()
+          if [ -f benchmark-data-worktree/benchmarks/latest.json ]; then
+            baseline_args+=(--baseline benchmark-data-worktree/benchmarks/latest.json)
+            baseline_args+=(--comparison-json artifacts/benchmarks/ci/latest-comparison.json)
+          fi
+
+          dotnet exec src/DataLinq.Benchmark.CLI/bin/Release/net8.0/DataLinq.Benchmark.CLI.dll run \
+            --profile default \
+            --filter "*EmployeesBenchmarks*" \
+            --history-json artifacts/benchmarks/ci/latest-history.json \
+            "${baseline_args[@]}"
+
+      - name: Update published benchmark history
+        if: success() && github.ref == 'refs/heads/master'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+
+          latest_run_path = Path("artifacts/benchmarks/ci/latest-history.json")
+          comparison_path = Path("artifacts/benchmarks/ci/latest-comparison.json")
+
+          if not latest_run_path.exists():
+              raise SystemExit("Missing latest benchmark history artifact.")
+
+          latest_run = json.loads(latest_run_path.read_text(encoding="utf-8"))
+
+          data_root = Path("benchmark-data-worktree/benchmarks")
+          runs_root = data_root / "runs"
+          data_root.mkdir(parents=True, exist_ok=True)
+          runs_root.mkdir(parents=True, exist_ok=True)
+
+          history_path = data_root / "history.json"
+          if history_path.exists():
+              history = json.loads(history_path.read_text(encoding="utf-8"))
+          else:
+              history = {
+                  "SchemaVersion": 1,
+                  "GeneratedAtUtc": latest_run["GeneratedAtUtc"],
+                  "Runs": []
+              }
+
+          runs = [run for run in history.get("Runs", []) if run.get("RunId") != latest_run.get("RunId")]
+          runs.append(latest_run)
+          runs.sort(key=lambda run: run.get("GeneratedAtUtc", ""))
+          runs = runs[-120:]
+
+          history["SchemaVersion"] = 1
+          history["GeneratedAtUtc"] = latest_run["GeneratedAtUtc"]
+          history["Runs"] = runs
+
+          history_path.write_text(json.dumps(history, indent=2) + "\n", encoding="utf-8")
+          (data_root / "latest.json").write_text(json.dumps(latest_run, indent=2) + "\n", encoding="utf-8")
+
+          run_file_name = f"{latest_run['GeneratedAtUtc'].replace(':', '').replace('-', '')}-{latest_run['RunId']}.json"
+          (runs_root / run_file_name).write_text(json.dumps(latest_run, indent=2) + "\n", encoding="utf-8")
+
+          if comparison_path.exists():
+              shutil.copyfile(comparison_path, data_root / "latest-comparison.json")
+          PY
+
+      - name: Publish benchmark history branch
+        if: success() && github.ref == 'refs/heads/master'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          pushd benchmark-data-worktree
+          git add benchmarks
+          if git diff --cached --quiet; then
+            echo "No benchmark history changes to push."
+            popd
+            exit 0
+          fi
+
+          git commit -m "Update benchmark history [skip ci]"
+          git push origin HEAD:benchmark-data
+          popd
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-history
+          path: artifacts/benchmarks
+          if-no-files-found: ignore
