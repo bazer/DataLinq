@@ -308,7 +308,7 @@ internal sealed class BenchmarkHarnessRunner
 
         AnsiConsole.Write(table);
         AnsiConsole.MarkupLine("[grey]Mean: green = fastest, red = slowest. Error/Noise: yellow > 10% of mean, red > 20%.[/]");
-        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Row=hits/misses/stores, Rel=hits/loads.[/]");
+        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Tx=starts/commits/rollbacks, Mut=inserts/updates/deletes with affected rows, Row=hits/misses/stores, Rel=hits/loads.[/]");
         var artifact = CreateSummaryArtifact(runId, profile, filter, mergedRows);
         var jsonPath = WriteSummaryArtifact(resultsDirectory, artifact);
         return new SummaryResult(jsonPath, artifact);
@@ -404,15 +404,31 @@ internal sealed class BenchmarkHarnessRunner
 
     private static BenchmarkSummaryRow[] FilterRowsForProfile(BenchmarkSummaryRow[] rows, string profile)
     {
-        var filtered = profile switch
+        if (string.Equals(profile, "smoke", StringComparison.OrdinalIgnoreCase))
         {
-            var value when string.Equals(value, "smoke", StringComparison.OrdinalIgnoreCase)
-                => rows.Where(static row => string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase)).ToArray(),
-            _
-                => rows.Where(static row => !string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase)).ToArray()
-        };
+            var dryRows = rows
+                .Where(static row => string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
 
-        return filtered.Length > 0 ? filtered : rows;
+            var measuredDryRows = dryRows
+                .Where(static row => row.MeanMicroseconds.HasValue)
+                .ToArray();
+
+            if (measuredDryRows.Length > 0)
+                return measuredDryRows;
+
+            var measuredNonDryRows = rows
+                .Where(static row => !string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase) && row.MeanMicroseconds.HasValue)
+                .ToArray();
+
+            return measuredNonDryRows.Length > 0 ? measuredNonDryRows : rows;
+        }
+
+        var nonDryRows = rows
+            .Where(static row => !string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        return nonDryRows.Length > 0 ? nonDryRows : rows;
     }
 
     private static char DetectCsvDelimiter(string headerLine)
@@ -862,10 +878,18 @@ internal sealed class BenchmarkHarnessRunner
             ? "-"
             : $"{FormatMetric(artifact.EntityQueriesPerOperation)}/{FormatMetric(artifact.ScalarQueriesPerOperation)}";
 
+    private static string FormatTransactions(BenchmarkTelemetryDeltaArtifact artifact)
+        => $"{FormatMetric(artifact.TransactionStartsPerOperation)}/{FormatMetric(artifact.TransactionCommitsPerOperation)}/{FormatMetric(artifact.TransactionRollbacksPerOperation)}";
+
+    private static string FormatMutations(BenchmarkTelemetryDeltaArtifact artifact)
+        => $"{FormatMetric(artifact.MutationInsertsPerOperation)}/{FormatMetric(artifact.MutationUpdatesPerOperation)}/{FormatMetric(artifact.MutationDeletesPerOperation)} rows {FormatMetric(artifact.MutationAffectedRowsPerOperation)}";
+
     private static string FormatMethodLabel(string method)
         => method switch
         {
             "Startup primary-key fetch" => "Startup PK",
+            "Insert employees" => "Insert",
+            "Update employees" => "Update",
             "Warm relation traversal" => "Warm rel",
             "Cold relation traversal" => "Cold rel",
             "Warm primary-key fetch" => "Warm PK",
@@ -892,23 +916,76 @@ internal sealed class BenchmarkHarnessRunner
             : $"{FormatMetric(artifact.RelationHitsPerOperation)}/{FormatMetric(artifact.RelationLoadsPerOperation)}";
 
     private static string FormatTelemetry(BenchmarkTelemetryDeltaArtifact? artifact)
-        => artifact is null
-            ? "-"
-            : string.Create(
-                CultureInfo.InvariantCulture,
-                $"Q {FormatQueries(artifact)}  Row {FormatRowMetrics(artifact)}  DB {FormatMetric(artifact.DatabaseRowsPerOperation)}  Mat {FormatMetric(artifact.MaterializationsPerOperation)}  Rel {FormatRelations(artifact)}");
+    {
+        if (artifact is null)
+            return "-";
+
+        var parts = new List<string>();
+
+        if (HasSignal(artifact.EntityQueriesPerOperation, artifact.ScalarQueriesPerOperation))
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Q {FormatQueries(artifact)}"));
+
+        if (HasSignal(
+            artifact.TransactionStartsPerOperation,
+            artifact.TransactionCommitsPerOperation,
+            artifact.TransactionRollbacksPerOperation))
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Tx {FormatTransactions(artifact)}"));
+        }
+
+        if (HasSignal(
+            artifact.MutationInsertsPerOperation,
+            artifact.MutationUpdatesPerOperation,
+            artifact.MutationDeletesPerOperation,
+            artifact.MutationAffectedRowsPerOperation))
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Mut {FormatMutations(artifact)}"));
+        }
+
+        if (HasSignal(
+            artifact.RowCacheHitsPerOperation,
+            artifact.RowCacheMissesPerOperation,
+            artifact.RowCacheStoresPerOperation))
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Row {FormatRowMetrics(artifact)}"));
+        }
+
+        if (HasSignal(artifact.DatabaseRowsPerOperation))
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"DB {FormatMetric(artifact.DatabaseRowsPerOperation)}"));
+
+        if (HasSignal(artifact.MaterializationsPerOperation))
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Mat {FormatMetric(artifact.MaterializationsPerOperation)}"));
+
+        if (HasSignal(artifact.RelationHitsPerOperation, artifact.RelationLoadsPerOperation))
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Rel {FormatRelations(artifact)}"));
+
+        return parts.Count == 0 ? "-" : string.Join("  ", parts);
+    }
 
     private static string FormatMetric(double? value)
     {
         if (!value.HasValue)
             return "-";
 
+        var absoluteValue = Math.Abs(value.Value);
+        if (absoluteValue < 0.0001d)
+            return "0";
+
+        if (absoluteValue < 0.01d)
+            return "<0.01";
+
         var roundedWhole = Math.Round(value.Value);
-        if (Math.Abs(value.Value - roundedWhole) < 0.05d)
+        if (absoluteValue >= 0.95d && Math.Abs(value.Value - roundedWhole) < 0.05d)
             return roundedWhole.ToString("0", CultureInfo.InvariantCulture);
+
+        if (absoluteValue < 0.1d)
+            return value.Value.ToString("0.00", CultureInfo.InvariantCulture);
 
         return value.Value.ToString("0.0", CultureInfo.InvariantCulture);
     }
+
+    private static bool HasSignal(params double?[] values)
+        => values.Any(static value => value.HasValue && Math.Abs(value.Value) >= 0.0001d);
 
     private static double? TryParseDurationInMicroseconds(string value)
     {
@@ -1006,6 +1083,13 @@ internal sealed class BenchmarkHarnessRunner
         int OperationsPerInvoke,
         double EntityQueriesPerOperation,
         double ScalarQueriesPerOperation,
+        double TransactionStartsPerOperation,
+        double TransactionCommitsPerOperation,
+        double TransactionRollbacksPerOperation,
+        double MutationInsertsPerOperation,
+        double MutationUpdatesPerOperation,
+        double MutationDeletesPerOperation,
+        double MutationAffectedRowsPerOperation,
         double RowCacheHitsPerOperation,
         double RowCacheMissesPerOperation,
         double RowCacheStoresPerOperation,

@@ -43,6 +43,46 @@ public class EmployeesBenchmarks : IDisposable
         return context!.LoadEmployeeByPrimaryKeyOnFreshScope();
     }
 
+    [IterationSetup(Target = nameof(InsertEmployees))]
+    public void SetupInsertEmployees()
+    {
+        context!.CleanupInsertedEmployees();
+        context.ResetState(clearCache: true);
+    }
+
+    [IterationCleanup(Target = nameof(InsertEmployees))]
+    public void CleanupInsertEmployees()
+    {
+        context!.CleanupInsertedEmployees();
+    }
+
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.MutationBatchOperationCount, Description = "Insert employees")]
+    public int InsertEmployees()
+    {
+        executedScenario = BenchmarkScenario.InsertEmployeesBatch;
+        return context!.InsertEmployeesBatch();
+    }
+
+    [IterationSetup(Target = nameof(UpdateEmployees))]
+    public void SetupUpdateEmployees()
+    {
+        context!.CleanupUpdatedEmployees();
+        context.ResetState(clearCache: true);
+    }
+
+    [IterationCleanup(Target = nameof(UpdateEmployees))]
+    public void CleanupUpdateEmployees()
+    {
+        context!.CleanupUpdatedEmployees();
+    }
+
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.MutationBatchOperationCount, Description = "Update employees")]
+    public int UpdateEmployees()
+    {
+        executedScenario = BenchmarkScenario.UpdateEmployeesBatch;
+        return context!.UpdateEmployeesBatch();
+    }
+
     [IterationSetup(Target = nameof(ColdPrimaryKeyFetch))]
     public void SetupColdPrimaryKeyFetch()
     {
