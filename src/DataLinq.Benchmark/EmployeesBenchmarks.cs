@@ -11,6 +11,7 @@ namespace DataLinq.Benchmark;
 public class EmployeesBenchmarks : IDisposable
 {
     private BenchmarkContext? context;
+    private BenchmarkScenario? executedScenario;
 
     [Params("sqlite-file", "sqlite-memory")]
     public string ProviderName { get; set; } = TestProviderMatrix.SQLiteFile.Name;
@@ -24,8 +25,15 @@ public class EmployeesBenchmarks : IDisposable
     [GlobalCleanup]
     public void GlobalCleanup()
     {
+        if (context is not null && executedScenario.HasValue)
+        {
+            var delta = context.CaptureTelemetryDelta(executedScenario.Value, ProviderName);
+            BenchmarkTelemetryDeltaWriter.TryWrite(delta);
+        }
+
         context?.Dispose();
         context = null;
+        executedScenario = null;
     }
 
     [IterationSetup(Target = nameof(ColdPrimaryKeyFetch))]
@@ -37,6 +45,7 @@ public class EmployeesBenchmarks : IDisposable
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Cold primary-key fetch")]
     public int ColdPrimaryKeyFetch()
     {
+        executedScenario = BenchmarkScenario.ColdPrimaryKeyFetch;
         return context!.LoadEmployeesByPrimaryKeyBatch();
     }
 
@@ -51,6 +60,7 @@ public class EmployeesBenchmarks : IDisposable
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm primary-key fetch")]
     public int WarmPrimaryKeyFetch()
     {
+        executedScenario = BenchmarkScenario.WarmPrimaryKeyFetch;
         return context!.LoadEmployeesByPrimaryKeyBatch();
     }
 
@@ -63,6 +73,7 @@ public class EmployeesBenchmarks : IDisposable
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Cold relation traversal")]
     public int ColdRelationTraversal()
     {
+        executedScenario = BenchmarkScenario.ColdRelationTraversal;
         return context!.TraverseDepartmentNamesBatch();
     }
 
@@ -77,6 +88,7 @@ public class EmployeesBenchmarks : IDisposable
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm relation traversal")]
     public int WarmRelationTraversal()
     {
+        executedScenario = BenchmarkScenario.WarmRelationTraversal;
         return context!.TraverseDepartmentNamesBatch();
     }
 

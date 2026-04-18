@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 
@@ -18,6 +19,8 @@ internal sealed class BenchmarkHarnessRunner
         "EnvironmentVariable",
         "NoWorkloadResult"
     ];
+    private const string BenchmarkRunIdEnvironmentVariable = "DATALINQ_BENCHMARK_RUN_ID";
+    private const string BenchmarkResultsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_RESULTS_DIR";
 
     private readonly BenchmarkCliSettings settings;
 
@@ -89,8 +92,18 @@ internal sealed class BenchmarkHarnessRunner
 
         arguments.AddRange(additionalArgs);
 
+        var runId = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}");
+
+        var benchmarkEnvironment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            [BenchmarkRunIdEnvironmentVariable] = runId,
+            [BenchmarkResultsDirectoryEnvironmentVariable] = Path.Combine(settings.ArtifactsRoot, "results")
+        };
+
         Console.WriteLine("Running benchmarks...");
-        var result = ExecuteDotnet(arguments, verbose);
+        var result = ExecuteDotnet(arguments, verbose, benchmarkEnvironment);
         var logPath = WriteLog("benchmark-run", result);
 
         WriteStandardOutput(result, verbose || result.ExitCode != 0);
@@ -99,8 +112,8 @@ internal sealed class BenchmarkHarnessRunner
             throw new InvalidOperationException($"Benchmark run failed. Full log: {logPath}");
 
         WriteWarnings(result);
-        WriteSummary();
-        WriteArtifacts(logPath);
+        var mergedSummaryPath = WriteSummary(runId, logPath);
+        WriteArtifacts(logPath, mergedSummaryPath);
         return 0;
     }
 
@@ -146,16 +159,26 @@ internal sealed class BenchmarkHarnessRunner
             throw new InvalidOperationException("Benchmark harness build failed.");
     }
 
-    private ExternalCommandResult ExecuteDotnet(IReadOnlyList<string> arguments, bool verbose = false)
+    private ExternalCommandResult ExecuteDotnet(
+        IReadOnlyList<string> arguments,
+        bool verbose = false,
+        IReadOnlyDictionary<string, string?>? additionalEnvironmentVariables = null)
     {
         if (verbose)
             Console.WriteLine($"Command: dotnet {string.Join(" ", arguments.Select(QuoteArgument))}");
+
+        var environmentVariables = new Dictionary<string, string?>(settings.CreateProcessEnvironment(), StringComparer.OrdinalIgnoreCase);
+        if (additionalEnvironmentVariables is not null)
+        {
+            foreach (var pair in additionalEnvironmentVariables)
+                environmentVariables[pair.Key] = pair.Value;
+        }
 
         return ExternalProcessRunner.Execute(
             "dotnet",
             arguments,
             settings.RepositoryRoot,
-            settings.CreateProcessEnvironment());
+            environmentVariables);
     }
 
     private string WriteLog(string prefix, ExternalCommandResult result)
@@ -198,11 +221,11 @@ internal sealed class BenchmarkHarnessRunner
             Console.WriteLine($"  {warning}");
     }
 
-    private void WriteSummary()
+    private string WriteSummary(string runId, string logPath)
     {
         var resultsDirectory = Path.Combine(settings.ArtifactsRoot, "results");
         if (!Directory.Exists(resultsDirectory))
-            return;
+            throw new InvalidOperationException($"Benchmark run did not produce a results directory. Full log: {logPath}");
 
         var summaryPath = Directory.GetFiles(resultsDirectory, "*-report.csv")
             .Select(path => new FileInfo(path))
@@ -211,12 +234,21 @@ internal sealed class BenchmarkHarnessRunner
             .FirstOrDefault();
 
         if (summaryPath is null)
-            return;
+            throw new InvalidOperationException($"Benchmark run did not produce a CSV summary. Full log: {logPath}");
 
         var rows = ParseSummaryRows(summaryPath);
+        var telemetryDeltas = LoadTelemetryDeltas(resultsDirectory, runId);
 
         if (rows.Length == 0)
-            return;
+            throw new InvalidOperationException($"Benchmark summary '{summaryPath}' did not contain any parseable rows. Full log: {logPath}");
+
+        var mergedRows = BuildMergedSummaryRows(rows, telemetryDeltas);
+        var measuredRows = mergedRows
+            .Where(static row => row.MeanMicroseconds.HasValue)
+            .ToArray();
+
+        if (measuredRows.Length == 0)
+            throw new InvalidOperationException($"Benchmark summary '{summaryPath}' only contains invalid measurements. Full log: {logPath}");
 
         Console.WriteLine();
         AnsiConsole.Write(new Rule("[yellow]Summary[/]"));
@@ -228,11 +260,9 @@ internal sealed class BenchmarkHarnessRunner
             .AddColumn(new TableColumn("Mean").RightAligned())
             .AddColumn(new TableColumn("Error").RightAligned())
             .AddColumn(new TableColumn("Noise").RightAligned())
-            .AddColumn(new TableColumn("Allocated").RightAligned());
+            .AddColumn(new TableColumn("Allocated").RightAligned())
+            .AddColumn("Telemetry");
 
-        var measuredRows = rows
-            .Where(static row => row.MeanMicroseconds.HasValue)
-            .ToArray();
         var fastestMean = measuredRows.Length > 0
             ? measuredRows.Min(static row => row.MeanMicroseconds!.Value)
             : (double?)null;
@@ -240,22 +270,25 @@ internal sealed class BenchmarkHarnessRunner
             ? measuredRows.Max(static row => row.MeanMicroseconds!.Value)
             : (double?)null;
 
-        foreach (var row in rows)
+        foreach (var row in mergedRows)
         {
             table.AddRow(
-                new Text(row.Method),
-                new Text(row.ProviderName),
+                new Text(FormatMethodLabel(row.Method)),
+                new Text(FormatProviderLabel(row.ProviderName)),
                 CreateMeanCell(row, fastestMean, slowestMean),
                 CreateErrorCell(row),
                 CreateNoiseCell(row),
-                new Text(row.Allocated));
+                new Text(row.Allocated),
+                new Text(FormatTelemetry(row.TelemetryDelta)));
         }
 
         AnsiConsole.Write(table);
         AnsiConsole.MarkupLine("[grey]Mean: green = fastest, red = slowest. Error/Noise: yellow > 10% of mean, red > 20%.[/]");
+        AnsiConsole.MarkupLine("[grey]Telemetry deltas are per operation: Q=entity/scalar, Row=hits/misses/stores, Rel=hits/loads.[/]");
+        return WriteMergedSummaryArtifact(resultsDirectory, runId, mergedRows);
     }
 
-    private void WriteArtifacts(string logPath)
+    private void WriteArtifacts(string logPath, string? mergedSummaryPath)
     {
         var resultsDirectory = Path.Combine(settings.ArtifactsRoot, "results");
         var markdownPath = Directory.Exists(resultsDirectory)
@@ -283,6 +316,9 @@ internal sealed class BenchmarkHarnessRunner
 
         if (csvPath is not null)
             Console.WriteLine($"  CSV: {csvPath}");
+
+        if (mergedSummaryPath is not null)
+            Console.WriteLine($"  Summary JSON: {mergedSummaryPath}");
     }
 
     private static BenchmarkSummaryRow[] ParseSummaryRows(string csvPath)
@@ -298,7 +334,7 @@ internal sealed class BenchmarkHarnessRunner
         var errorIndex = Array.IndexOf(headers, "Error");
         var allocatedIndex = Array.IndexOf(headers, "Allocated");
 
-        if (methodIndex < 0 || providerIndex < 0 || meanIndex < 0 || errorIndex < 0 || allocatedIndex < 0)
+        if (methodIndex < 0 || providerIndex < 0 || meanIndex < 0 || errorIndex < 0)
             return [];
 
         var rows = new List<BenchmarkSummaryRow>();
@@ -308,7 +344,7 @@ internal sealed class BenchmarkHarnessRunner
                 continue;
 
             var columns = SplitCsvLine(line);
-            if (columns.Length <= allocatedIndex)
+            if (columns.Length <= errorIndex)
                 continue;
 
             rows.Add(new BenchmarkSummaryRow(
@@ -316,7 +352,9 @@ internal sealed class BenchmarkHarnessRunner
                 ProviderName: NormalizeCell(columns[providerIndex]),
                 Mean: NormalizeCell(columns[meanIndex]),
                 Error: NormalizeCell(columns[errorIndex]),
-                Allocated: NormalizeCell(columns[allocatedIndex]),
+                Allocated: allocatedIndex >= 0 && columns.Length > allocatedIndex
+                    ? NormalizeCell(columns[allocatedIndex])
+                    : "-",
                 MeanMicroseconds: TryParseDurationInMicroseconds(columns[meanIndex]),
                 ErrorMicroseconds: TryParseDurationInMicroseconds(columns[errorIndex])));
         }
@@ -330,7 +368,60 @@ internal sealed class BenchmarkHarnessRunner
     private static string NormalizeCell(string value) =>
         value.Trim().Trim('\'', '"');
 
-    private static IRenderable CreateMeanCell(BenchmarkSummaryRow row, double? fastestMean, double? slowestMean)
+    private static Dictionary<(string Method, string ProviderName), BenchmarkTelemetryDeltaArtifact> LoadTelemetryDeltas(string resultsDirectory, string runId)
+    {
+        var deltas = new Dictionary<(string Method, string ProviderName), BenchmarkTelemetryDeltaArtifact>();
+
+        foreach (var filePath in Directory.GetFiles(resultsDirectory, $"{runId}-*-telemetry.json"))
+        {
+            var artifact = JsonSerializer.Deserialize<BenchmarkTelemetryDeltaArtifact>(File.ReadAllText(filePath));
+            if (artifact is null)
+                continue;
+
+            deltas[(artifact.Method, artifact.ProviderName)] = artifact;
+        }
+
+        return deltas;
+    }
+
+    private static MergedBenchmarkSummaryRow[] BuildMergedSummaryRows(
+        BenchmarkSummaryRow[] rows,
+        IReadOnlyDictionary<(string Method, string ProviderName), BenchmarkTelemetryDeltaArtifact> telemetryDeltas)
+        => rows
+            .Select(row =>
+            {
+                telemetryDeltas.TryGetValue((row.Method, row.ProviderName), out var delta);
+                return new MergedBenchmarkSummaryRow(row, delta);
+            })
+            .ToArray();
+
+    private static string WriteMergedSummaryArtifact(string resultsDirectory, string runId, IReadOnlyList<MergedBenchmarkSummaryRow> rows)
+    {
+        var payload = new BenchmarkSummaryArtifact(
+            RunId: runId,
+            GeneratedAtUtc: DateTime.UtcNow,
+            Rows: rows.Select(static row => new BenchmarkSummaryArtifactRow(
+                Method: row.Method,
+                ProviderName: row.ProviderName,
+                Mean: row.Mean,
+                Error: row.Error,
+                Allocated: row.Allocated,
+                MeanMicroseconds: row.MeanMicroseconds,
+                ErrorMicroseconds: row.ErrorMicroseconds,
+                NoisePercent: GetRelativeError(row.MeanMicroseconds, row.ErrorMicroseconds) is double relativeError ? relativeError * 100d : null,
+                TelemetryDelta: row.TelemetryDelta)).ToArray());
+
+        var jsonPath = Path.Combine(resultsDirectory, $"{runId}-summary.json");
+        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText(jsonPath, json);
+        return jsonPath;
+    }
+
+    private static IRenderable CreateMeanCell(MergedBenchmarkSummaryRow row, double? fastestMean, double? slowestMean)
     {
         if (!row.MeanMicroseconds.HasValue)
             return new Text(row.Mean);
@@ -344,12 +435,12 @@ internal sealed class BenchmarkHarnessRunner
         return new Text(row.Mean);
     }
 
-    private static IRenderable CreateErrorCell(BenchmarkSummaryRow row)
+    private static IRenderable CreateErrorCell(MergedBenchmarkSummaryRow row)
     {
         if (!row.MeanMicroseconds.HasValue || !row.ErrorMicroseconds.HasValue || row.MeanMicroseconds.Value <= 0)
             return new Text(row.Error);
 
-        var relativeError = GetRelativeError(row);
+        var relativeError = GetRelativeError(row.MeanMicroseconds, row.ErrorMicroseconds);
         return relativeError switch
         {
             >= 0.20 => CreateMarkupCell(row.Error, "red"),
@@ -358,9 +449,9 @@ internal sealed class BenchmarkHarnessRunner
         };
     }
 
-    private static IRenderable CreateNoiseCell(BenchmarkSummaryRow row)
+    private static IRenderable CreateNoiseCell(MergedBenchmarkSummaryRow row)
     {
-        var relativeError = GetRelativeError(row);
+        var relativeError = GetRelativeError(row.MeanMicroseconds, row.ErrorMicroseconds);
         if (!relativeError.HasValue)
             return new Text("-");
 
@@ -382,12 +473,64 @@ internal sealed class BenchmarkHarnessRunner
     private static bool AreClose(double left, double right) =>
         Math.Abs(left - right) < 0.0001d;
 
-    private static double? GetRelativeError(BenchmarkSummaryRow row)
+    private static double? GetRelativeError(double? meanMicroseconds, double? errorMicroseconds)
     {
-        if (!row.MeanMicroseconds.HasValue || !row.ErrorMicroseconds.HasValue || row.MeanMicroseconds.Value <= 0)
+        if (!meanMicroseconds.HasValue || !errorMicroseconds.HasValue || meanMicroseconds.Value <= 0)
             return null;
 
-        return row.ErrorMicroseconds.Value / row.MeanMicroseconds.Value;
+        return errorMicroseconds.Value / meanMicroseconds.Value;
+    }
+
+    private static string FormatQueries(BenchmarkTelemetryDeltaArtifact? artifact)
+        => artifact is null
+            ? "-"
+            : $"{FormatMetric(artifact.EntityQueriesPerOperation)}/{FormatMetric(artifact.ScalarQueriesPerOperation)}";
+
+    private static string FormatMethodLabel(string method)
+        => method switch
+        {
+            "Warm relation traversal" => "Warm rel",
+            "Cold relation traversal" => "Cold rel",
+            "Warm primary-key fetch" => "Warm PK",
+            "Cold primary-key fetch" => "Cold PK",
+            _ => method
+        };
+
+    private static string FormatProviderLabel(string providerName)
+        => providerName switch
+        {
+            "sqlite-memory" => "memory",
+            "sqlite-file" => "file",
+            _ => providerName
+        };
+
+    private static string FormatRowMetrics(BenchmarkTelemetryDeltaArtifact? artifact)
+        => artifact is null
+            ? "-"
+            : $"{FormatMetric(artifact.RowCacheHitsPerOperation)}/{FormatMetric(artifact.RowCacheMissesPerOperation)}/{FormatMetric(artifact.RowCacheStoresPerOperation)}";
+
+    private static string FormatRelations(BenchmarkTelemetryDeltaArtifact? artifact)
+        => artifact is null
+            ? "-"
+            : $"{FormatMetric(artifact.RelationHitsPerOperation)}/{FormatMetric(artifact.RelationLoadsPerOperation)}";
+
+    private static string FormatTelemetry(BenchmarkTelemetryDeltaArtifact? artifact)
+        => artifact is null
+            ? "-"
+            : string.Create(
+                CultureInfo.InvariantCulture,
+                $"Q {FormatQueries(artifact)}  Row {FormatRowMetrics(artifact)}  DB {FormatMetric(artifact.DatabaseRowsPerOperation)}  Mat {FormatMetric(artifact.MaterializationsPerOperation)}  Rel {FormatRelations(artifact)}");
+
+    private static string FormatMetric(double? value)
+    {
+        if (!value.HasValue)
+            return "-";
+
+        var roundedWhole = Math.Round(value.Value);
+        if (Math.Abs(value.Value - roundedWhole) < 0.05d)
+            return roundedWhole.ToString("0", CultureInfo.InvariantCulture);
+
+        return value.Value.ToString("0.0", CultureInfo.InvariantCulture);
     }
 
     private static double? TryParseDurationInMicroseconds(string value)
@@ -419,6 +562,52 @@ internal sealed class BenchmarkHarnessRunner
         string Allocated,
         double? MeanMicroseconds,
         double? ErrorMicroseconds);
+
+    private sealed record MergedBenchmarkSummaryRow(
+        string Method,
+        string ProviderName,
+        string Mean,
+        string Error,
+        string Allocated,
+        double? MeanMicroseconds,
+        double? ErrorMicroseconds,
+        BenchmarkTelemetryDeltaArtifact? TelemetryDelta)
+    {
+        public MergedBenchmarkSummaryRow(BenchmarkSummaryRow row, BenchmarkTelemetryDeltaArtifact? telemetryDelta)
+            : this(row.Method, row.ProviderName, row.Mean, row.Error, row.Allocated, row.MeanMicroseconds, row.ErrorMicroseconds, telemetryDelta)
+        {
+        }
+    }
+
+    private sealed record BenchmarkSummaryArtifact(
+        string RunId,
+        DateTime GeneratedAtUtc,
+        IReadOnlyList<BenchmarkSummaryArtifactRow> Rows);
+
+    private sealed record BenchmarkSummaryArtifactRow(
+        string Method,
+        string ProviderName,
+        string Mean,
+        string Error,
+        string Allocated,
+        double? MeanMicroseconds,
+        double? ErrorMicroseconds,
+        double? NoisePercent,
+        BenchmarkTelemetryDeltaArtifact? TelemetryDelta);
+
+    private sealed record BenchmarkTelemetryDeltaArtifact(
+        string Method,
+        string ProviderName,
+        int OperationsPerInvoke,
+        double EntityQueriesPerOperation,
+        double ScalarQueriesPerOperation,
+        double RowCacheHitsPerOperation,
+        double RowCacheMissesPerOperation,
+        double RowCacheStoresPerOperation,
+        double DatabaseRowsPerOperation,
+        double MaterializationsPerOperation,
+        double RelationHitsPerOperation,
+        double RelationLoadsPerOperation);
 
     private static string QuoteArgument(string argument) =>
         argument.Contains(' ', StringComparison.Ordinal)

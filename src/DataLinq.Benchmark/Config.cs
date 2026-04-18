@@ -14,7 +14,14 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
 {
     public DataLinqBenchmarkConfig()
     {
-        AddJob(Job.ShortRun.WithRuntime(BenchmarkDotNet.Environments.CoreRuntime.Core80));
+        AddJob(Job.ShortRun
+            .WithRuntime(BenchmarkDotNet.Environments.CoreRuntime.Core80)
+            .WithWarmupCount(4)
+            .WithIterationCount(6)
+            .WithMsBuildArguments([
+                "/p:RestoreIgnoreFailedSources=true",
+                "/p:NuGetAudit=false"
+            ]));
         AddColumnProvider(DefaultColumnProviders.Instance);
         HideColumns(
             Column.Job,

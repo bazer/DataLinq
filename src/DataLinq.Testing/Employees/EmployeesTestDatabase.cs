@@ -59,6 +59,20 @@ public sealed class EmployeesTestDatabase : IDisposable
         return new EmployeesTestDatabase(provider, connection, database, resolvedSettings, ownsUnderlyingStore: true);
     }
 
+    public static EmployeesTestDatabase CreateIsolatedBogus(
+        TestProviderDescriptor provider,
+        string scenarioName,
+        int employeeCount,
+        PodmanTestEnvironmentSettings? settings = null)
+    {
+        if (employeeCount < 1)
+            throw new ArgumentOutOfRangeException(nameof(employeeCount), "The employee count must be at least 1.");
+
+        var databaseScope = CreateIsolated(provider, scenarioName, EmployeesSeedMode.None, settings);
+        EmployeesBogusSeeder.Seed(databaseScope.Database, employeeCount);
+        return databaseScope;
+    }
+
     public static EmployeesTestDatabase OpenSharedSeeded(
         TestProviderDescriptor provider,
         string scenarioName,

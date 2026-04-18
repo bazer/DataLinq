@@ -48,5 +48,7 @@ Benchmark artifacts are written under `artifacts/benchmarks/`.
 
 - `results/*-report-github.md`: concise Markdown summary
 - `results/*-report.csv`: machine-readable benchmark data
+- `results/*-telemetry.json`: per benchmark/provider telemetry deltas normalized per operation
+- `results/*-summary.json`: merged summary artifact with timing, allocations, noise, and telemetry deltas
 - `benchmark-run-*.log`: full captured console output for that run
 - `benchmark-list-*.log`: full captured console output for a `list` run
