@@ -24,6 +24,25 @@ Run a focused benchmark:
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKeyFetch*"
 ```
 
+Run only the stable benchmark category:
+
+```bash
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run -- --anyCategories stable
+```
+
+Run only one provider variant, which is useful for CI or cleaner local trend runs:
+
+```bash
+DATALINQ_BENCHMARK_PROVIDERS=sqlite-memory dotnet run --project ./src/DataLinq.Benchmark.CLI -- run
+```
+
+PowerShell equivalent:
+
+```powershell
+$env:DATALINQ_BENCHMARK_PROVIDERS='sqlite-memory'
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run
+```
+
 Run a fast smoke pass:
 
 ```bash
@@ -66,3 +85,11 @@ Benchmark artifacts are written under `artifacts/benchmarks/`.
 - optional `--comparison-json` output: baseline comparison artifact with regression status per scenario/provider
 - `benchmark-run-*.log`: full captured console output for that run
 - `benchmark-list-*.log`: full captured console output for a `list` run
+
+## Stable CI lane
+
+The published benchmark history is intentionally narrower than the full local matrix.
+
+- CI uses the `stable` benchmark category
+- CI currently trends the `sqlite-memory` provider only
+- noisy experimental scenarios such as insert benchmarks stay available locally, but they do not belong in regression history until they earn that right

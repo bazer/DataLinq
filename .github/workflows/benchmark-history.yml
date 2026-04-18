@@ -21,6 +21,7 @@ jobs:
       DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
       DOTNET_NOLOGO: 1
+      DATALINQ_BENCHMARK_PROVIDERS: sqlite-memory
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,7 +69,8 @@ jobs:
             --profile default \
             --filter "*EmployeesBenchmarks*" \
             --history-json artifacts/benchmarks/ci/latest-history.json \
-            "${baseline_args[@]}"
+            "${baseline_args[@]}" \
+            -- --anyCategories stable
 
       - name: Update published benchmark history
         if: success() && github.ref == 'refs/heads/master'

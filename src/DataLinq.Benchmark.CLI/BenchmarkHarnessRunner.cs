@@ -887,6 +887,7 @@ internal sealed class BenchmarkHarnessRunner
     private static string FormatMethodLabel(string method)
         => method switch
         {
+            "Provider initialization" => "Provider init",
             "Startup primary-key fetch" => "Startup PK",
             "Insert employees" => "Insert",
             "Update employees" => "Update",

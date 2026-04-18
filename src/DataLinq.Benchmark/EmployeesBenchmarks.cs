@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BenchmarkDotNet.Attributes;
 using DataLinq.Diagnostics;
 using DataLinq.Testing;
@@ -10,11 +11,43 @@ namespace DataLinq.Benchmark;
 [MemoryDiagnoser(displayGenColumns: false)]
 public class EmployeesBenchmarks : IDisposable
 {
+    private const string BenchmarkProvidersEnvironmentVariable = "DATALINQ_BENCHMARK_PROVIDERS";
     private BenchmarkContext? context;
     private BenchmarkScenario? executedScenario;
 
-    [Params("sqlite-file", "sqlite-memory")]
-    public string ProviderName { get; set; } = TestProviderMatrix.SQLiteFile.Name;
+    [ParamsSource(nameof(GetProviderNames))]
+    public string ProviderName { get; set; } = TestProviderMatrix.SQLiteInMemory.Name;
+
+    public static IEnumerable<string> GetProviderNames()
+    {
+        var configured = Environment.GetEnvironmentVariable(BenchmarkProvidersEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(configured))
+            return [TestProviderMatrix.SQLiteFile.Name, TestProviderMatrix.SQLiteInMemory.Name];
+
+        var supportedProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            TestProviderMatrix.SQLiteFile.Name,
+            TestProviderMatrix.SQLiteInMemory.Name
+        };
+
+        var selectedProviders = configured
+            .Split([',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (selectedProviders.Length == 0)
+            throw new InvalidOperationException(
+                $"Environment variable '{BenchmarkProvidersEnvironmentVariable}' did not contain any benchmark providers.");
+
+        var unsupportedProvider = selectedProviders.FirstOrDefault(provider => !supportedProviders.Contains(provider));
+        if (unsupportedProvider is not null)
+        {
+            throw new InvalidOperationException(
+                $"Environment variable '{BenchmarkProvidersEnvironmentVariable}' contains unsupported provider '{unsupportedProvider}'.");
+        }
+
+        return selectedProviders;
+    }
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -36,6 +69,15 @@ public class EmployeesBenchmarks : IDisposable
         executedScenario = null;
     }
 
+    [BenchmarkCategory("stable")]
+    [Benchmark(Description = "Provider initialization")]
+    public int ProviderInitialization()
+    {
+        executedScenario = BenchmarkScenario.ProviderInitialization;
+        return context!.InitializeProviderAndMetadataOnFreshScope();
+    }
+
+    [BenchmarkCategory("stable")]
     [Benchmark(Description = "Startup primary-key fetch")]
     public int StartupPrimaryKeyFetch()
     {
@@ -56,6 +98,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.CleanupInsertedEmployees();
     }
 
+    [BenchmarkCategory("experimental")]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.MutationBatchOperationCount, Description = "Insert employees")]
     public int InsertEmployees()
     {
@@ -76,6 +119,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.CleanupUpdatedEmployees();
     }
 
+    [BenchmarkCategory("stable")]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.MutationBatchOperationCount, Description = "Update employees")]
     public int UpdateEmployees()
     {
@@ -89,6 +133,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.ResetState(clearCache: true);
     }
 
+    [BenchmarkCategory("stable")]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Cold primary-key fetch")]
     public int ColdPrimaryKeyFetch()
     {
@@ -104,6 +149,7 @@ public class EmployeesBenchmarks : IDisposable
         DataLinqMetrics.Reset();
     }
 
+    [BenchmarkCategory("stable")]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm primary-key fetch")]
     public int WarmPrimaryKeyFetch()
     {
@@ -117,6 +163,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.ResetState(clearCache: true);
     }
 
+    [BenchmarkCategory("stable")]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Cold relation traversal")]
     public int ColdRelationTraversal()
     {
@@ -132,6 +179,7 @@ public class EmployeesBenchmarks : IDisposable
         DataLinqMetrics.Reset();
     }
 
+    [BenchmarkCategory("stable")]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm relation traversal")]
     public int WarmRelationTraversal()
     {

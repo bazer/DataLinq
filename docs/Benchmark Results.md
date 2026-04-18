@@ -7,6 +7,8 @@ The point is not to pretend these numbers are universal truth. They are not.
 They are useful because they are:
 
 - run repeatedly on one controlled CI lane
+- limited to the current stable benchmark category
+- currently trended on the `sqlite-memory` provider to avoid redundant file-vs-memory noise
 - stored in a consistent machine-readable format
 - plotted over time so regressions and trend changes are visible
 

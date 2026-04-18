@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Diagnostics;
+using DataLinq.Metadata;
 using DataLinq.Testing;
 using DataLinq.Tests.Models.Employees;
 
@@ -127,6 +128,18 @@ internal sealed class BenchmarkContext : IDisposable
         return employee.emp_no!.Value;
     }
 
+    public int InitializeProviderAndMetadataOnFreshScope()
+    {
+        DatabaseDefinition.LoadedDatabases.TryRemove(typeof(EmployeesDb), out _);
+
+        using var startupScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            "benchmark-startup",
+            EmployeesSeedMode.Bogus);
+
+        return startupScope.Database.Provider.Metadata.TableModels.Length;
+    }
+
     public int InsertEmployeesBatch()
     {
         insertedEmployees.Clear();
@@ -230,6 +243,7 @@ internal sealed class BenchmarkContext : IDisposable
 
         _ = scenario switch
         {
+            BenchmarkScenario.ProviderInitialization => InitializeProviderAndMetadataOnFreshScope(),
             BenchmarkScenario.StartupPrimaryKeyFetch => LoadEmployeeByPrimaryKeyOnFreshScope(),
             BenchmarkScenario.InsertEmployeesBatch => InsertEmployeesBatch(),
             BenchmarkScenario.UpdateEmployeesBatch => UpdateEmployeesBatch(),
@@ -305,6 +319,7 @@ internal sealed class BenchmarkContext : IDisposable
     private static int GetOperationsPerInvoke(BenchmarkScenario scenario)
         => scenario switch
         {
+            BenchmarkScenario.ProviderInitialization => 1,
             BenchmarkScenario.StartupPrimaryKeyFetch => 1,
             BenchmarkScenario.InsertEmployeesBatch => MutationBatchOperationCount,
             BenchmarkScenario.UpdateEmployeesBatch => MutationBatchOperationCount,
@@ -330,6 +345,7 @@ internal sealed class BenchmarkContext : IDisposable
     private static string GetScenarioDisplayName(BenchmarkScenario scenario)
         => scenario switch
         {
+            BenchmarkScenario.ProviderInitialization => "Provider initialization",
             BenchmarkScenario.StartupPrimaryKeyFetch => "Startup primary-key fetch",
             BenchmarkScenario.InsertEmployeesBatch => "Insert employees",
             BenchmarkScenario.UpdateEmployeesBatch => "Update employees",

@@ -174,3 +174,99 @@ If you are integrating this into an admin page or periodic telemetry log:
 - log both runtime totals and the hottest provider/table contributors
 
 If you only log the runtime totals, you will eventually end up asking “which table actually caused this?” and have no answer.
+
+## Standard .NET Telemetry
+
+`DataLinqMetrics` is the in-process snapshot view. It is not the whole telemetry story.
+
+DataLinq also emits standard .NET telemetry with:
+
+- `Meter`: `DataLinq`
+- `ActivitySource`: `DataLinq`
+
+That is the right library boundary. DataLinq produces telemetry; your application decides whether to inspect it locally, export it with OpenTelemetry, or ignore it.
+
+### What DataLinq emits
+
+The exported surface now covers the main runtime paths:
+
+- query count and end-to-end query duration
+- DB command count and duration
+- transaction start/completion count and duration
+- mutation count, affected rows, and duration
+- cache occupancy gauges for rows, transaction rows, bytes, and index entries
+- cache maintenance counters and duration
+
+SQL text is still a logging concern, not a metric tag. That is deliberate. Putting SQL text into metric tags would be a cardinality bug.
+
+## Local Inspection with `dotnet-counters`
+
+For quick local inspection, `dotnet-counters` is the simplest path.
+
+1. Start your application.
+2. Find the process id.
+3. Monitor the DataLinq meter:
+
+```bash
+dotnet-counters monitor --process-id <pid> --counters DataLinq
+```
+
+That is useful for questions like:
+
+- are commands actually being issued?
+- are mutations increasing?
+- is the cache growing or being cleaned up?
+- are transaction rates changing under load?
+
+If you need table-by-table drilldown, use `DataLinqMetrics.Snapshot()` in-process. `dotnet-counters` is for live aggregate observation, not rich per-table analysis.
+
+## OpenTelemetry Integration
+
+DataLinq does not require an OpenTelemetry dependency in the core package. The application should opt into collection and exporting.
+
+A normal application-side setup looks like this:
+
+```csharp
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services
+    .AddOpenTelemetry()
+    .WithMetrics(metrics =>
+    {
+        metrics
+            .AddMeter("DataLinq")
+            .AddRuntimeInstrumentation();
+    })
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddSource("DataLinq");
+    });
+```
+
+Then add whatever exporter your app actually uses. That might be OTLP, Azure Monitor, or just console/exporter wiring during development.
+
+The important part is not the exporter. The important part is that the app listens to:
+
+- `Meter("DataLinq")`
+- `ActivitySource("DataLinq")`
+
+## Choosing Between Snapshot and Exported Telemetry
+
+Use `DataLinqMetrics.Snapshot()` when you need:
+
+- provider/table drilldown
+- deterministic before/after deltas in tests or benchmarks
+- a local admin/debug endpoint
+
+Use `Meter` and `ActivitySource` when you need:
+
+- live process observation
+- app-wide telemetry collection
+- traces correlated with the rest of your service
+- backend/export integration through standard .NET tooling
+
+These are complementary. If you force one to do the other's job, you will get worse results.
