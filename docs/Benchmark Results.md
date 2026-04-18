@@ -29,7 +29,8 @@ Important limits:
   data-history-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/history.json"
   data-latest-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/latest.json"
   data-comparison-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/latest-comparison.json"
-  data-provider-filter="sqlite-memory">
+  data-provider-filter="sqlite-memory"
+  data-method-filter="Provider initialization,Startup primary-key fetch,Cold primary-key fetch,Warm primary-key fetch,Cold relation traversal,Warm relation traversal,Update employees">
   Loading benchmark history...
 </div>
 

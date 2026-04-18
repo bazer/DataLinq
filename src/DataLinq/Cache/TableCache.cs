@@ -177,7 +177,11 @@ public class TableCache
         this.indexCachePolicy = GetIndexCachePolicy();
         MetricsHandle = DataLinqMetrics.RegisterTable(databaseCache.Database, table.DbName);
         this.notificationManager = new CacheNotificationManager(MetricsHandle);
-        DataLinqTelemetry.RegisterTableCache(telemetryContext, table.DbName, GetOccupancySnapshot);
+        DataLinqTelemetry.RegisterTableCache(
+            telemetryContext,
+            table.DbName,
+            GetOccupancySnapshot,
+            MetricsHandle.GetCacheNotificationSnapshot);
 
         IndexCaches = indices.ToDictionary(x => x, _ => new IndexCache());
         RefreshOccupancyMetrics();

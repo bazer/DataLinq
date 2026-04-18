@@ -5,6 +5,7 @@ using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Cache;
 using DataLinq.Core.Factories;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
@@ -12,6 +13,8 @@ using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.SQLite;
+using DataLinq.Testing;
+using DataLinq.Tests.Models.Employees;
 using Microsoft.Data.Sqlite;
 
 namespace DataLinq.Tests.Unit.SQLite;
@@ -317,6 +320,98 @@ public sealed class TelemetryTests
         });
     }
 
+    [Test]
+    [NotInParallel]
+    public async Task Meter_ExposesRowCacheRelationAndNotificationMetricsForSQLiteEmployees()
+    {
+        DataLinqMetrics.Reset();
+        using var databaseScope = EmployeesTestDatabase.CreateIsolatedBogus(
+            TestProviderMatrix.SQLiteInMemory,
+            "telemetry_meter",
+            employeeCount: 50);
+
+        try
+        {
+            var longMeasurements = new List<(string InstrumentName, long Value, Dictionary<string, object?> Tags)>();
+
+            using var listener = new MeterListener();
+            listener.InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == "DataLinq")
+                    meterListener.EnableMeasurementEvents(instrument);
+            };
+            listener.SetMeasurementEventCallback<long>((instrument, measurement, tags, _) =>
+            {
+                longMeasurements.Add((instrument.Name, measurement, ToTagDictionary(tags)));
+            });
+            listener.Start();
+
+            var employeeNumber = databaseScope.Database.Query().Employees
+                .OrderBy(x => x.emp_no)
+                .Select(x => x.emp_no!.Value)
+                .First();
+
+            var firstEmployee = databaseScope.Database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+            var secondEmployee = databaseScope.Database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+
+            await Assert.That(firstEmployee.emp_no).IsNotNull();
+            await Assert.That(secondEmployee.emp_no).IsNotNull();
+
+            _ = firstEmployee.dept_emp.First().departments.Name;
+            _ = firstEmployee.dept_emp.First().departments.Name;
+
+            var employeesTable = databaseScope.Database.Provider.Metadata.TableModels
+                .Single(x => x.Table.DbName == "employees")
+                .Table;
+            var subscriber = new TestCacheNotification();
+            databaseScope.Database.Provider.GetTableCache(employeesTable).SubscribeToChanges(subscriber);
+
+            listener.RecordObservableInstruments();
+
+            await Assert.That(longMeasurements.Any(x =>
+                x.InstrumentName == "datalinq.cache.rows.access" &&
+                HasTag(x.Tags, "datalinq.table", "employees") &&
+                HasTag(x.Tags, "datalinq.cache.result", "miss") &&
+                x.Value > 0)).IsTrue();
+
+            await Assert.That(longMeasurements.Any(x =>
+                x.InstrumentName == "datalinq.cache.rows.access" &&
+                HasTag(x.Tags, "datalinq.table", "employees") &&
+                HasTag(x.Tags, "datalinq.cache.result", "hit") &&
+                x.Value > 0)).IsTrue();
+
+            await Assert.That(longMeasurements.Any(x =>
+                x.InstrumentName == "datalinq.cache.rows.access" &&
+                HasTag(x.Tags, "datalinq.table", "employees") &&
+                HasTag(x.Tags, "datalinq.cache.result", "store") &&
+                x.Value > 0)).IsTrue();
+
+            await Assert.That(longMeasurements.Any(x =>
+                x.InstrumentName == "datalinq.cache.relations" &&
+                HasTag(x.Tags, "datalinq.cache.result", "load") &&
+                x.Value > 0)).IsTrue();
+
+            await Assert.That(longMeasurements.Any(x =>
+                x.InstrumentName == "datalinq.cache.relations" &&
+                HasTag(x.Tags, "datalinq.cache.result", "hit") &&
+                x.Value > 0)).IsTrue();
+
+            var queueDepthGauge = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.notifications.queue_depth" &&
+                HasTag(x.Tags, "datalinq.table", "employees"));
+            await Assert.That(queueDepthGauge.Value).IsEqualTo(1L);
+
+            var peakQueueDepthGauge = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.cache.notifications.peak_queue_depth" &&
+                HasTag(x.Tags, "datalinq.table", "employees"));
+            await Assert.That(peakQueueDepthGauge.Value).IsEqualTo(1L);
+        }
+        finally
+        {
+            DataLinqMetrics.Reset();
+        }
+    }
+
     private static async Task WithTelemetryDatabase(Func<SQLiteDatabase<SQLiteTelemetryDb>, Task> testAction)
     {
         DataLinqMetrics.Reset();
@@ -370,6 +465,13 @@ public sealed class TelemetryTests
             dictionary[tag.Key] = tag.Value;
 
         return dictionary;
+    }
+}
+
+internal sealed class TestCacheNotification : ICacheNotification
+{
+    public void Clear()
+    {
     }
 }
 

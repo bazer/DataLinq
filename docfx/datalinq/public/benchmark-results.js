@@ -108,11 +108,23 @@ function parseProviderFilter(root) {
     .filter(Boolean)
 }
 
+function parseMethodFilter(root) {
+  const filter = root?.dataset?.methodFilter ?? ''
+  return filter
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean)
+}
+
 function isAllowedProvider(providerName, allowedProviders) {
   return allowedProviders.length === 0 || allowedProviders.includes(providerName)
 }
 
-function filterHistory(history, allowedProviders) {
+function isAllowedMethod(method, allowedMethods) {
+  return allowedMethods.length === 0 || allowedMethods.includes(method)
+}
+
+function filterHistory(history, allowedProviders, allowedMethods) {
   if (!history?.Runs?.length) {
     return history
   }
@@ -122,31 +134,37 @@ function filterHistory(history, allowedProviders) {
     Runs: history.Runs
       .map(run => ({
         ...run,
-        Rows: (run.Rows ?? []).filter(row => isAllowedProvider(row.ProviderName, allowedProviders))
+        Rows: (run.Rows ?? []).filter(row =>
+          isAllowedProvider(row.ProviderName, allowedProviders) &&
+          isAllowedMethod(row.Method, allowedMethods))
       }))
       .filter(run => (run.Rows ?? []).length > 0)
   }
 }
 
-function filterLatest(latest, allowedProviders) {
+function filterLatest(latest, allowedProviders, allowedMethods) {
   if (!latest?.Rows?.length) {
     return latest
   }
 
   return {
     ...latest,
-    Rows: latest.Rows.filter(row => isAllowedProvider(row.ProviderName, allowedProviders))
+    Rows: latest.Rows.filter(row =>
+      isAllowedProvider(row.ProviderName, allowedProviders) &&
+      isAllowedMethod(row.Method, allowedMethods))
   }
 }
 
-function filterComparison(comparison, allowedProviders) {
+function filterComparison(comparison, allowedProviders, allowedMethods) {
   if (!comparison?.Rows?.length) {
     return comparison
   }
 
   return {
     ...comparison,
-    Rows: comparison.Rows.filter(row => isAllowedProvider(row.ProviderName, allowedProviders))
+    Rows: comparison.Rows.filter(row =>
+      isAllowedProvider(row.ProviderName, allowedProviders) &&
+      isAllowedMethod(row.Method, allowedMethods))
   }
 }
 
@@ -324,6 +342,7 @@ async function renderBenchmarkResults() {
     const latestUrl = root.dataset.latestUrl
     const comparisonUrl = root.dataset.comparisonUrl
     const allowedProviders = parseProviderFilter(root)
+    const allowedMethods = parseMethodFilter(root)
 
     const [rawHistory, rawLatest, rawComparison] = await Promise.all([
       fetchJson(historyUrl),
@@ -331,9 +350,9 @@ async function renderBenchmarkResults() {
       comparisonUrl ? fetchJson(comparisonUrl).catch(() => null) : Promise.resolve(null)
     ])
 
-    const history = filterHistory(rawHistory, allowedProviders)
-    const latest = filterLatest(rawLatest, allowedProviders)
-    const comparison = filterComparison(rawComparison, allowedProviders)
+    const history = filterHistory(rawHistory, allowedProviders, allowedMethods)
+    const latest = filterLatest(rawLatest, allowedProviders, allowedMethods)
+    const comparison = filterComparison(rawComparison, allowedProviders, allowedMethods)
 
     const latestCommit = latest?.Metadata?.Commit ? latest.Metadata.Commit.slice(0, 7) : 'unknown'
     const latestBranch = latest?.Metadata?.Branch ?? 'unknown'

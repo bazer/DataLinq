@@ -10,22 +10,57 @@ namespace DataLinq.Diagnostics;
 internal sealed class DataLinqTableMetricsHandle
 {
     private readonly DataLinqTableMetricsState state;
+    private readonly DataLinqTelemetryContext telemetryContext;
 
-    internal DataLinqTableMetricsHandle(DataLinqTableMetricsState state)
+    internal DataLinqTableMetricsHandle(DataLinqTelemetryContext telemetryContext, DataLinqTableMetricsState state)
     {
+        this.telemetryContext = telemetryContext;
         this.state = state;
     }
 
-    internal void RecordRowCacheHits(int count) => state.RecordRowCacheHits(count);
-    internal void RecordRowCacheMisses(int count) => state.RecordRowCacheMisses(count);
+    internal void RecordRowCacheHits(int count)
+    {
+        state.RecordRowCacheHits(count);
+        DataLinqTelemetry.RecordRowCacheAccess(telemetryContext, state.TableName, "hit", count);
+    }
+
+    internal void RecordRowCacheMisses(int count)
+    {
+        state.RecordRowCacheMisses(count);
+        DataLinqTelemetry.RecordRowCacheAccess(telemetryContext, state.TableName, "miss", count);
+    }
+
     internal void RecordDatabaseRowsLoaded(int count) => state.RecordDatabaseRowsLoaded(count);
     internal void RecordRowMaterialization() => state.RecordRowMaterialization();
-    internal void RecordRowCacheStore() => state.RecordRowCacheStore();
+    internal void RecordRowCacheStore()
+    {
+        state.RecordRowCacheStore();
+        DataLinqTelemetry.RecordRowCacheAccess(telemetryContext, state.TableName, "store", 1);
+    }
 
-    internal void RecordRelationReferenceCacheHit() => state.RecordRelationReferenceCacheHit();
-    internal void RecordRelationReferenceLoad() => state.RecordRelationReferenceLoad();
-    internal void RecordRelationCollectionCacheHit() => state.RecordRelationCollectionCacheHit();
-    internal void RecordRelationCollectionLoad() => state.RecordRelationCollectionLoad();
+    internal void RecordRelationReferenceCacheHit()
+    {
+        state.RecordRelationReferenceCacheHit();
+        DataLinqTelemetry.RecordRelationAccess(telemetryContext, state.TableName, "reference", "hit");
+    }
+
+    internal void RecordRelationReferenceLoad()
+    {
+        state.RecordRelationReferenceLoad();
+        DataLinqTelemetry.RecordRelationAccess(telemetryContext, state.TableName, "reference", "load");
+    }
+
+    internal void RecordRelationCollectionCacheHit()
+    {
+        state.RecordRelationCollectionCacheHit();
+        DataLinqTelemetry.RecordRelationAccess(telemetryContext, state.TableName, "collection", "hit");
+    }
+
+    internal void RecordRelationCollectionLoad()
+    {
+        state.RecordRelationCollectionLoad();
+        DataLinqTelemetry.RecordRelationAccess(telemetryContext, state.TableName, "collection", "load");
+    }
     internal void RecordMutationExecution(TransactionChangeType mutationType, bool succeeded, int affectedRows, TimeSpan duration)
         => state.RecordMutationExecution(mutationType, succeeded, affectedRows, duration);
     internal void UpdateCacheOccupancy(CacheOccupancyMetricsSnapshot snapshot) => state.UpdateCacheOccupancy(snapshot);
@@ -37,6 +72,7 @@ internal sealed class DataLinqTableMetricsHandle
     internal void RecordCacheNotificationCleanSweep(int snapshotEntries, int requeuedSubscribers, int droppedSubscribers, int currentQueueDepth)
         => state.RecordCacheNotificationCleanSweep(snapshotEntries, requeuedSubscribers, droppedSubscribers, currentQueueDepth);
     internal void RecordCacheNotificationCleanBusySkip() => state.RecordCacheNotificationCleanBusySkip();
+    internal CacheNotificationMetricsSnapshot GetCacheNotificationSnapshot() => state.GetCacheNotificationSnapshot();
 }
 
 internal sealed class DataLinqProviderMetricsState
@@ -80,7 +116,9 @@ internal sealed class DataLinqProviderMetricsState
     }
 
     internal DataLinqTableMetricsHandle GetOrCreateTable(string tableName)
-        => new(tableStates.GetOrAdd(tableName, name => new DataLinqTableMetricsState(name)));
+        => new(
+            new DataLinqTelemetryContext(ProviderInstanceId, ProviderTypeName, DatabaseName, DatabaseType),
+            tableStates.GetOrAdd(tableName, name => new DataLinqTableMetricsState(name)));
 
     internal void RecordEntityQueryExecution() => Interlocked.Increment(ref entityExecutions);
     internal void RecordScalarQueryExecution() => Interlocked.Increment(ref scalarExecutions);
@@ -483,6 +521,25 @@ internal sealed class DataLinqTableMetricsState
                 CleanDroppedSubscribers: Interlocked.Read(ref cacheNotificationCleanDroppedSubscribers),
                 CleanBusySkips: Interlocked.Read(ref cacheNotificationCleanBusySkips),
                 ApproximatePeakQueueDepth: Interlocked.Read(ref cacheNotificationApproximatePeakQueueDepth)));
+
+    internal CacheNotificationMetricsSnapshot GetCacheNotificationSnapshot()
+        => new(
+            Subscriptions: Interlocked.Read(ref cacheNotificationSubscriptions),
+            ApproximateCurrentQueueDepth: Interlocked.Read(ref cacheNotificationApproximateCurrentQueueDepth),
+            LastNotifySnapshotEntries: Interlocked.Read(ref cacheNotificationLastNotifySnapshotEntries),
+            LastNotifyLiveSubscribers: Interlocked.Read(ref cacheNotificationLastNotifyLiveSubscribers),
+            NotifySweeps: Interlocked.Read(ref cacheNotificationNotifySweeps),
+            NotifySnapshotEntries: Interlocked.Read(ref cacheNotificationNotifySnapshotEntries),
+            NotifyLiveSubscribers: Interlocked.Read(ref cacheNotificationNotifyLiveSubscribers),
+            LastCleanSnapshotEntries: Interlocked.Read(ref cacheNotificationLastCleanSnapshotEntries),
+            LastCleanRequeuedSubscribers: Interlocked.Read(ref cacheNotificationLastCleanRequeuedSubscribers),
+            LastCleanDroppedSubscribers: Interlocked.Read(ref cacheNotificationLastCleanDroppedSubscribers),
+            CleanSweeps: Interlocked.Read(ref cacheNotificationCleanSweeps),
+            CleanSnapshotEntries: Interlocked.Read(ref cacheNotificationCleanSnapshotEntries),
+            CleanRequeuedSubscribers: Interlocked.Read(ref cacheNotificationCleanRequeuedSubscribers),
+            CleanDroppedSubscribers: Interlocked.Read(ref cacheNotificationCleanDroppedSubscribers),
+            CleanBusySkips: Interlocked.Read(ref cacheNotificationCleanBusySkips),
+            ApproximatePeakQueueDepth: Interlocked.Read(ref cacheNotificationApproximatePeakQueueDepth));
 
     private void RecordCacheNotificationApproximatePeakQueueDepth(int approximateQueueDepth)
     {

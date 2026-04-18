@@ -82,6 +82,14 @@ internal static class DataLinqTelemetry
         "datalinq.cache.rows.removed",
         unit: "{row}",
         description: "Number of rows removed from DataLinq caches.");
+    private static readonly Counter<long> CacheRowAccessCounter = Meter.CreateCounter<long>(
+        "datalinq.cache.rows.access",
+        unit: "{row}",
+        description: "Number of DataLinq row-cache hits, misses, and stores.");
+    private static readonly Counter<long> RelationAccessCounter = Meter.CreateCounter<long>(
+        "datalinq.cache.relations",
+        unit: "{relation}",
+        description: "Number of DataLinq relation-cache hits and relation loads.");
     private static readonly Counter<long> CacheMaintenanceCounter = Meter.CreateCounter<long>(
         "datalinq.cache.maintenance.operations",
         unit: "{operation}",
@@ -110,6 +118,16 @@ internal static class DataLinqTelemetry
         ObserveCacheIndexEntries,
         unit: "{entry}",
         description: "Current number of entries stored in DataLinq index caches.");
+    private static readonly ObservableGauge<long> CacheNotificationQueueDepthGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.notifications.queue_depth",
+        ObserveCacheNotificationQueueDepth,
+        unit: "{subscriber}",
+        description: "Approximate current number of queued cache-notification subscribers.");
+    private static readonly ObservableGauge<long> CacheNotificationPeakQueueDepthGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.notifications.peak_queue_depth",
+        ObserveCacheNotificationPeakQueueDepth,
+        unit: "{subscriber}",
+        description: "Highest approximate cache-notification queue depth observed for a DataLinq table.");
 
     internal static string GetCommandOperation(IDbCommand command)
     {
@@ -310,9 +328,14 @@ internal static class DataLinqTelemetry
     internal static void RegisterTableCache(
         DataLinqTelemetryContext context,
         string tableName,
-        Func<CacheOccupancyMetricsSnapshot> getSnapshot)
+        Func<CacheOccupancyMetricsSnapshot> getOccupancySnapshot,
+        Func<CacheNotificationMetricsSnapshot> getNotificationSnapshot)
     {
-        CacheGaugeRegistrations[GetTableRegistrationKey(context, tableName)] = new CacheGaugeRegistration(context, tableName, getSnapshot);
+        CacheGaugeRegistrations[GetTableRegistrationKey(context, tableName)] = new CacheGaugeRegistration(
+            context,
+            tableName,
+            getOccupancySnapshot,
+            getNotificationSnapshot);
     }
 
     internal static void UnregisterTableCache(DataLinqTelemetryContext context, string tableName)
@@ -335,6 +358,32 @@ internal static class DataLinqTelemetry
 
         if (rowsRemoved > 0)
             CacheRowsRemovedCounter.Add(rowsRemoved, tags);
+    }
+
+    internal static void RecordRowCacheAccess(
+        DataLinqTelemetryContext context,
+        string tableName,
+        string result,
+        int count)
+    {
+        if (count <= 0)
+            return;
+
+        var tags = CreateTableTags(context, tableName);
+        tags.Add("datalinq.cache.result", result);
+        CacheRowAccessCounter.Add(count, tags);
+    }
+
+    internal static void RecordRelationAccess(
+        DataLinqTelemetryContext context,
+        string tableName,
+        string relationKind,
+        string result)
+    {
+        var tags = CreateTableTags(context, tableName);
+        tags.Add("datalinq.relation.kind", relationKind);
+        tags.Add("datalinq.cache.result", result);
+        RelationAccessCounter.Add(1, tags);
     }
 
     private static TagList CreateCommonTags(DataLinqTelemetryContext context)
@@ -407,6 +456,12 @@ internal static class DataLinqTelemetry
     private static IEnumerable<Measurement<long>> ObserveCacheIndexEntries()
         => ObserveCacheGauge(snapshot => snapshot.IndexEntries);
 
+    private static IEnumerable<Measurement<long>> ObserveCacheNotificationQueueDepth()
+        => ObserveNotificationGauge(snapshot => snapshot.ApproximateCurrentQueueDepth);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheNotificationPeakQueueDepth()
+        => ObserveNotificationGauge(snapshot => snapshot.ApproximatePeakQueueDepth);
+
     private static IEnumerable<Measurement<long>> ObserveCacheGauge(Func<CacheOccupancyMetricsSnapshot, long> selector)
     {
         foreach (var registration in CacheGaugeRegistrations.Values)
@@ -414,7 +469,25 @@ internal static class DataLinqTelemetry
             CacheOccupancyMetricsSnapshot snapshot;
             try
             {
-                snapshot = registration.GetSnapshot();
+                snapshot = registration.GetOccupancySnapshot();
+            }
+            catch
+            {
+                continue;
+            }
+
+            yield return new Measurement<long>(selector(snapshot), CreateTableTags(registration.Context, registration.TableName));
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveNotificationGauge(Func<CacheNotificationMetricsSnapshot, long> selector)
+    {
+        foreach (var registration in CacheGaugeRegistrations.Values)
+        {
+            CacheNotificationMetricsSnapshot snapshot;
+            try
+            {
+                snapshot = registration.GetNotificationSnapshot();
             }
             catch
             {
@@ -431,5 +504,6 @@ internal static class DataLinqTelemetry
     private readonly record struct CacheGaugeRegistration(
         DataLinqTelemetryContext Context,
         string TableName,
-        Func<CacheOccupancyMetricsSnapshot> GetSnapshot);
+        Func<CacheOccupancyMetricsSnapshot> GetOccupancySnapshot,
+        Func<CacheNotificationMetricsSnapshot> GetNotificationSnapshot);
 }

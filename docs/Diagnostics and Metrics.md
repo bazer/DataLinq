@@ -51,6 +51,11 @@ Each provider node is keyed by a stable provider-instance id for the current pro
 The ownership model is what keeps the sums honest.
 
 - `QueryMetricsSnapshot` is provider-owned.
+- `CommandMetricsSnapshot` is provider-owned.
+- `TransactionMetricsSnapshot` is provider-owned.
+- `MutationMetricsSnapshot` is table-owned, then summed upward at provider and runtime level.
+- `CacheOccupancyMetricsSnapshot` is table-owned, then summed upward.
+- `CacheCleanupMetricsSnapshot` is table-owned, then summed upward.
 - `RelationMetricsSnapshot` is table-owned.
 - `RowCacheMetricsSnapshot` is table-owned.
 - `CacheNotificationMetricsSnapshot` is table-owned.
@@ -58,8 +63,9 @@ The ownership model is what keeps the sums honest.
 So:
 
 - runtime `Queries` is the sum of provider `Queries`
-- provider `Relations`, `RowCache`, and `CacheNotifications` are sums of that provider's tables
-- runtime `Relations`, `RowCache`, and `CacheNotifications` are sums of all providers
+- runtime `Commands` and `Transactions` are sums of provider-owned values
+- provider `Mutations`, `Occupancy`, `Cleanup`, `Relations`, `RowCache`, and `CacheNotifications` are sums of that provider's tables
+- runtime `Mutations`, `Occupancy`, `Cleanup`, `Relations`, `RowCache`, and `CacheNotifications` are sums of all providers
 
 Query metrics are intentionally not forced into tables. A single query can touch several tables, and fake table attribution would make the totals look cleaner while making them less true.
 
@@ -71,6 +77,11 @@ Query metrics are intentionally not forced into tables. A single query can touch
 DataLinqMetricsSnapshot
 {
     QueryMetricsSnapshot Queries;
+    CommandMetricsSnapshot Commands;
+    TransactionMetricsSnapshot Transactions;
+    MutationMetricsSnapshot Mutations;
+    CacheOccupancyMetricsSnapshot Occupancy;
+    CacheCleanupMetricsSnapshot Cleanup;
     RelationMetricsSnapshot Relations;
     RowCacheMetricsSnapshot RowCache;
     CacheNotificationMetricsSnapshot CacheNotifications;
@@ -88,6 +99,11 @@ DataLinqProviderMetricsSnapshot
     string DatabaseName;
     DatabaseType DatabaseType;
     QueryMetricsSnapshot Queries;
+    CommandMetricsSnapshot Commands;
+    TransactionMetricsSnapshot Transactions;
+    MutationMetricsSnapshot Mutations;
+    CacheOccupancyMetricsSnapshot Occupancy;
+    CacheCleanupMetricsSnapshot Cleanup;
     RelationMetricsSnapshot Relations;
     RowCacheMetricsSnapshot RowCache;
     CacheNotificationMetricsSnapshot CacheNotifications;
@@ -101,6 +117,9 @@ DataLinqProviderMetricsSnapshot
 DataLinqTableMetricsSnapshot
 {
     string TableName;
+    MutationMetricsSnapshot Mutations;
+    CacheOccupancyMetricsSnapshot Occupancy;
+    CacheCleanupMetricsSnapshot Cleanup;
     RelationMetricsSnapshot Relations;
     RowCacheMetricsSnapshot RowCache;
     CacheNotificationMetricsSnapshot CacheNotifications;
@@ -115,6 +134,36 @@ This is where people most often fool themselves.
 
 - `EntityExecutions` and `ScalarExecutions` are counters.
 - They are provider-owned and summed upward.
+
+### Command metrics
+
+- `ReaderExecutions`, `ScalarExecutions`, `NonQueryExecutions`, and `Failures` are counters.
+- `TotalDurationMicroseconds` is cumulative duration, not the duration of the most recent command.
+- They are provider-owned and summed upward.
+
+### Transaction metrics
+
+- `Starts`, `Commits`, `Rollbacks`, and `Failures` are counters.
+- `TotalDurationMicroseconds` is cumulative duration across completed transactions.
+- They are provider-owned and summed upward.
+
+### Mutation metrics
+
+- `Inserts`, `Updates`, `Deletes`, `Failures`, and `AffectedRows` are counters.
+- `TotalDurationMicroseconds` is cumulative duration across executed mutations.
+- They are table-owned and summed upward.
+
+### Cache occupancy metrics
+
+- `Rows`, `TransactionRows`, `Bytes`, and `IndexEntries` are gauges.
+- They describe current state, not cumulative history.
+- They are table-owned and summed upward.
+
+### Cache cleanup metrics
+
+- `Operations` and `RowsRemoved` are counters.
+- `TotalDurationMicroseconds` is cumulative cleanup duration.
+- They are table-owned and summed upward.
 
 ### Row cache metrics
 
@@ -145,6 +194,10 @@ var snapshot = DataLinqMetrics.Snapshot();
 
 // Runtime totals
 var totalEntityQueries = snapshot.Queries.EntityExecutions;
+var totalCommandCount = snapshot.Commands.TotalExecutions;
+var totalTransactionStarts = snapshot.Transactions.Starts;
+var totalMutationRows = snapshot.Mutations.AffectedRows;
+var totalCachedRows = snapshot.Occupancy.Rows;
 var totalRowCacheHits = snapshot.RowCache.Hits;
 var totalNotificationDepth = snapshot.CacheNotifications.ApproximateCurrentQueueDepth;
 
@@ -153,12 +206,17 @@ foreach (var provider in snapshot.Providers)
 {
     Console.WriteLine($"{provider.ProviderTypeName} ({provider.DatabaseName})");
     Console.WriteLine($"  Entity queries: {provider.Queries.EntityExecutions}");
+    Console.WriteLine($"  Commands: {provider.Commands.TotalExecutions}");
+    Console.WriteLine($"  Transactions: {provider.Transactions.Starts}");
+    Console.WriteLine($"  Cached rows: {provider.Occupancy.Rows}");
     Console.WriteLine($"  Row cache hits: {provider.RowCache.Hits}");
     Console.WriteLine($"  Notification depth: {provider.CacheNotifications.ApproximateCurrentQueueDepth}");
 
     foreach (var table in provider.Tables)
     {
         Console.WriteLine($"    {table.TableName}:");
+        Console.WriteLine($"      Mutations: {table.Mutations.TotalExecutions}");
+        Console.WriteLine($"      Cached rows: {table.Occupancy.Rows}");
         Console.WriteLine($"      Row cache hits: {table.RowCache.Hits}");
         Console.WriteLine($"      Notification depth: {table.CacheNotifications.ApproximateCurrentQueueDepth}");
     }
@@ -194,7 +252,10 @@ The exported surface now covers the main runtime paths:
 - DB command count and duration
 - transaction start/completion count and duration
 - mutation count, affected rows, and duration
+- row-cache hit/miss/store counters
+- relation cache hit/load counters
 - cache occupancy gauges for rows, transaction rows, bytes, and index entries
+- cache-notification queue depth gauges
 - cache maintenance counters and duration
 
 SQL text is still a logging concern, not a metric tag. That is deliberate. Putting SQL text into metric tags would be a cardinality bug.
