@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Runtime.InteropServices;
 using Spectre.Console;
@@ -358,7 +359,8 @@ internal sealed class BenchmarkHarnessRunner
         if (lines.Length < 2)
             return [];
 
-        var headers = SplitCsvLine(lines[0]);
+        var delimiter = DetectCsvDelimiter(lines[0]);
+        var headers = SplitCsvLine(lines[0], delimiter);
         var methodIndex = Array.IndexOf(headers, "Method");
         var jobIndex = Array.IndexOf(headers, "Job");
         var providerIndex = Array.IndexOf(headers, "ProviderName");
@@ -375,7 +377,7 @@ internal sealed class BenchmarkHarnessRunner
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            var columns = SplitCsvLine(line);
+            var columns = SplitCsvLine(line, delimiter);
             if (columns.Length <= errorIndex)
                 continue;
 
@@ -413,8 +415,69 @@ internal sealed class BenchmarkHarnessRunner
         return filtered.Length > 0 ? filtered : rows;
     }
 
-    private static string[] SplitCsvLine(string line) =>
-        line.Split(';');
+    private static char DetectCsvDelimiter(string headerLine)
+    {
+        var candidates = new[] { ';', ',', '\t' };
+        var bestDelimiter = ';';
+        var bestScore = int.MinValue;
+        var bestColumnCount = 0;
+
+        foreach (var delimiter in candidates)
+        {
+            var columns = SplitCsvLine(headerLine, delimiter);
+            var score =
+                (columns.Contains("Method", StringComparer.Ordinal) ? 4 : 0) +
+                (columns.Contains("ProviderName", StringComparer.Ordinal) ? 4 : 0) +
+                (columns.Contains("Mean", StringComparer.Ordinal) ? 2 : 0) +
+                (columns.Contains("Error", StringComparer.Ordinal) ? 2 : 0);
+
+            if (score > bestScore || (score == bestScore && columns.Length > bestColumnCount))
+            {
+                bestDelimiter = delimiter;
+                bestScore = score;
+                bestColumnCount = columns.Length;
+            }
+        }
+
+        return bestDelimiter;
+    }
+
+    private static string[] SplitCsvLine(string line, char delimiter)
+    {
+        var columns = new List<string>();
+        var current = new StringBuilder();
+        var insideQuotes = false;
+
+        for (var i = 0; i < line.Length; i++)
+        {
+            var character = line[i];
+
+            if (character == '"')
+            {
+                if (insideQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                    continue;
+                }
+
+                insideQuotes = !insideQuotes;
+                continue;
+            }
+
+            if (character == delimiter && !insideQuotes)
+            {
+                columns.Add(current.ToString());
+                current.Clear();
+                continue;
+            }
+
+            current.Append(character);
+        }
+
+        columns.Add(current.ToString());
+        return columns.ToArray();
+    }
 
     private static string NormalizeCell(string value) =>
         value.Trim().Trim('\'', '"');
