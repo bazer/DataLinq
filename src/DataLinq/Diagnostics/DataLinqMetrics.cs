@@ -25,6 +25,8 @@ internal sealed class DataLinqTableMetricsHandle
     internal void RecordRelationReferenceLoad() => state.RecordRelationReferenceLoad();
     internal void RecordRelationCollectionCacheHit() => state.RecordRelationCollectionCacheHit();
     internal void RecordRelationCollectionLoad() => state.RecordRelationCollectionLoad();
+    internal void UpdateCacheOccupancy(CacheOccupancyMetricsSnapshot snapshot) => state.UpdateCacheOccupancy(snapshot);
+    internal void RecordCacheCleanup(int rowsRemoved, TimeSpan duration) => state.RecordCacheCleanup(rowsRemoved, duration);
 
     internal void RecordCacheNotificationSubscribe(int approximateQueueDepth) => state.RecordCacheNotificationSubscribe(approximateQueueDepth);
     internal void RecordCacheNotificationNotifySweep(int snapshotEntries, int liveSubscribers, int currentQueueDepth)
@@ -179,6 +181,8 @@ internal sealed class DataLinqProviderMetricsState
                 Rollbacks: Interlocked.Read(ref transactionRollbacks),
                 Failures: Interlocked.Read(ref transactionFailures),
                 TotalDurationMicroseconds: Interlocked.Read(ref transactionDurationMicroseconds)),
+            Occupancy: CacheOccupancyMetricsSnapshot.Sum(tables.Select(x => x.Occupancy)),
+            Cleanup: CacheCleanupMetricsSnapshot.Sum(tables.Select(x => x.Cleanup)),
             Relations: RelationMetricsSnapshot.Sum(tables.Select(x => x.Relations)),
             RowCache: RowCacheMetricsSnapshot.Sum(tables.Select(x => x.RowCache)),
             CacheNotifications: CacheNotificationMetricsSnapshot.Sum(tables.Select(x => x.CacheNotifications)),
@@ -191,6 +195,13 @@ internal sealed class DataLinqProviderMetricsState
 
 internal sealed class DataLinqTableMetricsState
 {
+    private long currentRows;
+    private long currentTransactionRows;
+    private long currentBytes;
+    private long currentIndexEntries;
+    private long cacheCleanupOperations;
+    private long cacheCleanupRowsRemoved;
+    private long cacheCleanupDurationMicroseconds;
     private long rowCacheHits;
     private long rowCacheMisses;
     private long databaseRowsLoaded;
@@ -231,6 +242,20 @@ internal sealed class DataLinqTableMetricsState
     internal void RecordDatabaseRowsLoaded(int count) => Interlocked.Add(ref databaseRowsLoaded, count);
     internal void RecordRowMaterialization() => Interlocked.Increment(ref rowMaterializations);
     internal void RecordRowCacheStore() => Interlocked.Increment(ref rowCacheStores);
+    internal void UpdateCacheOccupancy(CacheOccupancyMetricsSnapshot snapshot)
+    {
+        Interlocked.Exchange(ref currentRows, snapshot.Rows);
+        Interlocked.Exchange(ref currentTransactionRows, snapshot.TransactionRows);
+        Interlocked.Exchange(ref currentBytes, snapshot.Bytes);
+        Interlocked.Exchange(ref currentIndexEntries, snapshot.IndexEntries);
+    }
+
+    internal void RecordCacheCleanup(int rowsRemoved, TimeSpan duration)
+    {
+        Interlocked.Increment(ref cacheCleanupOperations);
+        Interlocked.Add(ref cacheCleanupRowsRemoved, rowsRemoved);
+        Interlocked.Add(ref cacheCleanupDurationMicroseconds, ToMicroseconds(duration));
+    }
 
     internal void RecordRelationReferenceCacheHit() => Interlocked.Increment(ref relationReferenceCacheHits);
     internal void RecordRelationReferenceLoad() => Interlocked.Increment(ref relationReferenceLoads);
@@ -270,6 +295,9 @@ internal sealed class DataLinqTableMetricsState
 
     internal void Reset()
     {
+        Interlocked.Exchange(ref cacheCleanupOperations, 0);
+        Interlocked.Exchange(ref cacheCleanupRowsRemoved, 0);
+        Interlocked.Exchange(ref cacheCleanupDurationMicroseconds, 0);
         Interlocked.Exchange(ref rowCacheHits, 0);
         Interlocked.Exchange(ref rowCacheMisses, 0);
         Interlocked.Exchange(ref databaseRowsLoaded, 0);
@@ -300,7 +328,13 @@ internal sealed class DataLinqTableMetricsState
     }
 
     internal bool HasActivity()
-        => Interlocked.Read(ref rowCacheHits) != 0 ||
+        => Interlocked.Read(ref currentRows) != 0 ||
+           Interlocked.Read(ref currentTransactionRows) != 0 ||
+           Interlocked.Read(ref currentBytes) != 0 ||
+           Interlocked.Read(ref currentIndexEntries) != 0 ||
+           Interlocked.Read(ref cacheCleanupOperations) != 0 ||
+           Interlocked.Read(ref cacheCleanupRowsRemoved) != 0 ||
+           Interlocked.Read(ref rowCacheHits) != 0 ||
            Interlocked.Read(ref rowCacheMisses) != 0 ||
            Interlocked.Read(ref databaseRowsLoaded) != 0 ||
            Interlocked.Read(ref rowMaterializations) != 0 ||
@@ -318,6 +352,15 @@ internal sealed class DataLinqTableMetricsState
     internal DataLinqTableMetricsSnapshot Snapshot()
         => new(
             TableName: TableName,
+            Occupancy: new CacheOccupancyMetricsSnapshot(
+                Rows: Interlocked.Read(ref currentRows),
+                TransactionRows: Interlocked.Read(ref currentTransactionRows),
+                Bytes: Interlocked.Read(ref currentBytes),
+                IndexEntries: Interlocked.Read(ref currentIndexEntries)),
+            Cleanup: new CacheCleanupMetricsSnapshot(
+                Operations: Interlocked.Read(ref cacheCleanupOperations),
+                RowsRemoved: Interlocked.Read(ref cacheCleanupRowsRemoved),
+                TotalDurationMicroseconds: Interlocked.Read(ref cacheCleanupDurationMicroseconds)),
             Relations: new RelationMetricsSnapshot(
                 ReferenceCacheHits: Interlocked.Read(ref relationReferenceCacheHits),
                 ReferenceLoads: Interlocked.Read(ref relationReferenceLoads),
@@ -358,6 +401,9 @@ internal sealed class DataLinqTableMetricsState
         }
         while (Interlocked.CompareExchange(ref cacheNotificationApproximatePeakQueueDepth, approximateQueueDepth, currentPeak) != currentPeak);
     }
+
+    private static long ToMicroseconds(TimeSpan duration)
+        => (long)Math.Round(duration.TotalMilliseconds * 1000d, MidpointRounding.AwayFromZero);
 }
 
 public static class DataLinqMetrics
@@ -381,6 +427,8 @@ public static class DataLinqMetrics
             Queries: QueryMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Queries)),
             Commands: CommandMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Commands)),
             Transactions: TransactionMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Transactions)),
+            Occupancy: CacheOccupancyMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Occupancy)),
+            Cleanup: CacheCleanupMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Cleanup)),
             Relations: RelationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Relations)),
             RowCache: RowCacheMetricsSnapshot.Sum(providerSnapshots.Select(x => x.RowCache)),
             CacheNotifications: CacheNotificationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.CacheNotifications)),

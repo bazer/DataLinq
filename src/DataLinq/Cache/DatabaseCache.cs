@@ -170,6 +170,8 @@ public class DatabaseCache : IDisposable
     public void Dispose()
     {
         this.CleanCacheWorker?.Stop();
+        foreach (var table in TableCaches.Values)
+            table.UnregisterTelemetry();
         this.ClearCache();
     }
 }

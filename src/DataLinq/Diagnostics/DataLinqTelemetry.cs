@@ -2,6 +2,8 @@ using System;
 using System.Data;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using DataLinq.Interfaces;
 using DataLinq.Mutation;
 
@@ -31,6 +33,7 @@ internal static class DataLinqTelemetry
 {
     private const string InstrumentationName = "DataLinq";
     private static readonly string? InstrumentationVersion = typeof(DatabaseProvider).Assembly.GetName().Version?.ToString();
+    private static readonly ConcurrentDictionary<string, CacheGaugeRegistration> CacheGaugeRegistrations = new(StringComparer.Ordinal);
 
     private static readonly Meter Meter = new(InstrumentationName, InstrumentationVersion);
     private static readonly ActivitySource ActivitySource = new(InstrumentationName, InstrumentationVersion);
@@ -55,6 +58,38 @@ internal static class DataLinqTelemetry
         "datalinq.db.transaction.duration",
         unit: "ms",
         description: "Database transaction duration in milliseconds.");
+    private static readonly Counter<long> CacheRowsRemovedCounter = Meter.CreateCounter<long>(
+        "datalinq.cache.rows.removed",
+        unit: "{row}",
+        description: "Number of rows removed from DataLinq caches.");
+    private static readonly Counter<long> CacheMaintenanceCounter = Meter.CreateCounter<long>(
+        "datalinq.cache.maintenance.operations",
+        unit: "{operation}",
+        description: "Number of DataLinq cache maintenance operations.");
+    private static readonly Histogram<double> CacheMaintenanceDuration = Meter.CreateHistogram<double>(
+        "datalinq.cache.maintenance.duration",
+        unit: "ms",
+        description: "Duration of DataLinq cache maintenance operations in milliseconds.");
+    private static readonly ObservableGauge<long> CacheRowsGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.rows",
+        ObserveCacheRows,
+        unit: "{row}",
+        description: "Current number of rows stored in DataLinq row caches.");
+    private static readonly ObservableGauge<long> CacheTransactionRowsGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.transaction.rows",
+        ObserveCacheTransactionRows,
+        unit: "{row}",
+        description: "Current number of rows stored in DataLinq transaction-local caches.");
+    private static readonly ObservableGauge<long> CacheBytesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.bytes",
+        ObserveCacheBytes,
+        unit: "By",
+        description: "Current estimated size of DataLinq row caches in bytes.");
+    private static readonly ObservableGauge<long> CacheIndexEntriesGauge = Meter.CreateObservableGauge<long>(
+        "datalinq.cache.index.entries",
+        ObserveCacheIndexEntries,
+        unit: "{entry}",
+        description: "Current number of entries stored in DataLinq index caches.");
 
     internal static string GetCommandOperation(IDbCommand command)
     {
@@ -178,6 +213,36 @@ internal static class DataLinqTelemetry
         activity.SetTag("error.type", exception.GetType().FullName);
     }
 
+    internal static void RegisterTableCache(
+        DataLinqTelemetryContext context,
+        string tableName,
+        Func<CacheOccupancyMetricsSnapshot> getSnapshot)
+    {
+        CacheGaugeRegistrations[GetTableRegistrationKey(context, tableName)] = new CacheGaugeRegistration(context, tableName, getSnapshot);
+    }
+
+    internal static void UnregisterTableCache(DataLinqTelemetryContext context, string tableName)
+    {
+        CacheGaugeRegistrations.TryRemove(GetTableRegistrationKey(context, tableName), out _);
+    }
+
+    internal static void RecordCacheMaintenance(
+        DataLinqTelemetryContext context,
+        string tableName,
+        string operation,
+        int rowsRemoved,
+        TimeSpan duration)
+    {
+        var tags = CreateTableTags(context, tableName);
+        tags.Add("datalinq.cache.operation", operation);
+
+        CacheMaintenanceCounter.Add(1, tags);
+        CacheMaintenanceDuration.Record(duration.TotalMilliseconds, tags);
+
+        if (rowsRemoved > 0)
+            CacheRowsRemovedCounter.Add(rowsRemoved, tags);
+    }
+
     private static TagList CreateCommonTags(DataLinqTelemetryContext context)
     {
         var tags = new TagList
@@ -189,6 +254,13 @@ internal static class DataLinqTelemetry
         if (!string.IsNullOrWhiteSpace(context.DatabaseName))
             tags.Add("db.namespace", context.DatabaseName);
 
+        return tags;
+    }
+
+    private static TagList CreateTableTags(DataLinqTelemetryContext context, string tableName)
+    {
+        var tags = CreateCommonTags(context);
+        tags.Add("datalinq.table", tableName);
         return tags;
     }
 
@@ -219,4 +291,42 @@ internal static class DataLinqTelemetry
             TransactionType.WriteOnly => "write_only",
             _ => "unknown"
         };
+
+    private static IEnumerable<Measurement<long>> ObserveCacheRows()
+        => ObserveCacheGauge(snapshot => snapshot.Rows);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheTransactionRows()
+        => ObserveCacheGauge(snapshot => snapshot.TransactionRows);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheBytes()
+        => ObserveCacheGauge(snapshot => snapshot.Bytes);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheIndexEntries()
+        => ObserveCacheGauge(snapshot => snapshot.IndexEntries);
+
+    private static IEnumerable<Measurement<long>> ObserveCacheGauge(Func<CacheOccupancyMetricsSnapshot, long> selector)
+    {
+        foreach (var registration in CacheGaugeRegistrations.Values)
+        {
+            CacheOccupancyMetricsSnapshot snapshot;
+            try
+            {
+                snapshot = registration.GetSnapshot();
+            }
+            catch
+            {
+                continue;
+            }
+
+            yield return new Measurement<long>(selector(snapshot), CreateTableTags(registration.Context, registration.TableName));
+        }
+    }
+
+    private static string GetTableRegistrationKey(DataLinqTelemetryContext context, string tableName)
+        => $"{context.ProviderInstanceId}:{tableName}";
+
+    private readonly record struct CacheGaugeRegistration(
+        DataLinqTelemetryContext Context,
+        string TableName,
+        Func<CacheOccupancyMetricsSnapshot> GetSnapshot);
 }

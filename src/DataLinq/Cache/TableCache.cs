@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using DataLinq.Attributes;
@@ -154,6 +155,7 @@ public class TableCache
     protected List<ColumnIndex> indices;
     protected (IndexCacheType type, int? amount) indexCachePolicy;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    private readonly DataLinqTelemetryContext telemetryContext;
     internal DataLinqTableMetricsHandle MetricsHandle { get; }
 
     // This table weakly maps a relation object to its subscription manager.
@@ -169,13 +171,16 @@ public class TableCache
         this.Table = table;
         this.DatabaseCache = databaseCache;
         this.loggingConfiguration = loggingConfiguration;
+        this.telemetryContext = DataLinqTelemetryContext.FromProvider(databaseCache.Database);
         this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Length;
         this.indices = Table.ColumnIndices;
         this.indexCachePolicy = GetIndexCachePolicy();
         MetricsHandle = DataLinqMetrics.RegisterTable(databaseCache.Database, table.DbName);
         this.notificationManager = new CacheNotificationManager(MetricsHandle);
+        DataLinqTelemetry.RegisterTableCache(telemetryContext, table.DbName, GetOccupancySnapshot);
 
         IndexCaches = indices.ToDictionary(x => x, _ => new IndexCache());
+        RefreshOccupancyMetrics();
     }
 
     public long? OldestTick => RowCache.OldestTick;
@@ -240,6 +245,13 @@ public class TableCache
 
         // At this point, all cache changes have been applied.
         // Raise the event to notify any observers that a change has occurred.
+        if (numRows > 0)
+        {
+            MetricsHandle.RecordCacheCleanup(numRows, TimeSpan.Zero);
+            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "state_change", numRows, TimeSpan.Zero);
+        }
+
+        RefreshOccupancyMetrics();
         OnRowChanged();
 
         return numRows;
@@ -289,7 +301,13 @@ public class TableCache
 
     public void ClearRows()
     {
+        var rowsRemoved = RowCount;
+        var startedAt = Stopwatch.GetTimestamp();
         RowCache.ClearRows();
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "clear", rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
         OnRowChanged();
     }
 
@@ -297,6 +315,8 @@ public class TableCache
     {
         for (var i = 0; i < indices.Count; i++)
             IndexCaches[indices[i]].Clear();
+
+        RefreshOccupancyMetrics();
     }
 
     public void CleanRelationNotifications()
@@ -304,25 +324,51 @@ public class TableCache
         notificationManager.Clean();
     }
 
-    public int RemoveRowsByLimit(CacheLimitType limitType, long amount) => limitType switch
+    public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
     {
-        CacheLimitType.Seconds => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks),
-        CacheLimitType.Minutes => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks),
-        CacheLimitType.Hours => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks),
-        CacheLimitType.Days => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks),
-        CacheLimitType.Ticks => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks),
-        CacheLimitType.Rows => RowCache.RemoveRowsOverRowLimit((int)amount),
-        CacheLimitType.Bytes => RowCache.RemoveRowsOverSizeLimit(amount),
-        CacheLimitType.Kilobytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024),
-        CacheLimitType.Megabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024),
-        CacheLimitType.Gigabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024),
-        _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
-    };
+        if (limitType is CacheLimitType.Seconds or CacheLimitType.Minutes or CacheLimitType.Hours or CacheLimitType.Days or CacheLimitType.Ticks)
+        {
+            var cutoffTick = limitType switch
+            {
+                CacheLimitType.Seconds => DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks,
+                CacheLimitType.Minutes => DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks,
+                CacheLimitType.Hours => DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks,
+                CacheLimitType.Days => DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks,
+                CacheLimitType.Ticks => DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks,
+                _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
+            };
+
+            return RemoveRowsInsertedBeforeTick(cutoffTick);
+        }
+
+        var startedAt = Stopwatch.GetTimestamp();
+        var rowsRemoved = limitType switch
+        {
+            CacheLimitType.Rows => RowCache.RemoveRowsOverRowLimit((int)amount),
+            CacheLimitType.Bytes => RowCache.RemoveRowsOverSizeLimit(amount),
+            CacheLimitType.Kilobytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024),
+            CacheLimitType.Megabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024),
+            CacheLimitType.Gigabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024),
+            _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
+        };
+
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, GetCacheLimitOperationName(limitType), rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        return rowsRemoved;
+    }
 
     public int RemoveRowsInsertedBeforeTick(long tick)
     {
+        var startedAt = Stopwatch.GetTimestamp();
         RemoveAllIndicesInsertedBeforeTick(tick);
-        return RowCache.RemoveRowsInsertedBeforeTick(tick);
+        var rowsRemoved = RowCache.RemoveRowsInsertedBeforeTick(tick);
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "age_limit", rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        return rowsRemoved;
     }
 
 
@@ -356,7 +402,20 @@ public class TableCache
     public bool TryRemoveTransaction(Transaction transaction)
     {
         if (TransactionRows.ContainsKey(transaction))
-            return TransactionRows.TryRemove(transaction, out var _);
+        {
+            var startedAt = Stopwatch.GetTimestamp();
+            if (TransactionRows.TryRemove(transaction, out var rows))
+            {
+                var rowsRemoved = rows.Count;
+                var duration = Stopwatch.GetElapsedTime(startedAt);
+                RefreshOccupancyMetrics();
+                DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "transaction_remove", rowsRemoved, duration);
+                MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+                return true;
+            }
+
+            return false;
+        }
 
         return true;
     }
@@ -397,6 +456,8 @@ public class TableCache
 
         foreach (var pk in query.SelectQuery().ReadKeys())
             IndexCaches[index].TryAdd(pk, []);
+
+        RefreshOccupancyMetrics();
     }
 
     public IKey[] GetKeys(IKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
@@ -433,6 +494,8 @@ public class TableCache
         if (indexCachePolicy.type != IndexCacheType.None)
             IndexCaches[index].TryAdd(foreignKey, newKeys);
 
+        RefreshOccupancyMetrics();
+
         return newKeys;
     }
 
@@ -450,7 +513,10 @@ public class TableCache
     public IEnumerable<IImmutableInstance> GetRows(IKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
+        {
             TransactionRows.TryAdd(transaction, new RowCache());
+            RefreshOccupancyMetrics();
+        }
 
         if (orderings == null || orderings.Count == 0)
             return LoadRowsFromDatabaseAndCache(primaryKeys, dataSource);
@@ -623,7 +689,10 @@ public class TableCache
             || (dataSource is Transaction transaction && TransactionRows.TryGetValue(transaction, out var rowCache) && rowCache.TryAddRow(keys, rowData, row));
 
         if (added)
+        {
             MetricsHandle.RecordRowCacheStore();
+            RefreshOccupancyMetrics();
+        }
 
         return added;
     }
@@ -632,4 +701,37 @@ public class TableCache
     {
         return new(Table.DbName, RowCount, TotalBytes, NewestTick, OldestTick, IndicesCount.ToArray());
     }
+
+    internal void UnregisterTelemetry()
+    {
+        DataLinqTelemetry.UnregisterTableCache(telemetryContext, Table.DbName);
+    }
+
+    private CacheOccupancyMetricsSnapshot GetOccupancySnapshot()
+        => new(
+            Rows: RowCount,
+            TransactionRows: TransactionRows.Values.Sum(x => (long)x.Count),
+            Bytes: TotalBytes,
+            IndexEntries: IndexCaches.Values.Sum(x => (long)x.Count));
+
+    private void RefreshOccupancyMetrics()
+    {
+        MetricsHandle.UpdateCacheOccupancy(GetOccupancySnapshot());
+    }
+
+    private static string GetCacheLimitOperationName(CacheLimitType limitType)
+        => limitType switch
+        {
+            CacheLimitType.Rows => "row_limit",
+            CacheLimitType.Bytes => "size_limit",
+            CacheLimitType.Kilobytes => "size_limit",
+            CacheLimitType.Megabytes => "size_limit",
+            CacheLimitType.Gigabytes => "size_limit",
+            CacheLimitType.Seconds => "age_limit",
+            CacheLimitType.Minutes => "age_limit",
+            CacheLimitType.Hours => "age_limit",
+            CacheLimitType.Days => "age_limit",
+            CacheLimitType.Ticks => "age_limit",
+            _ => "limit"
+        };
 }

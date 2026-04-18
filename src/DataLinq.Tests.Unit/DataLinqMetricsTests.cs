@@ -14,6 +14,7 @@ namespace DataLinq.Tests.Unit;
 public class DataLinqMetricsTests
 {
     [Test]
+    [NotInParallel]
     public async Task Snapshot_AggregatesProvidersAndTablesWithoutDoubleCounting()
     {
         DataLinqMetrics.Reset();

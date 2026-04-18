@@ -26,6 +26,7 @@ public class CacheNotificationManagerTests
     }
 
     [Test]
+    [NotInParallel]
     public async Task Clean_RemovesDeadSubscribers()
     {
         var liveSubscriber = new MockSubscriber();
@@ -50,6 +51,7 @@ public class CacheNotificationManagerTests
     }
 
     [Test]
+    [NotInParallel]
     public async Task SubscribeDuringNotify_DoesNotLoseSubscriber()
     {
         using var waitHandle = new ManualResetEventSlim(false);
@@ -71,6 +73,7 @@ public class CacheNotificationManagerTests
     }
 
     [Test]
+    [NotInParallel]
     public async Task SubscribeAndNotify_NotifiesLiveSubscriber()
     {
         var subscriber = new MockSubscriber();
@@ -82,6 +85,7 @@ public class CacheNotificationManagerTests
     }
 
     [Test]
+    [NotInParallel]
     public async Task Notify_DoesNotNotifyGarbageCollectedSubscriber()
     {
         var liveSubscriber = new MockSubscriber();
@@ -98,6 +102,7 @@ public class CacheNotificationManagerTests
     }
 
     [Test]
+    [NotInParallel]
     public async Task Clean_DoesNotDropLiveSubscribers()
     {
         var subscriber = new MockSubscriber();
