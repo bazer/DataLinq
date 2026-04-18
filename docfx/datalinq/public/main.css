@@ -113,15 +113,26 @@ article h4 {
   font-weight: 700;
 }
 
-.benchmark-sparkline {
+.benchmark-chart {
   width: 100%;
-  height: 140px;
+  height: 180px;
   display: block;
 }
 
 .benchmark-axis {
   stroke: color-mix(in srgb, var(--color-fg-default) 30%, transparent);
   stroke-width: 1;
+}
+
+.benchmark-grid {
+  stroke: color-mix(in srgb, var(--color-fg-default) 14%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.benchmark-axis-label {
+  fill: color-mix(in srgb, var(--color-fg-default) 82%, transparent);
+  font-size: 0.72rem;
 }
 
 .benchmark-muted,

@@ -96,8 +96,10 @@ internal sealed class BenchmarkHarnessRunner
 
         if (string.Equals(profile, "smoke", StringComparison.OrdinalIgnoreCase))
             arguments.AddRange(["--job", "Dry"]);
+        else if (string.Equals(profile, "heavy", StringComparison.OrdinalIgnoreCase))
+            arguments.AddRange(["--job", "Medium"]);
         else if (!string.Equals(profile, "default", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("The benchmark profile must be either 'default' or 'smoke'.");
+            throw new InvalidOperationException("The benchmark profile must be 'default', 'heavy', or 'smoke'.");
 
         if (keepFiles)
             arguments.Add("--keepFiles");
@@ -122,6 +124,8 @@ internal sealed class BenchmarkHarnessRunner
 
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"Benchmark run failed. Full log: {logPath}");
+
+        EnsureNoKnownConfigurationErrors(result, logPath);
 
         WriteWarnings(result);
         var summaryResult = WriteSummary(runId, logPath, profile, filter);
@@ -243,6 +247,18 @@ internal sealed class BenchmarkHarnessRunner
         Console.WriteLine("Benchmark warnings:");
         foreach (var warning in warnings)
             Console.WriteLine($"  {warning}");
+    }
+
+    private static void EnsureNoKnownConfigurationErrors(ExternalCommandResult result, string logPath)
+    {
+        var combinedOutput = string.Concat(result.StandardOutput, Environment.NewLine, result.StandardError);
+
+        if (combinedOutput.Contains("The provided base job", StringComparison.OrdinalIgnoreCase) &&
+            combinedOutput.Contains("is invalid", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Benchmark run used an invalid BenchmarkDotNet job selection. Full log: {logPath}");
+        }
     }
 
     private SummaryResult WriteSummary(string runId, string logPath, string profile, string filter)
@@ -424,8 +440,28 @@ internal sealed class BenchmarkHarnessRunner
             return measuredNonDryRows.Length > 0 ? measuredNonDryRows : rows;
         }
 
+        if (string.Equals(profile, "heavy", StringComparison.OrdinalIgnoreCase))
+        {
+            var heavyRows = rows
+                .Where(static row =>
+                    string.Equals(row.Job, "MediumRun", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(row.Job, "Medium", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            var measuredHeavyRows = heavyRows
+                .Where(static row => row.MeanMicroseconds.HasValue)
+                .ToArray();
+
+            if (measuredHeavyRows.Length > 0)
+                return measuredHeavyRows;
+
+            return heavyRows.Length > 0 ? heavyRows : rows;
+        }
+
         var nonDryRows = rows
-            .Where(static row => !string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase))
+            .Where(static row =>
+                !string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(row.Job, "Heavy", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
         return nonDryRows.Length > 0 ? nonDryRows : rows;

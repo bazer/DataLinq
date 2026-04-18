@@ -77,7 +77,8 @@ internal sealed class BenchmarkCliSettings
             ["HOME"] = HomeRoot,
             ["USERPROFILE"] = HomeRoot,
             ["NUGET_PACKAGES"] = NugetPackagesPath,
-            ["NuGetAudit"] = "false"
+            ["NuGetAudit"] = "false",
+            ["DATALINQ_BENCHMARK_PROVIDERS"] = Environment.GetEnvironmentVariable("DATALINQ_BENCHMARK_PROVIDERS")
         };
 
     private static string LocateRepositoryRoot(string startPath)

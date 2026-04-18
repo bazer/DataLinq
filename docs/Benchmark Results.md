@@ -8,7 +8,7 @@ They are useful because they are:
 
 - run repeatedly on one controlled CI lane
 - limited to the current stable benchmark category
-- currently trended on the `sqlite-memory` provider to avoid redundant file-vs-memory noise
+- currently trended only on the `sqlite-memory` provider to avoid redundant file-vs-memory noise
 - stored in a consistent machine-readable format
 - plotted over time so regressions and trend changes are visible
 
@@ -28,7 +28,8 @@ Important limits:
   id="benchmark-results-root"
   data-history-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/history.json"
   data-latest-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/latest.json"
-  data-comparison-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/latest-comparison.json">
+  data-comparison-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/latest-comparison.json"
+  data-provider-filter="sqlite-memory">
   Loading benchmark history...
 </div>
 

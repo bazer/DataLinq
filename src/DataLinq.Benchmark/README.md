@@ -55,6 +55,12 @@ Run a fast smoke pass:
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --profile smoke
 ```
 
+Run a heavier local validation pass when a benchmark is too noisy for the normal short profile:
+
+```bash
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --profile heavy
+```
+
 Write a stable history entry artifact for later comparison or CI publishing:
 
 ```bash

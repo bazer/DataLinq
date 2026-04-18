@@ -14,7 +14,7 @@ internal static class RunCommand
         };
         var profileOption = new Option<string>("--profile")
         {
-            Description = "Benchmark profile: 'default' for ShortRun or 'smoke' for Dry.",
+            Description = "Benchmark profile: 'default' for ShortRun, 'heavy' for a slower local validation run, or 'smoke' for Dry.",
             DefaultValueFactory = _ => "default"
         };
         var noBuildOption = new Option<bool>("--no-build")
