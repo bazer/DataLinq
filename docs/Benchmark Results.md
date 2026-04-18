@@ -29,3 +29,5 @@ Important limits:
   data-comparison-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/latest-comparison.json">
   Loading benchmark history...
 </div>
+
+<script type="module" src="../public/benchmark-results.js"></script>
