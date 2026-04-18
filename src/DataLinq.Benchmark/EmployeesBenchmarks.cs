@@ -6,7 +6,8 @@ using DataLinq.Tests.Models.Employees;
 
 namespace DataLinq.Benchmark;
 
-[MemoryDiagnoser]
+[Config(typeof(DataLinqBenchmarkConfig))]
+[MemoryDiagnoser(displayGenColumns: false)]
 public class EmployeesBenchmarks : IDisposable
 {
     private BenchmarkContext? context;
@@ -33,24 +34,24 @@ public class EmployeesBenchmarks : IDisposable
         context!.ResetState(clearCache: true);
     }
 
-    [Benchmark(Description = "Cold primary-key fetch")]
-    public Employee ColdPrimaryKeyFetch()
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Cold primary-key fetch")]
+    public int ColdPrimaryKeyFetch()
     {
-        return context!.LoadEmployeeByPrimaryKey();
+        return context!.LoadEmployeesByPrimaryKeyBatch();
     }
 
     [IterationSetup(Target = nameof(WarmPrimaryKeyFetch))]
     public void SetupWarmPrimaryKeyFetch()
     {
         context!.ResetState(clearCache: true);
-        _ = context.LoadEmployeeByPrimaryKey();
+        _ = context.LoadEmployeesByPrimaryKeyBatch();
         DataLinqMetrics.Reset();
     }
 
-    [Benchmark(Description = "Warm primary-key fetch")]
-    public Employee WarmPrimaryKeyFetch()
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm primary-key fetch")]
+    public int WarmPrimaryKeyFetch()
     {
-        return context!.LoadEmployeeByPrimaryKey();
+        return context!.LoadEmployeesByPrimaryKeyBatch();
     }
 
     [IterationSetup(Target = nameof(ColdRelationTraversal))]
@@ -59,24 +60,24 @@ public class EmployeesBenchmarks : IDisposable
         context!.ResetState(clearCache: true);
     }
 
-    [Benchmark(Description = "Cold relation traversal")]
-    public string ColdRelationTraversal()
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Cold relation traversal")]
+    public int ColdRelationTraversal()
     {
-        return context!.TraverseDepartmentName();
+        return context!.TraverseDepartmentNamesBatch();
     }
 
     [IterationSetup(Target = nameof(WarmRelationTraversal))]
     public void SetupWarmRelationTraversal()
     {
         context!.ResetState(clearCache: true);
-        _ = context.TraverseDepartmentName();
+        _ = context.TraverseDepartmentNamesBatch();
         DataLinqMetrics.Reset();
     }
 
-    [Benchmark(Description = "Warm relation traversal")]
-    public string WarmRelationTraversal()
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm relation traversal")]
+    public int WarmRelationTraversal()
     {
-        return context!.TraverseDepartmentName();
+        return context!.TraverseDepartmentNamesBatch();
     }
 
     public void Dispose()

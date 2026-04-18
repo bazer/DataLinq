@@ -37,4 +37,6 @@ launchSettings.json
 /testing-build-diag.log
 /BenchmarkDotNet.Artifacts
 /.dotnet-cli
+/.benchmarking
 /crm-dumps
+/src/DataLinq.Benchmark/artifacts

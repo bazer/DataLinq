@@ -112,4 +112,4 @@ On every PR to `main` that touches `src/DataLinq`:
 2.  [ ] Install `BenchmarkDotNet`.
 3.  [ ] Implement `Competitors/EfCoreContext` mirroring `EmployeesDb`.
 4.  [ ] Implement **Scenario A (Cache Hit)** and **Scenario B (Traversal)**.
-5.  [ ] Create a script (`run-benchmarks.ps1`) to execute and export reports.
+5.  [ ] Create a cross-platform benchmark CLI to execute and export reports.
