@@ -1,0 +1,130 @@
+{
+  "SchemaVersion": 1,
+  "GeneratedAtUtc": "2026-04-18T19:21:08.0148464Z",
+  "WarningThresholdPercent": 10,
+  "WarningCount": 0,
+  "Baseline": {
+    "Repository": "bazer/DataLinq",
+    "Branch": "master",
+    "Commit": "79952807ffe6b370ddf654e1572cecbcaf28b2b3",
+    "Workflow": "Benchmark History",
+    "RunId": "24611513493",
+    "RunNumber": "2",
+    "EventName": "push",
+    "RunnerOs": "Linux",
+    "RunnerArchitecture": "X64",
+    "Profile": "default",
+    "Filter": "*EmployeesBenchmarks*"
+  },
+  "Candidate": {
+    "Repository": "bazer/DataLinq",
+    "Branch": "master",
+    "Commit": "c7be57c491b25933fe17f62799da322d05939835",
+    "Workflow": "Benchmark History",
+    "RunId": "24611988393",
+    "RunNumber": "3",
+    "EventName": "push",
+    "RunnerOs": "Linux",
+    "RunnerArchitecture": "X64",
+    "Profile": "default",
+    "Filter": "*EmployeesBenchmarks*"
+  },
+  "Rows": [
+    {
+      "Method": "Cold primary-key fetch",
+      "ProviderName": "sqlite-file",
+      "BaselineMeanMicroseconds": 421.9,
+      "CandidateMeanMicroseconds": 415.3,
+      "MeanDeltaPercent": -1.5643517421189777,
+      "BaselineAllocatedBytes": 25446.4,
+      "CandidateAllocatedBytes": 25446.4,
+      "AllocatedDeltaPercent": 0,
+      "MaxNoisePercent": 62.901161412657025,
+      "Status": "noisy"
+    },
+    {
+      "Method": "Cold primary-key fetch",
+      "ProviderName": "sqlite-memory",
+      "BaselineMeanMicroseconds": 446.3,
+      "CandidateMeanMicroseconds": 418.1,
+      "MeanDeltaPercent": -6.318619762491595,
+      "BaselineAllocatedBytes": 25815.04,
+      "CandidateAllocatedBytes": 25815.04,
+      "AllocatedDeltaPercent": 0,
+      "MaxNoisePercent": 66.24243782209275,
+      "Status": "noisy"
+    },
+    {
+      "Method": "Cold relation traversal",
+      "ProviderName": "sqlite-file",
+      "BaselineMeanMicroseconds": 527.9,
+      "CandidateMeanMicroseconds": 525.8,
+      "MeanDeltaPercent": -0.39780261413146867,
+      "BaselineAllocatedBytes": 43694.08,
+      "CandidateAllocatedBytes": 43673.6,
+      "AllocatedDeltaPercent": -0.04687133817671227,
+      "MaxNoisePercent": 4.084106838416367,
+      "Status": "stable"
+    },
+    {
+      "Method": "Cold relation traversal",
+      "ProviderName": "sqlite-memory",
+      "BaselineMeanMicroseconds": 601.6,
+      "CandidateMeanMicroseconds": 600.9,
+      "MeanDeltaPercent": -0.11635638297873097,
+      "BaselineAllocatedBytes": 44769.28,
+      "CandidateAllocatedBytes": 44789.76,
+      "AllocatedDeltaPercent": 0.04574565416286168,
+      "MaxNoisePercent": 1.4644699617240808,
+      "Status": "stable"
+    },
+    {
+      "Method": "Warm primary-key fetch",
+      "ProviderName": "sqlite-file",
+      "BaselineMeanMicroseconds": 189.1,
+      "CandidateMeanMicroseconds": 187.9,
+      "MeanDeltaPercent": -0.6345848757271225,
+      "BaselineAllocatedBytes": 15912.96,
+      "CandidateAllocatedBytes": 15912.96,
+      "AllocatedDeltaPercent": 0,
+      "MaxNoisePercent": 1.8032786885245904,
+      "Status": "stable"
+    },
+    {
+      "Method": "Warm primary-key fetch",
+      "ProviderName": "sqlite-memory",
+      "BaselineMeanMicroseconds": 185.1,
+      "CandidateMeanMicroseconds": 185.2,
+      "MeanDeltaPercent": 0.054024851431655495,
+      "BaselineAllocatedBytes": 15912.96,
+      "CandidateAllocatedBytes": 15912.96,
+      "AllocatedDeltaPercent": 0,
+      "MaxNoisePercent": 1.349892008639309,
+      "Status": "stable"
+    },
+    {
+      "Method": "Warm relation traversal",
+      "ProviderName": "sqlite-file",
+      "BaselineMeanMicroseconds": 189.7,
+      "CandidateMeanMicroseconds": 191.4,
+      "MeanDeltaPercent": 0.8961518186610528,
+      "BaselineAllocatedBytes": 15974.4,
+      "CandidateAllocatedBytes": 15974.4,
+      "AllocatedDeltaPercent": 0,
+      "MaxNoisePercent": 1.2957157784743991,
+      "Status": "stable"
+    },
+    {
+      "Method": "Warm relation traversal",
+      "ProviderName": "sqlite-memory",
+      "BaselineMeanMicroseconds": 189.3,
+      "CandidateMeanMicroseconds": 194.3,
+      "MeanDeltaPercent": 2.6413100898045427,
+      "BaselineAllocatedBytes": 15974.4,
+      "CandidateAllocatedBytes": 15974.4,
+      "AllocatedDeltaPercent": 0,
+      "MaxNoisePercent": 2.408646423057128,
+      "Status": "stable"
+    }
+  ]
+}
