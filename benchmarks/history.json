@@ -1,6 +1,6 @@
 {
   "SchemaVersion": 1,
-  "GeneratedAtUtc": "2026-04-18T19:21:07.9752771Z",
+  "GeneratedAtUtc": "2026-04-18T20:04:37.5513831Z",
   "Runs": [
     {
       "SchemaVersion": 1,
@@ -390,6 +390,246 @@
             "MaterializationsPerOperation": 2.02,
             "RelationHitsPerOperation": 0,
             "RelationLoadsPerOperation": 2
+          }
+        }
+      ]
+    },
+    {
+      "SchemaVersion": 1,
+      "RunId": "20260418-200212626-bdc87872ba4e4baaa5afe9637e3761b0",
+      "GeneratedAtUtc": "2026-04-18T20:04:37.5513831Z",
+      "Metadata": {
+        "Repository": "bazer/DataLinq",
+        "Branch": "master",
+        "Commit": "0eaee7cbe0785d1c5b72d3df08c483ab0f02b29d",
+        "Workflow": "Benchmark History",
+        "RunId": "24612758277",
+        "RunNumber": "4",
+        "EventName": "push",
+        "RunnerOs": "Linux",
+        "RunnerArchitecture": "X64",
+        "Profile": "default",
+        "Filter": "*EmployeesBenchmarks*"
+      },
+      "Rows": [
+        {
+          "Method": "Warm primary-key fetch",
+          "ProviderName": "sqlite-memory",
+          "MeanMicroseconds": 232.2,
+          "ErrorMicroseconds": 5.14,
+          "AllocatedBytes": 15912.96,
+          "NoisePercent": 2.2136089577950044,
+          "TelemetryDelta": {
+            "Method": "Warm primary-key fetch",
+            "ProviderName": "sqlite-memory",
+            "OperationsPerInvoke": 1000,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 1,
+            "RowCacheMissesPerOperation": 0,
+            "RowCacheStoresPerOperation": 0,
+            "DatabaseRowsPerOperation": 0,
+            "MaterializationsPerOperation": 0,
+            "RelationHitsPerOperation": 0,
+            "RelationLoadsPerOperation": 0
+          }
+        },
+        {
+          "Method": "Warm primary-key fetch",
+          "ProviderName": "sqlite-file",
+          "MeanMicroseconds": 236.9,
+          "ErrorMicroseconds": 10.88,
+          "AllocatedBytes": 15912.96,
+          "NoisePercent": 4.592655128746307,
+          "TelemetryDelta": {
+            "Method": "Warm primary-key fetch",
+            "ProviderName": "sqlite-file",
+            "OperationsPerInvoke": 1000,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 1,
+            "RowCacheMissesPerOperation": 0,
+            "RowCacheStoresPerOperation": 0,
+            "DatabaseRowsPerOperation": 0,
+            "MaterializationsPerOperation": 0,
+            "RelationHitsPerOperation": 0,
+            "RelationLoadsPerOperation": 0
+          }
+        },
+        {
+          "Method": "Warm relation traversal",
+          "ProviderName": "sqlite-memory",
+          "MeanMicroseconds": 237.5,
+          "ErrorMicroseconds": 3.57,
+          "AllocatedBytes": 15974.4,
+          "NoisePercent": 1.503157894736842,
+          "TelemetryDelta": {
+            "Method": "Warm relation traversal",
+            "ProviderName": "sqlite-memory",
+            "OperationsPerInvoke": 1000,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 1,
+            "RowCacheMissesPerOperation": 0,
+            "RowCacheStoresPerOperation": 0,
+            "DatabaseRowsPerOperation": 0,
+            "MaterializationsPerOperation": 0,
+            "RelationHitsPerOperation": 2,
+            "RelationLoadsPerOperation": 0
+          }
+        },
+        {
+          "Method": "Warm relation traversal",
+          "ProviderName": "sqlite-file",
+          "MeanMicroseconds": 237.9,
+          "ErrorMicroseconds": 0.6,
+          "AllocatedBytes": 15974.4,
+          "NoisePercent": 0.25220680958385877,
+          "TelemetryDelta": {
+            "Method": "Warm relation traversal",
+            "ProviderName": "sqlite-file",
+            "OperationsPerInvoke": 1000,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 1,
+            "RowCacheMissesPerOperation": 0,
+            "RowCacheStoresPerOperation": 0,
+            "DatabaseRowsPerOperation": 0,
+            "MaterializationsPerOperation": 0,
+            "RelationHitsPerOperation": 2,
+            "RelationLoadsPerOperation": 0
+          }
+        },
+        {
+          "Method": "Cold primary-key fetch",
+          "ProviderName": "sqlite-file",
+          "MeanMicroseconds": 397.5,
+          "ErrorMicroseconds": 191.19,
+          "AllocatedBytes": 25436.16,
+          "NoisePercent": 48.09811320754717,
+          "TelemetryDelta": {
+            "Method": "Cold primary-key fetch",
+            "ProviderName": "sqlite-file",
+            "OperationsPerInvoke": 1000,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 0,
+            "RowCacheMissesPerOperation": 1,
+            "RowCacheStoresPerOperation": 1,
+            "DatabaseRowsPerOperation": 1,
+            "MaterializationsPerOperation": 1,
+            "RelationHitsPerOperation": 0,
+            "RelationLoadsPerOperation": 0
+          }
+        },
+        {
+          "Method": "Cold primary-key fetch",
+          "ProviderName": "sqlite-memory",
+          "MeanMicroseconds": 417,
+          "ErrorMicroseconds": 185.82,
+          "AllocatedBytes": 25815.04,
+          "NoisePercent": 44.56115107913669,
+          "TelemetryDelta": {
+            "Method": "Cold primary-key fetch",
+            "ProviderName": "sqlite-memory",
+            "OperationsPerInvoke": 1000,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 0,
+            "RowCacheMissesPerOperation": 1,
+            "RowCacheStoresPerOperation": 1,
+            "DatabaseRowsPerOperation": 1,
+            "MaterializationsPerOperation": 1,
+            "RelationHitsPerOperation": 0,
+            "RelationLoadsPerOperation": 0
+          }
+        },
+        {
+          "Method": "Cold relation traversal",
+          "ProviderName": "sqlite-file",
+          "MeanMicroseconds": 518.8,
+          "ErrorMicroseconds": 18.18,
+          "AllocatedBytes": 43632.64,
+          "NoisePercent": 3.5042405551272173,
+          "TelemetryDelta": {
+            "Method": "Cold relation traversal",
+            "ProviderName": "sqlite-file",
+            "OperationsPerInvoke": 1000,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 0.98,
+            "RowCacheMissesPerOperation": 2.02,
+            "RowCacheStoresPerOperation": 2.02,
+            "DatabaseRowsPerOperation": 2.02,
+            "MaterializationsPerOperation": 2.02,
+            "RelationHitsPerOperation": 0,
+            "RelationLoadsPerOperation": 2
+          }
+        },
+        {
+          "Method": "Cold relation traversal",
+          "ProviderName": "sqlite-memory",
+          "MeanMicroseconds": 588.9,
+          "ErrorMicroseconds": 2.12,
+          "AllocatedBytes": 44820.48,
+          "NoisePercent": 0.35999320767532694,
+          "TelemetryDelta": {
+            "Method": "Cold relation traversal",
+            "ProviderName": "sqlite-memory",
+            "OperationsPerInvoke": 1000,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 0.98,
+            "RowCacheMissesPerOperation": 2.02,
+            "RowCacheStoresPerOperation": 2.02,
+            "DatabaseRowsPerOperation": 2.02,
+            "MaterializationsPerOperation": 2.02,
+            "RelationHitsPerOperation": 0,
+            "RelationLoadsPerOperation": 2
+          }
+        },
+        {
+          "Method": "Startup primary-key fetch",
+          "ProviderName": "sqlite-file",
+          "MeanMicroseconds": 599.7,
+          "ErrorMicroseconds": 26.41,
+          "AllocatedBytes": 103577.6,
+          "NoisePercent": 4.40386860096715,
+          "TelemetryDelta": {
+            "Method": "Startup primary-key fetch",
+            "ProviderName": "sqlite-file",
+            "OperationsPerInvoke": 1,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 0,
+            "RowCacheMissesPerOperation": 1,
+            "RowCacheStoresPerOperation": 1,
+            "DatabaseRowsPerOperation": 1,
+            "MaterializationsPerOperation": 1,
+            "RelationHitsPerOperation": 0,
+            "RelationLoadsPerOperation": 0
+          }
+        },
+        {
+          "Method": "Startup primary-key fetch",
+          "ProviderName": "sqlite-memory",
+          "MeanMicroseconds": 859.4,
+          "ErrorMicroseconds": 233.32,
+          "AllocatedBytes": 103884.8,
+          "NoisePercent": 27.1491738422155,
+          "TelemetryDelta": {
+            "Method": "Startup primary-key fetch",
+            "ProviderName": "sqlite-memory",
+            "OperationsPerInvoke": 1,
+            "EntityQueriesPerOperation": 1,
+            "ScalarQueriesPerOperation": 0,
+            "RowCacheHitsPerOperation": 0,
+            "RowCacheMissesPerOperation": 1,
+            "RowCacheStoresPerOperation": 1,
+            "DatabaseRowsPerOperation": 1,
+            "MaterializationsPerOperation": 1,
+            "RelationHitsPerOperation": 0,
+            "RelationLoadsPerOperation": 0
           }
         }
       ]
