@@ -36,6 +36,13 @@ public class EmployeesBenchmarks : IDisposable
         executedScenario = null;
     }
 
+    [Benchmark(Description = "Startup primary-key fetch")]
+    public int StartupPrimaryKeyFetch()
+    {
+        executedScenario = BenchmarkScenario.StartupPrimaryKeyFetch;
+        return context!.LoadEmployeeByPrimaryKeyOnFreshScope();
+    }
+
     [IterationSetup(Target = nameof(ColdPrimaryKeyFetch))]
     public void SetupColdPrimaryKeyFetch()
     {

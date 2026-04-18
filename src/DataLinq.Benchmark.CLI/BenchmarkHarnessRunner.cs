@@ -865,6 +865,7 @@ internal sealed class BenchmarkHarnessRunner
     private static string FormatMethodLabel(string method)
         => method switch
         {
+            "Startup primary-key fetch" => "Startup PK",
             "Warm relation traversal" => "Warm rel",
             "Cold relation traversal" => "Cold rel",
             "Warm primary-key fetch" => "Warm PK",

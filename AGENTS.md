@@ -1,6 +1,7 @@
 # Repository Instructions
 
 - The user prefers to handle commits personally for now. Do not create commits, amend commits, or push changes unless the user explicitly asks for that in the current conversation.
+- When finishing a coherent slice or feature and reaching a real stopping point, proactively include a suggested commit message in the final response even if the user did not ask for one yet.
 - Do not add new tests to `src/DataLinq.Tests`; it is a legacy xUnit project slated for removal. All new tests should go into the TUnit test projects such as `src/DataLinq.Tests.Unit`, `src/DataLinq.Tests.Compliance`, or other TUnit-based test projects.
 - For broad documentation or cleanup work, prefer starting with an audit and action plan before making large edits.
 - Once the plan is agreed, prefer autonomous execution to a solid stopping point instead of repeated check-ins.

@@ -11,12 +11,15 @@ internal sealed class BenchmarkContext : IDisposable
     private const int SeedEmployeeCount = 1000;
     internal const int BatchOperationCount = 1000;
 
+    private readonly TestProviderDescriptor provider;
     private readonly EmployeesTestDatabase databaseScope;
     private readonly int[] sampleEmployeeNumbers;
     private readonly int[] sampleEmployeeWithDepartmentNumbers;
+    private readonly int startupEmployeeNumber;
 
     public BenchmarkContext(TestProviderDescriptor provider)
     {
+        this.provider = provider;
         databaseScope = EmployeesTestDatabase.CreateIsolatedBogus(
             provider,
             "benchmark",
@@ -43,6 +46,16 @@ internal sealed class BenchmarkContext : IDisposable
         if (sampleEmployeeWithDepartmentNumbers.Length != BatchOperationCount)
             throw new InvalidOperationException(
                 $"The deterministic employees benchmark dataset only yielded {sampleEmployeeWithDepartmentNumbers.Length} relation-traversal samples. Expected at least {BatchOperationCount}.");
+
+        using var startupScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            "benchmark-startup",
+            EmployeesSeedMode.Bogus);
+
+        startupEmployeeNumber = startupScope.Database.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Select(x => x.emp_no!.Value)
+            .First();
     }
 
     public Database<EmployeesDb> Database { get; }
@@ -81,34 +94,53 @@ internal sealed class BenchmarkContext : IDisposable
         return checksum;
     }
 
+    public int LoadEmployeeByPrimaryKeyOnFreshScope()
+    {
+        using var startupScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            "benchmark-startup",
+            EmployeesSeedMode.Bogus);
+
+        var employee = startupScope.Database.Query().Employees.Single(x => x.emp_no == startupEmployeeNumber);
+        return employee.emp_no!.Value;
+    }
+
     public BenchmarkTelemetryDeltaArtifact CaptureTelemetryDelta(BenchmarkScenario scenario, string providerName)
     {
         var method = GetScenarioDisplayName(scenario);
-        ResetState(clearCache: true);
-
-        switch (scenario)
+        if (scenario is not BenchmarkScenario.StartupPrimaryKeyFetch)
         {
-            case BenchmarkScenario.WarmPrimaryKeyFetch:
-                _ = LoadEmployeesByPrimaryKeyBatch();
-                DataLinqMetrics.Reset();
-                break;
-            case BenchmarkScenario.WarmRelationTraversal:
-                _ = TraverseDepartmentNamesBatch();
-                DataLinqMetrics.Reset();
-                break;
+            ResetState(clearCache: true);
+
+            switch (scenario)
+            {
+                case BenchmarkScenario.WarmPrimaryKeyFetch:
+                    _ = LoadEmployeesByPrimaryKeyBatch();
+                    DataLinqMetrics.Reset();
+                    break;
+                case BenchmarkScenario.WarmRelationTraversal:
+                    _ = TraverseDepartmentNamesBatch();
+                    DataLinqMetrics.Reset();
+                    break;
+            }
+        }
+        else
+        {
+            DataLinqMetrics.Reset();
         }
 
         var before = SnapshotMetrics();
 
         _ = scenario switch
         {
+            BenchmarkScenario.StartupPrimaryKeyFetch => LoadEmployeeByPrimaryKeyOnFreshScope(),
             BenchmarkScenario.ColdPrimaryKeyFetch or BenchmarkScenario.WarmPrimaryKeyFetch => LoadEmployeesByPrimaryKeyBatch(),
             BenchmarkScenario.ColdRelationTraversal or BenchmarkScenario.WarmRelationTraversal => TraverseDepartmentNamesBatch(),
             _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
         };
 
         var after = SnapshotMetrics();
-        return CreateDeltaArtifact(method, providerName, before, after);
+        return CreateDeltaArtifact(method, providerName, GetOperationsPerInvoke(scenario), before, after);
     }
 
     public DataLinqMetricsSnapshot SnapshotMetrics() => DataLinqMetrics.Snapshot();
@@ -121,33 +153,52 @@ internal sealed class BenchmarkContext : IDisposable
     private static BenchmarkTelemetryDeltaArtifact CreateDeltaArtifact(
         string method,
         string providerName,
+        int operationsPerInvoke,
         DataLinqMetricsSnapshot before,
         DataLinqMetricsSnapshot after)
     {
-        static double Normalize(long afterValue, long beforeValue)
-            => (afterValue - beforeValue) / (double)BatchOperationCount;
+        static double Normalize(long afterValue, long beforeValue, int operationsPerInvoke)
+            => (afterValue - beforeValue) / (double)operationsPerInvoke;
 
-        var relationHits = Normalize(after.Relations.ReferenceCacheHits + after.Relations.CollectionCacheHits, before.Relations.ReferenceCacheHits + before.Relations.CollectionCacheHits);
-        var relationLoads = Normalize(after.Relations.ReferenceLoads + after.Relations.CollectionLoads, before.Relations.ReferenceLoads + before.Relations.CollectionLoads);
+        var relationHits = Normalize(
+            after.Relations.ReferenceCacheHits + after.Relations.CollectionCacheHits,
+            before.Relations.ReferenceCacheHits + before.Relations.CollectionCacheHits,
+            operationsPerInvoke);
+        var relationLoads = Normalize(
+            after.Relations.ReferenceLoads + after.Relations.CollectionLoads,
+            before.Relations.ReferenceLoads + before.Relations.CollectionLoads,
+            operationsPerInvoke);
 
         return new BenchmarkTelemetryDeltaArtifact(
             Method: method,
             ProviderName: providerName,
-            OperationsPerInvoke: BatchOperationCount,
-            EntityQueriesPerOperation: Normalize(after.Queries.EntityExecutions, before.Queries.EntityExecutions),
-            ScalarQueriesPerOperation: Normalize(after.Queries.ScalarExecutions, before.Queries.ScalarExecutions),
-            RowCacheHitsPerOperation: Normalize(after.RowCache.Hits, before.RowCache.Hits),
-            RowCacheMissesPerOperation: Normalize(after.RowCache.Misses, before.RowCache.Misses),
-            RowCacheStoresPerOperation: Normalize(after.RowCache.Stores, before.RowCache.Stores),
-            DatabaseRowsPerOperation: Normalize(after.RowCache.DatabaseRowsLoaded, before.RowCache.DatabaseRowsLoaded),
-            MaterializationsPerOperation: Normalize(after.RowCache.Materializations, before.RowCache.Materializations),
+            OperationsPerInvoke: operationsPerInvoke,
+            EntityQueriesPerOperation: Normalize(after.Queries.EntityExecutions, before.Queries.EntityExecutions, operationsPerInvoke),
+            ScalarQueriesPerOperation: Normalize(after.Queries.ScalarExecutions, before.Queries.ScalarExecutions, operationsPerInvoke),
+            RowCacheHitsPerOperation: Normalize(after.RowCache.Hits, before.RowCache.Hits, operationsPerInvoke),
+            RowCacheMissesPerOperation: Normalize(after.RowCache.Misses, before.RowCache.Misses, operationsPerInvoke),
+            RowCacheStoresPerOperation: Normalize(after.RowCache.Stores, before.RowCache.Stores, operationsPerInvoke),
+            DatabaseRowsPerOperation: Normalize(after.RowCache.DatabaseRowsLoaded, before.RowCache.DatabaseRowsLoaded, operationsPerInvoke),
+            MaterializationsPerOperation: Normalize(after.RowCache.Materializations, before.RowCache.Materializations, operationsPerInvoke),
             RelationHitsPerOperation: relationHits,
             RelationLoadsPerOperation: relationLoads);
     }
 
+    private static int GetOperationsPerInvoke(BenchmarkScenario scenario)
+        => scenario switch
+        {
+            BenchmarkScenario.StartupPrimaryKeyFetch => 1,
+            BenchmarkScenario.ColdPrimaryKeyFetch => BatchOperationCount,
+            BenchmarkScenario.WarmPrimaryKeyFetch => BatchOperationCount,
+            BenchmarkScenario.ColdRelationTraversal => BatchOperationCount,
+            BenchmarkScenario.WarmRelationTraversal => BatchOperationCount,
+            _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
+        };
+
     private static string GetScenarioDisplayName(BenchmarkScenario scenario)
         => scenario switch
         {
+            BenchmarkScenario.StartupPrimaryKeyFetch => "Startup primary-key fetch",
             BenchmarkScenario.ColdPrimaryKeyFetch => "Cold primary-key fetch",
             BenchmarkScenario.WarmPrimaryKeyFetch => "Warm primary-key fetch",
             BenchmarkScenario.ColdRelationTraversal => "Cold relation traversal",
