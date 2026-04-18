@@ -34,6 +34,12 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Performance Benchmarking.md`
 
+### Roadmap implementation
+
+- `roadmap-implementation/README.md`
+- `roadmap-implementation/phase-1-benchmarking-and-observability/README.md`
+- `roadmap-implementation/phase-1-benchmarking-and-observability/Implementation Plan.md`
+
 ### Providers and features
 
 - `providers-and-features/In-Memory Provider.md`
@@ -61,3 +67,4 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - The `testing/` folder is the most operationally relevant part of `dev-plans` right now. It contains the migration record, parity checklist, and machine-readable manifest for the TUnit cutover.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
+- The `roadmap-implementation/` folder is where high-level roadmap phases are turned into concrete execution plans. It should stay tightly linked to `Roadmap.md` rather than drifting into a second roadmap.
