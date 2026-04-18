@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using DataLinq.Diagnostics;
 using DataLinq.Extensions.Helpers;
@@ -138,44 +139,152 @@ public class Select<T> : IQuery
 
     public IEnumerable<IImmutableInstance> Execute()
     {
+        var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
+        var activity = DataLinqTelemetry.StartQueryActivity(
+            telemetryContext,
+            query.Table.DbName,
+            "entity",
+            query.DataSource is Mutation.Transaction);
+        var startedAt = Stopwatch.GetTimestamp();
+        var succeeded = false;
+
         DataLinqMetrics.RecordEntityQueryExecution(query.DataSource.Provider);
 
-        if (query.Table.PrimaryKeyColumns.Length != 0)
+        try
         {
-            this.What(query.Table.PrimaryKeyColumns);
+            if (query.Table.PrimaryKeyColumns.Length != 0)
+            {
+                this.What(query.Table.PrimaryKeyColumns);
 
-            // OPTIMIZATION: Try to extract keys directly from the query structure (e.g. Single(x => x.Id == 1))
-            // This avoids the first round-trip to fetch keys if the query is a simple PK lookup.
-            var simpleKey = query.TryGetSimplePrimaryKey();
+                // OPTIMIZATION: Try to extract keys directly from the query structure (e.g. Single(x => x.Id == 1))
+                // This avoids the first round-trip to fetch keys if the query is a simple PK lookup.
+                var simpleKey = query.TryGetSimplePrimaryKey();
 
-            var keys = simpleKey != null
-                ? [simpleKey]
-                : this.ReadKeys().ToArray();
+                var keys = simpleKey != null
+                    ? [simpleKey]
+                    : this.ReadKeys().ToArray();
 
-            foreach (var row in query.DataSource.Provider.GetTableCache(query.Table).GetRows(keys, query.DataSource, orderings: query.OrderByList))
-                yield return row;
+                foreach (var row in query.DataSource.Provider.GetTableCache(query.Table).GetRows(keys, query.DataSource, orderings: query.OrderByList))
+                    yield return row;
+            }
+            else
+            {
+                var rows = this
+                    .ReadRows()
+                    .Select(x => InstanceFactory.NewImmutableRow(x, query.DataSource));
+
+                foreach (var row in rows)
+                    yield return row;
+            }
+
+            succeeded = true;
         }
-        else
+        finally
         {
-            var rows = this
-                .ReadRows()
-                .Select(x => InstanceFactory.NewImmutableRow(x, query.DataSource));
+            var duration = Stopwatch.GetElapsedTime(startedAt);
+            DataLinqTelemetry.RecordQueryExecution(
+                telemetryContext,
+                query.Table.DbName,
+                "entity",
+                query.DataSource is Mutation.Transaction,
+                succeeded,
+                duration);
 
-            foreach (var row in rows)
-                yield return row;
+            if (activity is not null)
+            {
+                if (!succeeded)
+                    activity.SetStatus(ActivityStatusCode.Error);
+
+                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                activity.Dispose();
+            }
         }
     }
 
     public V ExecuteScalar<V>()
     {
+        var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
+        var activity = DataLinqTelemetry.StartQueryActivity(
+            telemetryContext,
+            query.Table.DbName,
+            "scalar",
+            query.DataSource is Mutation.Transaction);
+        var startedAt = Stopwatch.GetTimestamp();
+        var succeeded = false;
+
         DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
-        return query.DataSource.DatabaseAccess.ExecuteScalar<V>(query.DataSource.Provider.ToDbCommand(this));
+
+        try
+        {
+            var result = query.DataSource.DatabaseAccess.ExecuteScalar<V>(query.DataSource.Provider.ToDbCommand(this));
+            succeeded = true;
+            return result;
+        }
+        catch (Exception exception)
+        {
+            DataLinqTelemetry.RecordException(activity, exception);
+            throw;
+        }
+        finally
+        {
+            var duration = Stopwatch.GetElapsedTime(startedAt);
+            DataLinqTelemetry.RecordQueryExecution(
+                telemetryContext,
+                query.Table.DbName,
+                "scalar",
+                query.DataSource is Mutation.Transaction,
+                succeeded,
+                duration);
+
+            if (activity is not null)
+            {
+                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                activity.Dispose();
+            }
+        }
     }
 
     public object? ExecuteScalar()
     {
+        var telemetryContext = DataLinqTelemetryContext.FromProvider(query.DataSource.Provider);
+        var activity = DataLinqTelemetry.StartQueryActivity(
+            telemetryContext,
+            query.Table.DbName,
+            "scalar",
+            query.DataSource is Mutation.Transaction);
+        var startedAt = Stopwatch.GetTimestamp();
+        var succeeded = false;
+
         DataLinqMetrics.RecordScalarQueryExecution(query.DataSource.Provider);
-        return query.DataSource.DatabaseAccess.ExecuteScalar(query.DataSource.Provider.ToDbCommand(this));
+
+        try
+        {
+            var result = query.DataSource.DatabaseAccess.ExecuteScalar(query.DataSource.Provider.ToDbCommand(this));
+            succeeded = true;
+            return result;
+        }
+        catch (Exception exception)
+        {
+            DataLinqTelemetry.RecordException(activity, exception);
+            throw;
+        }
+        finally
+        {
+            var duration = Stopwatch.GetElapsedTime(startedAt);
+            DataLinqTelemetry.RecordQueryExecution(
+                telemetryContext,
+                query.Table.DbName,
+                "scalar",
+                query.DataSource is Mutation.Transaction,
+                succeeded,
+                duration);
+
+            if (activity is not null)
+            {
+                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                activity.Dispose();
+            }
+        }
     }
 
     public override string ToString()

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using DataLinq.Interfaces;
+using DataLinq.Mutation;
 
 namespace DataLinq.Diagnostics;
 
@@ -25,6 +26,8 @@ internal sealed class DataLinqTableMetricsHandle
     internal void RecordRelationReferenceLoad() => state.RecordRelationReferenceLoad();
     internal void RecordRelationCollectionCacheHit() => state.RecordRelationCollectionCacheHit();
     internal void RecordRelationCollectionLoad() => state.RecordRelationCollectionLoad();
+    internal void RecordMutationExecution(TransactionChangeType mutationType, bool succeeded, int affectedRows, TimeSpan duration)
+        => state.RecordMutationExecution(mutationType, succeeded, affectedRows, duration);
     internal void UpdateCacheOccupancy(CacheOccupancyMetricsSnapshot snapshot) => state.UpdateCacheOccupancy(snapshot);
     internal void RecordCacheCleanup(int rowsRemoved, TimeSpan duration) => state.RecordCacheCleanup(rowsRemoved, duration);
 
@@ -51,6 +54,12 @@ internal sealed class DataLinqProviderMetricsState
     private long transactionRollbacks;
     private long transactionFailures;
     private long transactionDurationMicroseconds;
+    private long mutationInserts;
+    private long mutationUpdates;
+    private long mutationDeletes;
+    private long mutationFailures;
+    private long mutationAffectedRows;
+    private long mutationDurationMicroseconds;
 
     internal string ProviderInstanceId { get; }
     internal string ProviderTypeName { get; }
@@ -121,6 +130,28 @@ internal sealed class DataLinqProviderMetricsState
         Interlocked.Add(ref transactionDurationMicroseconds, ToMicroseconds(duration));
     }
 
+    internal void RecordMutationExecution(TransactionChangeType mutationType, bool succeeded, int affectedRows, TimeSpan duration)
+    {
+        switch (mutationType)
+        {
+            case TransactionChangeType.Insert:
+                Interlocked.Increment(ref mutationInserts);
+                break;
+            case TransactionChangeType.Update:
+                Interlocked.Increment(ref mutationUpdates);
+                break;
+            case TransactionChangeType.Delete:
+                Interlocked.Increment(ref mutationDeletes);
+                break;
+        }
+
+        if (!succeeded)
+            Interlocked.Increment(ref mutationFailures);
+
+        Interlocked.Add(ref mutationAffectedRows, affectedRows);
+        Interlocked.Add(ref mutationDurationMicroseconds, ToMicroseconds(duration));
+    }
+
     internal void Reset()
     {
         Interlocked.Exchange(ref entityExecutions, 0);
@@ -135,6 +166,12 @@ internal sealed class DataLinqProviderMetricsState
         Interlocked.Exchange(ref transactionRollbacks, 0);
         Interlocked.Exchange(ref transactionFailures, 0);
         Interlocked.Exchange(ref transactionDurationMicroseconds, 0);
+        Interlocked.Exchange(ref mutationInserts, 0);
+        Interlocked.Exchange(ref mutationUpdates, 0);
+        Interlocked.Exchange(ref mutationDeletes, 0);
+        Interlocked.Exchange(ref mutationFailures, 0);
+        Interlocked.Exchange(ref mutationAffectedRows, 0);
+        Interlocked.Exchange(ref mutationDurationMicroseconds, 0);
 
         foreach (var tableState in tableStates.Values)
             tableState.Reset();
@@ -151,6 +188,11 @@ internal sealed class DataLinqProviderMetricsState
            Interlocked.Read(ref transactionCommits) != 0 ||
            Interlocked.Read(ref transactionRollbacks) != 0 ||
            Interlocked.Read(ref transactionFailures) != 0 ||
+           Interlocked.Read(ref mutationInserts) != 0 ||
+           Interlocked.Read(ref mutationUpdates) != 0 ||
+           Interlocked.Read(ref mutationDeletes) != 0 ||
+           Interlocked.Read(ref mutationFailures) != 0 ||
+           Interlocked.Read(ref mutationAffectedRows) != 0 ||
            tableStates.Values.Any(x => x.HasActivity());
 
     internal DataLinqProviderMetricsSnapshot Snapshot()
@@ -181,6 +223,13 @@ internal sealed class DataLinqProviderMetricsState
                 Rollbacks: Interlocked.Read(ref transactionRollbacks),
                 Failures: Interlocked.Read(ref transactionFailures),
                 TotalDurationMicroseconds: Interlocked.Read(ref transactionDurationMicroseconds)),
+            Mutations: new MutationMetricsSnapshot(
+                Inserts: Interlocked.Read(ref mutationInserts),
+                Updates: Interlocked.Read(ref mutationUpdates),
+                Deletes: Interlocked.Read(ref mutationDeletes),
+                Failures: Interlocked.Read(ref mutationFailures),
+                AffectedRows: Interlocked.Read(ref mutationAffectedRows),
+                TotalDurationMicroseconds: Interlocked.Read(ref mutationDurationMicroseconds)),
             Occupancy: CacheOccupancyMetricsSnapshot.Sum(tables.Select(x => x.Occupancy)),
             Cleanup: CacheCleanupMetricsSnapshot.Sum(tables.Select(x => x.Cleanup)),
             Relations: RelationMetricsSnapshot.Sum(tables.Select(x => x.Relations)),
@@ -199,6 +248,12 @@ internal sealed class DataLinqTableMetricsState
     private long currentTransactionRows;
     private long currentBytes;
     private long currentIndexEntries;
+    private long mutationInserts;
+    private long mutationUpdates;
+    private long mutationDeletes;
+    private long mutationFailures;
+    private long mutationAffectedRows;
+    private long mutationDurationMicroseconds;
     private long cacheCleanupOperations;
     private long cacheCleanupRowsRemoved;
     private long cacheCleanupDurationMicroseconds;
@@ -242,6 +297,27 @@ internal sealed class DataLinqTableMetricsState
     internal void RecordDatabaseRowsLoaded(int count) => Interlocked.Add(ref databaseRowsLoaded, count);
     internal void RecordRowMaterialization() => Interlocked.Increment(ref rowMaterializations);
     internal void RecordRowCacheStore() => Interlocked.Increment(ref rowCacheStores);
+    internal void RecordMutationExecution(TransactionChangeType mutationType, bool succeeded, int affectedRows, TimeSpan duration)
+    {
+        switch (mutationType)
+        {
+            case TransactionChangeType.Insert:
+                Interlocked.Increment(ref mutationInserts);
+                break;
+            case TransactionChangeType.Update:
+                Interlocked.Increment(ref mutationUpdates);
+                break;
+            case TransactionChangeType.Delete:
+                Interlocked.Increment(ref mutationDeletes);
+                break;
+        }
+
+        if (!succeeded)
+            Interlocked.Increment(ref mutationFailures);
+
+        Interlocked.Add(ref mutationAffectedRows, affectedRows);
+        Interlocked.Add(ref mutationDurationMicroseconds, ToMicroseconds(duration));
+    }
     internal void UpdateCacheOccupancy(CacheOccupancyMetricsSnapshot snapshot)
     {
         Interlocked.Exchange(ref currentRows, snapshot.Rows);
@@ -295,6 +371,12 @@ internal sealed class DataLinqTableMetricsState
 
     internal void Reset()
     {
+        Interlocked.Exchange(ref mutationInserts, 0);
+        Interlocked.Exchange(ref mutationUpdates, 0);
+        Interlocked.Exchange(ref mutationDeletes, 0);
+        Interlocked.Exchange(ref mutationFailures, 0);
+        Interlocked.Exchange(ref mutationAffectedRows, 0);
+        Interlocked.Exchange(ref mutationDurationMicroseconds, 0);
         Interlocked.Exchange(ref cacheCleanupOperations, 0);
         Interlocked.Exchange(ref cacheCleanupRowsRemoved, 0);
         Interlocked.Exchange(ref cacheCleanupDurationMicroseconds, 0);
@@ -332,6 +414,11 @@ internal sealed class DataLinqTableMetricsState
            Interlocked.Read(ref currentTransactionRows) != 0 ||
            Interlocked.Read(ref currentBytes) != 0 ||
            Interlocked.Read(ref currentIndexEntries) != 0 ||
+           Interlocked.Read(ref mutationInserts) != 0 ||
+           Interlocked.Read(ref mutationUpdates) != 0 ||
+           Interlocked.Read(ref mutationDeletes) != 0 ||
+           Interlocked.Read(ref mutationFailures) != 0 ||
+           Interlocked.Read(ref mutationAffectedRows) != 0 ||
            Interlocked.Read(ref cacheCleanupOperations) != 0 ||
            Interlocked.Read(ref cacheCleanupRowsRemoved) != 0 ||
            Interlocked.Read(ref rowCacheHits) != 0 ||
@@ -352,6 +439,13 @@ internal sealed class DataLinqTableMetricsState
     internal DataLinqTableMetricsSnapshot Snapshot()
         => new(
             TableName: TableName,
+            Mutations: new MutationMetricsSnapshot(
+                Inserts: Interlocked.Read(ref mutationInserts),
+                Updates: Interlocked.Read(ref mutationUpdates),
+                Deletes: Interlocked.Read(ref mutationDeletes),
+                Failures: Interlocked.Read(ref mutationFailures),
+                AffectedRows: Interlocked.Read(ref mutationAffectedRows),
+                TotalDurationMicroseconds: Interlocked.Read(ref mutationDurationMicroseconds)),
             Occupancy: new CacheOccupancyMetricsSnapshot(
                 Rows: Interlocked.Read(ref currentRows),
                 TransactionRows: Interlocked.Read(ref currentTransactionRows),
@@ -427,6 +521,7 @@ public static class DataLinqMetrics
             Queries: QueryMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Queries)),
             Commands: CommandMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Commands)),
             Transactions: TransactionMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Transactions)),
+            Mutations: MutationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Mutations)),
             Occupancy: CacheOccupancyMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Occupancy)),
             Cleanup: CacheCleanupMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Cleanup)),
             Relations: RelationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Relations)),
@@ -461,6 +556,13 @@ public static class DataLinqMetrics
 
     internal static void RecordTransactionCompleted(DataLinqTelemetryContext telemetryContext, DatabaseTransactionStatus outcome, bool succeeded, TimeSpan duration)
         => GetOrCreateProvider(telemetryContext).RecordTransactionCompleted(outcome, succeeded, duration);
+
+    internal static void RecordMutationExecution(DataLinqTelemetryContext telemetryContext, string tableName, TransactionChangeType mutationType, bool succeeded, int affectedRows, TimeSpan duration)
+    {
+        var provider = GetOrCreateProvider(telemetryContext);
+        provider.RecordMutationExecution(mutationType, succeeded, affectedRows, duration);
+        provider.GetOrCreateTable(tableName).RecordMutationExecution(mutationType, succeeded, affectedRows, duration);
+    }
 
     private static DataLinqProviderMetricsState GetOrCreateProvider(IDatabaseProvider databaseProvider)
         => providers.GetOrAdd(databaseProvider.TelemetryInstanceId, _ => new DataLinqProviderMetricsState(databaseProvider));

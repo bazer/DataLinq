@@ -4,6 +4,7 @@ namespace DataLinq.Diagnostics;
 /// Metrics owned by a single table within a specific provider instance.
 /// </summary>
 /// <param name="TableName">Table name within the provider instance.</param>
+/// <param name="Mutations">Mutation metrics owned by this table.</param>
 /// <param name="Occupancy">Current cache occupancy owned by this table.</param>
 /// <param name="Cleanup">Cache maintenance metrics owned by this table.</param>
 /// <param name="Relations">Relation metrics owned by this table.</param>
@@ -11,6 +12,7 @@ namespace DataLinq.Diagnostics;
 /// <param name="CacheNotifications">Cache notification metrics owned by this table.</param>
 public readonly record struct DataLinqTableMetricsSnapshot(
     string TableName,
+    MutationMetricsSnapshot Mutations,
     CacheOccupancyMetricsSnapshot Occupancy,
     CacheCleanupMetricsSnapshot Cleanup,
     RelationMetricsSnapshot Relations,

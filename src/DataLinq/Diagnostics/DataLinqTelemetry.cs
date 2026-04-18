@@ -42,6 +42,14 @@ internal static class DataLinqTelemetry
         "datalinq.db.commands",
         unit: "{command}",
         description: "Number of database commands executed by DataLinq.");
+    private static readonly Counter<long> QueryCounter = Meter.CreateCounter<long>(
+        "datalinq.queries",
+        unit: "{query}",
+        description: "Number of DataLinq queries executed.");
+    private static readonly Histogram<double> QueryDuration = Meter.CreateHistogram<double>(
+        "datalinq.query.duration",
+        unit: "ms",
+        description: "DataLinq end-to-end query execution duration in milliseconds.");
     private static readonly Histogram<double> CommandDuration = Meter.CreateHistogram<double>(
         "datalinq.db.command.duration",
         unit: "ms",
@@ -58,6 +66,18 @@ internal static class DataLinqTelemetry
         "datalinq.db.transaction.duration",
         unit: "ms",
         description: "Database transaction duration in milliseconds.");
+    private static readonly Counter<long> MutationCounter = Meter.CreateCounter<long>(
+        "datalinq.db.mutations",
+        unit: "{mutation}",
+        description: "Number of DataLinq mutations executed.");
+    private static readonly Counter<long> MutationAffectedRowsCounter = Meter.CreateCounter<long>(
+        "datalinq.db.mutation.affected_rows",
+        unit: "{row}",
+        description: "Number of rows reported as affected by DataLinq mutations.");
+    private static readonly Histogram<double> MutationDuration = Meter.CreateHistogram<double>(
+        "datalinq.db.mutation.duration",
+        unit: "ms",
+        description: "DataLinq mutation execution duration in milliseconds.");
     private static readonly Counter<long> CacheRowsRemovedCounter = Meter.CreateCounter<long>(
         "datalinq.cache.rows.removed",
         unit: "{row}",
@@ -147,6 +167,40 @@ internal static class DataLinqTelemetry
         return activity;
     }
 
+    internal static Activity? StartQueryActivity(
+        DataLinqTelemetryContext context,
+        string tableName,
+        string queryKind,
+        bool transactional)
+    {
+        var activity = ActivitySource.StartActivity("datalinq.query", ActivityKind.Internal);
+        if (activity is null)
+            return null;
+
+        ApplyCommonTags(activity, context);
+        activity.SetTag("datalinq.table", tableName);
+        activity.SetTag("datalinq.query.kind", queryKind);
+        activity.SetTag("datalinq.transactional", transactional);
+        return activity;
+    }
+
+    internal static void RecordQueryExecution(
+        DataLinqTelemetryContext context,
+        string tableName,
+        string queryKind,
+        bool transactional,
+        bool succeeded,
+        TimeSpan duration)
+    {
+        var tags = CreateTableTags(context, tableName);
+        tags.Add("datalinq.query.kind", queryKind);
+        tags.Add("datalinq.transactional", transactional);
+        tags.Add("datalinq.outcome", succeeded ? "success" : "failure");
+
+        QueryCounter.Add(1, tags);
+        QueryDuration.Record(duration.TotalMilliseconds, tags);
+    }
+
     internal static void RecordCommand(
         DataLinqTelemetryContext context,
         string commandKind,
@@ -202,6 +256,46 @@ internal static class DataLinqTelemetry
         TransactionCompleteCounter.Add(1, tags);
         TransactionDuration.Record(duration.TotalMilliseconds, tags);
         DataLinqMetrics.RecordTransactionCompleted(context, outcome, succeeded, duration);
+    }
+
+    internal static Activity? StartMutationActivity(
+        DataLinqTelemetryContext context,
+        string tableName,
+        TransactionChangeType mutationType,
+        TransactionType transactionType)
+    {
+        var activity = ActivitySource.StartActivity("datalinq.db.mutation", ActivityKind.Client);
+        if (activity is null)
+            return null;
+
+        ApplyCommonTags(activity, context);
+        activity.SetTag("datalinq.table", tableName);
+        activity.SetTag("datalinq.mutation.type", GetMutationTypeName(mutationType));
+        activity.SetTag("datalinq.transaction.type", GetTransactionTypeName(transactionType));
+        return activity;
+    }
+
+    internal static void RecordMutationExecution(
+        DataLinqTelemetryContext context,
+        string tableName,
+        TransactionChangeType mutationType,
+        TransactionType transactionType,
+        bool succeeded,
+        int affectedRows,
+        TimeSpan duration)
+    {
+        var tags = CreateTableTags(context, tableName);
+        tags.Add("datalinq.mutation.type", GetMutationTypeName(mutationType));
+        tags.Add("datalinq.transaction.type", GetTransactionTypeName(transactionType));
+        tags.Add("datalinq.outcome", succeeded ? "success" : "failure");
+
+        MutationCounter.Add(1, tags);
+
+        if (affectedRows > 0)
+            MutationAffectedRowsCounter.Add(affectedRows, tags);
+
+        MutationDuration.Record(duration.TotalMilliseconds, tags);
+        DataLinqMetrics.RecordMutationExecution(context, tableName, mutationType, succeeded, affectedRows, duration);
     }
 
     internal static void RecordException(Activity? activity, Exception exception)
@@ -289,6 +383,15 @@ internal static class DataLinqTelemetry
             TransactionType.ReadAndWrite => "read_write",
             TransactionType.ReadOnly => "read_only",
             TransactionType.WriteOnly => "write_only",
+            _ => "unknown"
+        };
+
+    private static string GetMutationTypeName(TransactionChangeType mutationType)
+        => mutationType switch
+        {
+            TransactionChangeType.Insert => "insert",
+            TransactionChangeType.Update => "update",
+            TransactionChangeType.Delete => "delete",
             _ => "unknown"
         };
 

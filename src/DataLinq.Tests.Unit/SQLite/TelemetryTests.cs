@@ -123,6 +123,109 @@ public sealed class TelemetryTests
 
     [Test]
     [NotInParallel]
+    public async Task SnapshotAndMeter_CaptureMutationMetricsForSQLite()
+    {
+        await WithTelemetryDatabase(async db =>
+        {
+            var longMeasurements = new List<(string InstrumentName, long Value, Dictionary<string, object?> Tags)>();
+
+            using var listener = new MeterListener();
+            listener.InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == "DataLinq")
+                    meterListener.EnableMeasurementEvents(instrument);
+            };
+            listener.SetMeasurementEventCallback<long>((instrument, measurement, tags, _) =>
+            {
+                longMeasurements.Add((instrument.Name, measurement, ToTagDictionary(tags)));
+            });
+            listener.Start();
+
+            var inserted = db.Insert(new MutableSQLiteTelemetryRow
+            {
+                Name = "mutation-insert"
+            });
+
+            var mutable = inserted.Mutate();
+            mutable.Name = "mutation-update";
+            var updated = db.Update(mutable);
+            db.Delete(updated);
+
+            var snapshot = DataLinqMetrics.Snapshot();
+            var provider = snapshot.Providers.Single();
+            var table = provider.Tables.Single(x => x.TableName == "telemetryrows");
+
+            await Assert.That(snapshot.Mutations.Inserts).IsEqualTo(1);
+            await Assert.That(snapshot.Mutations.Updates).IsEqualTo(1);
+            await Assert.That(snapshot.Mutations.Deletes).IsEqualTo(1);
+            await Assert.That(snapshot.Mutations.Failures).IsEqualTo(0);
+            await Assert.That(snapshot.Mutations.AffectedRows).IsGreaterThanOrEqualTo(3L);
+            await Assert.That(snapshot.Mutations.TotalDurationMicroseconds).IsGreaterThan(0L);
+            await Assert.That(provider.Mutations).IsEqualTo(snapshot.Mutations);
+            await Assert.That(table.Mutations.Inserts).IsEqualTo(1);
+            await Assert.That(table.Mutations.Updates).IsEqualTo(1);
+            await Assert.That(table.Mutations.Deletes).IsEqualTo(1);
+
+            var insertMeasurement = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.db.mutations" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows") &&
+                HasTag(x.Tags, "datalinq.mutation.type", "insert"));
+            await Assert.That(insertMeasurement.Value).IsEqualTo(1L);
+
+            var updateMeasurement = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.db.mutations" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows") &&
+                HasTag(x.Tags, "datalinq.mutation.type", "update"));
+            await Assert.That(updateMeasurement.Value).IsEqualTo(1L);
+
+            var deleteMeasurement = longMeasurements.Single(x =>
+                x.InstrumentName == "datalinq.db.mutations" &&
+                HasTag(x.Tags, "datalinq.table", "telemetryrows") &&
+                HasTag(x.Tags, "datalinq.mutation.type", "delete"));
+            await Assert.That(deleteMeasurement.Value).IsEqualTo(1L);
+
+            var affectedRows = longMeasurements
+                .Where(x =>
+                    x.InstrumentName == "datalinq.db.mutation.affected_rows" &&
+                    HasTag(x.Tags, "datalinq.table", "telemetryrows"))
+                .Sum(x => x.Value);
+            await Assert.That(affectedRows).IsGreaterThanOrEqualTo(3L);
+        });
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Activities_ExposeQueryMetadataForSQLite()
+    {
+        await WithTelemetryDatabase(async db =>
+        {
+            var stoppedActivities = new List<Activity>();
+
+            using var listener = new ActivityListener
+            {
+                ShouldListenTo = source => source.Name == "DataLinq",
+                Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+                ActivityStopped = activity => stoppedActivities.Add(activity)
+            };
+
+            ActivitySource.AddActivityListener(listener);
+
+            await Assert.That(db.Provider.DatabaseAccess.ExecuteNonQuery("INSERT INTO telemetryrows (name) VALUES ('theta')")).IsEqualTo(1);
+
+            var row = db.Query().Rows.Single(x => x.Name == "theta");
+            await Assert.That(row.Name).IsEqualTo("theta");
+
+            var queryActivity = stoppedActivities.Single(x => x.OperationName == "datalinq.query");
+            await Assert.That(queryActivity.Kind).IsEqualTo(ActivityKind.Internal);
+            await Assert.That(queryActivity.GetTagItem("db.system")).IsEqualTo("sqlite");
+            await Assert.That(queryActivity.GetTagItem("datalinq.table")).IsEqualTo("telemetryrows");
+            await Assert.That(queryActivity.GetTagItem("datalinq.query.kind")).IsEqualTo("entity");
+            await Assert.That(queryActivity.GetTagItem("datalinq.outcome")).IsEqualTo("success");
+        });
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Snapshot_CapturesCacheOccupancyAndCleanupForSQLite()
     {
         await WithTelemetryDatabase(async db =>

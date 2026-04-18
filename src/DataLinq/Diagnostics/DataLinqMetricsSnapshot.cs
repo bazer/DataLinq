@@ -6,6 +6,7 @@ namespace DataLinq.Diagnostics;
 /// <param name="Queries">Query metrics summed across all provider instances.</param>
 /// <param name="Commands">Command metrics summed across all provider instances.</param>
 /// <param name="Transactions">Transaction metrics summed across all provider instances.</param>
+/// <param name="Mutations">Mutation metrics summed across all provider instances.</param>
 /// <param name="Occupancy">Current cache occupancy summed across all provider instances.</param>
 /// <param name="Cleanup">Cache maintenance metrics summed across all provider instances.</param>
 /// <param name="Relations">Relation metrics summed across all provider instances.</param>
@@ -16,6 +17,7 @@ public readonly record struct DataLinqMetricsSnapshot(
     QueryMetricsSnapshot Queries,
     CommandMetricsSnapshot Commands,
     TransactionMetricsSnapshot Transactions,
+    MutationMetricsSnapshot Mutations,
     CacheOccupancyMetricsSnapshot Occupancy,
     CacheCleanupMetricsSnapshot Cleanup,
     RelationMetricsSnapshot Relations,
@@ -30,6 +32,9 @@ public readonly record struct DataLinqMetricsSnapshot(
            $"db-command-failures={Commands.Failures}, db-command-duration-ms={Commands.TotalDurationMilliseconds:0.###}, " +
            $"tx-starts={Transactions.Starts}, tx-commits={Transactions.Commits}, tx-rollbacks={Transactions.Rollbacks}, " +
            $"tx-failures={Transactions.Failures}, tx-duration-ms={Transactions.TotalDurationMilliseconds:0.###}, " +
+           $"mutation-total={Mutations.TotalExecutions}, mutation-inserts={Mutations.Inserts}, mutation-updates={Mutations.Updates}, " +
+           $"mutation-deletes={Mutations.Deletes}, mutation-failures={Mutations.Failures}, mutation-affected-rows={Mutations.AffectedRows}, " +
+           $"mutation-duration-ms={Mutations.TotalDurationMilliseconds:0.###}, " +
            $"cache-rows-current={Occupancy.Rows}, cache-transaction-rows-current={Occupancy.TransactionRows}, " +
            $"cache-bytes-current={Occupancy.Bytes}, cache-index-entries-current={Occupancy.IndexEntries}, " +
            $"cache-cleanup-ops={Cleanup.Operations}, cache-cleanup-rows-removed={Cleanup.RowsRemoved}, " +
