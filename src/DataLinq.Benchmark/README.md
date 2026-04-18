@@ -104,4 +104,5 @@ The published benchmark history is intentionally narrower than the full local ma
 
 - CI uses the `stable` benchmark category
 - CI currently trends the `sqlite-memory` provider only
+- scheduled CI runs use the heavier benchmark profile; push-triggered history runs keep the default short profile
 - noisy or broader experimental scenarios such as insert and macro workflow benchmarks stay available locally, but they do not belong in regression history until they earn that right

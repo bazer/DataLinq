@@ -26,6 +26,7 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
         AddJob(Job.MediumRun
             .WithId("Heavy")
             .WithRuntime(BenchmarkDotNet.Environments.CoreRuntime.Core80)
+            .WithLaunchCount(3)
             .WithWarmupCount(6)
             .WithIterationCount(15)
             .WithMsBuildArguments([

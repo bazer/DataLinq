@@ -12,6 +12,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  BENCHMARK_PROFILE: ${{ github.event_name == 'schedule' && 'heavy' || 'default' }}
 
 jobs:
   benchmark-history:
@@ -66,7 +67,7 @@ jobs:
           fi
 
           dotnet exec src/DataLinq.Benchmark.CLI/bin/Release/net8.0/DataLinq.Benchmark.CLI.dll run \
-            --profile default \
+            --profile "${BENCHMARK_PROFILE}" \
             --filter "*EmployeesBenchmarks*" \
             --history-json artifacts/benchmarks/ci/latest-history.json \
             "${baseline_args[@]}" \
