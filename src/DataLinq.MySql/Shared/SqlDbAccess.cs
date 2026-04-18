@@ -1,4 +1,5 @@
-﻿using System.Data;
+using System.Data;
+using DataLinq.Interfaces;
 using DataLinq.Logging;
 using MySqlConnector;
 
@@ -9,7 +10,13 @@ public class SqlDbAccess : DatabaseAccess
     private readonly MySqlDataSource dataSource;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public SqlDbAccess(MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration) : base()
+    public SqlDbAccess(MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration)
+        : this(null, dataSource, loggingConfiguration)
+    {
+    }
+
+    internal SqlDbAccess(IDatabaseProvider? databaseProvider, MySqlDataSource dataSource, DataLinqLoggingConfiguration loggingConfiguration)
+        : base(databaseProvider)
     {
         this.dataSource = dataSource;
         this.loggingConfiguration = loggingConfiguration;
@@ -22,7 +29,7 @@ public class SqlDbAccess : DatabaseAccess
 
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        return command.ExecuteNonQuery();
+        return ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
     }
 
     public override int ExecuteNonQuery(string query) =>
@@ -44,7 +51,7 @@ public class SqlDbAccess : DatabaseAccess
 
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        return command.ExecuteScalar();
+        return ExecuteCommandWithTelemetry(command, "scalar", transactional: false, transactionType: null, command.ExecuteScalar);
     }
 
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
@@ -54,7 +61,14 @@ public class SqlDbAccess : DatabaseAccess
 
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        return new SqlDataLinqDataReader((command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader)!);
+        var reader = ExecuteCommandWithTelemetry(
+            command,
+            "reader",
+            transactional: false,
+            transactionType: null,
+            () => command.ExecuteReader(CommandBehavior.CloseConnection) as MySqlDataReader);
+
+        return new SqlDataLinqDataReader(reader!);
     }
 
     public override IDataLinqDataReader ExecuteReader(string query) =>

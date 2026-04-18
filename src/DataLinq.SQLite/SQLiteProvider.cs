@@ -80,7 +80,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(ConnectionString);
         keepAliveConnection = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(connectionStringBuilder.ConnectionString);
-        dbAccess = new SQLiteDbAccess(ConnectionString, LoggingConfiguration);
+        dbAccess = new SQLiteDbAccess(this, ConnectionString, LoggingConfiguration);
         SetJournalMode(SQLiteJournalMode.WAL);
 
     }
@@ -164,12 +164,12 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
-        return new SQLiteDatabaseTransaction(ConnectionString, type, LoggingConfiguration);
+        return new SQLiteDatabaseTransaction(this, ConnectionString, type, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
-        return new SQLiteDatabaseTransaction(dbTransaction, type, LoggingConfiguration);
+        return new SQLiteDatabaseTransaction(this, dbTransaction, type, LoggingConfiguration);
     }
 
     public override string GetLastIdQuery() => "SELECT last_insert_rowid()";

@@ -4,12 +4,16 @@ namespace DataLinq.Diagnostics;
 /// Process-wide snapshot of DataLinq metrics for the current runtime instance.
 /// </summary>
 /// <param name="Queries">Query metrics summed across all provider instances.</param>
+/// <param name="Commands">Command metrics summed across all provider instances.</param>
+/// <param name="Transactions">Transaction metrics summed across all provider instances.</param>
 /// <param name="Relations">Relation metrics summed across all provider instances.</param>
 /// <param name="RowCache">Row cache metrics summed across all provider instances.</param>
 /// <param name="CacheNotifications">Cache notification metrics summed across all provider instances.</param>
 /// <param name="Providers">Per-provider metrics for the current DataLinq runtime instance.</param>
 public readonly record struct DataLinqMetricsSnapshot(
     QueryMetricsSnapshot Queries,
+    CommandMetricsSnapshot Commands,
+    TransactionMetricsSnapshot Transactions,
     RelationMetricsSnapshot Relations,
     RowCacheMetricsSnapshot RowCache,
     CacheNotificationMetricsSnapshot CacheNotifications,
@@ -17,6 +21,11 @@ public readonly record struct DataLinqMetricsSnapshot(
 {
     public override string ToString()
         => $"entity-queries={Queries.EntityExecutions}, scalar-queries={Queries.ScalarExecutions}, " +
+           $"db-command-total={Commands.TotalExecutions}, db-command-reader={Commands.ReaderExecutions}, " +
+           $"db-command-scalar={Commands.ScalarExecutions}, db-command-non-query={Commands.NonQueryExecutions}, " +
+           $"db-command-failures={Commands.Failures}, db-command-duration-ms={Commands.TotalDurationMilliseconds:0.###}, " +
+           $"tx-starts={Transactions.Starts}, tx-commits={Transactions.Commits}, tx-rollbacks={Transactions.Rollbacks}, " +
+           $"tx-failures={Transactions.Failures}, tx-duration-ms={Transactions.TotalDurationMilliseconds:0.###}, " +
            $"row-cache-hits={RowCache.Hits}, row-cache-misses={RowCache.Misses}, database-rows={RowCache.DatabaseRowsLoaded}, " +
            $"materializations={RowCache.Materializations}, row-cache-stores={RowCache.Stores}, " +
            $"relation-ref-hits={Relations.ReferenceCacheHits}, relation-ref-loads={Relations.ReferenceLoads}, " +

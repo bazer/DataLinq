@@ -39,6 +39,16 @@ internal sealed class DataLinqProviderMetricsState
     private readonly ConcurrentDictionary<string, DataLinqTableMetricsState> tableStates = new(StringComparer.Ordinal);
     private long entityExecutions;
     private long scalarExecutions;
+    private long readerCommandExecutions;
+    private long scalarCommandExecutions;
+    private long nonQueryCommandExecutions;
+    private long commandFailures;
+    private long commandDurationMicroseconds;
+    private long transactionStarts;
+    private long transactionCommits;
+    private long transactionRollbacks;
+    private long transactionFailures;
+    private long transactionDurationMicroseconds;
 
     internal string ProviderInstanceId { get; }
     internal string ProviderTypeName { get; }
@@ -46,11 +56,16 @@ internal sealed class DataLinqProviderMetricsState
     internal DatabaseType DatabaseType { get; }
 
     internal DataLinqProviderMetricsState(IDatabaseProvider databaseProvider)
+        : this(DataLinqTelemetryContext.FromProvider(databaseProvider))
     {
-        ProviderInstanceId = databaseProvider.TelemetryInstanceId;
-        ProviderTypeName = databaseProvider.GetType().Name;
-        DatabaseName = databaseProvider.DatabaseName;
-        DatabaseType = databaseProvider.DatabaseType;
+    }
+
+    internal DataLinqProviderMetricsState(DataLinqTelemetryContext telemetryContext)
+    {
+        ProviderInstanceId = telemetryContext.ProviderInstanceId;
+        ProviderTypeName = telemetryContext.ProviderTypeName;
+        DatabaseName = telemetryContext.DatabaseName;
+        DatabaseType = telemetryContext.DatabaseType;
     }
 
     internal DataLinqTableMetricsHandle GetOrCreateTable(string tableName)
@@ -59,10 +74,65 @@ internal sealed class DataLinqProviderMetricsState
     internal void RecordEntityQueryExecution() => Interlocked.Increment(ref entityExecutions);
     internal void RecordScalarQueryExecution() => Interlocked.Increment(ref scalarExecutions);
 
+    internal void RecordCommandExecution(string commandKind, bool succeeded, TimeSpan duration)
+    {
+        switch (commandKind)
+        {
+            case "reader":
+                Interlocked.Increment(ref readerCommandExecutions);
+                break;
+            case "scalar":
+                Interlocked.Increment(ref scalarCommandExecutions);
+                break;
+            case "non_query":
+                Interlocked.Increment(ref nonQueryCommandExecutions);
+                break;
+        }
+
+        if (!succeeded)
+            Interlocked.Increment(ref commandFailures);
+
+        Interlocked.Add(ref commandDurationMicroseconds, ToMicroseconds(duration));
+    }
+
+    internal void RecordTransactionStarted() => Interlocked.Increment(ref transactionStarts);
+
+    internal void RecordTransactionCompleted(DatabaseTransactionStatus outcome, bool succeeded, TimeSpan duration)
+    {
+        if (succeeded)
+        {
+            switch (outcome)
+            {
+                case DatabaseTransactionStatus.Committed:
+                    Interlocked.Increment(ref transactionCommits);
+                    break;
+                case DatabaseTransactionStatus.RolledBack:
+                    Interlocked.Increment(ref transactionRollbacks);
+                    break;
+            }
+        }
+        else
+        {
+            Interlocked.Increment(ref transactionFailures);
+        }
+
+        Interlocked.Add(ref transactionDurationMicroseconds, ToMicroseconds(duration));
+    }
+
     internal void Reset()
     {
         Interlocked.Exchange(ref entityExecutions, 0);
         Interlocked.Exchange(ref scalarExecutions, 0);
+        Interlocked.Exchange(ref readerCommandExecutions, 0);
+        Interlocked.Exchange(ref scalarCommandExecutions, 0);
+        Interlocked.Exchange(ref nonQueryCommandExecutions, 0);
+        Interlocked.Exchange(ref commandFailures, 0);
+        Interlocked.Exchange(ref commandDurationMicroseconds, 0);
+        Interlocked.Exchange(ref transactionStarts, 0);
+        Interlocked.Exchange(ref transactionCommits, 0);
+        Interlocked.Exchange(ref transactionRollbacks, 0);
+        Interlocked.Exchange(ref transactionFailures, 0);
+        Interlocked.Exchange(ref transactionDurationMicroseconds, 0);
 
         foreach (var tableState in tableStates.Values)
             tableState.Reset();
@@ -71,6 +141,14 @@ internal sealed class DataLinqProviderMetricsState
     internal bool HasActivity()
         => Interlocked.Read(ref entityExecutions) != 0 ||
            Interlocked.Read(ref scalarExecutions) != 0 ||
+           Interlocked.Read(ref readerCommandExecutions) != 0 ||
+           Interlocked.Read(ref scalarCommandExecutions) != 0 ||
+           Interlocked.Read(ref nonQueryCommandExecutions) != 0 ||
+           Interlocked.Read(ref commandFailures) != 0 ||
+           Interlocked.Read(ref transactionStarts) != 0 ||
+           Interlocked.Read(ref transactionCommits) != 0 ||
+           Interlocked.Read(ref transactionRollbacks) != 0 ||
+           Interlocked.Read(ref transactionFailures) != 0 ||
            tableStates.Values.Any(x => x.HasActivity());
 
     internal DataLinqProviderMetricsSnapshot Snapshot()
@@ -89,11 +167,26 @@ internal sealed class DataLinqProviderMetricsState
             Queries: new QueryMetricsSnapshot(
                 EntityExecutions: Interlocked.Read(ref entityExecutions),
                 ScalarExecutions: Interlocked.Read(ref scalarExecutions)),
+            Commands: new CommandMetricsSnapshot(
+                ReaderExecutions: Interlocked.Read(ref readerCommandExecutions),
+                ScalarExecutions: Interlocked.Read(ref scalarCommandExecutions),
+                NonQueryExecutions: Interlocked.Read(ref nonQueryCommandExecutions),
+                Failures: Interlocked.Read(ref commandFailures),
+                TotalDurationMicroseconds: Interlocked.Read(ref commandDurationMicroseconds)),
+            Transactions: new TransactionMetricsSnapshot(
+                Starts: Interlocked.Read(ref transactionStarts),
+                Commits: Interlocked.Read(ref transactionCommits),
+                Rollbacks: Interlocked.Read(ref transactionRollbacks),
+                Failures: Interlocked.Read(ref transactionFailures),
+                TotalDurationMicroseconds: Interlocked.Read(ref transactionDurationMicroseconds)),
             Relations: RelationMetricsSnapshot.Sum(tables.Select(x => x.Relations)),
             RowCache: RowCacheMetricsSnapshot.Sum(tables.Select(x => x.RowCache)),
             CacheNotifications: CacheNotificationMetricsSnapshot.Sum(tables.Select(x => x.CacheNotifications)),
             Tables: tables);
     }
+
+    private static long ToMicroseconds(TimeSpan duration)
+        => (long)Math.Round(duration.TotalMilliseconds * 1000d, MidpointRounding.AwayFromZero);
 }
 
 internal sealed class DataLinqTableMetricsState
@@ -286,6 +379,8 @@ public static class DataLinqMetrics
 
         return new DataLinqMetricsSnapshot(
             Queries: QueryMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Queries)),
+            Commands: CommandMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Commands)),
+            Transactions: TransactionMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Transactions)),
             Relations: RelationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.Relations)),
             RowCache: RowCacheMetricsSnapshot.Sum(providerSnapshots.Select(x => x.RowCache)),
             CacheNotifications: CacheNotificationMetricsSnapshot.Sum(providerSnapshots.Select(x => x.CacheNotifications)),
@@ -310,6 +405,18 @@ public static class DataLinqMetrics
     internal static void RecordScalarQueryExecution(IDatabaseProvider databaseProvider)
         => GetOrCreateProvider(databaseProvider).RecordScalarQueryExecution();
 
+    internal static void RecordCommandExecution(DataLinqTelemetryContext telemetryContext, string commandKind, bool succeeded, TimeSpan duration)
+        => GetOrCreateProvider(telemetryContext).RecordCommandExecution(commandKind, succeeded, duration);
+
+    internal static void RecordTransactionStarted(DataLinqTelemetryContext telemetryContext)
+        => GetOrCreateProvider(telemetryContext).RecordTransactionStarted();
+
+    internal static void RecordTransactionCompleted(DataLinqTelemetryContext telemetryContext, DatabaseTransactionStatus outcome, bool succeeded, TimeSpan duration)
+        => GetOrCreateProvider(telemetryContext).RecordTransactionCompleted(outcome, succeeded, duration);
+
     private static DataLinqProviderMetricsState GetOrCreateProvider(IDatabaseProvider databaseProvider)
         => providers.GetOrAdd(databaseProvider.TelemetryInstanceId, _ => new DataLinqProviderMetricsState(databaseProvider));
+
+    private static DataLinqProviderMetricsState GetOrCreateProvider(DataLinqTelemetryContext telemetryContext)
+        => providers.GetOrAdd(telemetryContext.ProviderInstanceId, _ => new DataLinqProviderMetricsState(telemetryContext));
 }

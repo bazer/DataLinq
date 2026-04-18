@@ -10,6 +10,8 @@ namespace DataLinq.Diagnostics;
 /// <param name="DatabaseName">Logical database name reported by the provider instance.</param>
 /// <param name="DatabaseType">Database type reported by the provider instance.</param>
 /// <param name="Queries">Query metrics owned by this provider instance.</param>
+/// <param name="Commands">Command metrics owned by this provider instance.</param>
+/// <param name="Transactions">Transaction metrics owned by this provider instance.</param>
 /// <param name="Relations">Relation metrics summed from this provider instance's tables.</param>
 /// <param name="RowCache">Row cache metrics summed from this provider instance's tables.</param>
 /// <param name="CacheNotifications">Cache notification metrics summed from this provider instance's tables.</param>
@@ -20,6 +22,8 @@ public readonly record struct DataLinqProviderMetricsSnapshot(
     string DatabaseName,
     DatabaseType DatabaseType,
     QueryMetricsSnapshot Queries,
+    CommandMetricsSnapshot Commands,
+    TransactionMetricsSnapshot Transactions,
     RelationMetricsSnapshot Relations,
     RowCacheMetricsSnapshot RowCache,
     CacheNotificationMetricsSnapshot CacheNotifications,
