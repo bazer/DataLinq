@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Threading.Tasks;
+using DataLinq.DevTools;
 using Spectre.Console;
 
 namespace DataLinq.Testing.CLI;
@@ -136,7 +137,7 @@ internal static class RunCommand
         if (buildProject)
         {
             foreach (var suite in suites)
-                BuildProject(ResolveProjectPath(repositoryRoot, suite.ProjectPath), configuration, repositoryRoot);
+                BuildProject(ResolveProjectPath(repositoryRoot, suite.ProjectPath), configuration, settings);
         }
 
         var results = new List<RunResult>();
@@ -153,6 +154,7 @@ internal static class RunCommand
                         var result = ExecuteSuiteRun(
                             suite,
                             selection,
+                            settings,
                             repositoryRoot,
                             configuration,
                             batchSize,
@@ -191,6 +193,7 @@ internal static class RunCommand
                     var result = ExecuteSuiteRun(
                         suite,
                         selection,
+                        settings,
                         repositoryRoot,
                         configuration,
                         batchSize,
@@ -222,6 +225,7 @@ internal static class RunCommand
     private static SuiteRunResult ExecuteSuiteRun(
         TestCliSuite suite,
         CliTargetSelection selection,
+        TestInfraCliSettings settings,
         string repositoryRoot,
         string configuration,
         int batchSize,
@@ -262,7 +266,7 @@ internal static class RunCommand
                 orchestrator.Up(batch, recreate: false);
 
                 var start = Stopwatch.StartNew();
-                var result = ExecuteTestRun(projectPath, configuration, repositoryRoot, batch);
+                var result = ExecuteTestRun(projectPath, configuration, settings, batch);
                 start.Stop();
 
                 WriteProcessOutput(result);
@@ -286,7 +290,7 @@ internal static class RunCommand
             });
 
             var start = Stopwatch.StartNew();
-            var result = ExecuteTestRun(projectPath, configuration, repositoryRoot, selection: null);
+            var result = ExecuteTestRun(projectPath, configuration, settings, selection: null);
             start.Stop();
 
             WriteProcessOutput(result);
@@ -304,26 +308,23 @@ internal static class RunCommand
         return new SuiteRunResult(exitCode, runResults);
     }
 
-    private static void BuildProject(string projectPath, string configuration, string workingDirectory)
+    private static void BuildProject(string projectPath, string configuration, TestInfraCliSettings settings)
     {
         Console.WriteLine($"Building '{projectPath}'...");
         var result = ExecuteDotnet(
-            ["build", projectPath, "-c", configuration],
-            workingDirectory);
+            ["build", projectPath, "-c", configuration, "-nologo", "-v", "minimal", "-p:NuGetAudit=false"],
+            settings);
 
         WriteProcessOutput(result);
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"Failed to build '{projectPath}'.");
     }
 
-    private static ExternalCommandResult ExecuteTestRun(string projectPath, string configuration, string workingDirectory, CliTargetSelection? selection)
+    private static ExternalCommandResult ExecuteTestRun(string projectPath, string configuration, TestInfraCliSettings settings, CliTargetSelection? selection)
     {
-        var environmentVariables = new Dictionary<string, string?>
-        {
-            ["DOTNET_CLI_HOME"] = Path.Combine(workingDirectory, ".dotnet"),
-            ["DOTNET_SKIP_FIRST_TIME_EXPERIENCE"] = "1",
-            ["DOTNET_NOLOGO"] = "1"
-        };
+        var environmentVariables = new Dictionary<string, string?>(
+            settings.ToolPaths.CreateEnvironment(ToolingProfile.Repo),
+            StringComparer.OrdinalIgnoreCase);
 
         if (selection is not null)
         {
@@ -333,20 +334,22 @@ internal static class RunCommand
         }
 
         return ExecuteDotnet(
-            ["run", "--project", projectPath, "-c", configuration, "--no-build"],
-            workingDirectory,
+            ["run", "--project", projectPath, "-c", configuration, "--no-build", "-nologo"],
+            settings,
             environmentVariables);
     }
 
     private static ExternalCommandResult ExecuteDotnet(
         IReadOnlyList<string> arguments,
-        string workingDirectory,
+        TestInfraCliSettings settings,
         IReadOnlyDictionary<string, string?>? environmentVariables = null)
     {
+        settings.ToolPaths.EnsureCreated();
+
         return ExternalProcessRunner.Execute(
             "dotnet",
             arguments,
-            workingDirectory,
+            settings.RepositoryRoot,
             environmentVariables);
     }
 

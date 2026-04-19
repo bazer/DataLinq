@@ -2,8 +2,8 @@
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFrameworks>net10.0</TargetFrameworks>
-		<Description>Cross-platform test infrastructure CLI for DataLinq.</Description>
+		<TargetFrameworks>net8.0</TargetFrameworks>
+		<Description>Developer environment and build wrapper CLI for DataLinq.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -12,7 +12,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\DataLinq.Testing\DataLinq.Testing.csproj" />
 		<ProjectReference Include="..\DataLinq.DevTools\DataLinq.DevTools.csproj" />
 	</ItemGroup>
 

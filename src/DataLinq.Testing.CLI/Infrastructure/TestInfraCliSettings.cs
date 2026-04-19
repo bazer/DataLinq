@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using DataLinq.DevTools;
 using DataLinq.Testing;
 
 namespace DataLinq.Testing.CLI;
@@ -7,6 +8,7 @@ namespace DataLinq.Testing.CLI;
 internal sealed record TestInfraCliSettings(
     string RepositoryRoot,
     string ArtifactRoot,
+    DevToolPaths ToolPaths,
     string StatePath,
     string ContainerPrefix,
     string AdminUser,
@@ -24,6 +26,7 @@ internal sealed record TestInfraCliSettings(
         return new TestInfraCliSettings(
             RepositoryRoot: repositoryRoot,
             ArtifactRoot: artifactRoot,
+            ToolPaths: DevToolPaths.Create(repositoryRoot),
             StatePath: Path.Combine(artifactRoot, "testinfra-state.json"),
             ContainerPrefix: PodmanTestEnvironmentSettings.ResolveContainerPrefix("datalinq-tests"),
             AdminUser: GetEnvironmentVariable("datalinq", PodmanTestEnvironmentSettings.AdminUserEnvironmentVariable),

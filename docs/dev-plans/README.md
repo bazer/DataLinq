@@ -23,6 +23,10 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `documentation/Documentation Overhaul.md`
 
+### Tooling
+
+- `tooling/Build Environment and Output Control.md`
+
 ### Metadata and generation
 
 - `metadata-and-generation/Metadata Architecture.md`

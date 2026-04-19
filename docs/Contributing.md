@@ -37,6 +37,10 @@ Important directories and projects:
   Source generator project.
 - `src/DataLinq.Tools`
   Shared tooling used by the CLI and generation pipeline.
+- `src/DataLinq.DevTools`
+  Shared repo-local `dotnet`/NuGet execution, output parsing, and artifact logging primitives for developer-facing CLIs.
+- `src/DataLinq.Dev.CLI`
+  Developer wrapper for `doctor`, `restore`, `build`, and `test` with repo-local environment isolation and concise output.
 - `src/DataLinq.Testing`
   Shared test infrastructure, seeded harnesses, provider matrix logic, and environment helpers.
 - `src/DataLinq.Testing.CLI`
@@ -56,7 +60,34 @@ Important directories and projects:
 
 ## 3. Testing
 
-The supported local entry point is `DataLinq.Testing.CLI`.
+The supported local entry points are:
+
+- `DataLinq.Dev.CLI` for `doctor`, `restore`, `build`, and direct `dotnet test` wrapping.
+- `DataLinq.Testing.CLI` for provider-matrix orchestration, container lifecycle, and suite runs that depend on target aliases or batches.
+
+Check the local `dotnet` execution profile before you start blaming the repo:
+
+```bash
+dotnet run --project src/DataLinq.Dev.CLI -- doctor --profile repo
+```
+
+Prefer the developer wrapper for restore/build so the repo uses its local `.dotnet` home, AppData, NuGet cache, and artifact paths:
+
+```bash
+dotnet run --project src/DataLinq.Dev.CLI -- restore
+dotnet run --project src/DataLinq.Dev.CLI -- build
+```
+
+Useful output modes:
+
+- `--output quiet`
+  One-line success, concise failure summary.
+- `--output errors`
+  Distinct compiler/NuGet errors only.
+- `--output failures`
+  Test-failure focused output.
+- `--output diag`
+  Full diagnostic output with raw artifacts.
 
 List the available targets, aliases, suites, and current runtime state:
 

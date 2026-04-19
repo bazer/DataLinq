@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Runtime.InteropServices;
+using DataLinq.DevTools;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 

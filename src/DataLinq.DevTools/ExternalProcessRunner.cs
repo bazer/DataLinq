@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 
-namespace DataLinq.Benchmark.CLI;
+namespace DataLinq.DevTools;
 
-internal static class ExternalProcessRunner
+public static class ExternalProcessRunner
 {
     public static ExternalCommandResult Execute(
         string fileName,
@@ -32,6 +32,8 @@ internal static class ExternalProcessRunner
                 startInfo.Environment[pair.Key] = pair.Value;
         }
 
+        var stopwatch = Stopwatch.StartNew();
+
         try
         {
             using var process = Process.Start(startInfo)
@@ -40,8 +42,12 @@ internal static class ExternalProcessRunner
             var standardOutput = process.StandardOutput.ReadToEnd();
             var standardError = process.StandardError.ReadToEnd();
             process.WaitForExit();
+            stopwatch.Stop();
 
-            return new ExternalCommandResult(process.ExitCode, standardOutput, standardError);
+            return new ExternalCommandResult(process.ExitCode, standardOutput, standardError)
+            {
+                Duration = stopwatch.Elapsed
+            };
         }
         catch (Win32Exception exception)
         {
