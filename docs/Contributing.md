@@ -50,16 +50,9 @@ Important directories and projects:
 - `src/DataLinq.Generators.Tests`
   Generator-focused TUnit lane.
 - `src/DataLinq.Tests.Models`
-  Shared test models and fixtures.
+  Shared test models and fixtures used by the active test suites and sample code.
 - `docs`
   Project documentation.
-
-Legacy xUnit projects still exist during cutover:
-
-- `src/DataLinq.Tests`
-- `src/DataLinq.MySql.Tests`
-
-Those are transitional and are no longer the primary test entry points.
 
 ## 3. Testing
 
@@ -69,12 +62,6 @@ List the available targets, aliases, suites, and current runtime state:
 
 ```bash
 dotnet run --project src/DataLinq.Testing.CLI -- list
-```
-
-Validate that every legacy test file is explicitly accounted for in the parity manifest:
-
-```bash
-dotnet run --project src/DataLinq.Testing.CLI -- validate-parity
 ```
 
 Run the fast local lane:

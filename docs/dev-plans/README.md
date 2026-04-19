@@ -59,14 +59,14 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ### Testing
 
+- `testing/Legacy xUnit Removal Plan.md`
 - `testing/Test Infrastructure CLI.md`
 - `testing/Test Suite Audit.md`
 - `testing/Test Suite Parity Checklist.md`
-- `testing/test-suite-parity.json`
 - `testing/Testing and Infrastructure.md`
 
 ## Notes
 
-- The `testing/` folder is the most operationally relevant part of `dev-plans` right now. It contains the migration record, parity checklist, and machine-readable manifest for the TUnit cutover.
+- The `testing/` folder is still the most operationally relevant part of `dev-plans`. It now contains the migration history, the legacy xUnit removal plan, and the active test infrastructure notes.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
 - The `roadmap-implementation/` folder is where high-level roadmap phases are turned into concrete execution plans. It should stay tightly linked to `Roadmap.md` rather than drifting into a second roadmap.

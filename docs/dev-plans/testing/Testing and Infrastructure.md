@@ -1,5 +1,5 @@
 > [!WARNING]
-> This document is now mostly a migration record. The target architecture described here is largely implemented; use `docs/dev-plans/testing/Test Suite Parity Checklist.md` for the current cutover status.
+> This document is now a migration record. The target architecture described here was implemented, and the legacy xUnit projects have since been removed.
 # Specification: Test Suite Reorganization, TUnit Migration, and Podman Infrastructure
 
 **Status:** Mostly implemented; retained as migration history  

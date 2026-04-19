@@ -78,9 +78,6 @@ jobs:
       - name: Build solution
         run: dotnet build src/DataLinq.sln -c Debug --no-restore
 
-      - name: Validate parity manifest
-        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll validate-parity
-
       - name: Run full matrix suite set
         run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias all --batch-size 2 --summary-json artifacts/ci/full-matrix-summary.json
 

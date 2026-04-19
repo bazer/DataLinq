@@ -1,9 +1,8 @@
 > [!NOTE]
-> This checklist tracks legacy-to-TUnit cutover status. It is the current source of truth for which old test files have real replacements, which ones are intentionally retired, and which legacy projects still remain only for transition purposes.
-> The machine-readable source for the validator lives in `docs/dev-plans/testing/test-suite-parity.json`.
+> This checklist is now an archived cutover record. It documents how the legacy xUnit files mapped onto the TUnit suite structure that replaced them.
 # Test Suite Parity Checklist
 
-**Status:** Active cutover checklist
+**Status:** Archived after legacy xUnit removal
 
 ## 1. Active TUnit Structure
 
@@ -86,12 +85,12 @@ That is the real structure. Anything still living only in the legacy xUnit proje
 | `src/DataLinq.MySql.Tests/DatabaseFixture.cs` | Replaced | `src/DataLinq.Testing/Lifecycle` and `src/DataLinq.Tests.MySql/ServerSchemaDatabase.cs` |
 | old PowerShell Podman scripts | Replaced | `src/DataLinq.Testing.CLI` |
 
-## 6. Remaining Cutover Work
+## 6. Cutover Outcome
 
-The migration is no longer blocked by missing TUnit coverage. The remaining work is administrative and operational:
+The cutover work described here is complete:
 
-- keep the legacy xUnit projects quarantined rather than treating them as the active suites
-- keep CI pointed at the new suite structure
-- delete legacy projects only once the team is comfortable removing the transition safety net
+- the TUnit suite structure became the active structure
+- the shared testing infrastructure moved into `src/DataLinq.Testing` and `src/DataLinq.Testing.CLI`
+- the legacy xUnit projects were removed after the replacements were verified
 
-That is the right place to be. The difficult migration work is already done.
+This document remains useful as a map of how old files were replaced. It is no longer a live checklist.

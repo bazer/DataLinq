@@ -1,5 +1,5 @@
 > [!WARNING]
-> This document is a historical audit plus structure record. Use `docs/dev-plans/testing/Test Suite Parity Checklist.md` for the current migration cutover status.
+> This document is a historical audit plus structure record from the TUnit migration period. It is retained as context, not as a description of the current repo state.
 # Phase 0: Test Suite Audit and Target Structure
 
 **Status:** Audit complete; retained as baseline  
