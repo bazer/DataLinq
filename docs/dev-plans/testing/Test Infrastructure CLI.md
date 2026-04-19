@@ -1,5 +1,6 @@
 > [!NOTE]
 > This document records the implemented test infrastructure CLI design and the migration stages that led to it. It is no longer just a speculative plan.
+> Historical xUnit-migration documents now live under `docs/dev-plans/archive/testing/`.
 # Specification: Cross-Platform Test Infrastructure CLI
 
 **Status:** Implemented  

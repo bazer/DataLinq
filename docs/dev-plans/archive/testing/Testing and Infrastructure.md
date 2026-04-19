@@ -1,5 +1,5 @@
 > [!WARNING]
-> This document is now a migration record. The target architecture described here was implemented, and the legacy xUnit projects have since been removed.
+> This document is an archived migration record. The target architecture described here was implemented, and the legacy xUnit projects have since been removed.
 # Specification: Test Suite Reorganization, TUnit Migration, and Podman Infrastructure
 
 **Status:** Mostly implemented; retained as migration history  
@@ -355,7 +355,7 @@ This should be done in phases. Trying to port everything in one pass would be re
 
 Deliverables:
 
-* `docs/dev-plans/testing/Test Suite Audit.md`
+* `docs/dev-plans/archive/testing/Test Suite Audit.md`
 * Inventory the current test files and categorize them
 * Identify obviously dead, duplicate, or misplaced tests
 * Record current pass/fail status for each existing test project
@@ -433,7 +433,7 @@ Recommended artifact:
 
 * A parity checklist mapping old test classes or behaviors to new TUnit replacements
 
-That checklist now exists in `docs/dev-plans/testing/Test Suite Parity Checklist.md`.
+That checklist now exists in `docs/dev-plans/archive/testing/Test Suite Parity Checklist.md`.
 
 ### Phase 5: Cut Over and Remove Legacy xUnit
 

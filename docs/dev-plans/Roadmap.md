@@ -16,7 +16,7 @@ The answer should be grounded in the repo as it exists today, not in abstract OR
 
 Several important things are already true:
 
-- The test migration is largely complete. The active suite structure is now TUnit-based and CI-backed.
+- The test migration is complete. The active suite structure is TUnit-based, CI-backed, and the legacy xUnit projects are gone.
 - There is already a benchmark project in `src/DataLinq.Benchmark`, but it is still an experiment, not a trustworthy regression harness.
 - `RowData` has already moved to dense indexed storage, so the performance roadmap should build on that rather than pretending memory optimization is still only theoretical.
 - Metadata, source generation, SQL building, and instance materialization still contain meaningful runtime dynamism and avoidable allocation overhead.

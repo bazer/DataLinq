@@ -3,7 +3,7 @@
 > [!WARNING]
 > This is an execution plan for removing the retired xUnit test layer. It is not user-facing product documentation.
 
-**Status:** In progress; dependency severance and legacy project deletion completed, sandbox verification partially blocked  
+**Status:** Done  
 **Goal:** Remove `src/DataLinq.Tests`, `src/DataLinq.MySql.Tests`, and the remaining cutover harness now that the active test architecture is TUnit-based.
 
 ## 1. Findings
@@ -88,9 +88,9 @@ The cutover is done when all of the following are true:
 - contributor docs describe the TUnit suite structure as the only supported structure
 - the solution builds and the active quick suite passes
 
-## 5. Progress Notes
+## 5. Outcome
 
 - Phase 1 is complete: the Blazor dependency edge was redirected to `DataLinq.Tests.Models`, the legacy `InternalsVisibleTo` grant was removed, and the parity command/workflow wiring was deleted.
 - Phase 2 is complete: the two legacy xUnit projects and their tracked source files were removed, the solution was updated, and central xUnit package versions were dropped.
-- Phase 3 is partially complete: contributor and infrastructure docs now describe the active structure, and the parity manifest was removed. Historical migration documents were retained and marked as archival context.
-- Phase 4 is only partially complete in this environment. Structural checks passed, but full `dotnet` build/test verification is blocked in the sandbox by a broken SDK workload resolver, a blocked roaming `NuGet.Config`, and no network access for uncached packages.
+- Phase 3 is complete: contributor and infrastructure docs describe the active structure, and the historical migration documents were archived explicitly instead of being mixed with active docs.
+- Phase 4 is complete: the solution builds and the active tests pass on the real machine and across all supported targets.

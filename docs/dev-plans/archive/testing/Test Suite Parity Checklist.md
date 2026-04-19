@@ -2,7 +2,7 @@
 > This checklist is now an archived cutover record. It documents how the legacy xUnit files mapped onto the TUnit suite structure that replaced them.
 # Test Suite Parity Checklist
 
-**Status:** Archived after legacy xUnit removal
+**Status:** Archived historical cutover record
 
 ## 1. Active TUnit Structure
 
