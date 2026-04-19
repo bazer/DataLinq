@@ -1,65 +1,44 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace DataLinq.Testing.CLI;
 
 internal sealed class PodmanClient
 {
+    private readonly IPodmanTransport primaryTransport;
+    private readonly IPodmanTransport? fallbackTransport;
+
     public string ExecutablePath { get; }
+    public string? SocketPath { get; }
 
     public PodmanClient()
     {
         ExecutablePath = ResolveExecutablePath();
+        SocketPath = ResolveSocketPath();
+        (primaryTransport, fallbackTransport) = CreateTransportSelection(ExecutablePath, SocketPath);
     }
 
     public void EnsureAvailable()
     {
         var result = Execute(["version", "--format", "json"]);
-        result.ThrowIfFailed("The 'podman' command could not be executed.");
+        result.ThrowIfFailed($"The {primaryTransport.Description} transport could not be executed.");
     }
 
     public PodmanCommandResult Execute(IReadOnlyList<string> arguments)
     {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = ExecutablePath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        foreach (var argument in arguments)
-            startInfo.ArgumentList.Add(argument);
-
         try
         {
-            using var process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException($"Failed to start '{ExecutablePath}'.");
+            var result = primaryTransport.Execute(arguments);
+            if (fallbackTransport is not null && PodmanSocketTransport.IsUnsupported(result))
+                return TryFallback(arguments, result);
 
-            var standardOutput = process.StandardOutput.ReadToEnd();
-            var standardError = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-
-            return new PodmanCommandResult(process.ExitCode, standardOutput, standardError);
+            return result;
         }
-        catch (Win32Exception exception)
+        catch (PodmanTransportUnavailableException) when (fallbackTransport is not null)
         {
-            var accessDenied = exception.NativeErrorCode == 5;
-            var configuredByEnvironment = !string.IsNullOrWhiteSpace(
-                Environment.GetEnvironmentVariable(DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable));
-            var configurationHint = configuredByEnvironment
-                ? $" Update '{DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable}' to a sandbox-accessible Podman executable."
-                : $" Install Podman on PATH or set '{DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable}' to a sandbox-accessible Podman executable.";
-
-            throw new InvalidOperationException(
-                accessDenied
-                    ? $"The sandbox could not execute the Podman binary '{ExecutablePath}' (access denied).{configurationHint}"
-                    : $"Could not start the Podman executable '{ExecutablePath}'. Ensure Podman is installed and available.{configurationHint}",
-                exception);
+            return TryFallback(arguments);
         }
     }
 
@@ -79,4 +58,80 @@ internal sealed class PodmanClient
 
         return "podman";
     }
+
+    private static string? ResolveSocketPath()
+    {
+        var configuredPath = Environment.GetEnvironmentVariable(DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanSocketPathEnvironmentVariable);
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+            return configuredPath;
+
+        var containerHost = Environment.GetEnvironmentVariable("CONTAINER_HOST");
+        if (!string.IsNullOrWhiteSpace(containerHost)
+            && Uri.TryCreate(containerHost, UriKind.Absolute, out var containerHostUri)
+            && string.Equals(containerHostUri.Scheme, "unix", StringComparison.OrdinalIgnoreCase))
+        {
+            return containerHostUri.LocalPath;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var windowsDefault = Path.Combine(localAppData, "Temp", "podman", "podman-machine-default-api.sock");
+            return File.Exists(windowsDefault) ? windowsDefault : null;
+        }
+
+        var xdgRuntimeDirectory = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+        if (!string.IsNullOrWhiteSpace(xdgRuntimeDirectory))
+        {
+            var runtimeSocket = Path.Combine(xdgRuntimeDirectory, "podman", "podman.sock");
+            if (File.Exists(runtimeSocket))
+                return runtimeSocket;
+        }
+
+        if (!OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var runtimeSocket = $"/run/user/{GetCurrentUserId()}/podman/podman.sock";
+                if (File.Exists(runtimeSocket))
+                    return runtimeSocket;
+            }
+            catch (PlatformNotSupportedException)
+            {
+            }
+        }
+
+        return null;
+    }
+
+    private static (IPodmanTransport Primary, IPodmanTransport? Fallback) CreateTransportSelection(string executablePath, string? socketPath)
+    {
+        if (string.IsNullOrWhiteSpace(socketPath))
+            return (new PodmanCliTransport(executablePath), null);
+
+        var socketTransport = new PodmanSocketTransport(socketPath);
+        var cliTransport = new PodmanCliTransport(executablePath);
+
+        return OperatingSystem.IsWindows()
+            ? (socketTransport, cliTransport)
+            : (cliTransport, socketTransport);
+    }
+
+    private PodmanCommandResult TryFallback(IReadOnlyList<string> arguments, PodmanCommandResult? preferredFailure = null)
+    {
+        if (fallbackTransport is null)
+            throw new InvalidOperationException("A Podman fallback transport was requested, but none is available.");
+
+        try
+        {
+            return fallbackTransport.Execute(arguments);
+        }
+        catch (PodmanTransportUnavailableException) when (preferredFailure is not null)
+        {
+            return preferredFailure;
+        }
+    }
+
+    [DllImport("libc", EntryPoint = "geteuid")]
+    private static extern uint GetCurrentUserId();
 }

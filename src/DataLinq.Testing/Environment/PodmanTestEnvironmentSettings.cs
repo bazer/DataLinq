@@ -35,6 +35,7 @@ public sealed record PodmanTestEnvironmentSettings(
     public const string TargetAliasEnvironmentVariable = "DATALINQ_TEST_TARGET_ALIAS";
     public const string TargetIdsEnvironmentVariable = "DATALINQ_TEST_TARGETS";
     public const string PodmanExecutablePathEnvironmentVariable = "DATALINQ_TEST_PODMAN_PATH";
+    public const string PodmanSocketPathEnvironmentVariable = "DATALINQ_TEST_PODMAN_SOCKET";
 
     private const string LegacyContainerPrefixEnvironmentVariable = "DATALINQ_TEST_PODMAN_POD";
     private const uint AdminMaximumPoolSize = 1;
@@ -113,7 +114,8 @@ public sealed record PodmanTestEnvironmentSettings(
             Password = AdminPassword,
             Pooling = false,
             MaximumPoolSize = AdminMaximumPoolSize,
-            CharacterSet = "utf8mb4"
+            CharacterSet = "utf8mb4",
+            SslMode = MySqlSslMode.None
         };
 
         return builder.ConnectionString;
@@ -156,7 +158,8 @@ public sealed record PodmanTestEnvironmentSettings(
             UserID = ApplicationUser,
             Password = ApplicationPassword,
             Pooling = false,
-            CharacterSet = "utf8mb4"
+            CharacterSet = "utf8mb4",
+            SslMode = MySqlSslMode.None
         };
 
         return new TestConnectionDefinition(
