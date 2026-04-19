@@ -7,6 +7,10 @@ on:
   schedule:
     - cron: "0 4 * * *"
 
+concurrency:
+  group: benchmark-history
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -77,6 +81,13 @@ jobs:
         if: success() && github.ref == 'refs/heads/master'
         shell: bash
         run: |
+          git fetch origin benchmark-data || true
+          if git show-ref --verify --quiet refs/remotes/origin/benchmark-data; then
+            pushd benchmark-data-worktree
+            git reset --hard refs/remotes/origin/benchmark-data
+            popd
+          fi
+
           python - <<'PY'
           import json
           import shutil
