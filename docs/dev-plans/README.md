@@ -39,6 +39,8 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/README.md`
 - `roadmap-implementation/phase-1-benchmarking-and-observability/README.md`
 - `roadmap-implementation/phase-1-benchmarking-and-observability/Implementation Plan.md`
+- `roadmap-implementation/phase-2-metadata-generator-and-diagnostics-hardening/README.md`
+- `roadmap-implementation/phase-2-metadata-generator-and-diagnostics-hardening/Implementation Plan.md`
 
 ### Providers and features
 

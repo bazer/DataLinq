@@ -17,6 +17,7 @@ What are we actually going to do, in what order, and how will we know it worked?
 ## Structure
 
 - `phase-1-benchmarking-and-observability/`
+- `phase-2-metadata-generator-and-diagnostics-hardening/`
 
 ## Notes
 
