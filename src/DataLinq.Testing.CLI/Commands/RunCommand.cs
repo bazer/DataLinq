@@ -334,7 +334,7 @@ internal static class RunCommand
         }
 
         return ExecuteDotnet(
-            ["run", "--project", projectPath, "-c", configuration, "--no-build", "-nologo"],
+            ["run", "--project", projectPath, "-c", configuration, "--no-build"],
             settings,
             environmentVariables);
     }
@@ -345,12 +345,21 @@ internal static class RunCommand
         IReadOnlyDictionary<string, string?>? environmentVariables = null)
     {
         settings.ToolPaths.EnsureCreated();
+        var mergedEnvironmentVariables = new Dictionary<string, string?>(
+            settings.ToolPaths.CreateEnvironment(ToolingProfile.Repo),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (environmentVariables is not null)
+        {
+            foreach (var pair in environmentVariables)
+                mergedEnvironmentVariables[pair.Key] = pair.Value;
+        }
 
         return ExternalProcessRunner.Execute(
             "dotnet",
             arguments,
             settings.RepositoryRoot,
-            environmentVariables);
+            mergedEnvironmentVariables);
     }
 
     private static List<TestCliTarget[]> CreateBatches(TestCliTarget[] targets, int batchSize)
