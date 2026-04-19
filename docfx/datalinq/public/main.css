@@ -120,20 +120,20 @@ article h4 {
 }
 
 .benchmark-axis {
-  stroke: var(--color-fg-default);
+  stroke: rgb(var(--bs-body-color-rgb));
   opacity: 0.45;
   stroke-width: 1;
 }
 
 .benchmark-grid {
-  stroke: var(--color-fg-default);
+  stroke: rgb(var(--bs-body-color-rgb));
   opacity: 0.22;
   stroke-width: 1;
   stroke-dasharray: 3 4;
 }
 
 .benchmark-axis-label {
-  fill: var(--color-fg-default);
+  fill: var(--bs-body-color);
   opacity: 0.92;
   font-size: 0.72rem;
   font-weight: 500;
