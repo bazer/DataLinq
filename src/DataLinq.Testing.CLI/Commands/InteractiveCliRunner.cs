@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using DataLinq.DevTools;
 using Spectre.Console;
 
 namespace DataLinq.Testing.CLI;
@@ -118,7 +119,20 @@ internal static class InteractiveCliRunner
             DefaultValue = false
         });
 
-        RunCommand.Execute(orchestrator, settings, selection, suite, null, configuration, build, batchSize, parallelSuites, tearDown, summaryJsonPath: null);
+        RunCommand.Execute(
+            orchestrator,
+            settings,
+            selection,
+            suite,
+            null,
+            configuration,
+            build,
+            batchSize,
+            parallelSuites,
+            tearDown,
+            summaryJsonPath: null,
+            outputMode: TestCliOutputMode.Summary,
+            profile: ToolingProfileExtensions.ResolveDefault());
         return 0;
     }
 

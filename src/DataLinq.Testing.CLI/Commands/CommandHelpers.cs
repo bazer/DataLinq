@@ -1,4 +1,6 @@
+using System;
 using System.CommandLine;
+using DataLinq.DevTools;
 
 namespace DataLinq.Testing.CLI;
 
@@ -35,4 +37,42 @@ internal static class CommandHelpers
         option.Aliases.Add("--parallel-suites");
         return option;
     }
+
+    public static Option<string> OutputOption() => new("--output")
+    {
+        Description = "Output mode: quiet, summary, failures, or raw.",
+        DefaultValueFactory = _ => "quiet"
+    };
+
+    public static Option<string> ProfileOption() => new("--profile")
+    {
+        Description = "Execution profile: repo, sandbox, or ci.",
+        DefaultValueFactory = _ => ToolingProfileExtensions.ResolveDefault().ToCliValue()
+    };
+
+    public static TestCliOutputMode ParseOutputMode(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            null or "" or "quiet" => TestCliOutputMode.Quiet,
+            "summary" => TestCliOutputMode.Summary,
+            "failures" => TestCliOutputMode.Failures,
+            "raw" => TestCliOutputMode.Raw,
+            _ => throw new InvalidOperationException($"Unsupported output mode '{value}'. Use quiet, summary, failures, or raw.")
+        };
+
+    public static ToolingProfile ParseProfile(string? value)
+    {
+        if (ToolingProfileExtensions.TryParse(value, out var profile))
+            return profile;
+
+        throw new InvalidOperationException($"Unsupported execution profile '{value}'. Use repo, sandbox, or ci.");
+    }
+}
+
+internal enum TestCliOutputMode
+{
+    Quiet,
+    Summary,
+    Failures,
+    Raw
 }

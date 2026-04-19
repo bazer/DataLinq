@@ -23,6 +23,8 @@ internal static class RunCommand
         var suiteOption = CommandHelpers.SuiteOption();
         var interactiveOption = CommandHelpers.InteractiveOption();
         var parallelSuitesOption = CommandHelpers.ParallelSuitesOption();
+        var outputOption = CommandHelpers.OutputOption();
+        var profileOption = CommandHelpers.ProfileOption();
         var projectOption = new Option<string?>("--project")
         {
             Description = "Optional project path override for a single-suite run."
@@ -56,6 +58,8 @@ internal static class RunCommand
         command.Options.Add(suiteOption);
         command.Options.Add(interactiveOption);
         command.Options.Add(parallelSuitesOption);
+        command.Options.Add(outputOption);
+        command.Options.Add(profileOption);
         command.Options.Add(projectOption);
         command.Options.Add(configurationOption);
         command.Options.Add(buildOption);
@@ -80,7 +84,7 @@ internal static class RunCommand
                 parseResult.GetValue(targetsOption),
                 defaultAlias: "latest");
 
-            var exitCode = RunSelection(
+            var exitCode = ExecuteSafely(() => RunSelection(
                 orchestrator,
                 settings,
                 selection,
@@ -91,7 +95,9 @@ internal static class RunCommand
                 batchSize,
                 parseResult.GetValue(parallelSuitesOption),
                 parseResult.GetValue(tearDownOption),
-                parseResult.GetValue(summaryJsonOption));
+                parseResult.GetValue(summaryJsonOption),
+                CommandHelpers.ParseOutputMode(parseResult.GetValue(outputOption)),
+                CommandHelpers.ParseProfile(parseResult.GetValue(profileOption))));
 
             if (exitCode != 0)
                 Environment.ExitCode = exitCode;
@@ -111,11 +117,26 @@ internal static class RunCommand
         int batchSize,
         bool parallelSuites,
         bool tearDown,
-        string? summaryJsonPath)
+        string? summaryJsonPath,
+        TestCliOutputMode outputMode,
+        ToolingProfile profile)
     {
-        var exitCode = RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath);
+        var exitCode = ExecuteSafely(() => RunSelection(orchestrator, settings, selection, suiteName, projectPathOverride, configuration, buildProject, batchSize, parallelSuites, tearDown, summaryJsonPath, outputMode, profile));
         if (exitCode != 0)
             Environment.ExitCode = exitCode;
+    }
+
+    private static int ExecuteSafely(Func<int> action)
+    {
+        try
+        {
+            return action();
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
     }
 
     private static int RunSelection(
@@ -129,7 +150,9 @@ internal static class RunCommand
         int batchSize,
         bool parallelSuites,
         bool tearDown,
-        string? summaryJsonPath)
+        string? summaryJsonPath,
+        TestCliOutputMode outputMode,
+        ToolingProfile profile)
     {
         var repositoryRoot = settings.RepositoryRoot;
         var suites = ResolveSuites(suiteName, projectPathOverride);
@@ -137,7 +160,7 @@ internal static class RunCommand
         if (buildProject)
         {
             foreach (var suite in suites)
-                BuildProject(ResolveProjectPath(repositoryRoot, suite.ProjectPath), configuration, settings);
+                BuildProject(ResolveProjectPath(repositoryRoot, suite.ProjectPath), configuration, settings, outputMode, profile);
         }
 
         var results = new List<RunResult>();
@@ -159,6 +182,8 @@ internal static class RunCommand
                             configuration,
                             batchSize,
                             orchestrator,
+                            outputMode,
+                            profile,
                             usedTargetsRef: value =>
                             {
                                 lock (resultLock)
@@ -198,6 +223,8 @@ internal static class RunCommand
                         configuration,
                         batchSize,
                         orchestrator,
+                        outputMode,
+                        profile,
                         usedTargetsRef: value => usedTargets = usedTargets || value);
 
                     results.AddRange(result.Results);
@@ -216,8 +243,10 @@ internal static class RunCommand
         }
 
         var orderedResults = OrderResults(results);
-        RenderSummary(orderedResults);
-        RenderFailedTests(orderedResults);
+        if (ShouldRenderSummary(outputMode, orderedResults, overallExitCode))
+            RenderSummary(orderedResults);
+        if (ShouldRenderFailedTests(outputMode, orderedResults))
+            RenderFailedTests(orderedResults);
         WriteSummaryJson(summaryJsonPath, orderedResults, overallExitCode);
         return overallExitCode;
     }
@@ -230,6 +259,8 @@ internal static class RunCommand
         string configuration,
         int batchSize,
         TestInfraOrchestrator orchestrator,
+        TestCliOutputMode outputMode,
+        ToolingProfile profile,
         Action<bool>? usedTargetsRef)
     {
         var projectPath = ResolveProjectPath(repositoryRoot, suite.ProjectPath);
@@ -256,74 +287,100 @@ internal static class RunCommand
             for (var index = 0; index < batches.Length; index++)
             {
                 var batch = batches[index];
-
-                ConsoleSync.Run(() =>
+                var suppressInfraOutput = outputMode is TestCliOutputMode.Quiet or TestCliOutputMode.Failures;
+                if (!suppressInfraOutput)
                 {
-                    Console.WriteLine();
-                    Console.WriteLine($"=== Running suite [{suite.Name}] target batch [{string.Join(", ", batch.Targets.Select(x => x.Id))}] ===");
-                });
+                    ConsoleSync.Run(() =>
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine($"=== Running suite [{suite.Name}] target batch [{string.Join(", ", batch.Targets.Select(x => x.Id))}] ===");
+                    });
+                }
 
+                using var mutedScope = suppressInfraOutput ? ConsoleSync.PushMuted() : null;
                 orchestrator.Up(batch, recreate: false);
 
                 var start = Stopwatch.StartNew();
-                var result = ExecuteTestRun(projectPath, configuration, settings, batch);
+                var result = ExecuteTestRun(projectPath, configuration, settings, batch, suite.Name, batchIndex: index + 1, profile);
                 start.Stop();
 
-                WriteProcessOutput(result);
-                runResults.Add(CreateRunResult(
+                var runResult = CreateRunResult(
                     suite.Name,
                     index + 1,
                     string.Join(", ", batch.Targets.Select(x => x.Id)),
                     start.Elapsed,
-                    result));
+                    result);
+                RenderTestRunOutcome(runResult, outputMode);
+                runResults.Add(runResult);
 
-                if (result.ExitCode != 0)
-                    exitCode = result.ExitCode;
+                if (result.ProcessResult.ExitCode != 0)
+                    exitCode = result.ProcessResult.ExitCode;
             }
         }
         else
         {
-            ConsoleSync.Run(() =>
+            if (outputMode is TestCliOutputMode.Summary or TestCliOutputMode.Raw)
             {
-                Console.WriteLine();
-                Console.WriteLine($"=== Running suite [{suite.Name}] ===");
-            });
+                ConsoleSync.Run(() =>
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"=== Running suite [{suite.Name}] ===");
+                });
+            }
 
             var start = Stopwatch.StartNew();
-            var result = ExecuteTestRun(projectPath, configuration, settings, selection: null);
+            var result = ExecuteTestRun(projectPath, configuration, settings, selection: null, suite.Name, batchIndex: null, profile);
             start.Stop();
 
-            WriteProcessOutput(result);
-            runResults.Add(CreateRunResult(
+            var runResult = CreateRunResult(
                 suite.Name,
                 batchIndex: null,
                 targets: "-",
                 start.Elapsed,
-                result));
+                result);
+            RenderTestRunOutcome(runResult, outputMode);
+            runResults.Add(runResult);
 
-            if (result.ExitCode != 0)
-                exitCode = result.ExitCode;
+            if (result.ProcessResult.ExitCode != 0)
+                exitCode = result.ProcessResult.ExitCode;
         }
 
         return new SuiteRunResult(exitCode, runResults);
     }
 
-    private static void BuildProject(string projectPath, string configuration, TestInfraCliSettings settings)
+    private static void BuildProject(string projectPath, string configuration, TestInfraCliSettings settings, TestCliOutputMode outputMode, ToolingProfile profile)
     {
-        Console.WriteLine($"Building '{projectPath}'...");
-        var result = ExecuteDotnet(
-            ["build", projectPath, "-c", configuration, "-nologo", "-v", "minimal", "-p:NuGetAudit=false"],
-            settings);
+        var arguments = new List<string>
+        {
+            "build",
+            projectPath,
+            "-c", configuration,
+            "-nologo",
+            "-v", outputMode == TestCliOutputMode.Raw ? "minimal" : "q",
+            "-p:NuGetAudit=false"
+        };
 
-        WriteProcessOutput(result);
-        if (result.ExitCode != 0)
+        if (profile.IsOffline())
+            arguments.Add("-p:RestoreIgnoreFailedSources=true");
+
+        var result = ExecuteDotnet(arguments, settings, profile, "build-" + Path.GetFileNameWithoutExtension(projectPath));
+        RenderBuildOutcome(projectPath, result, outputMode);
+
+        if (result.ProcessResult.ExitCode != 0)
             throw new InvalidOperationException($"Failed to build '{projectPath}'.");
     }
 
-    private static ExternalCommandResult ExecuteTestRun(string projectPath, string configuration, TestInfraCliSettings settings, CliTargetSelection? selection)
+    private static LoggedCommandResult ExecuteTestRun(
+        string projectPath,
+        string configuration,
+        TestInfraCliSettings settings,
+        CliTargetSelection? selection,
+        string suiteName,
+        int? batchIndex,
+        ToolingProfile profile)
     {
         var environmentVariables = new Dictionary<string, string?>(
-            settings.ToolPaths.CreateEnvironment(ToolingProfile.Repo),
+            settings.ToolPaths.CreateEnvironment(profile),
             StringComparer.OrdinalIgnoreCase);
 
         if (selection is not null)
@@ -336,17 +393,21 @@ internal static class RunCommand
         return ExecuteDotnet(
             ["run", "--project", projectPath, "-c", configuration, "--no-build"],
             settings,
+            profile,
+            CreateRunArtifactPrefix(suiteName, batchIndex, selection),
             environmentVariables);
     }
 
-    private static ExternalCommandResult ExecuteDotnet(
+    private static LoggedCommandResult ExecuteDotnet(
         IReadOnlyList<string> arguments,
         TestInfraCliSettings settings,
+        ToolingProfile profile,
+        string artifactPrefix,
         IReadOnlyDictionary<string, string?>? environmentVariables = null)
     {
         settings.ToolPaths.EnsureCreated();
         var mergedEnvironmentVariables = new Dictionary<string, string?>(
-            settings.ToolPaths.CreateEnvironment(ToolingProfile.Repo),
+            settings.ToolPaths.CreateEnvironment(profile),
             StringComparer.OrdinalIgnoreCase);
 
         if (environmentVariables is not null)
@@ -355,11 +416,13 @@ internal static class RunCommand
                 mergedEnvironmentVariables[pair.Key] = pair.Value;
         }
 
-        return ExternalProcessRunner.Execute(
+        var processResult = ExternalProcessRunner.Execute(
             "dotnet",
             arguments,
             settings.RepositoryRoot,
             mergedEnvironmentVariables);
+        var logPath = WriteRawLog(settings, artifactPrefix, processResult);
+        return new LoggedCommandResult(processResult, logPath);
     }
 
     private static List<TestCliTarget[]> CreateBatches(TestCliTarget[] targets, int batchSize)
@@ -384,6 +447,211 @@ internal static class RunCommand
             if (!string.IsNullOrWhiteSpace(result.StandardError))
                 Console.Error.WriteLine(result.StandardError.TrimEnd());
         });
+    }
+
+    private static string WriteRawLog(TestInfraCliSettings settings, string artifactPrefix, ExternalCommandResult result)
+    {
+        var directory = Path.Combine(settings.ArtifactRoot, "cli-logs");
+        Directory.CreateDirectory(directory);
+
+        var safePrefix = string.Concat(artifactPrefix.Select(static character =>
+            Path.GetInvalidFileNameChars().Contains(character) ? '-' : character));
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff");
+        var path = Path.Combine(directory, $"{safePrefix}-{timestamp}.log");
+        File.WriteAllText(path, string.Concat(result.StandardOutput, result.StandardError));
+        return path;
+    }
+
+    private static void RenderBuildOutcome(string projectPath, LoggedCommandResult result, TestCliOutputMode outputMode)
+    {
+        var projectName = Path.GetFileName(projectPath);
+
+        if (outputMode == TestCliOutputMode.Raw)
+        {
+            Console.WriteLine($"Building '{projectPath}'...");
+            WriteProcessOutput(result.ProcessResult);
+            WriteLogPath(result.LogPath);
+            return;
+        }
+
+        if (result.ProcessResult.ExitCode == 0)
+        {
+            Console.WriteLine($"OK build {projectName} ({result.ProcessResult.Duration.TotalSeconds:0.0}s)");
+
+            if (outputMode == TestCliOutputMode.Summary)
+                WriteLogPath(result.LogPath);
+
+            return;
+        }
+
+        Console.WriteLine($"FAIL build {projectName} ({result.ProcessResult.Duration.TotalSeconds:0.0}s)");
+        var analysis = DotnetOutputAnalyzer.Analyze(DotnetCommandType.Build, result.ProcessResult);
+        if (!string.IsNullOrWhiteSpace(analysis.FailureSummary))
+            AnsiConsole.MarkupLine($"[yellow]{Markup.Escape(analysis.FailureSummary)}[/]");
+
+        if (analysis.Errors.Count > 0)
+            WriteDiagnostics("Errors", analysis.Errors);
+        else
+            WriteFailureDetails(ExtractFailureLines(string.Concat(result.ProcessResult.StandardOutput, Environment.NewLine, result.ProcessResult.StandardError)));
+
+        WriteLogPath(result.LogPath);
+    }
+
+    private static void RenderTestRunOutcome(RunResult result, TestCliOutputMode outputMode)
+    {
+        if (outputMode == TestCliOutputMode.Raw)
+        {
+            WriteProcessOutput(result.ProcessResult);
+            WriteLogPath(result.LogPath);
+            return;
+        }
+
+        var batchLabel = result.BatchIndex.HasValue
+            ? $" batch {result.BatchIndex.Value}"
+            : string.Empty;
+        var targetLabel = result.Targets == "-"
+            ? string.Empty
+            : $" [{result.Targets}]";
+
+        if (result.ExitCode == 0)
+        {
+            Console.WriteLine($"OK suite {result.Suite}{batchLabel}{targetLabel} ({FormatSucceededCount(result)}, {result.DurationSeconds:0.0}s)");
+
+            if (outputMode == TestCliOutputMode.Summary)
+            {
+                WriteDetailBlock("Summary", "yellow", ExtractSummaryLines(result.ProcessResult.StandardOutput));
+                WriteLogPath(result.LogPath);
+            }
+
+            return;
+        }
+
+        Console.WriteLine($"FAIL suite {result.Suite}{batchLabel}{targetLabel} ({result.DurationSeconds:0.0}s)");
+
+        var failureLines = result.FailedTests.Count > 0
+            ? result.FailedTests.Select(static failedTest => $"{failedTest.FormattedName}: {failedTest.Message ?? "failed"}").ToArray()
+            : ExtractFailureLines(string.Concat(result.ProcessResult.StandardOutput, Environment.NewLine, result.ProcessResult.StandardError));
+
+        WriteDetailBlock("Failures", "red", failureLines);
+        WriteLogPath(result.LogPath);
+    }
+
+    private static void WriteDiagnostics(string title, IReadOnlyList<DotnetDiagnostic> diagnostics)
+    {
+        Console.WriteLine();
+        AnsiConsole.Write(new Rule($"[yellow]{title}[/]"));
+
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .AddColumn("Code")
+            .AddColumn("Message")
+            .AddColumn("Projects")
+            .AddColumn("Count");
+
+        foreach (var diagnostic in diagnostics)
+        {
+            var projects = diagnostic.Projects.Count switch
+            {
+                0 => "-",
+                <= 2 => string.Join(", ", diagnostic.Projects.Select(static project => Path.GetFileName(project))),
+                _ => $"{string.Join(", ", diagnostic.Projects.Take(2).Select(static project => Path.GetFileName(project)))}, +{diagnostic.Projects.Count - 2} more"
+            };
+
+            table.AddRow(
+                diagnostic.Code ?? "-",
+                diagnostic.Message,
+                projects,
+                diagnostic.Count.ToString());
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    private static void WriteFailureDetails(IEnumerable<string> lines) =>
+        WriteDetailBlock("Failures", "red", lines);
+
+    private static void WriteDetailBlock(string title, string color, IEnumerable<string> lines)
+    {
+        var details = lines
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (details.Length == 0)
+            return;
+
+        Console.WriteLine();
+        AnsiConsole.Write(new Rule($"[{color}]{title}[/]"));
+        foreach (var line in details)
+            Console.WriteLine(line);
+    }
+
+    private static void WriteLogPath(string logPath)
+    {
+        Console.WriteLine();
+        AnsiConsole.MarkupLine($"[grey]Raw log:[/] {Markup.Escape(logPath)}");
+    }
+
+    private static string[] ExtractSummaryLines(string output) =>
+        SanitizeConsoleOutput(output)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static line =>
+                line.StartsWith("HTML test report written to:", StringComparison.Ordinal) ||
+                line.StartsWith("In process file artifacts produced:", StringComparison.Ordinal) ||
+                line.StartsWith("-", StringComparison.Ordinal) ||
+                line.StartsWith("Test run summary:", StringComparison.Ordinal) ||
+                line.StartsWith("total:", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("failed:", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("succeeded:", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("skipped:", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("duration:", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+    private static string[] ExtractFailureLines(string output) =>
+        SanitizeConsoleOutput(output)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static line =>
+                line.StartsWith("failed ", StringComparison.Ordinal) ||
+                line.StartsWith("Unhandled exception", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("Error output:", StringComparison.Ordinal) ||
+                line.StartsWith("Exit code:", StringComparison.Ordinal) ||
+                line.StartsWith("Unknown option", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("Test run summary:", StringComparison.Ordinal) ||
+                line.Contains("UnauthorizedAccessException", StringComparison.Ordinal) ||
+                line.Contains("NamedPipeClient.ConnectAsync", StringComparison.Ordinal) ||
+                line.Contains("Det går inte att hitta filen", StringComparison.OrdinalIgnoreCase))
+            .Take(12)
+            .ToArray();
+
+    private static bool ShouldRenderSummary(TestCliOutputMode outputMode, IReadOnlyList<RunResult> results, int overallExitCode) =>
+        outputMode == TestCliOutputMode.Summary ||
+        results.Count > 1 ||
+        overallExitCode != 0;
+
+    private static bool ShouldRenderFailedTests(TestCliOutputMode outputMode, IReadOnlyList<RunResult> results) =>
+        outputMode is TestCliOutputMode.Summary or TestCliOutputMode.Failures &&
+        results.Any(static result => result.FailedTests.Count > 0);
+
+    private static string FormatSucceededCount(RunResult result)
+    {
+        if (result.Succeeded.HasValue && result.Total.HasValue)
+            return $"{result.Succeeded.Value}/{result.Total.Value} passed";
+
+        if (result.Succeeded.HasValue)
+            return $"{result.Succeeded.Value} passed";
+
+        return "passed";
+    }
+
+    private static string CreateRunArtifactPrefix(string suiteName, int? batchIndex, CliTargetSelection? selection)
+    {
+        var segments = new List<string> { "run", suiteName };
+        if (batchIndex.HasValue)
+            segments.Add($"batch{batchIndex.Value}");
+        if (selection is not null && selection.Targets.Count > 0)
+            segments.Add(string.Join("-", selection.Targets.Select(static target => target.Id)));
+
+        return string.Join("-", segments);
     }
 
     private static void RenderSummary(IReadOnlyList<RunResult> results)
@@ -481,18 +749,20 @@ internal static class RunCommand
             ? projectPath
             : Path.Combine(repositoryRoot, projectPath);
 
-    private static RunResult CreateRunResult(string suite, int? batchIndex, string targets, TimeSpan elapsed, ExternalCommandResult result) =>
+    private static RunResult CreateRunResult(string suite, int? batchIndex, string targets, TimeSpan elapsed, LoggedCommandResult result) =>
         new(
             Suite: suite,
             BatchIndex: batchIndex,
             Targets: targets,
-            ExitCode: result.ExitCode,
+            ExitCode: result.ProcessResult.ExitCode,
             DurationSeconds: Math.Round(elapsed.TotalSeconds, 1),
-            Total: ParseSummaryCount(SanitizeConsoleOutput(result.StandardOutput), "total"),
-            Succeeded: ParseSummaryCount(SanitizeConsoleOutput(result.StandardOutput), "succeeded"),
-            Failed: ParseSummaryCount(SanitizeConsoleOutput(result.StandardOutput), "failed"),
-            Skipped: ParseSummaryCount(SanitizeConsoleOutput(result.StandardOutput), "skipped"),
-            FailedTests: ParseFailedTests(SanitizeConsoleOutput(result.StandardOutput)));
+            Total: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "total"),
+            Succeeded: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "succeeded"),
+            Failed: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "failed"),
+            Skipped: ParseSummaryCount(SanitizeConsoleOutput(result.ProcessResult.StandardOutput), "skipped"),
+            FailedTests: ParseFailedTests(SanitizeConsoleOutput(result.ProcessResult.StandardOutput)),
+            ProcessResult: result.ProcessResult,
+            LogPath: result.LogPath);
 
     private static string SanitizeConsoleOutput(string output) =>
         string.IsNullOrEmpty(output)
@@ -702,7 +972,9 @@ internal static class RunCommand
         int? Succeeded,
         int? Failed,
         int? Skipped,
-        IReadOnlyList<FailedTestResult> FailedTests);
+        IReadOnlyList<FailedTestResult> FailedTests,
+        ExternalCommandResult ProcessResult,
+        string LogPath);
 
     private sealed record FailedTestResult(
         string TestName,
@@ -718,6 +990,10 @@ internal static class RunCommand
     private sealed record SuiteRunResult(
         int ExitCode,
         IReadOnlyList<RunResult> Results);
+
+    private sealed record LoggedCommandResult(
+        ExternalCommandResult ProcessResult,
+        string LogPath);
 
     private sealed record RunSummaryPayload(
         int OverallExitCode,
