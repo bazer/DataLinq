@@ -95,7 +95,7 @@ public sealed class DotnetCommandRunner
         commandType is DotnetCommandType.Restore or DotnetCommandType.Build or DotnetCommandType.Test;
 
     private static bool SupportsNoLogo(DotnetCommandType commandType) =>
-        commandType is DotnetCommandType.Restore or DotnetCommandType.Build or DotnetCommandType.Test;
+        commandType is DotnetCommandType.Restore or DotnetCommandType.Build;
 
     private static bool ContainsArgument(IReadOnlyList<string> arguments, string expected) =>
         arguments.Any(argument => string.Equals(argument, expected, StringComparison.OrdinalIgnoreCase));

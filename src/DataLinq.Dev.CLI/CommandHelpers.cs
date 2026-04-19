@@ -1,6 +1,7 @@
 using System;
 using System.CommandLine;
 using System.IO;
+using System.Linq;
 using DataLinq.DevTools;
 
 namespace DataLinq.Dev.CLI;
@@ -25,6 +26,26 @@ internal static class CommandHelpers
         Path.IsPathRooted(target)
             ? target
             : Path.Combine(repositoryRoot, target ?? Path.Combine("src", "DataLinq.sln"));
+
+    public static string[] CreateDotnetTestTargetArguments(string target)
+    {
+        if (Directory.Exists(target))
+            return [target];
+
+        var extension = Path.GetExtension(target);
+        return extension.ToLowerInvariant() switch
+        {
+            ".sln" or ".slnx" => ["--solution", target],
+            ".csproj" or ".fsproj" or ".vbproj" => ["--project", target],
+            ".dll" => ["--test-modules", target],
+            _ => [target]
+        };
+    }
+
+    public static string QuoteForDisplay(string value) =>
+        value.Any(char.IsWhiteSpace)
+            ? $"\"{value}\""
+            : value;
 
     public static ToolingProfile ParseProfile(string? value)
     {

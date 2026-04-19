@@ -63,6 +63,7 @@ internal static class DoctorCommand
         table.AddRow("Repo root", settings.RepositoryRoot);
         table.AddRow("Artifact root", settings.Paths.ArtifactRoot);
         table.AddRow("DOTNET_CLI_HOME", settings.Paths.DotnetCliHome);
+        table.AddRow("DOTNET_DISABLE_GUI_ERRORS", "1");
         table.AddRow("APPDATA", settings.Paths.AppDataRoot);
         table.AddRow("LOCALAPPDATA", settings.Paths.LocalAppDataRoot);
         table.AddRow("HOME", settings.Paths.HomeRoot);
@@ -72,7 +73,9 @@ internal static class DoctorCommand
         table.AddRow("dotnet version", FormatCommandValue(version, GetFirstNonEmptyLine(version.ProcessResult.StandardOutput)));
         table.AddRow("SDK count", CountNonEmptyLines(sdkList.ProcessResult.StandardOutput).ToString());
         table.AddRow("Current SDK base path", FormatCommandValue(dotnetInfo, ParseDotnetInfoValue(dotnetInfo.ProcessResult.StandardOutput, "Base Path")));
-        table.AddRow("Workload resolver", dotnetInfo.ProcessResult.ExitCode == 0 ? CheckWorkloadResolver(dotnetInfo.ProcessResult.StandardOutput) : "Unknown");
+        table.AddRow("Workload resolver DLL", dotnetInfo.ProcessResult.ExitCode == 0 ? CheckWorkloadResolverDll(dotnetInfo.ProcessResult.StandardOutput) : "Unknown");
+        table.AddRow("Workload auto-import SDK", dotnetInfo.ProcessResult.ExitCode == 0 ? CheckWorkloadAutoImportSdk(dotnetInfo.ProcessResult.StandardOutput) : "Unknown");
+        table.AddRow("Workload support", dotnetInfo.ProcessResult.ExitCode == 0 ? SummarizeWorkloadSupport(dotnetInfo.ProcessResult.StandardOutput) : "Unknown");
         table.AddRow("NuGet sources", string.Join(", ", ReadNugetSources(settings.Paths.NugetConfigPath)));
         table.AddRow("Cached package roots", CountTopLevelDirectories(settings.Paths.NugetPackagesRoot).ToString());
 
@@ -120,16 +123,48 @@ internal static class DoctorCommand
         return "OK";
     }
 
-    private static string CheckWorkloadResolver(string dotnetInfoOutput)
+    private static string CheckWorkloadResolverDll(string dotnetInfoOutput)
     {
         var basePath = ParseDotnetInfoValue(dotnetInfoOutput, "Base Path");
         if (string.IsNullOrWhiteSpace(basePath))
             return "Unknown";
 
-        var resolverPath = Path.Combine(basePath.Trim(), "Sdks", "Microsoft.NET.SDK.WorkloadAutoImportPropsLocator", "Sdk");
+        var resolverPath = Path.Combine(basePath.Trim(), "SdkResolvers", "Microsoft.NET.Sdk.WorkloadMSBuildSdkResolver");
         return Directory.Exists(resolverPath)
             ? "Present"
             : "Missing";
+    }
+
+    private static string CheckWorkloadAutoImportSdk(string dotnetInfoOutput)
+    {
+        var basePath = ParseDotnetInfoValue(dotnetInfoOutput, "Base Path");
+        if (string.IsNullOrWhiteSpace(basePath))
+            return "Unknown";
+
+        var sdkPath = Path.Combine(basePath.Trim(), "Sdks", "Microsoft.NET.SDK.WorkloadAutoImportPropsLocator", "Sdk");
+        return Directory.Exists(sdkPath)
+            ? "Present"
+            : "Missing";
+    }
+
+    private static string SummarizeWorkloadSupport(string dotnetInfoOutput)
+    {
+        var resolver = CheckWorkloadResolverDll(dotnetInfoOutput);
+        var autoImport = CheckWorkloadAutoImportSdk(dotnetInfoOutput);
+
+        if (resolver == "Present" && autoImport == "Present")
+            return "Healthy";
+
+        if (resolver == "Present" && autoImport == "Missing")
+            return "Partial (usually harmless unless workload imports fail)";
+
+        if (resolver == "Missing" && autoImport == "Present")
+            return "Inconsistent";
+
+        if (resolver == "Missing" && autoImport == "Missing")
+            return "Unavailable";
+
+        return "Unknown";
     }
 
     private static string? ParseDotnetInfoValue(string output, string key)

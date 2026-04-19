@@ -53,6 +53,7 @@ public sealed record DevToolPaths(
             ["DOTNET_SKIP_FIRST_TIME_EXPERIENCE"] = "1",
             ["DOTNET_CLI_HOME"] = DotnetCliHome,
             ["DOTNET_CLI_UI_LANGUAGE"] = "en",
+            ["DOTNET_DISABLE_GUI_ERRORS"] = "1",
             ["DOTNET_GENERATE_ASPNET_CERTIFICATE"] = "0",
             ["DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE"] = "1",
             ["DOTNET_NOLOGO"] = "1",

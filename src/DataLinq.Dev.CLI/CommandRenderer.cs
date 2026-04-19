@@ -56,7 +56,7 @@ internal static class CommandRenderer
             WriteDiagnostics("Warnings", result.Analysis.Warnings);
 
         if (outputMode == DotnetOutputMode.Quiet &&
-            result.Analysis.FailureCategory == DotnetFailureCategory.TestFailures &&
+            result.CommandType == DotnetCommandType.Test &&
             result.Analysis.FailureDetails.Count > 0)
         {
             WriteFailureDetails(result.Analysis.FailureDetails);

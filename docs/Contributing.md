@@ -13,6 +13,8 @@ dotnet restore src/DataLinq.sln
 dotnet build src/DataLinq.sln
 ```
 
+The repo also carries a root `global.json` that opts `dotnet test` into the .NET 10 `Microsoft.Testing.Platform` runner.
+
 The active solution file is:
 
 ```text
@@ -76,6 +78,7 @@ Prefer the developer wrapper for restore/build so the repo uses its local `.dotn
 ```bash
 dotnet run --project src/DataLinq.Dev.CLI -- restore
 dotnet run --project src/DataLinq.Dev.CLI -- build
+dotnet run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
 ```
 
 Useful output modes:

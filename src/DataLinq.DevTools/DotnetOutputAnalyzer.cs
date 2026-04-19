@@ -60,7 +60,14 @@ public static partial class DotnetOutputAnalyzer
             ? lines
                 .Where(static x =>
                     x.StartsWith("failed ", StringComparison.Ordinal) ||
-                    x.Contains("[Test Failure]", StringComparison.Ordinal))
+                    x.Contains("[Test Failure]", StringComparison.Ordinal) ||
+                    x.StartsWith("Exit code:", StringComparison.Ordinal) ||
+                    x.StartsWith("Standard output:", StringComparison.Ordinal) ||
+                    x.StartsWith("Error output:", StringComparison.Ordinal) ||
+                    x.StartsWith("Test run summary:", StringComparison.Ordinal) ||
+                    x.Contains("Unknown option '--", StringComparison.Ordinal) ||
+                    x.Contains("UnauthorizedAccessException", StringComparison.Ordinal) ||
+                    x.Contains("NamedPipeClient.ConnectAsync", StringComparison.Ordinal))
                 .Distinct(StringComparer.Ordinal)
                 .ToArray()
             : [];
@@ -111,6 +118,19 @@ public static partial class DotnetOutputAnalyzer
             return DotnetFailureCategory.NugetSourceAccess;
         }
 
+        if (combined.Contains("Testing with VSTest target is no longer supported by Microsoft.Testing.Platform", StringComparison.OrdinalIgnoreCase) ||
+            combined.Contains("dotnet-test-mtp-error", StringComparison.OrdinalIgnoreCase) ||
+            combined.Contains("Unknown option '--", StringComparison.OrdinalIgnoreCase))
+        {
+            return DotnetFailureCategory.TestPlatformConfiguration;
+        }
+
+        if (combined.Contains("Microsoft.Testing.Platform.IPC.NamedPipeClient.ConnectAsync", StringComparison.OrdinalIgnoreCase) ||
+            combined.Contains("System.UnauthorizedAccessException: Access to the path is denied.", StringComparison.OrdinalIgnoreCase))
+        {
+            return DotnetFailureCategory.TestPlatformIpc;
+        }
+
         if (commandType == DotnetCommandType.Test &&
             lines.Any(static x => x.StartsWith("failed ", StringComparison.Ordinal)))
         {
@@ -132,6 +152,8 @@ public static partial class DotnetOutputAnalyzer
             DotnetFailureCategory.NugetSourceAccess => "Package source access failed, usually because the network is blocked or the source is unavailable.",
             DotnetFailureCategory.MissingPackages => "The required packages are not available in the selected cache/source set.",
             DotnetFailureCategory.Compiler => "Compilation failed with source diagnostics.",
+            DotnetFailureCategory.TestPlatformConfiguration => ".NET test runner configuration is incompatible with Microsoft.Testing.Platform.",
+            DotnetFailureCategory.TestPlatformIpc => "Microsoft.Testing.Platform IPC failed, likely because local named-pipe access is blocked in this environment.",
             DotnetFailureCategory.TestFailures => "The test run completed but one or more tests failed.",
             _ => "The command failed, but the wrapper could not classify the root cause more specifically."
         };

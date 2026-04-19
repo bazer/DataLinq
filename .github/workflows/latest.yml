@@ -38,10 +38,10 @@ jobs:
         run: podman --version
 
       - name: Restore solution
-        run: dotnet restore src/DataLinq.sln
+        run: dotnet run --project src/DataLinq.Dev.CLI -- restore src/DataLinq.sln --profile ci
 
       - name: Build solution
-        run: dotnet build src/DataLinq.sln -c Debug --no-restore
+        run: dotnet run --project src/DataLinq.Dev.CLI -- build src/DataLinq.sln --profile ci
 
       - name: Run latest suite set
         run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias latest --batch-size 4

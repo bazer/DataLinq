@@ -15,6 +15,7 @@ internal static class Program
         rootCommand.Subcommands.Add(RestoreCommand.Create(settings));
         rootCommand.Subcommands.Add(BuildCommand.Create(settings));
         rootCommand.Subcommands.Add(TestCommand.Create(settings));
+        rootCommand.Subcommands.Add(ExecCommand.Create(settings));
 
         var exitCode = await rootCommand.Parse(args).InvokeAsync();
         return Environment.ExitCode != 0 ? Environment.ExitCode : exitCode;

@@ -30,6 +30,8 @@ public enum DotnetFailureCategory
     NugetSourceAccess,
     MissingPackages,
     Compiler,
+    TestPlatformConfiguration,
+    TestPlatformIpc,
     TestFailures,
     Unknown
 }

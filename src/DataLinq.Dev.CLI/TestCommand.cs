@@ -95,12 +95,13 @@ internal static class TestCommand
         var arguments = new List<string>
         {
             "test",
-            target,
             "-c",
             configuration,
             "-v",
             verbosity
         };
+
+        arguments.AddRange(CommandHelpers.CreateDotnetTestTargetArguments(target));
 
         if (!string.IsNullOrWhiteSpace(framework))
             arguments.AddRange(["-f", framework]);
