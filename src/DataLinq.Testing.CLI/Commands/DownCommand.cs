@@ -28,13 +28,16 @@ internal static class DownCommand
                 return;
             }
 
-            var aliasName = parseResult.GetValue(aliasOption);
-            var targetList = parseResult.GetValue(targetsOption);
-            var selection = string.IsNullOrWhiteSpace(aliasName) && string.IsNullOrWhiteSpace(targetList)
-                ? null
-                : TargetSelectionResolver.Resolve(aliasName, targetList);
+            CommandHelpers.ExecuteSafely(() =>
+            {
+                var aliasName = parseResult.GetValue(aliasOption);
+                var targetList = parseResult.GetValue(targetsOption);
+                var selection = string.IsNullOrWhiteSpace(aliasName) && string.IsNullOrWhiteSpace(targetList)
+                    ? null
+                    : TargetSelectionResolver.Resolve(aliasName, targetList);
 
-            orchestrator.Down(parseResult.GetValue(removeOption), selection);
+                orchestrator.Down(parseResult.GetValue(removeOption), selection);
+            });
         });
 
         return command;

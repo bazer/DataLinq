@@ -48,8 +48,17 @@ internal sealed class PodmanClient
         }
         catch (Win32Exception exception)
         {
+            var accessDenied = exception.NativeErrorCode == 5;
+            var configuredByEnvironment = !string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable(DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable));
+            var configurationHint = configuredByEnvironment
+                ? $" Update '{DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable}' to a sandbox-accessible Podman executable."
+                : $" Install Podman on PATH or set '{DataLinq.Testing.PodmanTestEnvironmentSettings.PodmanExecutablePathEnvironmentVariable}' to a sandbox-accessible Podman executable.";
+
             throw new InvalidOperationException(
-                $"Could not start the Podman executable '{ExecutablePath}'. Ensure Podman is installed and available.",
+                accessDenied
+                    ? $"The sandbox could not execute the Podman binary '{ExecutablePath}' (access denied).{configurationHint}"
+                    : $"Could not start the Podman executable '{ExecutablePath}'. Ensure Podman is installed and available.{configurationHint}",
                 exception);
         }
     }

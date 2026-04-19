@@ -67,6 +67,19 @@ internal static class CommandHelpers
 
         throw new InvalidOperationException($"Unsupported execution profile '{value}'. Use repo, sandbox, or ci.");
     }
+
+    public static void ExecuteSafely(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception.Message);
+            Environment.ExitCode = 1;
+        }
+    }
 }
 
 internal enum TestCliOutputMode

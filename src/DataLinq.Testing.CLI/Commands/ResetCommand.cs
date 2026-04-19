@@ -23,12 +23,15 @@ internal static class ResetCommand
                 return;
             }
 
-            var selection = TargetSelectionResolver.Resolve(
-                parseResult.GetValue(aliasOption),
-                parseResult.GetValue(targetsOption),
-                defaultAlias: "latest");
+            CommandHelpers.ExecuteSafely(() =>
+            {
+                var selection = TargetSelectionResolver.Resolve(
+                    parseResult.GetValue(aliasOption),
+                    parseResult.GetValue(targetsOption),
+                    defaultAlias: "latest");
 
-            orchestrator.Reset(selection);
+                orchestrator.Reset(selection);
+            });
         });
 
         return command;

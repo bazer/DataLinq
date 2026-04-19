@@ -23,12 +23,15 @@ internal static class WaitCommand
                 return;
             }
 
-            var selection = TargetSelectionResolver.Resolve(
-                parseResult.GetValue(aliasOption),
-                parseResult.GetValue(targetsOption),
-                defaultAlias: "latest");
+            CommandHelpers.ExecuteSafely(() =>
+            {
+                var selection = TargetSelectionResolver.Resolve(
+                    parseResult.GetValue(aliasOption),
+                    parseResult.GetValue(targetsOption),
+                    defaultAlias: "latest");
 
-            orchestrator.Wait(selection);
+                orchestrator.Wait(selection);
+            });
         });
 
         return command;

@@ -28,12 +28,15 @@ internal static class UpCommand
                 return;
             }
 
-            var selection = TargetSelectionResolver.Resolve(
-                parseResult.GetValue(aliasOption),
-                parseResult.GetValue(targetsOption),
-                defaultAlias: "latest");
+            CommandHelpers.ExecuteSafely(() =>
+            {
+                var selection = TargetSelectionResolver.Resolve(
+                    parseResult.GetValue(aliasOption),
+                    parseResult.GetValue(targetsOption),
+                    defaultAlias: "latest");
 
-            orchestrator.Up(selection, parseResult.GetValue(recreateOption));
+                orchestrator.Up(selection, parseResult.GetValue(recreateOption));
+            });
         });
 
         return command;
