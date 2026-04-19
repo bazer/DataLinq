@@ -1,22 +1,9 @@
 {
   "SchemaVersion": 1,
-  "GeneratedAtUtc": "2026-04-19T11:50:40.4930612Z",
+  "GeneratedAtUtc": "2026-04-19T12:52:40.3570452Z",
   "WarningThresholdPercent": 10,
-  "WarningCount": 0,
+  "WarningCount": 3,
   "Baseline": {
-    "Repository": "bazer/DataLinq",
-    "Branch": "master",
-    "Commit": "4502f88988b682d433b305f3b63b63f48adb9e6b",
-    "Workflow": "Benchmark History",
-    "RunId": "24621372646",
-    "RunNumber": "17",
-    "EventName": "schedule",
-    "RunnerOs": "Linux",
-    "RunnerArchitecture": "X64",
-    "Profile": "heavy",
-    "Filter": "*EmployeesBenchmarks*"
-  },
-  "Candidate": {
     "Repository": "bazer/DataLinq",
     "Branch": "master",
     "Commit": "6216087dbdfcf37b5b133abce9087171fa796218",
@@ -29,90 +16,103 @@
     "Profile": "default",
     "Filter": "*EmployeesBenchmarks*"
   },
+  "Candidate": {
+    "Repository": "bazer/DataLinq",
+    "Branch": "master",
+    "Commit": "ae6514f12d0c72dd205859030f7925b846a449f2",
+    "Workflow": "Benchmark History",
+    "RunId": "24629368183",
+    "RunNumber": "19",
+    "EventName": "push",
+    "RunnerOs": "Linux",
+    "RunnerArchitecture": "X64",
+    "Profile": "default",
+    "Filter": "*EmployeesBenchmarks*"
+  },
   "Rows": [
     {
       "Method": "Cold primary-key fetch",
       "ProviderName": "sqlite-memory",
-      "BaselineMeanMicroseconds": 349,
-      "CandidateMeanMicroseconds": 392.9,
-      "MeanDeltaPercent": 12.578796561604577,
+      "BaselineMeanMicroseconds": 392.9,
+      "CandidateMeanMicroseconds": 428.7,
+      "MeanDeltaPercent": 9.111733265461954,
       "BaselineAllocatedBytes": 25815.04,
       "CandidateAllocatedBytes": 25815.04,
       "AllocatedDeltaPercent": 0,
-      "MaxNoisePercent": 45.84118096207687,
+      "MaxNoisePercent": 51.62584557965943,
       "Status": "noisy"
     },
     {
       "Method": "Cold relation traversal",
       "ProviderName": "sqlite-memory",
-      "BaselineMeanMicroseconds": 591.3,
-      "CandidateMeanMicroseconds": 463.4,
-      "MeanDeltaPercent": -21.63030610519195,
+      "BaselineMeanMicroseconds": 463.4,
+      "CandidateMeanMicroseconds": 625.8,
+      "MeanDeltaPercent": 35.0453172205438,
       "BaselineAllocatedBytes": 44779.52,
-      "CandidateAllocatedBytes": 44779.52,
-      "AllocatedDeltaPercent": 0,
+      "CandidateAllocatedBytes": 44810.24,
+      "AllocatedDeltaPercent": 0.0686027898467897,
       "MaxNoisePercent": 7.738454898575744,
-      "Status": "improved"
+      "Status": "warning"
     },
     {
       "Method": "Provider initialization",
       "ProviderName": "sqlite-memory",
-      "BaselineMeanMicroseconds": 954.9,
-      "CandidateMeanMicroseconds": 740.6,
-      "MeanDeltaPercent": -22.442140538276256,
-      "BaselineAllocatedBytes": 308807.68,
-      "CandidateAllocatedBytes": 308746.24,
-      "AllocatedDeltaPercent": -0.019895878237225943,
+      "BaselineMeanMicroseconds": 740.6,
+      "CandidateMeanMicroseconds": 861.7,
+      "MeanDeltaPercent": 16.35160680529301,
+      "BaselineAllocatedBytes": 308746.24,
+      "CandidateAllocatedBytes": 308418.56,
+      "AllocatedDeltaPercent": -0.10613246658485397,
       "MaxNoisePercent": 19.269511207129355,
-      "Status": "improved"
+      "Status": "warning"
     },
     {
       "Method": "Startup primary-key fetch",
       "ProviderName": "sqlite-memory",
-      "BaselineMeanMicroseconds": 685.2,
-      "CandidateMeanMicroseconds": 581.4,
-      "MeanDeltaPercent": -15.148861646234685,
-      "BaselineAllocatedBytes": 104724.48,
-      "CandidateAllocatedBytes": 104652.8,
-      "AllocatedDeltaPercent": -0.06844626967829587,
-      "MaxNoisePercent": 5.6346749226006185,
-      "Status": "improved"
+      "BaselineMeanMicroseconds": 581.4,
+      "CandidateMeanMicroseconds": 937.7,
+      "MeanDeltaPercent": 61.28310973512213,
+      "BaselineAllocatedBytes": 104652.8,
+      "CandidateAllocatedBytes": 104642.56,
+      "AllocatedDeltaPercent": -0.009784735812138078,
+      "MaxNoisePercent": 33.383811453556575,
+      "Status": "noisy"
     },
     {
       "Method": "Update employees",
       "ProviderName": "sqlite-memory",
-      "BaselineMeanMicroseconds": 412.5,
-      "CandidateMeanMicroseconds": 331.6,
-      "MeanDeltaPercent": -19.612121212121206,
+      "BaselineMeanMicroseconds": 331.6,
+      "CandidateMeanMicroseconds": 408.9,
+      "MeanDeltaPercent": 23.31121833534377,
       "BaselineAllocatedBytes": 40202.24,
-      "CandidateAllocatedBytes": 40202.24,
-      "AllocatedDeltaPercent": 0,
+      "CandidateAllocatedBytes": 40192,
+      "AllocatedDeltaPercent": -0.02547121752419259,
       "MaxNoisePercent": 6.441495778045837,
-      "Status": "improved"
+      "Status": "warning"
     },
     {
       "Method": "Warm primary-key fetch",
       "ProviderName": "sqlite-memory",
-      "BaselineMeanMicroseconds": 234.6,
-      "CandidateMeanMicroseconds": 203.5,
-      "MeanDeltaPercent": -13.256606990622332,
+      "BaselineMeanMicroseconds": 203.5,
+      "CandidateMeanMicroseconds": 197.1,
+      "MeanDeltaPercent": -3.144963144963148,
       "BaselineAllocatedBytes": 15912.96,
       "CandidateAllocatedBytes": 15912.96,
       "AllocatedDeltaPercent": 0,
       "MaxNoisePercent": 11.926289926289927,
-      "Status": "improved"
+      "Status": "stable"
     },
     {
       "Method": "Warm relation traversal",
       "ProviderName": "sqlite-memory",
-      "BaselineMeanMicroseconds": 235.5,
-      "CandidateMeanMicroseconds": 195,
-      "MeanDeltaPercent": -17.197452229299362,
+      "BaselineMeanMicroseconds": 195,
+      "CandidateMeanMicroseconds": 205.4,
+      "MeanDeltaPercent": 5.333333333333337,
       "BaselineAllocatedBytes": 15974.4,
       "CandidateAllocatedBytes": 15974.4,
       "AllocatedDeltaPercent": 0,
       "MaxNoisePercent": 6.553846153846153,
-      "Status": "improved"
+      "Status": "stable"
     }
   ]
 }
