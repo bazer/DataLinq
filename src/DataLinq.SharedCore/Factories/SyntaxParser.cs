@@ -515,16 +515,25 @@ public class SyntaxParser
 
         if (propType is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
         {
-            var typeArgument = genericType.TypeArgumentList.Arguments[0] as IdentifierNameSyntax;
-            if (typeArgument != null)
+            if (genericType.TypeArgumentList.Arguments.Count != 1)
+                return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' must use DbRead with exactly one model type argument.");
+
+            if (genericType.TypeArgumentList.Arguments[0] is IdentifierNameSyntax typeArgument)
             {
                 var modelClass = modelTypeSyntaxes.FirstOrDefault(cls => cls.Identifier.Text == typeArgument.Identifier.Text);
                 return (property.Identifier.Text, modelClass);
             }
+
+            return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' must use a simple model type argument. Found '{genericType.TypeArgumentList.Arguments[0]}'.");
         }
 
-        return DLOptionFailure.Fail(DLFailureType.NotImplemented, $"Table type {propType} is not implemented.");
+        return FailProperty(property, DLFailureType.NotImplemented, $"Table type {propType} is not implemented.");
     }
+
+    private static IDLOptionFailure FailProperty(SyntaxNode syntaxNode, DLFailureType type, string message)
+        => TryGetSourceLocation(syntaxNode, out var sourceLocation)
+            ? DLOptionFailure.Fail(type, message, sourceLocation)
+            : DLOptionFailure.Fail(type, message);
 
     private bool InheritsFrom(CsTypeDeclaration decl, string typeName)
     {

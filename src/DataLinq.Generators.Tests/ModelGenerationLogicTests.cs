@@ -19,6 +19,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string DuplicateColumnSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateColumnModel.cs";
     private const string MissingPrimaryKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingPrimaryKeyModel.cs";
     private const string InvalidRelationSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidRelationModel.cs";
+    private const string InvalidTablePropertySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidTablePropertyModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -322,6 +323,30 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         public abstract int UserId { get; }
     }";
 
+    private const string InvalidTablePropertyModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+    using System.Collections.Generic;
+
+    namespace TestInvalidTablePropertyNamespace;
+
+    public partial class InvalidTablePropertyDb : IDatabaseModel
+    {
+        public InvalidTablePropertyDb(DataSourceAccess dsa){}
+        public DbRead<List<TablePropertyRowModel>> Rows { get; }
+    }
+
+    [Table(""table_property_rows"")]
+    public abstract partial class TablePropertyRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<TablePropertyRowModel, InvalidTablePropertyDb>(rowData, dataSource), ITableModel<InvalidTablePropertyDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }";
+
     private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
         => typeDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single(member => member.Identifier.ValueText == name);
 
@@ -561,5 +586,21 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource).IsEqualTo(@"Relation(""orders"", ""wrong_user_id"", ""FK_Order_User"")");
         await Assert.That(diagnostic.GetMessage().Contains("could not be resolved", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("wrong_user_id", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidTableProperty_ShouldReportDiagnosticAtDbReadPropertyLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidTablePropertyModelSource, path: InvalidTablePropertySourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidTablePropertySourcePath);
+        await Assert.That(highlightedSource.Contains("DbRead<List<TablePropertyRowModel>>", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("must use a simple model type argument", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("List<TablePropertyRowModel>", StringComparison.Ordinal)).IsTrue();
     }
 }
