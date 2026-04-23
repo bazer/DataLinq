@@ -233,7 +233,7 @@ public static class MetadataFactory
         {
             var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
             if (!columns.Any())
-                return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Table {table.DbName} is missing a primary key.", table);
+                return CreateMissingPrimaryKeyFailure(table);
 
             if (!table.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.PrimaryKey))
                 table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
@@ -315,6 +315,16 @@ public static class MetadataFactory
         }
 
         return true;
+    }
+
+    private static IDLOptionFailure CreateMissingPrimaryKeyFailure(TableDefinition table)
+    {
+        var message = $"Table '{table.DbName}' is missing a primary key.";
+        var sourceLocation = GetTableNameSourceLocation(table.Model);
+
+        return sourceLocation.HasValue
+            ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+            : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, table);
     }
 
     private static IDLOptionFailure CreateForeignKeyFailure(ColumnDefinition foreignKeyColumn, ForeignKeyAttribute attribute, string message)

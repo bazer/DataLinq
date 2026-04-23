@@ -17,6 +17,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
     private const string InvalidIndexSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidIndexModel.cs";
     private const string DuplicateColumnSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateColumnModel.cs";
+    private const string MissingPrimaryKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingPrimaryKeyModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -259,6 +260,29 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         public abstract string DisplayName { get; }
     }";
 
+    private const string MissingPrimaryKeyModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestMissingPrimaryKeyNamespace;
+
+    public partial class MissingPrimaryKeyDb : IDatabaseModel
+    {
+        public MissingPrimaryKeyDb(DataSourceAccess dsa){}
+        public DbRead<NoPrimaryKeyRowModel> Rows { get; }
+    }
+
+    [Table(""no_primary_key_rows"")]
+    public abstract partial class NoPrimaryKeyRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<NoPrimaryKeyRowModel, MissingPrimaryKeyDb>(rowData, dataSource), ITableModel<MissingPrimaryKeyDb>
+    {
+        [Column(""name"")]
+        public abstract string Name { get; }
+    }";
+
     private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
         => typeDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single(member => member.Identifier.ValueText == name);
 
@@ -467,5 +491,20 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource).IsEqualTo(@"Column(""name"")");
         await Assert.That(diagnostic.GetMessage().Contains("Duplicate column definition", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("DisplayName", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task MissingPrimaryKey_ShouldReportDiagnosticAtTableAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(MissingPrimaryKeyModelSource, path: MissingPrimaryKeySourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(MissingPrimaryKeySourcePath);
+        await Assert.That(highlightedSource).IsEqualTo(@"Table(""no_primary_key_rows"")");
+        await Assert.That(diagnostic.GetMessage().Contains("missing a primary key", StringComparison.Ordinal)).IsTrue();
     }
 }
