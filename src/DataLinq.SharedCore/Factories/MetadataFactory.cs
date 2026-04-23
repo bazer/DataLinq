@@ -184,6 +184,49 @@ public static class MetadataFactory
         return model.GetSourceLocation();
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateUniqueColumnNames(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var duplicateGroup = tableModel.Table.Columns
+                .GroupBy(x => x.DbName, StringComparer.Ordinal)
+                .FirstOrDefault(x => x.Count() > 1);
+
+            if (duplicateGroup == null)
+                continue;
+
+            var duplicates = duplicateGroup.ToArray();
+            var first = duplicates[0];
+            var duplicate = duplicates[1];
+            var message = $"Duplicate column definition for '{duplicateGroup.Key}' in table '{tableModel.Table.DbName}'. Properties '{first.ValueProperty.PropertyName}' and '{duplicate.ValueProperty.PropertyName}' both map to the same column name.";
+            var sourceLocation = GetColumnNameSourceLocation(duplicate.ValueProperty);
+
+            return sourceLocation.HasValue
+                ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+                : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate);
+        }
+
+        return true;
+    }
+
+    private static SourceLocation? GetColumnNameSourceLocation(ValueProperty property)
+    {
+        var columnAttribute = property.Attributes
+            .FirstOrDefault(x => x is ColumnAttribute);
+
+        if (columnAttribute != null)
+        {
+            var attributeLocation = property.GetAttributeSourceLocation(columnAttribute);
+            if (attributeLocation.HasValue)
+                return attributeLocation;
+        }
+
+        if (property.SourceInfo.HasValue && property.CsFile.HasValue)
+            return property.SourceInfo.Value.GetPropertyLocation(property.CsFile.Value);
+
+        return null;
+    }
+
     public static Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).Select(x => x.Table))

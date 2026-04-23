@@ -190,6 +190,9 @@ public class MetadataFromModelsFactory
         if (!MetadataFactory.ValidateUniqueTableNames(database).TryUnwrap(out _, out var duplicateFailure))
             return duplicateFailure;
 
+        if (!MetadataFactory.ValidateUniqueColumnNames(database).TryUnwrap(out _, out var duplicateColumnFailure))
+            return duplicateColumnFailure;
+
         if (!MetadataFactory.ParseIndices(database).TryUnwrap(out _, out var indexFailure))
             return indexFailure;
 

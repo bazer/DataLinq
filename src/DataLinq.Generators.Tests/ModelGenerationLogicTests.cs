@@ -16,6 +16,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string DuplicateTableSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateTableModel.cs";
     private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
     private const string InvalidIndexSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidIndexModel.cs";
+    private const string DuplicateColumnSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateColumnModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -229,6 +230,35 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         public abstract string Name { get; }
     }";
 
+    private const string DuplicateColumnModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestDuplicateColumnNamespace;
+
+    public partial class DuplicateColumnDb : IDatabaseModel
+    {
+        public DuplicateColumnDb(DataSourceAccess dsa){}
+        public DbRead<DuplicateColumnRowModel> Rows { get; }
+    }
+
+    [Table(""duplicate_column_rows"")]
+    public abstract partial class DuplicateColumnRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<DuplicateColumnRowModel, DuplicateColumnDb>(rowData, dataSource), ITableModel<DuplicateColumnDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""name"")]
+        public abstract string FirstName { get; }
+
+        [Column(""name"")]
+        public abstract string DisplayName { get; }
+    }";
+
     private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
         => typeDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single(member => member.Identifier.ValueText == name);
 
@@ -421,5 +451,21 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource.Contains("Index", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("missing_column", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("idx_missing_column", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task DuplicateColumnNames_ShouldReportDiagnosticAtDuplicateColumnAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(DuplicateColumnModelSource, path: DuplicateColumnSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(DuplicateColumnSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo(@"Column(""name"")");
+        await Assert.That(diagnostic.GetMessage().Contains("Duplicate column definition", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("DisplayName", StringComparison.Ordinal)).IsTrue();
     }
 }
