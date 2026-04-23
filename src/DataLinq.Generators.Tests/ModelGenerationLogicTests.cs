@@ -12,6 +12,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 {
     private const string InvalidDefaultValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidDefaultModel.cs";
     private const string InvalidCacheLimitSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitModel.cs";
+    private const string InvalidCacheLimitAmountSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitAmountModel.cs";
     private const string InvalidForeignKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidForeignKeyModel.cs";
     private const string DuplicateTableSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateTableModel.cs";
     private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
@@ -105,6 +106,30 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     [Table(""rows"")]
     public abstract partial class InvalidCacheLimitModel(IRowData rowData, IDataSourceAccess dataSource)
         : Immutable<InvalidCacheLimitModel, InvalidCacheLimitDb>(rowData, dataSource), ITableModel<InvalidCacheLimitDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }";
+
+    private const string InvalidCacheLimitAmountModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidCacheLimitAmountNamespace;
+
+    [CacheLimit(CacheLimitType.Rows, 1.5)]
+    public partial class InvalidCacheLimitAmountDb : IDatabaseModel
+    {
+        public InvalidCacheLimitAmountDb(DataSourceAccess dsa){}
+        public DbRead<InvalidCacheLimitAmountModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class InvalidCacheLimitAmountModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<InvalidCacheLimitAmountModel, InvalidCacheLimitAmountDb>(rowData, dataSource), ITableModel<InvalidCacheLimitAmountDb>
     {
         [PrimaryKey, AutoIncrement, Column(""id"")]
         public abstract int? Id { get; }
@@ -500,6 +525,22 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(string.IsNullOrWhiteSpace(highlightedSource)).IsFalse();
         await Assert.That(highlightedSource.Contains("CacheLimit", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("Invalid CacheLimitType value", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidCacheLimitAmount_ShouldReportDiagnosticAtAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidCacheLimitAmountModelSource, path: InvalidCacheLimitAmountSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidCacheLimitAmountSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo("CacheLimit(CacheLimitType.Rows, 1.5)");
+        await Assert.That(diagnostic.GetMessage().Contains("Invalid cache limit amount", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("1.5", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

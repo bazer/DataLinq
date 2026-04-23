@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
@@ -180,7 +181,12 @@ public class SyntaxParser
         if (name == "UseCache")
         {
             if (arguments.Count == 1)
-                return new UseCacheAttribute(bool.Parse(arguments[0]));
+            {
+                if (!TryParseBool(arguments[0], out var useCache))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid boolean value '{arguments[0]}' for attribute '{name}'");
+
+                return new UseCacheAttribute(useCache);
+            }
             else
                 return new UseCacheAttribute();
         }
@@ -193,7 +199,10 @@ public class SyntaxParser
             if (!Enum.TryParse(arguments[0].Split('.').Last(), out CacheLimitType limitType))
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid CacheLimitType value '{arguments[0]}'");
 
-            return new CacheLimitAttribute(limitType, long.Parse(arguments[1]));
+            if (!TryParseLong(arguments[1], out var amount))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid cache limit amount '{arguments[1]}'");
+
+            return new CacheLimitAttribute(limitType, amount);
         }
 
         if (name == "CacheCleanup")
@@ -204,7 +213,10 @@ public class SyntaxParser
             if (!Enum.TryParse(arguments[0].Split('.').Last(), out CacheCleanupType cleanupType))
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid CacheCleanupType value '{arguments[0]}'");
 
-            return new CacheCleanupAttribute(cleanupType, long.Parse(arguments[1]));
+            if (!TryParseLong(arguments[1], out var amount))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid cache cleanup amount '{arguments[1]}'");
+
+            return new CacheCleanupAttribute(cleanupType, amount);
         }
 
         if (name == "IndexCache")
@@ -219,9 +231,13 @@ public class SyntaxParser
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid IndexCacheType value '{arguments[0]}'");
             }
 
-            return arguments.Count == 1
-                ? new IndexCacheAttribute(indexCacheType)
-                : new IndexCacheAttribute(indexCacheType, int.Parse(arguments[1]));
+            if (arguments.Count == 1)
+                return new IndexCacheAttribute(indexCacheType);
+
+            if (!TryParseInt(arguments[1], out var amount))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid index cache amount '{arguments[1]}'");
+
+            return new IndexCacheAttribute(indexCacheType, amount);
         }
 
         if (name == "AutoIncrement")
@@ -394,6 +410,15 @@ public class SyntaxParser
         => TryGetSourceLocation(attributeSyntax, out var sourceLocation)
             ? DLOptionFailure.Fail(type, message, sourceLocation)
             : DLOptionFailure.Fail(type, message);
+
+    private static bool TryParseBool(string value, out bool result) =>
+        bool.TryParse(value, out result);
+
+    private static bool TryParseLong(string value, out long result) =>
+        long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+
+    private static bool TryParseInt(string value, out int result) =>
+        int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
 
     private static bool TryGetSourceLocation(SyntaxNode syntaxNode, out SourceLocation sourceLocation)
     {
