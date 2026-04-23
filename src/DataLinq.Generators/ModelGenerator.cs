@@ -9,6 +9,7 @@ using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using ThrowAway;
 
 [assembly: InternalsVisibleTo("DataLinq.Generators.Tests")]
@@ -94,7 +95,10 @@ public sealed class ModelGenerator : IIncrementalGenerator
     {
         if (db.HasFailed)
         {
-            context.ReportDiagnostic(Diagnostic.Create(GeneratorDiagnostics.MetadataGenerationFailed, Location.None, $"{db.Failure.Value}"));
+            context.ReportDiagnostic(Diagnostic.Create(
+                GeneratorDiagnostics.MetadataGenerationFailed,
+                ResolveFailureLocation(db.Failure.Value, compilation),
+                $"{db.Failure.Value}"));
             return;
         }
 
@@ -121,5 +125,25 @@ public sealed class ModelGenerator : IIncrementalGenerator
             NullableContextOptions.Annotations => true,
             _ => false,
         };
+    }
+
+    private static Location ResolveFailureLocation(IDLOptionFailure failure, Compilation compilation)
+    {
+        var sourceLocation = failure.GetMostRelevantSourceLocation();
+        if (!sourceLocation.HasValue)
+            return Location.None;
+
+        var filePath = sourceLocation.Value.File.FullPath;
+        var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(x =>
+            string.Equals(x.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+
+        if (syntaxTree == null)
+            return Location.None;
+
+        if (!sourceLocation.Value.Span.HasValue)
+            return syntaxTree.GetLocation(new TextSpan(0, 0));
+
+        var span = sourceLocation.Value.Span.Value;
+        return syntaxTree.GetLocation(new TextSpan(span.Start, span.Length));
     }
 }

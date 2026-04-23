@@ -40,3 +40,4 @@ launchSettings.json
 /.benchmarking
 /crm-dumps
 /src/DataLinq.Benchmark/artifacts
+.dotnet-cli-home

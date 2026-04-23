@@ -25,6 +25,9 @@ Several important things are already true:
 - DataLinq still performs meaningful runtime metadata construction and instance/factory indirection that should be pushed earlier.
 - the source generator already knows a lot of structural information that the runtime still re-discovers later.
 - generator and metadata failures are still too easy to misdiagnose compared to the actual cost of the underlying mistake.
+- the current runtime metadata graph is still setter-heavy and cyclic enough that forcing deep structural equality directly onto it would be invasive and brittle.
+- the generator already carries some useful source-span information for properties and default expressions, but the shared failure surface still cannot reliably carry Roslyn locations through the metadata pipeline.
+- the generator is incremental in Roslyn hosting terms, but the current pipeline still collects all model declarations into a single graph build, so structural snapshot boundaries still need to be introduced deliberately.
 
 That combination is exactly why this phase should come next.
 
@@ -73,10 +76,15 @@ This phase should optimize for a small set of outcomes that matter:
 
 We will define a construction model that separates “building the schema graph” from “using the immutable schema graph at runtime”.
 
+The first target should be a generator-side builder/snapshot model rather than an immediate full rewrite of the live runtime metadata graph.
+
+That is the pragmatic move because it gives Phase 2 the equality and incremental-gating benefits without demanding that every cyclic runtime type become perfectly immutable on day one.
+
 Deliverables:
 
 - explicit builder-style construction where mutability is actually needed
-- immutable or effectively immutable runtime definitions
+- a structural metadata snapshot shape that can be compared without source-location noise
+- runtime definitions that either align with that snapshot directly or can be projected from it without contradictory semantics
 - deterministic column/index ordering suitable for dense/indexed access
 - structural equality rules that ignore location noise but preserve logical schema identity
 
@@ -100,6 +108,8 @@ Deliverables:
 - generator/build validation that reports actionable errors
 - less generic failure collapse in the metadata/generator path
 
+This should start with a small shared location-carrying failure spine rather than a giant diagnostics framework.
+
 ## Workstreams
 
 ## Workstream A: Metadata Structure and Equality
@@ -113,10 +123,11 @@ Deliverables:
 ### Tasks
 
 1. Audit current metadata types and identify which ones should remain runtime definitions versus construction helpers.
-2. Define a builder-to-definition flow that can resolve cross-references without circular nullability garbage.
-3. Implement structural equality rules for the runtime definition graph.
-4. Ensure equality ignores source-location-only changes so formatting edits do not trigger pointless regeneration.
-5. Lock deterministic ordering for columns and related members where later indexed access depends on it.
+2. Define a builder-to-snapshot flow that can resolve cross-references without circular nullability garbage.
+3. Introduce a generator-side structural snapshot boundary before trying to force deep equality onto the entire live runtime graph.
+4. Implement structural equality rules for the snapshot or definition shape that actually acts as the generator gatekeeper.
+5. Ensure equality ignores source-location-only changes so formatting edits do not trigger pointless regeneration.
+6. Lock deterministic ordering for columns and related members where later indexed access depends on it.
 
 ### Explicit non-goal
 
@@ -151,16 +162,18 @@ Do not remove every reflection path blindly. Keep fallback paths until generated
 
 - make metadata/generator failures source-located and understandable
 - validate high-signal mistakes early
+- establish one failure-location path that both metadata parsing and generator reporting can use
 
 ### Tasks
 
 1. Audit the current failure/diagnostic surface around metadata parsing and source generation.
 2. Add source-location carrying failure shapes where generator or metadata build stages can produce actionable errors.
-3. Improve validation for high-value cases first:
+3. Wire the main generator error reporting path to use real source locations when they exist instead of defaulting to generic diagnostics.
+4. Improve validation for high-value cases first:
    - invalid or unresolved foreign-key targets
    - invalid default-value/type combinations
    - duplicate or ambiguous model/table definitions where that is currently weak
-4. Make generator diagnostics point to the relevant model/property source rather than generic generated output.
+5. Make generator diagnostics point to the relevant model/property source rather than generic generated output.
 
 ### Explicit non-goal
 
@@ -176,9 +189,10 @@ Do not try to design the world’s most general diagnostics framework before fix
 ### Tasks
 
 1. Map the current generator pipeline and identify where unnecessary recomputation still happens.
-2. Use structural equality from Workstream A to gate regeneration more intelligently.
-3. Verify that source-location changes alone do not force full logical regeneration.
-4. Keep the incremental story measurable and observable rather than assuming Roslyn magic did the right thing.
+2. Introduce an explicit structural snapshot boundary for generator inputs instead of assuming `Collect()` plus Roslyn caching is already good enough.
+3. Use structural equality from Workstream A to gate regeneration more intelligently.
+4. Verify that source-location changes alone do not force full logical regeneration.
+5. Keep the incremental story measurable and observable rather than assuming Roslyn magic did the right thing.
 
 ### Why this matters
 
@@ -210,23 +224,25 @@ Before writing code, map the actual runtime metadata/factory path and the genera
 
 ### Step 2: Lock metadata structure and equality rules
 
-Get the definition/builder shape and equality semantics right before widening generated output responsibilities.
+Get the builder/snapshot shape and equality semantics right before widening generated output responsibilities.
 
-### Step 3: Introduce generated factory paths
+### Step 3: Improve diagnostics in the same seam
+
+Do this early, not at the end.
+
+If Phase 2 changes metadata and generator structure without improving failure quality at the same time, debugging gets worse precisely when internals are becoming more complex.
+
+### Step 4: Introduce generated factory paths
 
 This is the first likely runtime win and the safer first cut compared to full metadata bootstrapping replacement.
 
-### Step 4: Improve diagnostics in the same area
-
-As generator and metadata seams change, improve failures there immediately instead of deferring diagnostics to the end.
-
 ### Step 5: Push more metadata bootstrapping into generated code
 
-Once the structure is stable, reduce startup reflection and duplicate metadata discovery where generation already has the answer.
+Once the structure is stable and diagnostics are not blind, reduce startup reflection and duplicate metadata discovery where generation already has the answer.
 
 ### Step 6: Tighten incremental generator gating
 
-Use the new structure/equality model to stop unnecessary generator churn.
+Use the new snapshot/equality model to stop unnecessary generator churn.
 
 ### Step 7: Re-measure and prune
 
@@ -237,7 +253,7 @@ Use the Phase 1 benchmarks and telemetry to decide what actually improved and wh
 Phase 2 is done when all of the following are true:
 
 - metadata construction and runtime definition shape are clearly separated where mutability is needed
-- metadata definitions support structural equality suitable for generator gating
+- a structural metadata snapshot exists that supports equality suitable for generator gating
 - generated factory paths replace the most important runtime construction indirection
 - startup/provider-init work is reduced or at least made more deterministic in a measurable way
 - metadata/generator failures can point to useful source locations for the main high-signal failure cases
@@ -273,7 +289,7 @@ If generated metadata/factories and runtime fallback behavior drift apart, debug
 
 Mitigation:
 
-- keep generated and runtime paths aligned through shared definition shapes
+- keep generated and runtime paths aligned through shared snapshot or definition shapes
 - introduce generated replacements incrementally instead of swapping everything at once
 
 ### Risk: Diagnostics regress while internals improve

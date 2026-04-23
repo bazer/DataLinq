@@ -11,6 +11,7 @@ namespace DataLinq.Generators.Tests;
 public class ModelGenerationLogicTests : GeneratorTestBase
 {
     private const string InvalidDefaultValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidDefaultModel.cs";
+    private const string InvalidCacheLimitSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -74,6 +75,30 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         [Column(""kontotexten"")]
         [Default(56)]
         public abstract string Kontotexten { get; }
+    }";
+
+    private const string InvalidCacheLimitModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidCacheLimitNamespace;
+
+    [CacheLimit((CacheLimitType)999, 1)]
+    public partial class InvalidCacheLimitDb : IDatabaseModel
+    {
+        public InvalidCacheLimitDb(DataSourceAccess dsa){}
+        public DbRead<InvalidCacheLimitModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class InvalidCacheLimitModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<InvalidCacheLimitModel, InvalidCacheLimitDb>(rowData, dataSource), ITableModel<InvalidCacheLimitDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
     }";
 
     private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
@@ -189,5 +214,21 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 
         var generatedCode = string.Join(Environment.NewLine, generatedTrees.Select(x => x.ToString()));
         await Assert.That(generatedCode.Contains("this.Kontotexten = 56;", StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
+    public async Task InvalidMetadataAttribute_ShouldReportDiagnosticAtAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidCacheLimitModelSource, path: InvalidCacheLimitSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidCacheLimitSourcePath);
+        await Assert.That(string.IsNullOrWhiteSpace(highlightedSource)).IsFalse();
+        await Assert.That(highlightedSource.Contains("CacheLimit", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("Invalid CacheLimitType value", StringComparison.Ordinal)).IsTrue();
     }
 }
