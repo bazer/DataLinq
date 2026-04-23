@@ -20,6 +20,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string MissingPrimaryKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingPrimaryKeyModel.cs";
     private const string InvalidRelationSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidRelationModel.cs";
     private const string InvalidTablePropertySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidTablePropertyModel.cs";
+    private const string MissingTableModelSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingTableModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -347,6 +348,29 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         public abstract int? Id { get; }
     }";
 
+    private const string MissingTableModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestMissingTableModelNamespace;
+
+    public partial class MissingTableModelDb : IDatabaseModel
+    {
+        public MissingTableModelDb(DataSourceAccess dsa){}
+        public DbRead<ExistingRowModel> ExistingRows { get; }
+        public DbRead<MissingRowModel> MissingRows { get; }
+    }
+
+    [Table(""existing_rows"")]
+    public abstract partial class ExistingRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<ExistingRowModel, MissingTableModelDb>(rowData, dataSource), ITableModel<MissingTableModelDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }";
+
     private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
         => typeDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single(member => member.Identifier.ValueText == name);
 
@@ -602,5 +626,21 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource.Contains("DbRead<List<TablePropertyRowModel>>", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("must use a simple model type argument", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("List<TablePropertyRowModel>", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task MissingTableModel_ShouldReportDiagnosticAtDbReadPropertyLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(MissingTableModelSource, path: MissingTableModelSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(MissingTableModelSourcePath);
+        await Assert.That(highlightedSource.Contains("DbRead<MissingRowModel>", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("MissingRows", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("MissingRowModel", StringComparison.Ordinal)).IsTrue();
     }
 }

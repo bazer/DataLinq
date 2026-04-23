@@ -106,7 +106,8 @@ public class MetadataFromFileFactory
         var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions
         {
             RemoveInterfacePrefix = options.RemoveInterfacePrefix,
-            FileEncoding = options.FileEncoding
+            FileEncoding = options.FileEncoding,
+            AllowMissingTableModels = true
         }, Log);
 
         if (!factory

@@ -25,6 +25,7 @@ public class MetadataFromInterfacesFactoryOptions
 {
     public Encoding FileEncoding { get; set; } = new UTF8Encoding(false);
     public bool RemoveInterfacePrefix { get; set; } = true;
+    public bool AllowMissingTableModels { get; set; }
 }
 
 public class MetadataFromModelsFactory
@@ -48,7 +49,7 @@ public class MetadataFromModelsFactory
             .Where(cls => ImplementsInterface(cls, modelSyntaxes, x => x == "IDatabaseModel"))
             .ToList();
 
-        var parsedDatabases = ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses).ToList();
+        var parsedDatabases = ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses, options.AllowMissingTableModels).ToList();
         return ValidateUniqueDatabaseNames(parsedDatabases);
     });
 
@@ -117,13 +118,21 @@ public class MetadataFromModelsFactory
         return false;
     }
 
-    private static IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseModels(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, List<ClassDeclarationSyntax> dbModelClasses)
+    private static IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseModels(
+        ImmutableArray<TypeDeclarationSyntax> modelSyntaxes,
+        SyntaxParser syntaxParser,
+        List<ClassDeclarationSyntax> dbModelClasses,
+        bool allowMissingTableModels)
     {
         foreach (var dbType in dbModelClasses)
-            yield return ParseDatabaseModel(modelSyntaxes, syntaxParser, dbType);
+            yield return ParseDatabaseModel(modelSyntaxes, syntaxParser, dbType, allowMissingTableModels);
     }
 
-    private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseModel(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, SyntaxParser syntaxParser, ClassDeclarationSyntax dbType)
+    private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseModel(
+        ImmutableArray<TypeDeclarationSyntax> modelSyntaxes,
+        SyntaxParser syntaxParser,
+        ClassDeclarationSyntax dbType,
+        bool allowMissingTableModels)
     {
         if (dbType == null)
             return DLOptionFailure.Fail("Database model class not found");
@@ -178,7 +187,7 @@ public class MetadataFromModelsFactory
 
         if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
-            .Select(prop => syntaxParser.GetTableType(prop, modelClasses))
+            .Select(prop => syntaxParser.GetTableType(prop, modelClasses, allowMissingTableModels || modelClasses.Count == 0))
             .Transpose()
             .Map(x => x.Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)))
             .FlatMap(x => x.Transpose())
