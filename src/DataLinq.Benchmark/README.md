@@ -1,108 +1,20 @@
 # DataLinq Benchmark Harness
 
-Use the cross-platform benchmark CLI in `src/DataLinq.Benchmark.CLI` instead of calling BenchmarkDotNet directly.
+Use `src/DataLinq.Benchmark.CLI` instead of calling BenchmarkDotNet directly.
 
-It sets up a repo-local CLI environment, restores and builds the harness, runs BenchmarkDotNet with repo-level artifacts, and prints a compact summary table instead of the full BenchmarkDotNet log.
+The canonical documentation now lives in:
 
-## Common commands
+- [`docs/contributing/DataLinq.Benchmark.CLI.md`](../../docs/contributing/DataLinq.Benchmark.CLI.md)
+- [`docs/contributing/Internal Tooling.md`](../../docs/contributing/Internal%20Tooling.md)
 
-List available benchmarks:
+Keep this README as a quick local pointer, not as a duplicate long-form tool manual.
+
+## Quick Start
 
 ```bash
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- list
-```
-
-Run the normal short benchmark profile:
-
-```bash
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run
-```
-
-Run a focused benchmark:
-
-```bash
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKeyFetch*"
 ```
 
-Run only the stable benchmark category:
-
-```bash
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run -- --anyCategories stable
-```
-
-Run the broader macro workflow benchmark locally:
-
-```bash
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --filter "*CrudWorkflow*" -- --anyCategories macro
-```
-
-Run only one provider variant, which is useful for CI or cleaner local trend runs:
-
-```bash
-DATALINQ_BENCHMARK_PROVIDERS=sqlite-memory dotnet run --project ./src/DataLinq.Benchmark.CLI -- run
-```
-
-PowerShell equivalent:
-
-```powershell
-$env:DATALINQ_BENCHMARK_PROVIDERS='sqlite-memory'
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run
-```
-
-Run a fast smoke pass:
-
-```bash
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --profile smoke
-```
-
-Run a heavier local validation pass when a benchmark is too noisy for the normal short profile:
-
-```bash
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --profile heavy
-```
-
-Write a stable history entry artifact for later comparison or CI publishing:
-
-```bash
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --history-json artifacts/benchmarks/latest-history.json
-```
-
-Compare a run against a previous history artifact:
-
-```bash
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --baseline benchmarks/latest.json --comparison-json artifacts/benchmarks/latest-comparison.json
-```
-
-Skip restore/build when you know the harness is already up to date:
-
-```bash
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --no-build --filter "*WarmPrimaryKeyFetch*"
-```
-
-Show the full underlying restore/build/BenchmarkDotNet output:
-
-```bash
-dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --verbose
-```
-
-## Artifacts
-
 Benchmark artifacts are written under `artifacts/benchmarks/`.
-
-- `results/*-report-github.md`: concise Markdown summary
-- `results/*-report.csv`: machine-readable benchmark data
-- `results/*-telemetry.json`: per benchmark/provider telemetry deltas normalized per operation
-- `results/*-summary.json`: merged summary artifact with timing, allocations, noise, and telemetry deltas
-- optional `--history-json` output: stable per-run history entry for CI publishing and website graphs
-- optional `--comparison-json` output: baseline comparison artifact with regression status per scenario/provider
-- `benchmark-run-*.log`: full captured console output for that run
-- `benchmark-list-*.log`: full captured console output for a `list` run
-
-## Stable CI lane
-
-The published benchmark history is intentionally narrower than the full local matrix.
-
-- CI uses the `stable` benchmark category
-- CI currently trends the `sqlite-memory` provider only
-- scheduled CI runs use the heavier benchmark profile; push-triggered history runs keep the default short profile
-- noisy or broader experimental scenarios such as insert and macro workflow benchmarks stay available locally, but they do not belong in regression history until they earn that right

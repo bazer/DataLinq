@@ -62,6 +62,16 @@
   items:
     - name: Contribution Guidelines
       href: Contributing.md
+    - name: Internal Tooling
+      href: contributing/Internal Tooling.md
+    - name: DataLinq.Dev.CLI
+      href: contributing/DataLinq.Dev.CLI.md
+    - name: DataLinq.Testing.CLI
+      href: contributing/DataLinq.Testing.CLI.md
+    - name: DataLinq.Benchmark.CLI
+      href: contributing/DataLinq.Benchmark.CLI.md
+    - name: AI Assistant Guidance
+      href: contributing/AI Assistant Guidance.md
 - name: Roadmap and Specs
   expanded: true
   items:

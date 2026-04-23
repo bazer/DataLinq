@@ -66,6 +66,15 @@ The supported local entry points are:
 
 - `DataLinq.Dev.CLI` for `doctor`, `restore`, `build`, and direct `dotnet test` wrapping.
 - `DataLinq.Testing.CLI` for provider-matrix orchestration, container lifecycle, and suite runs that depend on target aliases or batches.
+- `DataLinq.Benchmark.CLI` for benchmark discovery, benchmark execution, and performance-history artifacts.
+
+Detailed tool documentation lives here:
+
+- [Internal Tooling](contributing/Internal%20Tooling.md)
+- [DataLinq.Dev.CLI](contributing/DataLinq.Dev.CLI.md)
+- [DataLinq.Testing.CLI](contributing/DataLinq.Testing.CLI.md)
+- [DataLinq.Benchmark.CLI](contributing/DataLinq.Benchmark.CLI.md)
+- [AI Assistant Guidance](contributing/AI%20Assistant%20Guidance.md)
 
 Check the local `dotnet` execution profile before you start blaming the repo:
 
@@ -132,6 +141,13 @@ Visual Studio runsettings live under `src`:
 - `src/tests.all.runsettings`
 
 If you are only changing one slice of the codebase, prefer targeted suite runs over blanket full-matrix execution.
+
+For benchmark work, use the benchmark wrapper instead of calling BenchmarkDotNet directly:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- list
+dotnet run --project src/DataLinq.Benchmark.CLI -- run
+```
 
 ## 4. Documentation Changes
 
