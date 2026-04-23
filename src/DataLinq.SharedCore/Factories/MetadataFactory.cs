@@ -85,7 +85,7 @@ public static class MetadataFactory
                 table.Columns[i].SetIndex(i);
     }
 
-    public static void ParseIndices(DatabaseDefinition database)
+    public static Option<bool, IDLOptionFailure> ParseIndices(DatabaseDefinition database)
     {
         var indices = database.TableModels
             .Where(x => !x.IsStub)
@@ -106,14 +106,46 @@ public static class MetadataFactory
                 }
                 else
                 {
-                    var columnsForIndex = indexAttribute.Columns.Any()
-                        ? indexAttribute.Columns.Select(colName => column.Table.Columns.Single(c => c.DbName == colName)).ToList()
-                        : new List<ColumnDefinition> { column };
+                    List<ColumnDefinition> columnsForIndex;
+                    if (indexAttribute.Columns.Any())
+                    {
+                        columnsForIndex = [];
+                        foreach (var colName in indexAttribute.Columns)
+                        {
+                            var indexColumn = column.Table.Columns.SingleOrDefault(c => c.DbName == colName);
+                            if (indexColumn == null)
+                                return CreateIndexFailure(
+                                    column,
+                                    indexAttribute,
+                                    $"Index '{indexAttribute.Name}' on table '{column.Table.DbName}' references column '{colName}', but that column does not exist.");
+
+                            columnsForIndex.Add(indexColumn);
+                        }
+                    }
+                    else
+                    {
+                        columnsForIndex = [column];
+                    }
 
                     column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
                 }
             }
         }
+
+        return true;
+    }
+
+    private static IDLOptionFailure CreateIndexFailure(ColumnDefinition column, IndexAttribute attribute, string message)
+    {
+        var attributeLocation = column.ValueProperty.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        var property = column.ValueProperty;
+        if (property.SourceInfo.HasValue && property.CsFile.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property.SourceInfo.Value.GetPropertyLocation(property.CsFile.Value));
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, column);
     }
 
     public static Option<bool, IDLOptionFailure> ValidateUniqueTableNames(DatabaseDefinition database)

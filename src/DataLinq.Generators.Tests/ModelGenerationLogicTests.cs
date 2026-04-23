@@ -15,6 +15,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string InvalidForeignKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidForeignKeyModel.cs";
     private const string DuplicateTableSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateTableModel.cs";
     private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
+    private const string InvalidIndexSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidIndexModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -201,6 +202,33 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         public abstract int? Id { get; }
     }";
 
+    private const string InvalidIndexModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidIndexNamespace;
+
+    public partial class InvalidIndexDb : IDatabaseModel
+    {
+        public InvalidIndexDb(DataSourceAccess dsa){}
+        public DbRead<IndexedRowModel> IndexedRows { get; }
+    }
+
+    [Table(""indexed_rows"")]
+    public abstract partial class IndexedRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<IndexedRowModel, InvalidIndexDb>(rowData, dataSource), ITableModel<InvalidIndexDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""name"")]
+        [Index(""idx_missing_column"", IndexCharacteristic.Simple, IndexType.BTREE, ""name"", ""missing_column"")]
+        public abstract string Name { get; }
+    }";
+
     private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
         => typeDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single(member => member.Identifier.ValueText == name);
 
@@ -377,5 +405,21 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource).IsEqualTo(@"Database(""duplicate_db"")");
         await Assert.That(diagnostic.GetMessage().Contains("Duplicate database definition", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("SecondDuplicateDb", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidIndexColumn_ShouldReportDiagnosticAtIndexAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidIndexModelSource, path: InvalidIndexSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidIndexSourcePath);
+        await Assert.That(highlightedSource.Contains("Index", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("missing_column", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("idx_missing_column", StringComparison.Ordinal)).IsTrue();
     }
 }
