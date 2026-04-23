@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 using Microsoft.CodeAnalysis.CSharp;
@@ -45,14 +44,6 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
     public override string ToString() => $"Property: {CsType.Name} {PropertyName}";
 
-    private sealed class AttributeReferenceEqualityComparer : IEqualityComparer<Attribute>
-    {
-        public static AttributeReferenceEqualityComparer Instance { get; } = new();
-
-        public bool Equals(Attribute? x, Attribute? y) => ReferenceEquals(x, y);
-
-        public int GetHashCode(Attribute obj) => RuntimeHelpers.GetHashCode(obj);
-    }
 }
 
 public class ValueProperty : PropertyDefinition

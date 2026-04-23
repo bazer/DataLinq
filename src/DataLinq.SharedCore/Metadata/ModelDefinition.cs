@@ -29,6 +29,26 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     public Dictionary<string, ValueProperty> ValueProperties { get; } = new();
     public Attribute[] Attributes { get; private set; } = [];
     public void SetAttributes(IEnumerable<Attribute> attributes) => Attributes = attributes.ToArray();
+    public SourceTextSpan? SourceSpan { get; private set; }
+    public void SetSourceSpan(SourceTextSpan sourceSpan) => SourceSpan = sourceSpan;
+    private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
+    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan) => attributeSourceSpans[attribute] = sourceSpan;
+
+    public SourceLocation? GetSourceLocation()
+    {
+        if (!CsFile.HasValue)
+            return null;
+
+        return new SourceLocation(CsFile.Value, SourceSpan);
+    }
+
+    public SourceLocation? GetAttributeSourceLocation(Attribute attribute)
+    {
+        if (!CsFile.HasValue || !attributeSourceSpans.TryGetValue(attribute, out var sourceSpan))
+            return null;
+
+        return new SourceLocation(CsFile.Value, sourceSpan);
+    }
 
     public void AddProperties(IEnumerable<PropertyDefinition> properties)
     {

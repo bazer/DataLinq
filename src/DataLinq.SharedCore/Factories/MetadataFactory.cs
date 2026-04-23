@@ -116,6 +116,42 @@ public static class MetadataFactory
         }
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateUniqueTableNames(DatabaseDefinition database)
+    {
+        var duplicateGroup = database.TableModels
+            .Where(x => !x.IsStub)
+            .GroupBy(x => x.Table.DbName, StringComparer.Ordinal)
+            .FirstOrDefault(x => x.Count() > 1);
+
+        if (duplicateGroup == null)
+            return true;
+
+        var duplicates = duplicateGroup.ToArray();
+        var first = duplicates[0];
+        var duplicate = duplicates[1];
+        var message = $"Duplicate table definition for '{duplicateGroup.Key}' in database '{database.DbName}'. Models '{first.Model.CsType.Name}' and '{duplicate.Model.CsType.Name}' both map to the same table name.";
+        var sourceLocation = GetTableNameSourceLocation(duplicate.Model);
+
+        return sourceLocation.HasValue
+            ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+            : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate.Model);
+    }
+
+    private static SourceLocation? GetTableNameSourceLocation(ModelDefinition model)
+    {
+        var tableAttribute = model.Attributes
+            .FirstOrDefault(x => x is TableAttribute or ViewAttribute);
+
+        if (tableAttribute != null)
+        {
+            var attributeLocation = model.GetAttributeSourceLocation(tableAttribute);
+            if (attributeLocation.HasValue)
+                return attributeLocation;
+        }
+
+        return model.GetSourceLocation();
+    }
+
     public static Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).Select(x => x.Table))

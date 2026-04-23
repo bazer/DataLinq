@@ -46,14 +46,34 @@ public class SyntaxParser
     private Option<ModelDefinition, IDLOptionFailure> ParseModel(TypeDeclarationSyntax typeSyntax)
     {
         var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
+        model.SetSourceSpan(new SourceTextSpan(typeSyntax.SpanStart, typeSyntax.Span.Length));
 
         if (!string.IsNullOrEmpty(typeSyntax.SyntaxTree.FilePath))
             model.SetCsFile(new CsFileDeclaration(typeSyntax.SyntaxTree.FilePath));
 
-        if (!typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(ParseAttribute).Transpose().TryUnwrap(out var attributes, out var failures))
+        var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
+        var parsedAttributes = new List<Attribute>();
+        var failures = new List<IDLOptionFailure>();
+
+        foreach (var attributeSyntax in typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes))
+        {
+            if (ParseAttribute(attributeSyntax).TryUnwrap(out var attribute, out var failure))
+            {
+                parsedAttributes.Add(attribute);
+                attributeSourceSpans.Add((attribute, new SourceTextSpan(attributeSyntax.SpanStart, attributeSyntax.Span.Length)));
+            }
+            else
+            {
+                failures.Add(failure);
+            }
+        }
+
+        if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes", model, failures);
 
-        model.SetAttributes(attributes);
+        model.SetAttributes(parsedAttributes);
+        foreach (var (attribute, sourceSpan) in attributeSourceSpans)
+            model.SetAttributeSourceSpan(attribute, sourceSpan);
 
         var modelInstanceInterfaces = model.Attributes
             .Where(x => x is InterfaceAttribute interfaceAttribute && interfaceAttribute.GenerateInterface)

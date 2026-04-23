@@ -119,6 +119,9 @@ public class MetadataFromModelsFactory
 
         database.SetTableModels(models);
 
+        if (!MetadataFactory.ValidateUniqueTableNames(database).TryUnwrap(out _, out var duplicateFailure))
+            return duplicateFailure;
+
         MetadataFactory.ParseIndices(database);
         if (!MetadataFactory.ParseRelations(database).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
