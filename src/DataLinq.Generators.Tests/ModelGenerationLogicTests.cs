@@ -18,6 +18,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string InvalidIndexSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidIndexModel.cs";
     private const string DuplicateColumnSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateColumnModel.cs";
     private const string MissingPrimaryKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingPrimaryKeyModel.cs";
+    private const string InvalidRelationSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidRelationModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -283,6 +284,44 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         public abstract string Name { get; }
     }";
 
+    private const string InvalidRelationModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidRelationNamespace;
+
+    public partial class InvalidRelationDb : IDatabaseModel
+    {
+        public InvalidRelationDb(DataSourceAccess dsa){}
+        public DbRead<UserRelationModel> Users { get; }
+        public DbRead<OrderRelationModel> Orders { get; }
+    }
+
+    [Table(""users"")]
+    public abstract partial class UserRelationModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<UserRelationModel, InvalidRelationDb>(rowData, dataSource), ITableModel<InvalidRelationDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Relation(""orders"", ""wrong_user_id"", ""FK_Order_User"")]
+        public abstract IImmutableRelation<OrderRelationModel> Orders { get; }
+    }
+
+    [Table(""orders"")]
+    public abstract partial class OrderRelationModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<OrderRelationModel, InvalidRelationDb>(rowData, dataSource), ITableModel<InvalidRelationDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""user_id""), ForeignKey(""users"", ""id"", ""FK_Order_User"")]
+        public abstract int UserId { get; }
+    }";
+
     private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
         => typeDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single(member => member.Identifier.ValueText == name);
 
@@ -506,5 +545,21 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(MissingPrimaryKeySourcePath);
         await Assert.That(highlightedSource).IsEqualTo(@"Table(""no_primary_key_rows"")");
         await Assert.That(diagnostic.GetMessage().Contains("missing a primary key", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidRelation_ShouldReportDiagnosticAtRelationAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidRelationModelSource, path: InvalidRelationSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidRelationSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo(@"Relation(""orders"", ""wrong_user_id"", ""FK_Order_User"")");
+        await Assert.That(diagnostic.GetMessage().Contains("could not be resolved", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("wrong_user_id", StringComparison.Ordinal)).IsTrue();
     }
 }

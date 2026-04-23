@@ -314,7 +314,50 @@ public static class MetadataFactory
             }
         }
 
-        return true;
+        return ValidateResolvedRelationProperties(database);
+    }
+
+    public static Option<bool, IDLOptionFailure> ValidateResolvedRelationProperties(DatabaseDefinition database)
+    {
+        var unresolvedRelation = database.TableModels
+            .Where(x => !x.IsStub)
+            .SelectMany(x => x.Model.RelationProperties.Values)
+            .FirstOrDefault(x => x.RelationPart == null && ShouldValidateUnresolvedRelation(database, x));
+
+        if (unresolvedRelation == null)
+            return true;
+
+        var relationAttribute = unresolvedRelation.Attributes
+            .OfType<RelationAttribute>()
+            .FirstOrDefault();
+        var target = relationAttribute == null
+            ? "a matching foreign-key relation"
+            : $"relation target '{relationAttribute.Table}.({relationAttribute.Columns.ToJoinedString(", ")})'";
+        var message = $"Relation property '{unresolvedRelation.Model.CsType.Name}.{unresolvedRelation.PropertyName}' could not be resolved to {target}. Check that the [Relation] table, column, and constraint name match a [ForeignKey] definition.";
+        var sourceLocation = relationAttribute == null
+            ? null
+            : unresolvedRelation.GetAttributeSourceLocation(relationAttribute);
+
+        if (!sourceLocation.HasValue && unresolvedRelation.SourceInfo.HasValue && unresolvedRelation.CsFile.HasValue)
+            sourceLocation = unresolvedRelation.SourceInfo.Value.GetPropertyLocation(unresolvedRelation.CsFile.Value);
+
+        return sourceLocation.HasValue
+            ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+            : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, unresolvedRelation);
+    }
+
+    private static bool ShouldValidateUnresolvedRelation(DatabaseDefinition database, RelationProperty relation)
+    {
+        var relationAttribute = relation.Attributes
+            .OfType<RelationAttribute>()
+            .FirstOrDefault();
+
+        if (relationAttribute == null)
+            return true;
+
+        return database.TableModels
+            .Where(x => !x.IsStub)
+            .Any(x => x.Table.DbName == relationAttribute.Table);
     }
 
     private static IDLOptionFailure CreateMissingPrimaryKeyFailure(TableDefinition table)
