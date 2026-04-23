@@ -14,6 +14,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string InvalidCacheLimitSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitModel.cs";
     private const string InvalidForeignKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidForeignKeyModel.cs";
     private const string DuplicateTableSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateTableModel.cs";
+    private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -156,6 +157,45 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     [Table(""users"")]
     public abstract partial class ArchivedUserModel(IRowData rowData, IDataSourceAccess dataSource)
         : Immutable<ArchivedUserModel, DuplicateTableDb>(rowData, dataSource), ITableModel<DuplicateTableDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }";
+
+    private const string DuplicateDatabaseModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestDuplicateDatabaseNamespace;
+
+    [Database(""duplicate_db"")]
+    public partial class FirstDuplicateDb : IDatabaseModel
+    {
+        public FirstDuplicateDb(DataSourceAccess dsa){}
+        public DbRead<FirstRowModel> FirstRows { get; }
+    }
+
+    [Database(""duplicate_db"")]
+    public partial class SecondDuplicateDb : IDatabaseModel
+    {
+        public SecondDuplicateDb(DataSourceAccess dsa){}
+        public DbRead<SecondRowModel> SecondRows { get; }
+    }
+
+    [Table(""first_rows"")]
+    public abstract partial class FirstRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<FirstRowModel, FirstDuplicateDb>(rowData, dataSource), ITableModel<FirstDuplicateDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }
+
+    [Table(""second_rows"")]
+    public abstract partial class SecondRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<SecondRowModel, SecondDuplicateDb>(rowData, dataSource), ITableModel<SecondDuplicateDb>
     {
         [PrimaryKey, AutoIncrement, Column(""id"")]
         public abstract int? Id { get; }
@@ -321,5 +361,21 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource).IsEqualTo(@"Table(""users"")");
         await Assert.That(diagnostic.GetMessage().Contains("Duplicate table definition", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("ArchivedUserModel", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task DuplicateDatabaseNames_ShouldReportDiagnosticAtDuplicateDatabaseAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(DuplicateDatabaseModelSource, path: DuplicateDatabaseSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(DuplicateDatabaseSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo(@"Database(""duplicate_db"")");
+        await Assert.That(diagnostic.GetMessage().Contains("Duplicate database definition", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("SecondDuplicateDb", StringComparison.Ordinal)).IsTrue();
     }
 }

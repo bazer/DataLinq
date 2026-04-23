@@ -48,8 +48,57 @@ public class MetadataFromModelsFactory
             .Where(cls => ImplementsInterface(cls, modelSyntaxes, x => x == "IDatabaseModel"))
             .ToList();
 
-        return ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses).ToList();
+        var parsedDatabases = ParseDatabaseModels(modelSyntaxes, syntaxParser, dbModelClasses).ToList();
+        return ValidateUniqueDatabaseNames(parsedDatabases);
     });
+
+    private static List<Option<DatabaseDefinition, IDLOptionFailure>> ValidateUniqueDatabaseNames(List<Option<DatabaseDefinition, IDLOptionFailure>> parsedDatabases)
+    {
+        var duplicateGroups = parsedDatabases
+            .Where(x => x.HasValue)
+            .Select(x => x.Value)
+            .GroupBy(x => x.Name, StringComparer.Ordinal)
+            .Where(x => x.Count() > 1)
+            .ToList();
+
+        if (!duplicateGroups.Any())
+            return parsedDatabases;
+
+        var duplicateDatabases = duplicateGroups
+            .SelectMany(group => group.Skip(1).Select(database => (Database: database, First: group.First())))
+            .ToDictionary(x => x.Database, x => CreateDuplicateDatabaseFailure(x.First, x.Database));
+
+        return parsedDatabases
+            .Select(parsed =>
+                parsed.HasValue && duplicateDatabases.TryGetValue(parsed.Value, out var failure)
+                    ? Option.Fail<DatabaseDefinition, IDLOptionFailure>(failure)
+                    : parsed)
+            .ToList();
+    }
+
+    private static IDLOptionFailure CreateDuplicateDatabaseFailure(DatabaseDefinition first, DatabaseDefinition duplicate)
+    {
+        var message = $"Duplicate database definition for '{duplicate.Name}'. Models '{first.CsType.Name}' and '{duplicate.CsType.Name}' both map to the same generated database name.";
+        var sourceLocation = GetDatabaseNameSourceLocation(duplicate);
+
+        return sourceLocation.HasValue
+            ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+            : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate);
+    }
+
+    private static SourceLocation? GetDatabaseNameSourceLocation(DatabaseDefinition database)
+    {
+        var databaseAttribute = database.Attributes.FirstOrDefault(x => x is DatabaseAttribute);
+
+        if (databaseAttribute != null)
+        {
+            var attributeLocation = database.GetAttributeSourceLocation(databaseAttribute);
+            if (attributeLocation.HasValue)
+                return attributeLocation;
+        }
+
+        return database.GetSourceLocation();
+    }
 
     private static bool ImplementsInterface(TypeDeclarationSyntax type, ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, Func<string, bool> interfaceNameFunc)
     {
@@ -83,19 +132,38 @@ public class MetadataFromModelsFactory
             return DLOptionFailure.Fail("Database model class must have a name");
 
         // Step 1: Parse attributes from the database class syntax first.
-        if (!dbType.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(x => syntaxParser.ParseAttribute(x))
-            .Transpose()
-            .TryUnwrap(out var attributes, out var attrFailures))
+        var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
+        var parsedAttributes = new List<Attribute>();
+        var attrFailures = new List<IDLOptionFailure>();
+
+        foreach (var attributeSyntax in dbType.AttributeLists.SelectMany(attrList => attrList.Attributes))
+        {
+            if (syntaxParser.ParseAttribute(attributeSyntax).TryUnwrap(out var attribute, out var failure))
+            {
+                parsedAttributes.Add(attribute);
+                attributeSourceSpans.Add((attribute, new SourceTextSpan(attributeSyntax.SpanStart, attributeSyntax.Span.Length)));
+            }
+            else
+            {
+                attrFailures.Add(failure);
+            }
+        }
+
+        if (attrFailures.Any())
             return DLOptionFailure.AggregateFail(attrFailures);
 
         // Step 2: Find the [Database] attribute to determine the logical name.
-        var dbAttribute = attributes.OfType<DatabaseAttribute>().FirstOrDefault();
+        var dbAttribute = parsedAttributes.OfType<DatabaseAttribute>().FirstOrDefault();
         // Use the attribute name if present, otherwise fall back to the C# class name.
         var logicalName = dbAttribute?.Name ?? MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
 
         // Step 3: Create the DatabaseDefinition with the correct logical name.
         var database = new DatabaseDefinition(logicalName, new CsTypeDeclaration(dbType));
-        database.SetAttributes(attributes);
+        database.SetSourceSpan(new SourceTextSpan(dbType.SpanStart, dbType.Span.Length));
+        database.SetAttributes(parsedAttributes);
+        foreach (var (attribute, sourceSpan) in attributeSourceSpans)
+            database.SetAttributeSourceSpan(attribute, sourceSpan);
+
         database.ParseAttributes(); // This will set the DbName, which might be the same as the logical name.
 
         if (!string.IsNullOrEmpty(dbType.SyntaxTree.FilePath))

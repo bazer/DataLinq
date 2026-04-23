@@ -30,6 +30,27 @@ public class DatabaseDefinition : IDefinition
     public void SetCache(bool useCache) => UseCache = useCache;
     public Attribute[] Attributes { get; private set; } = [];
     public void SetAttributes(IEnumerable<Attribute> attributes) => Attributes = attributes.ToArray();
+    public SourceTextSpan? SourceSpan { get; private set; }
+    public void SetSourceSpan(SourceTextSpan sourceSpan) => SourceSpan = sourceSpan;
+    private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
+    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan) => attributeSourceSpans[attribute] = sourceSpan;
+
+    public SourceLocation? GetSourceLocation()
+    {
+        if (!CsFile.HasValue)
+            return null;
+
+        return new SourceLocation(CsFile.Value, SourceSpan);
+    }
+
+    public SourceLocation? GetAttributeSourceLocation(Attribute attribute)
+    {
+        if (!CsFile.HasValue || !attributeSourceSpans.TryGetValue(attribute, out var sourceSpan))
+            return null;
+
+        return new SourceLocation(CsFile.Value, sourceSpan);
+    }
+
     public TableModel[] TableModels { get; private set; } = [];
     public void SetTableModels(IEnumerable<TableModel> tableModels) => TableModels = tableModels.ToArray();
     public List<(CacheLimitType limitType, long amount)> CacheLimits { get; private set; } = [];
