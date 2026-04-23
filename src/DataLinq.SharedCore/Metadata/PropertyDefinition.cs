@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 using Microsoft.CodeAnalysis.CSharp;
@@ -29,10 +30,29 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     public PropertyType Type { get; protected private set; }
     public PropertySourceInfo? SourceInfo { get; private set; }
     public void SetSourceInfo(PropertySourceInfo sourceInfo) => SourceInfo = sourceInfo;
+    private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
+    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan) => attributeSourceSpans[attribute] = sourceSpan;
+
+    public SourceLocation? GetAttributeSourceLocation(Attribute attribute)
+    {
+        if (!CsFile.HasValue || !attributeSourceSpans.TryGetValue(attribute, out var sourceSpan))
+            return null;
+
+        return new SourceLocation(CsFile.Value, sourceSpan);
+    }
 
     public CsFileDeclaration? CsFile => Model?.CsFile;
 
     public override string ToString() => $"Property: {CsType.Name} {PropertyName}";
+
+    private sealed class AttributeReferenceEqualityComparer : IEqualityComparer<Attribute>
+    {
+        public static AttributeReferenceEqualityComparer Instance { get; } = new();
+
+        public bool Equals(Attribute? x, Attribute? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(Attribute obj) => RuntimeHelpers.GetHashCode(obj);
+    }
 }
 
 public class ValueProperty : PropertyDefinition

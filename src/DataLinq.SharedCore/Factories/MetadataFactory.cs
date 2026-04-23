@@ -116,13 +116,13 @@ public static class MetadataFactory
         }
     }
 
-    public static void ParseRelations(DatabaseDefinition database)
+    public static Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).Select(x => x.Table))
         {
             var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
             if (!columns.Any())
-                throw DLOptionFailure.Exception(DLFailureType.InvalidModel, $"Table {table.DbName} is missing a primary key.");
+                return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Table {table.DbName} is missing a primary key.", table);
 
             if (!table.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.PrimaryKey))
                 table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
@@ -132,11 +132,23 @@ public static class MetadataFactory
         {
             foreach (var attribute in foreignKeyColumn.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
             {
-                var candidateColumn = database
-                    .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table)?
+                var candidateTableModel = database
+                    .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table);
+
+                if (candidateTableModel == null)
+                    return CreateForeignKeyFailure(
+                        foreignKeyColumn,
+                        attribute,
+                        $"Foreign key '{attribute.Name}' on column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' references table '{attribute.Table}', but no matching table exists in database '{database.DbName}'.");
+
+                var candidateColumn = candidateTableModel
                     .Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
 
-                if (candidateColumn == null) continue;
+                if (candidateColumn == null)
+                    return CreateForeignKeyFailure(
+                        foreignKeyColumn,
+                        attribute,
+                        $"Foreign key '{attribute.Name}' on column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' references column '{attribute.Table}.{attribute.Column}', but that column does not exist.");
 
                 var manySideModel = foreignKeyColumn.Table.Model;
                 var oneSideModel = candidateColumn.Table.Model;
@@ -190,6 +202,21 @@ public static class MetadataFactory
                 }
             }
         }
+
+        return true;
+    }
+
+    private static IDLOptionFailure CreateForeignKeyFailure(ColumnDefinition foreignKeyColumn, ForeignKeyAttribute attribute, string message)
+    {
+        var attributeLocation = foreignKeyColumn.ValueProperty.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        var property = foreignKeyColumn.ValueProperty;
+        if (property.SourceInfo.HasValue && property.CsFile.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property.SourceInfo.Value.GetPropertyLocation(property.CsFile.Value));
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, foreignKeyColumn);
     }
 
     private static RelationProperty? GetRelationProperty(ModelDefinition model, string referencedTableName, string referencedColumnName, string constraintName)

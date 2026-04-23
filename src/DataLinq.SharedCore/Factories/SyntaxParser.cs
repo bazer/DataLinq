@@ -391,29 +391,44 @@ public class SyntaxParser
 
     public Option<PropertyDefinition, IDLOptionFailure> ParseProperty(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
     {
-        if (!propSyntax.AttributeLists
-            .SelectMany(attrList => attrList.Attributes)
-            .Select(ParseAttribute)
-            .Transpose()
-            .TryUnwrap(out var attributes, out var failures))
+        var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
+        var parsedAttributes = new List<Attribute>();
+        var failures = new List<IDLOptionFailure>();
+
+        foreach (var attributeSyntax in propSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes))
+        {
+            if (ParseAttribute(attributeSyntax).TryUnwrap(out var attribute, out var failure))
+            {
+                parsedAttributes.Add(attribute);
+                attributeSourceSpans.Add((attribute, new SourceTextSpan(attributeSyntax.SpanStart, attributeSyntax.Span.Length)));
+            }
+            else
+            {
+                failures.Add(failure);
+            }
+        }
+
+        if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes for {propSyntax.Identifier.Text}", model, failures);
 
-        PropertyDefinition property = attributes.Any(attribute => attribute is RelationAttribute)
-            ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes)
-            : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes);
+        PropertyDefinition property = parsedAttributes.Any(attribute => attribute is RelationAttribute)
+            ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, parsedAttributes)
+            : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, parsedAttributes);
 
         property.SetCsNullable(propSyntax.Type is NullableTypeSyntax);
         property.SetSourceInfo(new PropertySourceInfo(
             new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
             GetDefaultValueExpressionSourceSpan(propSyntax)));
+        foreach (var (attribute, sourceSpan) in attributeSourceSpans)
+            property.SetAttributeSourceSpan(attribute, sourceSpan);
 
         if (property is ValueProperty valueProp)
         {
-            if (attributes.Any(attribute => attribute is EnumAttribute))
+            if (parsedAttributes.Any(attribute => attribute is EnumAttribute))
             {
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
-                var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1));
+                var enumValueList = parsedAttributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1));
 
                 var propertyTypeName = valueProp.CsType.Name;
                 var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;

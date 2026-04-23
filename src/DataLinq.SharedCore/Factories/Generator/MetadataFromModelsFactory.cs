@@ -120,7 +120,8 @@ public class MetadataFromModelsFactory
         database.SetTableModels(models);
 
         MetadataFactory.ParseIndices(database);
-        MetadataFactory.ParseRelations(database);
+        if (!MetadataFactory.ParseRelations(database).TryUnwrap(out _, out var relationFailure))
+            return relationFailure;
 
         if (database.TableModels.Any(x => x.CsPropertyName == database.CsType.Name))
             database.SetCsType(database.CsType.MutateName($"{database.CsType.Name}Db"));

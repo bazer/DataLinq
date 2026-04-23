@@ -12,6 +12,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 {
     private const string InvalidDefaultValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidDefaultModel.cs";
     private const string InvalidCacheLimitSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitModel.cs";
+    private const string InvalidForeignKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidForeignKeyModel.cs";
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -99,6 +100,32 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     {
         [PrimaryKey, AutoIncrement, Column(""id"")]
         public abstract int? Id { get; }
+    }";
+
+    private const string InvalidForeignKeyModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidForeignKeyNamespace;
+
+    public partial class InvalidForeignKeyDb : IDatabaseModel
+    {
+        public InvalidForeignKeyDb(DataSourceAccess dsa){}
+        public DbRead<OrderModel> Orders { get; }
+    }
+
+    [Table(""orders"")]
+    public abstract partial class OrderModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<OrderModel, InvalidForeignKeyDb>(rowData, dataSource), ITableModel<InvalidForeignKeyDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""user_id""), ForeignKey(""missing_users"", ""id"", ""FK_Order_User"")]
+        public abstract int UserId { get; }
     }";
 
     private static PropertyDeclarationSyntax GetPropertyFromType(TypeDeclarationSyntax typeDeclaration, string name)
@@ -230,5 +257,20 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(string.IsNullOrWhiteSpace(highlightedSource)).IsFalse();
         await Assert.That(highlightedSource.Contains("CacheLimit", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("Invalid CacheLimitType value", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidForeignKey_ShouldReportDiagnosticAtForeignKeyAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidForeignKeyModelSource, path: InvalidForeignKeySourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidForeignKeySourcePath);
+        await Assert.That(highlightedSource.Contains("ForeignKey", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("missing_users", StringComparison.Ordinal)).IsTrue();
     }
 }
