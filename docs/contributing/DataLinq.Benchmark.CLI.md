@@ -135,6 +135,8 @@ Important outputs include:
 - optional history JSON artifacts
 - optional comparison JSON artifacts
 
+Summary, history, and comparison JSON rows include `TrackingGroup` when a benchmark belongs to a narrower decision lane such as `phase2-watch`.
+
 ## Stable CI Lane
 
 The benchmark history lane is intentionally narrower than the full local benchmark surface.

@@ -22,6 +22,7 @@ internal sealed class BenchmarkHarnessRunner
         "EnvironmentVariable",
         "NoWorkloadResult"
     ];
+    private const string Phase2WatchTrackingGroup = "phase2-watch";
     private const string BenchmarkRunIdEnvironmentVariable = "DATALINQ_BENCHMARK_RUN_ID";
     private const string BenchmarkResultsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_RESULTS_DIR";
 
@@ -582,6 +583,7 @@ internal sealed class BenchmarkHarnessRunner
                 ErrorMicroseconds: row.ErrorMicroseconds,
                 AllocatedBytes: row.AllocatedBytes,
                 NoisePercent: GetRelativeError(row.MeanMicroseconds, row.ErrorMicroseconds) is double relativeError ? relativeError * 100d : null,
+                TrackingGroup: GetTrackingGroup(row.Method),
                 TelemetryDelta: row.TelemetryDelta)).ToArray());
     }
 
@@ -610,6 +612,7 @@ internal sealed class BenchmarkHarnessRunner
                 ErrorMicroseconds: row.ErrorMicroseconds,
                 AllocatedBytes: row.AllocatedBytes,
                 NoisePercent: row.NoisePercent,
+                TrackingGroup: row.TrackingGroup,
                 TelemetryDelta: row.TelemetryDelta)).ToArray());
 
     private BenchmarkRunMetadata CreateRunMetadata(string profile, string filter)
@@ -782,6 +785,7 @@ internal sealed class BenchmarkHarnessRunner
                 CandidateAllocatedBytes: candidateRow?.AllocatedBytes,
                 AllocatedDeltaPercent: allocatedDeltaPercent,
                 MaxNoisePercent: maxNoisePercent,
+                TrackingGroup: ResolveTrackingGroup(baselineRow, candidateRow),
                 Status: status));
         }
 
@@ -817,6 +821,20 @@ internal sealed class BenchmarkHarnessRunner
 
         return "stable";
     }
+
+    private static string? ResolveTrackingGroup(
+        BenchmarkHistoryArtifactRow? baselineRow,
+        BenchmarkHistoryArtifactRow? candidateRow)
+        => candidateRow?.TrackingGroup ?? baselineRow?.TrackingGroup ?? GetTrackingGroup(candidateRow?.Method ?? baselineRow?.Method);
+
+    private static string? GetTrackingGroup(string? method)
+        => method switch
+        {
+            "Provider initialization" => Phase2WatchTrackingGroup,
+            "Startup primary-key fetch" => Phase2WatchTrackingGroup,
+            "Warm primary-key fetch" => Phase2WatchTrackingGroup,
+            _ => null
+        };
 
     private static double? GetDeltaPercent(double? baselineValue, double? candidateValue)
     {
@@ -1114,6 +1132,7 @@ internal sealed class BenchmarkHarnessRunner
         double? ErrorMicroseconds,
         double? AllocatedBytes,
         double? NoisePercent,
+        string? TrackingGroup,
         BenchmarkTelemetryDeltaArtifact? TelemetryDelta);
 
     private sealed record BenchmarkTelemetryDeltaArtifact(
@@ -1164,6 +1183,7 @@ internal sealed class BenchmarkHarnessRunner
         double? ErrorMicroseconds,
         double? AllocatedBytes,
         double? NoisePercent,
+        string? TrackingGroup,
         BenchmarkTelemetryDeltaArtifact? TelemetryDelta);
 
     private sealed record BenchmarkComparisonArtifact(
@@ -1185,6 +1205,7 @@ internal sealed class BenchmarkHarnessRunner
         double? CandidateAllocatedBytes,
         double? AllocatedDeltaPercent,
         double MaxNoisePercent,
+        string? TrackingGroup,
         string Status);
 
     private sealed record SummaryResult(string JsonPath, BenchmarkSummaryArtifact Artifact);
