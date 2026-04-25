@@ -13,6 +13,9 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string InvalidDefaultValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidDefaultModel.cs";
     private const string InvalidCacheLimitSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitModel.cs";
     private const string InvalidCacheLimitAmountSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitAmountModel.cs";
+    private const string InvalidTypeAttributeSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidTypeAttributeModel.cs";
+    private const string InvalidInterfaceAttributeSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidInterfaceAttributeModel.cs";
+    private const string InvalidEnumValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidEnumValueModel.cs";
     private const string InvalidForeignKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidForeignKeyModel.cs";
     private const string DuplicateTableSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateTableModel.cs";
     private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
@@ -133,6 +136,92 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     {
         [PrimaryKey, AutoIncrement, Column(""id"")]
         public abstract int? Id { get; }
+    }";
+
+    private const string InvalidTypeAttributeModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidTypeAttributeNamespace;
+
+    public partial class InvalidTypeAttributeDb : IDatabaseModel
+    {
+        public InvalidTypeAttributeDb(DataSourceAccess dsa){}
+        public DbRead<InvalidTypeAttributeModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class InvalidTypeAttributeModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<InvalidTypeAttributeModel, InvalidTypeAttributeDb>(rowData, dataSource), ITableModel<InvalidTypeAttributeDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""name"")]
+        [Type(DatabaseType.MySQL, ""VARCHAR"", ""not_length"")]
+        public abstract string Name { get; }
+    }";
+
+    private const string InvalidInterfaceAttributeModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidInterfaceAttributeNamespace;
+
+    public partial class InvalidInterfaceAttributeDb : IDatabaseModel
+    {
+        public InvalidInterfaceAttributeDb(DataSourceAccess dsa){}
+        public DbRead<InvalidInterfaceAttributeModel> Rows { get; }
+    }
+
+    public partial interface IInvalidInterfaceAttributeModel {}
+
+    [Table(""rows"")]
+    [Interface<IInvalidInterfaceAttributeModel>(""maybe"")]
+    public abstract partial class InvalidInterfaceAttributeModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<InvalidInterfaceAttributeModel, InvalidInterfaceAttributeDb>(rowData, dataSource), ITableModel<InvalidInterfaceAttributeDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+    }";
+
+    private const string InvalidEnumValueModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidEnumValueNamespace;
+
+    public partial class InvalidEnumValueDb : IDatabaseModel
+    {
+        public InvalidEnumValueDb(DataSourceAccess dsa){}
+        public DbRead<InvalidEnumValueModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class InvalidEnumValueModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<InvalidEnumValueModel, InvalidEnumValueDb>(rowData, dataSource), ITableModel<InvalidEnumValueDb>
+    {
+        public enum RowStatus
+        {
+            Active = 1 + 1,
+            Archived
+        }
+
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""status"")]
+        [Enum(""Active"", ""Archived"")]
+        public abstract RowStatus Status { get; }
     }";
 
     private const string InvalidForeignKeyModelSource = @"
@@ -541,6 +630,54 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource).IsEqualTo("CacheLimit(CacheLimitType.Rows, 1.5)");
         await Assert.That(diagnostic.GetMessage().Contains("Invalid cache limit amount", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("1.5", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidTypeAttributeArgument_ShouldReportDiagnosticAtTypeAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidTypeAttributeModelSource, path: InvalidTypeAttributeSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidTypeAttributeSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo(@"Type(DatabaseType.MySQL, ""VARCHAR"", ""not_length"")");
+        await Assert.That(diagnostic.GetMessage().Contains("Invalid TypeAttribute length or signed value", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("not_length", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidInterfaceAttributeArgument_ShouldReportDiagnosticAtInterfaceAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidInterfaceAttributeModelSource, path: InvalidInterfaceAttributeSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidInterfaceAttributeSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo(@"Interface<IInvalidInterfaceAttributeModel>(""maybe"")");
+        await Assert.That(diagnostic.GetMessage().Contains("Invalid InterfaceAttribute generateInterface value", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("maybe", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidEnumValue_ShouldReportDiagnosticAtEnumValueLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidEnumValueModelSource, path: InvalidEnumValueSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidEnumValueSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo("1 + 1");
+        await Assert.That(diagnostic.GetMessage().Contains("Invalid enum value", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("Active", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

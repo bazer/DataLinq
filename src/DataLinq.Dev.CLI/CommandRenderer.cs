@@ -96,10 +96,10 @@ internal static class CommandRenderer
             };
 
             table.AddRow(
-                diagnostic.Code ?? "-",
-                diagnostic.Message,
-                projects,
-                diagnostic.Count.ToString());
+                Markup.Escape(diagnostic.Code ?? "-"),
+                Markup.Escape(diagnostic.Message),
+                Markup.Escape(projects),
+                Markup.Escape(diagnostic.Count.ToString()));
         }
 
         AnsiConsole.Write(table);

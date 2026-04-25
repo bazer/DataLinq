@@ -341,6 +341,12 @@ public class SyntaxParser
 
         if (name == "Type")
         {
+            Option<Attribute, IDLOptionFailure> FailInvalidTypeArgument(string argumentName, string value) =>
+                FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid TypeAttribute {argumentName} value '{value}'");
+
+            if (arguments.Count == 0)
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
+
             string enumValue = arguments[0].Split('.').Last();
             if (Enum.TryParse(enumValue, out DatabaseType dbType))
             {
@@ -349,17 +355,35 @@ public class SyntaxParser
                     case 1: return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
                     case 2: return new TypeAttribute(dbType, arguments[1]);
                     case 3:
-                        if (ulong.TryParse(arguments[2], out ulong length))
+                        if (TryParseUlong(arguments[2], out ulong length))
                             return new TypeAttribute(dbType, arguments[1], length);
-                        else
-                            return new TypeAttribute(dbType, arguments[1], bool.Parse(arguments[2]));
+
+                        if (TryParseBool(arguments[2], out bool signed))
+                            return new TypeAttribute(dbType, arguments[1], signed);
+
+                        return FailInvalidTypeArgument("length or signed", arguments[2]);
                     case 4:
-                        if (uint.TryParse(arguments[3], out uint decimals))
-                            return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), decimals);
-                        else
-                            return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), bool.Parse(arguments[3]));
+                        if (!TryParseUlong(arguments[2], out length))
+                            return FailInvalidTypeArgument("length", arguments[2]);
+
+                        if (TryParseUint(arguments[3], out uint decimals))
+                            return new TypeAttribute(dbType, arguments[1], length, decimals);
+
+                        if (TryParseBool(arguments[3], out signed))
+                            return new TypeAttribute(dbType, arguments[1], length, signed);
+
+                        return FailInvalidTypeArgument("decimals or signed", arguments[3]);
                     case 5:
-                        return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), uint.Parse(arguments[3]), bool.Parse(arguments[4]));
+                        if (!TryParseUlong(arguments[2], out length))
+                            return FailInvalidTypeArgument("length", arguments[2]);
+
+                        if (!TryParseUint(arguments[3], out decimals))
+                            return FailInvalidTypeArgument("decimals", arguments[3]);
+
+                        if (!TryParseBool(arguments[4], out signed))
+                            return FailInvalidTypeArgument("signed", arguments[4]);
+
+                        return new TypeAttribute(dbType, arguments[1], length, decimals, signed);
                 }
             }
             else
@@ -368,14 +392,32 @@ public class SyntaxParser
                 {
                     case 1: return new TypeAttribute(arguments[0]);
                     case 2:
-                        if (ulong.TryParse(arguments[1], out ulong length))
+                        if (TryParseUlong(arguments[1], out ulong length))
                             return new TypeAttribute(arguments[0], length);
-                        else
-                            return new TypeAttribute(arguments[0], bool.Parse(arguments[1]));
+
+                        if (TryParseBool(arguments[1], out bool signed))
+                            return new TypeAttribute(arguments[0], signed);
+
+                        return FailInvalidTypeArgument("length or signed", arguments[1]);
                     case 3:
-                        return new TypeAttribute(arguments[0], ulong.Parse(arguments[1]), bool.Parse(arguments[2]));
+                        if (!TryParseUlong(arguments[1], out length))
+                            return FailInvalidTypeArgument("length", arguments[1]);
+
+                        if (!TryParseBool(arguments[2], out signed))
+                            return FailInvalidTypeArgument("signed", arguments[2]);
+
+                        return new TypeAttribute(arguments[0], length, signed);
                     case 4:
-                        return new TypeAttribute(arguments[0], ulong.Parse(arguments[1]), uint.Parse(arguments[2]), bool.Parse(arguments[3]));
+                        if (!TryParseUlong(arguments[1], out length))
+                            return FailInvalidTypeArgument("length", arguments[1]);
+
+                        if (!TryParseUint(arguments[2], out uint decimals))
+                            return FailInvalidTypeArgument("decimals", arguments[2]);
+
+                        if (!TryParseBool(arguments[3], out signed))
+                            return FailInvalidTypeArgument("signed", arguments[3]);
+
+                        return new TypeAttribute(arguments[0], length, decimals, signed);
                 }
             }
 
@@ -392,13 +434,24 @@ public class SyntaxParser
 
                 // Extract the type argument from the generic type
                 var typeArgument = generictype.TypeArgumentList.Arguments[0].ToString();
-                return new InterfaceAttribute(typeArgument, arguments.Count == 0 || bool.Parse(arguments[0]));
+                if (arguments.Count == 0)
+                    return new InterfaceAttribute(typeArgument);
+
+                if (!TryParseBool(arguments[0], out bool generateInterface))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid InterfaceAttribute generateInterface value '{arguments[0]}'");
+
+                return new InterfaceAttribute(typeArgument, generateInterface);
             }
 
             if (arguments.Count == 1)
                 return new InterfaceAttribute(arguments[0]);
             else if (arguments.Count == 2)
-                return new InterfaceAttribute(arguments[0], bool.Parse(arguments[1]));
+            {
+                if (!TryParseBool(arguments[1], out bool generateInterface))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid InterfaceAttribute generateInterface value '{arguments[1]}'");
+
+                return new InterfaceAttribute(arguments[0], generateInterface);
+            }
             else
                 return new InterfaceAttribute();
         }
@@ -419,6 +472,12 @@ public class SyntaxParser
 
     private static bool TryParseInt(string value, out int result) =>
         int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+
+    private static bool TryParseUlong(string value, out ulong result) =>
+        ulong.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+
+    private static bool TryParseUint(string value, out uint result) =>
+        uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
 
     private static bool TryGetSourceLocation(SyntaxNode syntaxNode, out SourceLocation sourceLocation)
     {
@@ -489,20 +548,21 @@ public class SyntaxParser
                 if (enumDeclaration != null)
                 {
                     int lastValue = -1;
-                    csEnumValues = enumDeclaration.Members
-                        .Select(m => {
-                            if (m.EqualsValue != null)
-                            {
-                                lastValue = int.Parse(m.EqualsValue.Value.ToString());
-                                return (m.Identifier.ValueText, lastValue);
-                            }
-                            else
-                            {
-                                lastValue++;
-                                return (m.Identifier.ValueText, lastValue);
-                            }
-                        })
-                        .ToList();
+                    foreach (var member in enumDeclaration.Members)
+                    {
+                        if (member.EqualsValue != null)
+                        {
+                            var explicitValue = member.EqualsValue.Value.ToString();
+                            if (!TryParseInt(explicitValue, out lastValue))
+                                return FailProperty(member.EqualsValue.Value, DLFailureType.InvalidArgument, $"Invalid enum value '{explicitValue}' for enum member '{member.Identifier.ValueText}'. DataLinq enum metadata currently supports explicit integer values only.");
+                        }
+                        else
+                        {
+                            lastValue++;
+                        }
+
+                        csEnumValues.Add((member.Identifier.ValueText, lastValue));
+                    }
                 }
 
                 valueProp.SetEnumProperty(new EnumProperty(enumValueList, csEnumValues, declaredInClass));
