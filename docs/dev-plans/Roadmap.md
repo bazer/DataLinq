@@ -80,6 +80,8 @@ Key related plans:
 
 ### Phase 3: Query and Runtime Hot Path Optimization
 
+Status: planning.
+
 Goals:
 
 - reduce allocations in SQL generation
