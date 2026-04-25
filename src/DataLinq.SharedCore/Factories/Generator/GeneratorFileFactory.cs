@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -54,15 +54,17 @@ public class GeneratorFileFactory
 
     public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
     {
-        var dbCsTypeName = database.TableModels.Any(x => x.Model.CsType.Name == database.CsType.Name)
-            ? $"{database.CsType.Name}Db"
-            : database.CsType.Name;
-
         foreach (var table in database.TableModels.Where(x => !x.IsStub))
+            yield return CreateModelFile(table);
+    }
+
+    private (string path, string contents) CreateModelFile(TableModel table)
+    {
+        try
         {
             var namespaceName = Options.NamespaceName ?? table.Model.CsType.Namespace;
-            if (namespaceName == null)
-                throw new Exception($"Namespace is null for '{table.Model.CsType.Name}'");
+            if (string.IsNullOrWhiteSpace(namespaceName))
+                throw new Exception($"Namespace is missing for '{table.Model.CsType.Name}'");
 
             var usings = Options.Usings
                 .Concat(table.Model.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>())
@@ -86,7 +88,15 @@ public class GeneratorFileFactory
 
             var path = GetFilePath(table);
 
-            yield return (path, file);
+            return (path, file);
+        }
+        catch (ModelFileGenerationException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new ModelFileGenerationException(table.Model, exception);
         }
     }
 

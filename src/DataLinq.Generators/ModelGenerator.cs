@@ -112,7 +112,10 @@ public sealed class ModelGenerator : IIncrementalGenerator
         }
         catch (Exception e)
         {
-            context.ReportDiagnostic(Diagnostic.Create(GeneratorDiagnostics.ModelFileGenerationFailed, Location.None, $"{e.Message}\n{e.StackTrace}"));
+            context.ReportDiagnostic(Diagnostic.Create(
+                GeneratorDiagnostics.ModelFileGenerationFailed,
+                ResolveGenerationFailureLocation(e, db.Value, compilation),
+                $"{e.Message}\n{e.StackTrace}"));
         }
     }
 
@@ -128,8 +131,22 @@ public sealed class ModelGenerator : IIncrementalGenerator
     }
 
     private static Location ResolveFailureLocation(IDLOptionFailure failure, Compilation compilation)
+        => ResolveSourceLocation(failure.GetMostRelevantSourceLocation(), compilation);
+
+    private static Location ResolveGenerationFailureLocation(Exception exception, DatabaseDefinition database, Compilation compilation)
     {
-        var sourceLocation = failure.GetMostRelevantSourceLocation();
+        if (exception is ModelFileGenerationException modelFileGenerationException)
+        {
+            var modelLocation = modelFileGenerationException.GetSourceLocation();
+            if (modelLocation.HasValue)
+                return ResolveSourceLocation(modelLocation, compilation);
+        }
+
+        return ResolveSourceLocation(database.GetSourceLocation(), compilation);
+    }
+
+    private static Location ResolveSourceLocation(SourceLocation? sourceLocation, Compilation compilation)
+    {
         if (!sourceLocation.HasValue)
             return Location.None;
 

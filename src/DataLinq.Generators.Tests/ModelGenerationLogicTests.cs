@@ -16,6 +16,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string InvalidTypeAttributeSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidTypeAttributeModel.cs";
     private const string InvalidInterfaceAttributeSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidInterfaceAttributeModel.cs";
     private const string InvalidEnumValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidEnumValueModel.cs";
+    private const string MissingNamespaceSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingNamespaceModel.cs";
     private const string InvalidForeignKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidForeignKeyModel.cs";
     private const string DuplicateTableSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateTableModel.cs";
     private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
@@ -222,6 +223,27 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         [Column(""status"")]
         [Enum(""Active"", ""Archived"")]
         public abstract RowStatus Status { get; }
+    }";
+
+    private const string MissingNamespaceModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    public partial class MissingNamespaceDb : IDatabaseModel
+    {
+        public MissingNamespaceDb(DataSourceAccess dsa){}
+        public DbRead<MissingNamespaceModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class MissingNamespaceModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<MissingNamespaceModel, MissingNamespaceDb>(rowData, dataSource), ITableModel<MissingNamespaceDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
     }";
 
     private const string InvalidForeignKeyModelSource = @"
@@ -678,6 +700,22 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource).IsEqualTo("1 + 1");
         await Assert.That(diagnostic.GetMessage().Contains("Invalid enum value", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("Active", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task MissingNamespace_ShouldReportModelFileGenerationDiagnosticAtModelLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(MissingNamespaceModelSource, path: MissingNamespaceSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG002");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(MissingNamespaceSourcePath);
+        await Assert.That(highlightedSource.Contains("class MissingNamespaceModel", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("Namespace is missing", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("MissingNamespaceModel", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
