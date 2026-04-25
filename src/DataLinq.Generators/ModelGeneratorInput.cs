@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -26,6 +27,9 @@ internal sealed class ModelGeneratorInput
     public static ModelGeneratorInput Create(Compilation compilation, ImmutableArray<ModelDeclarationInput> modelDeclarations)
         => new(compilation, NormalizeModelDeclarationOrder(modelDeclarations), IsNullableEnabled(compilation));
 
+    public static ModelGeneratorInput CreateFromNormalized(Compilation compilation, ImmutableArray<ModelDeclarationInput> modelDeclarations)
+        => new(compilation, modelDeclarations, IsNullableEnabled(compilation));
+
     internal static ImmutableArray<ModelDeclarationInput> NormalizeModelDeclarationOrder(ImmutableArray<ModelDeclarationInput> modelDeclarations)
         => modelDeclarations
             .OrderBy(static declaration => declaration.Snapshot.Namespace, StringComparer.Ordinal)
@@ -43,6 +47,48 @@ internal sealed class ModelGeneratorInput
             NullableContextOptions.Annotations => true,
             _ => false,
         };
+    }
+}
+
+internal sealed class ModelDeclarationInputComparer : IEqualityComparer<ModelDeclarationInput>
+{
+    public static ModelDeclarationInputComparer Instance { get; } = new();
+
+    public bool Equals(ModelDeclarationInput x, ModelDeclarationInput y)
+        => x.Snapshot.Equals(y.Snapshot);
+
+    public int GetHashCode(ModelDeclarationInput obj)
+        => obj.Snapshot.GetHashCode();
+}
+
+internal sealed class ModelDeclarationInputArrayComparer : IEqualityComparer<ImmutableArray<ModelDeclarationInput>>
+{
+    public static ModelDeclarationInputArrayComparer Instance { get; } = new();
+
+    public bool Equals(ImmutableArray<ModelDeclarationInput> x, ImmutableArray<ModelDeclarationInput> y)
+    {
+        if (x.Length != y.Length)
+            return false;
+
+        for (var i = 0; i < x.Length; i++)
+        {
+            if (!ModelDeclarationInputComparer.Instance.Equals(x[i], y[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    public int GetHashCode(ImmutableArray<ModelDeclarationInput> obj)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var item in obj)
+                hash = hash * 31 + ModelDeclarationInputComparer.Instance.GetHashCode(item);
+
+            return hash;
+        }
     }
 }
 

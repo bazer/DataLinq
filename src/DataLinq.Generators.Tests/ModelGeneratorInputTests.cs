@@ -38,6 +38,50 @@ public class ModelGeneratorInputTests
     }
 
     [Test]
+    public async Task ModelDeclarationInputComparer_UsesStructuralSnapshot()
+    {
+        var first = ModelDeclarationInput.Create(GetTypeDeclaration("""
+            namespace SnapshotTests;
+
+            public abstract partial class SnapshotRow : ITableModel<SnapshotDb>
+            {
+                [Column("id")]
+                public abstract int Id { get; }
+            }
+            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\FirstSnapshotRow.cs"));
+
+        var second = ModelDeclarationInput.Create(GetTypeDeclaration("""
+            namespace SnapshotTests;
+
+            public abstract partial class SnapshotRow
+                : ITableModel<SnapshotDb>
+            {
+                [Column("id")] public abstract int Id { get; }
+            }
+            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\SecondSnapshotRow.cs"));
+
+        await Assert.That(ModelDeclarationInputComparer.Instance.Equals(first, second)).IsTrue();
+        await Assert.That(ModelDeclarationInputComparer.Instance.GetHashCode(first))
+            .IsEqualTo(ModelDeclarationInputComparer.Instance.GetHashCode(second));
+    }
+
+    [Test]
+    public async Task ModelDeclarationInputArrayComparer_UsesOrderedStructuralSnapshots()
+    {
+        var first = ModelDeclarationInput.Create(GetTypeDeclaration("""
+            namespace SnapshotTests;
+            public partial class SnapshotDb : IDatabaseModel {}
+            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\SnapshotDb1.cs"));
+
+        var second = ModelDeclarationInput.Create(GetTypeDeclaration("""
+            namespace SnapshotTests;
+            public partial class SnapshotDb : IDatabaseModel { }
+            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\SnapshotDb2.cs"));
+
+        await Assert.That(ModelDeclarationInputArrayComparer.Instance.Equals([first], [second])).IsTrue();
+    }
+
+    [Test]
     public async Task NormalizeModelDeclarationOrder_OrdersByNamespaceAndName()
     {
         var alpha = ModelDeclarationInput.Create(GetTypeDeclaration("""
