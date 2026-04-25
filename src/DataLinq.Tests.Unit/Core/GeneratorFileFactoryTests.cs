@@ -9,6 +9,26 @@ namespace DataLinq.Tests.Unit.Core;
 public class GeneratorFileFactoryTests
 {
     [Test]
+    public async Task CreateModelFiles_DatabaseModel_EmitsGeneratedMetadataBootstrapHook()
+    {
+        var database = CreateDatabaseWithDefaultValue(
+            propertyName: "Name",
+            propertyType: new CsTypeDeclaration(typeof(string)),
+            defaultValue: "generated");
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorDb.DataLinqMetadata.cs");
+
+        await Assert.That(generatedFile.contents.Contains(
+            "public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>"))
+            .IsTrue();
+        await Assert.That(generatedFile.contents.Contains(
+            "new(\"GeneratorModels\", typeof(global::TestNamespace.GeneratorModel)),"))
+            .IsTrue();
+    }
+
+    [Test]
     public async Task CreateModelFiles_ImmutableModel_EmitsGeneratedFactoryHook()
     {
         var database = CreateDatabaseWithDefaultValue(

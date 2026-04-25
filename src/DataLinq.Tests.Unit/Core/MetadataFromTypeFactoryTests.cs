@@ -2,7 +2,10 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using DataLinq.Mutation;
 using DataLinq.Tests.Models.Employees;
 using ThrowAway.Extensions;
 
@@ -122,6 +125,19 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(ReferenceEquals(nameColumn, uniqueIndex.Columns[0])).IsTrue();
     }
 
+    [Test]
+    public async Task ParseDatabase_GeneratedTableBootstrap_ReplacesDatabasePropertyReflection()
+    {
+        var databaseDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(BootstrapHookDb)).ValueOrException();
+
+        await Assert.That(databaseDefinition.TableModels.Length).IsEqualTo(1);
+
+        var tableModel = databaseDefinition.TableModels.Single();
+        await Assert.That(tableModel.CsPropertyName).IsEqualTo("Rows");
+        await Assert.That(tableModel.Model.CsType.Type).IsEqualTo(typeof(BootstrapHookRow));
+        await Assert.That(tableModel.Table.DbName).IsEqualTo("bootstrap_rows");
+    }
+
     private static async Task AssertValueProperty(ModelDefinition model, string propertyName, string expectedTypeName, bool? expectedNullable = null)
     {
         await Assert.That(model.ValueProperties.ContainsKey(propertyName)).IsTrue();
@@ -145,4 +161,26 @@ public class MetadataFromTypeFactoryTests
 
         await Assert.That(matchesExpectedType).IsTrue();
     }
+}
+
+public sealed class BootstrapHookDb : IDatabaseModel
+{
+    public static GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>
+    [
+        new("Rows", typeof(BootstrapHookRow))
+    ];
+}
+
+[View("bootstrap_rows")]
+public abstract partial class BootstrapHookRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<BootstrapHookRow, BootstrapHookDb>(rowData, dataSource), IViewModel<BootstrapHookDb>
+{
+    [Column("id")]
+    public abstract int Id { get; }
+}
+
+public partial class ImmutableBootstrapHookRow(IRowData rowData, IDataSourceAccess dataSource)
+    : BootstrapHookRow(rowData, dataSource)
+{
+    public override int Id => (int)GetValue(nameof(Id));
 }
