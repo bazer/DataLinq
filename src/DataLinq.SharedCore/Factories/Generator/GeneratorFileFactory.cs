@@ -17,6 +17,7 @@ public class GeneratorFileFactoryOptions
     public bool UseFileScopedNamespaces { get; set; } = false;
     public bool UseNullableReferenceTypes { get; set; } = false;
     public bool SeparateTablesAndViews { get; set; } = false;
+    public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
     public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
@@ -494,6 +495,7 @@ public class GeneratorFileFactory
             .ThenByDescending(x => x.Attributes.Any(a => a is ForeignKeyAttribute))
             .ThenBy(x => x.PropertyName)
             .Where(x => x.Column.ValueProperty.Attributes.Any(a => a is DefaultAttribute))
+            .Where(x => !Options.SuppressedDefaultValueProperties.Contains(x))
             .ToList();
     }
 

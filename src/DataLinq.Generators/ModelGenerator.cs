@@ -25,7 +25,6 @@ public sealed class ModelGenerator : IIncrementalGenerator
         new DefaultValueCompatibilityValidator()
     ];
     private readonly MetadataFromModelsFactory metadataFactory = new(new MetadataFromInterfacesFactoryOptions());
-    private readonly GeneratorFileFactory fileFactory = new(new GeneratorFileFactoryOptions());
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -64,10 +63,8 @@ public sealed class ModelGenerator : IIncrementalGenerator
             if (sourceProductionContext.CancellationToken.IsCancellationRequested)
                 return;
 
-            fileFactory.Options.UseNullableReferenceTypes = generatorInput.UseNullableReferenceTypes;
-
             foreach (var metadata in ReadMetadataSafely(generatorInput.SyntaxDeclarations, sourceProductionContext.CancellationToken))
-                ExecuteForDatabase(metadata, generatorInput.Compilation, sourceProductionContext);
+                ExecuteForDatabase(metadata, generatorInput.Compilation, sourceProductionContext, generatorInput.UseNullableReferenceTypes);
         }, GeneratorName);
     }
 
@@ -97,7 +94,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
         }
     }
 
-    private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, Compilation compilation, SourceProductionContext context)
+    private void ExecuteForDatabase(Option<DatabaseDefinition, IDLOptionFailure> db, Compilation compilation, SourceProductionContext context, bool useNullableReferenceTypes)
     {
         if (db.HasFailed)
         {
@@ -110,8 +107,15 @@ public sealed class ModelGenerator : IIncrementalGenerator
 
         try
         {
+            var validationContext = new GeneratorValidationContext();
             foreach (var validator in validators)
-                validator.Validate(db.Value, compilation, context);
+                validator.Validate(db.Value, compilation, context, validationContext);
+
+            var fileFactory = new GeneratorFileFactory(new GeneratorFileFactoryOptions
+            {
+                UseNullableReferenceTypes = useNullableReferenceTypes,
+                SuppressedDefaultValueProperties = validationContext.SuppressedDefaultValueProperties,
+            });
 
             foreach (var (path, contents) in fileFactory.CreateModelFiles(db.Value))
                 context.AddSource($"{db.Value.Name}/{path}", contents);

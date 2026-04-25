@@ -5,5 +5,5 @@ namespace DataLinq.SourceGenerators;
 
 internal interface IGeneratorDatabaseValidator
 {
-    void Validate(DatabaseDefinition database, Compilation compilation, SourceProductionContext context);
+    void Validate(DatabaseDefinition database, Compilation compilation, SourceProductionContext context, GeneratorValidationContext validationContext);
 }

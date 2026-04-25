@@ -7,7 +7,7 @@ namespace DataLinq.SourceGenerators;
 
 internal sealed class DefaultValueCompatibilityValidator : IGeneratorDatabaseValidator
 {
-    public void Validate(DatabaseDefinition database, Compilation compilation, SourceProductionContext context)
+    public void Validate(DatabaseDefinition database, Compilation compilation, SourceProductionContext context, GeneratorValidationContext validationContext)
     {
         foreach (var property in database.TableModels.SelectMany(x => x.Model.ValueProperties.Values))
         {
@@ -29,7 +29,7 @@ internal sealed class DefaultValueCompatibilityValidator : IGeneratorDatabaseVal
                 property.PropertyName,
                 expressionContext.PropertyType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
 
-            property.SetAttributes(property.Attributes.Where(x => !ReferenceEquals(x, defaultAttr)));
+            validationContext.SuppressDefaultValue(property);
         }
     }
 }
