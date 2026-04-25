@@ -326,6 +326,9 @@ public class SyntaxParser
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
 
             string indexName = arguments[0];
+            if (string.IsNullOrWhiteSpace(indexName))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, "Index name cannot be empty.");
+
             if (!Enum.TryParse(arguments[1].Split('.').Last(), out IndexCharacteristic characteristic))
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid IndexCharacteristic value '{arguments[1]}'");
 

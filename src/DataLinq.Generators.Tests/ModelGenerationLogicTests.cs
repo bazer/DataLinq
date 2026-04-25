@@ -21,6 +21,8 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private const string DuplicateTableSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateTableModel.cs";
     private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
     private const string InvalidIndexSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidIndexModel.cs";
+    private const string InvalidIndexTypeSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidIndexTypeModel.cs";
+    private const string EmptyIndexNameSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\EmptyIndexNameModel.cs";
     private const string DuplicateColumnSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateColumnModel.cs";
     private const string MissingPrimaryKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingPrimaryKeyModel.cs";
     private const string InvalidRelationSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidRelationModel.cs";
@@ -367,6 +369,60 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 
         [Column(""name"")]
         [Index(""idx_missing_column"", IndexCharacteristic.Simple, IndexType.BTREE, ""name"", ""missing_column"")]
+        public abstract string Name { get; }
+    }";
+
+    private const string InvalidIndexTypeModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidIndexTypeNamespace;
+
+    public partial class InvalidIndexTypeDb : IDatabaseModel
+    {
+        public InvalidIndexTypeDb(DataSourceAccess dsa){}
+        public DbRead<InvalidIndexTypeRowModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class InvalidIndexTypeRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<InvalidIndexTypeRowModel, InvalidIndexTypeDb>(rowData, dataSource), ITableModel<InvalidIndexTypeDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""name"")]
+        [Index(""idx_invalid_fulltext"", IndexCharacteristic.Unique, IndexType.FULLTEXT)]
+        public abstract string Name { get; }
+    }";
+
+    private const string EmptyIndexNameModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestEmptyIndexNameNamespace;
+
+    public partial class EmptyIndexNameDb : IDatabaseModel
+    {
+        public EmptyIndexNameDb(DataSourceAccess dsa){}
+        public DbRead<EmptyIndexNameRowModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class EmptyIndexNameRowModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<EmptyIndexNameRowModel, EmptyIndexNameDb>(rowData, dataSource), ITableModel<EmptyIndexNameDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""name"")]
+        [Index("""", IndexCharacteristic.Simple)]
         public abstract string Name { get; }
     }";
 
@@ -779,6 +835,36 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         await Assert.That(highlightedSource.Contains("Index", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("missing_column", StringComparison.Ordinal)).IsTrue();
         await Assert.That(diagnostic.GetMessage().Contains("idx_missing_column", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task InvalidIndexTypeCombination_ShouldReportDiagnosticAtIndexAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidIndexTypeModelSource, path: InvalidIndexTypeSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidIndexTypeSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo(@"Index(""idx_invalid_fulltext"", IndexCharacteristic.Unique, IndexType.FULLTEXT)");
+        await Assert.That(diagnostic.GetMessage().Contains("A FULLTEXT index cannot be a primary key or unique", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task EmptyIndexName_ShouldReportDiagnosticAtIndexAttributeLocation()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(EmptyIndexNameModelSource, path: EmptyIndexNameSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
+        var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(EmptyIndexNameSourcePath);
+        await Assert.That(highlightedSource).IsEqualTo(@"Index("""", IndexCharacteristic.Simple)");
+        await Assert.That(diagnostic.GetMessage().Contains("Index name cannot be empty", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

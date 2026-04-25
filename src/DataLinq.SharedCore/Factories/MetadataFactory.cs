@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -127,7 +127,18 @@ public static class MetadataFactory
                         columnsForIndex = [column];
                     }
 
-                    column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
+                    try
+                    {
+                        column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
+                    }
+                    catch (InvalidOperationException exception)
+                    {
+                        return CreateIndexFailure(column, indexAttribute, exception.Message);
+                    }
+                    catch (ArgumentException exception)
+                    {
+                        return CreateIndexFailure(column, indexAttribute, exception.Message);
+                    }
                 }
             }
         }
