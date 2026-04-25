@@ -45,16 +45,19 @@ public sealed class ModelGenerator : IIncrementalGenerator
             .CreateSyntaxProvider(
                 predicate: static (node, _) => IsModelDeclaration(node),
                 transform: static (syntaxContext, _) => GetModelDeclaration(syntaxContext))
-            .WithComparer(ModelDeclarationInputComparer.Instance);
+            .WithComparer(ModelDeclarationInputComparer.Instance)
+            .WithTrackingName(ModelGeneratorTrackingNames.ModelDeclarations);
 
         IncrementalValueProvider<ImmutableArray<ModelDeclarationInput>> collectedClasses =
             modelDeclarations.Collect()
                 .Select(static (declarations, _) => ModelGeneratorInput.NormalizeModelDeclarationOrder(declarations))
-                .WithComparer(ModelDeclarationInputArrayComparer.Instance);
+                .WithComparer(ModelDeclarationInputArrayComparer.Instance)
+                .WithTrackingName(ModelGeneratorTrackingNames.CollectedModelDeclarations);
 
         var generatorInputs = context.CompilationProvider
             .Combine(collectedClasses)
-            .Select(static (input, _) => ModelGeneratorInput.CreateFromNormalized(input.Left, input.Right));
+            .Select(static (input, _) => ModelGeneratorInput.CreateFromNormalized(input.Left, input.Right))
+            .WithTrackingName(ModelGeneratorTrackingNames.GeneratorInputs);
 
         context.RegisterSourceOutputSafely(generatorInputs, (sourceProductionContext, generatorInput) =>
         {

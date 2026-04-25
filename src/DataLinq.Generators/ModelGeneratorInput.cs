@@ -7,6 +7,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace DataLinq.SourceGenerators;
 
+internal static class ModelGeneratorTrackingNames
+{
+    public const string ModelDeclarations = "DataLinq.ModelDeclarations";
+    public const string CollectedModelDeclarations = "DataLinq.CollectedModelDeclarations";
+    public const string GeneratorInputs = "DataLinq.GeneratorInputs";
+}
+
 internal sealed class ModelGeneratorInput
 {
     private ModelGeneratorInput(
