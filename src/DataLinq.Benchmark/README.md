@@ -15,6 +15,7 @@ Keep this README as a quick local pointer, not as a duplicate long-form tool man
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- list
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run
 dotnet run --project ./src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKeyFetch*"
+dotnet run --project ./src/DataLinq.Benchmark.CLI -- run -- --anyCategories phase2-watch
 ```
 
 Benchmark artifacts are written under `artifacts/benchmarks/`.

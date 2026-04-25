@@ -38,6 +38,7 @@ dotnet run --project src/DataLinq.Benchmark.CLI -- run
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKeyFetch*"
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile smoke
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile heavy
+dotnet run --project src/DataLinq.Benchmark.CLI -- run -- --anyCategories phase2-watch
 ```
 
 Important options:
@@ -68,6 +69,33 @@ Example:
 ```bash
 dotnet run --project src/DataLinq.Benchmark.CLI -- run -- --anyCategories stable
 ```
+
+## Phase 2 Watchpoints
+
+Phase 2 metadata and generator work should be checked against the narrow `phase2-watch` benchmark category before claiming a runtime win.
+
+That category intentionally contains only:
+
+- `ProviderInitialization`
+  Tracks metadata/provider startup cost.
+- `StartupPrimaryKeyFetch`
+  Tracks the first-query path after opening a fresh scope.
+- `WarmPrimaryKeyFetch`
+  Tracks the hot primary-key path after the row cache has already been populated.
+
+Run the watchpoints with:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- run -- --anyCategories phase2-watch
+```
+
+For quick local smoke validation, combine the category with the dry profile:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile smoke -- --anyCategories phase2-watch
+```
+
+The dry profile is useful for checking harness wiring. It is not a trustworthy performance result.
 
 ## Provider Selection
 

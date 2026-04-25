@@ -12,6 +12,8 @@ namespace DataLinq.Benchmark;
 public class EmployeesBenchmarks : IDisposable
 {
     private const string BenchmarkProvidersEnvironmentVariable = "DATALINQ_BENCHMARK_PROVIDERS";
+    private const string StableCategory = "stable";
+    private const string Phase2WatchCategory = "phase2-watch";
     private BenchmarkContext? context;
     private BenchmarkScenario? executedScenario;
 
@@ -69,7 +71,7 @@ public class EmployeesBenchmarks : IDisposable
         executedScenario = null;
     }
 
-    [BenchmarkCategory("stable")]
+    [BenchmarkCategory(StableCategory, Phase2WatchCategory)]
     [Benchmark(Description = "Provider initialization")]
     public int ProviderInitialization()
     {
@@ -77,7 +79,7 @@ public class EmployeesBenchmarks : IDisposable
         return context!.InitializeProviderAndMetadataOnFreshScope();
     }
 
-    [BenchmarkCategory("stable")]
+    [BenchmarkCategory(StableCategory, Phase2WatchCategory)]
     [Benchmark(Description = "Startup primary-key fetch")]
     public int StartupPrimaryKeyFetch()
     {
@@ -140,7 +142,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.CleanupUpdatedEmployees();
     }
 
-    [BenchmarkCategory("stable")]
+    [BenchmarkCategory(StableCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.MutationBatchOperationCount, Description = "Update employees")]
     public int UpdateEmployees()
     {
@@ -154,7 +156,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.ResetState(clearCache: true);
     }
 
-    [BenchmarkCategory("stable")]
+    [BenchmarkCategory(StableCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Cold primary-key fetch")]
     public int ColdPrimaryKeyFetch()
     {
@@ -170,7 +172,7 @@ public class EmployeesBenchmarks : IDisposable
         DataLinqMetrics.Reset();
     }
 
-    [BenchmarkCategory("stable")]
+    [BenchmarkCategory(StableCategory, Phase2WatchCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm primary-key fetch")]
     public int WarmPrimaryKeyFetch()
     {
@@ -184,7 +186,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.ResetState(clearCache: true);
     }
 
-    [BenchmarkCategory("stable")]
+    [BenchmarkCategory(StableCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Cold relation traversal")]
     public int ColdRelationTraversal()
     {
@@ -200,7 +202,7 @@ public class EmployeesBenchmarks : IDisposable
         DataLinqMetrics.Reset();
     }
 
-    [BenchmarkCategory("stable")]
+    [BenchmarkCategory(StableCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm relation traversal")]
     public int WarmRelationTraversal()
     {
