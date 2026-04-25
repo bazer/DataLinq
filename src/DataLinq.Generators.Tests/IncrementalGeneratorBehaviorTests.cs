@@ -75,6 +75,7 @@ public class IncrementalGeneratorBehaviorTests
 
         AssertStepOutputsWereReused(generatorResult, ModelGeneratorTrackingNames.ModelDeclarations);
         AssertStepOutputsWereReused(generatorResult, ModelGeneratorTrackingNames.CollectedModelDeclarations);
+        AssertStepOutputsWereReused(generatorResult, ModelGeneratorTrackingNames.MetadataResults);
 
         await Assert.That(generatorResult.Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsFalse();
     }

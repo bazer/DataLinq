@@ -24,8 +24,6 @@ public sealed class ModelGenerator : IIncrementalGenerator
     [
         new DefaultValueCompatibilityValidator()
     ];
-    private readonly MetadataFromModelsFactory metadataFactory = new(new MetadataFromInterfacesFactoryOptions());
-
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         try
@@ -53,9 +51,13 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 .WithComparer(ModelDeclarationInputArrayComparer.Instance)
                 .WithTrackingName(ModelGeneratorTrackingNames.CollectedModelDeclarations);
 
+        var metadataResults = collectedClasses
+            .Select(static (declarations, cancellationToken) => ReadMetadataSafely(declarations, cancellationToken))
+            .WithTrackingName(ModelGeneratorTrackingNames.MetadataResults);
+
         var generatorInputs = context.CompilationProvider
-            .Combine(collectedClasses)
-            .Select(static (input, _) => ModelGeneratorInput.CreateFromNormalized(input.Left, input.Right))
+            .Combine(metadataResults)
+            .Select(static (input, _) => ModelGeneratorExecutionInput.Create(input.Left, input.Right))
             .WithTrackingName(ModelGeneratorTrackingNames.GeneratorInputs);
 
         context.RegisterSourceOutputSafely(generatorInputs, (sourceProductionContext, generatorInput) =>
@@ -63,7 +65,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
             if (sourceProductionContext.CancellationToken.IsCancellationRequested)
                 return;
 
-            foreach (var metadata in ReadMetadataSafely(generatorInput.SyntaxDeclarations, sourceProductionContext.CancellationToken))
+            foreach (var metadata in generatorInput.MetadataResults)
                 ExecuteForDatabase(metadata, generatorInput.Compilation, sourceProductionContext, generatorInput.UseNullableReferenceTypes);
         }, GeneratorName);
     }
@@ -77,8 +79,8 @@ public sealed class ModelGenerator : IIncrementalGenerator
     private static ModelDeclarationInput GetModelDeclaration(GeneratorSyntaxContext context) =>
         ModelDeclarationInput.Create((TypeDeclarationSyntax)context.Node);
 
-    private IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ReadMetadataSafely(
-        ImmutableArray<TypeDeclarationSyntax> syntaxTrees,
+    private static ImmutableArray<Option<DatabaseDefinition, IDLOptionFailure>> ReadMetadataSafely(
+        ImmutableArray<ModelDeclarationInput> declarations,
         System.Threading.CancellationToken cancellationToken)
     {
         try
@@ -86,7 +88,9 @@ public sealed class ModelGenerator : IIncrementalGenerator
             if (cancellationToken.IsCancellationRequested)
                 return [];
 
-            return metadataFactory.ReadSyntaxTrees(syntaxTrees);
+            var syntaxTrees = declarations.Select(static declaration => declaration.Syntax).ToImmutableArray();
+            var metadataFactory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+            return metadataFactory.ReadSyntaxTrees(syntaxTrees).ToImmutableArray();
         }
         catch (Exception e)
         {

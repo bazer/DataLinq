@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using DataLinq.ErrorHandling;
+using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using ThrowAway;
 
 namespace DataLinq.SourceGenerators;
 
@@ -11,7 +14,30 @@ internal static class ModelGeneratorTrackingNames
 {
     public const string ModelDeclarations = "DataLinq.ModelDeclarations";
     public const string CollectedModelDeclarations = "DataLinq.CollectedModelDeclarations";
+    public const string MetadataResults = "DataLinq.MetadataResults";
     public const string GeneratorInputs = "DataLinq.GeneratorInputs";
+}
+
+internal sealed class ModelGeneratorExecutionInput
+{
+    private ModelGeneratorExecutionInput(
+        Compilation compilation,
+        ImmutableArray<Option<DatabaseDefinition, IDLOptionFailure>> metadataResults,
+        bool useNullableReferenceTypes)
+    {
+        Compilation = compilation;
+        MetadataResults = metadataResults;
+        UseNullableReferenceTypes = useNullableReferenceTypes;
+    }
+
+    public Compilation Compilation { get; }
+    public ImmutableArray<Option<DatabaseDefinition, IDLOptionFailure>> MetadataResults { get; }
+    public bool UseNullableReferenceTypes { get; }
+
+    public static ModelGeneratorExecutionInput Create(
+        Compilation compilation,
+        ImmutableArray<Option<DatabaseDefinition, IDLOptionFailure>> metadataResults)
+        => new(compilation, metadataResults, ModelGeneratorInput.IsNullableEnabled(compilation));
 }
 
 internal sealed class ModelGeneratorInput
@@ -45,7 +71,7 @@ internal sealed class ModelGeneratorInput
             .ThenBy(static declaration => declaration.Syntax.SpanStart)
             .ToImmutableArray();
 
-    private static bool IsNullableEnabled(Compilation compilation)
+    internal static bool IsNullableEnabled(Compilation compilation)
     {
         return compilation.Options.NullableContextOptions switch
         {
