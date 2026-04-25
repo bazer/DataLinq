@@ -60,6 +60,8 @@ Exit criteria:
 
 ### Phase 2: Metadata, Generator, and Diagnostics Hardening
 
+Status: implemented.
+
 Goals:
 
 - reduce runtime reflection and expression-based construction where code generation can do the work instead

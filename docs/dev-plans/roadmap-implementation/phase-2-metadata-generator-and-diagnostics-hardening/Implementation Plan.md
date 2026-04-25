@@ -1,8 +1,10 @@
 > [!WARNING]
-> This document is implementation planning material for Roadmap Phase 2. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
+> This document records the completed Roadmap Phase 2 implementation. Earlier planning sections are preserved for context; the implementation summary and follow-up sections describe the current state.
 # Phase 2 Implementation Plan: Metadata, Generator, and Diagnostics Hardening
 
-**Status:** Active planning document
+**Status:** Implemented.
+
+**Completed:** April 26, 2026.
 
 ## Purpose
 
@@ -16,7 +18,47 @@ Phase 1 gave DataLinq measurement tools.
 
 Phase 2 should use those tools to harden the foundation that later runtime optimization depends on.
 
-## Current Baseline
+## Implementation Summary
+
+Phase 2 was implemented as a series of narrow, measurable changes. The work deliberately avoided a wholesale runtime metadata rewrite.
+
+Completed outcomes:
+
+- generator-side model declaration snapshots now provide a structural equality boundary for incremental generation
+- source-location-carrying metadata failures now flow into generator diagnostics
+- high-signal validation failures now report at model, property, attribute, or table source locations where available
+- generated immutable model classes now expose static row factory hooks consumed by `InstanceFactory`
+- database model construction now uses cached constructor delegates instead of repeated `Activator.CreateInstance`
+- generated database partials now expose a table-model bootstrap hook consumed by `MetadataFromTypeFactory`
+- runtime reflection fallbacks remain for older generated models and manually authored models
+- the benchmark harness has a `phase2-watch` lane covering provider initialization, startup primary-key fetch, and warm primary-key fetch
+- benchmark summary/history/comparison rows can carry `TrackingGroup` metadata for the Phase 2 watch lane
+
+Verification performed during the phase:
+
+- `DataLinq.Tests.Unit`
+- `DataLinq.Generators.Tests`
+- focused incremental generator behavior tests
+- `DataLinq.Benchmark.CLI --phase2-watch` smoke and default-profile runs scoped to `sqlite-memory`
+
+Benchmark interpretation:
+
+- the watchpoint lane is wired and useful for regression checks
+- default-profile local rows still show noise, especially warm primary-key fetch and startup runs
+- the phase should be treated as reducing avoidable runtime dynamism and improving determinism, not as a final performance optimization pass
+
+## Remaining Follow-Up
+
+No Phase 2 blocker remains.
+
+Reasonable follow-up work belongs in later phases:
+
+- push deeper metadata construction into generated code only if provider-init benchmarks continue to show reflection as a meaningful bottleneck
+- replace more runtime metadata graph mutation only when a later optimization needs it
+- make benchmark history, not one-off local runs, the source of truth for claimed speedups
+- continue query/runtime allocation work in Phase 3 on top of the stronger metadata and generation seams
+
+## Original Baseline
 
 Several important things are already true:
 
@@ -70,7 +112,7 @@ This phase should optimize for a small set of outcomes that matter:
 - generator failures that point to real source locations
 - a cleaner platform for Phase 3 runtime/query optimization work
 
-## What This Phase Will Deliver
+## Planned Deliverables
 
 ### 1. Stronger metadata construction model
 
@@ -252,12 +294,18 @@ Use the Phase 1 benchmarks and telemetry to decide what actually improved and wh
 
 Phase 2 is done when all of the following are true:
 
-- metadata construction and runtime definition shape are clearly separated where mutability is needed
-- a structural metadata snapshot exists that supports equality suitable for generator gating
-- generated factory paths replace the most important runtime construction indirection
-- startup/provider-init work is reduced or at least made more deterministic in a measurable way
-- metadata/generator failures can point to useful source locations for the main high-signal failure cases
-- Phase 1 benchmark/telemetry tooling can show whether the work helped or regressed startup and hot-path behavior
+- [x] metadata construction and runtime definition shape are separated at the generator/bootstrap seams where Phase 2 needed them
+- [x] a structural generator input snapshot exists that supports equality suitable for generator gating
+- [x] generated factory paths replace the most important runtime construction indirection while preserving fallback paths
+- [x] startup/provider-init work is reduced or made more deterministic at the table-map and factory bootstrap points
+- [x] metadata/generator failures can point to useful source locations for the main high-signal failure cases
+- [x] Phase 1 benchmark/telemetry tooling can show whether this work helped or regressed startup and hot-path behavior
+
+Completion notes:
+
+- the runtime metadata graph is not fully immutable, by design; Phase 2 did not attempt a wholesale graph rewrite
+- generated metadata bootstrapping currently covers the database table-model map and keeps reflection fallback
+- benchmark data should be read through the stable history lane because local default-profile runs can be noisy
 
 ## Non-Goals
 
