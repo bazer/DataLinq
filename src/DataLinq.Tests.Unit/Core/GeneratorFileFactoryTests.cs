@@ -9,6 +9,23 @@ namespace DataLinq.Tests.Unit.Core;
 public class GeneratorFileFactoryTests
 {
     [Test]
+    public async Task CreateModelFiles_ImmutableModel_EmitsGeneratedFactoryHook()
+    {
+        var database = CreateDatabaseWithDefaultValue(
+            propertyName: "Name",
+            propertyType: new CsTypeDeclaration(typeof(string)),
+            defaultValue: "generated");
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorModel.cs");
+
+        await Assert.That(generatedFile.contents.Contains(
+            "public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableGeneratorModel(rowData, dataSource);"))
+            .IsTrue();
+    }
+
+    [Test]
     public async Task CreateModelFiles_DefaultEnumValue_UsesEnumMember()
     {
         var database = CreateDatabaseWithDefaultValue(

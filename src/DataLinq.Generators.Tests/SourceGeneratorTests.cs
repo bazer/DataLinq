@@ -36,6 +36,7 @@ public class SourceGeneratorTests : GeneratorTestBase
         var code = SyntaxTreesToString(syntax);
 
         await Assert.That(code.Contains("public partial class ImmutableEmployee", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableEmployee(rowData, dataSource);", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]
