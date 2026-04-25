@@ -38,7 +38,7 @@ dotnet run --project src/DataLinq.Benchmark.CLI -- run
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKeyFetch*"
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile smoke
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile heavy
-dotnet run --project src/DataLinq.Benchmark.CLI -- run -- --anyCategories phase2-watch
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch
 ```
 
 Important options:
@@ -53,6 +53,8 @@ Important options:
   Preserves BenchmarkDotNet-generated temporary files.
 - `--verbose`
   Prints the underlying restore/build/BenchmarkDotNet output.
+- `--phase2-watch`
+  Runs only the Phase 2 benchmark watchpoints.
 - `--history-json`
   Writes a stable benchmark history entry JSON artifact.
 - `--baseline`
@@ -86,13 +88,13 @@ That category intentionally contains only:
 Run the watchpoints with:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run -- --anyCategories phase2-watch
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch
 ```
 
 For quick local smoke validation, combine the category with the dry profile:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile smoke -- --anyCategories phase2-watch
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch --profile smoke
 ```
 
 The dry profile is useful for checking harness wiring. It is not a trustworthy performance result.

@@ -22,7 +22,7 @@ internal sealed class BenchmarkHarnessRunner
         "EnvironmentVariable",
         "NoWorkloadResult"
     ];
-    private const string Phase2WatchTrackingGroup = "phase2-watch";
+    internal const string Phase2WatchCategory = "phase2-watch";
     private const string BenchmarkRunIdEnvironmentVariable = "DATALINQ_BENCHMARK_RUN_ID";
     private const string BenchmarkResultsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_RESULTS_DIR";
 
@@ -72,6 +72,7 @@ internal sealed class BenchmarkHarnessRunner
         bool noBuild,
         bool keepFiles,
         bool verbose,
+        bool phase2Watch,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
@@ -105,6 +106,9 @@ internal sealed class BenchmarkHarnessRunner
 
         if (keepFiles)
             arguments.Add("--keepFiles");
+
+        if (phase2Watch)
+            arguments.AddRange(["--anyCategories", Phase2WatchCategory]);
 
         arguments.AddRange(additionalArgs);
 
@@ -830,9 +834,9 @@ internal sealed class BenchmarkHarnessRunner
     private static string? GetTrackingGroup(string? method)
         => method switch
         {
-            "Provider initialization" => Phase2WatchTrackingGroup,
-            "Startup primary-key fetch" => Phase2WatchTrackingGroup,
-            "Warm primary-key fetch" => Phase2WatchTrackingGroup,
+            "Provider initialization" => Phase2WatchCategory,
+            "Startup primary-key fetch" => Phase2WatchCategory,
+            "Warm primary-key fetch" => Phase2WatchCategory,
             _ => null
         };
 
