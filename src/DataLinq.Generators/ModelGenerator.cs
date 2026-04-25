@@ -41,27 +41,27 @@ public sealed class ModelGenerator : IIncrementalGenerator
 
     private void InitializeCore(IncrementalGeneratorInitializationContext context)
     {
-        IncrementalValuesProvider<TypeDeclarationSyntax> modelDeclarations = context.SyntaxProvider
+        IncrementalValuesProvider<ModelDeclarationInput> modelDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (node, _) => IsModelDeclaration(node),
-                transform: static (syntaxContext, _) => GetModelDeclaration(syntaxContext))
-            .Where(static declaration => declaration is not null)!;
+                transform: static (syntaxContext, _) => GetModelDeclaration(syntaxContext));
 
-        IncrementalValueProvider<ImmutableArray<TypeDeclarationSyntax>> collectedClasses =
+        IncrementalValueProvider<ImmutableArray<ModelDeclarationInput>> collectedClasses =
             modelDeclarations.Collect();
 
-        var generatorInputs = context.CompilationProvider.Combine(collectedClasses);
+        var generatorInputs = context.CompilationProvider
+            .Combine(collectedClasses)
+            .Select(static (input, _) => ModelGeneratorInput.Create(input.Left, input.Right));
 
-        context.RegisterSourceOutputSafely(generatorInputs, (sourceProductionContext, input) =>
+        context.RegisterSourceOutputSafely(generatorInputs, (sourceProductionContext, generatorInput) =>
         {
             if (sourceProductionContext.CancellationToken.IsCancellationRequested)
                 return;
 
-            var (compilation, syntaxTrees) = input;
-            fileFactory.Options.UseNullableReferenceTypes = IsNullableEnabled(compilation);
+            fileFactory.Options.UseNullableReferenceTypes = generatorInput.UseNullableReferenceTypes;
 
-            foreach (var metadata in ReadMetadataSafely(syntaxTrees, sourceProductionContext.CancellationToken))
-                ExecuteForDatabase(metadata, compilation, sourceProductionContext);
+            foreach (var metadata in ReadMetadataSafely(generatorInput.SyntaxDeclarations, sourceProductionContext.CancellationToken))
+                ExecuteForDatabase(metadata, generatorInput.Compilation, sourceProductionContext);
         }, GeneratorName);
     }
 
@@ -71,8 +71,8 @@ public sealed class ModelGenerator : IIncrementalGenerator
                classDeclaration.BaseList?.Types.Any(t => SyntaxParser.IsModelInterface(t.ToString())) == true;
     }
 
-    private static TypeDeclarationSyntax GetModelDeclaration(GeneratorSyntaxContext context) =>
-        (TypeDeclarationSyntax)context.Node;
+    private static ModelDeclarationInput GetModelDeclaration(GeneratorSyntaxContext context) =>
+        ModelDeclarationInput.Create((TypeDeclarationSyntax)context.Node);
 
     private IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ReadMetadataSafely(
         ImmutableArray<TypeDeclarationSyntax> syntaxTrees,
@@ -117,17 +117,6 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 ResolveGenerationFailureLocation(e, db.Value, compilation),
                 $"{e.Message}\n{e.StackTrace}"));
         }
-    }
-
-    private static bool IsNullableEnabled(Compilation compilation)
-    {
-        return compilation.Options.NullableContextOptions switch
-        {
-            NullableContextOptions.Enable => true,
-            NullableContextOptions.Warnings => true,
-            NullableContextOptions.Annotations => true,
-            _ => false,
-        };
     }
 
     private static Location ResolveFailureLocation(IDLOptionFailure failure, Compilation compilation)
