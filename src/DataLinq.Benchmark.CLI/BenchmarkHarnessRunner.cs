@@ -23,6 +23,7 @@ internal sealed class BenchmarkHarnessRunner
         "NoWorkloadResult"
     ];
     internal const string Phase2WatchCategory = "phase2-watch";
+    private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
     private const string BenchmarkRunIdEnvironmentVariable = "DATALINQ_BENCHMARK_RUN_ID";
     private const string BenchmarkResultsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_RESULTS_DIR";
 
@@ -97,11 +98,7 @@ internal sealed class BenchmarkHarnessRunner
             "--disableLogFile"
         };
 
-        if (string.Equals(profile, "smoke", StringComparison.OrdinalIgnoreCase))
-            arguments.AddRange(["--job", "Dry"]);
-        else if (string.Equals(profile, "heavy", StringComparison.OrdinalIgnoreCase))
-            arguments.AddRange(["--job", "Medium"]);
-        else if (!string.Equals(profile, "default", StringComparison.OrdinalIgnoreCase))
+        if (!IsSupportedProfile(profile))
             throw new InvalidOperationException("The benchmark profile must be 'default', 'heavy', or 'smoke'.");
 
         if (keepFiles)
@@ -118,6 +115,7 @@ internal sealed class BenchmarkHarnessRunner
 
         var benchmarkEnvironment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
+            [BenchmarkProfileEnvironmentVariable] = profile,
             [BenchmarkRunIdEnvironmentVariable] = runId,
             [BenchmarkResultsDirectoryEnvironmentVariable] = Path.Combine(settings.ArtifactsRoot, "results")
         };
@@ -429,7 +427,7 @@ internal sealed class BenchmarkHarnessRunner
         if (string.Equals(profile, "smoke", StringComparison.OrdinalIgnoreCase))
         {
             var dryRows = rows
-                .Where(static row => string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase))
+                .Where(static row => IsSmokeJob(row.Job))
                 .ToArray();
 
             var measuredDryRows = dryRows
@@ -440,7 +438,7 @@ internal sealed class BenchmarkHarnessRunner
                 return measuredDryRows;
 
             var measuredNonDryRows = rows
-                .Where(static row => !string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase) && row.MeanMicroseconds.HasValue)
+                .Where(static row => !IsSmokeJob(row.Job) && row.MeanMicroseconds.HasValue)
                 .ToArray();
 
             return measuredNonDryRows.Length > 0 ? measuredNonDryRows : rows;
@@ -466,12 +464,21 @@ internal sealed class BenchmarkHarnessRunner
 
         var nonDryRows = rows
             .Where(static row =>
-                !string.Equals(row.Job, "Dry", StringComparison.OrdinalIgnoreCase) &&
+                !IsSmokeJob(row.Job) &&
                 !string.Equals(row.Job, "Heavy", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
         return nonDryRows.Length > 0 ? nonDryRows : rows;
     }
+
+    private static bool IsSupportedProfile(string profile)
+        => string.Equals(profile, "default", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(profile, "heavy", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(profile, "smoke", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSmokeJob(string job)
+        => string.Equals(job, "Smoke", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(job, "Dry", StringComparison.OrdinalIgnoreCase);
 
     private static char DetectCsvDelimiter(string headerLine)
     {

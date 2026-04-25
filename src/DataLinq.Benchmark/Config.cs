@@ -12,27 +12,11 @@ namespace DataLinq.Benchmark;
 
 internal sealed class DataLinqBenchmarkConfig : ManualConfig
 {
+    private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
+
     public DataLinqBenchmarkConfig()
     {
-        AddJob(Job.ShortRun
-            .WithId("Default")
-            .WithRuntime(BenchmarkDotNet.Environments.CoreRuntime.Core80)
-            .WithWarmupCount(4)
-            .WithIterationCount(6)
-            .WithMsBuildArguments([
-                "/p:RestoreIgnoreFailedSources=true",
-                "/p:NuGetAudit=false"
-            ]));
-        AddJob(Job.MediumRun
-            .WithId("Heavy")
-            .WithRuntime(BenchmarkDotNet.Environments.CoreRuntime.Core80)
-            .WithLaunchCount(3)
-            .WithWarmupCount(6)
-            .WithIterationCount(15)
-            .WithMsBuildArguments([
-                "/p:RestoreIgnoreFailedSources=true",
-                "/p:NuGetAudit=false"
-            ]));
+        AddJob(CreateProfileJob());
         AddColumnProvider(DefaultColumnProviders.Instance);
         HideColumns(
             Column.Job,
@@ -67,5 +51,36 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
 
         throw new DirectoryNotFoundException(
             $"Unable to locate the DataLinq repository root from '{AppContext.BaseDirectory}'.");
+    }
+
+    private static Job CreateProfileJob()
+    {
+        var profile = Environment.GetEnvironmentVariable(BenchmarkProfileEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(profile))
+            profile = "default";
+
+        var job = profile.ToLowerInvariant() switch
+        {
+            "default" => Job.ShortRun
+                .WithId("Default")
+                .WithWarmupCount(4)
+                .WithIterationCount(6),
+            "heavy" => Job.MediumRun
+                .WithId("Heavy")
+                .WithLaunchCount(3)
+                .WithWarmupCount(6)
+                .WithIterationCount(15),
+            "smoke" => Job.Dry
+                .WithId("Smoke"),
+            _ => throw new InvalidOperationException(
+                $"Benchmark profile '{profile}' is not supported. Use 'default', 'heavy', or 'smoke'.")
+        };
+
+        return job
+            .WithRuntime(BenchmarkDotNet.Environments.CoreRuntime.Core80)
+            .WithMsBuildArguments([
+                "/p:RestoreIgnoreFailedSources=true",
+                "/p:NuGetAudit=false"
+            ]);
     }
 }

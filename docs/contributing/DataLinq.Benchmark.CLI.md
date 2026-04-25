@@ -46,7 +46,7 @@ Important options:
 - `--filter`
   BenchmarkDotNet filter pattern. Defaults to `*`.
 - `--profile`
-  `default`, `smoke`, or `heavy`.
+  `default`, `smoke`, or `heavy`. The wrapper selects one configured BenchmarkDotNet job for the chosen profile.
 - `--no-build`
   Reuses the existing benchmark assembly.
 - `--keep-files`
