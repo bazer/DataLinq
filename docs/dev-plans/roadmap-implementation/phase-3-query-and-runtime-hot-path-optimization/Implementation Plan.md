@@ -58,7 +58,7 @@ The right stance is:
 - keep SQLite and MySQL behavior aligned
 - prefer internal seams that can be backed out if benchmark data disagrees
 - treat struct conversion as a tool, not a strategy
-- treat result-set caching as a later product/runtime feature unless Phase 3 measurements prove it belongs here
+- treat result-set caching as a later product/runtime feature, not as Phase 3 scope
 
 The wrong stance would be:
 
@@ -164,17 +164,11 @@ Deliverables:
 - expose enough benchmark telemetry to explain whether wins came from fewer queries, less SQL work, cache hits, or materialization changes
 - avoid noisy per-query text logging as a benchmark mechanism
 
-### 7. Result-set caching decision gate
+## Moved Out of Scope
 
-The `Result set caching` plan is related but should not be treated as automatic Phase 3 implementation work.
+The `Result set caching` plan is deliberately not a Phase 3 deliverable.
 
-Deliverables:
-
-- document whether Phase 3 measurements suggest result-set caching should move earlier
-- if not, leave dependency-tracked result-set caching for a later cache/product phase
-- do not start table dependency tracking, row-version hashing, or invalidation architecture in this phase unless a specific benchmark-backed query path demands it
-
-The honest read is that result-set caching is a bigger semantic feature than SQL hot-path cleanup. It belongs behind a gate.
+Dependency-tracked result-set caching is a semantic product/cache feature. It needs row freshness/versioning, dependency fingerprints, invalidation semantics, and cache observability. That belongs in a later roadmap phase after cache and invalidation foundations exist.
 
 ## Workstreams
 
@@ -280,23 +274,6 @@ Do not design a universal SQL structural hash up front. Build the narrow version
 
 Do not struct-ify the whole query tree because a design note suggested it. That is how performance work becomes cosplay.
 
-## Workstream F: Result-Set Caching Gate
-
-### Goals
-
-- decide whether result-set caching belongs in Phase 3 or later
-- avoid mixing semantic cache invalidation work into low-level SQL cleanup without evidence
-
-### Tasks
-
-1. Compare Phase 3 benchmark findings against the `Result set caching` design note.
-2. Identify prerequisites that are still missing, such as dependency tracking and invalidation semantics.
-3. Record the decision in this plan before Phase 3 closes.
-
-### Explicit non-goal
-
-Do not implement dependency-tracked result-set caching as part of the initial Phase 3 work.
-
 ## Proposed Execution Order
 
 1. Add the Phase 3 benchmark lane and run a baseline.
@@ -306,8 +283,7 @@ Do not implement dependency-tracked result-set caching as part of the initial Ph
 5. Re-run benchmarks and compare against the baseline.
 6. Implement a narrow template/binding reuse slice if the benchmark lane shows repeated-shape cost worth attacking.
 7. Profile remaining object churn and apply targeted cleanup.
-8. Make the result-set caching decision explicit.
-9. Close the phase with benchmark interpretation, follow-up notes, and roadmap updates.
+8. Close the phase with benchmark interpretation, follow-up notes, and roadmap updates.
 
 ## Verification Plan
 
@@ -334,7 +310,6 @@ Phase 3 is complete when:
 - SQL generation allocation has been reduced on at least one measured hot path
 - repeated query shape/template reuse has either landed for a narrow proven case or been explicitly rejected with benchmark evidence
 - query object churn cleanup has been attempted only where measurements justify it
-- result-set caching has a clear defer/proceed decision
 - relevant tests pass
 - the implementation summary records what improved, what did not, and what remains noisy
 
@@ -345,7 +320,7 @@ Phase 3 is complete when:
 - async query API work
 - new provider work
 - schema validation or migrations
-- dependency-tracked result-set caching unless it passes the explicit gate
+- dependency-tracked result-set caching
 - global unbounded SQL template caches
 - full query component struct conversion without allocation evidence
 - benchmark claims based on a single noisy run

@@ -23,6 +23,10 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `documentation/Documentation Overhaul.md`
 
+### Platform compatibility
+
+- `AOT and WebAssembly Strategy.md`
+
 ### Tooling
 
 - `tooling/Build Environment and Output Control.md`

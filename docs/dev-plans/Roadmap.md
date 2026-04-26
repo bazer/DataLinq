@@ -17,9 +17,9 @@ The answer should be grounded in the repo as it exists today, not in abstract OR
 Several important things are already true:
 
 - The test migration is complete. The active suite structure is TUnit-based, CI-backed, and the legacy xUnit projects are gone.
-- There is already a benchmark project in `src/DataLinq.Benchmark`, but it is still an experiment, not a trustworthy regression harness.
+- There is now a benchmark and observability foundation to build on, but Phase 3 still needs a dedicated query/runtime hot-path lane before optimization claims are trustworthy.
 - `RowData` has already moved to dense indexed storage, so the performance roadmap should build on that rather than pretending memory optimization is still only theoretical.
-- Metadata, source generation, SQL building, and instance materialization still contain meaningful runtime dynamism and avoidable allocation overhead.
+- Metadata and generator hardening have removed some avoidable runtime work, but SQL building, query translation, projection materialization, and compatibility-sensitive runtime paths still contain meaningful dynamism and allocation overhead.
 - Product hardening features such as schema validation, migrations, and stronger diagnostics are still missing enough that DataLinq is easier to admire than to trust.
 
 That last point matters. A fast ORM that is hard to validate or debug is still a risky tool.
@@ -37,7 +37,7 @@ The order below is opinionated on purpose.
 
 ### Phase 1: Benchmarking and Observability
 
-This is the immediate next phase.
+Status: mostly implemented.
 
 Goals:
 
@@ -50,7 +50,7 @@ Why first:
 
 - performance plans without numbers are mostly storytelling
 - observability is required to understand whether later optimizations help or merely feel sophisticated
-- the current benchmark project is too ad hoc to support serious decisions
+- the original benchmark project was too ad hoc to support serious decisions, which is why this foundation had to come first
 
 Exit criteria:
 
@@ -72,6 +72,10 @@ Why second:
 
 - this is high-leverage work that improves startup, AOT-friendliness, and developer experience at the same time
 - it also prepares the ground for later runtime and memory optimizations
+
+Important caveat:
+
+- this phase improved AOT-readiness, but it did not complete Native AOT or WebAssembly support; runtime expression compilation and trimming-sensitive paths still need their own platform-readiness work
 
 Key related plans:
 
@@ -97,7 +101,6 @@ Why here:
 Key related plans:
 
 - `query-and-runtime/Sql Generation Optimization.md`
-- `query-and-runtime/Result set caching.md`
 
 ### Phase 4: Product Trust Features
 
@@ -116,7 +119,28 @@ Key related plans:
 
 - `providers-and-features/Migrations and Validation.md`
 
-### Phase 5: Cache and Memory Optimization Phase 2
+### Phase 5: Native AOT and WebAssembly Readiness
+
+Goals:
+
+- remove hot-path `Expression.Compile()` usage where generated or interpreted alternatives are practical
+- define generated materializer and projection paths for AOT-sensitive execution
+- audit trimming compatibility and reflection-heavy discovery paths
+- prove the SQLite/WebAssembly story with a small Blazor WASM sample
+- review cache worker and threading behavior for browser/WASM environments
+
+Why here:
+
+- Phase 2 created some of the generator hooks this work needs, but it did not eliminate every AOT-hostile path
+- Phase 3 should make the query/runtime path cheaper first, so the AOT/WASM work starts from the cleaner runtime shape
+- platform compatibility is concrete enough to deserve a real phase, but not urgent enough to interrupt the current hot-path work
+
+Key related plans:
+
+- `AOT and WebAssembly Strategy.md`
+- `metadata-and-generation/Source Generator Optimizations.md`
+
+### Phase 6: Cache, Memory, and Invalidation Foundations
 
 Goals:
 
@@ -124,19 +148,21 @@ Goals:
 - key deduplication where it proves worthwhile
 - cache compaction and better cleanup heuristics
 - tighter cache invalidation and memory-pressure awareness
+- row versioning or hash-based freshness primitives where they prove necessary
 
 Why not first:
 
 - memory work is easy to overdesign
 - the repo already has part of the structural groundwork in place
 - this should be driven by benchmark and observability evidence, not by aesthetic preference
+- dependency-tracked result-set caching depends on this work and should not force these foundations into Phase 3
 
 Key related plans:
 
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
 
-### Phase 6: Async and Loading Semantics
+### Phase 7: Async and Loading Semantics
 
 Goals:
 
@@ -160,7 +186,7 @@ Key related plans:
 
 - `query-and-runtime/Async and Lazy Loading.md`
 
-### Phase 7: Capability Expansion
+### Phase 8: Capability Expansion
 
 Goals:
 
@@ -180,15 +206,37 @@ Key related plans:
 - `query-and-runtime/Projections and Views.md`
 - `query-and-runtime/Batched mutations.md`
 
+### Phase 9: Dependency-Tracked Result-Set Caching
+
+Goals:
+
+- support explicit cached computation scopes
+- record dependency fingerprints for rows read during a computation
+- validate stamped results against current row version markers
+- integrate cached result invalidation with the cache/memory foundations rather than arbitrary TTLs
+
+Why last:
+
+- this is not SQL-generation optimization; it is a semantic caching feature
+- it depends on row freshness/versioning, invalidation behavior, projection/view semantics, and observability
+- shipping it too early would create a clever cache whose correctness story is harder to defend than the performance win
+
+Key related plans:
+
+- `query-and-runtime/Result set caching.md`
+- `query-and-runtime/Projections and Views.md`
+- `performance/Memory management.md`
+
 ## What Should Happen Right Now
 
 The next concrete stretch should be small and disciplined:
 
-1. Rebuild `src/DataLinq.Benchmark` into a real harness instead of a local experiment.
-2. Add a minimal observability layer with counters and debug summaries for the cache and query pipeline.
-3. Use those numbers to decide whether the first runtime target is instance creation, SQL generation, cache behavior, or something else.
+1. Add a Phase 3 benchmark lane for query/runtime hot paths.
+2. Run a baseline that keeps SQL generation and command construction visible.
+3. Refactor the parameter binding boundary so provider parameters are created at command construction time.
+4. Use the benchmark lane to decide how far SQL writer cleanup and template/binding reuse should go.
 
-That is the right next move because it converts the roadmap from intuition into evidence.
+That is the right next move because Phase 1 and Phase 2 created enough foundation to stop guessing and start measuring the actual hot path.
 
 ## What Is Explicitly Not First
 
@@ -196,6 +244,7 @@ These may still be good ideas, but they should not lead the queue:
 
 - broad provider expansion
 - in-memory provider as a flagship initiative
+- dependency-tracked result-set caching
 - large documentation rewrites unrelated to immediate product clarity
 - query abstraction for hypothetical future backends before the current SQL path is fully measured
 - committing to a magical lazy-loading async API before sync/async boundaries are tested and defended

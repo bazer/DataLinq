@@ -5,6 +5,8 @@
 **Status:** Draft
 **Goal:** Evolve DataLinq from a "Row Fetcher" into a "Shape Shifter." This specification outlines how to implement LINQ Projections (`Select`) and Joins efficiently, and how to upgrade standard Projections into persistent, reactive **Client-Side Views**.
 
+**Roadmap placement:** projection and query-shaping work belongs in the main roadmap's capability expansion phase; persistent client-side views and result caching belong later with dependency-tracked result-set caching.
+
 ---
 
 ## 1. Core Philosophy
@@ -17,7 +19,7 @@ By unifying these concepts, we can use the same Source Generation and Caching ma
 
 ---
 
-## 2. Phase 1: Implicit Joins (The Prerequisite)
+## 2. Stage 1: Implicit Joins (The Prerequisite)
 
 Before we can project complex shapes, we must be able to query across relationships without verbose manual `Join` syntax.
 
@@ -35,11 +37,11 @@ The `QueryBuilder` must be upgraded to track property traversal paths.
 ### 2.2. Scope
 *   Support traversal in `Where` clauses.
 *   Support traversal in `OrderBy` clauses.
-*   Support traversal in `Select` clauses (Phase 2).
+*   Support traversal in `Select` clauses (Stage 2).
 
 ---
 
-## 3. Phase 2: High-Performance Projections (`Select`)
+## 3. Stage 2: High-Performance Projections (`Select`)
 
 We need to support transforming database rows into custom shapes without the heavy performance cost of runtime reflection or `Expression.Compile`.
 
@@ -77,9 +79,11 @@ If `EmployeeDto` has a property `DepartmentName`, and the Source Generator sees 
 
 ---
 
-## 4. Phase 3: Client-Side Views (Result Caching)
+## 4. Stage 3: Client-Side Views (Result Caching)
 
 This transforms a Projection from a "Query" into a "Live Data Structure."
+
+This stage is intentionally later than basic projection support. It depends on the result-set caching and cache invalidation foundations described in the main roadmap.
 
 ### 4.1. The `IView<T>` Definition
 Users define a view as a class, similar to a database model.
@@ -121,5 +125,5 @@ If the **In-Memory Provider** is active:
 1.  [ ] **Implement `AliasManager`:** Refactor `QueryBuilder` to handle path-based alias tracking for Implicit Joins.
 2.  [ ] **Implement `Select` Support:** Update `QueryExecutor` to handle projection expressions (rewriting the `SELECT` SQL part).
 3.  [ ] **Source Generator Upgrade:** Detect `Select<T>` calls and generate static materializers for DTOs.
-4.  [ ] **View Registry:** Create the system to register `IClientView<T>` definitions and track dependencies.
-5.  [ ] **Reactive Cache:** Hook into `OnRowChanged` to invalidate Views.
+4.  [ ] **Later:** Create the system to register `IClientView<T>` definitions and track dependencies.
+5.  [ ] **Later:** Hook reactive cache behavior into the dependency-tracked result-set caching work.

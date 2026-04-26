@@ -31,5 +31,6 @@ Phase 3 should start with the concrete seams that exist today:
 ## Related Plans
 
 - [`../../query-and-runtime/Sql Generation Optimization.md`](../../query-and-runtime/Sql%20Generation%20Optimization.md)
-- [`../../query-and-runtime/Result set caching.md`](../../query-and-runtime/Result%20set%20caching.md)
 - [`../../Roadmap.md`](../../Roadmap.md)
+
+Result-set caching is deliberately not listed as a Phase 3 related plan. It is a later semantic caching feature, not part of the SQL/query hot-path cleanup.
