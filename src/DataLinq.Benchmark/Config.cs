@@ -59,28 +59,13 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
         if (string.IsNullOrWhiteSpace(profile))
             profile = "default";
 
-        var job = profile.ToLowerInvariant() switch
+        return profile.ToLowerInvariant() switch
         {
-            "default" => Job.ShortRun
-                .WithId("Default")
-                .WithWarmupCount(4)
-                .WithIterationCount(6),
-            "heavy" => Job.MediumRun
-                .WithId("Heavy")
-                .WithLaunchCount(3)
-                .WithWarmupCount(6)
-                .WithIterationCount(15),
-            "smoke" => Job.Dry
-                .WithId("Smoke"),
+            "default" => Job.ShortRun,
+            "heavy" => Job.MediumRun,
+            "smoke" => Job.Dry,
             _ => throw new InvalidOperationException(
                 $"Benchmark profile '{profile}' is not supported. Use 'default', 'heavy', or 'smoke'.")
         };
-
-        return job
-            .WithRuntime(BenchmarkDotNet.Environments.CoreRuntime.Core80)
-            .WithMsBuildArguments([
-                "/p:RestoreIgnoreFailedSources=true",
-                "/p:NuGetAudit=false"
-            ]);
     }
 }

@@ -117,7 +117,9 @@ internal sealed class BenchmarkHarnessRunner
         {
             [BenchmarkProfileEnvironmentVariable] = profile,
             [BenchmarkRunIdEnvironmentVariable] = runId,
-            [BenchmarkResultsDirectoryEnvironmentVariable] = Path.Combine(settings.ArtifactsRoot, "results")
+            [BenchmarkResultsDirectoryEnvironmentVariable] = Path.Combine(settings.ArtifactsRoot, "results"),
+            ["RestoreIgnoreFailedSources"] = "true",
+            ["NuGetAudit"] = "false"
         };
 
         Console.WriteLine("Running benchmarks...");
