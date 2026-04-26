@@ -137,7 +137,7 @@ Why here:
 
 Key related plans:
 
-- `AOT and WebAssembly Strategy.md`
+- `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 
 ### Phase 6: Cache, Memory, and Invalidation Foundations

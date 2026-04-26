@@ -25,7 +25,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ### Platform compatibility
 
-- `AOT and WebAssembly Strategy.md`
+- `platform-compatibility/AOT and WebAssembly Strategy.md`
 
 ### Tooling
 
