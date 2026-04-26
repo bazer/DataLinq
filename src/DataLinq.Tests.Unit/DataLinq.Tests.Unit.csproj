@@ -14,6 +14,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
+		<ProjectReference Include="..\DataLinq.Benchmark.CLI\DataLinq.Benchmark.CLI.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
 		<ProjectReference Include="..\DataLinq.Testing\DataLinq.Testing.csproj" />

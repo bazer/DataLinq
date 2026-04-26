@@ -292,7 +292,11 @@ internal sealed class BenchmarkHarnessRunner
             .ToArray();
 
         if (measuredRows.Length == 0)
-            throw new InvalidOperationException($"Benchmark summary '{summaryPath}' only contains invalid measurements. Full log: {logPath}");
+        {
+            throw new InvalidOperationException(
+                $"Benchmark summary '{summaryPath}' only contains invalid measurements. " +
+                $"Raw measurements: {FormatInvalidMeasurements(mergedRows)}. Full log: {logPath}");
+        }
 
         Console.WriteLine();
         AnsiConsole.Write(new Rule("[yellow]Summary[/]"));
@@ -1055,7 +1059,7 @@ internal sealed class BenchmarkHarnessRunner
     private static bool HasSignal(params double?[] values)
         => values.Any(static value => value.HasValue && Math.Abs(value.Value) >= 0.0001d);
 
-    private static double? TryParseDurationInMicroseconds(string value)
+    internal static double? TryParseDurationInMicroseconds(string value)
     {
         var normalized = NormalizeCell(value);
         var parts = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -1065,7 +1069,8 @@ internal sealed class BenchmarkHarnessRunner
         if (!double.TryParse(parts[0], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var magnitude))
             return null;
 
-        return parts[1] switch
+        var unit = parts[1].Replace('\u00B5', '\u03BC');
+        return unit switch
         {
             "ns" => magnitude / 1000d,
             "μs" => magnitude,
@@ -1074,6 +1079,23 @@ internal sealed class BenchmarkHarnessRunner
             "s" => magnitude * 1_000_000d,
             _ => null
         };
+    }
+
+    private static string FormatInvalidMeasurements(IReadOnlyList<MergedBenchmarkSummaryRow> rows)
+    {
+        var samples = rows
+            .Take(5)
+            .Select(static row => $"{row.Method}/{row.ProviderName} mean='{row.Mean}' error='{row.Error}'")
+            .ToArray();
+
+        if (samples.Length == 0)
+            return "none";
+
+        var suffix = rows.Count > samples.Length
+            ? string.Create(CultureInfo.InvariantCulture, $", +{rows.Count - samples.Length} more")
+            : string.Empty;
+
+        return string.Join("; ", samples) + suffix;
     }
 
     private static double? TryParseAllocatedBytes(string value)
