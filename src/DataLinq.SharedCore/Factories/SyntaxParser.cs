@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -45,14 +47,34 @@ public class SyntaxParser
     private Option<ModelDefinition, IDLOptionFailure> ParseModel(TypeDeclarationSyntax typeSyntax)
     {
         var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
+        model.SetSourceSpan(new SourceTextSpan(typeSyntax.SpanStart, typeSyntax.Span.Length));
 
         if (!string.IsNullOrEmpty(typeSyntax.SyntaxTree.FilePath))
             model.SetCsFile(new CsFileDeclaration(typeSyntax.SyntaxTree.FilePath));
 
-        if (!typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes).Select(ParseAttribute).Transpose().TryUnwrap(out var attributes, out var failures))
+        var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
+        var parsedAttributes = new List<Attribute>();
+        var failures = new List<IDLOptionFailure>();
+
+        foreach (var attributeSyntax in typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes))
+        {
+            if (ParseAttribute(attributeSyntax).TryUnwrap(out var attribute, out var failure))
+            {
+                parsedAttributes.Add(attribute);
+                attributeSourceSpans.Add((attribute, new SourceTextSpan(attributeSyntax.SpanStart, attributeSyntax.Span.Length)));
+            }
+            else
+            {
+                failures.Add(failure);
+            }
+        }
+
+        if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes", model, failures);
 
-        model.SetAttributes(attributes);
+        model.SetAttributes(parsedAttributes);
+        foreach (var (attribute, sourceSpan) in attributeSourceSpans)
+            model.SetAttributeSourceSpan(attribute, sourceSpan);
 
         var modelInstanceInterfaces = model.Attributes
             .Where(x => x is InterfaceAttribute interfaceAttribute && interfaceAttribute.GenerateInterface)
@@ -119,7 +141,7 @@ public class SyntaxParser
         if (name == "Database")
         {
             if (arguments.Count != 1)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
 
             return new DatabaseAttribute(arguments[0]);
         }
@@ -127,7 +149,7 @@ public class SyntaxParser
         if (name == "Table")
         {
             if (arguments.Count != 1)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
 
             return new TableAttribute(arguments[0]);
         }
@@ -135,7 +157,7 @@ public class SyntaxParser
         if (name == "View")
         {
             if (arguments.Count != 1)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
 
             return new ViewAttribute(arguments[0]);
         }
@@ -143,7 +165,7 @@ public class SyntaxParser
         if (name == "Column")
         {
             if (arguments.Count != 1)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
 
             return new ColumnAttribute(arguments[0]);
         }
@@ -151,7 +173,7 @@ public class SyntaxParser
         if (name == "Definition")
         {
             if (arguments.Count != 1)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
 
             return new DefinitionAttribute(arguments[0]);
         }
@@ -159,7 +181,12 @@ public class SyntaxParser
         if (name == "UseCache")
         {
             if (arguments.Count == 1)
-                return new UseCacheAttribute(bool.Parse(arguments[0]));
+            {
+                if (!TryParseBool(arguments[0], out var useCache))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid boolean value '{arguments[0]}' for attribute '{name}'");
+
+                return new UseCacheAttribute(useCache);
+            }
             else
                 return new UseCacheAttribute();
         }
@@ -167,46 +194,56 @@ public class SyntaxParser
         if (name == "CacheLimit")
         {
             if (arguments.Count != 2)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 2 arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 2 arguments");
 
             if (!Enum.TryParse(arguments[0].Split('.').Last(), out CacheLimitType limitType))
-                return DLOptionFailure.Fail(DLFailureType.InvalidType, $"Invalid CacheLimitType value '{arguments[0]}'");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid CacheLimitType value '{arguments[0]}'");
 
-            return new CacheLimitAttribute(limitType, long.Parse(arguments[1]));
+            if (!TryParseLong(arguments[1], out var amount))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid cache limit amount '{arguments[1]}'");
+
+            return new CacheLimitAttribute(limitType, amount);
         }
 
         if (name == "CacheCleanup")
         {
             if (arguments.Count != 2)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 2 arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 2 arguments");
 
             if (!Enum.TryParse(arguments[0].Split('.').Last(), out CacheCleanupType cleanupType))
-                return DLOptionFailure.Fail(DLFailureType.InvalidType, $"Invalid CacheCleanupType value '{arguments[0]}'");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid CacheCleanupType value '{arguments[0]}'");
 
-            return new CacheCleanupAttribute(cleanupType, long.Parse(arguments[1]));
+            if (!TryParseLong(arguments[1], out var amount))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid cache cleanup amount '{arguments[1]}'");
+
+            return new CacheCleanupAttribute(cleanupType, amount);
         }
 
         if (name == "IndexCache")
         {
             if (arguments.Count < 1 || arguments.Count > 2)
             {
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 1 or 2 arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 1 or 2 arguments");
             }
 
             if (!Enum.TryParse(arguments[0].Split('.').Last(), out IndexCacheType indexCacheType))
             {
-                return DLOptionFailure.Fail(DLFailureType.InvalidType, $"Invalid IndexCacheType value '{arguments[0]}'");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid IndexCacheType value '{arguments[0]}'");
             }
 
-            return arguments.Count == 1
-                ? new IndexCacheAttribute(indexCacheType)
-                : new IndexCacheAttribute(indexCacheType, int.Parse(arguments[1]));
+            if (arguments.Count == 1)
+                return new IndexCacheAttribute(indexCacheType);
+
+            if (!TryParseInt(arguments[1], out var amount))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid index cache amount '{arguments[1]}'");
+
+            return new IndexCacheAttribute(indexCacheType, amount);
         }
 
         if (name == "AutoIncrement")
         {
             if (arguments.Any())
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
 
             return new AutoIncrementAttribute();
         }
@@ -218,13 +255,13 @@ public class SyntaxParser
             else if (arguments.Count == 3)
                 return new RelationAttribute(arguments[0], arguments[1], arguments[2]);
             else
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 2 or 3 arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 2 or 3 arguments");
         }
 
         if (name == "PrimaryKey")
         {
             if (arguments.Any())
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
 
             return new PrimaryKeyAttribute();
         }
@@ -232,7 +269,7 @@ public class SyntaxParser
         if (name == "ForeignKey")
         {
             if (arguments.Count != 3)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' must have 3 arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' must have 3 arguments");
 
             return new ForeignKeyAttribute(arguments[0], arguments[1], arguments[2]);
         }
@@ -245,7 +282,7 @@ public class SyntaxParser
         if (name == "Nullable")
         {
             if (arguments.Any())
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
 
             return new NullableAttribute();
         }
@@ -253,15 +290,16 @@ public class SyntaxParser
         if (name == "Default")
         {
             if (arguments.Count != 1)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
 
-            return new DefaultAttribute(arguments[0]);
+            var codeExpression = attributeSyntax.ArgumentList?.Arguments[0].Expression.ToString();
+            return new DefaultAttribute(arguments[0]).SetCodeExpression(codeExpression);
         }
 
         if (name == "DefaultCurrentTimestamp")
         {
             if (arguments.Count != 0)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
 
             return new DefaultCurrentTimestampAttribute();
         }
@@ -269,12 +307,12 @@ public class SyntaxParser
         if (name == "DefaultNewUUID")
         {
             if (arguments.Count > 1)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
 
             if (arguments.Count == 1)
             {
                 if (!UUIDVersion.TryParse(arguments[0], out UUIDVersion version))
-                    return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Invalid UUIDVersion value '{arguments[0]}'");
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid UUIDVersion value '{arguments[0]}'");
 
                 return new DefaultNewUUIDAttribute(version);
             }
@@ -285,11 +323,14 @@ public class SyntaxParser
         if (name == "Index")
         {
             if (arguments.Count < 2)
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
 
             string indexName = arguments[0];
+            if (string.IsNullOrWhiteSpace(indexName))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, "Index name cannot be empty.");
+
             if (!Enum.TryParse(arguments[1].Split('.').Last(), out IndexCharacteristic characteristic))
-                return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Invalid IndexCharacteristic value '{arguments[1]}'");
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid IndexCharacteristic value '{arguments[1]}'");
 
             if (arguments.Count == 2)
                 return new IndexAttribute(arguments[0], characteristic);
@@ -303,25 +344,49 @@ public class SyntaxParser
 
         if (name == "Type")
         {
+            Option<Attribute, IDLOptionFailure> FailInvalidTypeArgument(string argumentName, string value) =>
+                FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid TypeAttribute {argumentName} value '{value}'");
+
+            if (arguments.Count == 0)
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
+
             string enumValue = arguments[0].Split('.').Last();
             if (Enum.TryParse(enumValue, out DatabaseType dbType))
             {
                 switch (arguments.Count)
                 {
-                    case 1: return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
+                    case 1: return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
                     case 2: return new TypeAttribute(dbType, arguments[1]);
                     case 3:
-                        if (ulong.TryParse(arguments[2], out ulong length))
+                        if (TryParseUlong(arguments[2], out ulong length))
                             return new TypeAttribute(dbType, arguments[1], length);
-                        else
-                            return new TypeAttribute(dbType, arguments[1], bool.Parse(arguments[2]));
+
+                        if (TryParseBool(arguments[2], out bool signed))
+                            return new TypeAttribute(dbType, arguments[1], signed);
+
+                        return FailInvalidTypeArgument("length or signed", arguments[2]);
                     case 4:
-                        if (uint.TryParse(arguments[3], out uint decimals))
-                            return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), decimals);
-                        else
-                            return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), bool.Parse(arguments[3]));
+                        if (!TryParseUlong(arguments[2], out length))
+                            return FailInvalidTypeArgument("length", arguments[2]);
+
+                        if (TryParseUint(arguments[3], out uint decimals))
+                            return new TypeAttribute(dbType, arguments[1], length, decimals);
+
+                        if (TryParseBool(arguments[3], out signed))
+                            return new TypeAttribute(dbType, arguments[1], length, signed);
+
+                        return FailInvalidTypeArgument("decimals or signed", arguments[3]);
                     case 5:
-                        return new TypeAttribute(dbType, arguments[1], ulong.Parse(arguments[2]), uint.Parse(arguments[3]), bool.Parse(arguments[4]));
+                        if (!TryParseUlong(arguments[2], out length))
+                            return FailInvalidTypeArgument("length", arguments[2]);
+
+                        if (!TryParseUint(arguments[3], out decimals))
+                            return FailInvalidTypeArgument("decimals", arguments[3]);
+
+                        if (!TryParseBool(arguments[4], out signed))
+                            return FailInvalidTypeArgument("signed", arguments[4]);
+
+                        return new TypeAttribute(dbType, arguments[1], length, decimals, signed);
                 }
             }
             else
@@ -330,18 +395,36 @@ public class SyntaxParser
                 {
                     case 1: return new TypeAttribute(arguments[0]);
                     case 2:
-                        if (ulong.TryParse(arguments[1], out ulong length))
+                        if (TryParseUlong(arguments[1], out ulong length))
                             return new TypeAttribute(arguments[0], length);
-                        else
-                            return new TypeAttribute(arguments[0], bool.Parse(arguments[1]));
+
+                        if (TryParseBool(arguments[1], out bool signed))
+                            return new TypeAttribute(arguments[0], signed);
+
+                        return FailInvalidTypeArgument("length or signed", arguments[1]);
                     case 3:
-                        return new TypeAttribute(arguments[0], ulong.Parse(arguments[1]), bool.Parse(arguments[2]));
+                        if (!TryParseUlong(arguments[1], out length))
+                            return FailInvalidTypeArgument("length", arguments[1]);
+
+                        if (!TryParseBool(arguments[2], out signed))
+                            return FailInvalidTypeArgument("signed", arguments[2]);
+
+                        return new TypeAttribute(arguments[0], length, signed);
                     case 4:
-                        return new TypeAttribute(arguments[0], ulong.Parse(arguments[1]), uint.Parse(arguments[2]), bool.Parse(arguments[3]));
+                        if (!TryParseUlong(arguments[1], out length))
+                            return FailInvalidTypeArgument("length", arguments[1]);
+
+                        if (!TryParseUint(arguments[2], out uint decimals))
+                            return FailInvalidTypeArgument("decimals", arguments[2]);
+
+                        if (!TryParseBool(arguments[3], out signed))
+                            return FailInvalidTypeArgument("signed", arguments[3]);
+
+                        return new TypeAttribute(arguments[0], length, decimals, signed);
                 }
             }
 
-            return DLOptionFailure.Fail(DLFailureType.NotImplemented, $"Attribute 'TypeAttribute' with {arguments.Count} arguments not implemented");
+            return FailAttribute(attributeSyntax, DLFailureType.NotImplemented, $"Attribute 'TypeAttribute' with {arguments.Count} arguments not implemented");
         }
 
         if (name.StartsWith("Interface"))
@@ -350,46 +433,109 @@ public class SyntaxParser
             if (generictype != null)
             {
                 if (arguments.Count > 1)
-                    return DLOptionFailure.Fail(DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
 
                 // Extract the type argument from the generic type
                 var typeArgument = generictype.TypeArgumentList.Arguments[0].ToString();
-                return new InterfaceAttribute(typeArgument, arguments.Count == 0 || bool.Parse(arguments[0]));
+                if (arguments.Count == 0)
+                    return new InterfaceAttribute(typeArgument);
+
+                if (!TryParseBool(arguments[0], out bool generateInterface))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid InterfaceAttribute generateInterface value '{arguments[0]}'");
+
+                return new InterfaceAttribute(typeArgument, generateInterface);
             }
 
             if (arguments.Count == 1)
                 return new InterfaceAttribute(arguments[0]);
             else if (arguments.Count == 2)
-                return new InterfaceAttribute(arguments[0], bool.Parse(arguments[1]));
+            {
+                if (!TryParseBool(arguments[1], out bool generateInterface))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid InterfaceAttribute generateInterface value '{arguments[1]}'");
+
+                return new InterfaceAttribute(arguments[0], generateInterface);
+            }
             else
                 return new InterfaceAttribute();
         }
 
-        return DLOptionFailure.Fail(DLFailureType.NotImplemented, $"Attribute '{name}' not implemented");
+        return FailAttribute(attributeSyntax, DLFailureType.NotImplemented, $"Attribute '{name}' not implemented");
+    }
+
+    private static Option<Attribute, IDLOptionFailure> FailAttribute(AttributeSyntax attributeSyntax, DLFailureType type, string message)
+        => TryGetSourceLocation(attributeSyntax, out var sourceLocation)
+            ? DLOptionFailure.Fail(type, message, sourceLocation)
+            : DLOptionFailure.Fail(type, message);
+
+    private static bool TryParseBool(string value, out bool result) =>
+        bool.TryParse(value, out result);
+
+    private static bool TryParseLong(string value, out long result) =>
+        long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+
+    private static bool TryParseInt(string value, out int result) =>
+        int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+
+    private static bool TryParseUlong(string value, out ulong result) =>
+        ulong.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+
+    private static bool TryParseUint(string value, out uint result) =>
+        uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+
+    private static bool TryGetSourceLocation(SyntaxNode syntaxNode, out SourceLocation sourceLocation)
+    {
+        var filePath = syntaxNode.SyntaxTree.FilePath;
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            sourceLocation = default;
+            return false;
+        }
+
+        var file = new CsFileDeclaration(filePath);
+        sourceLocation = new SourceLocation(file, new SourceTextSpan(syntaxNode.SpanStart, syntaxNode.Span.Length));
+        return true;
     }
 
     public Option<PropertyDefinition, IDLOptionFailure> ParseProperty(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
     {
-        if (!propSyntax.AttributeLists
-            .SelectMany(attrList => attrList.Attributes)
-            .Select(ParseAttribute)
-            .Transpose()
-            .TryUnwrap(out var attributes, out var failures))
+        var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
+        var parsedAttributes = new List<Attribute>();
+        var failures = new List<IDLOptionFailure>();
+
+        foreach (var attributeSyntax in propSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes))
+        {
+            if (ParseAttribute(attributeSyntax).TryUnwrap(out var attribute, out var failure))
+            {
+                parsedAttributes.Add(attribute);
+                attributeSourceSpans.Add((attribute, new SourceTextSpan(attributeSyntax.SpanStart, attributeSyntax.Span.Length)));
+            }
+            else
+            {
+                failures.Add(failure);
+            }
+        }
+
+        if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes for {propSyntax.Identifier.Text}", model, failures);
 
-        PropertyDefinition property = attributes.Any(attribute => attribute is RelationAttribute)
-            ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes)
-            : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, attributes);
+        PropertyDefinition property = parsedAttributes.Any(attribute => attribute is RelationAttribute)
+            ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, parsedAttributes)
+            : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, parsedAttributes);
 
         property.SetCsNullable(propSyntax.Type is NullableTypeSyntax);
+        property.SetSourceInfo(new PropertySourceInfo(
+            new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
+            GetDefaultValueExpressionSourceSpan(propSyntax)));
+        foreach (var (attribute, sourceSpan) in attributeSourceSpans)
+            property.SetAttributeSourceSpan(attribute, sourceSpan);
 
         if (property is ValueProperty valueProp)
         {
-            if (attributes.Any(attribute => attribute is EnumAttribute))
+            if (parsedAttributes.Any(attribute => attribute is EnumAttribute))
             {
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
-                var enumValueList = attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1));
+                var enumValueList = parsedAttributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1));
 
                 var propertyTypeName = valueProp.CsType.Name;
                 var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
@@ -405,20 +551,21 @@ public class SyntaxParser
                 if (enumDeclaration != null)
                 {
                     int lastValue = -1;
-                    csEnumValues = enumDeclaration.Members
-                        .Select(m => {
-                            if (m.EqualsValue != null)
-                            {
-                                lastValue = int.Parse(m.EqualsValue.Value.ToString());
-                                return (m.Identifier.ValueText, lastValue);
-                            }
-                            else
-                            {
-                                lastValue++;
-                                return (m.Identifier.ValueText, lastValue);
-                            }
-                        })
-                        .ToList();
+                    foreach (var member in enumDeclaration.Members)
+                    {
+                        if (member.EqualsValue != null)
+                        {
+                            var explicitValue = member.EqualsValue.Value.ToString();
+                            if (!TryParseInt(explicitValue, out lastValue))
+                                return FailProperty(member.EqualsValue.Value, DLFailureType.InvalidArgument, $"Invalid enum value '{explicitValue}' for enum member '{member.Identifier.ValueText}'. DataLinq enum metadata currently supports explicit integer values only.");
+                        }
+                        else
+                        {
+                            lastValue++;
+                        }
+
+                        csEnumValues.Add((member.Identifier.ValueText, lastValue));
+                    }
                 }
 
                 valueProp.SetEnumProperty(new EnumProperty(enumValueList, csEnumValues, declaredInClass));
@@ -432,22 +579,55 @@ public class SyntaxParser
         return property;
     }
 
-    public Option<(string csPropertyName, TypeDeclarationSyntax classSyntax), IDLOptionFailure> GetTableType(PropertyDeclarationSyntax property, List<TypeDeclarationSyntax> modelTypeSyntaxes)
+    private static SourceTextSpan? GetDefaultValueExpressionSourceSpan(PropertyDeclarationSyntax propSyntax)
+    {
+        var defaultExpression = propSyntax.AttributeLists
+            .SelectMany(attrList => attrList.Attributes)
+            .Where(attr =>
+            {
+                var name = attr.Name.ToString();
+                return name == "Default" || name == "DefaultAttribute";
+            })
+            .Select(attr => attr.ArgumentList?.Arguments.SingleOrDefault()?.Expression)
+            .FirstOrDefault(expr => expr != null);
+
+        if (defaultExpression == null)
+            return null;
+
+        return new SourceTextSpan(defaultExpression.SpanStart, defaultExpression.Span.Length);
+    }
+
+    public Option<(string csPropertyName, TypeDeclarationSyntax classSyntax), IDLOptionFailure> GetTableType(
+        PropertyDeclarationSyntax property,
+        List<TypeDeclarationSyntax> modelTypeSyntaxes,
+        bool allowMissingTableModel = true)
     {
         var propType = property.Type;
 
         if (propType is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
         {
-            var typeArgument = genericType.TypeArgumentList.Arguments[0] as IdentifierNameSyntax;
-            if (typeArgument != null)
+            if (genericType.TypeArgumentList.Arguments.Count != 1)
+                return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' must use DbRead with exactly one model type argument.");
+
+            if (genericType.TypeArgumentList.Arguments[0] is IdentifierNameSyntax typeArgument)
             {
                 var modelClass = modelTypeSyntaxes.FirstOrDefault(cls => cls.Identifier.Text == typeArgument.Identifier.Text);
+                if (modelClass == null && !allowMissingTableModel)
+                    return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' references model '{typeArgument.Identifier.Text}', but no matching table or view model declaration was found.");
+
                 return (property.Identifier.Text, modelClass);
             }
+
+            return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' must use a simple model type argument. Found '{genericType.TypeArgumentList.Arguments[0]}'.");
         }
 
-        return DLOptionFailure.Fail(DLFailureType.NotImplemented, $"Table type {propType} is not implemented.");
+        return FailProperty(property, DLFailureType.NotImplemented, $"Table type {propType} is not implemented.");
     }
+
+    private static IDLOptionFailure FailProperty(SyntaxNode syntaxNode, DLFailureType type, string message)
+        => TryGetSourceLocation(syntaxNode, out var sourceLocation)
+            ? DLOptionFailure.Fail(type, message, sourceLocation)
+            : DLOptionFailure.Fail(type, message);
 
     private bool InheritsFrom(CsTypeDeclaration decl, string typeName)
     {

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using DataLinq.Attributes;
+using DataLinq.Diagnostics;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -23,13 +25,25 @@ public class TableCache
 {
     internal sealed class CacheNotificationManager
     {
-        // Use ConcurrentQueue. It's lock-free for Enqueue and doesn't leak memory.
+        // Use ConcurrentQueue. Subscribe stays lock-free and O(1).
+        // Notify self-clears by swapping the queue, and Clean compacts dead
+        // weak references for read-heavy workloads that don't notify often.
+        private readonly DataLinqTableMetricsHandle metricsHandle;
         private ConcurrentQueue<WeakReference<ICacheNotification>> _subscribers = new();
+        private int _maintenanceState = 0;
+        private int _approximateSubscriberCount = 0;
+
+        internal CacheNotificationManager(DataLinqTableMetricsHandle metricsHandle)
+        {
+            this.metricsHandle = metricsHandle;
+        }
 
         internal void Subscribe(ICacheNotification subscriber)
         {
             // This is a fully thread-safe, lock-free, O(1) operation.
             _subscribers.Enqueue(new WeakReference<ICacheNotification>(subscriber));
+            var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
+            metricsHandle.RecordCacheNotificationSubscribe(approximateQueueDepth);
         }
 
         internal void Notify()
@@ -40,23 +54,95 @@ public class TableCache
                 return;
             }
 
-            // 2. Atomically swap the current queue with a new, empty one.
-            // This is an O(1) operation. 'subscribersToNotify' now holds a private
-            // snapshot of all subscribers that existed up to this exact moment.
-            var subscribersToNotify = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+            // 2. Serialize the queue swap with Clean() without blocking Subscribe().
+            // We only hold this gate long enough to take a private snapshot.
+            var spinWait = new SpinWait();
+            while (Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
+                spinWait.SpinOnce();
 
-            // Any new calls to Subscribe() from other threads will now add to the new, empty queue
-            // without interfering with our notification process.
+            ConcurrentQueue<WeakReference<ICacheNotification>>? subscribersToNotify = null;
+            try
+            {
+                // Another maintenance operation may already have swapped the queue
+                // while we were waiting, so re-check after acquiring the gate.
+                if (_subscribers.IsEmpty)
+                {
+                    return;
+                }
 
-            // 3. Iterate over our local snapshot and notify each live subscriber.
-            // This loop is completely lock-free and operates on a contained set of items.
-            // The old queue and its WeakReference objects will be garbage collected after this.
+                // 3. Atomically swap the current queue with a new, empty one.
+                // Any new calls to Subscribe() from other threads will now add
+                // to the new queue without interfering with this notification pass.
+                subscribersToNotify = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+                Interlocked.Exchange(ref _approximateSubscriberCount, 0);
+            }
+            finally
+            {
+                Volatile.Write(ref _maintenanceState, 0);
+            }
+
+            // 4. Iterate over our private snapshot outside the maintenance gate.
+            var snapshotEntries = 0;
+            var liveSubscribers = 0;
             foreach (var weakRef in subscribersToNotify)
             {
+                snapshotEntries++;
                 if (weakRef.TryGetTarget(out var subscriber))
                 {
+                    liveSubscribers++;
                     subscriber.Clear();
                 }
+            }
+
+            var approximateQueueDepth = Volatile.Read(ref _approximateSubscriberCount);
+            metricsHandle.RecordCacheNotificationNotifySweep(snapshotEntries, liveSubscribers, approximateQueueDepth);
+        }
+
+        internal void Clean()
+        {
+            // Best-effort compaction. If Notify() is already in progress, skip this
+            // cycle and let the next background sweep retry.
+            if (_subscribers.IsEmpty || Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
+            {
+                if (!_subscribers.IsEmpty)
+                    metricsHandle.RecordCacheNotificationCleanBusySkip();
+                return;
+            }
+
+            try
+            {
+                // Clean keeps the maintenance gate for the full compaction pass.
+                // If Notify() were allowed to swap the queue between our Exchange()
+                // and re-enqueue of live subscribers, it could miss an invalidation.
+                if (_subscribers.IsEmpty)
+                {
+                    return;
+                }
+
+                var subscribersToKeep = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+                Interlocked.Exchange(ref _approximateSubscriberCount, 0);
+                var snapshotEntries = 0;
+                var requeuedSubscribers = 0;
+                foreach (var weakRef in subscribersToKeep)
+                {
+                    snapshotEntries++;
+                    if (weakRef.TryGetTarget(out _))
+                    {
+                        _subscribers.Enqueue(weakRef);
+                        requeuedSubscribers++;
+                    }
+                }
+
+                var approximateQueueDepth = Interlocked.Add(ref _approximateSubscriberCount, requeuedSubscribers);
+                metricsHandle.RecordCacheNotificationCleanSweep(
+                    snapshotEntries,
+                    requeuedSubscribers,
+                    snapshotEntries - requeuedSubscribers,
+                    approximateQueueDepth);
+            }
+            finally
+            {
+                Volatile.Write(ref _maintenanceState, 0);
             }
         }
     }
@@ -69,9 +155,11 @@ public class TableCache
     protected List<ColumnIndex> indices;
     protected (IndexCacheType type, int? amount) indexCachePolicy;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
+    private readonly DataLinqTelemetryContext telemetryContext;
+    internal DataLinqTableMetricsHandle MetricsHandle { get; }
 
     // This table weakly maps a relation object to its subscription manager.
-    private readonly CacheNotificationManager notificationManager = new();
+    private readonly CacheNotificationManager notificationManager;
 
     public void SubscribeToChanges(ICacheNotification subscriber)
     {
@@ -83,11 +171,20 @@ public class TableCache
         this.Table = table;
         this.DatabaseCache = databaseCache;
         this.loggingConfiguration = loggingConfiguration;
+        this.telemetryContext = DataLinqTelemetryContext.FromProvider(databaseCache.Database);
         this.primaryKeyColumnsCount = Table.PrimaryKeyColumns.Length;
         this.indices = Table.ColumnIndices;
         this.indexCachePolicy = GetIndexCachePolicy();
+        MetricsHandle = DataLinqMetrics.RegisterTable(databaseCache.Database, table.DbName);
+        this.notificationManager = new CacheNotificationManager(MetricsHandle);
+        DataLinqTelemetry.RegisterTableCache(
+            telemetryContext,
+            table.DbName,
+            GetOccupancySnapshot,
+            MetricsHandle.GetCacheNotificationSnapshot);
 
         IndexCaches = indices.ToDictionary(x => x, _ => new IndexCache());
+        RefreshOccupancyMetrics();
     }
 
     public long? OldestTick => RowCache.OldestTick;
@@ -152,6 +249,13 @@ public class TableCache
 
         // At this point, all cache changes have been applied.
         // Raise the event to notify any observers that a change has occurred.
+        if (numRows > 0)
+        {
+            MetricsHandle.RecordCacheCleanup(numRows, TimeSpan.Zero);
+            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "state_change", numRows, TimeSpan.Zero);
+        }
+
+        RefreshOccupancyMetrics();
         OnRowChanged();
 
         return numRows;
@@ -201,7 +305,13 @@ public class TableCache
 
     public void ClearRows()
     {
+        var rowsRemoved = RowCount;
+        var startedAt = Stopwatch.GetTimestamp();
         RowCache.ClearRows();
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "clear", rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
         OnRowChanged();
     }
 
@@ -209,32 +319,60 @@ public class TableCache
     {
         for (var i = 0; i < indices.Count; i++)
             IndexCaches[indices[i]].Clear();
+
+        RefreshOccupancyMetrics();
     }
 
     public void CleanRelationNotifications()
     {
-        //notificationManager.Clean();
+        notificationManager.Clean();
     }
 
-    public int RemoveRowsByLimit(CacheLimitType limitType, long amount) => limitType switch
+    public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
     {
-        CacheLimitType.Seconds => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks),
-        CacheLimitType.Minutes => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks),
-        CacheLimitType.Hours => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks),
-        CacheLimitType.Days => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks),
-        CacheLimitType.Ticks => RemoveRowsInsertedBeforeTick(DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks),
-        CacheLimitType.Rows => RowCache.RemoveRowsOverRowLimit((int)amount),
-        CacheLimitType.Bytes => RowCache.RemoveRowsOverSizeLimit(amount),
-        CacheLimitType.Kilobytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024),
-        CacheLimitType.Megabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024),
-        CacheLimitType.Gigabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024),
-        _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
-    };
+        if (limitType is CacheLimitType.Seconds or CacheLimitType.Minutes or CacheLimitType.Hours or CacheLimitType.Days or CacheLimitType.Ticks)
+        {
+            var cutoffTick = limitType switch
+            {
+                CacheLimitType.Seconds => DateTime.Now.Subtract(TimeSpan.FromSeconds(amount)).Ticks,
+                CacheLimitType.Minutes => DateTime.Now.Subtract(TimeSpan.FromMinutes(amount)).Ticks,
+                CacheLimitType.Hours => DateTime.Now.Subtract(TimeSpan.FromHours(amount)).Ticks,
+                CacheLimitType.Days => DateTime.Now.Subtract(TimeSpan.FromDays(amount)).Ticks,
+                CacheLimitType.Ticks => DateTime.Now.Subtract(TimeSpan.FromTicks(amount)).Ticks,
+                _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
+            };
+
+            return RemoveRowsInsertedBeforeTick(cutoffTick);
+        }
+
+        var startedAt = Stopwatch.GetTimestamp();
+        var rowsRemoved = limitType switch
+        {
+            CacheLimitType.Rows => RowCache.RemoveRowsOverRowLimit((int)amount),
+            CacheLimitType.Bytes => RowCache.RemoveRowsOverSizeLimit(amount),
+            CacheLimitType.Kilobytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024),
+            CacheLimitType.Megabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024),
+            CacheLimitType.Gigabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024),
+            _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
+        };
+
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, GetCacheLimitOperationName(limitType), rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        return rowsRemoved;
+    }
 
     public int RemoveRowsInsertedBeforeTick(long tick)
     {
+        var startedAt = Stopwatch.GetTimestamp();
         RemoveAllIndicesInsertedBeforeTick(tick);
-        return RowCache.RemoveRowsInsertedBeforeTick(tick);
+        var rowsRemoved = RowCache.RemoveRowsInsertedBeforeTick(tick);
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        RefreshOccupancyMetrics();
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "age_limit", rowsRemoved, duration);
+        MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+        return rowsRemoved;
     }
 
 
@@ -268,7 +406,20 @@ public class TableCache
     public bool TryRemoveTransaction(Transaction transaction)
     {
         if (TransactionRows.ContainsKey(transaction))
-            return TransactionRows.TryRemove(transaction, out var _);
+        {
+            var startedAt = Stopwatch.GetTimestamp();
+            if (TransactionRows.TryRemove(transaction, out var rows))
+            {
+                var rowsRemoved = rows.Count;
+                var duration = Stopwatch.GetElapsedTime(startedAt);
+                RefreshOccupancyMetrics();
+                DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "transaction_remove", rowsRemoved, duration);
+                MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
+                return true;
+            }
+
+            return false;
+        }
 
         return true;
     }
@@ -309,6 +460,8 @@ public class TableCache
 
         foreach (var pk in query.SelectQuery().ReadKeys())
             IndexCaches[index].TryAdd(pk, []);
+
+        RefreshOccupancyMetrics();
     }
 
     public IKey[] GetKeys(IKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
@@ -345,6 +498,8 @@ public class TableCache
         if (indexCachePolicy.type != IndexCacheType.None)
             IndexCaches[index].TryAdd(foreignKey, newKeys);
 
+        RefreshOccupancyMetrics();
+
         return newKeys;
     }
 
@@ -362,7 +517,10 @@ public class TableCache
     public IEnumerable<IImmutableInstance> GetRows(IKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
+        {
             TransactionRows.TryAdd(transaction, new RowCache());
+            RefreshOccupancyMetrics();
+        }
 
         if (orderings == null || orderings.Count == 0)
             return LoadRowsFromDatabaseAndCache(primaryKeys, dataSource);
@@ -383,6 +541,9 @@ public class TableCache
                 keysToLoad.Add(key);
         }
 
+        MetricsHandle.RecordRowCacheHits(primaryKeys.Length - keysToLoad.Count);
+        MetricsHandle.RecordRowCacheMisses(keysToLoad.Count);
+
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, primaryKeys.Length - keysToLoad.Count);
 
         if (keysToLoad.Count != 0)
@@ -391,6 +552,7 @@ public class TableCache
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource))
                 {
+                    MetricsHandle.RecordDatabaseRowsLoaded(1);
                     yield return AddRow(rowData, dataSource);
                 }
             }
@@ -414,6 +576,9 @@ public class TableCache
                 keysToLoad.Add(key);
         }
 
+        MetricsHandle.RecordRowCacheHits(loadedRows.Count);
+        MetricsHandle.RecordRowCacheMisses(keysToLoad.Count);
+
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, loadedRows.Count);
 
         if (keysToLoad.Count != 0)
@@ -422,6 +587,7 @@ public class TableCache
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource, orderings))
                 {
+                    MetricsHandle.RecordDatabaseRowsLoaded(1);
                     loadedRows.Add(AddRow(rowData, dataSource));
                 }
             }
@@ -523,12 +689,53 @@ public class TableCache
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
         var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
 
-        return (dataSource is ReadOnlyAccess && (!Table.UseCache || RowCache.TryAddRow(keys, rowData, row)))
+        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || RowCache.TryAddRow(keys, rowData, row)))
             || (dataSource is Transaction transaction && TransactionRows.TryGetValue(transaction, out var rowCache) && rowCache.TryAddRow(keys, rowData, row));
+
+        if (added)
+        {
+            MetricsHandle.RecordRowCacheStore();
+            RefreshOccupancyMetrics();
+        }
+
+        return added;
     }
 
     public TableCacheSnapshot MakeSnapshot()
     {
         return new(Table.DbName, RowCount, TotalBytes, NewestTick, OldestTick, IndicesCount.ToArray());
     }
+
+    internal void UnregisterTelemetry()
+    {
+        DataLinqTelemetry.UnregisterTableCache(telemetryContext, Table.DbName);
+    }
+
+    private CacheOccupancyMetricsSnapshot GetOccupancySnapshot()
+        => new(
+            Rows: RowCount,
+            TransactionRows: TransactionRows.Values.Sum(x => (long)x.Count),
+            Bytes: TotalBytes,
+            IndexEntries: IndexCaches.Values.Sum(x => (long)x.Count));
+
+    private void RefreshOccupancyMetrics()
+    {
+        MetricsHandle.UpdateCacheOccupancy(GetOccupancySnapshot());
+    }
+
+    private static string GetCacheLimitOperationName(CacheLimitType limitType)
+        => limitType switch
+        {
+            CacheLimitType.Rows => "row_limit",
+            CacheLimitType.Bytes => "size_limit",
+            CacheLimitType.Kilobytes => "size_limit",
+            CacheLimitType.Megabytes => "size_limit",
+            CacheLimitType.Gigabytes => "size_limit",
+            CacheLimitType.Seconds => "age_limit",
+            CacheLimitType.Minutes => "age_limit",
+            CacheLimitType.Hours => "age_limit",
+            CacheLimitType.Days => "age_limit",
+            CacheLimitType.Ticks => "age_limit",
+            _ => "limit"
+        };
 }

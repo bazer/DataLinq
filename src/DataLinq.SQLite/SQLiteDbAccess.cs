@@ -1,4 +1,5 @@
-﻿using System.Data;
+using System.Data;
+using DataLinq.Interfaces;
 using DataLinq.Logging;
 using Microsoft.Data.Sqlite;
 
@@ -9,7 +10,13 @@ public class SQLiteDbAccess : DatabaseAccess
     private readonly string connectionString;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    public SQLiteDbAccess(string connectionString, DataLinqLoggingConfiguration loggingConfiguration) : base()
+    public SQLiteDbAccess(string connectionString, DataLinqLoggingConfiguration loggingConfiguration)
+        : this(null, connectionString, loggingConfiguration)
+    {
+    }
+
+    internal SQLiteDbAccess(IDatabaseProvider? databaseProvider, string connectionString, DataLinqLoggingConfiguration loggingConfiguration)
+        : base(databaseProvider)
     {
         this.connectionString = connectionString;
         this.loggingConfiguration = loggingConfiguration;
@@ -22,16 +29,14 @@ public class SQLiteDbAccess : DatabaseAccess
             case IsolationLevel.ReadUncommitted:
                 using (var command = new SqliteCommand("PRAGMA read_uncommitted = true;", connection))
                 {
-                    command.ExecuteNonQuery();
+                    ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
                 }
                 break;
             case IsolationLevel.Serializable:
-            // Serializable is the default mode in SQLite, but you can explicitly set it if needed.
-            // Other isolation levels can be managed here if SQLite supports them in future versions.
             default:
                 using (var command = new SqliteCommand("PRAGMA read_uncommitted = false;", connection))
                 {
-                    command.ExecuteNonQuery();
+                    ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
                 }
                 break;
         }
@@ -45,7 +50,7 @@ public class SQLiteDbAccess : DatabaseAccess
             command.Connection = connection;
             SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
             Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
-            int result = command.ExecuteNonQuery();
+            int result = ExecuteCommandWithTelemetry(command, "non_query", transactional: false, transactionType: null, command.ExecuteNonQuery);
             connection.Close();
 
             return result;
@@ -62,7 +67,7 @@ public class SQLiteDbAccess : DatabaseAccess
         (T)ExecuteScalar(new SqliteCommand(query));
 
     public override T ExecuteScalar<T>(IDbCommand command) =>
-        (T)ExecuteScalar(command);
+        (T)ExecuteScalar(command)!;
 
     public override object? ExecuteScalar(IDbCommand command)
     {
@@ -72,7 +77,7 @@ public class SQLiteDbAccess : DatabaseAccess
             command.Connection = connection;
             SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
             Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
-            var result = command.ExecuteScalar();
+            var result = ExecuteCommandWithTelemetry(command, "scalar", transactional: false, transactionType: null, command.ExecuteScalar);
             connection.Close();
 
             return result;
@@ -87,12 +92,14 @@ public class SQLiteDbAccess : DatabaseAccess
         SetIsolationLevel(connection, IsolationLevel.ReadUncommitted);
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        //using (var pragma = new SqliteCommand("PRAGMA journal_mode=WAL;", connection))
-        //{
-        //    pragma.ExecuteNonQuery();
-        //}
+        var reader = ExecuteCommandWithTelemetry(
+            command,
+            "reader",
+            transactional: false,
+            transactionType: null,
+            () => command.ExecuteReader(CommandBehavior.CloseConnection) as SqliteDataReader);
 
-        return new SQLiteDataLinqDataReader((command.ExecuteReader(CommandBehavior.CloseConnection) as SqliteDataReader)!);
+        return new SQLiteDataLinqDataReader(reader!);
     }
 
     public override IDataLinqDataReader ExecuteReader(string query) =>

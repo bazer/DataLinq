@@ -24,6 +24,13 @@ public enum UUIDVersion
 public class DefaultAttribute(object value) : Attribute
 {
     public object Value { get; } = value ?? throw new ArgumentNullException(nameof(value));
+    public string? CodeExpression { get; private set; }
+
+    public DefaultAttribute SetCodeExpression(string? codeExpression)
+    {
+        CodeExpression = codeExpression;
+        return this;
+    }
 }
 
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]

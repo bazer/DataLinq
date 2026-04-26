@@ -1,74 +1,89 @@
-# DataLinq Documentation Index
+# Intro
 
-Welcome to the DataLinq documentation! This index is designed to help you quickly find the resources you need—whether you’re just starting to use DataLinq or diving into advanced customization and backend development.
+Welcome to the DataLinq documentation.
 
----
+These docs are structured to help two kinds of readers:
 
-## 1. Getting Started & Usage
+- developers who are new to DataLinq and need a clear path to first success
+- contributors or maintainers who need reference material and internals
 
-### [CLI Documentation](CLI%20Documentation.md)
-Provides an overview of the DataLinq CLI tool and its commands (`create-database`, `create-sql`, `create-models`, `list`) along with usage examples.
+If you are new here, do not start by wandering through every reference page in the menu. Start with the guided onboarding path.
 
-### [Configuration Files](Configuration%20files.md)
-Describes the structure and options for `datalinq.json` and `datalinq.user.json`, explaining how to configure your database connections, model generation settings, and more.
+## What DataLinq Is
 
-### Querying (TBD)
+DataLinq is an immutable-first, source-generated ORM for .NET.
 
-### Mutation (TBD)
+Its core trade is simple:
 
-### Transactions (TBD)
+- more work in generation, metadata, and cache structure
+- less ambiguity at runtime
 
-### Required, Optional and Default Values (TBD)
+That leads to a model where:
 
-### Supported LINQ Queries (TBD)
+- queries return immutable instances
+- relations are lazy and cache-aware
+- updates happen through mutable wrappers and transactions
+- supported LINQ is documented conservatively instead of being hand-waved as "probably works"
 
-### Alternative Query Syntax (TBD)
+## Why New Developers Should Care
 
-### Cache Invalidation (TBD)
+If you have only used mainstream ORMs, DataLinq can feel a bit different at first.
 
-### Attributes (TBD)
+That is because it is optimizing for:
 
-### API Documentation with Examples (TBD)
+- predictable reads
+- strong generated typing
+- cache-aware relation traversal
+- clearer mutation flow
 
----
+It is not trying to be the most permissive ORM in the ecosystem. It is trying to be coherent.
 
-## 2. Internals & Architecture
+## Start Here
 
-### [Project Specification](Project%20Specification.md)
-Outlines DataLinq’s overarching goals, design principles, and architectural vision.
+If you want the shortest path to understanding the library, follow this order:
 
-### [Technical Documentation](Technical%20documentation.md)
-Offers an in-depth overview of the library’s core components, covering caching, mutation, query processing, and general design decisions.
+1. [Installation](getting-started/Installation.md)
+2. [Configuration and Model Generation](getting-started/Configuration%20and%20Model%20Generation.md)
+3. [Your First Query and Update](getting-started/Your%20First%20Query%20and%20Update.md)
 
-### [Metadata Structure](Metadata%20Structure.md)
-Explains how DataLinq maps databases to C# models through its metadata model—covering tables, columns, relationships, and more.
+That sequence gets you from zero to a real generated model surface and a working query/update loop.
 
-### [Source Generator](Source%20Generator.md)
-Describes how DataLinq’s source generator creates immutable and mutable model classes from the metadata, minimizing boilerplate and ensuring consistency.
+## After That
 
-### [Query Translator](Query%20Translator.md)
-Details how LINQ expressions are converted into backend-specific SQL, including an explanation of expression visitors and other helper classes.
+Once the basics are in place, move into the deeper working docs:
 
-### [Caching and Mutation](Caching%20and%20Mutation.md)
-A dedicated guide to DataLinq’s caching architecture (including the primary-key-first approach) and mutation workflow (immutable data, transactional updates, commits, and rollbacks).
+- [Querying](Querying.md)
+- [Caching and Mutation](Caching%20and%20Mutation.md)
+- [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md)
+- [Transactions](Transactions.md)
+- [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
 
----
+## Documentation Areas
 
-## 3. Extensibility & Advanced Development
+If you already know what you need, jump directly to the major sections:
 
-### [Implementing a new backend](Implementing%20a%20new%20backend.md)
-Walks through creating support for additional data sources by implementing metadata readers, SQL generation logic, and data read/write classes behind DataLinq’s provider interfaces.
+### Getting Started
 
-#### Additional Topics
+- [Installation](getting-started/Installation.md)
+- [Configuration and Model Generation](getting-started/Configuration%20and%20Model%20Generation.md)
+- [Your First Query and Update](getting-started/Your%20First%20Query%20and%20Update.md)
 
-- **[Contribution Guidelines](Contributing.md)**  
-  A guide for new contributors covering coding standards, how to run tests, and submission guidelines.
-  
-- **Testing & Benchmarking (TBD)**  
-  Documentation detailing how to run and write tests for DataLinq, as well as interpret performance benchmarks.
+### Usage
 
-- **FAQ / Troubleshooting (TBD)**  
-  A list of frequently asked questions, common issues, and troubleshooting tips.
+- [Querying](Querying.md)
+- [Caching and Mutation](Caching%20and%20Mutation.md)
+- [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md)
+- [Transactions](Transactions.md)
+- [Attributes and Model Definitions](Attributes%20and%20Model%20Definitions.md)
+- [Troubleshooting](Troubleshooting.md)
 
-- **Migration & Extensibility (TBD)**  
-  Guidance on migrating from earlier versions or more advanced customizations—some aspects are partially covered in “Implementing a new backend.”
+### Providers
+
+- [MySQL & MariaDB](backends/MySQL-MariaDB.md)
+- [SQLite](backends/SQLite.md)
+
+### Internals
+
+- [Technical Documentation](Technical%20documentation.md)
+- [Source Generator](Source%20Generator.md)
+- [Query Translator](Query%20Translator.md)

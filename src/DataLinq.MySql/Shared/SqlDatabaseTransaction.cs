@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Data;
+using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Mutation;
 using MySqlConnector;
@@ -16,25 +17,26 @@ public class SqlDatabaseTransaction : DatabaseTransaction
     private readonly MySqlDataSource? dataSource;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
-    /// <summary>
-    /// Initializes a new instance of the MySqlDatabaseTransaction class with the specified connection string and transaction type.
-    /// </summary>
-    /// <param name="connectionString">The connection string to the MySQL database.</param>
-    /// <param name="type">The type of transaction to be performed.</param>
-    public SqlDatabaseTransaction(MySqlDataSource dataSource, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(type)
+    public SqlDatabaseTransaction(MySqlDataSource dataSource, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration)
+        : this(null, dataSource, type, databaseName, loggingConfiguration)
+    {
+    }
+
+    internal SqlDatabaseTransaction(IDatabaseProvider? databaseProvider, MySqlDataSource dataSource, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration)
+        : base(databaseProvider, type)
     {
         this.dataSource = dataSource;
         this.databaseName = databaseName;
         this.loggingConfiguration = loggingConfiguration;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the MySqlDatabaseTransaction class with the specified database transaction and transaction type.
-    /// Ensures that the provided transaction is valid and the connection is open.
-    /// </summary>
-    /// <param name="dbTransaction">The existing database transaction.</param>
-    /// <param name="type">The type of transaction to be performed.</param>
-    public SqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration) : base(dbTransaction, type)
+    public SqlDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration)
+        : this(null, dbTransaction, type, databaseName, loggingConfiguration)
+    {
+    }
+
+    internal SqlDatabaseTransaction(IDatabaseProvider? databaseProvider, IDbTransaction dbTransaction, TransactionType type, string databaseName, DataLinqLoggingConfiguration loggingConfiguration)
+        : base(databaseProvider, dbTransaction, type)
     {
         if (dbTransaction.Connection == null) throw new ArgumentNullException("dbTransaction.Connection", "The transaction connection is null");
         if (dbTransaction.Connection is not MySqlConnection) throw new ArgumentException("The transaction connection must be an MySqlConnection", "dbTransaction.Connection");
@@ -44,11 +46,9 @@ public class SqlDatabaseTransaction : DatabaseTransaction
         dbConnection = dbTransaction.Connection;
         this.databaseName = databaseName;
         this.loggingConfiguration = loggingConfiguration;
+        BeginTransactionTelemetry();
     }
 
-    /// <summary>
-    /// Gets the underlying database connection for the transaction, ensuring it is open and valid.
-    /// </summary>
     private IDbConnection DbConnection
     {
         get
@@ -64,6 +64,7 @@ public class SqlDatabaseTransaction : DatabaseTransaction
                 SetStatus(DatabaseTransactionStatus.Open);
                 dbConnection = dataSource.OpenConnection();
                 DbTransaction = dbConnection.BeginTransaction(IsolationLevel.ReadCommitted);
+                BeginTransactionTelemetry();
 
                 if (databaseName != null)
                     ExecuteNonQuery($"USE `{databaseName}`;");
@@ -76,126 +77,100 @@ public class SqlDatabaseTransaction : DatabaseTransaction
         }
     }
 
-    /// <summary>
-    /// Executes a non-query SQL command within the context of the transaction.
-    /// </summary>
-    /// <param name="command">The command to execute.</param>
-    /// <returns>The number of rows affected.</returns>
     public override int ExecuteNonQuery(IDbCommand command)
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
-        return command.ExecuteNonQuery();
+        return ExecuteCommandWithTelemetry(command, "non_query", transactional: true, Type, command.ExecuteNonQuery);
     }
 
-    /// <summary>
-    /// Executes a SQL command with a non-query statement such as INSERT, UPDATE, or DELETE.
-    /// </summary>
-    /// <param name="query">The SQL query string to execute.</param>
-    /// <returns>The number of rows affected by the command.</returns>
     public override int ExecuteNonQuery(string query) =>
         ExecuteNonQuery(new MySqlCommand(query));
 
-    /// <summary>
-    /// Executes a SQL command that returns a single value, such as a COUNT or MAX.
-    /// </summary>
-    /// <param name="query">The SQL query string to execute.</param>
-    /// <returns>The first column of the first row in the result set returned by the query.</returns>
     public override object? ExecuteScalar(string query) =>
         ExecuteScalar(new MySqlCommand(query));
 
-    /// <summary>
-    /// Executes a SQL command that returns a single value of type T.
-    /// </summary>
-    /// <typeparam name="T">The expected return type of the scalar result.</typeparam>
-    /// <param name="query">The SQL query string to execute.</param>
-    /// <returns>The result cast to the type T, or default(T) if the result is DBNull or null.</returns>
     public override T ExecuteScalar<T>(string query) =>
         ExecuteScalar<T>(new MySqlCommand(query));
 
-    /// <summary>
-    /// Executes a SQL command that returns a single value of type T, using the provided IDbCommand.
-    /// </summary>
-    /// <typeparam name="T">The expected return type of the scalar result.</typeparam>
-    /// <param name="command">The IDbCommand to execute.</param>
-    /// <returns>The result cast to the type T, or default(T) if the result is DBNull or null.</returns>
     public override T ExecuteScalar<T>(IDbCommand command) =>
         (T)(ExecuteScalar(command) ?? default(T)!);
 
-    /// <summary>
-    /// Executes a SQL command that returns a single value, using the provided IDbCommand.
-    /// </summary>
-    /// <param name="command">The IDbCommand to execute.</param>
-    /// <returns>The first column of the first row in the result set returned by the command, or null if the result is DBNull.</returns>
     public override object? ExecuteScalar(IDbCommand command)
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
-        var result = command.ExecuteScalar();
+        var result = ExecuteCommandWithTelemetry(command, "scalar", transactional: true, Type, command.ExecuteScalar);
         return result == DBNull.Value ? null : result;
     }
 
-
-    /// <summary>
-    /// Executes a SQL command that returns a result set, such as a SELECT query.
-    /// </summary>
-    /// <param name="query">The SQL query string to execute.</param>
-    /// <returns>An IDataLinqDataReader that can be used to read the returned data.</returns>
     public override IDataLinqDataReader ExecuteReader(string query)
     {
         return ExecuteReader(new MySqlCommand(query));
     }
 
-
-    /// <summary>
-    /// Close this reader when done! (or use a using-statement)
-    /// </summary>
-    /// <param name="command"></param>
-    /// <returns></returns>
     public override IDataLinqDataReader ExecuteReader(IDbCommand command)
     {
         command.Connection = DbConnection;
         command.Transaction = DbTransaction;
         Log.SqlCommand(loggingConfiguration.SqlCommandLogger, command);
 
-        return new SqlDataLinqDataReader((command.ExecuteReader() as MySqlDataReader)!);
+        var reader = ExecuteCommandWithTelemetry(
+            command,
+            "reader",
+            transactional: true,
+            Type,
+            () => command.ExecuteReader() as MySqlDataReader);
+
+        return new SqlDataLinqDataReader(reader!);
     }
 
-    /// <summary>
-    /// Commits the transaction, ensuring it is open before attempting to commit.
-    /// </summary>
     public override void Commit()
     {
-        if (Status == DatabaseTransactionStatus.Open)
+        try
         {
-            if (DbTransaction?.Connection?.State == ConnectionState.Open)
-                DbTransaction.Commit();
-        }
+            if (Status == DatabaseTransactionStatus.Open)
+            {
+                if (DbTransaction?.Connection?.State == ConnectionState.Open)
+                    DbTransaction.Commit();
 
-        SetStatus(DatabaseTransactionStatus.Committed);
-        Dispose();
+                CompleteTransactionTelemetry(DatabaseTransactionStatus.Committed);
+            }
+
+            SetStatus(DatabaseTransactionStatus.Committed);
+            Dispose();
+        }
+        catch (Exception ex)
+        {
+            FailTransactionTelemetry(DatabaseTransactionStatus.Committed, ex);
+            throw;
+        }
     }
 
-    /// <summary>
-    /// Rolls back the transaction, ensuring it is open before attempting to roll back.
-    /// </summary>
     public override void Rollback()
     {
-        if (Status == DatabaseTransactionStatus.Open)
+        try
         {
-            if (DbTransaction?.Connection?.State == ConnectionState.Open)
-                DbTransaction.Rollback();
-        }
+            if (Status == DatabaseTransactionStatus.Open)
+            {
+                if (DbTransaction?.Connection?.State == ConnectionState.Open)
+                    DbTransaction.Rollback();
 
-        SetStatus(DatabaseTransactionStatus.RolledBack);
-        Dispose();
+                CompleteTransactionTelemetry(DatabaseTransactionStatus.RolledBack);
+            }
+
+            SetStatus(DatabaseTransactionStatus.RolledBack);
+            Dispose();
+        }
+        catch (Exception ex)
+        {
+            FailTransactionTelemetry(DatabaseTransactionStatus.RolledBack, ex);
+            throw;
+        }
     }
 
-    /// <summary>
-    /// Closes the transaction and the underlying connection if open.
-    /// </summary>
     private void Close()
     {
         if (Status == DatabaseTransactionStatus.Open)
@@ -203,23 +178,17 @@ public class SqlDatabaseTransaction : DatabaseTransaction
             if (DbTransaction?.Connection?.State == ConnectionState.Open)
                 DbTransaction.Rollback();
 
+            CompleteTransactionTelemetry(DatabaseTransactionStatus.RolledBack);
             SetStatus(DatabaseTransactionStatus.RolledBack);
         }
 
         dbConnection?.Close();
     }
 
-    #region IDisposable Members
-
-    /// <summary>
-    /// Releases all resources used by the MySqlDatabaseTransaction, rolling back the transaction if it is still open.
-    /// </summary>
     public override void Dispose()
     {
         Close();
         dbConnection?.Dispose();
         DbTransaction?.Dispose();
     }
-
-    #endregion IDisposable Members
 }

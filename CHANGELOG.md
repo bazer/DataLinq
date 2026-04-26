@@ -4,6 +4,195 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.8 - Cache Diagnostics, Correctness, and Test Infrastructure](https://github.com/bazer/DataLinq/releases/tag/0.6.8)
+
+**Released on:** 2026-04-17
+
+This is a maintenance-heavy release, but it is not filler. The important work here is cache correctness and observability: a real cache-eviction bug was fixed, cache-notification cleanup is more reliable, and DataLinq now ships its first real metrics API with a hierarchy that matches the actual runtime shape. Around that, this release also starts and finishes a large test-infrastructure transition: the project moves from the old mixed xUnit setup to a TUnit-centered test architecture with new CLI and CI support, and adds a proper benchmark harness.
+
+### Highlights
+
+* **Fixed a real cache correctness bug where table-specific cache cleanup could evict rows from every table.**
+  A table-level row limit in `RemoveRowsBySettings` was incorrectly routed through the database-wide cleanup path. In practice, that meant cache limits configured for one table could cause unnecessary evictions and extra churn in unrelated tables. That behavior is now fixed, and regression coverage was added to make sure it stays fixed.
+
+* **Cache-notification cleanup is more robust and much easier to diagnose.**
+  `CacheNotificationManager` now compacts dead weak subscribers correctly again in read-heavy workloads, and `Notify()` / `Clean()` were tightened so they do not race each other and lose invalidations. DataLinq also now exposes live notification telemetry such as queue depth, sweep sizes, dropped dead subscribers, and peak queue growth.
+
+* **DataLinq now ships a real hierarchical runtime metrics API.**
+  `DataLinqMetrics` is new in this release and reports:
+  * runtime totals
+  * per-provider-instance metrics
+  * per-table metrics within each provider
+
+  That matters because query execution, row-cache behavior, relation loading, and cache-notification churn do not belong to the same scope. The shipped API avoids misleading aggregation and makes multi-provider diagnostics much more trustworthy from day one.
+
+### Runtime Fixes and Observability
+
+* Added a new public diagnostics surface under `DataLinq.Diagnostics.DataLinqMetrics`, including typed snapshot models for runtime, provider, table, query, relation, row-cache, and cache-notification metrics.
+* Scoped cache-notification telemetry by provider instance and table so multiple loaded providers with the same logical database name are tracked independently.
+* Added stable provider telemetry instance ids so aggregation does not collapse unrelated provider instances together.
+* Added live and cumulative cache-notification metrics, including current queue depth, last notify/clean sweep values, sweep totals, dropped dead references, busy clean skips, and approximate peak queue depth.
+* Added a dedicated diagnostics and metrics documentation page that explains how to interpret the new hierarchy and which values are counters, gauges, sums, or maxima, without pretending there was an earlier released flat metrics API.
+* Fixed a `ThreadWorker` teardown race during fast disposal, improving shutdown reliability in scenarios that rapidly create and dispose providers.
+
+### Benchmarking, Testing, and Tooling
+
+* This release contains a full test suite migration from xUnit to TUnit. The project moved to a TUnit-centered structure across unit, compliance, and generator coverage.
+* Added a cross-platform `DataLinq.Testing.CLI` workflow for bringing test infrastructure up/down, waiting, resetting, running suites, listing targets, and validating legacy-to-TUnit parity.
+* Moved the test suite completely to Podman containers, with support for all the current LTS versions of MySQL and MariaDB. 
+* Added a parity gate so legacy xUnit coverage cannot silently disappear during the migration.
+* Cleaned up the test structure and provider matrix so the suite is easier to reason about and less dependent on ad hoc local scripts.
+* Added real CI for the project, including a main automated lane plus broader matrix coverage, instead of relying on purely local validation.
+* Built that CI around the new testing workflow with more resilient teardown, dedicated MySQL/MariaDB coverage, and machine-readable summaries for badges and reporting.
+* Replaced the old benchmark stub with a real BenchmarkDotNet harness, including deterministic SQLite-backed employee benchmarks for cold/warm primary-key fetches and relation traversal.
+
+### Documentation and Maintenance
+
+* Added first-class documentation for diagnostics and metrics, and linked it from the README, site index, and usage docs so it is actually discoverable.
+* Reorganized development-plan docs and refined roadmap/async planning material.
+* Refreshed NuGet dependencies across the solution.
+
+### Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.6.7...0.6.8
+
+---
+
+## [DataLinq v0.6.7 - Generator Reliability, Default Handling, and Release Tooling](https://github.com/bazer/DataLinq/releases/tag/0.6.7)
+
+**Released on:** 2026-03-27
+
+This release is mostly about correctness and maintainability, and that is exactly what it needed to be. The biggest themes are a cleaner source-generator pipeline, much better handling of default values across providers, several SQLite and MySQL/MariaDB correctness fixes, a large documentation overhaul, and a far more practical local NuGet publishing workflow.
+
+### Highlights
+
+* **Replaced the old SGF-based generator pipeline with a native Roslyn incremental generator.**
+  This is the most important internal change in the release. It reduces moving parts, aligns the generator with the platform it actually runs on, and gives DataLinq a more stable foundation for future analyzer and generation work.
+
+* **Default value handling is significantly more correct across generation, metadata parsing, and SQL output.**
+  A large portion of this release fixes subtle but important bugs around default values:
+  * generated models now preserve source defaults more accurately, including overridden property types
+  * default literal escaping has been fixed in generated models
+  * MySQL, MariaDB, and SQLite now parse and emit default values more reliably
+  * typed default compatibility is validated more aggressively during generation
+
+* **SQLite behavior is more consistent and less fragile.**
+  This release fixes several SQLite-specific issues:
+  * in-memory database lifetime and test isolation were improved
+  * `Guid` parameter matching for `TEXT` columns was corrected
+  * millisecond precision handling was aligned more closely with .NET `DateTime` behavior
+  * SQLite default value parsing and SQL generation were expanded and tightened up
+
+* **MySQL and MariaDB SQL/default handling got a substantial correctness pass.**
+  Multiple fixes in this release address quoted defaults, typed model properties, date defaults, enum defaults, view parsing fallback behavior, and SQL generation for provider-specific edge cases.
+
+### LINQ and Query Fixes
+
+* Fixed LINQ `char` equality translation across SQLite, MySQL, and MariaDB.
+* Corrected several provider-level query and metadata edge cases that were previously easy to miss but could produce the wrong SQL or incorrect defaults.
+
+### Source Generator and Analyzer Improvements
+
+* Added analyzer release tracking for `DLG000`.
+* Improved validation for model default values.
+* Tightened generator test coverage around defaults, syntax parsing, and model generation behavior.
+* Fixed transitive Roslyn/source-generator packaging issues so the NuGet experience is more reliable in Visual Studio and downstream projects.
+
+### Packaging and Tooling
+
+* Added a new local `publish-nuget.ps1` release script for packing and publishing public packages.
+* The script now stages release artifacts in a fresh folder, prompts for the NuGet API key at publish time, and publishes packages and symbol packages explicitly.
+* Fixed `DataLinq` symbol packaging so `.snupkg` files actually contain real PDBs and can be published successfully.
+* Improved the local release flow for `DataLinq`, `DataLinq.SQLite`, `DataLinq.MySql`, `DataLinq.CLI`, and `DataLinq.Tools`.
+
+### Documentation
+
+* Performed a broad documentation overhaul and website restructuring.
+* Added or substantially improved docs for:
+  * installation and getting started
+  * configuration and model generation
+  * CLI usage
+  * LINQ query support
+  * transactions
+  * troubleshooting
+  * backend-specific behavior for SQLite and MySQL/MariaDB
+* Fixed docfx homepage routing and cleaned up the site structure.
+
+### Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.6.6...0.6.7
+
+
+---
+
+## [DataLinq v0.6.6 - Performance Improvements and SQLite Logging](https://github.com/bazer/DataLinq/releases/tag/0.6.6)
+
+**Released on:** 2025-12-18
+
+This maintenance release improves core query and materialization performance, reduces memory overhead in hot paths, and makes SQLite logging behavior more consistent. It also includes a dependency refresh, source generator cleanup, and a large set of internal planning documents for upcoming releases.
+
+### Highlights
+
+*   **Faster Primary-Key Lookups and LINQ Execution:** Several internal optimizations make common read scenarios faster and cheaper. [31fd6f3]
+    *   `Select` can now detect simple primary-key predicates and short-circuit to a direct lookup instead of building and executing a full query.
+    *   Expression evaluation now uses a reflection-based fast path for local variable access, avoiding unnecessary lambda compilation in many cases.
+    *   `QueryExecutor` now caches standard identity projection delegates to reduce repeated overhead for common queries.
+*   **Lower-Overhead `RowData` Storage:** `RowData` has been redesigned to use an indexed object array instead of a dictionary, giving O(1) column access and reducing allocations during row materialization. [2ce6b41]
+    *   This change is supported by new column indexing metadata assigned during metadata parsing, ensuring correct alignment even for partial `SELECT` queries.
+*   **Improved SQLite Logging Integration:** Logging configuration is now propagated more consistently through SQLite database and transaction classes, improving diagnostics and making SQLite behavior more aligned with the other providers. [db25a31] [07fc896]
+
+### Internal Improvements
+
+*   **Source Generator Cleanup:** Refactored `ModelGenerator` to streamline class declaration processing and improve metadata caching in the generator pipeline. [3300f0f]
+*   **Dependency Refresh:** Updated NuGet package dependencies across the runtime, generator, tooling, benchmark, and test projects to newer stable versions. [d16ae98]
+*   **Minor Code Cleanup:** Removed unused `using` directives and small bits of dead code as part of the performance work. [ba088a7]
+
+### Documentation & Planning
+
+*   Added a substantial new set of development-plan documents covering batched mutations and optimistic concurrency, in-memory provider support, JSON data type support, metadata architecture, migrations and validation, performance benchmarking, projections and views, query pipeline abstraction, source generator optimizations, SQL generation optimization, result-set caching, testing infrastructure, and recommended application patterns. [59f3de0] [2242bc3] [c2f3547] [ef00311]
+*   Updated the documentation workflow to use .NET 10 for static site generation. [ebf70a7]
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.6.5...0.6.6
+
+---
+
+## [DataLinq v0.6.5 - LINQ Enhancements & Multi-Targeting](https://github.com/bazer/DataLinq/releases/tag/0.6.5)
+
+**Released on:** 2025-11-12
+
+This release expands framework support to include .NET 8, 9, and 10, introduces significant improvements to the LINQ query parser for string manipulation and collection handling, and includes internal optimizations for newer .NET runtimes.
+
+### Highlights
+
+*   **Multi-Targeting Support:** DataLinq now explicitly targets **.NET 8.0, .NET 9.0, and .NET 10.0**.
+*   **Performance Optimization on .NET 9+:** Implemented conditional compilation to utilize the new `System.Threading.Lock` on .NET 9 and greater, improving thread synchronization performance in `ImmutableRelation` and `ImmutableForeignKey`.
+*   **Advanced LINQ Chains:** Added support for chained string functions in queries. You can now write LINQ expressions like `x.Name.Trim().Length`, and they will correctly translate to the corresponding SQL.
+
+### LINQ & Query Engine
+
+*   **Chained String Functions:** The `QueryBuilder` now supports parsing and generating SQL for chained string operations (e.g., `Trim().ToUpper().Length`).
+*   **Enhanced Collection Handling:** Improved translation logic for `Contains` and `Any` methods.
+    *   Added robust handling for empty lists in `Contains` queries (resolving to `1=0` or `1=1`).
+    *   Fixed handling of negated `Contains` conditions.
+    *   Added support for `op_Implicit` calls wrapping arrays or spans within queries.
+*   **Entity Selection:** Improved `QueryExecutor` to handle selecting the full entity directly in projections (e.g., `source.Select(x => x)`).
+*   **Expression Evaluation:** Updated the `Evaluator` to safely handle non-reducible expressions (like `QuerySourceReferenceExpression`), preventing runtime errors during partial evaluation of query trees.
+
+### Bug Fixes & Internal Improvements
+
+*   **Dependency Update:** Updated `ThrowAway` package to version 0.3.1 and updated various test dependencies (Bogus, xUnit, etc.).
+*   **SQL Generation:** Added argument validation for `Substring` functions in SQL providers to ensure correct usage.
+*   **Test Suite Reliability:** Adjusted transaction tests to correctly account for isolation level differences between SQLite (which may expose uncommitted writes) and MySQL/MariaDB.
+*   **Type Safety:** Added specific handling to skip unsupported tests in MariaDB relating to GUID formats until upstream connector support is clarified.
+
+---
+
+**Full Changelog**: https://github.com/bazer/DataLinq/compare/0.6.4...0.6.5
+
+---
+
 ## [DataLinq v0.6.4 - Critical Concurrency & Performance Fixes](https://github.com/bazer/DataLinq/releases/tag/0.6.4)
 
 **Released on:** 2025-08-26

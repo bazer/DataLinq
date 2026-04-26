@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Threading;
 using DataLinq.Cache;
+using DataLinq.Diagnostics;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -42,6 +43,7 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
         var localHolder = valueHolder;
         if (localHolder != null)
         {
+            GetTableCache().MetricsHandle.RecordRelationReferenceCacheHit();
             return localHolder.Value;
         }
 
@@ -63,6 +65,8 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
                     valueHolder = new((T?)tableCache
                         .GetRows(foreignKey, property, dataSource)
                         .SingleOrDefault());
+
+                    tableCache.MetricsHandle.RecordRelationReferenceLoad();
                 }
             }
 

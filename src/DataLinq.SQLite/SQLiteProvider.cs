@@ -51,9 +51,10 @@ public class SQLiteProviderConstants : IDatabaseProviderConstants
 public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel
 {
-    private SqliteConnectionStringBuilder connectionStringBuilder;
-    private SQLiteDataLinqDataWriter dataWriter = new(new SqlFromSQLiteFactory());
-    private SQLiteDbAccess dbAccess;
+    private readonly SqliteConnectionStringBuilder connectionStringBuilder;
+    private readonly IDisposable? keepAliveConnection;
+    private readonly SQLiteDataLinqDataWriter dataWriter = new(new SqlFromSQLiteFactory());
+    private readonly SQLiteDbAccess dbAccess;
     public override IDatabaseProviderConstants Constants { get; } = new SQLiteProviderConstants();
     public override DatabaseAccess DatabaseAccess => dbAccess;
 
@@ -67,17 +68,52 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     { }
 
     public SQLiteProvider(string connectionString, string? databaseName, DataLinqLoggingConfiguration? loggerFactory = null) :
+        this(CreateConnectionOptions(connectionString, databaseName), loggerFactory)
+    { }
+
+    private SQLiteProvider(SQLiteConnectionOptions connectionOptions, DataLinqLoggingConfiguration? loggerFactory = null) :
         base(
-            SQLiteConnectionStringFactory.NormalizeConnectionString(connectionString, databaseName),
+            connectionOptions.ConnectionString,
             DatabaseType.SQLite,
-            loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration)
+            loggerFactory ?? DataLinqLoggingConfiguration.NullConfiguration,
+            connectionOptions.DatabaseName)
     {
         connectionStringBuilder = new SqliteConnectionStringBuilder(ConnectionString);
-        DatabaseName = databaseName ?? Path.GetFileNameWithoutExtension(connectionStringBuilder.DataSource);
-        SQLiteConnectionStringFactory.EnsureKeepAliveIfInMemory(connectionStringBuilder.ConnectionString);
-        dbAccess = new SQLiteDbAccess(ConnectionString, LoggingConfiguration);
+        keepAliveConnection = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(connectionStringBuilder.ConnectionString);
+        dbAccess = new SQLiteDbAccess(this, ConnectionString, LoggingConfiguration);
         SetJournalMode(SQLiteJournalMode.WAL);
 
+    }
+
+    private sealed record SQLiteConnectionOptions(string ConnectionString, string DatabaseName);
+
+    private static SQLiteConnectionOptions CreateConnectionOptions(string connectionString, string? databaseName)
+    {
+        var builder = new SqliteConnectionStringBuilder(connectionString);
+        string? anonymousInMemoryDatabaseName = null;
+
+        if (SQLiteConnectionStringFactory.IsInMemory(builder) &&
+            string.IsNullOrWhiteSpace(databaseName) &&
+            UsesAnonymousInMemoryDataSource(builder))
+        {
+            anonymousInMemoryDatabaseName = $"datalinq_memory_{Guid.NewGuid():N}";
+        }
+
+        var normalizedConnectionString = SQLiteConnectionStringFactory.NormalizeConnectionString(connectionString, databaseName, anonymousInMemoryDatabaseName);
+        var normalizedBuilder = new SqliteConnectionStringBuilder(normalizedConnectionString);
+        var effectiveDatabaseName = databaseName
+            ?? anonymousInMemoryDatabaseName
+            ?? Path.GetFileNameWithoutExtension(normalizedBuilder.DataSource);
+
+        return new SQLiteConnectionOptions(normalizedConnectionString, effectiveDatabaseName);
+    }
+
+    private static bool UsesAnonymousInMemoryDataSource(SqliteConnectionStringBuilder builder)
+    {
+        var source = builder.DataSource;
+        return string.IsNullOrWhiteSpace(source) ||
+            source == ":memory:" ||
+            source.Equals("memory", StringComparison.OrdinalIgnoreCase);
     }
 
     //public SQLiteProvider(string connectionString, string databaseName) : base(connectionString, DatabaseType.SQLite, DataLinqLoggingConfiguration.NullConfiguration, databaseName)
@@ -128,12 +164,12 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
-        return new SQLiteDatabaseTransaction(ConnectionString, type, LoggingConfiguration);
+        return new SQLiteDatabaseTransaction(this, ConnectionString, type, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
-        return new SQLiteDatabaseTransaction(dbTransaction, type, LoggingConfiguration);
+        return new SQLiteDatabaseTransaction(this, dbTransaction, type, LoggingConfiguration);
     }
 
     public override string GetLastIdQuery() => "SELECT last_insert_rowid()";
@@ -147,6 +183,10 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
         var quotedColumnName = columnName.Contains('(')
             ? columnName
             : $"{Constants.EscapeCharacter}{columnName}{Constants.EscapeCharacter}";
+
+        var columnText = $"CAST({quotedColumnName} AS TEXT)";
+        var fractionStart = $"instr({columnText}, '.') + 1";
+        var truncatedMillisecond = $"CAST(substr(substr({columnText}, {fractionStart}) || '000', 1, 3) AS INTEGER)";
 
         return functionType switch
         {
@@ -162,8 +202,9 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             SqlFunctionType.TimePartHour => $"CAST(strftime('%H', {quotedColumnName}) AS INTEGER)",
             SqlFunctionType.TimePartMinute => $"CAST(strftime('%M', {quotedColumnName}) AS INTEGER)",
             SqlFunctionType.TimePartSecond => $"CAST(strftime('%S', {quotedColumnName}) AS INTEGER)",
-            // strftime('%f') returns seconds with fractional part. Multiply by 1000 and take integer part.
-            SqlFunctionType.TimePartMillisecond => $"CAST((strftime('%f', {quotedColumnName}) * 1000) % 1000 AS INTEGER)",
+            // .NET's DateTime.Millisecond truncates ticks to the millisecond component.
+            // SQLite's strftime('%f') rounds to 3 decimals, so use the stored fractional text when available.
+            SqlFunctionType.TimePartMillisecond => $"CASE WHEN instr({columnText}, '.') > 0 THEN {truncatedMillisecond} ELSE CAST(SUBSTR(strftime('%f', {quotedColumnName}), 4, 3) AS INTEGER) END",
 
             // String Parts
             SqlFunctionType.StringLength => $"LENGTH({quotedColumnName})",
@@ -231,7 +272,13 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override Sql GetParameter(Sql sql, string key, object? value)
     {
-        return sql.AddParameters(new SqliteParameter("@" + key, value ?? DBNull.Value));
+        var normalizedValue = value switch
+        {
+            Guid guid => guid.ToString("D"),
+            _ => value ?? DBNull.Value
+        };
+
+        return sql.AddParameters(new SqliteParameter("@" + key, normalizedValue));
     }
 
     public override Sql GetLimitOffset(Sql sql, int? limit, int? offset)
@@ -306,5 +353,11 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
     public override IDbConnection GetDbConnection()
     {
         return new SqliteConnection(connectionStringBuilder.ConnectionString);
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        keepAliveConnection?.Dispose();
     }
 }

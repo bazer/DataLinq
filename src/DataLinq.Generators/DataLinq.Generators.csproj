@@ -4,6 +4,8 @@
 		<TargetFrameworks>netstandard2.0</TargetFrameworks>
 		<IsRoslynComponent>true</IsRoslynComponent>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+		<_EnableDefaultWindowsPlatform>false</_EnableDefaultWindowsPlatform>
+		<ReloadSourceGeneratorBeforeBuild>false</ReloadSourceGeneratorBeforeBuild>
 		<!--<GeneratePackageOnBuild>true</GeneratePackageOnBuild>-->
 		<!-- Do not include the generator as a lib dependency -->
 		<IncludeBuildOutput>false</IncludeBuildOutput>
@@ -17,23 +19,20 @@
 			<Link>Core\%(RecursiveDir)%(FileName)%(Extension)</Link>
 		</Compile>
 		
-		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0">
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="All" />
-		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="All" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MinVer" Version="6.0.0">
+		<PackageReference Include="MinVer">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="ThrowAway" Version="0.3.1" PrivateAssets="all" GeneratePathProperty="true" />
-		<PackageReference Include="SourceGenerator.Foundations" Version="2.0.14">
-			<PrivateAssets>All</PrivateAssets>
-		</PackageReference>
+		<PackageReference Include="ThrowAway" PrivateAssets="all" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -41,14 +40,30 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+		<AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<!-- Package the generator in the analyzer directory of the nuget package -->
 		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
-
-		<!-- Package the ThrowAway dependency alongside the generator assembly -->
-		<None Include="$(PKGThrowAway)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
+		<None Include="$(OutputPath)\$(AssemblyName).deps.json" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
 	</ItemGroup>
     
-    <Target Name="ReloadSourceGenerator" BeforeTargets="BeforeBuild" DependsOnTargets="$(BeforeBuildDependsOn)">
-		<Exec Command="dotnet build-server shutdown" />
+	<Target Name="CopyAnalyzerDependencies" AfterTargets="Build">
+		<ItemGroup>
+			<!-- Visual Studio design-time analyzer loading is stricter than command-line builds.
+			     Keep the generator's private dependencies beside the analyzer assembly. -->
+			<AnalyzerDependency Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)\throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
+		</ItemGroup>
+
+		<Copy SourceFiles="@(AnalyzerDependency)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+	</Target>
+
+    <Target Name="ReloadSourceGenerator"
+            BeforeTargets="BeforeBuild"
+            DependsOnTargets="$(BeforeBuildDependsOn)"
+            Condition="'$(ReloadSourceGeneratorBeforeBuild)' == 'true'">
+		<Exec Command="dotnet build-server shutdown" IgnoreExitCode="true" />
 	</Target>
 </Project>

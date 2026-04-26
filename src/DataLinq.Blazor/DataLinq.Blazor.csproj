@@ -8,7 +8,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
-		<ProjectReference Include="..\DataLinq.Tests\DataLinq.Tests.csproj" />
+		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
 	</ItemGroup>
 
 </Project>

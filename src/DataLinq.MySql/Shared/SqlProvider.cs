@@ -59,7 +59,7 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
             .UseLoggerFactory(LoggingConfiguration.LoggerFactory)
             .Build();
 
-        dbAccess = new SqlDbAccess(dataSource, LoggingConfiguration);
+        dbAccess = new SqlDbAccess(this, dataSource, LoggingConfiguration);
         sqlFromMetadataFactory = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DatabaseType);
         dataWriter = new SqlDataLinqDataWriter(sqlFromMetadataFactory);
     }
@@ -67,12 +67,12 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
     public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type)
     {
 
-        return new SqlDatabaseTransaction(dataSource, type, DatabaseName, LoggingConfiguration);
+        return new SqlDatabaseTransaction(this, dataSource, type, DatabaseName, LoggingConfiguration);
     }
 
     public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type)
     {
-        return new SqlDatabaseTransaction(dbTransaction, type, DatabaseName, LoggingConfiguration);
+        return new SqlDatabaseTransaction(this, dbTransaction, type, DatabaseName, LoggingConfiguration);
     }
 
     public override bool DatabaseExists(string? databaseName = null)

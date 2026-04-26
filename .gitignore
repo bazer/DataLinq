@@ -28,3 +28,16 @@ launchSettings.json
 /gitlog.txt
 /repomix-output.md
 /gitlog-detailed.md
+/.dotnet
+/artifacts/nupkg-test
+/artifacts
+/_site
+/_site_content_only
+/build-diag.log
+/testing-build-diag.log
+/BenchmarkDotNet.Artifacts
+/.dotnet-cli
+/.benchmarking
+/crm-dumps
+/src/DataLinq.Benchmark/artifacts
+.dotnet-cli-home

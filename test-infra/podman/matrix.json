@@ -1,0 +1,94 @@
+{
+  "targets": [
+    {
+      "id": "mysql-8.4",
+      "displayName": "MySQL 8.4 LTS",
+      "family": "MySql",
+      "version": "8.4",
+      "image": "mysql:8.4",
+      "hostPort": 3307,
+      "isLts": true,
+      "isDefault": true
+    },
+    {
+      "id": "mariadb-10.11",
+      "displayName": "MariaDB 10.11 LTS",
+      "family": "MariaDb",
+      "version": "10.11",
+      "image": "mariadb:10.11",
+      "hostPort": 3310,
+      "isLts": true,
+      "isDefault": false
+    },
+    {
+      "id": "mariadb-11.4",
+      "displayName": "MariaDB 11.4 LTS",
+      "family": "MariaDb",
+      "version": "11.4",
+      "image": "mariadb:11.4",
+      "hostPort": 3309,
+      "isLts": true,
+      "isDefault": false
+    },
+    {
+      "id": "mariadb-11.8",
+      "displayName": "MariaDB 11.8 LTS",
+      "family": "MariaDb",
+      "version": "11.8",
+      "image": "mariadb:11.8",
+      "hostPort": 3308,
+      "isLts": true,
+      "isDefault": true
+    }
+  ],
+  "profiles": [
+    {
+      "id": "current-lts",
+      "displayName": "Current LTS",
+      "isDefault": true,
+      "targets": [ "mysql-8.4", "mariadb-11.8" ]
+    },
+    {
+      "id": "mariadb-10.11-lts",
+      "displayName": "MySQL 8.4 + MariaDB 10.11",
+      "isDefault": false,
+      "targets": [ "mysql-8.4", "mariadb-10.11" ]
+    },
+    {
+      "id": "mariadb-11.4-lts",
+      "displayName": "MySQL 8.4 + MariaDB 11.4",
+      "isDefault": false,
+      "targets": [ "mysql-8.4", "mariadb-11.4" ]
+    },
+    {
+      "id": "mariadb-11.8-lts",
+      "displayName": "MySQL 8.4 + MariaDB 11.8",
+      "isDefault": false,
+      "targets": [ "mysql-8.4", "mariadb-11.8" ]
+    },
+    {
+      "id": "mysql-8.4-only",
+      "displayName": "MySQL 8.4 only",
+      "isDefault": false,
+      "targets": [ "mysql-8.4" ]
+    },
+    {
+      "id": "mariadb-10.11-only",
+      "displayName": "MariaDB 10.11 only",
+      "isDefault": false,
+      "targets": [ "mariadb-10.11" ]
+    },
+    {
+      "id": "mariadb-11.4-only",
+      "displayName": "MariaDB 11.4 only",
+      "isDefault": false,
+      "targets": [ "mariadb-11.4" ]
+    },
+    {
+      "id": "mariadb-11.8-only",
+      "displayName": "MariaDB 11.8 only",
+      "isDefault": false,
+      "targets": [ "mariadb-11.8" ]
+    }
+  ]
+}

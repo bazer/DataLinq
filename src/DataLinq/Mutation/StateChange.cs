@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Linq;
+using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Query;
@@ -87,20 +89,56 @@ public class StateChange
     /// <param name="transaction">The transaction to execute the query on.</param>
     public void ExecuteQuery(Transaction transaction)
     {
-        if (Type == TransactionChangeType.Insert && HasAutoIncrement && !Model.HasPrimaryKeysSet())
+        var telemetryContext = DataLinqTelemetryContext.FromProvider(transaction.Provider);
+        var activity = DataLinqTelemetry.StartMutationActivity(telemetryContext, Table.DbName, Type, transaction.Type);
+        var startedAt = Stopwatch.GetTimestamp();
+        var succeeded = false;
+        var affectedRows = 0;
+
+        try
         {
-            var newId = transaction.DatabaseAccess.ExecuteScalar(GetDbCommand(transaction));
-
-            if (Model is IMutableInstance mutable)
+            if (Type == TransactionChangeType.Insert && HasAutoIncrement && !Model.HasPrimaryKeysSet())
             {
-                var autoIncrement = Table.PrimaryKeyColumns.FirstOrDefault(x => x.AutoIncrement);
+                var newId = transaction.DatabaseAccess.ExecuteScalar(GetDbCommand(transaction));
+                affectedRows = 1;
 
-                if (autoIncrement != null)
-                    mutable[autoIncrement] = newId;
+                if (Model is IMutableInstance mutable)
+                {
+                    var autoIncrement = Table.PrimaryKeyColumns.FirstOrDefault(x => x.AutoIncrement);
+
+                    if (autoIncrement != null)
+                        mutable[autoIncrement] = newId;
+                }
+            }
+            else
+                affectedRows = transaction.DatabaseAccess.ExecuteNonQuery(GetDbCommand(transaction));
+
+            succeeded = true;
+        }
+        catch (Exception exception)
+        {
+            DataLinqTelemetry.RecordException(activity, exception);
+            throw;
+        }
+        finally
+        {
+            var duration = Stopwatch.GetElapsedTime(startedAt);
+            DataLinqTelemetry.RecordMutationExecution(
+                telemetryContext,
+                Table.DbName,
+                Type,
+                transaction.Type,
+                succeeded,
+                affectedRows,
+                duration);
+
+            if (activity is not null)
+            {
+                activity.SetTag("datalinq.outcome", succeeded ? "success" : "failure");
+                activity.SetTag("db.operation.rows_affected", affectedRows);
+                activity.Dispose();
             }
         }
-        else
-            transaction.DatabaseAccess.ExecuteNonQuery(GetDbCommand(transaction));
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -15,6 +15,7 @@ public struct MetadataFromDatabaseFactoryOptions
     public bool CapitaliseNames { get; set; } = false;
     public bool DeclareEnumsInClass { get; set; } = false;
     public List<string>? Include { get; set; }
+    public Action<string>? Log { get; set; }
 
     public MetadataFromDatabaseFactoryOptions()
     {
@@ -84,7 +85,7 @@ public static class MetadataFactory
                 table.Columns[i].SetIndex(i);
     }
 
-    public static void ParseIndices(DatabaseDefinition database)
+    public static Option<bool, IDLOptionFailure> ParseIndices(DatabaseDefinition database)
     {
         var indices = database.TableModels
             .Where(x => !x.IsStub)
@@ -105,23 +106,145 @@ public static class MetadataFactory
                 }
                 else
                 {
-                    var columnsForIndex = indexAttribute.Columns.Any()
-                        ? indexAttribute.Columns.Select(colName => column.Table.Columns.Single(c => c.DbName == colName)).ToList()
-                        : new List<ColumnDefinition> { column };
+                    List<ColumnDefinition> columnsForIndex;
+                    if (indexAttribute.Columns.Any())
+                    {
+                        columnsForIndex = [];
+                        foreach (var colName in indexAttribute.Columns)
+                        {
+                            var indexColumn = column.Table.Columns.SingleOrDefault(c => c.DbName == colName);
+                            if (indexColumn == null)
+                                return CreateIndexFailure(
+                                    column,
+                                    indexAttribute,
+                                    $"Index '{indexAttribute.Name}' on table '{column.Table.DbName}' references column '{colName}', but that column does not exist.");
 
-                    column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
+                            columnsForIndex.Add(indexColumn);
+                        }
+                    }
+                    else
+                    {
+                        columnsForIndex = [column];
+                    }
+
+                    try
+                    {
+                        column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
+                    }
+                    catch (InvalidOperationException exception)
+                    {
+                        return CreateIndexFailure(column, indexAttribute, exception.Message);
+                    }
+                    catch (ArgumentException exception)
+                    {
+                        return CreateIndexFailure(column, indexAttribute, exception.Message);
+                    }
                 }
             }
         }
+
+        return true;
     }
 
-    public static void ParseRelations(DatabaseDefinition database)
+    private static IDLOptionFailure CreateIndexFailure(ColumnDefinition column, IndexAttribute attribute, string message)
+    {
+        var attributeLocation = column.ValueProperty.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        var property = column.ValueProperty;
+        if (property.SourceInfo.HasValue && property.CsFile.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property.SourceInfo.Value.GetPropertyLocation(property.CsFile.Value));
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, column);
+    }
+
+    public static Option<bool, IDLOptionFailure> ValidateUniqueTableNames(DatabaseDefinition database)
+    {
+        var duplicateGroup = database.TableModels
+            .Where(x => !x.IsStub)
+            .GroupBy(x => x.Table.DbName, StringComparer.Ordinal)
+            .FirstOrDefault(x => x.Count() > 1);
+
+        if (duplicateGroup == null)
+            return true;
+
+        var duplicates = duplicateGroup.ToArray();
+        var first = duplicates[0];
+        var duplicate = duplicates[1];
+        var message = $"Duplicate table definition for '{duplicateGroup.Key}' in database '{database.DbName}'. Models '{first.Model.CsType.Name}' and '{duplicate.Model.CsType.Name}' both map to the same table name.";
+        var sourceLocation = GetTableNameSourceLocation(duplicate.Model);
+
+        return sourceLocation.HasValue
+            ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+            : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate.Model);
+    }
+
+    private static SourceLocation? GetTableNameSourceLocation(ModelDefinition model)
+    {
+        var tableAttribute = model.Attributes
+            .FirstOrDefault(x => x is TableAttribute or ViewAttribute);
+
+        if (tableAttribute != null)
+        {
+            var attributeLocation = model.GetAttributeSourceLocation(tableAttribute);
+            if (attributeLocation.HasValue)
+                return attributeLocation;
+        }
+
+        return model.GetSourceLocation();
+    }
+
+    public static Option<bool, IDLOptionFailure> ValidateUniqueColumnNames(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var duplicateGroup = tableModel.Table.Columns
+                .GroupBy(x => x.DbName, StringComparer.Ordinal)
+                .FirstOrDefault(x => x.Count() > 1);
+
+            if (duplicateGroup == null)
+                continue;
+
+            var duplicates = duplicateGroup.ToArray();
+            var first = duplicates[0];
+            var duplicate = duplicates[1];
+            var message = $"Duplicate column definition for '{duplicateGroup.Key}' in table '{tableModel.Table.DbName}'. Properties '{first.ValueProperty.PropertyName}' and '{duplicate.ValueProperty.PropertyName}' both map to the same column name.";
+            var sourceLocation = GetColumnNameSourceLocation(duplicate.ValueProperty);
+
+            return sourceLocation.HasValue
+                ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+                : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate);
+        }
+
+        return true;
+    }
+
+    private static SourceLocation? GetColumnNameSourceLocation(ValueProperty property)
+    {
+        var columnAttribute = property.Attributes
+            .FirstOrDefault(x => x is ColumnAttribute);
+
+        if (columnAttribute != null)
+        {
+            var attributeLocation = property.GetAttributeSourceLocation(columnAttribute);
+            if (attributeLocation.HasValue)
+                return attributeLocation;
+        }
+
+        if (property.SourceInfo.HasValue && property.CsFile.HasValue)
+            return property.SourceInfo.Value.GetPropertyLocation(property.CsFile.Value);
+
+        return null;
+    }
+
+    public static Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).Select(x => x.Table))
         {
             var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
             if (!columns.Any())
-                throw DLOptionFailure.Exception(DLFailureType.InvalidModel, $"Table {table.DbName} is missing a primary key.");
+                return CreateMissingPrimaryKeyFailure(table);
 
             if (!table.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.PrimaryKey))
                 table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
@@ -131,11 +254,23 @@ public static class MetadataFactory
         {
             foreach (var attribute in foreignKeyColumn.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
             {
-                var candidateColumn = database
-                    .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table)?
+                var candidateTableModel = database
+                    .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table);
+
+                if (candidateTableModel == null)
+                    return CreateForeignKeyFailure(
+                        foreignKeyColumn,
+                        attribute,
+                        $"Foreign key '{attribute.Name}' on column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' references table '{attribute.Table}', but no matching table exists in database '{database.DbName}'.");
+
+                var candidateColumn = candidateTableModel
                     .Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
 
-                if (candidateColumn == null) continue;
+                if (candidateColumn == null)
+                    return CreateForeignKeyFailure(
+                        foreignKeyColumn,
+                        attribute,
+                        $"Foreign key '{attribute.Name}' on column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' references column '{attribute.Table}.{attribute.Column}', but that column does not exist.");
 
                 var manySideModel = foreignKeyColumn.Table.Model;
                 var oneSideModel = candidateColumn.Table.Model;
@@ -189,6 +324,74 @@ public static class MetadataFactory
                 }
             }
         }
+
+        return ValidateResolvedRelationProperties(database);
+    }
+
+    public static Option<bool, IDLOptionFailure> ValidateResolvedRelationProperties(DatabaseDefinition database)
+    {
+        var unresolvedRelation = database.TableModels
+            .Where(x => !x.IsStub)
+            .SelectMany(x => x.Model.RelationProperties.Values)
+            .FirstOrDefault(x => x.RelationPart == null && ShouldValidateUnresolvedRelation(database, x));
+
+        if (unresolvedRelation == null)
+            return true;
+
+        var relationAttribute = unresolvedRelation.Attributes
+            .OfType<RelationAttribute>()
+            .FirstOrDefault();
+        var target = relationAttribute == null
+            ? "a matching foreign-key relation"
+            : $"relation target '{relationAttribute.Table}.({relationAttribute.Columns.ToJoinedString(", ")})'";
+        var message = $"Relation property '{unresolvedRelation.Model.CsType.Name}.{unresolvedRelation.PropertyName}' could not be resolved to {target}. Check that the [Relation] table, column, and constraint name match a [ForeignKey] definition.";
+        var sourceLocation = relationAttribute == null
+            ? null
+            : unresolvedRelation.GetAttributeSourceLocation(relationAttribute);
+
+        if (!sourceLocation.HasValue && unresolvedRelation.SourceInfo.HasValue && unresolvedRelation.CsFile.HasValue)
+            sourceLocation = unresolvedRelation.SourceInfo.Value.GetPropertyLocation(unresolvedRelation.CsFile.Value);
+
+        return sourceLocation.HasValue
+            ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+            : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, unresolvedRelation);
+    }
+
+    private static bool ShouldValidateUnresolvedRelation(DatabaseDefinition database, RelationProperty relation)
+    {
+        var relationAttribute = relation.Attributes
+            .OfType<RelationAttribute>()
+            .FirstOrDefault();
+
+        if (relationAttribute == null)
+            return true;
+
+        return database.TableModels
+            .Where(x => !x.IsStub)
+            .Any(x => x.Table.DbName == relationAttribute.Table);
+    }
+
+    private static IDLOptionFailure CreateMissingPrimaryKeyFailure(TableDefinition table)
+    {
+        var message = $"Table '{table.DbName}' is missing a primary key.";
+        var sourceLocation = GetTableNameSourceLocation(table.Model);
+
+        return sourceLocation.HasValue
+            ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
+            : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, table);
+    }
+
+    private static IDLOptionFailure CreateForeignKeyFailure(ColumnDefinition foreignKeyColumn, ForeignKeyAttribute attribute, string message)
+    {
+        var attributeLocation = foreignKeyColumn.ValueProperty.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        var property = foreignKeyColumn.ValueProperty;
+        if (property.SourceInfo.HasValue && property.CsFile.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property.SourceInfo.Value.GetPropertyLocation(property.CsFile.Value));
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, foreignKeyColumn);
     }
 
     private static RelationProperty? GetRelationProperty(ModelDefinition model, string referencedTableName, string referencedColumnName, string constraintName)

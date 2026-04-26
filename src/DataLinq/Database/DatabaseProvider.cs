@@ -57,6 +57,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
 /// </summary>
 public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
 {
+    public string TelemetryInstanceId { get; } = Guid.NewGuid().ToString("N");
     public string DatabaseName { get; protected set; }
     public Type CsModelType { get; protected set; }
     public DatabaseType DatabaseType { get; }
@@ -192,7 +193,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// <summary>
     /// Releases all resources used by the DatabaseProvider.
     /// </summary>
-    public void Dispose()
+    public virtual void Dispose()
     {
         State.Dispose();
     }

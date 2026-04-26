@@ -1,17 +1,54 @@
-- name: Introduction
+- name: Intro
   href: index.md
-- name: Getting Started & Usage
+- name: Getting Started
   expanded: true
   items:
+    - name: Installation
+      href: getting-started/Installation.md
+    - name: Configuration and Model Generation
+      href: getting-started/Configuration and Model Generation.md
+    - name: Your First Query and Update
+      href: getting-started/Your First Query and Update.md
+- name: Usage
+  expanded: true
+  items:
+    - name: Querying
+      href: Querying.md
+    - name: Caching and Mutation
+      href: Caching and Mutation.md
+    - name: Diagnostics and Metrics
+      href: Diagnostics and Metrics.md
+    - name: Telemetry Integration Example
+      href: Telemetry Integration Example.md
+    - name: Supported LINQ Queries
+      href: Supported LINQ Queries.md
+    - name: Transactions
+      href: Transactions.md
+    - name: Attributes and Model Definitions
+      href: Attributes and Model Definitions.md
     - name: CLI Documentation
       href: CLI Documentation.md
     - name: Configuration Files
       href: Configuration files.md
-- name: Internals & Architecture
+    - name: Troubleshooting
+      href: Troubleshooting.md
+- name: Providers
   expanded: true
   items:
-    - name: Project Specification
-      href: Project Specification.md
+    - name: MySQL & MariaDB
+      href: backends/MySQL-MariaDB.md
+    - name: SQLite
+      href: backends/SQLite.md
+    - name: Implementing a new backend
+      href: Implementing a new backend.md
+- name: Performance
+  expanded: true
+  items:
+    - name: Benchmark Results
+      href: Benchmark Results.md
+- name: Internals
+  expanded: true
+  items:
     - name: Technical Documentation
       href: Technical documentation.md
     - name: Metadata Structure
@@ -20,19 +57,23 @@
       href: Source Generator.md
     - name: Query Translator
       href: Query Translator.md
-    - name: Caching and Mutation
-      href: Caching and Mutation.md
-- name: Backend Providers
-  expanded: true
-  items:
-    - name: Implementing a new backend
-      href: Implementing a new backend.md
-    - name: MySQL & MariaDB
-      href: backends/MySQL-MariaDB.md
-    - name: SQLite
-      href: backends/SQLite.md
-- name: Extensibility & Advanced Development
+- name: Contributing
   expanded: true
   items:
     - name: Contribution Guidelines
       href: Contributing.md
+    - name: Internal Tooling
+      href: contributing/Internal Tooling.md
+    - name: DataLinq.Dev.CLI
+      href: contributing/DataLinq.Dev.CLI.md
+    - name: DataLinq.Testing.CLI
+      href: contributing/DataLinq.Testing.CLI.md
+    - name: DataLinq.Benchmark.CLI
+      href: contributing/DataLinq.Benchmark.CLI.md
+    - name: AI Assistant Guidance
+      href: contributing/AI Assistant Guidance.md
+- name: Roadmap and Specs
+  expanded: true
+  items:
+    - name: Project Specification
+      href: Project Specification.md

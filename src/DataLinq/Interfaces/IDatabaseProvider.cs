@@ -9,6 +9,7 @@ namespace DataLinq.Interfaces;
 
 public interface IDatabaseProvider : IDisposable
 {
+    string TelemetryInstanceId { get; }
     string DatabaseName { get; }
     string ConnectionString { get; }
     DatabaseDefinition Metadata { get; }

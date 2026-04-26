@@ -36,13 +36,12 @@ public class LongRunningTaskCreator : IThreadCreator
 
 public abstract class ThreadWorker<T> : IDisposable
 {
+    private readonly object lifecycleSync = new();
     public WorkerStatus Status { get; private set; }
     protected IThreadCreator ThreadCreator { get; }
     protected IWorkQueue<T> WorkQueue { get; } = WorkQueue<T>.NewStandardQueue();
-    private CancellationToken CancellationToken => CancellationTokenSource.Token;
-    private CancellationTokenSource CancellationTokenSource { get; set; }
-    private CancellationToken VantaCancellationToken => VantaCancellationTokenSource.Token;
-    private CancellationTokenSource VantaCancellationTokenSource { get; set; }
+    private CancellationTokenSource? CancellationTokenSource { get; set; }
+    private CancellationTokenSource? VantaCancellationTokenSource { get; set; }
     public DateTime? WaitingUntil { get; private set; }
 
     public ThreadWorker(IThreadCreator threadCreator)
@@ -57,18 +56,38 @@ public abstract class ThreadWorker<T> : IDisposable
 
     public void Start()
     {
-        if (Status != WorkerStatus.Stopped)
-            return;
+        CancellationToken token;
+        lock (lifecycleSync)
+        {
+            if (Status != WorkerStatus.Stopped)
+                return;
 
-        SetStatus(WorkerStatus.WaitingForJob);
+            CancellationTokenSource = new CancellationTokenSource();
+            ResetWaitCancellationTokenSource(CancellationTokenSource.Token);
+            SetStatus(WorkerStatus.WaitingForJob);
+            token = CancellationTokenSource.Token;
+        }
 
-        ThreadCreator.CreateNewThread(ct => WorkLoop(WorkQueue, ct));
+        ThreadCreator.CreateNewThread(_ => WorkLoop(WorkQueue, token));
     }
 
     public void Stop()
     {
+        CancellationTokenSource? cancellationTokenSource;
+        CancellationTokenSource? vantaCancellationTokenSource;
+
+        lock (lifecycleSync)
+        {
+            if (Status == WorkerStatus.Stopped || Status == WorkerStatus.Stopping)
+                return;
+
+            cancellationTokenSource = CancellationTokenSource;
+            vantaCancellationTokenSource = VantaCancellationTokenSource;
+        }
+
         SetStatus(WorkerStatus.Stopping);
-        CancellationTokenSource.Cancel();
+        vantaCancellationTokenSource?.Cancel();
+        cancellationTokenSource?.Cancel();
     }
 
     public void Run()
@@ -81,7 +100,9 @@ public abstract class ThreadWorker<T> : IDisposable
 
     protected void Wait(TimeSpan tid)
     {
-        if (CancellationToken.IsCancellationRequested || VantaCancellationToken.IsCancellationRequested)
+        var cancellationTokenSource = CancellationTokenSource;
+        var vantaCancellationTokenSource = VantaCancellationTokenSource;
+        if (cancellationTokenSource?.IsCancellationRequested == true || vantaCancellationTokenSource?.IsCancellationRequested == true)
             return;
 
         if (tid == TimeSpan.MinValue)
@@ -90,7 +111,8 @@ public abstract class ThreadWorker<T> : IDisposable
         WaitingUntil = DateTime.Now.Add(tid);
         SetStatus(WorkerStatus.WaitingUntilTime);
 
-        VantaCancellationToken.WaitHandle.WaitOne(tid);
+        vantaCancellationTokenSource?.Token.WaitHandle.WaitOne(tid);
+        WaitingUntil = null;
     }
 
     protected void SetStatus(WorkerStatus status)
@@ -100,15 +122,13 @@ public abstract class ThreadWorker<T> : IDisposable
 
     protected void WorkLoop(IWorkQueue<T> queue, CancellationToken ct)
     {
-        CancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
-
         try
         {
-            while (!CancellationToken.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
             {
-                VantaCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken, new CancellationToken());
+                ResetWaitCancellationTokenSource(ct);
                 SetStatus(WorkerStatus.WaitingForJob);
-                var varde = queue.Take(CancellationToken);
+                var varde = queue.Take(ct);
                 SetStatus(WorkerStatus.Running);
                 DoWork(varde);
             }
@@ -121,8 +141,24 @@ public abstract class ThreadWorker<T> : IDisposable
         {
             //TODO: Logging
         }
+        finally
+        {
+            CancellationTokenSource? cancellationTokenSource;
+            CancellationTokenSource? vantaCancellationTokenSource;
 
-        SetStatus(WorkerStatus.Stopped);
+            lock (lifecycleSync)
+            {
+                cancellationTokenSource = CancellationTokenSource;
+                vantaCancellationTokenSource = VantaCancellationTokenSource;
+                CancellationTokenSource = null;
+                VantaCancellationTokenSource = null;
+            }
+
+            vantaCancellationTokenSource?.Dispose();
+            cancellationTokenSource?.Dispose();
+            WaitingUntil = null;
+            SetStatus(WorkerStatus.Stopped);
+        }
     }
 
     protected abstract void DoWork(T value);
@@ -130,6 +166,19 @@ public abstract class ThreadWorker<T> : IDisposable
     public void Dispose()
     {
         Stop();
+    }
+
+    private void ResetWaitCancellationTokenSource(CancellationToken workerToken)
+    {
+        CancellationTokenSource? previous;
+
+        lock (lifecycleSync)
+        {
+            previous = VantaCancellationTokenSource;
+            VantaCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(workerToken);
+        }
+
+        previous?.Dispose();
     }
 }
 

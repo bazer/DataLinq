@@ -101,7 +101,8 @@ public class ModelGenerator : Generator
         {
             CapitaliseNames = this.options.CapitalizeNames,
             DeclareEnumsInClass = this.options.DeclareEnumsInClass,
-            Include = this.options.Include
+            Include = this.options.Include,
+            Log = log
         };
 
         if (connection.Type == DatabaseType.SQLite && !Path.IsPathRooted(databaseName))

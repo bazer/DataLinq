@@ -2,169 +2,199 @@
 
 ## 1. Overview
 
-DataLinq is a lightweight, high-performance ORM designed primarily for read-heavy scenarios in small to medium projects. The library emphasizes immutability, efficient caching, and seamless backend integration. Its core features include:
+DataLinq is built around a very specific trade:
 
-- **Immutable Models:**  
-  Models are represented as immutable objects to ensure thread-safety and minimize side effects during data reads. When updates are necessary, the system creates a mutable copy via a defined mutation workflow.
-  
-- **Source Generation:**  
-  A source generator produces both immutable and mutable classes from abstract model definitions. This reduces boilerplate and enforces a consistent pattern across the codebase.
-  
-- **LINQ Integration:**  
-  Queries are written using standard LINQ expressions, which are translated into backend-specific commands, allowing a unified querying experience.
-  
-- **Robust Caching:**  
-  A multi-layered caching subsystem—including row, index, and key caches—ensures that repeated data accesses incur minimal overhead.
+- more generated code and more cache structure
+- fewer runtime guesses and fewer repeated allocations
 
-- **Backend Flexibility:**  
-  The architecture abstracts backend details behind interfaces and adapters, enabling easy switching between data sources (e.g., MariaDB, SQLite, JSON, CSV).
+It is not trying to be the most permissive ORM on earth. It is trying to make a narrower model feel fast and predictable.
 
+The important building blocks are:
+
+- **Immutable Models:**
+  Models are represented as immutable objects to reduce side effects during reads. When updates are needed, the system creates a mutable copy and commits that through the mutation flow.
+- **Source Generation:**
+  A source generator produces immutable and mutable classes from abstract model definitions.
+- **LINQ Integration:**
+  Queries are written in LINQ, but only a test-backed subset is translated.
+- **Robust Caching:**
+  Row, index, and key caches reduce repeated reads and preserve identity where possible.
+- **Backend Flexibility:**
+  The current concrete providers are MySQL/MariaDB and SQLite.
+
+```mermaid
 ---
+config:
+  theme: neo
+  look: classic
+---
+flowchart LR
+    subgraph subGraph0["Dev Tools"]
+        direction TB
+        A1[("Database Schema")]
+        A2["Developer Models<br>(Abstract Classes<br>+ Attributes)"]
+        CLI["DataLinq CLI"]
+    end
+    subgraph subGraph1["Compile Time Generation"]
+        direction TB
+        SourceGen["DataLinq Source Generator"]
+        B1["Generated Code<br>- Immutable/Mutable Classes<br>- Interfaces & Extensions"]
+    end
+    subgraph subGraph2["Runtime Execution"]
+        direction TB
+        AppCode["Application Code"]
+        Runtime["DataLinq Runtime<br>- Query Engine<br>- Mutation Logic<br>- Instance Factory"]
+        Cache["DataLinq Cache<br>- Row Cache<br>- Index Cache"]
+        ProviderInterface["DataLinq Providers<br>- MySQL/MariaDB<br>- SQLite"]
+        DB[("Database")]
+    end
+    CLI -- Reads --> A1
+    CLI -- Creates/Modifies --> A2
+    A2 -- Used by --> SourceGen
+    SourceGen -- Generates --> B1
+    B1 -- Compiled into --> AppCode
+    AppCode -- Uses --> Runtime
+    Runtime -- Instantiates --> B1
+    Runtime -- Reads/Writes --> Cache
+    Runtime -- Calls Methods --> ProviderInterface
+    Cache -- Reads/Writes Data Via Provider --> ProviderInterface
+    ProviderInterface -- Executes SQL --> DB
+     A1:::DatabaseStyle
+     CLI:::ToolStyle
+     SourceGen:::ToolStyle
+     B1:::GeneratedStyle
+     AppCode:::AppStyle
+     Runtime:::CoreStyle
+     Cache:::Aqua
+     DB:::DatabaseStyle
+    classDef Aqua stroke-width:1px, stroke:#46EDC8, fill:#DEFFF8, color:#378E7A
+    classDef ToolStyle stroke-width:1px, stroke:#FFB74D, fill:#FFF8E1, color:#E65100
+    classDef CoreStyle stroke-width:1px, stroke:#9575CD, fill:#EDE7F6, color:#311B92
+    classDef DatabaseStyle stroke-width:1px, stroke:#AAAAAA, fill:#EAEAEA, color:#555555
+    classDef AppStyle stroke-width:1px, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
+    classDef GeneratedStyle stroke-width:1px, stroke:#BDBDBD, fill:#F5F5F5, color:#424242
+```
 
 ## 2. Architecture
 
-DataLinq is organized into several interconnected layers that work together to deliver its performance and flexibility:
+DataLinq is organized into several interconnected layers:
 
-- **Model Layer:**  
-  Consists of abstract model classes decorated with attributes (e.g., `[Table]`, `[Column]`, `[PrimaryKey]`) that describe how classes map to database tables. These definitions are used by the source generator to create concrete immutable and mutable classes.
-
-- **Instance Creation and Mutation:**  
-  Immutable objects are created dynamically based on `RowData` provided by data readers. When mutation is required, methods like `Mutate()` generate a mutable version, which can be updated and then saved back to the backend. The mutation workflow ensures that only immutable instances are stored in caches, preserving thread-safety and performance.
-
-- **Caching Subsystem:**  
-  The caching mechanism is divided into several parts:
-  - **RowCache:** Caches immutable row objects keyed by their primary keys, tracking insertion ticks and sizes for eviction based on time, row count, or memory limits.
-  - **IndexCache and KeyCache:** Manage mappings between foreign keys and primary keys, and cache key instances for fast lookups.
-  - **TableCache:** Aggregates the various caches for an entire table, provides methods to update or remove rows based on changes, and supports preloading indices for faster query responses.
-
-- **Query Engine:**  
-  DataLinq uses LINQ as the primary query language. LINQ expressions are parsed and translated into backend-specific SQL (or other query languages), with support for filtering, ordering, grouping, and pagination. The query system leverages caching to avoid unnecessary database round trips.
-
-- **Backend Flexibility:**  
-  DataLinq's architecture abstracts backend-specific details behind interfaces and adapter patterns. This allows developers to add new data source providers with minimal changes to the core framework.
-  
-- **Standardized Default Type System:**
-  To enhance portability and simplify provider development, DataLinq defines a set of common, backend-agnostic "default" type names (e.g., `integer`, `text`, `uuid`). Each database provider is responsible for translating these standard types into its own native equivalents. This allows a single DataLinq model to be used to generate schemas for multiple database systems. For a complete list of default types, see the [Implementing a new backend](Implementing%20a%20new%20backend.md) guide.
-
-- **Testing Infrastructure:**  
-  The library is accompanied by a comprehensive suite of unit and integration tests. These tests verify everything from model instantiation and mutation to complex LINQ query operations and cache behavior.
-
----
+- **Model Layer:**
+  Abstract model classes decorated with attributes such as `[Table]`, `[Column]`, and `[PrimaryKey]`.
+- **Instance Creation and Mutation:**
+  Immutable objects are created from `RowData`. Mutations happen through mutable wrappers and return fresh immutable instances.
+- **Caching Subsystem:**
+  `RowCache`, `IndexCache`, `KeyCache`, and `TableCache` cooperate to reduce repeated work.
+- **Query Engine:**
+  LINQ expressions are parsed and translated into backend-specific SQL for the supported surface.
+- **Backend Flexibility:**
+  Providers abstract backend-specific behavior behind a common runtime model.
+- **Testing Infrastructure:**
+  The repo has broad unit and integration coverage around metadata, query behavior, caching, and mutation.
+- **Metrics and Diagnostics:**
+  The runtime exposes a hierarchical metrics tree so application code can inspect behavior by runtime, provider instance, and table instead of flattening everything into one misleading blob.
 
 ## 3. Core Components
 
 ### 3.1 Model and Source Generation
 
-- **Abstract Models:**  
-  Developers define models using abstract classes and decorate them with attributes to specify table names, column types, and relationships. For example, the *Department* class declares properties like `DeptNo` and `Name`, and defines relations to employees and managers.
-  
-- **Source-Generated Classes:**  
-  A source generator processes these abstract definitions to generate:
-  - **Immutable classes:** Provide read-only access to data, with lazy loading of related objects.
-  - **Mutable classes:** Allow modification of model properties via a `Mutate()` method, and support transactional updates.
-  - **Interfaces:** Generated interfaces (e.g., `IDepartmentWithChangedName`) ensure consistency and facilitate mocking in tests.
+- **Abstract Models:**
+  Developers define abstract models and annotate them with attributes.
+- **Source-Generated Classes:**
+  The generator produces:
+  - immutable classes
+  - mutable classes
+  - optional interfaces and helper extensions
 
 ### 3.2 Instance Management and Mutation
 
-- **Immutable Base Class:**  
-  The base class for immutable models handles:
-  - Retrieving values from underlying `RowData`.
-  - Lazy evaluation of properties.
-  - Managing relations through helper methods that load related entities only when needed.
-  
-- **Mutable Wrapper:**  
-  The `Mutable<T>` class encapsulates changes in a separate `MutableRowData` structure. This ensures that modifications are isolated until explicitly committed, after which a new immutable instance is generated to update the cache.
-
-- **Factory Methods:**  
-  The `InstanceFactory` provides methods to create immutable instances dynamically. Reflection is used to instantiate models based on metadata extracted from attributes.
+- **Immutable Base Class:**
+  Handles access to `RowData`, lazy relation loading, and typed property access.
+- **Mutable Wrapper:**
+  Stores changes separately until commit.
+- **Factory Methods:**
+  `InstanceFactory` builds immutable instances from row data and metadata.
 
 ### 3.3 Caching Mechanisms
 
-- **RowCache:**  
-  Stores immutable instances keyed by their primary keys. Tracks insertion ticks and sizes to enforce eviction policies based on time, count, or memory usage. This ensures repeated reads return cached objects without additional allocations.
-  
-- **IndexCache and KeyCache:**  
-  - **IndexCache:** Maps foreign keys to arrays of primary keys and maintains a tick queue to remove old entries.
-  - **KeyCache:** Caches key instances to prevent redundant key creation, enhancing lookup performance.
-  
-- **TableCache:**  
-  Combines row and index caches for a given table. Handles state changes such as inserts, updates, and deletions by updating the caches accordingly. It also supports methods for preloading indices and retrieving rows with or without ordering.
+- **RowCache:**
+  Stores immutable rows keyed by primary key.
+- **IndexCache and KeyCache:**
+  Store relation and key lookup data.
+- **TableCache:**
+  Owns the cache state for a table and coordinates updates after writes.
+
+### 3.6 Runtime Metrics
+
+The shipped metrics API is `DataLinq.Diagnostics.DataLinqMetrics`.
+
+That API is intentionally shaped around ownership:
+
+- runtime totals at the top
+- provider-instance metrics under runtime
+- table metrics under each provider
+
+This is not cosmetic. It avoids two bad failure modes that a flat model would create:
+
+- merging different provider instances together because they happened to share a name
+- pretending every metric can be honestly attributed at the same level
+
+The ownership rules are:
+
+- query metrics are provider-owned
+- row-cache metrics are table-owned
+- relation metrics are table-owned
+- cache-notification metrics are table-owned
+
+Runtime values are then computed by summing the right children. Peak queue depth is the notable exception: that one is a max, not a sum.
 
 ### 3.4 Query Handling
 
-- **LINQ Integration:**  
-  Queries are written in LINQ, and the query engine translates them into backend-specific SQL commands. The translation layer is capable of handling various operations such as:
-  - Filtering using standard where clauses.
-  - Ordering, grouping, and pagination (using methods like `OrderBy`, `Skip`, and `Take`).
-  - Joins and relation traversals by leveraging the relation properties defined in models.
-  
-- **Cache-Aware Query Execution:**  
-  When a query is executed, the system first checks the cache (via `TableCache` and `RowCache`) for existing rows. If a row is missing, it retrieves the row data from the database, creates an immutable instance, and adds it to the cache.
+- **LINQ Integration:**
+  Queries are written in LINQ, and the query engine translates supported shapes into backend-specific SQL commands.
+- **Cache-Aware Query Execution:**
+  Repeated reads can reuse cached rows rather than re-materializing them.
 
 ### 3.5 Testing and Examples
 
-- **Unit Tests:**  
-  The testing suite covers all aspects of the library:
-  - **Cache Tests:** Validate that duplicate rows are not created, and that eviction policies based on time, row count, and memory size work as expected.
-  - **Mutation Tests:** Ensure that mutable instances correctly capture changes, can be reset, and that saving changes properly updates the backend and cache.
-  - **Query Tests:** Provide extensive examples of LINQ query usage, demonstrating filtering, ordering, grouping, and handling of unsupported operations.
-  
-- **Integration Tests:**  
-  The `DatabaseFixture` sets up real database connections (e.g., to MariaDB and SQLite) and uses generated test data (via Bogus) to ensure that the entire flow—from data retrieval and caching to mutation and query execution—operates correctly.
-
----
+- **Unit Tests:**
+  Cover cache behavior, metadata parsing, mutation lifecycle, equality, and query translation.
+- **Integration Tests:**
+  Exercise real providers and real transaction behavior.
 
 ## 4. Detailed Caching Workflow
 
-The caching subsystem is critical for achieving the zero-allocation goal in read-heavy scenarios. Here’s a closer look at the workflow:
+The caching subsystem is critical to DataLinq's runtime model:
 
-1. **Insertion into Cache:**  
-   When a new row is fetched from the database, its corresponding immutable instance is created using the `InstanceFactory`. This instance is then stored in the `RowCache` along with metadata (insertion ticks, size). Simultaneously, the `IndexCache` is updated to map foreign keys to this row’s primary key.
-
-2. **Cache Eviction:**  
-   - **Time-Based Eviction:** The system can remove rows that were inserted before a specific tick value.
-   - **Row Count/Size Limits:** Methods in `RowCache` allow the cache to enforce limits by removing the oldest rows until the count or total size is within the defined thresholds.
-   - **Index Cache Maintenance:** The `IndexCache` similarly purges outdated entries using its tick queue mechanism.
-   
-3. **Cache Retrieval:**  
-   Before executing a query, the system checks the `RowCache` for the required rows. If a row is found, it’s returned directly. Otherwise, the query system retrieves the missing rows from the database and updates the cache.
-
-4. **Transaction Awareness:**  
-   The `TableCache` can maintain separate caches for transaction-specific data. This ensures that updates within a transaction do not affect the global cache until the transaction is committed.
-
----
+1. fetched rows become immutable instances
+2. those instances are inserted into row cache
+3. relation/index caches are updated as needed
+4. later queries can reuse cached rows instead of rebuilding them
+5. transaction-local cache state stays isolated until commit
 
 ## 5. Mutation and Data Consistency
 
-DataLinq ensures data consistency while allowing mutations through a well-defined process:
+DataLinq keeps writes coherent by enforcing a structured mutation flow:
 
-1. **Immutable to Mutable Conversion:**  
-   The generated `Mutate()` methods allow conversion from an immutable instance to a mutable one. This is achieved using pattern matching, ensuring the proper type is returned regardless of whether the object is already mutable or not.
+1. convert immutable to mutable
+2. track property changes
+3. write through a transaction
+4. replace stale immutable rows with fresh immutable rows after commit
 
-2. **Tracking Changes:**  
-   The `MutableRowData` class tracks modifications in a dictionary. Methods such as `Reset()` allow reverting changes to the original state, while `HasChanges()` reports whether any properties have been modified.
+Generated helpers such as `Save`, `Update`, `Insert`, and `MutateOrNew` sit on top of that core flow.
 
-3. **Saving Changes:**  
-   When a mutable instance is saved, the updated data is written back to the backend. Upon successful commit, a new immutable instance is created to replace the old one in the cache. Extension methods in the generated code (e.g., `Save`, `Update`, `InsertOrUpdate`) abstract these operations, providing a seamless developer experience.
+## 6. Current Reality
 
----
+The repo clearly has room to grow, but the current technical center of gravity is still:
 
-## 6. Future Directions and Developer Notes
+- MySQL/MariaDB and SQLite providers
+- generator-backed immutable and mutable model flow
+- cache-aware reads
+- transaction-aware writes
+- a limited but tested LINQ translator
 
-- **Additional Backends:**  
-  Although initial support focuses on MariaDB and SQLite, the modular design facilitates easy addition of new data sources (e.g., NoSQL, JSON files).
-
-- **Enhanced Query Optimizations:**  
-  Future enhancements could include query caching, more advanced translation strategies, and support for more complex LINQ expressions.
-
-- **Developer Contributions:**  
-  Clear guidelines and extensive test coverage make it easier for contributors to understand and extend the library. Developers are encouraged to review both the generated code and supporting subsystems (caching, mutation, and query translation) for insights.
-
-- **Documentation Updates:**  
-  This technical documentation is intended to evolve with the project. Feedback from developers and contributors is welcomed to ensure that the documentation remains accurate and helpful.
-
----
+The metrics story is also now part of shipped behavior, not just benchmark-only plumbing. For the public snapshot shapes and usage guidance, see [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md).
 
 ## 7. Conclusion
 
-DataLinq’s design centers on immutability, efficient caching, and flexible querying, making it an ideal ORM for heavy-read applications with a focus on performance. The separation of concerns between model mapping, caching, mutation, and query translation ensures that each component can be optimized independently while maintaining a consistent developer experience.
+DataLinq makes the most sense if you want a source-generated, cache-heavy, immutable-first ORM and you are willing to stay inside the supported query and mutation model. If that trade matches your problem, the architecture is coherent.

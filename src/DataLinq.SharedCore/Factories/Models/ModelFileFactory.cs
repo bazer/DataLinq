@@ -5,6 +5,7 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace DataLinq.Core.Factories.Models;
 
@@ -245,7 +246,7 @@ public class ModelFileFactory
                 else if (defaultAttr is DefaultNewUUIDAttribute)
                     yield return $"{namespaceTab}{tab}[DefaultNewUUID]";
                 else if (defaultAttr != null)
-                    yield return $"{namespaceTab}{tab}[Default({FormatDefaultValue(defaultAttr.Value)})]";
+                    yield return $"{namespaceTab}{tab}[Default({valueProperty.GetDefaultValueCode()})]";
             }
 
             if (valueProperty.EnumProperty != null)
@@ -282,26 +283,6 @@ public class ModelFileFactory
         }
 
         yield return namespaceTab + "}";
-    }
-
-    private string FormatDefaultValue(object value)
-    {
-        if (value is string str)
-            return $"\"{str}\"";
-
-        if (value is bool b)
-            return b ? "true" : "false";
-
-        if (value is DateTime dt)
-            return $"DateTime.Parse(\"{dt:yyyy-MM-dd HH:mm:ss}\")";
-
-        if (value is DateTimeOffset dto)
-            return $"DateTimeOffset.Parse(\"{dto:yyyy-MM-dd HH:mm:ss}\")";
-
-        if (value is TimeSpan ts)
-            return $"TimeSpan.Parse(\"{ts:hh\\:mm\\:ss}\")";
-
-        return value.ToString();
     }
 
     private string GetPropertyNullable(ColumnDefinition column)

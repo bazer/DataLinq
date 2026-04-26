@@ -12,14 +12,14 @@ namespace DataLinq.Metadata;
 
 public static class MetadataFromTypeFactory
 {
+    private const string GeneratedTableModelsMethodName = "GetDataLinqGeneratedTableModels";
+
     public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel(Type type) => DLOptionFailure.CatchAll(() =>
     {
         var database = new DatabaseDefinition(type.Name, csType: new CsTypeDeclaration(type));
         database.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
         database.ParseAttributes();
-        database.SetTableModels(type
-            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-            .Select(GetTableType)
+        database.SetTableModels(GetTableTypes(type)
             .Select(x => database.ParseTableModel(x.type, x.csName)));
 
         MetadataFactory.ParseIndices(database);
@@ -31,6 +31,45 @@ public static class MetadataFromTypeFactory
 
     private static TableModel ParseTableModel(this DatabaseDefinition database, Type type, string csPropertyName) =>
         new(csPropertyName, database, type.ParseModel());
+
+    private static IEnumerable<(string csName, Type type)> GetTableTypes(Type databaseType)
+    {
+        var generatedTableModels = GetGeneratedTableTypes(databaseType);
+        if (generatedTableModels is not null)
+            return generatedTableModels;
+
+        return databaseType
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(GetTableType);
+    }
+
+    private static IEnumerable<(string csName, Type type)>? GetGeneratedTableTypes(Type databaseType)
+    {
+        var method = databaseType.GetMethod(
+            GeneratedTableModelsMethodName,
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: Type.EmptyTypes,
+            modifiers: null);
+
+        if (method is null)
+            return null;
+
+        if (!typeof(IEnumerable<GeneratedTableModelDeclaration>).IsAssignableFrom(method.ReturnType))
+        {
+            throw new InvalidOperationException(
+                $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedTableModelsMethodName}' must return '{typeof(IEnumerable<GeneratedTableModelDeclaration>).FullName}'.");
+        }
+
+        var declarations = (IEnumerable<GeneratedTableModelDeclaration>?)method.Invoke(null, null);
+        if (declarations is null)
+        {
+            throw new InvalidOperationException(
+                $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedTableModelsMethodName}' returned null.");
+        }
+
+        return declarations.Select(static declaration => (declaration.CsPropertyName, declaration.ModelType));
+    }
 
     private static (string csName, Type type) GetTableType(this PropertyInfo property)
     {

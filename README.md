@@ -1,104 +1,132 @@
 # DataLinq
 
-DataLinq is an lightweight, high-performance ORM using source generators that prioritizes data integrity, thread safety, and efficient caching through use of immutable models. It is designed to lean heavily on the cache to trade memory usage for speed.
+[![Latest CI](https://github.com/bazer/DataLinq/actions/workflows/latest.yml/badge.svg?branch=master)](https://github.com/bazer/DataLinq/actions/workflows/latest.yml)
+[![Full Matrix Nightly](https://github.com/bazer/DataLinq/actions/workflows/full-matrix.yml/badge.svg?branch=master)](https://github.com/bazer/DataLinq/actions/workflows/full-matrix.yml)
+[![Full matrix tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/bazer/DataLinq/badge-data/.github/badges/full-matrix-tests.json)](https://github.com/bazer/DataLinq/actions/workflows/full-matrix.yml)
+[![Docs](https://github.com/bazer/DataLinq/actions/workflows/static.yml/badge.svg?branch=master)](https://github.com/bazer/DataLinq/actions/workflows/static.yml)
+[![NuGet DataLinq.SQLite](https://img.shields.io/nuget/v/DataLinq.SQLite?logo=nuget)](https://www.nuget.org/packages/DataLinq.SQLite/)
+[![NuGet DataLinq.MySql](https://img.shields.io/nuget/v/DataLinq.MySql?logo=nuget)](https://www.nuget.org/packages/DataLinq.MySql/)
+[![NuGet DataLinq.CLI](https://img.shields.io/nuget/v/DataLinq.CLI?logo=nuget)](https://www.nuget.org/packages/DataLinq.CLI/)
+[![License: MIT](https://img.shields.io/github/license/bazer/DataLinq)](https://github.com/bazer/DataLinq/blob/master/LICENSE.md)
+[![.NET 8, 9, 10](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4?logo=dotnet)](https://github.com/bazer/DataLinq#installation)
+[![Supported targets](https://img.shields.io/badge/targets-SQLite%20%7C%20MySQL%208.4%20%7C%20MariaDB%2010.11%2F11.4%2F11.8-0A7BBB)](https://bazer.github.io/datalinq/)
+
+DataLinq is a lightweight, high-performance ORM that uses source generators and immutable models to prioritize data integrity, thread safety, and efficient caching. It is designed to lean heavily on the cache to trade memory usage for speed.
 
 ### Goal
 The aim of the library is to minimize memory allocations and maximize speed of data retrieval, with the main focus being on read-heavy applications on small to medium projects. One focus area is to solve the classical N+1 problem, making access to related entities as close as possible to reading a local variable.
 
 ### Motivation
-DataLinq is an exploration of the idea of combining immutability, indirect querying and caching. It is also an exploration of using source generators to minimize the overhead of reflection usually plaguing ORM libraries.
+DataLinq is an exploration of combining immutability, indirect querying, and caching. It is also an exploration of using source generators to minimize the reflection overhead that usually plagues ORM libraries.
 
 ### Core Philosophy
 - **Immutability First:**  
-  All data read from the database is represented as immutable objects, ensuring thread safety and predictable behavior. When modifications are required, DataLinq provides an mechanism to create mutable copies, update them, and seamlessly synchronize the changes.
+  All data read from the database is represented as immutable objects, ensuring thread safety and predictable behavior. When modifications are required, DataLinq provides a mechanism to create mutable copies, update them, and synchronize the changes.
 - **Efficient Caching:**  
   The framework leverages both global and transaction-specific caching, dramatically reducing database hits.
 - **LINQ Querying:**  
-  Built on LINQ, DataLinq translates queries into backend-specific commands without exposing you to the underlying complexities.
+  Built on LINQ, DataLinq translates supported query shapes into backend-specific commands without exposing you to the underlying complexities.
 - **Minimize boilerplate:**  
-  Use the CLI tool to create model classes that defines types and database structure, then DataLinq automatically generate immutable and mutable classes with the built in source generator.
+  Use the CLI tool to create model classes that define types and database structure, then let DataLinq generate immutable and mutable classes with the built-in source generator.
 - **Compile time errors:**  
-  Move as many errors as possible from runtime to compile time. For example is setting of required fields enforced by the compiler and will give a compile time error, rather than an error when inserting to the database.
+  Move as many errors as possible from runtime to compile time. For example, required fields can be enforced by the compiler instead of failing only when inserting into the database.
 - **Extensibility:**  
-  Although current support includes MySQL/MariaDB and SQLite, the modular architecture makes it straightforward to extend to other data sources in the future.
+  Although current support includes MySQL/MariaDB and SQLite, the modular architecture makes it possible to extend to other SQL-like data sources.
 
 ---
 
 ## Getting Started
 
 ### Installation
-Install DataLinq via NuGet. These are the currently available backends:
+Install the provider package that matches your runtime database:
 
 ```bash
+# MySQL and MariaDB
 dotnet add package DataLinq.MySql
+
+# SQLite
 dotnet add package DataLinq.SQLite
 ```
 
-The CLI is installed as a dotnet tool:
+The CLI is installed as a dotnet tool named `datalinq`:
+
 ```bash
 dotnet tool install --global DataLinq.CLI
 ```
 
+Current package and repo builds target .NET 8, .NET 9, and .NET 10.
+
 ### Configuration
-1. **Database Connection:**  
-   Configure your connection strings (for MySQL/MariaDB or SQLite) in your application’s configuration file.
-2. **DataLinq Configuration:**  
-   Use the provided configuration file (e.g., `datalinq.json`) to define your database settings.
+The CLI reads `datalinq.json` and, if present next to it, `datalinq.user.json`.
 
-### Model Creation
-Generate your data models directly from your database schema using the CLI:
+Minimal example:
 
-```bash
-datalinq create-models -n YourDatabaseName
+```json
+{
+  "Databases": [
+    {
+      "Name": "AppDb",
+      "CsType": "AppDb",
+      "Namespace": "MyApp.Models",
+      "SourceDirectories": [ "Models/Source" ],
+      "DestinationDirectory": "Models/Generated",
+      "Connections": [
+        {
+          "Type": "MariaDB",
+          "DataSourceName": "appdb",
+          "ConnectionString": "Server=localhost;Database=appdb;User ID=app;Password=secret;"
+        }
+      ]
+    }
+  ]
+}
 ```
 
-And then to generate SQL scripts from the models:
+Generate your data models directly from your database schema:
 
 ```bash
-datalinq create-sql -o output.sql -n YourDatabaseName
+datalinq create-models -n AppDb
 ```
+
+If your config contains more than one database, pass `-n`.
+If the selected database contains more than one connection type, pass `-t`.
 
 ---
 
-## Code Examples & Usage
-
-### Performing a Simple Query
-Retrieve all active users using LINQ:
+## Code Example
 
 ```csharp
-var activeUsers = usersDb.Query().Users
-    .Where(x => x.Status == UserStatus.Active)
+var db = new MySqlDatabase<AppDb>(connectionString);
+
+var activeUsers = db.Query().Users
+    .Where(x => x.IsActive)
     .ToList();
-```
 
-### Updating Data with Immutability
-Fetch an immutable record, mutate it, and then save the changes:
-
-```csharp
-// Retrieve an immutable user
-var user = usersDb.Query().Users.Single(u => u.Id == 1);
-
-// Create a mutable copy, update the record, and save changes
-var updatedUser = user.Mutate(u => u.Name = "New Name").Save();
-```
-
-### Accessing Related Entities
-Fetch a department and its associated managers:
-
-```csharp
-var department = employeesDb.Query().Departments.Single(d => d.DeptNo == "d005");
-var managers = department.Managers;  // Fetches collection of managers from cache
+var user = db.Query().Users.Single(x => x.UserId == userId);
+var updatedUser = user.Mutate(x => x.DisplayName = "Updated Name").Save();
 ```
 
 ---
 
-## Contributing & Further Resources
+## Documentation
 
-### Documentation
-For in-depth technical details, advanced usage, and troubleshooting, please refer to the [official documentation](docs/index.md).
+If you want the website-first docs experience, start here:
 
-### Contributing
-We welcome contributions from the community! Whether you’re fixing bugs, improving documentation, or adding new features, your help is appreciated. Please see our [Contributing Guide](docs/Contributing.md) for details.
+- [Website Home](index.md)
+- [Docs Intro](docs/index.md)
+- [Installation](docs/getting-started/Installation.md)
+- [Configuration and Model Generation](docs/getting-started/Configuration%20and%20Model%20Generation.md)
+- [Your First Query and Update](docs/getting-started/Your%20First%20Query%20and%20Update.md)
+
+After that, the deeper working docs are:
+
+- [Querying](docs/Querying.md)
+- [Caching and Mutation](docs/Caching%20and%20Mutation.md)
+- [Diagnostics and Metrics](docs/Diagnostics%20and%20Metrics.md)
+- [Supported LINQ Queries](docs/Supported%20LINQ%20Queries.md)
+- [Transactions](docs/Transactions.md)
+- [Attributes and Model Definitions](docs/Attributes%20and%20Model%20Definitions.md)
+- [Troubleshooting](docs/Troubleshooting.md)
 
 ### License
 DataLinq is open source and distributed under the MIT License. See the [LICENSE](LICENSE.md) file for more details.

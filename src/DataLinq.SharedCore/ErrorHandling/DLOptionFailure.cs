@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DataLinq.Exceptions;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using ThrowAway;
 
 namespace DataLinq.ErrorHandling;
@@ -43,7 +44,23 @@ public abstract class IDLOptionFailure
     public DLFailureType FailureType { get; protected set; }
     public IDLOptionFailure[] InnerFailures { get; protected set; } = [];
     public bool HasInnerFailures => InnerFailures.Length > 0;
+    public SourceLocation? SourceLocation { get; protected set; }
     public abstract string Message { get; }
+
+    public SourceLocation? GetMostRelevantSourceLocation()
+    {
+        if (SourceLocation.HasValue)
+            return SourceLocation;
+
+        foreach (var innerFailure in InnerFailures)
+        {
+            var innerLocation = innerFailure.GetMostRelevantSourceLocation();
+            if (innerLocation.HasValue)
+                return innerLocation;
+        }
+
+        return null;
+    }
 
     public static implicit operator string(IDLOptionFailure optionFailure) =>
         optionFailure.ToString();
@@ -61,17 +78,46 @@ public abstract class IDLOptionFailure
 
 public static class DLOptionFailure
 {
+    private static SourceLocation? GetDefinitionLocation(IDefinition definition) =>
+        definition.CsFile.HasValue
+            ? new SourceLocation(definition.CsFile.Value)
+            : null;
+
     public static DLOptionFailure<T> Fail<T>(T failure) =>
         new(failure);
 
-    public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(T failure, IDefinition definition) =>
-        new(new FailureWithDefinition<T>(failure, definition));
+    public static DLOptionFailure<T> Fail<T>(T failure, SourceLocation sourceLocation) =>
+        new(failure, sourceLocation);
+
+    public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(T failure, IDefinition definition)
+    {
+        var wrappedFailure = new FailureWithDefinition<T>(failure, definition);
+        var definitionLocation = GetDefinitionLocation(definition);
+        return definitionLocation.HasValue
+            ? new DLOptionFailure<FailureWithDefinition<T>>(wrappedFailure, definitionLocation.Value)
+            : new DLOptionFailure<FailureWithDefinition<T>>(wrappedFailure);
+    }
+
+    public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(T failure, IDefinition definition, SourceLocation sourceLocation) =>
+        new(new FailureWithDefinition<T>(failure, definition), sourceLocation);
 
     public static DLOptionFailure<T> Fail<T>(DLFailureType type, T failure) =>
         new(type, failure);
 
-    public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(DLFailureType type, T failure, IDefinition definition) =>
-        new(type, new FailureWithDefinition<T>(failure, definition));
+    public static DLOptionFailure<T> Fail<T>(DLFailureType type, T failure, SourceLocation sourceLocation) =>
+        new(type, failure, sourceLocation);
+
+    public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(DLFailureType type, T failure, IDefinition definition)
+    {
+        var wrappedFailure = new FailureWithDefinition<T>(failure, definition);
+        var definitionLocation = GetDefinitionLocation(definition);
+        return definitionLocation.HasValue
+            ? new DLOptionFailure<FailureWithDefinition<T>>(type, wrappedFailure, definitionLocation.Value)
+            : new DLOptionFailure<FailureWithDefinition<T>>(type, wrappedFailure);
+    }
+
+    public static DLOptionFailure<FailureWithDefinition<T>> Fail<T>(DLFailureType type, T failure, IDefinition definition, SourceLocation sourceLocation) =>
+        new(type, new FailureWithDefinition<T>(failure, definition), sourceLocation);
 
     public static DLOptionFailure<T> Fail<T>(T failure, IEnumerable<IDLOptionFailure> innerFailures) =>
         new(failure, innerFailures);
@@ -111,10 +157,22 @@ public class DLOptionFailure<T> : IDLOptionFailure
         Failure = failure;
     }
 
+    public DLOptionFailure(T failure, SourceLocation sourceLocation)
+        : this(failure)
+    {
+        SourceLocation = sourceLocation;
+    }
+
     public DLOptionFailure(DLFailureType type, T failure)
     {
         FailureType = type;
         Failure = failure;
+    }
+
+    public DLOptionFailure(DLFailureType type, T failure, SourceLocation sourceLocation)
+        : this(type, failure)
+    {
+        SourceLocation = sourceLocation;
     }
 
     public DLOptionFailure(T failure, IEnumerable<IDLOptionFailure> innerFailure)

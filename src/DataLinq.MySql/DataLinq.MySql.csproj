@@ -5,20 +5,21 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+		<PackageReference Include="Microsoft.SourceLink.GitHub">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MinVer" Version="6.0.0">
+		<PackageReference Include="MinVer">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MySqlConnector" Version="2.5.0" />
+		<PackageReference Include="MySqlConnector" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
 		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="All" />
+		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)\throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
 	</ItemGroup>
 
 	<ItemGroup>

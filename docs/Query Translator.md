@@ -1,138 +1,107 @@
 ## Query Translation and Execution
 
-DataLinq’s query translation subsystem transforms LINQ expressions into SQL commands tailored to the underlying database. This process is multi-staged, ensuring that the query is both optimized and fully parameterized before execution. The following subsections describe the key components and their roles.
+DataLinq's LINQ translation layer is real, but it is intentionally narrower than the whole `Query` namespace might make you assume at first glance.
 
-### 1. Expression Simplification and Evaluation
+The important distinction is this:
 
-**Evaluator.cs**  
-- **Purpose:** Before translation begins, DataLinq partially evaluates the expression tree to simplify constant sub-expressions.  
+- the LINQ translator supports a tested subset of query shapes
+- the lower-level SQL builder classes also exist for manual query construction
+
+Do not look at `Join.cs`, `Insert.cs`, or `Update.cs` and conclude that LINQ `Join`, arbitrary projections, or arbitrary aggregates are therefore supported. That is not how this codebase works.
+
+## 1. Expression Simplification and Evaluation
+
+**Evaluator.cs**
+- **Purpose:** Before translation begins, DataLinq partially evaluates the expression tree to simplify constant sub-expressions.
 - **Key Components:**
   - **Nominator:** Traverses the tree to determine which nodes can be evaluated locally. Parameters are explicitly excluded so that only independent expressions are replaced.
-  - **SubtreeEvaluator:** Replaces nominated subtrees with constant expressions by compiling and invoking them.  
+  - **SubtreeEvaluator:** Replaces nominated subtrees with constant expressions by compiling and invoking them.
 - **Outcome:** This reduces the complexity of the expression tree and ensures that only the relevant, variable-dependent parts are translated into SQL.
 
-### 2. Queryable Interface and Integration
+## 2. Queryable Interface and Integration
 
-**Queryable.cs**  
-- **Role:** This class provides the entry point for LINQ queries on DataLinq. It integrates with Remotion.Linq—a powerful query parsing framework—to interpret the LINQ expression trees.  
-- **Mechanism:**  
-  - The default query parser is used to generate a QueryModel.
-  - The Queryable then hands off the QueryModel to our custom query executor.
+**Queryable.cs**
+- **Role:** This class provides the entry point for LINQ queries on DataLinq. It integrates with Remotion.Linq to interpret the LINQ expression trees.
+- **Mechanism:**
+  - The default query parser is used to generate a `QueryModel`.
+  - The `Queryable` then hands off the `QueryModel` to the custom query executor.
 
-### 3. Query Execution via QueryExecutor
+## 3. Query Execution via `QueryExecutor`
 
-**QueryExecutor.cs**  
-- **Overview:**  
-  - The QueryExecutor is central to transforming a QueryModel (obtained from Remotion.Linq) into a complete SQL statement.
-- **Steps in Query Translation:**
-  - **Extract QueryModel:**  
-    - The executor recursively examines the expression tree to extract the QueryModel, handling subqueries, member accesses, method calls, and unary expressions.
-  - **Parse Body Clauses:**  
-    - Iterates over the query’s body clauses (such as `WhereClause` and `OrderByClause`).
-    - Uses specialized visitors (described below) to translate these clauses into SQL fragments.
-  - **Result Operators:**  
-    - Recognizes operators such as `Take`, `Skip`, `First()`, `Single()`, etc.
-    - These operators adjust the SQL query by setting LIMIT, OFFSET, or ensuring only a specific number of rows are returned.
-  - **Projection:**  
-    - The method `GetSelectFunc<T>` builds a selector function from the QueryModel’s `SelectClause`, handling both simple member accesses and more complex constructions (via anonymous types).
-- **Execution:**  
-  - After building the SQL query using the translator, the QueryExecutor calls the provider’s execution methods to retrieve data.
-  - Retrieved rows are mapped back to immutable model instances using the `InstanceFactory`.
+**QueryExecutor.cs**
+- **Overview:**
+  - `QueryExecutor` is responsible for turning a `QueryModel` into an executable query.
+- **Steps in translation:**
+  - **Extract QueryModel:**
+    - The executor recursively unwraps subqueries, member access, method calls, and unary expressions until it finds the real `QueryModel`.
+  - **Parse body clauses:**
+    - In practice, the current implementation handles `WhereClause` and `OrderByClause`.
+  - **Apply result operators:**
+    - `Take`, `Skip`, `First`, `Single`, and `Any` affect `LIMIT` and `OFFSET` behavior.
+    - Final terminal semantics are still applied in the executor itself.
+  - **Build projections:**
+    - `GetSelectFunc<T>` supports the entity itself, member-access chains, and simple constructor-based anonymous projections.
+    - Unsupported selector shapes fail explicitly with `NotImplementedException`.
+- **Execution:**
+  - The executor builds a `SqlQuery<T>`, executes it, and maps results through projection delegates.
+  - For entity reads, that path integrates with DataLinq's cache-aware row materialization.
 
-### 4. Type System and Dynamic Determination
+## 4. Clause Visitors
 
-**TypeSystem.cs**  
-- **Function:**  
-  - Determines the element type of a sequence, especially when dealing with generic `IEnumerable<T>` types.
-  - This utility is critical when processing LINQ queries that return collections, ensuring that the correct model type is used during projection.
+**OrderByVisitor.cs**
+- Walks the expression tree for `OrderBy` clauses.
+- Extracts column information from member expressions and adds ordering instructions to the SQL query.
 
-### 5. Clause Visitors
+**WhereVisitor.cs**
+- Traverses the expression tree representing a `Where` clause.
+- Handles comparisons, logical composition, string methods, list-based `Contains`, and a narrow set of `Any(...)`-style cases.
+- Unsupported methods fail with `NotImplementedException` instead of quietly degrading into nonsense.
 
-**OrderByVisitor.cs**  
-- **Functionality:**  
-  - Walks through the expression tree for `OrderBy` clauses.
-  - Extracts column information from member expressions and instructs the SQL query to apply ordering (ascending or descending) accordingly.
-  
-**WhereVisitor.cs**  
-- **Responsibilities:**  
-  - Traverses the expression tree representing a `Where` clause.
-  - Handles binary expressions (e.g., comparisons), method calls (for operations such as `Contains`, `StartsWith`, etc.), and logical operators (AND, OR, NOT).
-  - Converts each operation into its SQL equivalent by invoking helper methods that add SQL predicates.
+## 5. Building WHERE Clauses
 
-### 6. Building WHERE Clauses
+**Where.cs and WhereGroup.cs**
+- **Where.cs**
+  - Represents individual predicates.
+  - Supports parameterized equality, inequality, `LIKE`, `IN`, and range comparisons.
+- **WhereGroup.cs**
+  - Groups predicates with Boolean logic.
+  - Supports nesting and parenthesized combinations.
+  - Works together with `WhereVisitor` to build the full WHERE tree.
 
-**Where.cs and WhereGroup.cs**  
-- **Where.cs:**  
-  - Represents individual conditions.  
-  - Supports operations like equality, inequality, LIKE, IN, and range comparisons.
-  - Generates parameterized SQL snippets to ensure safety and performance.
-- **WhereGroup.cs:**  
-  - Allows grouping of multiple conditions using Boolean logic (AND/OR).
-  - Provides methods to combine conditions, add parentheses, and support nested groups.
-  - Works in tandem with the WhereVisitor to build the full WHERE clause.
+## 6. SQL Query Construction
 
-### 7. SQL Query Construction
+**SqlQuery.cs**
+- Aggregates query pieces into a complete SQL statement.
+- Handles table names, aliases, selected columns, ordering, and limits.
+- Delegates clause construction to the query builder and visitors.
 
-**SqlQuery.cs**  
-- **Purpose:**  
-  - Aggregates the different parts of a query—SELECT, FROM, JOIN, WHERE, ORDER BY, LIMIT, and OFFSET—into a complete SQL statement.
-- **Features:**  
-  - Handles aliasing, table naming, and column selection.
-  - Delegates parts of the SQL construction to helper methods and visitors.
-  - Integrates with the provider to ensure that database-specific syntax is respected (e.g., escape characters, parameter prefixes).
+**Sql.cs**
+- Acts as a mutable SQL builder.
+- Stores parameter state and command text.
+- Produces the final SQL string and parameter collection.
 
-**Sql.cs**  
-- **Role:**  
-  - Acts as a mutable string builder for SQL commands.
-  - Maintains a list of parameters and manages parameter indexing.
-  - Provides methods to add text, format strings, join multiple clauses, and produce the final SQL command text.
+## 7. What Is Not Part of LINQ Translation
 
-### 8. DML Operations: Insert, Update, and Delete
+- `Insert.cs`, `Update.cs`, and `Delete.cs` support the write/query-builder side of the library.
+- `Join.cs` supports the lower-level SQL builder.
+- Those classes are useful, but they are not proof that equivalent high-level LINQ operators are implemented.
 
-- **Insert.cs:**  
-  - Constructs an `INSERT INTO` command using values from the mutable model.
-  - Parameterizes the values and, if required, appends a command to retrieve the last inserted ID.
-- **Update.cs:**  
-  - Builds an `UPDATE` command with a `SET` clause derived from the model’s changed properties.
-  - Appends a WHERE clause to target specific rows.
-- **Delete.cs:**  
-  - Constructs a `DELETE FROM` command, leveraging the WHERE clause to specify which row(s) to remove.
+## 8. Miscellaneous Utilities
 
-### 9. JOIN Clauses
+- **Literal.cs**
+  - Represents literal SQL fragments when the lower-level query builder needs them.
+- **QueryUtils.cs**
+  - Contains helpers for parsing table names, aliases, and related query metadata.
+- **OrderBy.cs**
+  - Encapsulates ordering details such as column, alias, and direction.
 
-**Join.cs**  
-- **Functionality:**  
-  - Represents JOIN operations (inner, left outer, right outer).
-  - Provides an `On` method to specify join conditions, which are internally represented as a nested WhereGroup.
-  - Generates the appropriate JOIN clause in SQL, including table names, aliases, and ON conditions.
+## Summary
 
-### 10. Miscellaneous Utilities
+The translator's real job is narrow and useful:
 
-- **Literal.cs:**  
-  - Represents literal SQL strings that can be embedded directly into queries.  
-  - Useful for scenarios where a raw SQL fragment needs to be incorporated.
-  
-- **QueryUtils.cs:**  
-  - Contains helper methods for parsing table and column names and extracting aliases.
-  - Simplifies the handling of name formats, ensuring consistency across queries.
+- parse supported LINQ through Remotion.Linq
+- translate `Where` and `OrderBy` plus a tested subset of result operators
+- project entities, scalar members, and simple anonymous shapes
+- fail loudly when the expression shape is outside the implemented surface
 
-- **OrderBy.cs:**  
-  - Encapsulates details for ordering, including the column, alias, and direction (ascending or descending).
-  - Formats the ORDER BY clause using the database provider’s escape characters.
-
-- **IQueryPart.cs and QueryResult.cs:**  
-  - Define abstractions for parts of a query and for representing query results.
-  - Though `QueryResult` is minimal, it serves as a placeholder for future enhancements in result handling.
-
----
-
-### Summary
-
-The Query Translator in DataLinq represents a cohesive system that:
-- **Simplifies and partially evaluates LINQ expression trees** to isolate variable-dependent components.
-- **Integrates with Remotion.Linq** to produce a QueryModel from high-level LINQ queries.
-- **Uses specialized visitors** (WhereVisitor, OrderByVisitor) to convert LINQ clauses into SQL predicates.
-- **Builds complete SQL commands** by assembling SELECT, FROM, JOIN, WHERE, ORDER BY, and LIMIT/OFFSET clauses.
-- **Handles DML operations** (Insert, Update, Delete) with full parameterization.
-- **Leverages dynamic type determination and projection** to convert SQL results back into immutable model instances.
-
+If you want the exact supported surface, the [Supported LINQ Queries](Supported%20LINQ%20Queries.md) page is the better source than this internals overview.

@@ -1,0 +1,55 @@
+name: Latest CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  latest:
+    name: Latest Lane
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      DOTNET_NOLOGO: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Show Podman version
+        run: podman --version
+
+      - name: Restore solution
+        run: dotnet run --project src/DataLinq.Dev.CLI -- restore src/DataLinq.sln --profile ci
+
+      - name: Build solution
+        run: dotnet run --project src/DataLinq.Dev.CLI -- build src/DataLinq.sln --profile ci
+
+      - name: Run latest suite set
+        run: dotnet exec src/DataLinq.Testing.CLI/bin/Debug/net10.0/DataLinq.Testing.CLI.dll run --suite all --alias latest --batch-size 4
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-test-results
+          path: TestResults
+          if-no-files-found: ignore

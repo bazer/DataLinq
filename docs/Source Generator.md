@@ -2,6 +2,24 @@
 
 The DataLinq source generator automates the creation of immutable and mutable model classes, along with associated interfaces and extension methods. Its primary goal is to eliminate boilerplate code while ensuring that the generated models accurately reflect the underlying database schema and developer-defined attributes. The source generator accomplishes this by analyzing existing source code to build a comprehensive metadata representation, then using that metadata to produce additional source files that are incorporated into the compilation.
 
+```mermaid
+---
+config:
+  theme: neo
+  look: classic
+---
+flowchart TD
+    A["Developer Defines Model<br>(Using Abstract Classes<br>and Attributes)"] -- Compile Time --> B(("DataLinq Source Generator"))
+    B -- Generates --> C["Generated Code<br>- Immutable Classes<br>- Mutable Classes<br>- Interfaces<br>- Extensions"]
+    C -- Compiled Into --> D["Application Assembly (.dll)"]
+     B:::Aqua
+     B:::Sky
+    classDef Aqua stroke-width:1px, stroke-dasharray:none, stroke:#46EDC8, fill:#DEFFF8, color:#378E7A
+    classDef Sky stroke-width:1px, stroke-dasharray:none, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
+    style D fill:#ccf,stroke:#333,stroke-width:2px
+    linkStyle 0 stroke:#000000
+```
+
 ---
 
 ## Key Components and Workflow
@@ -10,7 +28,7 @@ The DataLinq source generator automates the creation of immutable and mutable mo
 
 - **Syntax Provider:**  
   The generator starts by scanning the source code using Roslyn’s syntax provider.  
-  - It identifies candidate model declarations by checking for classes that implement one of the key model interfaces (e.g., `ITableModel`, `IViewModel`, or custom variants).
+  - It identifies candidate model declarations by checking for classes that implement the model interfaces DataLinq recognizes (for example `ITableModel` and `IViewModel`).
   - The predicate function (`IsModelDeclaration`) quickly filters out irrelevant syntax nodes, while a transformation function extracts the corresponding `TypeDeclarationSyntax` for further analysis.
 
 ### 2. **Metadata Extraction**
@@ -69,7 +87,7 @@ The DataLinq source generator operates in four key phases:
    It transforms syntax nodes into rich metadata representations, capturing database schema, column definitions, relations, and model attributes.
 
 3. **File Generation:**  
-   Using the metadata, it generates source files that define immutable and mutable models, interfaces, and extension methods. These files include all necessary attributes, property definitions, and helper methods for CRUD operations.
+   Using the metadata, it generates source files that define immutable and mutable models, interfaces, and extension methods.
 
 4. **Compilation Integration:**  
    The generated files are seamlessly added to the compilation, ensuring that the ORM remains in sync with the underlying model definitions.

@@ -1,141 +1,179 @@
 # Contributing to DataLinq
 
-Thank you for your interest in contributing to DataLinq! We welcome improvements of all kinds—from bug fixes and documentation updates to entirely new features. This guide will walk you through the contribution process and provide best practices for working with the DataLinq codebase.
+This guide is for contributors working on the DataLinq repo itself.
 
----
+## 1. Repository Setup
 
-## 1. Getting Started
+Clone the repo and work from the solution under `src`:
 
-### 1.1 Fork and Clone
+```bash
+git clone https://github.com/bazer/DataLinq.git
+cd DataLinq
+dotnet restore src/DataLinq.sln
+dotnet build src/DataLinq.sln
+```
 
-1. **Fork the Repository:**  
-   Click the **Fork** button on the project’s GitHub page to create a personal copy of the repository.
+The repo also carries a root `global.json` that opts `dotnet test` into the .NET 10 `Microsoft.Testing.Platform` runner.
 
-2. **Clone Your Fork Locally:**  
-   ```bash
-   git clone https://github.com/YourUsername/DataLinq.git
-   cd DataLinq
-   ```
+The active solution file is:
 
-3. **Add Upstream Remote (Optional but Recommended):**  
-   ```bash
-   git remote add upstream https://github.com/DataLinqOrg/DataLinq.git
-   ```
-   This helps you keep your fork in sync with the official repository.
+```text
+src/DataLinq.sln
+```
 
-### 1.2 Setting Up Your Environment
+The repo currently targets .NET 8, .NET 9, and .NET 10. The active TUnit suites target `net10.0`.
 
-1. **Install .NET SDK:**  
-   DataLinq targets .NET 6 or higher. Make sure you have the corresponding .NET SDK installed.
+## 2. Repo Layout
 
-2. **Restore NuGet Packages:**  
-   From the root directory, run:
-   ```bash
-   dotnet restore
-   ```
+Important directories and projects:
 
-3. **Build the Solution:**  
-   ```bash
-   dotnet build
-   ```
-   Ensure the solution builds without errors before proceeding.
-
-### 1.3 Exploring the Codebase
-
-- **src**  
-  Contains the main DataLinq libraries (e.g., `DataLinq.Core`, `DataLinq.MySql`, `DataLinq.SQLite`, etc.).
-- **docs**  
-  Holds the project’s documentation, including this contributing guide.
-- **tests**  
-  (If present) Contains unit and integration tests. Some test projects may also live under `src/DataLinq.Tests` or similar directories.
-
----
-
-## 2. Coding Guidelines
-
-1. **Style and Conventions:**  
-   - Use **.NET naming conventions** (PascalCase for classes and methods, camelCase for private fields, etc.).
-   - Keep lines reasonably short (e.g., under 120 characters).
-   - Avoid overly long methods; aim for clear, maintainable functions.
-
-2. **Comments and Documentation:**  
-   - Document complex logic or non-obvious decisions using `///` XML doc comments or inline comments.
-   - If you’re adding a new public API, consider adding or updating doc comments to explain usage.
-
-3. **Commit Messages:**  
-   - Use short, descriptive commit messages.
-   - Include references to issues or pull requests when applicable (e.g., “Fix #123: Add caching for user profiles”).
-
----
+- `src/DataLinq`
+  Main packaged runtime project.
+- `src/DataLinq.MySql`
+  MySQL and MariaDB provider package.
+- `src/DataLinq.SQLite`
+  SQLite provider package.
+- `src/DataLinq.CLI`
+  The end-user `datalinq` tool.
+- `src/DataLinq.Generators`
+  Source generator project.
+- `src/DataLinq.Tools`
+  Shared tooling used by the CLI and generation pipeline.
+- `src/DataLinq.DevTools`
+  Shared repo-local `dotnet`/NuGet execution, output parsing, and artifact logging primitives for developer-facing CLIs.
+- `src/DataLinq.Dev.CLI`
+  Developer wrapper for `doctor`, `restore`, `build`, and `test` with repo-local environment isolation and concise output.
+- `src/DataLinq.Testing`
+  Shared test infrastructure, seeded harnesses, provider matrix logic, and environment helpers.
+- `src/DataLinq.Testing.CLI`
+  Cross-platform test infrastructure CLI for local orchestration and matrix runs.
+- `src/DataLinq.Tests.Unit`
+  Pure in-process TUnit lane.
+- `src/DataLinq.Tests.Compliance`
+  Cross-provider behavior and SQLite-backed compliance lane.
+- `src/DataLinq.Tests.MySql`
+  Provider-specific MySQL and MariaDB metadata and type-mapping lane.
+- `src/DataLinq.Generators.Tests`
+  Generator-focused TUnit lane.
+- `src/DataLinq.Tests.Models`
+  Shared test models and fixtures used by the active test suites and sample code.
+- `docs`
+  Project documentation.
 
 ## 3. Testing
 
-### 3.1 Running Tests
+The supported local entry points are:
 
-DataLinq includes unit and integration tests to ensure reliability and prevent regressions:
+- `DataLinq.Dev.CLI` for `doctor`, `restore`, `build`, and direct `dotnet test` wrapping.
+- `DataLinq.Testing.CLI` for provider-matrix orchestration, container lifecycle, and suite runs that depend on target aliases or batches.
+- `DataLinq.Benchmark.CLI` for benchmark discovery, benchmark execution, and performance-history artifacts.
+
+Detailed tool documentation lives here:
+
+- [Internal Tooling](contributing/Internal%20Tooling.md)
+- [DataLinq.Dev.CLI](contributing/DataLinq.Dev.CLI.md)
+- [DataLinq.Testing.CLI](contributing/DataLinq.Testing.CLI.md)
+- [DataLinq.Benchmark.CLI](contributing/DataLinq.Benchmark.CLI.md)
+- [AI Assistant Guidance](contributing/AI%20Assistant%20Guidance.md)
+
+Check the local `dotnet` execution profile before you start blaming the repo:
 
 ```bash
-dotnet test
+dotnet run --project src/DataLinq.Dev.CLI -- doctor --profile repo
 ```
 
-- **Unit Tests:** Focus on isolated components (e.g., caching, query parsing).
-- **Integration Tests:** Validate end-to-end scenarios, often requiring a running database (e.g., MySQL or SQLite).
+Prefer the developer wrapper for restore/build so the repo uses its local `.dotnet` home, AppData, NuGet cache, and artifact paths:
 
-### 3.2 Adding New Tests
+```bash
+dotnet run --project src/DataLinq.Dev.CLI -- restore
+dotnet run --project src/DataLinq.Dev.CLI -- build
+dotnet run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
+```
 
-Whenever you fix a bug or add a feature:
-1. **Write or Update Tests:** Confirm that your changes work as intended and do not break existing functionality.
-2. **Test Locally:** Ensure all tests pass before pushing your changes.
+Useful output modes:
 
----
+- `--output quiet`
+  One-line success, concise failure summary.
+- `--output errors`
+  Distinct compiler/NuGet errors only.
+- `--output failures`
+  Test-failure focused output.
+- `--output diag`
+  Full diagnostic output with raw artifacts.
 
-## 4. Submitting a Pull Request
+List the available targets, aliases, suites, and current runtime state:
 
-1. **Create a Feature Branch:**  
-   ```bash
-   git checkout -b feature/my-new-feature
-   ```
-2. **Make Your Changes:**  
-   Commit early and often. Keep commits atomic and focused on a single topic.
-3. **Push to Your Fork:**  
-   ```bash
-   git push origin feature/my-new-feature
-   ```
-4. **Open a Pull Request:**  
-   On GitHub, open a PR from your feature branch to the `main` (or relevant) branch in the official DataLinq repository.
-5. **Review Process:**  
-   - A maintainer or community member may review your changes.
-   - Be prepared to address comments or requested revisions.
-   - Once approved, the PR is merged into the main repository.
+```bash
+dotnet run --project src/DataLinq.Testing.CLI -- list
+```
 
----
+Run the fast local lane:
 
-## 5. Communication
+```bash
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias quick
+```
 
-1. **Issues:**  
-   - Use GitHub Issues for bug reports, feature requests, and discussion.
-   - Provide clear steps to reproduce bugs or rationale for new features.
-2. **Discussions / Forum (If Available):**  
-   If the project maintains a separate discussion board, consider posting general or open-ended questions there.
+Run the main latest server-backed lane:
 
----
+```bash
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+```
 
-## 6. Code of Conduct
+Run only a specific suite:
 
-We strive to maintain a friendly, respectful community. By participating in this project, you agree to uphold a [Code of Conduct](https://example.com/code-of-conduct) that fosters a welcoming environment for all contributors.
+```bash
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite generators
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite unit
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite compliance --alias latest --batch-size 4
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite mysql --alias latest --batch-size 4
+```
 
----
+When invoking the CLI repeatedly from the same build output, prefer `--no-build` together with an explicit configuration and framework:
+
+```bash
+dotnet run --no-build --project src/DataLinq.Testing.CLI -c Debug --framework net10.0 -- run --suite all --alias latest --batch-size 4
+```
+
+Visual Studio runsettings live under `src`:
+
+- `src/tests.quick.runsettings`
+- `src/tests.latest.runsettings`
+- `src/tests.all.runsettings`
+
+If you are only changing one slice of the codebase, prefer targeted suite runs over blanket full-matrix execution.
+
+For benchmark work, use the benchmark wrapper instead of calling BenchmarkDotNet directly:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- list
+dotnet run --project src/DataLinq.Benchmark.CLI -- run
+```
+
+## 4. Documentation Changes
+
+If behavior changes, update the matching docs:
+
+- user-facing setup and usage docs in `docs/`
+- internal architecture docs only when the implementation still matches them
+- dev-plan documents only when you are intentionally updating migration or design history
+
+Do not let roadmap material pretend to be shipped behavior.
+
+## 5. Coding Guidelines
+
+- Use normal .NET naming conventions.
+- Keep changes focused and defensible.
+- Add tests when changing behavior.
+- Add comments only when they explain something non-obvious.
+- Prefer updating the shared test harness instead of rebuilding ad hoc fixtures in individual test projects.
+
+## 6. Pull Requests
+
+- Keep PRs small enough to review.
+- Explain behavioral changes clearly.
+- Mention test coverage and any known gaps.
+- If docs changed, say which docs were updated.
 
 ## 7. License
 
-DataLinq is open source software, released under the [MIT License](../LICENSE.md). By contributing, you agree that your contributions will be licensed under the same license.
-
----
-
-## 8. Thank You!
-
-Your contributions make DataLinq a better tool for everyone. Whether you’re fixing a typo, adding a new feature, or improving test coverage, we appreciate your effort. Feel free to reach out if you have any questions about contributing.
-
----
-
-**Happy coding!**
+DataLinq is released under the [MIT License](../LICENSE.md). By contributing, you agree that your contributions are released under that same license.

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,7 +17,8 @@ public class GeneratorFileFactoryOptions
     public bool UseFileScopedNamespaces { get; set; } = false;
     public bool UseNullableReferenceTypes { get; set; } = false;
     public bool SeparateTablesAndViews { get; set; } = false;
-    public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Attributes", "DataLinq.Mutation" };
+    public IReadOnlyCollection<ValueProperty> SuppressedDefaultValueProperties { get; set; } = [];
+    public List<string> Usings { get; set; } = new List<string> { "System", "System.Diagnostics.CodeAnalysis", "DataLinq", "DataLinq.Interfaces", "DataLinq.Instances", "DataLinq.Attributes", "DataLinq.Mutation" };
 }
 
 public class GeneratorFileFactory
@@ -54,15 +55,43 @@ public class GeneratorFileFactory
 
     public IEnumerable<(string path, string contents)> CreateModelFiles(DatabaseDefinition database)
     {
-        var dbCsTypeName = database.TableModels.Any(x => x.Model.CsType.Name == database.CsType.Name)
-            ? $"{database.CsType.Name}Db"
-            : database.CsType.Name;
-
         foreach (var table in database.TableModels.Where(x => !x.IsStub))
+            yield return CreateModelFile(table);
+
+        if (database.TableModels.Any(static x => !x.IsStub))
+            yield return CreateDatabaseMetadataBootstrapFile(database);
+    }
+
+    private (string path, string contents) CreateDatabaseMetadataBootstrapFile(DatabaseDefinition database)
+    {
+        var namespaceName = Options.NamespaceName ?? database.CsType.Namespace;
+        if (string.IsNullOrWhiteSpace(namespaceName))
+            throw new Exception($"Namespace is missing for '{database.CsType.Name}'");
+
+        var usings = Options.Usings
+            .Distinct()
+            .Where(name => name != namespaceName)
+            .Select(name => (name.StartsWith("System"), name))
+            .OrderByDescending(x => x.Item1)
+            .ThenBy(x => x.name)
+            .Select(x => x.name);
+
+        var file =
+            FileHeader(namespaceName, Options.UseFileScopedNamespaces, usings)
+            .Concat(DatabaseMetadataBootstrapFileContents(database))
+            .Concat(FileFooter(Options.UseFileScopedNamespaces))
+            .ToJoinedString("\n");
+
+        return ($"{database.CsType.Name}.DataLinqMetadata.cs", file);
+    }
+
+    private (string path, string contents) CreateModelFile(TableModel table)
+    {
+        try
         {
             var namespaceName = Options.NamespaceName ?? table.Model.CsType.Namespace;
-            if (namespaceName == null)
-                throw new Exception($"Namespace is null for '{table.Model.CsType.Name}'");
+            if (string.IsNullOrWhiteSpace(namespaceName))
+                throw new Exception($"Namespace is missing for '{table.Model.CsType.Name}'");
 
             var usings = Options.Usings
                 .Concat(table.Model.Usings?.Select(x => x.FullNamespaceName) ?? new List<string>())
@@ -86,7 +115,15 @@ public class GeneratorFileFactory
 
             var path = GetFilePath(table);
 
-            yield return (path, file);
+            return (path, file);
+        }
+        catch (ModelFileGenerationException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new ModelFileGenerationException(table.Model, exception);
         }
     }
 
@@ -124,6 +161,26 @@ public class GeneratorFileFactory
             foreach (var row in ExtensionMethodsFileContents(model, Options))
                 yield return row;
         }
+    }
+
+    private IEnumerable<string> DatabaseMetadataBootstrapFileContents(DatabaseDefinition database)
+    {
+        var tableModels = database.TableModels
+            .Where(static x => !x.IsStub)
+            .OrderBy(static x => x.CsPropertyName, StringComparer.Ordinal)
+            .ToArray();
+
+        yield return $"{namespaceTab}public partial class {database.CsType.Name}";
+        yield return namespaceTab + "{";
+        yield return $"{namespaceTab}{tab}public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>";
+        yield return $"{namespaceTab}{tab}[";
+
+        foreach (var tableModel in tableModels)
+            yield return $"{namespaceTab}{tab}{tab}new(\"{tableModel.CsPropertyName}\", typeof({GetGlobalTypeName(tableModel.Model.CsType)})),";
+
+        yield return $"{namespaceTab}{tab}];";
+        yield return namespaceTab + "}";
+        yield return "";
     }
 
     private string GetFilePath(TableModel table)
@@ -246,6 +303,8 @@ public class GeneratorFileFactory
     {
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
         yield return namespaceTab + "{";
+        yield return $"{namespaceTab}{tab}public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new Immutable{model.CsType.Name}(rowData, dataSource);";
+        yield return "";
 
         foreach (var valueProperty in valueProps)
         {
@@ -302,7 +361,7 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}" + "{";
 
         foreach (var v in defaultProps)
-            yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValue()};";
+            yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValueCode()};";
 
         yield return $"{namespaceTab}{tab}" + "}";
 
@@ -319,7 +378,7 @@ public class GeneratorFileFactory
             yield return $"{namespaceTab}{tab}" + "{";
 
             foreach (var v in defaultProps)
-                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValue()};";
+                yield return $"{namespaceTab}{tab}{tab}this.{v.PropertyName} = {v.GetDefaultValueCode()};";
 
             // For each required property, assign the passed parameter to the property.
             foreach (var v in requiredProps)
@@ -484,6 +543,7 @@ public class GeneratorFileFactory
             .ThenByDescending(x => x.Attributes.Any(a => a is ForeignKeyAttribute))
             .ThenBy(x => x.PropertyName)
             .Where(x => x.Column.ValueProperty.Attributes.Any(a => a is DefaultAttribute))
+            .Where(x => !Options.SuppressedDefaultValueProperties.Contains(x))
             .ToList();
     }
 
@@ -498,6 +558,11 @@ public class GeneratorFileFactory
 
         return name;
     }
+
+    private static string GetGlobalTypeName(CsTypeDeclaration csType)
+        => string.IsNullOrWhiteSpace(csType.Namespace)
+            ? $"global::{csType.Name}"
+            : $"global::{csType.Namespace}.{csType.Name}";
 
     private string GetImmutablePropertyNullable(ValueProperty property)
     {

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFrameworks>net8.0</TargetFrameworks>
+		<Description>Developer environment and build wrapper CLI for DataLinq.</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Spectre.Console" />
+		<PackageReference Include="System.CommandLine" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\DataLinq.DevTools\DataLinq.DevTools.csproj" />
+	</ItemGroup>
+
+</Project>

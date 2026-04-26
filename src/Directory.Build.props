@@ -6,6 +6,9 @@
 		<Nullable>enable</Nullable>
         <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<!-- MSBuild 10.0.201 is currently unstable on this project graph when analyzer
+		     project references and multi-targeted projects are walked in parallel. -->
+		<BuildInParallel Condition="'$(BuildInParallel)' == ''">false</BuildInParallel>
 
 		<!-- Nuget package information--> 
 		<Authors>Sebastian Öberg</Authors>

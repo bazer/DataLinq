@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net10.0</TargetFrameworks>
+		<OutputType>Exe</OutputType>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="TUnit" />
+		<PackageReference Include="ThrowAway" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
+		<ProjectReference Include="..\DataLinq.Generators\DataLinq.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
+		<ProjectReference Include="..\DataLinq.Testing\DataLinq.Testing.csproj" />
+		<ProjectReference Include="..\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj" />
+		<Analyzer Include="@(_ThrowAwayPackageVersion->'$(NuGetPackageRoot)\throwaway\%(ResolvedVersion)\lib\netstandard2.0\ThrowAway.dll')" />
+	</ItemGroup>
+
+</Project>

@@ -99,14 +99,14 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             //valueProp.CsTypeName = valueProp.CsTypeName == "enum" ? valueProp.PropertyName + "Value" : valueProp.CsTypeName;
         }
 
-        var defaultAttr = ParseDefaultValue(dbColumns, valueProp);
+        var defaultAttr = ParseDefaultValue(table, dbColumns, valueProp);
         if (defaultAttr != null)
             valueProp.AddAttribute(defaultAttr);
 
         return column;
     }
 
-    protected static DefaultAttribute? ParseDefaultValue(ICOLUMNS dbColumns, ValueProperty property)
+    protected DefaultAttribute? ParseDefaultValue(TableDefinition table, ICOLUMNS dbColumns, ValueProperty property)
     {
         if (dbColumns.COLUMN_DEFAULT == null || string.Equals(dbColumns.COLUMN_DEFAULT, "NULL", StringComparison.CurrentCultureIgnoreCase))
             return null;
@@ -114,21 +114,138 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         if (dbColumns.COLUMN_DEFAULT == "" && property.CsType.Type != typeof(string))
             return null;
 
-        if (dbColumns.COLUMN_DEFAULT.StartsWith("CURRENT_TIMESTAMP", StringComparison.CurrentCultureIgnoreCase))
+        var normalizedExpression = UnwrapParenthesizedDefaultExpression(dbColumns.COLUMN_DEFAULT).Trim();
+
+        if (IsCurrentTimestampDefault(normalizedExpression) ||
+            (property.CsType.Type == typeof(DateOnly) && IsCurrentDateDefault(normalizedExpression)) ||
+            (property.CsType.Type == typeof(TimeOnly) && IsCurrentTimeDefault(normalizedExpression)))
             return new DefaultCurrentTimestampAttribute();
 
-        if (dbColumns.COLUMN_DEFAULT.StartsWith("UUID()", StringComparison.CurrentCultureIgnoreCase))
+        if (normalizedExpression.StartsWith("UUID()", StringComparison.CurrentCultureIgnoreCase))
             return new DefaultNewUUIDAttribute();
 
-        if (property.CsType.Type == typeof(bool) && dbColumns.COLUMN_DEFAULT.StartsWith("b'"))
-            return new DefaultAttribute(dbColumns.COLUMN_DEFAULT == "b'1'");
+        if (property.CsType.Type == typeof(bool) && normalizedExpression.StartsWith("b'"))
+            return new DefaultAttribute(normalizedExpression == "b'1'");
 
-        var value = property.CsType.Type != null ?
-                Convert.ChangeType(dbColumns.COLUMN_DEFAULT, property.CsType.Type, CultureInfo.InvariantCulture)
-                : dbColumns.COLUMN_DEFAULT;
+        var normalizedDefault = NormalizeSqlLiteral(normalizedExpression);
+
+        if (IsUnsupportedZeroDateDefault(normalizedDefault, property))
+        {
+            options.Log?.Invoke($"Warning: Skipping unsupported zero date default '{dbColumns.COLUMN_DEFAULT}' for {table.DbName}.{dbColumns.COLUMN_NAME}.");
+            return null;
+        }
+
+        var value = ConvertDefaultValue(normalizedDefault, property);
 
         return new DefaultAttribute(value);
 
+    }
+
+    private static bool IsCurrentTimestampDefault(string defaultValue) =>
+        defaultValue.StartsWith("CURRENT_TIMESTAMP", StringComparison.OrdinalIgnoreCase) ||
+        defaultValue.StartsWith("NOW(", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(defaultValue, "NOW()", StringComparison.OrdinalIgnoreCase) ||
+        defaultValue.StartsWith("LOCALTIMESTAMP", StringComparison.OrdinalIgnoreCase) ||
+        defaultValue.StartsWith("LOCALTIME", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCurrentDateDefault(string defaultValue) =>
+        defaultValue.StartsWith("CURRENT_DATE", StringComparison.OrdinalIgnoreCase) ||
+        defaultValue.StartsWith("CURDATE(", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(defaultValue, "CURDATE()", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCurrentTimeDefault(string defaultValue) =>
+        defaultValue.StartsWith("CURRENT_TIME", StringComparison.OrdinalIgnoreCase) ||
+        defaultValue.StartsWith("CURTIME(", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(defaultValue, "CURTIME()", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsUnsupportedZeroDateDefault(string defaultValue, ValueProperty property)
+    {
+        if (!defaultValue.StartsWith("0000-00-00", StringComparison.Ordinal))
+            return false;
+
+        return property.CsType.Type == typeof(DateOnly) ||
+               property.CsType.Type == typeof(DateTime) ||
+               property.CsType.Type == typeof(DateTimeOffset);
+    }
+
+    private static object ConvertDefaultValue(string defaultValue, ValueProperty property)
+    {
+        if (property.EnumProperty != null)
+        {
+            if (int.TryParse(defaultValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var enumNumericValue))
+                return enumNumericValue;
+
+            var enumValue = property.EnumProperty.Value.DbValuesOrCsValues
+                .FirstOrDefault(x => string.Equals(x.name, defaultValue, StringComparison.Ordinal));
+
+            if (enumValue.name != null)
+                return enumValue.value;
+
+            return defaultValue;
+        }
+
+        if (property.CsType.Type == typeof(bool))
+        {
+            if (defaultValue == "0")
+                return false;
+
+            if (defaultValue == "1")
+                return true;
+
+            return Convert.ChangeType(defaultValue, property.CsType.Type, CultureInfo.InvariantCulture);
+        }
+
+        if (property.CsType.Type == typeof(DateOnly))
+            return DateOnly.Parse(defaultValue, CultureInfo.InvariantCulture);
+
+        if (property.CsType.Type == typeof(TimeOnly))
+            return TimeOnly.Parse(defaultValue, CultureInfo.InvariantCulture);
+
+        if (property.CsType.Type == typeof(TimeSpan))
+            return TimeSpan.Parse(defaultValue, CultureInfo.InvariantCulture);
+
+        if (property.CsType.Type == typeof(Guid))
+            return Guid.Parse(defaultValue);
+
+        if (property.CsType.Type != null)
+            return Convert.ChangeType(defaultValue, property.CsType.Type, CultureInfo.InvariantCulture);
+
+        return defaultValue;
+    }
+
+    private static string NormalizeSqlLiteral(string defaultValue)
+    {
+        if (defaultValue.Length >= 2 && defaultValue[0] == '\'' && defaultValue[^1] == '\'')
+            return defaultValue[1..^1].Replace("''", "'");
+
+        return defaultValue;
+    }
+
+    private static string UnwrapParenthesizedDefaultExpression(string defaultValue)
+    {
+        var trimmed = defaultValue.Trim();
+
+        while (trimmed.Length >= 2 && trimmed[0] == '(' && trimmed[^1] == ')' && HasBalancedOuterParentheses(trimmed))
+            trimmed = trimmed[1..^1].Trim();
+
+        return trimmed;
+    }
+
+    private static bool HasBalancedOuterParentheses(string value)
+    {
+        var depth = 0;
+        for (int i = 0; i < value.Length; i++)
+        {
+            if (value[i] == '(')
+                depth++;
+            else if (value[i] == ')')
+                depth--;
+
+            if (depth == 0 && i < value.Length - 1)
+                return false;
+        }
+
+        return depth == 0;
     }
 
     protected uint? ParseLengthFromColumnType(string columnType)

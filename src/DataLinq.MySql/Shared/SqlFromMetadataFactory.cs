@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
@@ -110,12 +111,135 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             .FirstOrDefault();
 
         if (defaultAttr is DefaultCurrentTimestampAttribute)
-            return "CURRENT_TIMESTAMP";
+        {
+            return column.ValueProperty.CsType.Name switch
+            {
+                "DateOnly" => "CURRENT_DATE",
+                "TimeOnly" => "CURRENT_TIME",
+                _ => "CURRENT_TIMESTAMP"
+            };
+        }
 
         if (defaultAttr is DefaultNewUUIDAttribute)
             return "UUID()";
 
-        return defaultAttr?.Value.ToString();
+        if (column.ValueProperty.EnumProperty.HasValue)
+        {
+            var enumDefaultValue = ResolveEnumDefaultValue(column.ValueProperty, defaultAttr);
+            if (enumDefaultValue != null)
+                return $"'{enumDefaultValue.Replace("'", "''")}'";
+        }
+
+        if (defaultAttr == null)
+            return null;
+
+        var dbType = GetDbType(column);
+
+        return column.ValueProperty.CsType.Name switch
+        {
+            "string" => QuoteSqlString(Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture) ?? string.Empty),
+            "char" => QuoteSqlString(Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture) ?? string.Empty),
+            "bool" => FormatBooleanDefaultValue(defaultAttr.Value, dbType),
+            "sbyte" => Convert.ToSByte(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "byte" => Convert.ToByte(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "short" => Convert.ToInt16(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "ushort" => Convert.ToUInt16(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "int" => Convert.ToInt32(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "uint" => Convert.ToUInt32(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "long" => Convert.ToInt64(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "ulong" => Convert.ToUInt64(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "float" => Convert.ToSingle(defaultAttr.Value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
+            "double" => Convert.ToDouble(defaultAttr.Value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
+            "decimal" => Convert.ToDecimal(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            "DateOnly" => QuoteSqlString(((DateOnly)defaultAttr.Value).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+            "TimeOnly" => QuoteSqlString(((TimeOnly)defaultAttr.Value).ToString("HH:mm:ss", CultureInfo.InvariantCulture)),
+            "DateTime" => QuoteSqlString(((DateTime)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
+            "DateTimeOffset" => QuoteSqlString(((DateTimeOffset)defaultAttr.Value).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)),
+            "TimeSpan" => QuoteSqlString(((TimeSpan)defaultAttr.Value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)),
+            "Guid" or "System.Guid" => FormatGuidDefaultValue((Guid)defaultAttr.Value, dbType),
+            _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
+        };
+    }
+
+    private static string QuoteSqlString(string value) => $"'{value.Replace("'", "''")}'";
+
+    private static string FormatBooleanDefaultValue(object value, DatabaseColumnType dbType)
+    {
+        var boolValue = Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+
+        return dbType.Name.Equals("bit", StringComparison.OrdinalIgnoreCase)
+            ? (boolValue ? "b'1'" : "b'0'")
+            : (boolValue ? "1" : "0");
+    }
+
+    private static string FormatGuidDefaultValue(Guid value, DatabaseColumnType dbType)
+    {
+        if (dbType.Name.Equals("uuid", StringComparison.OrdinalIgnoreCase) ||
+            (dbType.Name.Equals("char", StringComparison.OrdinalIgnoreCase) && dbType.Length == 36) ||
+            (dbType.Name.Equals("varchar", StringComparison.OrdinalIgnoreCase) && dbType.Length == 36))
+        {
+            return QuoteSqlString(value.ToString());
+        }
+
+        if (dbType.Name.Equals("binary", StringComparison.OrdinalIgnoreCase) && dbType.Length == 16)
+            return $"X'{Convert.ToHexString(value.ToByteArray())}'";
+
+        return QuoteSqlString(value.ToString());
+    }
+
+    private static string? ResolveEnumDefaultValue(ValueProperty property, DefaultAttribute? defaultAttr)
+    {
+        if (defaultAttr == null || !property.EnumProperty.HasValue)
+            return null;
+
+        var enumProperty = property.EnumProperty.Value;
+
+        if (TryGetEnumNumericValue(enumProperty, defaultAttr, out var numericValue))
+        {
+            return enumProperty.DbValuesOrCsValues
+                .FirstOrDefault(x => x.value == numericValue)
+                .name;
+        }
+
+        return null;
+    }
+
+    private static bool TryGetEnumNumericValue(EnumProperty enumProperty, DefaultAttribute defaultAttr, out int numericValue)
+    {
+        if (defaultAttr.Value is Enum enumValue)
+        {
+            numericValue = Convert.ToInt32(enumValue);
+            return true;
+        }
+
+        if (defaultAttr.Value is string stringValue)
+        {
+            if (int.TryParse(stringValue, out numericValue))
+                return true;
+
+            var memberName = stringValue.Split('.').Last();
+            var enumMatch = enumProperty.CsValuesOrDbValues.FirstOrDefault(x => x.name == memberName)
+                .name != null
+                    ? enumProperty.CsValuesOrDbValues.First(x => x.name == memberName)
+                    : enumProperty.DbValuesOrCsValues.FirstOrDefault(x => x.name == stringValue);
+
+            if (enumMatch.name != null)
+            {
+                numericValue = enumMatch.value;
+                return true;
+            }
+        }
+
+        try
+        {
+            numericValue = Convert.ToInt32(defaultAttr.Value);
+            return true;
+        }
+        catch
+        {
+            numericValue = default;
+            return false;
+        }
     }
 
     protected virtual DatabaseColumnType? ParseDefaultType(DatabaseColumnType defaultType, DatabaseType databaseType)
