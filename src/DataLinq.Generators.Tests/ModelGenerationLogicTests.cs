@@ -10,24 +10,24 @@ namespace DataLinq.Generators.Tests;
 
 public class ModelGenerationLogicTests : GeneratorTestBase
 {
-    private const string InvalidDefaultValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidDefaultModel.cs";
-    private const string InvalidCacheLimitSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitModel.cs";
-    private const string InvalidCacheLimitAmountSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidCacheLimitAmountModel.cs";
-    private const string InvalidTypeAttributeSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidTypeAttributeModel.cs";
-    private const string InvalidInterfaceAttributeSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidInterfaceAttributeModel.cs";
-    private const string InvalidEnumValueSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidEnumValueModel.cs";
-    private const string MissingNamespaceSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingNamespaceModel.cs";
-    private const string InvalidForeignKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidForeignKeyModel.cs";
-    private const string DuplicateTableSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateTableModel.cs";
-    private const string DuplicateDatabaseSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateDatabaseModel.cs";
-    private const string InvalidIndexSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidIndexModel.cs";
-    private const string InvalidIndexTypeSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidIndexTypeModel.cs";
-    private const string EmptyIndexNameSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\EmptyIndexNameModel.cs";
-    private const string DuplicateColumnSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\DuplicateColumnModel.cs";
-    private const string MissingPrimaryKeySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingPrimaryKeyModel.cs";
-    private const string InvalidRelationSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidRelationModel.cs";
-    private const string InvalidTablePropertySourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\InvalidTablePropertyModel.cs";
-    private const string MissingTableModelSourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\MissingTableModel.cs";
+    private static readonly string InvalidDefaultValueSourcePath = GeneratorTestPaths.TestModel("InvalidDefaultModel.cs");
+    private static readonly string InvalidCacheLimitSourcePath = GeneratorTestPaths.TestModel("InvalidCacheLimitModel.cs");
+    private static readonly string InvalidCacheLimitAmountSourcePath = GeneratorTestPaths.TestModel("InvalidCacheLimitAmountModel.cs");
+    private static readonly string InvalidTypeAttributeSourcePath = GeneratorTestPaths.TestModel("InvalidTypeAttributeModel.cs");
+    private static readonly string InvalidInterfaceAttributeSourcePath = GeneratorTestPaths.TestModel("InvalidInterfaceAttributeModel.cs");
+    private static readonly string InvalidEnumValueSourcePath = GeneratorTestPaths.TestModel("InvalidEnumValueModel.cs");
+    private static readonly string MissingNamespaceSourcePath = GeneratorTestPaths.TestModel("MissingNamespaceModel.cs");
+    private static readonly string InvalidForeignKeySourcePath = GeneratorTestPaths.TestModel("InvalidForeignKeyModel.cs");
+    private static readonly string DuplicateTableSourcePath = GeneratorTestPaths.TestModel("DuplicateTableModel.cs");
+    private static readonly string DuplicateDatabaseSourcePath = GeneratorTestPaths.TestModel("DuplicateDatabaseModel.cs");
+    private static readonly string InvalidIndexSourcePath = GeneratorTestPaths.TestModel("InvalidIndexModel.cs");
+    private static readonly string InvalidIndexTypeSourcePath = GeneratorTestPaths.TestModel("InvalidIndexTypeModel.cs");
+    private static readonly string EmptyIndexNameSourcePath = GeneratorTestPaths.TestModel("EmptyIndexNameModel.cs");
+    private static readonly string DuplicateColumnSourcePath = GeneratorTestPaths.TestModel("DuplicateColumnModel.cs");
+    private static readonly string MissingPrimaryKeySourcePath = GeneratorTestPaths.TestModel("MissingPrimaryKeyModel.cs");
+    private static readonly string InvalidRelationSourcePath = GeneratorTestPaths.TestModel("InvalidRelationModel.cs");
+    private static readonly string InvalidTablePropertySourcePath = GeneratorTestPaths.TestModel("InvalidTablePropertyModel.cs");
+    private static readonly string MissingTableModelSourcePath = GeneratorTestPaths.TestModel("MissingTableModel.cs");
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;

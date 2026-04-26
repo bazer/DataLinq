@@ -20,7 +20,7 @@ public class ModelGeneratorInputTests
                 [Column("id")]
                 public abstract int Id { get; }
             }
-            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\FirstSnapshotRow.cs");
+            """, GeneratorTestPaths.TestModel("FirstSnapshotRow.cs"));
 
         var second = GetTypeDeclaration("""
             namespace SnapshotTests;
@@ -31,7 +31,7 @@ public class ModelGeneratorInputTests
             {
                 [Column("id")] public abstract int Id { get; }
             }
-            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\SecondSnapshotRow.cs");
+            """, GeneratorTestPaths.TestModel("SecondSnapshotRow.cs"));
 
         await Assert.That(ModelDeclarationSnapshot.Create(first))
             .IsEqualTo(ModelDeclarationSnapshot.Create(second));
@@ -48,7 +48,7 @@ public class ModelGeneratorInputTests
                 [Column("id")]
                 public abstract int Id { get; }
             }
-            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\FirstSnapshotRow.cs"));
+            """, GeneratorTestPaths.TestModel("FirstSnapshotRow.cs")));
 
         var second = ModelDeclarationInput.Create(GetTypeDeclaration("""
             namespace SnapshotTests;
@@ -58,7 +58,7 @@ public class ModelGeneratorInputTests
             {
                 [Column("id")] public abstract int Id { get; }
             }
-            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\SecondSnapshotRow.cs"));
+            """, GeneratorTestPaths.TestModel("SecondSnapshotRow.cs")));
 
         await Assert.That(ModelDeclarationInputComparer.Instance.Equals(first, second)).IsTrue();
         await Assert.That(ModelDeclarationInputComparer.Instance.GetHashCode(first))
@@ -71,12 +71,12 @@ public class ModelGeneratorInputTests
         var first = ModelDeclarationInput.Create(GetTypeDeclaration("""
             namespace SnapshotTests;
             public partial class SnapshotDb : IDatabaseModel {}
-            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\SnapshotDb1.cs"));
+            """, GeneratorTestPaths.TestModel("SnapshotDb1.cs")));
 
         var second = ModelDeclarationInput.Create(GetTypeDeclaration("""
             namespace SnapshotTests;
             public partial class SnapshotDb : IDatabaseModel { }
-            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\SnapshotDb2.cs"));
+            """, GeneratorTestPaths.TestModel("SnapshotDb2.cs")));
 
         await Assert.That(ModelDeclarationInputArrayComparer.Instance.Equals([first], [second])).IsTrue();
     }
@@ -87,12 +87,12 @@ public class ModelGeneratorInputTests
         var alpha = ModelDeclarationInput.Create(GetTypeDeclaration("""
             namespace AlphaModels;
             public partial class AlphaDb : IDatabaseModel {}
-            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\B.cs"));
+            """, GeneratorTestPaths.TestModel("B.cs")));
 
         var beta = ModelDeclarationInput.Create(GetTypeDeclaration("""
             namespace BetaModels;
             public partial class BetaDb : IDatabaseModel {}
-            """, @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\A.cs"));
+            """, GeneratorTestPaths.TestModel("A.cs")));
 
         var normalized = ModelGeneratorInput.NormalizeModelDeclarationOrder([beta, alpha]);
 

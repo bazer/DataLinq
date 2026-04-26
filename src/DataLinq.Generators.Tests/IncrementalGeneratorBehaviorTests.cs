@@ -11,7 +11,7 @@ namespace DataLinq.Generators.Tests;
 
 public class IncrementalGeneratorBehaviorTests
 {
-    private const string SourcePath = @"D:\git\DataLinq\src\DataLinq.Generators.Tests\TestModels\IncrementalModel.cs";
+    private static readonly string SourcePath = GeneratorTestPaths.TestModel("IncrementalModel.cs");
 
     private const string InitialSource = """
         using DataLinq;
