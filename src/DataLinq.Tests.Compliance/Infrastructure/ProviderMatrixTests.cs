@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Testing;
+using MySqlConnector;
 
 namespace DataLinq.Tests.Compliance;
 
@@ -49,5 +51,37 @@ public class ProviderMatrixTests
         await Assert.That(connection.DatabaseType).IsEqualTo(provider.DatabaseType);
         await Assert.That(string.IsNullOrWhiteSpace(connection.ConnectionString)).IsFalse();
         await Assert.That(string.IsNullOrWhiteSpace(connection.DataSourceName)).IsFalse();
+    }
+
+    [Test]
+    public async Task MySql84ConnectionDefinitions_AllowPublicKeyRetrievalForContainerAuth()
+    {
+        var target = DatabaseServerMatrix.GetTarget("mysql-8.4");
+        var settings = new PodmanTestEnvironmentSettings(
+            RepositoryRoot: string.Empty,
+            ArtifactRoot: string.Empty,
+            ContainerPrefix: "datalinq-tests",
+            ProfileId: DatabaseServerMatrix.DefaultProfile.Id,
+            Host: "127.0.0.1",
+            AdminUser: "datalinq",
+            AdminPassword: "datalinq",
+            ApplicationUser: "datalinq",
+            ApplicationPassword: "datalinq",
+            TargetPorts: new Dictionary<string, int>(),
+            AvailableTargetIds: []);
+
+        var provider = new TestProviderDescriptor(
+            Name: target.Id,
+            Kind: TestProviderKind.Server,
+            DatabaseType: target.DatabaseType,
+            RequiresExternalServer: true,
+            UsesPodman: true,
+            ServerTarget: target);
+
+        var adminConnection = new MySqlConnectionStringBuilder(settings.CreateAdminConnectionString(target));
+        var applicationConnection = new MySqlConnectionStringBuilder(settings.CreateConnection(provider, "datalinq_employees").ConnectionString);
+
+        await Assert.That(adminConnection.AllowPublicKeyRetrieval).IsTrue();
+        await Assert.That(applicationConnection.AllowPublicKeyRetrieval).IsTrue();
     }
 }

@@ -115,7 +115,8 @@ public sealed record PodmanTestEnvironmentSettings(
             Pooling = false,
             MaximumPoolSize = AdminMaximumPoolSize,
             CharacterSet = "utf8mb4",
-            SslMode = MySqlSslMode.None
+            SslMode = MySqlSslMode.None,
+            AllowPublicKeyRetrieval = true
         };
 
         return builder.ConnectionString;
@@ -159,7 +160,8 @@ public sealed record PodmanTestEnvironmentSettings(
             Password = ApplicationPassword,
             Pooling = false,
             CharacterSet = "utf8mb4",
-            SslMode = MySqlSslMode.None
+            SslMode = MySqlSslMode.None,
+            AllowPublicKeyRetrieval = true
         };
 
         return new TestConnectionDefinition(
