@@ -278,7 +278,17 @@ public class SqlQuery<T>
             return sql;
 
         sql.AddText("\nORDER BY ");
-        sql.AddText(string.Join(", ", OrderByList.Select(x => $"{x.DbName(EscapeCharacter)}{(x.Ascending ? "" : " DESC")}")));
+        for (var i = 0; i < length; i++)
+        {
+            if (i > 0)
+                sql.AddText(", ");
+
+            var orderBy = OrderByList[i];
+            sql.AddText(orderBy.DbName(EscapeCharacter));
+
+            if (!orderBy.Ascending)
+                sql.AddText(" DESC");
+        }
 
         return sql;
     }

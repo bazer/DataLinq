@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Data;
-using System.Linq;
 
 namespace DataLinq.Query;
 
@@ -17,9 +16,21 @@ public class Insert<T> : IQuery
     {
         int length = query.SetList.Count;
         if (length == 0)
-            return sql.AddFormat("VALUES (NULL)");
+            return sql.AddText("VALUES (NULL)");
 
-        sql.AddFormat("({0}) VALUES (", string.Join(",", query.SetList.Keys.Select(x => $"{query.EscapeCharacter}{x}{query.EscapeCharacter}")));
+        sql.AddText("(");
+        var columnIndex = 0;
+        foreach (var key in query.SetList.Keys)
+        {
+            if (columnIndex > 0)
+                sql.AddText(",");
+
+            sql.AddText(query.EscapeCharacter);
+            sql.AddText(key);
+            sql.AddText(query.EscapeCharacter);
+            columnIndex++;
+        }
+        sql.AddText(") VALUES (");
 
         int i = 0;
         foreach (var with in query.SetList)
@@ -42,13 +53,13 @@ public class Insert<T> : IQuery
     {
         var sql = new Sql();
 
-        sql.AddFormat("INSERT INTO ");
+        sql.AddText("INSERT INTO ");
         query.AddTableName(sql, query.Table.DbName, query.Alias);
         sql.AddText(" ");
         GetSet(sql, paramPrefix);
 
         if (query.LastIdQuery)
-            sql.AddFormat(";\n{0}", query.DataSource.Provider.GetLastIdQuery());
+            sql.AddText(";\n").AddText(query.DataSource.Provider.GetLastIdQuery());
 
         return sql;
     }

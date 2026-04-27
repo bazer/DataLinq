@@ -4,7 +4,6 @@ using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using DataLinq.Diagnostics;
-using DataLinq.Extensions.Helpers;
 using DataLinq.Instances;
 using DataLinq.Metadata;
 
@@ -22,11 +21,9 @@ public class Select<T> : IQuery
 
     public Sql ToSql(string? paramPrefix = null)
     {
-        var columns = (query.WhatList ?? query.Table.Columns.Select(x => $"{query.EscapeCharacter}{x.DbName}{query.EscapeCharacter}"))
-            .Select(x => $"{(!string.IsNullOrWhiteSpace(query.Alias) ? $"{query.Alias}." : "")}{x}")
-            .ToJoinedString(", ");
-
-        var sql = new Sql().AddFormat($"SELECT {columns} FROM ");
+        var sql = new Sql().AddText("SELECT ");
+        AddSelectedColumns(sql);
+        sql.AddText(" FROM ");
         query.AddTableName(sql, query.Table.DbName, query.Alias);
         query.GetJoins(sql, paramPrefix);
         query.GetWhere(sql, paramPrefix);
@@ -34,6 +31,48 @@ public class Select<T> : IQuery
         query.GetLimit(sql);
 
         return sql;
+    }
+
+    private void AddSelectedColumns(Sql sql)
+    {
+        var alias = string.IsNullOrWhiteSpace(query.Alias) ? null : query.Alias;
+        var whatList = query.WhatList;
+        if (whatList is not null)
+        {
+            for (var i = 0; i < whatList.Count; i++)
+            {
+                AddColumnSeparator(sql, i);
+                AddColumnPrefix(sql, alias);
+                sql.AddText(whatList[i]);
+            }
+
+            return;
+        }
+
+        var columns = query.Table.Columns;
+        for (var i = 0; i < columns.Length; i++)
+        {
+            AddColumnSeparator(sql, i);
+            AddColumnPrefix(sql, alias);
+            sql.AddText(query.EscapeCharacter);
+            sql.AddText(columns[i].DbName);
+            sql.AddText(query.EscapeCharacter);
+        }
+    }
+
+    private static void AddColumnSeparator(Sql sql, int index)
+    {
+        if (index > 0)
+            sql.AddText(", ");
+    }
+
+    private static void AddColumnPrefix(Sql sql, string? alias)
+    {
+        if (alias is null)
+            return;
+
+        sql.AddText(alias);
+        sql.AddText(".");
     }
 
     public IDbCommand ToDbCommand()

@@ -264,7 +264,11 @@ public class Where<T> : IWhere<T>
         var leftSql = GetOperandSql(Left, sql, prefix, addCommandParameter);
         var rightSql = GetOperandSql(Right, sql, prefix, addCommandParameter);
 
-        sql.AddFormat("{0} {1} {2}", leftSql, GetOperatorSql(Left, Operator, Right), rightSql);
+        sql.AddText(leftSql);
+        sql.AddText(" ");
+        sql.AddText(GetOperatorSql(Left, Operator, Right));
+        sql.AddText(" ");
+        sql.AddText(rightSql);
 
         if (addParentheses)
             sql.AddText(")");
@@ -305,8 +309,10 @@ public class Where<T> : IWhere<T>
             }
             else
             {
-                var indexList = addCommandParameter ? GetCommandParameter(operand, sql, prefix).ToArray() : ([sql.Index]);
-                return WhereGroup.Query.DataSource.Provider.GetParameterName(Operator, indexList.Select(x => prefix + "w" + x).ToArray());
+                var parameterNames = addCommandParameter
+                    ? AddCommandParameters(valueOperand, sql, prefix)
+                    : [prefix + "w" + sql.Index];
+                return WhereGroup.Query.DataSource.Provider.GetParameterName(Operator, parameterNames);
             }
         }
         else if (operand is RawSqlOperand rawOperand)
@@ -319,16 +325,18 @@ public class Where<T> : IWhere<T>
             throw new NotSupportedException($"Unsupported operand type: {operand.GetType().Name}");
     }
 
-    protected IEnumerable<int> GetCommandParameter(Operand operand, Sql sql, string prefix)
+    private string[] AddCommandParameters(ValueOperand operand, Sql sql, string prefix)
     {
-        if (operand is ValueOperand valueOperand)
+        var values = operand.Values;
+        var parameterNames = new string[values.Length];
+        for (var i = 0; i < values.Length; i++)
         {
-            foreach (var value in valueOperand.Values)
-            {
-                yield return sql.Index;
-                WhereGroup.Query.DataSource.Provider.GetParameter(sql, prefix + "w" + sql.IndexAdd(), value);
-            }
+            var parameterName = prefix + "w" + sql.IndexAdd();
+            parameterNames[i] = parameterName;
+            WhereGroup.Query.DataSource.Provider.GetParameter(sql, parameterName, values[i]);
         }
+
+        return parameterNames;
     }
 
     public override string ToString()
