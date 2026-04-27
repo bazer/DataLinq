@@ -212,7 +212,7 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override Sql GetParameter(Sql sql, string key, object? value)
     {
-        return sql.AddParameters(new MySqlParameter("?" + key, value ?? DBNull.Value));
+        return sql.AddParameter("?" + key, value);
     }
 
     public override Sql GetLimitOffset(Sql sql, int? limit, int? offset)
@@ -246,9 +246,18 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
         var sql = query.ToSql();
 
         var command = new MySqlCommand(sql.Text);
-        command.Parameters.AddRange(sql.Parameters.ToArray());
+        foreach (var parameter in sql.Parameters)
+            command.Parameters.Add(CreateParameter(parameter));
 
         return command;
+    }
+
+    private static IDataParameter CreateParameter(SqlParameterBinding parameter)
+    {
+        if (parameter.ProviderParameter is not null)
+            return parameter.ProviderParameter;
+
+        return new MySqlParameter(parameter.ParameterName, parameter.Value ?? DBNull.Value);
     }
 
     public override Sql GetCreateSql() => sqlFromMetadataFactory.GetCreateTables(Metadata, true);

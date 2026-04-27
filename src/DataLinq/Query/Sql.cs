@@ -9,7 +9,7 @@ namespace DataLinq.Query;
 public class Sql
 {
     private readonly StringBuilder builder = new StringBuilder();
-    public List<IDataParameter> Parameters = new List<IDataParameter>();
+    public List<SqlParameterBinding> Parameters = new List<SqlParameterBinding>();
     public int Index { get; protected set; } = 0;
     public string Text { get { return builder.ToString(); } }
     //public bool HasCreateDatabase { get; set; }
@@ -31,7 +31,14 @@ public class Sql
 
     public Sql AddParameters(params IDataParameter[] parameters)
     {
-        Parameters.AddRange(parameters);
+        Parameters.AddRange(parameters.Select(SqlParameterBinding.FromProviderParameter));
+
+        return this;
+    }
+
+    public Sql AddParameter(string parameterName, object? value)
+    {
+        Parameters.Add(new SqlParameterBinding(parameterName, value));
 
         return this;
     }

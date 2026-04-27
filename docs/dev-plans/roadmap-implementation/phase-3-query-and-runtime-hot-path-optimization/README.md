@@ -31,6 +31,7 @@ Phase 3 should start with the concrete seams that exist today:
 ## Progress
 
 - 2026-04-27: Started Workstream A by adding the `phase3-query-hotpath` benchmark lane, covering repeated non-primary-key equality fetches, repeated `IN` predicate fetches, and repeated scalar `Any` queries.
+- 2026-04-27: Started Workstream B by moving generated SQL parameters to provider-neutral `SqlParameterBinding` values and materializing provider parameters in SQLite/MySQL command creation.
 
 ## Related Plans
 

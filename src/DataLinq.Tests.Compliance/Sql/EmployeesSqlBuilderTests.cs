@@ -416,6 +416,7 @@ WHERE
             var parameter = sql.Parameters.FirstOrDefault(x => x.ParameterName == parameterExpectation.Value.parameterName);
             await Assert.That(parameter).IsNotNull();
             await Assert.That(parameter!.Value).IsEqualTo(parameterExpectation.Value.parameterValue);
+            await Assert.That(parameter.ProviderParameter).IsNull();
         }
     }
 }

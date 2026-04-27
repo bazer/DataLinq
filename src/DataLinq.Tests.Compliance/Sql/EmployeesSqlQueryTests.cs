@@ -1,3 +1,4 @@
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Query;
@@ -74,6 +75,74 @@ LIMIT 1";
         await Assert.That(sql.Parameters.Count).IsEqualTo(1);
         await Assert.That(sql.Parameters[0].ParameterName).IsEqualTo($"{parameterSign}w0");
         await Assert.That(sql.Parameters[0].Value).IsEqualTo("d005");
+        await Assert.That(sql.Parameters[0].ProviderParameter).IsNull();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task SqlBuilder_ToDbCommandMaterializesProviderParametersAtCommandBoundary(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(SqlBuilder_ToDbCommandMaterializesProviderParametersAtCommandBoundary));
+
+        var employeesDatabase = databaseScope.Database;
+        var (parameterSign, _, _) = GetSqlConstants(employeesDatabase);
+
+        var select = employeesDatabase
+            .From<Department>()
+            .Where("dept_no").EqualTo("d005")
+            .SelectQuery();
+        var sql = select.ToSql();
+
+        await Assert.That(sql.Parameters.Count).IsEqualTo(1);
+        await Assert.That(sql.Parameters[0].ParameterName).IsEqualTo($"{parameterSign}w0");
+        await Assert.That(sql.Parameters[0].Value).IsEqualTo("d005");
+        await Assert.That(sql.Parameters[0].ProviderParameter).IsNull();
+
+        using var command = select.ToDbCommand();
+
+        await Assert.That(command.Parameters.Count).IsEqualTo(1);
+
+        var parameter = (IDataParameter)command.Parameters[0]!;
+        await Assert.That(parameter.ParameterName).IsEqualTo($"{parameterSign}w0");
+        await Assert.That(parameter.Value).IsEqualTo("d005");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Literal_ToDbCommandPreservesSuppliedProviderParameter(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Literal_ToDbCommandPreservesSuppliedProviderParameter));
+
+        var employeesDatabase = databaseScope.Database;
+        var (parameterSign, escapeCharacter, databasePrefix) = GetSqlConstants(employeesDatabase);
+        using var connection = employeesDatabase.Provider.GetDbConnection();
+        using var parameterCommand = connection.CreateCommand();
+        var suppliedParameter = parameterCommand.CreateParameter();
+        suppliedParameter.ParameterName = $"{parameterSign}deptNo";
+        suppliedParameter.Value = "d005";
+
+        var literal = new Literal(
+            employeesDatabase.Provider.ReadOnlyAccess,
+            $"SELECT * FROM {databasePrefix}{escapeCharacter}departments{escapeCharacter} WHERE {escapeCharacter}dept_no{escapeCharacter} = {parameterSign}deptNo",
+            suppliedParameter);
+        var sql = literal.ToSql();
+
+        await Assert.That(sql.Parameters.Count).IsEqualTo(1);
+        await Assert.That(sql.Parameters[0].ParameterName).IsEqualTo($"{parameterSign}deptNo");
+        await Assert.That(sql.Parameters[0].Value).IsEqualTo("d005");
+        await Assert.That(sql.Parameters[0].ProviderParameter).IsSameReferenceAs(suppliedParameter);
+
+        using var command = literal.ToDbCommand();
+
+        await Assert.That(command.Parameters.Count).IsEqualTo(1);
+
+        var commandParameter = (IDataParameter)command.Parameters[0]!;
+        await Assert.That(commandParameter.ParameterName).IsEqualTo($"{parameterSign}deptNo");
+        await Assert.That(commandParameter.Value).IsEqualTo("d005");
     }
 
     private static (string parameterSign, string escapeCharacter, string databasePrefix) GetSqlConstants(Database<EmployeesDb> employeesDatabase)
