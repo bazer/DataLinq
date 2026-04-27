@@ -1,14 +1,21 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using DataLinq.Metadata;
 
 namespace DataLinq.Query;
 
-internal sealed record SelectSqlTemplate(string Text, string ParameterName)
+internal sealed record SelectSqlTemplate(string Text, string[] ParameterNames)
 {
-    public Sql Bind(object? value)
-        => new Sql(Text).AddParameter(ParameterName, value);
+    public Sql Bind(IReadOnlyList<object?> values)
+    {
+        var sql = new Sql(Text);
+        for (var i = 0; i < ParameterNames.Length; i++)
+            sql.AddParameter(ParameterNames[i], values[i]);
+
+        return sql;
+    }
 }
 
 internal readonly record struct SelectSqlTemplateKey(
@@ -20,8 +27,15 @@ internal readonly record struct SelectSqlTemplateKey(
     string ParameterPrefix,
     string? Alias,
     string? Selector,
-    string WhereColumn,
-    string? WhereAlias,
+    int WhereCount,
+    string? WhereColumn1,
+    string? WhereAlias1,
+    string? WhereColumn2,
+    string? WhereAlias2,
+    string? WhereColumn3,
+    string? WhereAlias3,
+    string? WhereColumn4,
+    string? WhereAlias4,
     string? OrderByColumn,
     string? OrderByAlias,
     bool OrderByAscending,

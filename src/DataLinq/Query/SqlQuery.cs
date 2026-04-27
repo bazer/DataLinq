@@ -438,17 +438,17 @@ public class SqlQuery<T>
         return this;
     }
 
-    internal bool TryGetSingleValueEqualityTemplateKey(
+    internal bool TryGetValueEqualityTemplateKey(
         string? paramPrefix,
         out SelectSqlTemplateKey key,
-        out object? value)
+        out object?[] values)
     {
         key = default;
-        value = null;
+        values = [];
 
         if (JoinList.Count != 0 ||
             WhereGroup == null ||
-            !WhereGroup.TryGetSingleValueEquality(out var whereColumn, out value) ||
+            !WhereGroup.TryGetValueEqualities(out var whereColumns, out values) ||
             WhatList?.Count > 1 ||
             OrderByList.Count > 1)
         {
@@ -465,8 +465,15 @@ public class SqlQuery<T>
             paramPrefix ?? string.Empty,
             Alias,
             WhatList?.Count == 1 ? WhatList[0] : null,
-            whereColumn.Name,
-            whereColumn.Alias,
+            whereColumns.Length,
+            whereColumns.ElementAtOrDefault(0)?.Name,
+            whereColumns.ElementAtOrDefault(0)?.Alias,
+            whereColumns.ElementAtOrDefault(1)?.Name,
+            whereColumns.ElementAtOrDefault(1)?.Alias,
+            whereColumns.ElementAtOrDefault(2)?.Name,
+            whereColumns.ElementAtOrDefault(2)?.Alias,
+            whereColumns.ElementAtOrDefault(3)?.Name,
+            whereColumns.ElementAtOrDefault(3)?.Alias,
             orderBy?.Column.DbName,
             orderBy?.Alias,
             orderBy?.Ascending ?? true,

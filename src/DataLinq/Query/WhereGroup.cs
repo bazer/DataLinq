@@ -244,30 +244,62 @@ public class WhereGroup<T> : IWhere<T>
         return KeyFactory.CreateKeyFromValues(collectedValues);
     }
 
-    internal bool TryGetSingleValueEquality(
-        out ColumnOperand column,
-        out object? value)
+    internal bool TryGetValueEqualities(
+        out ColumnOperand[] columns,
+        out object?[] values)
     {
-        column = null!;
-        value = null;
+        var columnList = new List<ColumnOperand>(4);
+        var valueList = new List<object?>(4);
 
-        if (whereList == null || whereList.Count != 1 || IsNegated)
-            return false;
-
-        var (part, _) = whereList[0];
-        if (part is not Where<T> where ||
-            where.IsNegated ||
-            where.Operator != Operator.Equal ||
-            where.Left is not ColumnOperand columnOperand ||
-            where.Right is not ValueOperand valueOperand ||
-            !valueOperand.HasOneValue ||
-            valueOperand.IsNull)
+        if (!TryCollectValueEqualities(columnList, valueList) || columnList.Count == 0 || columnList.Count > 4)
         {
+            columns = [];
+            values = [];
             return false;
         }
 
-        column = columnOperand;
-        value = valueOperand.FirstValue;
+        columns = columnList.ToArray();
+        values = valueList.ToArray();
+        return true;
+    }
+
+    private bool TryCollectValueEqualities(List<ColumnOperand> columns, List<object?> values)
+    {
+        if (whereList == null || whereList.Count == 0 || IsNegated)
+            return false;
+
+        if (whereList.Count > 1 && InternalJoinType != BooleanType.And)
+            return false;
+
+        for (var i = 0; i < whereList.Count; i++)
+        {
+            var (part, connectionToPrevious) = whereList[i];
+            if (i > 0 && connectionToPrevious != BooleanType.And)
+                return false;
+
+            if (part is WhereGroup<T> group)
+            {
+                if (!group.TryCollectValueEqualities(columns, values))
+                    return false;
+
+                continue;
+            }
+
+            if (part is not Where<T> where ||
+                where.IsNegated ||
+                where.Operator != Operator.Equal ||
+                where.Left is not ColumnOperand columnOperand ||
+                where.Right is not ValueOperand valueOperand ||
+                !valueOperand.HasOneValue ||
+                valueOperand.IsNull)
+            {
+                return false;
+            }
+
+            columns.Add(columnOperand);
+            values.Add(valueOperand.FirstValue);
+        }
+
         return true;
     }
 

@@ -141,6 +141,37 @@ LIMIT 1";
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task SqlBuilder_RepeatedAndEqualityShapeKeepsCurrentParameterValues(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(SqlBuilder_RepeatedAndEqualityShapeKeepsCurrentParameterValues));
+
+        static Sql CreateSql(Database<EmployeesDb> database, string departmentNumber, string departmentName)
+            => database
+                .From<Department>()
+                .What("dept_no")
+                .Where("dept_no").EqualTo(departmentNumber)
+                .Where("dept_name").EqualTo(departmentName)
+                .SelectQuery()
+                .ToSql();
+
+        var firstSql = CreateSql(databaseScope.Database, "d005", "Development");
+        var secondSql = CreateSql(databaseScope.Database, "d006", "Quality Management");
+
+        await Assert.That(secondSql.Text).IsEqualTo(firstSql.Text);
+        await Assert.That(firstSql.Parameters.Count).IsEqualTo(2);
+        await Assert.That(secondSql.Parameters.Count).IsEqualTo(2);
+        await Assert.That(firstSql.Parameters[0].Value).IsEqualTo("d005");
+        await Assert.That(firstSql.Parameters[1].Value).IsEqualTo("Development");
+        await Assert.That(secondSql.Parameters[0].Value).IsEqualTo("d006");
+        await Assert.That(secondSql.Parameters[1].Value).IsEqualTo("Quality Management");
+        await Assert.That(firstSql.Parameters[0].ParameterName).IsEqualTo(secondSql.Parameters[0].ParameterName);
+        await Assert.That(firstSql.Parameters[1].ParameterName).IsEqualTo(secondSql.Parameters[1].ParameterName);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Literal_ToDbCommandPreservesSuppliedProviderParameter(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
