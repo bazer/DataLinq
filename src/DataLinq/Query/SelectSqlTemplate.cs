@@ -27,20 +27,34 @@ internal readonly record struct SelectSqlTemplateKey(
     string ParameterPrefix,
     string? Alias,
     string? Selector,
-    int WhereCount,
-    string? WhereColumn1,
-    string? WhereAlias1,
-    string? WhereColumn2,
-    string? WhereAlias2,
-    string? WhereColumn3,
-    string? WhereAlias3,
-    string? WhereColumn4,
-    string? WhereAlias4,
+    int PredicateCount,
+    string? PredicateColumn1,
+    string? PredicateAlias1,
+    Operator PredicateOperator1,
+    int PredicateValueCount1,
+    string? PredicateColumn2,
+    string? PredicateAlias2,
+    Operator PredicateOperator2,
+    int PredicateValueCount2,
+    string? PredicateColumn3,
+    string? PredicateAlias3,
+    Operator PredicateOperator3,
+    int PredicateValueCount3,
+    string? PredicateColumn4,
+    string? PredicateAlias4,
+    Operator PredicateOperator4,
+    int PredicateValueCount4,
     string? OrderByColumn,
     string? OrderByAlias,
     bool OrderByAscending,
     int? Limit,
     int? Offset);
+
+internal readonly record struct SelectSqlTemplatePredicate(
+    string Column,
+    string? Alias,
+    Operator Operator,
+    int ValueCount);
 
 internal static class SelectSqlTemplateCache
 {

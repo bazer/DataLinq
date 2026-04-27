@@ -244,26 +244,26 @@ public class WhereGroup<T> : IWhere<T>
         return KeyFactory.CreateKeyFromValues(collectedValues);
     }
 
-    internal bool TryGetValueEqualities(
-        out ColumnOperand[] columns,
+    internal bool TryGetTemplatePredicates(
+        out SelectSqlTemplatePredicate[] predicates,
         out object?[] values)
     {
-        var columnList = new List<ColumnOperand>(4);
+        var predicateList = new List<SelectSqlTemplatePredicate>(4);
         var valueList = new List<object?>(4);
 
-        if (!TryCollectValueEqualities(columnList, valueList) || columnList.Count == 0 || columnList.Count > 4)
+        if (!TryCollectTemplatePredicates(predicateList, valueList) || predicateList.Count == 0 || predicateList.Count > 4)
         {
-            columns = [];
+            predicates = [];
             values = [];
             return false;
         }
 
-        columns = columnList.ToArray();
+        predicates = predicateList.ToArray();
         values = valueList.ToArray();
         return true;
     }
 
-    private bool TryCollectValueEqualities(List<ColumnOperand> columns, List<object?> values)
+    private bool TryCollectTemplatePredicates(List<SelectSqlTemplatePredicate> predicates, List<object?> values)
     {
         if (whereList == null || whereList.Count == 0 || IsNegated)
             return false;
@@ -279,7 +279,7 @@ public class WhereGroup<T> : IWhere<T>
 
             if (part is WhereGroup<T> group)
             {
-                if (!group.TryCollectValueEqualities(columns, values))
+                if (!group.TryCollectTemplatePredicates(predicates, values))
                     return false;
 
                 continue;
@@ -287,21 +287,31 @@ public class WhereGroup<T> : IWhere<T>
 
             if (part is not Where<T> where ||
                 where.IsNegated ||
-                where.Operator != Operator.Equal ||
                 where.Left is not ColumnOperand columnOperand ||
                 where.Right is not ValueOperand valueOperand ||
-                !valueOperand.HasOneValue ||
-                valueOperand.IsNull)
+                !IsTemplatePredicate(where.Operator, valueOperand))
             {
                 return false;
             }
 
-            columns.Add(columnOperand);
-            values.Add(valueOperand.FirstValue);
+            predicates.Add(new SelectSqlTemplatePredicate(
+                columnOperand.Name,
+                columnOperand.Alias,
+                where.Operator,
+                valueOperand.Values.Length));
+            values.AddRange(valueOperand.Values);
         }
 
         return true;
     }
+
+    private static bool IsTemplatePredicate(Operator @operator, ValueOperand valueOperand)
+        => @operator switch
+        {
+            Operator.Equal => valueOperand.HasOneValue && !valueOperand.IsNull,
+            Operator.In or Operator.NotIn => valueOperand.Values.Length > 0 && !valueOperand.Values.Any(static value => value is null),
+            _ => false
+        };
 
     // --- Methods to pass through to SqlQuery<T> ---
     public SqlQuery<T> Set<V>(string key, V value) => Query.Set(key, value);

@@ -438,7 +438,7 @@ public class SqlQuery<T>
         return this;
     }
 
-    internal bool TryGetValueEqualityTemplateKey(
+    internal bool TryGetTemplateKey(
         string? paramPrefix,
         out SelectSqlTemplateKey key,
         out object?[] values)
@@ -448,7 +448,7 @@ public class SqlQuery<T>
 
         if (JoinList.Count != 0 ||
             WhereGroup == null ||
-            !WhereGroup.TryGetValueEqualities(out var whereColumns, out values) ||
+            !WhereGroup.TryGetTemplatePredicates(out var predicates, out values) ||
             WhatList?.Count > 1 ||
             OrderByList.Count > 1)
         {
@@ -465,15 +465,23 @@ public class SqlQuery<T>
             paramPrefix ?? string.Empty,
             Alias,
             WhatList?.Count == 1 ? WhatList[0] : null,
-            whereColumns.Length,
-            whereColumns.ElementAtOrDefault(0)?.Name,
-            whereColumns.ElementAtOrDefault(0)?.Alias,
-            whereColumns.ElementAtOrDefault(1)?.Name,
-            whereColumns.ElementAtOrDefault(1)?.Alias,
-            whereColumns.ElementAtOrDefault(2)?.Name,
-            whereColumns.ElementAtOrDefault(2)?.Alias,
-            whereColumns.ElementAtOrDefault(3)?.Name,
-            whereColumns.ElementAtOrDefault(3)?.Alias,
+            predicates.Length,
+            GetPredicateColumn(predicates, 0),
+            GetPredicateAlias(predicates, 0),
+            GetPredicateOperator(predicates, 0),
+            GetPredicateValueCount(predicates, 0),
+            GetPredicateColumn(predicates, 1),
+            GetPredicateAlias(predicates, 1),
+            GetPredicateOperator(predicates, 1),
+            GetPredicateValueCount(predicates, 1),
+            GetPredicateColumn(predicates, 2),
+            GetPredicateAlias(predicates, 2),
+            GetPredicateOperator(predicates, 2),
+            GetPredicateValueCount(predicates, 2),
+            GetPredicateColumn(predicates, 3),
+            GetPredicateAlias(predicates, 3),
+            GetPredicateOperator(predicates, 3),
+            GetPredicateValueCount(predicates, 3),
             orderBy?.Column.DbName,
             orderBy?.Alias,
             orderBy?.Ascending ?? true,
@@ -482,6 +490,18 @@ public class SqlQuery<T>
 
         return true;
     }
+
+    private static string? GetPredicateColumn(SelectSqlTemplatePredicate[] predicates, int index)
+        => index < predicates.Length ? predicates[index].Column : null;
+
+    private static string? GetPredicateAlias(SelectSqlTemplatePredicate[] predicates, int index)
+        => index < predicates.Length ? predicates[index].Alias : null;
+
+    private static Operator GetPredicateOperator(SelectSqlTemplatePredicate[] predicates, int index)
+        => index < predicates.Length ? predicates[index].Operator : default;
+
+    private static int GetPredicateValueCount(SelectSqlTemplatePredicate[] predicates, int index)
+        => index < predicates.Length ? predicates[index].ValueCount : 0;
 
     /// <summary>
     /// Attempts to extract a single Primary Key from the Where clause if the query represents a simple lookup.

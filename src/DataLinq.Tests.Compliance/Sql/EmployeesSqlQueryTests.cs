@@ -172,6 +172,37 @@ LIMIT 1";
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task SqlBuilder_RepeatedInPredicateShapeKeepsCurrentParameterValues(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(SqlBuilder_RepeatedInPredicateShapeKeepsCurrentParameterValues));
+
+        static Sql CreateSql(Database<EmployeesDb> database, string firstDepartmentNumber, string secondDepartmentNumber)
+            => database
+                .From<Department>()
+                .What("dept_no")
+                .Where("dept_no").In(firstDepartmentNumber, secondDepartmentNumber)
+                .OrderBy("dept_no")
+                .SelectQuery()
+                .ToSql();
+
+        var firstSql = CreateSql(databaseScope.Database, "d005", "d006");
+        var secondSql = CreateSql(databaseScope.Database, "d007", "d008");
+
+        await Assert.That(secondSql.Text).IsEqualTo(firstSql.Text);
+        await Assert.That(firstSql.Parameters.Count).IsEqualTo(2);
+        await Assert.That(secondSql.Parameters.Count).IsEqualTo(2);
+        await Assert.That(firstSql.Parameters[0].Value).IsEqualTo("d005");
+        await Assert.That(firstSql.Parameters[1].Value).IsEqualTo("d006");
+        await Assert.That(secondSql.Parameters[0].Value).IsEqualTo("d007");
+        await Assert.That(secondSql.Parameters[1].Value).IsEqualTo("d008");
+        await Assert.That(firstSql.Parameters[0].ParameterName).IsEqualTo(secondSql.Parameters[0].ParameterName);
+        await Assert.That(firstSql.Parameters[1].ParameterName).IsEqualTo(secondSql.Parameters[1].ParameterName);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Literal_ToDbCommandPreservesSuppliedProviderParameter(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(

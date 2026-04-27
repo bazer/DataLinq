@@ -21,7 +21,7 @@ public class Select<T> : IQuery
 
     public Sql ToSql(string? paramPrefix = null)
     {
-        var canUseTemplate = query.TryGetValueEqualityTemplateKey(paramPrefix, out var key, out var values);
+        var canUseTemplate = query.TryGetTemplateKey(paramPrefix, out var key, out var values);
         if (canUseTemplate &&
             SelectSqlTemplateCache.TryGet(key, out var template))
         {

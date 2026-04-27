@@ -36,6 +36,7 @@ Phase 3 should start with the concrete seams that exist today:
 - 2026-04-28: Continued Workstream C by removing additional formatting and fragment-string allocation in provider parameter rendering, `ORDER BY`, `WHERE` operand rendering, and `What(...)` selector handling.
 - 2026-04-28: Started Workstream D with a bounded SQL template cache for narrow single-value equality SELECT shapes.
 - 2026-04-28: Expanded the template cache to narrow AND-connected equality SELECT shapes so repeated scalar and multi-predicate queries can reuse SQL text without reusing parameter values.
+- 2026-04-28: Expanded template keys to include predicate operator and parameter count, allowing fixed-slot `IN` predicates to reuse SQL text safely.
 
 ## Related Plans
 
