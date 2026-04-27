@@ -284,7 +284,7 @@ public class SqlQuery<T>
                 sql.AddText(", ");
 
             var orderBy = OrderByList[i];
-            sql.AddText(orderBy.DbName(EscapeCharacter));
+            orderBy.AddDbName(sql, EscapeCharacter);
 
             if (!orderBy.Ascending)
                 sql.AddText(" DESC");
@@ -395,15 +395,35 @@ public class SqlQuery<T>
 
     public SqlQuery<T> What(IEnumerable<ColumnDefinition> columns)
     {
-        return What(columns.Select(x => $"{EscapeCharacter}{x.DbName}{EscapeCharacter}"));
+        WhatList ??= [];
+        foreach (var column in columns)
+        {
+            WhatList.Add(EscapeCharacter + column.DbName + EscapeCharacter);
+        }
+
+        return this;
     }
 
     public SqlQuery<T> What(IEnumerable<string> selectors)
     {
         WhatList ??= [];
-        WhatList.AddRange(selectors.Select(x => Table.Columns.Any(y => y.DbName == x) ? $"{EscapeCharacter}{x}{EscapeCharacter}" : x));
+        foreach (var selector in selectors)
+        {
+            WhatList.Add(IsColumnName(selector) ? EscapeCharacter + selector + EscapeCharacter : selector);
+        }
 
         return this;
+    }
+
+    private bool IsColumnName(string selector)
+    {
+        foreach (var column in Table.Columns)
+        {
+            if (column.DbName == selector)
+                return true;
+        }
+
+        return false;
     }
 
     public SqlQuery<T> What(params string[] selectors)

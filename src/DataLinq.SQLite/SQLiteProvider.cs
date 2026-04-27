@@ -236,12 +236,17 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override Sql GetParameterValue(Sql sql, string key)
     {
-        return sql.AddFormat("@{0}", key);
+        return sql.AddText("@").AddText(key);
     }
 
     public override Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] key)
     {
-        return sql.AddFormat("{0} {1} {2}", field, GetOperatorSql(@operator), GetParameterName(@operator, key));
+        return sql
+            .AddText(field)
+            .AddText(" ")
+            .AddText(GetOperatorSql(@operator))
+            .AddText(" ")
+            .AddText(GetParameterName(@operator, key));
     }
 
     public override string GetParameterName(Operator @operator, string[] key)

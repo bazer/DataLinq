@@ -41,6 +41,19 @@ public class ColumnOperand : Operand
         ? $"{escapeCharacter}{Name}{escapeCharacter}"
         : $"{Alias}.{escapeCharacter}{Name}{escapeCharacter}";
 
+    internal void AddName(Sql sql, string escapeCharacter)
+    {
+        if (!string.IsNullOrEmpty(Alias))
+        {
+            sql.AddText(Alias);
+            sql.AddText(".");
+        }
+
+        sql.AddText(escapeCharacter);
+        sql.AddText(Name);
+        sql.AddText(escapeCharacter);
+    }
+
     public override string ToString()
     {
         return string.IsNullOrEmpty(Alias) ? $"{Name}" : $"{Alias}.{Name}";

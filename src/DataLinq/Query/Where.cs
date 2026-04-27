@@ -261,14 +261,11 @@ public class Where<T> : IWhere<T>
         if (addParentheses)
             sql.AddText("(");
 
-        var leftSql = GetOperandSql(Left, sql, prefix, addCommandParameter);
-        var rightSql = GetOperandSql(Right, sql, prefix, addCommandParameter);
-
-        sql.AddText(leftSql);
+        AddOperandSql(Left, sql, prefix, addCommandParameter);
         sql.AddText(" ");
         sql.AddText(GetOperatorSql(Left, Operator, Right));
         sql.AddText(" ");
-        sql.AddText(rightSql);
+        AddOperandSql(Right, sql, prefix, addCommandParameter);
 
         if (addParentheses)
             sql.AddText(")");
@@ -297,7 +294,7 @@ public class Where<T> : IWhere<T>
         return WhereGroup.Query.DataSource.Provider.GetOperatorSql(operatorToUse);
     }
 
-    protected string GetOperandSql(Operand operand, Sql sql, string prefix, bool addCommandParameter)
+    protected void AddOperandSql(Operand operand, Sql sql, string prefix, bool addCommandParameter)
     {
         if (operand is ValueOperand valueOperand)
         {
@@ -305,22 +302,22 @@ public class Where<T> : IWhere<T>
             if ((Operator == Operator.In || Operator == Operator.NotIn) && valueOperand.IsNull)
             {
                 // Empty list for IN means false, for NOT IN means true
-                return Operator == Operator.In ? "1=0" : "1=1";
+                sql.AddText(Operator == Operator.In ? "1=0" : "1=1");
             }
             else
             {
                 var parameterNames = addCommandParameter
                     ? AddCommandParameters(valueOperand, sql, prefix)
                     : [prefix + "w" + sql.Index];
-                return WhereGroup.Query.DataSource.Provider.GetParameterName(Operator, parameterNames);
+                sql.AddText(WhereGroup.Query.DataSource.Provider.GetParameterName(Operator, parameterNames));
             }
         }
         else if (operand is RawSqlOperand rawOperand)
         {
-            return rawOperand.Sql;
+            sql.AddText(rawOperand.Sql);
         }
         else if (operand is ColumnOperand columnOperand)
-            return columnOperand.FormatName(WhereGroup.Query.EscapeCharacter);
+            columnOperand.AddName(sql, WhereGroup.Query.EscapeCharacter);
         else
             throw new NotSupportedException($"Unsupported operand type: {operand.GetType().Name}");
     }
