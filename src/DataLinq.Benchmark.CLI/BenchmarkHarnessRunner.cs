@@ -23,6 +23,7 @@ internal sealed class BenchmarkHarnessRunner
         "NoWorkloadResult"
     ];
     internal const string Phase2WatchCategory = "phase2-watch";
+    internal const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
     private const string BenchmarkRunIdEnvironmentVariable = "DATALINQ_BENCHMARK_RUN_ID";
     private const string BenchmarkResultsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_RESULTS_DIR";
@@ -74,6 +75,7 @@ internal sealed class BenchmarkHarnessRunner
         bool keepFiles,
         bool verbose,
         bool phase2Watch,
+        bool phase3QueryHotPath,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
@@ -81,6 +83,9 @@ internal sealed class BenchmarkHarnessRunner
         IReadOnlyList<string> additionalArgs)
     {
         settings.EnsureDirectories();
+
+        if (phase2Watch && phase3QueryHotPath)
+            throw new InvalidOperationException("Benchmark category options '--phase2-watch' and '--phase3-query-hotpath' cannot be combined.");
 
         if (!noBuild)
             RestoreAndBuild(verbose);
@@ -106,6 +111,9 @@ internal sealed class BenchmarkHarnessRunner
 
         if (phase2Watch)
             arguments.AddRange(["--anyCategories", Phase2WatchCategory]);
+
+        if (phase3QueryHotPath)
+            arguments.AddRange(["--anyCategories", Phase3QueryHotPathCategory]);
 
         arguments.AddRange(additionalArgs);
 
@@ -850,6 +858,9 @@ internal sealed class BenchmarkHarnessRunner
             "Provider initialization" => Phase2WatchCategory,
             "Startup primary-key fetch" => Phase2WatchCategory,
             "Warm primary-key fetch" => Phase2WatchCategory,
+            "Repeated non-PK equality fetch" => Phase3QueryHotPathCategory,
+            "Repeated IN predicate fetch" => Phase3QueryHotPathCategory,
+            "Repeated scalar Any" => Phase3QueryHotPathCategory,
             _ => null
         };
 

@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 3 Implementation Plan: Query and Runtime Hot Path Optimization
 
-**Status:** Planning.
+**Status:** In progress.
 
 ## Purpose
 

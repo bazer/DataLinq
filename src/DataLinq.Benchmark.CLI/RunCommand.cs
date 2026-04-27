@@ -33,6 +33,10 @@ internal static class RunCommand
         {
             Description = $"Runs only the {BenchmarkHarnessRunner.Phase2WatchCategory} benchmark category."
         };
+        var phase3QueryHotPathOption = new Option<bool>("--phase3-query-hotpath")
+        {
+            Description = $"Runs only the {BenchmarkHarnessRunner.Phase3QueryHotPathCategory} benchmark category."
+        };
         var historyJsonOption = new Option<string?>("--history-json")
         {
             Description = "Optional output path for a stable benchmark history entry JSON artifact."
@@ -63,6 +67,7 @@ internal static class RunCommand
         command.Options.Add(keepFilesOption);
         command.Options.Add(verboseOption);
         command.Options.Add(phase2WatchOption);
+        command.Options.Add(phase3QueryHotPathOption);
         command.Options.Add(historyJsonOption);
         command.Options.Add(baselineOption);
         command.Options.Add(comparisonJsonOption);
@@ -79,6 +84,7 @@ internal static class RunCommand
                 parseResult.GetValue(keepFilesOption),
                 parseResult.GetValue(verboseOption),
                 parseResult.GetValue(phase2WatchOption),
+                parseResult.GetValue(phase3QueryHotPathOption),
                 parseResult.GetValue(historyJsonOption),
                 parseResult.GetValue(baselineOption),
                 parseResult.GetValue(comparisonJsonOption),

@@ -39,6 +39,7 @@ dotnet run --project src/DataLinq.Benchmark.CLI -- run --filter "*WarmPrimaryKey
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile smoke
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile heavy
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
 ```
 
 Important options:
@@ -55,6 +56,8 @@ Important options:
   Prints the underlying restore/build/BenchmarkDotNet output.
 - `--phase2-watch`
   Runs only the Phase 2 benchmark watchpoints.
+- `--phase3-query-hotpath`
+  Runs only the Phase 3 query/runtime hot-path benchmark lane.
 - `--history-json`
   Writes a stable benchmark history entry JSON artifact.
 - `--baseline`
@@ -98,6 +101,33 @@ dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch --profile 
 ```
 
 The dry profile is useful for checking harness wiring. It is not a trustworthy performance result.
+
+## Phase 3 Query Hot Path
+
+Phase 3 query/runtime work should start against the narrow `phase3-query-hotpath` benchmark category before changing the SQL parameter boundary or writer internals.
+
+That category intentionally contains:
+
+- `RepeatedNonPrimaryKeyEqualityFetch`
+  Tracks repeated same-shape entity queries where values change and the simple primary-key cache shortcut should not erase SQL generation.
+- `RepeatedInPredicateFetch`
+  Tracks repeated `IN` predicate generation and command construction with multiple parameter slots.
+- `RepeatedScalarAny`
+  Tracks repeated scalar command construction and execution for a common `Any` query shape.
+
+Run the lane with:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
+```
+
+For quick local smoke validation:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile smoke
+```
+
+Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.
 
 ## Provider Selection
 

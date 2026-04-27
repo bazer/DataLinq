@@ -21,6 +21,9 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly int[] sampleEmployeeWithDepartmentNumbers;
     private readonly int[] sampleMutationEmployeeNumbers;
     private readonly int[] sampleCrudWorkflowEmployeeNumbers;
+    private readonly string[] sampleEmployeeLastNames;
+    private readonly Employee.Employeegender[] sampleEmployeeGenders;
+    private readonly int[][] sampleInPredicateEmployeeNumbers;
     private readonly InsertEmployeeTemplate[] insertEmployeeTemplates;
     private readonly Dictionary<int, string> originalMutationLastNames;
     private readonly int startupEmployeeNumber;
@@ -39,6 +42,24 @@ internal sealed class BenchmarkContext : IDisposable
             .OrderBy(x => x.emp_no)
             .Select(x => x.emp_no!.Value)
             .Take(BatchOperationCount)
+            .ToArray();
+        var queryHotPathSamples = Database.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Take(BatchOperationCount)
+            .ToArray();
+        sampleEmployeeLastNames = queryHotPathSamples
+            .Select(x => x.last_name)
+            .ToArray();
+        sampleEmployeeGenders = queryHotPathSamples
+            .Select(x => x.gender)
+            .ToArray();
+        sampleInPredicateEmployeeNumbers = Enumerable.Range(0, BatchOperationCount)
+            .Select(index => new[]
+            {
+                sampleEmployeeNumbers[index],
+                sampleEmployeeNumbers[(index + 1) % BatchOperationCount],
+                sampleEmployeeNumbers[(index + 2) % BatchOperationCount]
+            })
             .ToArray();
         sampleEmployeeWithDepartmentNumbers = Database.Query().DepartmentEmployees
             .OrderBy(x => x.emp_no)
@@ -66,6 +87,10 @@ internal sealed class BenchmarkContext : IDisposable
         if (sampleEmployeeNumbers.Length != BatchOperationCount)
             throw new InvalidOperationException(
                 $"The deterministic employees benchmark dataset only yielded {sampleEmployeeNumbers.Length} primary-key samples. Expected at least {BatchOperationCount}.");
+
+        if (sampleEmployeeLastNames.Length != BatchOperationCount || sampleEmployeeGenders.Length != BatchOperationCount)
+            throw new InvalidOperationException(
+                $"The deterministic employees benchmark dataset only yielded {queryHotPathSamples.Length} query hot-path samples. Expected at least {BatchOperationCount}.");
 
         if (sampleEmployeeWithDepartmentNumbers.Length != BatchOperationCount)
             throw new InvalidOperationException(
@@ -108,6 +133,55 @@ internal sealed class BenchmarkContext : IDisposable
         {
             var employee = Database.Query().Employees.Single(x => x.emp_no == employeeNumber);
             checksum += employee.emp_no!.Value;
+        }
+
+        return checksum;
+    }
+
+    public int LoadEmployeesByNonPrimaryKeyEqualityBatch()
+    {
+        var checksum = 0;
+
+        foreach (var lastName in sampleEmployeeLastNames)
+        {
+            var employee = Database.Query().Employees
+                .Where(x => x.last_name == lastName)
+                .OrderBy(x => x.emp_no)
+                .First();
+            checksum += employee.emp_no!.Value;
+        }
+
+        return checksum;
+    }
+
+    public int LoadEmployeesByInPredicateBatch()
+    {
+        var checksum = 0;
+
+        foreach (var employeeNumbers in sampleInPredicateEmployeeNumbers)
+        {
+            var employees = Database.Query().Employees
+                .Where(x => employeeNumbers.Contains(x.emp_no!.Value))
+                .OrderBy(x => x.emp_no)
+                .ToList();
+
+            foreach (var employee in employees)
+                checksum += employee.emp_no!.Value;
+        }
+
+        return checksum;
+    }
+
+    public int ExecuteScalarAnyBatch()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < BatchOperationCount; i++)
+        {
+            var employeeNumber = sampleEmployeeNumbers[i];
+            var gender = sampleEmployeeGenders[i];
+            if (Database.Query().Employees.Any(x => x.emp_no == employeeNumber && x.gender == gender))
+                checksum++;
         }
 
         return checksum;
@@ -296,6 +370,9 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.UpdateEmployeesBatch => UpdateEmployeesBatch(),
             BenchmarkScenario.ColdPrimaryKeyFetch or BenchmarkScenario.WarmPrimaryKeyFetch => LoadEmployeesByPrimaryKeyBatch(),
             BenchmarkScenario.ColdRelationTraversal or BenchmarkScenario.WarmRelationTraversal => TraverseDepartmentNamesBatch(),
+            BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => LoadEmployeesByNonPrimaryKeyEqualityBatch(),
+            BenchmarkScenario.RepeatedInPredicateFetch => LoadEmployeesByInPredicateBatch(),
+            BenchmarkScenario.RepeatedScalarAny => ExecuteScalarAnyBatch(),
             _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
         };
 
@@ -378,6 +455,9 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.WarmPrimaryKeyFetch => BatchOperationCount,
             BenchmarkScenario.ColdRelationTraversal => BatchOperationCount,
             BenchmarkScenario.WarmRelationTraversal => BatchOperationCount,
+            BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => BatchOperationCount,
+            BenchmarkScenario.RepeatedInPredicateFetch => BatchOperationCount,
+            BenchmarkScenario.RepeatedScalarAny => BatchOperationCount,
             _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
         };
 
@@ -419,6 +499,9 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.WarmPrimaryKeyFetch => "Warm primary-key fetch",
             BenchmarkScenario.ColdRelationTraversal => "Cold relation traversal",
             BenchmarkScenario.WarmRelationTraversal => "Warm relation traversal",
+            BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => "Repeated non-PK equality fetch",
+            BenchmarkScenario.RepeatedInPredicateFetch => "Repeated IN predicate fetch",
+            BenchmarkScenario.RepeatedScalarAny => "Repeated scalar Any",
             _ => throw new InvalidOperationException($"Unsupported benchmark scenario '{scenario}'.")
         };
 

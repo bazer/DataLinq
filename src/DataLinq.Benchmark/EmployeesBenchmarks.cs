@@ -14,6 +14,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string BenchmarkProvidersEnvironmentVariable = "DATALINQ_BENCHMARK_PROVIDERS";
     private const string StableCategory = "stable";
     private const string Phase2WatchCategory = "phase2-watch";
+    private const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
     private BenchmarkContext? context;
     private BenchmarkScenario? executedScenario;
 
@@ -178,6 +179,48 @@ public class EmployeesBenchmarks : IDisposable
     {
         executedScenario = BenchmarkScenario.WarmPrimaryKeyFetch;
         return context!.LoadEmployeesByPrimaryKeyBatch();
+    }
+
+    [IterationSetup(Target = nameof(RepeatedNonPrimaryKeyEqualityFetch))]
+    public void SetupRepeatedNonPrimaryKeyEqualityFetch()
+    {
+        context!.ResetState(clearCache: true);
+    }
+
+    [BenchmarkCategory(Phase3QueryHotPathCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Repeated non-PK equality fetch")]
+    public int RepeatedNonPrimaryKeyEqualityFetch()
+    {
+        executedScenario = BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch;
+        return context!.LoadEmployeesByNonPrimaryKeyEqualityBatch();
+    }
+
+    [IterationSetup(Target = nameof(RepeatedInPredicateFetch))]
+    public void SetupRepeatedInPredicateFetch()
+    {
+        context!.ResetState(clearCache: true);
+    }
+
+    [BenchmarkCategory(Phase3QueryHotPathCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Repeated IN predicate fetch")]
+    public int RepeatedInPredicateFetch()
+    {
+        executedScenario = BenchmarkScenario.RepeatedInPredicateFetch;
+        return context!.LoadEmployeesByInPredicateBatch();
+    }
+
+    [IterationSetup(Target = nameof(RepeatedScalarAny))]
+    public void SetupRepeatedScalarAny()
+    {
+        context!.ResetState(clearCache: true);
+    }
+
+    [BenchmarkCategory(Phase3QueryHotPathCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Repeated scalar Any")]
+    public int RepeatedScalarAny()
+    {
+        executedScenario = BenchmarkScenario.RepeatedScalarAny;
+        return context!.ExecuteScalarAnyBatch();
     }
 
     [IterationSetup(Target = nameof(ColdRelationTraversal))]

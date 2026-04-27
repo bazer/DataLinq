@@ -10,5 +10,8 @@ internal enum BenchmarkScenario
     ColdPrimaryKeyFetch,
     WarmPrimaryKeyFetch,
     ColdRelationTraversal,
-    WarmRelationTraversal
+    WarmRelationTraversal,
+    RepeatedNonPrimaryKeyEqualityFetch,
+    RepeatedInPredicateFetch,
+    RepeatedScalarAny
 }

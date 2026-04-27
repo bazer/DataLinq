@@ -1,6 +1,6 @@
 # Phase 3: Query and Runtime Hot Path Optimization
 
-**Status:** Planning.
+**Status:** In progress.
 
 ## Scope
 
@@ -27,6 +27,10 @@ Phase 3 should start with the concrete seams that exist today:
 ## Documents
 
 - `Implementation Plan.md`
+
+## Progress
+
+- 2026-04-27: Started Workstream A by adding the `phase3-query-hotpath` benchmark lane, covering repeated non-primary-key equality fetches, repeated `IN` predicate fetches, and repeated scalar `Any` queries.
 
 ## Related Plans
 
