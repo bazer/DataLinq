@@ -438,6 +438,44 @@ public class SqlQuery<T>
         return this;
     }
 
+    internal bool TryGetSingleValueEqualityTemplateKey(
+        string? paramPrefix,
+        out SelectSqlTemplateKey key,
+        out object? value)
+    {
+        key = default;
+        value = null;
+
+        if (JoinList.Count != 0 ||
+            WhereGroup == null ||
+            !WhereGroup.TryGetSingleValueEquality(out var whereColumn, out value) ||
+            WhatList?.Count > 1 ||
+            OrderByList.Count > 1)
+        {
+            return false;
+        }
+
+        var orderBy = OrderByList.Count == 1 ? OrderByList[0] : null;
+        key = new SelectSqlTemplateKey(
+            DataSource.Provider.GetType(),
+            DataSource.Provider.DatabaseType,
+            DataSource.Provider.DatabaseName,
+            Table.DbName,
+            EscapeCharacter,
+            paramPrefix ?? string.Empty,
+            Alias,
+            WhatList?.Count == 1 ? WhatList[0] : null,
+            whereColumn.Name,
+            whereColumn.Alias,
+            orderBy?.Column.DbName,
+            orderBy?.Alias,
+            orderBy?.Ascending ?? true,
+            limit,
+            offset);
+
+        return true;
+    }
+
     /// <summary>
     /// Attempts to extract a single Primary Key from the Where clause if the query represents a simple lookup.
     /// Returns null if the query is complex, involves other columns, or is not a direct equality check on the PK.

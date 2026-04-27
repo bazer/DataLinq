@@ -244,6 +244,33 @@ public class WhereGroup<T> : IWhere<T>
         return KeyFactory.CreateKeyFromValues(collectedValues);
     }
 
+    internal bool TryGetSingleValueEquality(
+        out ColumnOperand column,
+        out object? value)
+    {
+        column = null!;
+        value = null;
+
+        if (whereList == null || whereList.Count != 1 || IsNegated)
+            return false;
+
+        var (part, _) = whereList[0];
+        if (part is not Where<T> where ||
+            where.IsNegated ||
+            where.Operator != Operator.Equal ||
+            where.Left is not ColumnOperand columnOperand ||
+            where.Right is not ValueOperand valueOperand ||
+            !valueOperand.HasOneValue ||
+            valueOperand.IsNull)
+        {
+            return false;
+        }
+
+        column = columnOperand;
+        value = valueOperand.FirstValue;
+        return true;
+    }
+
     // --- Methods to pass through to SqlQuery<T> ---
     public SqlQuery<T> Set<V>(string key, V value) => Query.Set(key, value);
     public IEnumerable<T> Select() => Query.Select();

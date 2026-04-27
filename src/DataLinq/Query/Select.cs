@@ -21,6 +21,23 @@ public class Select<T> : IQuery
 
     public Sql ToSql(string? paramPrefix = null)
     {
+        var canUseTemplate = query.TryGetSingleValueEqualityTemplateKey(paramPrefix, out var key, out var value);
+        if (canUseTemplate &&
+            SelectSqlTemplateCache.TryGet(key, out var template))
+        {
+            return template.Bind(value);
+        }
+
+        var sql = RenderSql(paramPrefix);
+
+        if (canUseTemplate && sql.Parameters.Count == 1)
+            SelectSqlTemplateCache.TryAdd(key, new SelectSqlTemplate(sql.Text, sql.Parameters[0].ParameterName));
+
+        return sql;
+    }
+
+    private Sql RenderSql(string? paramPrefix)
+    {
         var sql = new Sql().AddText("SELECT ");
         AddSelectedColumns(sql);
         sql.AddText(" FROM ");
