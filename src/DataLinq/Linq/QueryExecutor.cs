@@ -124,17 +124,11 @@ internal class QueryExecutor : IQueryExecutor
                 query.Offset((int)skipExpression.Value!);
             }
 
-            var opString = op.ToString();
-
-            if (opString == "Single()")
+            if (op is SingleResultOperator)
                 query.Limit(2);
-            else if (opString == "SingleOrDefault()")
-                query.Limit(2);
-            else if (opString == "First()")
+            else if (op is FirstResultOperator)
                 query.Limit(1);
-            else if (opString == "FirstOrDefault()")
-                query.Limit(1);
-            else if (opString == "Any()")
+            else if (op is AnyResultOperator)
                 query.Limit(1);
         }
 
@@ -292,17 +286,12 @@ internal class QueryExecutor : IQueryExecutor
 
         if (queryModel.ResultOperators.Any())
         {
-            var op = queryModel.ResultOperators[0].ToString();
-
-            return op switch
+            return queryModel.ResultOperators[0] switch
             {
-                "Single()" => sequence.Single(),
-                "SingleOrDefault()" => sequence.SingleOrDefault(),
-                "First()" => sequence.First(),
-                "FirstOrDefault()" => sequence.FirstOrDefault(),
-                "Last()" => sequence.Last(),
-                "LastOrDefault()" => sequence.LastOrDefault(),
-                _ => throw new NotImplementedException($"Unknown operator '{op}'")
+                SingleResultOperator => returnDefaultWhenEmpty ? sequence.SingleOrDefault() : sequence.Single(),
+                FirstResultOperator => returnDefaultWhenEmpty ? sequence.FirstOrDefault() : sequence.First(),
+                LastResultOperator => returnDefaultWhenEmpty ? sequence.LastOrDefault() : sequence.Last(),
+                var op => throw new NotImplementedException($"Unknown operator '{op.GetType().Name}'")
             };
         }
 
@@ -323,13 +312,13 @@ internal class QueryExecutor : IQueryExecutor
         if (queryModel.ResultOperators.Any())
         {
             var select = ParseQueryModel<T>(queryModel);
-            var op = queryModel.ResultOperators[0].ToString();
+            var op = queryModel.ResultOperators[0];
 
             // Modify the SQL query for Count() or Any()
-            if (op == "Count()" || op == "Any()")
+            if (op is CountResultOperator || op is AnyResultOperator)
                 select.What("COUNT(*)");
             else
-                throw new NotImplementedException($"Query results operator '{op}' is not implemented");
+                throw new NotImplementedException($"Query results operator '{op.GetType().Name}' is not implemented");
 
             // Execute the scalar query
             var result = select.ExecuteScalar();
@@ -343,7 +332,7 @@ internal class QueryExecutor : IQueryExecutor
                 if (typeof(T) == typeof(long))
                     return (T)(object)(long)intResult;
 
-                if (typeof(T) == typeof(bool) && op == "Any()")
+                if (typeof(T) == typeof(bool) && op is AnyResultOperator)
                     return (T)(object)(intResult > 0);
             }
             else if (result is long longResult)
@@ -354,11 +343,11 @@ internal class QueryExecutor : IQueryExecutor
                 if (typeof(T) == typeof(int))
                     return (T)(object)(int)longResult;
 
-                if (typeof(T) == typeof(bool) && op == "Any()")
+                if (typeof(T) == typeof(bool) && op is AnyResultOperator)
                     return (T)(object)(longResult > 0);
             }
 
-            throw new InvalidOperationException($"Unexpected result type '{result?.GetType()}' for operator '{op}'");
+            throw new InvalidOperationException($"Unexpected result type '{result?.GetType()}' for operator '{op.GetType().Name}'");
         }
 
         throw new NotImplementedException($"The query model lacks a results operator: '{queryModel}'");
