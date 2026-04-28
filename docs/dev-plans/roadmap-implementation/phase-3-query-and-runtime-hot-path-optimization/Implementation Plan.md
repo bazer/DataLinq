@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 3 Implementation Plan: Query and Runtime Hot Path Optimization
 
-**Status:** In progress.
+**Status:** Implemented.
 
 ## Purpose
 
@@ -18,9 +18,33 @@ Phase 2 reduced avoidable metadata and factory dynamism.
 
 Phase 3 should use both of those facts and work on the query/runtime path with discipline.
 
-## Current Baseline
+## Implementation Summary
 
-Several important things are true in the current code:
+Phase 3 has been implemented as a narrow, measured hot-path pass rather than a LINQ-provider rewrite.
+
+What landed:
+
+- a dedicated `phase3-query-hotpath` benchmark lane with repeated non-primary-key equality, fixed-slot `IN`, and scalar `Any` scenarios
+- provider-neutral SQL parameter bindings, with SQLite and MySQL provider parameters materialized during command creation
+- lower-allocation SQL rendering in selected-column, ordering, insert, where-parameter, provider parameter, operand, and selector paths
+- a bounded SQL template cache for narrow repeated equality and fixed-slot `IN` SELECT shapes
+- typed Remotion result-operator handling in `QueryExecutor` instead of hot-path `ToString()` matching
+
+Benchmark interpretation:
+
+- allocation dropped on the measured Phase 3 query hot-path rows compared with the original Phase 3 baseline
+- timing remains noisy across local runs, so the honest claim is lower allocation pressure, not a proven wall-clock speedup
+- benchmark artifacts under `artifacts/benchmarks/` preserve the comparison history for the implemented slices
+
+Deliberate non-changes:
+
+- no dependency-tracked result-set caching was added; that remains a later semantic caching feature
+- no broad query-tree `struct` conversion was attempted, because the measured wins came from parameter/rendering/template seams and a narrow `QueryExecutor` cleanup
+- no new per-query SQL-generation telemetry was added, because the benchmark lane and existing telemetry were sufficient and extra timers would add overhead to the path being measured
+
+## Starting Baseline
+
+Several important things were true in the code at the start of Phase 3:
 
 - `Sql` is a mutable wrapper around `StringBuilder` plus `List<IDataParameter>`.
 - SQLite and MySQL providers create concrete provider parameters during SQL rendering through `GetParameter`.

@@ -17,7 +17,7 @@ The answer should be grounded in the repo as it exists today, not in abstract OR
 Several important things are already true:
 
 - The test migration is complete. The active suite structure is TUnit-based, CI-backed, and the legacy xUnit projects are gone.
-- There is now a benchmark and observability foundation to build on, but Phase 3 still needs a dedicated query/runtime hot-path lane before optimization claims are trustworthy.
+- There is now a benchmark and observability foundation to build on, including the Phase 3 query/runtime hot-path lane used to keep optimization claims honest.
 - `RowData` has already moved to dense indexed storage, so the performance roadmap should build on that rather than pretending memory optimization is still only theoretical.
 - Metadata and generator hardening have removed some avoidable runtime work, but SQL building, query translation, projection materialization, and compatibility-sensitive runtime paths still contain meaningful dynamism and allocation overhead.
 - Product hardening features such as schema validation, migrations, and stronger diagnostics are still missing enough that DataLinq is easier to admire than to trust.
@@ -84,7 +84,7 @@ Key related plans:
 
 ### Phase 3: Query and Runtime Hot Path Optimization
 
-Status: planning.
+Status: implemented.
 
 Goals:
 
@@ -101,6 +101,7 @@ Why here:
 Key related plans:
 
 - `query-and-runtime/Sql Generation Optimization.md`
+- `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
 
 ### Phase 4: Product Trust Features
 
@@ -229,14 +230,14 @@ Key related plans:
 
 ## What Should Happen Right Now
 
-The next concrete stretch should be small and disciplined:
+The next concrete stretch should move to product trust:
 
-1. Add a Phase 3 benchmark lane for query/runtime hot paths.
-2. Run a baseline that keeps SQL generation and command construction visible.
-3. Refactor the parameter binding boundary so provider parameters are created at command construction time.
-4. Use the benchmark lane to decide how far SQL writer cleanup and template/binding reuse should go.
+1. Turn the migrations and validation plan into an implementation plan.
+2. Define the first schema validation slice around current metadata and provider capabilities.
+3. Add tests that prove drift detection reports actionable, provider-specific differences.
+4. Keep generated migration/diff scripts conservative until validation behavior is trustworthy.
 
-That is the right next move because Phase 1 and Phase 2 created enough foundation to stop guessing and start measuring the actual hot path.
+That is the right next move because Phase 3 made the runtime path cheaper enough to stop deferring the more important adoption blocker: whether DataLinq can detect and explain schema drift safely.
 
 ## What Is Explicitly Not First
 
