@@ -2,12 +2,31 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Metadata Architecture, Incremental Build & Diagnostics
 
-**Status:** Draft
+**Status:** Partially implemented by Roadmap Phase 2; remaining architecture work is still planned.
 **Goal:** Refactor the metadata engine to support four critical requirements:
 1.  **Null Safety:** Eliminate circular nullability warnings by separating construction from definition.
 2.  **Incremental Caching:** Implement deep structural equality to prevent the Source Generator from running unnecessarily.
 3.  **Optimization Prep:** Calculate and freeze column indices (for dense arrays) during the build phase.
 4.  **Rich Diagnostics:** Capture Source Locations (`Microsoft.CodeAnalysis.Location`) to enable clickable error messages in the IDE.
+
+## Current Implementation State
+
+Phase 2 implemented several practical pieces from this design without completing the full builder/definition rewrite:
+
+- metadata objects now carry source-span/source-location information for generator diagnostics
+- the generator reports more precise diagnostics for metadata and default-value failures
+- `ColumnDefinition.Index` and dense `RowData` access are implemented
+- default-value compatibility validation exists in the source generator
+- metadata parsing now performs stronger uniqueness, index, relation, and source-location validation
+
+Still not implemented:
+
+- a full mutable builder graph separate from immutable runtime definitions
+- deeply immutable metadata definitions
+- structural equality across the metadata graph as the generator's main regeneration gate
+- a complete source-location spine for every possible metadata failure
+
+That means this document is still useful as architecture direction, but it should not be read as current behavior.
 
 ---
 

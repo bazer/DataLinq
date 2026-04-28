@@ -2,8 +2,29 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Database Validation & Migrations
 
-**Status:** Draft
+**Status:** Draft; selected as the next roadmap phase.
 **Goal:** Provide tools to ensure the C# Model (`DatabaseDefinition`) stays synchronized with the physical Database Schema. The approach prioritizes safety and transparency over "magic" automation.
+
+**Roadmap placement:** Main roadmap Phase 4, after the query/runtime hot-path work and before AOT, async, cache, and broader capability expansion.
+
+## Current Implementation State
+
+The repo already has useful raw material for this plan:
+
+- `DatabaseDefinition`, `TableDefinition`, `ColumnDefinition`, indices, relations, defaults, and source locations exist in metadata
+- SQLite, MySQL, and MariaDB can read live database metadata through provider-specific `MetadataFromSqlFactory` implementations
+- SQLite, MySQL, and MariaDB can generate create-table SQL from metadata through provider-specific `SqlFromMetadataFactory` implementations
+- tests already cover meaningful metadata-from-server and SQL-from-metadata behavior
+
+What is still missing:
+
+- no provider-neutral schema difference model exists
+- no `SchemaComparer` exists
+- no `validate` or `diff` command exists in the public CLI
+- no migration snapshot, migration table, or versioned migration workflow exists
+- destructive schema changes do not yet have a formal safety model
+
+The first implementation slice should therefore be drift detection, not script generation. If the comparer cannot explain differences accurately, generating migration SQL is just automating confusion.
 
 ---
 

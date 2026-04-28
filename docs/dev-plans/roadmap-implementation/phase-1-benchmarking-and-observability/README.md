@@ -1,6 +1,8 @@
 > [!WARNING]
-> This folder contains active implementation planning for Roadmap Phase 1. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
+> This folder contains roadmap execution material for Roadmap Phase 1. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
 # Phase 1: Benchmarking and Observability
+
+**Status:** Substantially implemented; benchmark-history review remains active.
 
 ## Scope
 

@@ -19,6 +19,7 @@ What are we actually going to do, in what order, and how will we know it worked?
 - `phase-1-benchmarking-and-observability/`
 - `phase-2-metadata-generator-and-diagnostics-hardening/`
 - `phase-3-query-and-runtime-hot-path-optimization/`
+- `phase-4-product-trust-features/`
 
 ## Notes
 

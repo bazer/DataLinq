@@ -2,8 +2,27 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Source Generator Optimizations
 
-**Status:** Draft
+**Status:** Partially implemented by Roadmap Phase 2; AOT-oriented work remains.
 **Goal:** Shift the heavy lifting of object instantiation, metadata discovery, and property mapping from **Runtime** (Reflection/Dictionaries) to **Compile Time** (Source Generation). This enables instant startup, Native AOT compatibility, and O(1) property access.
+
+## Current Implementation State
+
+Phase 2 implemented the low-risk parts that paid off immediately:
+
+- generated immutable models now expose a fast factory hook that `InstanceFactory` can discover before falling back to expression compilation
+- `RowData` stores values densely and supports indexed column access
+- column indices are assigned during metadata parsing
+- the incremental generator uses normalized model declarations and stronger input comparers
+- generator diagnostics are stronger, including default-value compatibility diagnostics
+
+Still not implemented:
+
+- `InstanceFactory` is not gone; it still owns fallback paths and database factory delegates
+- the generator does not emit a complete static `BuildMetadata()` graph for runtime startup
+- property access has not universally moved to generated `GetFast(int)`-style accessors
+- this work improves AOT-readiness, but it does not make DataLinq Native AOT-safe
+
+The next serious continuation belongs in the Phase 5 AOT/WebAssembly work, not in Phase 4 product trust.
 
 ---
 
@@ -119,6 +138,6 @@ public override string first_name => (string)rowData.GetFast(1);
     *   Update Generator to emit a `BuildMetadata()` method returning the full `DatabaseDefinition`.
     *   Change runtime to prefer this static metadata over Reflection-based loading.
 3.  **Indexed Access (Dependency: Memory Optimization Phase 1):**
-    *   Ensure `RowData` exposes value access by `int index`.
+    *   [x] Ensure `RowData` exposes value access by `int index`.
     *   Update Generator to calculate column indices during generation.
     *   Update `Immutable` template to emit `GetFast(int)` calls.

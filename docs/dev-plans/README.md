@@ -51,6 +51,8 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-2-metadata-generator-and-diagnostics-hardening/Implementation Plan.md`
 - `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/README.md`
 - `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
+- `roadmap-implementation/phase-4-product-trust-features/README.md`
+- `roadmap-implementation/phase-4-product-trust-features/Implementation Plan.md`
 
 ### Providers and features
 
@@ -81,3 +83,15 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - The active testing material now lives under `testing/`, while completed migration records live under `archive/testing/`.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
 - The `roadmap-implementation/` folder is where high-level roadmap phases are turned into concrete execution plans. It should stay tightly linked to `Roadmap.md` rather than drifting into a second roadmap.
+
+## Current Stage Audit
+
+As of the Phase 3 closeout:
+
+- Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
+- Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
+- Phase 3 query/runtime hot-path optimization is implemented; the honest performance claim is lower allocation pressure on measured repeated-query paths.
+- The older benchmark, metadata, source-generator, and SQL-generation specs now have status notes explaining which parts landed and which remain future work.
+- The next missing roadmap execution artifact was Phase 4 product trust work, so `roadmap-implementation/phase-4-product-trust-features/` now defines the validation/migration execution plan.
+
+The main thing not to skip at this stage is schema validation. AOT, async, cache invalidation, projections, JSON columns, and result-set caching are still valid plans, but they should not jump ahead of drift detection and conservative schema tooling.

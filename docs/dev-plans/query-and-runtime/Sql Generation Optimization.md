@@ -2,8 +2,29 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: SQL Generation Optimization
 
-**Status:** Draft
+**Status:** Partially implemented by Roadmap Phase 3; remaining ideas require new evidence.
 **Goal:** Minimize (and eventually eliminate) heap allocations during the SQL generation phase of a query. By treating SQL generation as a "hot path," we reduce Garbage Collector pressure and improve overall throughput.
+
+## Current Implementation State
+
+Roadmap Phase 3 implemented the parts of this plan that had clear benchmark leverage:
+
+- generated SQL now carries provider-neutral `SqlParameterBinding` values until SQLite/MySQL command creation
+- SQL rendering removed several avoidable LINQ, string-join, and formatting allocations
+- repeated equality and fixed-slot `IN` SELECT shapes can reuse a bounded SQL template cache
+- `QueryExecutor` no longer uses result-operator display strings to decide common LINQ operator behavior
+- the `phase3-query-hotpath` benchmark lane tracks allocation and timing changes for repeated query execution
+
+The useful Phase 3 claim is lower allocation pressure on measured repeated query paths. Local timing remained noisy enough that wall-clock speedup should not be treated as proven.
+
+What deliberately did not land:
+
+- a custom `ValueStringBuilder`
+- broad `readonly struct` conversion of the query tree
+- a universal SQL structural hash
+- dependency-tracked result-set caching
+
+Those ideas are not dead, but they should stay behind benchmark evidence. The Phase 3 result says the boring seams paid off first: parameter boundary, rendering loops, and narrow template reuse.
 
 ---
 
@@ -94,6 +115,6 @@ Extract only the values needed for the placeholders.
 1.  [ ] Implement `DataLinq.Utils.ValueStringBuilder`.
 2.  [ ] Refactor `SqlQuery` and `Where`/`Join`/`OrderBy` to use `ValueStringBuilder`.
 3.  [ ] Convert `OrderBy`, `Join`, `Comparison` to `readonly record struct`.
-4.  [ ] Refactor `Sql` class to store `List<object>` (values) instead of `IDataParameter`.
-5.  [ ] Update Providers (`SQLite`, `MySQL`) to consume raw values.
-6.  [ ] (Long Term) Implement Structural Hashing and Template Caching.
+4.  [x] Refactor generated SQL bindings so `Sql` no longer requires provider-specific `IDataParameter` objects for normal query generation.
+5.  [x] Update Providers (`SQLite`, `MySQL`) to materialize provider parameters at command creation time.
+6.  [x] Implement bounded template caching for narrow repeated equality and fixed-slot `IN` SELECT shapes.

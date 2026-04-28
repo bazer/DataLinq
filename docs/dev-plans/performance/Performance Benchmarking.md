@@ -2,8 +2,32 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Performance Benchmarking & Regression Testing
 
-**Status:** Draft
-**Goal:** Establish a rigorous, scientific benchmarking suite to quantify DataLinq's performance characteristics. The goal is to prove "Zero Allocation on Cache Hits" and identifying regressions in the hot path.
+**Status:** Partially implemented; superseded in detail by the benchmark CLI and roadmap implementation plans.
+**Goal:** Establish a rigorous, scientific benchmarking suite to quantify DataLinq's performance characteristics. The goal is to prove low-allocation hot paths and identify regressions without over-reading noisy timing data.
+
+## Current Implementation State
+
+The original direction in this document has mostly been absorbed into:
+
+- `src/DataLinq.Benchmark.CLI`
+- `docs/contributing/DataLinq.Benchmark.CLI.md`
+- `docs/dev-plans/roadmap-implementation/phase-1-benchmarking-and-observability/`
+- `docs/dev-plans/roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/`
+
+What is implemented:
+
+- a BenchmarkDotNet-backed CLI with `default`, `smoke`, and `heavy` profiles
+- deterministic benchmark setup and machine-readable summary artifacts
+- baseline comparison and published history support
+- telemetry deltas in benchmark output
+- dedicated Phase 2 and Phase 3 watchpoint categories, including `phase3-query-hotpath`
+
+What is not implemented from this older spec:
+
+- the project is not named `src/DataLinq.Benchmarks`; the active entry point is `src/DataLinq.Benchmark.CLI`
+- competitor adapters for EF Core and Dapper have not been added
+- benchmark comparisons should not claim "zero allocation" globally; Phase 3 produced measured allocation reductions, while local timing remains noisy
+- CI regression thresholds should remain conservative until the stable benchmark subset has enough history
 
 ---
 
@@ -25,7 +49,7 @@ We benchmark against the industry standards to understand our position.
 
 ---
 
-## 2. Architecture: `src/DataLinq.Benchmarks`
+## 2. Original Proposed Architecture: `src/DataLinq.Benchmarks`
 
 We will separate benchmarks from unit tests. Benchmarks require Release builds and no debugger attachment.
 
@@ -106,10 +130,10 @@ On every PR to `main` that touches `src/DataLinq`:
 
 ---
 
-## 5. Implementation Steps
+## 5. Original Implementation Steps
 
-1.  [ ] Create `src/DataLinq.Benchmarks` project.
-2.  [ ] Install `BenchmarkDotNet`.
+1.  [x] Create a BenchmarkDotNet-based benchmark entry point. The implemented project is `src/DataLinq.Benchmark.CLI`, not `src/DataLinq.Benchmarks`.
+2.  [x] Install `BenchmarkDotNet`.
 3.  [ ] Implement `Competitors/EfCoreContext` mirroring `EmployeesDb`.
-4.  [ ] Implement **Scenario A (Cache Hit)** and **Scenario B (Traversal)**.
-5.  [ ] Create a cross-platform benchmark CLI to execute and export reports.
+4.  [x] Implement first-party DataLinq hot-path scenarios, including cache, relation, startup, Phase 2, and Phase 3 watchpoints.
+5.  [x] Create a cross-platform benchmark CLI to execute and export reports.
