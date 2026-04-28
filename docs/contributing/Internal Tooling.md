@@ -4,6 +4,8 @@ This page is the canonical map for the repo-local developer tooling.
 
 If you are working inside the DataLinq repo, these are the tools that matter:
 
+If you are setting up a machine for the first time, start with [Dev and Test Environment](Dev%20and%20Test%20Environment.md) before diving into individual tool behavior.
+
 | Tool | Use it for | Do not use it for |
 | --- | --- | --- |
 | `DataLinq.Dev.CLI` | repo-local `dotnet` execution, environment diagnosis, restore, build, direct test wrapping | provider-matrix orchestration or benchmarks |

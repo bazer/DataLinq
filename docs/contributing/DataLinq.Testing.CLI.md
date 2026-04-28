@@ -4,6 +4,8 @@
 
 Use it when the run depends on target aliases, batched server targets, runtime state, or container lifecycle control.
 
+For first-time machine setup, required tools, and Podman/WSL bootstrap steps, see [Dev and Test Environment](Dev%20and%20Test%20Environment.md).
+
 ## Why It Exists
 
 This tool replaced the older PowerShell-driven workflow on purpose.
