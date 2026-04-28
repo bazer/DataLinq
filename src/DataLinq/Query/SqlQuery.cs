@@ -375,7 +375,11 @@ public class SqlQuery<T>
         foreach (var with in SetList)
         {
             DataSource.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
-            DataSource.Provider.GetParameterComparison(sql, with.Key, Operator.Equal, [paramPrefix + "v" + i]);
+            Operand.Column(with.Key).AddName(sql, EscapeCharacter);
+            sql.AddText(" ");
+            sql.AddText(DataSource.Provider.GetOperatorSql(Operator.Equal));
+            sql.AddText(" ");
+            sql.AddText(DataSource.Provider.GetParameterName(Operator.Equal, [paramPrefix + "v" + i]));
 
             if (i + 1 < length)
                 sql.AddText(",");
