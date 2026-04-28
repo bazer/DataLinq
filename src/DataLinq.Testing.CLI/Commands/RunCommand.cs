@@ -180,6 +180,7 @@ internal static class RunCommand
                             settings,
                             repositoryRoot,
                             configuration,
+                            buildProject,
                             batchSize,
                             orchestrator,
                             outputMode,
@@ -221,6 +222,7 @@ internal static class RunCommand
                         settings,
                         repositoryRoot,
                         configuration,
+                        buildProject,
                         batchSize,
                         orchestrator,
                         outputMode,
@@ -257,6 +259,7 @@ internal static class RunCommand
         TestInfraCliSettings settings,
         string repositoryRoot,
         string configuration,
+        bool buildProject,
         int batchSize,
         TestInfraOrchestrator orchestrator,
         TestCliOutputMode outputMode,
@@ -301,7 +304,7 @@ internal static class RunCommand
                 orchestrator.Up(batch, recreate: false);
 
                 var start = Stopwatch.StartNew();
-                var result = ExecuteTestRun(projectPath, configuration, settings, batch, suite.Name, batchIndex: index + 1, profile);
+                var result = ExecuteTestRun(projectPath, configuration, buildProject, settings, batch, suite.Name, batchIndex: index + 1, profile);
                 start.Stop();
 
                 var runResult = CreateRunResult(
@@ -329,7 +332,7 @@ internal static class RunCommand
             }
 
             var start = Stopwatch.StartNew();
-            var result = ExecuteTestRun(projectPath, configuration, settings, selection: null, suite.Name, batchIndex: null, profile);
+            var result = ExecuteTestRun(projectPath, configuration, buildProject, settings, selection: null, suite.Name, batchIndex: null, profile);
             start.Stop();
 
             var runResult = CreateRunResult(
@@ -373,6 +376,7 @@ internal static class RunCommand
     private static LoggedCommandResult ExecuteTestRun(
         string projectPath,
         string configuration,
+        bool usePrebuiltProject,
         TestInfraCliSettings settings,
         CliTargetSelection? selection,
         string suiteName,
@@ -390,8 +394,18 @@ internal static class RunCommand
             environmentVariables[DataLinq.Testing.PodmanTestEnvironmentSettings.TargetAliasEnvironmentVariable] = null;
         }
 
+        var arguments = new List<string>
+        {
+            "run",
+            "--project", projectPath,
+            "-c", configuration
+        };
+
+        if (usePrebuiltProject)
+            arguments.Add("--no-build");
+
         return ExecuteDotnet(
-            ["run", "--project", projectPath, "-c", configuration, "--no-build"],
+            arguments,
             settings,
             profile,
             CreateRunArtifactPrefix(suiteName, batchIndex, selection),
