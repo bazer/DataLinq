@@ -4,6 +4,8 @@ This guide is for contributors working on the DataLinq repo itself.
 
 ## 1. Repository Setup
 
+For the full fresh-machine setup path, including .NET SDK and Podman/WSL requirements, start with [Dev and Test Environment](contributing/Dev%20and%20Test%20Environment.md).
+
 Clone the repo and work from the solution under `src`:
 
 ```bash
@@ -70,6 +72,7 @@ The supported local entry points are:
 
 Detailed tool documentation lives here:
 
+- [Dev and Test Environment](contributing/Dev%20and%20Test%20Environment.md)
 - [Internal Tooling](contributing/Internal%20Tooling.md)
 - [DataLinq.Dev.CLI](contributing/DataLinq.Dev.CLI.md)
 - [DataLinq.Testing.CLI](contributing/DataLinq.Testing.CLI.md)

@@ -62,6 +62,8 @@
   items:
     - name: Contribution Guidelines
       href: Contributing.md
+    - name: Dev and Test Environment
+      href: contributing/Dev and Test Environment.md
     - name: Internal Tooling
       href: contributing/Internal Tooling.md
     - name: DataLinq.Dev.CLI

@@ -236,25 +236,32 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
         if (string.IsNullOrWhiteSpace(containerName) || string.IsNullOrWhiteSpace(image) || string.IsNullOrWhiteSpace(hostPort))
             return Fail("The socket transport could not parse the requested 'podman run' arguments.");
 
-        var createResponse = SendRequest(
-            "POST",
-            $"/containers/create?name={Uri.EscapeDataString(containerName)}",
-            new ContainerCreateRequest(
-                Image: image,
-                Env: environment,
-                Cmd: command,
-                ExposedPorts: new Dictionary<string, object?>
+        var createRequest = new ContainerCreateRequest(
+            Image: image,
+            Env: environment,
+            Cmd: command,
+            ExposedPorts: new Dictionary<string, object?>
+            {
+                ["3306/tcp"] = new { }
+            },
+            HostConfig: new HostConfigRequest(
+                PortBindings: new Dictionary<string, PortBindingRequest[]>
                 {
-                    ["3306/tcp"] = new { }
-                },
-                HostConfig: new HostConfigRequest(
-                    PortBindings: new Dictionary<string, PortBindingRequest[]>
-                    {
-                        ["3306/tcp"] =
-                        [
-                            new PortBindingRequest(HostPort: hostPort, HostIp: "0.0.0.0")
-                        ]
-                    })));
+                    ["3306/tcp"] =
+                    [
+                        new PortBindingRequest(HostPort: hostPort, HostIp: "0.0.0.0")
+                    ]
+                }));
+
+        var createResponse = SendCreateContainerRequest(containerName, createRequest);
+        if (IsMissingImageError(createResponse))
+        {
+            var pullResult = PullImage(image);
+            if (pullResult.ExitCode != 0)
+                return pullResult;
+
+            createResponse = SendCreateContainerRequest(containerName, createRequest);
+        }
 
         if (!createResponse.IsSuccessStatusCode)
             return FailureFromResponse(createResponse);
@@ -268,6 +275,20 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
             return FailureFromResponse(startResponse);
 
         return new PodmanCommandResult(0, createResult.Id, string.Empty);
+    }
+
+    private PodmanApiResponse SendCreateContainerRequest(string containerName, ContainerCreateRequest request) =>
+        SendRequest(
+            "POST",
+            $"/containers/create?name={Uri.EscapeDataString(containerName)}",
+            request);
+
+    private PodmanCommandResult PullImage(string image)
+    {
+        var response = SendRequest("POST", $"/images/create?fromImage={Uri.EscapeDataString(image)}");
+        return response.IsSuccessStatusCode
+            ? new PodmanCommandResult(0, response.BodyText, string.Empty)
+            : FailureFromResponse(response);
     }
 
     private PodmanCommandResult Send(string method, string path, object? jsonBody = null)
@@ -370,6 +391,16 @@ internal sealed class PodmanSocketTransport : IPodmanTransport
 
     private static PodmanCommandResult FailureFromResponse(PodmanApiResponse response) =>
         new((int)response.StatusCode, string.Empty, ReadError(response));
+
+    private static bool IsMissingImageError(PodmanApiResponse response)
+    {
+        if (response.IsSuccessStatusCode)
+            return false;
+
+        var error = ReadError(response);
+        return error.Contains("no such image", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("image not known", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string ReadOptionValue(IReadOnlyList<string> arguments, ref int index, string optionName)
     {
