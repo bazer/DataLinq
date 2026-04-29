@@ -4,6 +4,91 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [DataLinq v0.6.9 - Benchmark Evidence, Generator Hardening, and SQL Hot Paths](https://github.com/bazer/DataLinq/releases/tag/0.6.9)
+
+**Released on:** 2026-04-28
+
+This is a big patch release. The theme is trust: better telemetry, better benchmark evidence, sharper generator diagnostics, and lower allocation pressure in the query hot path. It is not a “everything is magically faster now” release. The honest claim is narrower and better: DataLinq now has stronger measurement infrastructure, fewer avoidable runtime allocations, and much better failure messages when model metadata is wrong.
+
+### Highlights
+
+* **SQL generation now allocates less on measured repeated-query paths.**  
+  DataLinq now uses provider-neutral SQL parameter bindings, avoids several LINQ/string-formatting allocations during SQL rendering, and reuses bounded SQL templates for narrow repeated `SELECT` shapes such as equality predicates and fixed-slot `IN` predicates.
+
+* **Generator and metadata diagnostics are much more actionable.**  
+  Many metadata failures that previously surfaced as vague generator errors now report source-located `DLG001` / `DLG002` diagnostics on the offending attribute or model declaration.
+
+* **Runtime observability and benchmarking grew up.**  
+  The benchmark CLI now reports telemetry deltas, supports smoke/default/heavy profiles, writes machine-readable history artifacts, and feeds benchmark result pages. Runtime telemetry now covers commands, transactions, mutations, query spans, cache occupancy, and cleanup behavior.
+
+* **Fixed MySQL/MariaDB updates against reserved-keyword columns.**  
+  `UPDATE SET` now quotes column names correctly, fixing mutation failures for columns named things like `References`.
+
+### Query, SQL, and Runtime
+
+* Added `SqlParameterBinding` so generated SQL can carry provider-neutral parameter values until SQLite/MySQL command creation.
+* Preserved explicit provider parameters for literal SQL compatibility.
+* Moved provider-specific parameter materialization to the command boundary.
+* Reduced SQL rendering allocations in selected-column, `ORDER BY`, `INSERT`, `WHERE`, provider-parameter, operand, and selector paths.
+* Added bounded SQL template caching for simple repeated `SELECT` shapes:
+  * single equality predicates
+  * up to four `AND`-connected equality predicates
+  * fixed-slot `IN` / `NOT IN` predicates
+* Kept cached SQL templates value-safe: runtime parameter values are rebound into a fresh `Sql` instance on each use.
+* Replaced result-operator string matching with typed Remotion result-operator handling for `Single`, `First`, `Last`, `Any`, and `Count`.
+
+### Generator and Metadata
+
+* Added source-location plumbing through metadata failures so diagnostics can point at the actual source.
+* Improved diagnostics for duplicate databases, duplicate tables, duplicate columns, invalid index columns, invalid index declarations, unresolved foreign keys, unresolved relations, missing primary keys, invalid `DbRead` model references, invalid cache attributes, invalid type/interface attributes, and unsupported enum values.
+* Added normalized generator model declaration inputs and structural equality so trivia-only edits do not force unnecessary generator work.
+* Cached parsed metadata inside the incremental generator pipeline.
+* Made default-value compatibility validation non-mutating so parsed metadata can be reused safely.
+* Generated immutable model classes now expose a fast row-factory hook used before falling back to constructor expression compilation.
+* Generated database models can now provide table metadata bootstrap information, reducing duplicated runtime reflection.
+* Database model factory delegates are cached instead of using repeated `Activator` construction.
+
+### Telemetry and Benchmarking
+
+* Added standard .NET `Meter` and `ActivitySource` coverage for database commands and transactions.
+* Added mutation metrics for insert, update, delete, affected rows, durations, and failures.
+* Added higher-level query activities so command spans can be correlated with query execution.
+* Added cache occupancy and cleanup metrics, including row counts, byte estimates, index-entry counts, cleanup operations, rows removed, and cleanup duration.
+* Expanded benchmark output with normalized telemetry deltas, not just time and allocation numbers.
+* Added benchmark scenarios for startup/first query, provider initialization, mutations, macro CRUD workflows, and Phase 2 / Phase 3 watchpoints.
+* Added benchmark history artifacts, baseline comparisons, scheduled CI history, and documentation-site benchmark result rendering.
+* Added a heavier local benchmark profile while keeping shorter CI-oriented runs practical.
+
+### Testing, Tooling, and CI
+
+* Removed the legacy xUnit projects after the TUnit migration and retired the old parity cutover tooling.
+* Added and hardened repo-local dev/test CLI workflows for concise builds, test execution, sandbox profiles, quiet output, and Podman-backed provider tests.
+* Fixed default test CLI behavior on fresh checkouts by only passing `--no-build` after an explicit build.
+* Fixed Windows Podman socket transport behavior so missing images are pulled before retrying container creation.
+* Fixed MySQL 8.4 test container authentication by enabling public key retrieval for non-TLS test connections.
+* Hardened benchmark parsing for BenchmarkDotNet CSV output, microsecond units, MSBuild-safe job names, and profile selection.
+
+### Documentation and Roadmap
+
+* Documented local dev and test environment setup, including Podman/WSL and provider-backed test lanes.
+* Closed out the Phase 1 benchmarking/observability and Phase 2 generator/metadata implementation plans.
+* Added and closed out the Phase 3 query/runtime hot-path plan.
+* Added the Phase 4 product-trust plan, with schema drift detection and conservative validation tooling as the next serious direction.
+* Updated older dev-plan specs so they distinguish shipped behavior from future architecture ideas.
+
+### Upgrade Notes
+
+* No intentional consumer-facing breaking change is called out in this changelog.
+* The stricter generator diagnostics may expose invalid metadata earlier than before. That is a good thing, but it can feel like a new failure if a model was previously limping through with ambiguous metadata.
+* The SQL template cache is deliberately narrow. It targets common repeated simple query shapes, not arbitrary LINQ expression caching.
+* The performance claim should be read precisely: lower allocation pressure on measured repeated-query paths. Broad wall-clock speedup claims would be overconfident.
+
+### Full Changelog
+
+https://github.com/bazer/DataLinq/compare/0.6.8...0.6.9
+
+---
+
 ## [DataLinq v0.6.8 - Cache Diagnostics, Correctness, and Test Infrastructure](https://github.com/bazer/DataLinq/releases/tag/0.6.8)
 
 **Released on:** 2026-04-17
