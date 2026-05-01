@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Provider Metadata Support Matrix
 
-**Status:** Initial Phase 4 skeleton.
+**Status:** Phase 4 in progress.
 
 This matrix records the metadata subset DataLinq intends to preserve through provider roundtrips for MySQL, MariaDB, and SQLite.
 
@@ -49,8 +49,8 @@ The comparison is deliberately lower-level than the future schema validation com
 | Composite foreign keys | Partially supported | Partially supported | Partially supported | Current per-column representation is not strong enough for validation. Constraint-level metadata is likely needed later in Phase 4. |
 | Relation property names | Partially supported | Partially supported | Partially supported | Duplicate same-target candidate-side names now derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Composite foreign-key naming still needs the constraint-level metadata work. |
 | Check constraints | Unsupported | Unsupported | Unsupported | Initial implementation should preserve raw provider expressions with `DatabaseType`; structured check metadata is deferred. |
-| Table comments | Unsupported | Unsupported | Unsupported | MySQL/MariaDB expose comments in information_schema, but import/generation is not yet wired. SQLite has no native table comments. |
-| Column comments | Unsupported | Unsupported | Unsupported | Same stance as table comments. |
+| Table comments | Partially supported | Partially supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` model attributes and generated C#; SQL `COMMENT` emission/roundtrip is still pending. SQLite has no native table comments. |
+| Column comments | Partially supported | Partially supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` property attributes and generated C#; SQL `COMMENT` emission/roundtrip is still pending. SQLite has no native column comments. |
 | Identifier casing comparison | Unknown | Unknown | Unknown | Validation needs provider-aware rules; this phase should document the support boundary. |
 | Expression indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. SQLite detection may warn using `pragma_index_xinfo` later. |
 | Partial indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. |
@@ -80,6 +80,7 @@ Shared metadata and generation:
 - `src/DataLinq.SharedCore/Metadata/ColumnIndex.cs`
 - `src/DataLinq.SharedCore/Metadata/RelationDefinition.cs`
 - `src/DataLinq.SharedCore/Metadata/RelationPart.cs`
+- `src/DataLinq.SharedCore/Attributes/CommentAttribute.cs`
 - `src/DataLinq.SharedCore/Factories/MetadataFactory.cs`
 - `src/DataLinq.SharedCore/Factories/Models/ModelFileFactory.cs`
 

@@ -44,6 +44,7 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         public COLUMN_KEY COLUMN_KEY => COLUMN_KEY.Empty;
         public string EXTRA => string.Empty;
         public string COLUMN_DEFAULT => columnDefault;
+        public string COLUMN_COMMENT => string.Empty;
         public string COLUMN_NAME => columnName;
     }
 

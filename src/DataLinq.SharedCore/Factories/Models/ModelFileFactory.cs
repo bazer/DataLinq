@@ -5,6 +5,7 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 namespace DataLinq.Core.Factories.Models;
@@ -164,6 +165,9 @@ public class ModelFileFactory
     {
         var table = model.Table;
 
+        foreach (var comment in model.Attributes.OfType<CommentAttribute>())
+            yield return $"{namespaceTab}{FormatCommentAttribute(comment)}";
+
         if (table is ViewDefinition view)
         {
             yield return $"{namespaceTab}[Definition(\"{view.Definition}\")]";
@@ -206,6 +210,9 @@ public class ModelFileFactory
         foreach (var valueProperty in valueProps)
         {
             var c = valueProperty.Column;
+
+            foreach (var comment in valueProperty.Attributes.OfType<CommentAttribute>())
+                yield return $"{namespaceTab}{tab}{FormatCommentAttribute(comment)}";
 
             if (c.PrimaryKey)
                 yield return $"{namespaceTab}{tab}[PrimaryKey]";
@@ -290,6 +297,15 @@ public class ModelFileFactory
         }
 
         yield return namespaceTab + "}";
+    }
+
+    private static string FormatCommentAttribute(CommentAttribute comment)
+    {
+        var text = SymbolDisplay.FormatLiteral(comment.Text, quote: true);
+
+        return comment.DatabaseType == DatabaseType.Default
+            ? $"[Comment({text})]"
+            : $"[Comment(DatabaseType.{comment.DatabaseType}, {text})]";
     }
 
     private string GetPropertyNullable(ColumnDefinition column)

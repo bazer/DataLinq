@@ -135,7 +135,7 @@ public class SyntaxParser
         var name = attributeSyntax.Name.ToString();
         var generictype = attributeSyntax.Name as GenericNameSyntax;
         var arguments = attributeSyntax.ArgumentList?.Arguments
-            .Select(x => x.Expression.ToString().Trim('"'))
+            .Select(ParseAttributeArgument)
             .ToList() ?? [];
 
         if (name == "Database")
@@ -168,6 +168,22 @@ public class SyntaxParser
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have any arguments");
 
             return new ColumnAttribute(arguments[0]);
+        }
+
+        if (name == "Comment")
+        {
+            if (arguments.Count == 1)
+                return new CommentAttribute(arguments[0]);
+
+            if (arguments.Count == 2)
+            {
+                if (!Enum.TryParse(arguments[0].Split('.').Last(), out DatabaseType databaseType))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid DatabaseType value '{arguments[0]}'");
+
+                return new CommentAttribute(databaseType, arguments[1]);
+            }
+
+            return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 1 or 2 arguments");
         }
 
         if (name == "Definition")
@@ -460,6 +476,14 @@ public class SyntaxParser
         }
 
         return FailAttribute(attributeSyntax, DLFailureType.NotImplemented, $"Attribute '{name}' not implemented");
+    }
+
+    private static string ParseAttributeArgument(AttributeArgumentSyntax argument)
+    {
+        if (argument.Expression is LiteralExpressionSyntax literal && literal.Token.Value is string stringValue)
+            return stringValue;
+
+        return argument.Expression.ToString().Trim('"');
     }
 
     private static Option<Attribute, IDLOptionFailure> FailAttribute(AttributeSyntax attributeSyntax, DLFailureType type, string message)

@@ -133,6 +133,8 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
             : table.DbName;
 
         var tableModel = new TableModel(csName, database, table, csName);
+        if (!string.IsNullOrWhiteSpace(dbTables.TABLE_COMMENT))
+            tableModel.Model.AddAttribute(new CommentAttribute(dbTables.TABLE_COMMENT));
 
         if (table is ViewDefinition view)
             view.SetDefinition(GetViewDefinition(informationSchemaDb, database.DbName, view.DbName));

@@ -29,6 +29,7 @@ public interface ICOLUMNS
     string EXTRA { get; }
     string COLUMN_DEFAULT { get; }
     string COLUMN_NAME { get; }
+    string COLUMN_COMMENT { get; }
 }
 //public partial interface IMYSQLCOLUMNS : ICOLUMNS { }
 //public partial interface IMARIADBCOLUMNS : ICOLUMNS { }
@@ -38,6 +39,7 @@ public interface ITABLES
     string TABLE_SCHEMA { get; }
     string TABLE_TYPE { get; }
     string TABLE_NAME { get; }
+    string TABLE_COMMENT { get; }
 }
 public partial interface IMYSQLTABLES : ITABLES { }
 public partial interface IMARIADBTABLES : ITABLES { }

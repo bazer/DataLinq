@@ -64,6 +64,24 @@ public class ModelFileFactoryTests
         await Assert.That(syntaxErrors).IsEmpty();
     }
 
+    [Test]
+    public async Task CreateModelFiles_Comments_EmitsEscapedCommentAttributes()
+    {
+        var database = CreateDatabaseWithComments();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "CommentModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains("[Comment(\"Table comment with \\\"quotes\\\"\")]");
+        await Assert.That(generatedFile.contents).Contains("[Comment(\"Column comment with \\\"quotes\\\"\")]");
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(generatedFile.contents);
+        var syntaxErrors = syntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+
+        await Assert.That(syntaxErrors).IsEmpty();
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(CsTypeDeclaration propertyType, object defaultValue)
     {
         var database = new DatabaseDefinition("QuoteDb", new CsTypeDeclaration("QuoteDb", "TestNamespace", ModelCsType.Class));
@@ -119,6 +137,27 @@ public class ModelFileFactoryTests
 
         model.AddProperty(accountingYearProperty);
         model.AddProperty(accountNumberProperty);
+        model.AddProperty(nameProperty);
+        database.SetTableModels([tableModel]);
+
+        return database;
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithComments()
+    {
+        var database = new DatabaseDefinition("CommentDb", new CsTypeDeclaration("CommentDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("CommentModel", "TestNamespace", ModelCsType.Class));
+        model.AddAttribute(new CommentAttribute("Table comment with \"quotes\""));
+
+        var table = new TableDefinition("comment_model");
+        var tableModel = new TableModel("CommentModels", database, model, table);
+
+        var nameProperty = new ValueProperty("Name", new CsTypeDeclaration(typeof(string)), model, [new CommentAttribute("Column comment with \"quotes\"")]);
+        var nameColumn = new ColumnDefinition("name", table);
+        nameColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "varchar", 255));
+        nameColumn.SetValueProperty(nameProperty);
+
+        table.SetColumns([nameColumn]);
         model.AddProperty(nameProperty);
         database.SetTableModels([tableModel]);
 

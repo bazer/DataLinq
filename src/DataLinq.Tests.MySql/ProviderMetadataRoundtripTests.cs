@@ -112,6 +112,37 @@ public class ProviderMetadataRoundtripTests
         await Assert.That(generatedFile.contents).DoesNotContain("[Index(\"IX_Account_RakenskapsarFK_Kontonummer\", IndexCharacteristic.Unique, IndexType.BTREE, \"RakenskapsarFK\", \"Kontonummer\")]\n    [Column(\"Kontonummer\")]");
     }
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_TableAndColumnComments_GeneratesCommentAttributes(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_TableAndColumnComments_GeneratesCommentAttributes),
+            """
+            CREATE TABLE `commented_account` (
+                `id` INT PRIMARY KEY AUTO_INCREMENT COMMENT 'Identifier column',
+                `display_name` VARCHAR(64) NOT NULL COMMENT 'Column "display" label'
+            ) COMMENT='Table "account" comment';
+            """);
+
+        var database = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var account = database.TableModels.Single(x => x.Table.DbName == "commented_account");
+        var displayName = account.Table.Columns.Single(x => x.DbName == "display_name");
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "CommentedAccount.cs");
+
+        await Assert.That(account.Model.Attributes.OfType<CommentAttribute>().Single().Text).IsEqualTo("Table \"account\" comment");
+        await Assert.That(displayName.ValueProperty.Attributes.OfType<CommentAttribute>().Single().Text).IsEqualTo("Column \"display\" label");
+        await Assert.That(generatedFile.contents).Contains("[Comment(\"Table \\\"account\\\" comment\")]");
+        await Assert.That(generatedFile.contents).Contains("[Comment(\"Column \\\"display\\\" label\")]");
+    }
+
     private static readonly string[] FirstSliceSchemaStatements =
     [
         """

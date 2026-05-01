@@ -103,6 +103,9 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         if (defaultAttr != null)
             valueProp.AddAttribute(defaultAttr);
 
+        if (!string.IsNullOrWhiteSpace(dbColumns.COLUMN_COMMENT))
+            valueProp.AddAttribute(new CommentAttribute(dbColumns.COLUMN_COMMENT));
+
         return column;
     }
 

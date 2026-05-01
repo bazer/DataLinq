@@ -118,6 +118,35 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_Comment()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Comment(""Human-readable comment"")]");
+        var attribute = (CommentAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.DatabaseType).IsEqualTo(DatabaseType.Default);
+        await Assert.That(attribute.Text).IsEqualTo("Human-readable comment");
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_ProviderComment()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Comment(DatabaseType.MySQL, ""MySQL comment"")]");
+        var attribute = (CommentAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.DatabaseType).IsEqualTo(DatabaseType.MySQL);
+        await Assert.That(attribute.Text).IsEqualTo("MySQL comment");
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_Comment_UnescapesStringLiteral()
+    {
+        var (parser, syntax) = GetAttributeSyntax("[Comment(\"Comment with \\\"quotes\\\"\")]");
+        var attribute = (CommentAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.Text).IsEqualTo("Comment with \"quotes\"");
+    }
+
+    [Test]
     public async Task ParseAttributeSyntax_PrimaryKey()
     {
         var (parser, syntax) = GetAttributeSyntax(@"[PrimaryKey]");
