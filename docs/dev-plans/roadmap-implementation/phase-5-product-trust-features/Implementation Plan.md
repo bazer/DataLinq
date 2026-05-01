@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 5 Implementation Plan: Product Trust Features
 
-**Status:** Planning.
+**Status:** In progress.
 
 ## Purpose
 
@@ -212,6 +212,17 @@ Tasks:
 3. Render concise text output.
 4. Add JSON output if it does not distort the model.
 5. Return process exit codes suitable for CI.
+
+Implemented slice:
+
+- `datalinq validate` now lives in `DataLinq.CLI` and delegates schema loading/comparison to `DataLinq.Tools.SchemaValidator`
+- validation uses the existing `datalinq.json`/`datalinq.user.json` config resolution, database selection rules, source model loading, and provider metadata readers
+- text output reports the selected target, model/database table counts, and ordered drift differences
+- `--output json` emits a compact automation-friendly payload without serializing the full metadata graph
+- exit codes are CI-oriented: `0` means no drift, `1` means schema drift was found, and `2` means command/config/metadata loading failed
+- SQLite file targets are rooted through the config base path before metadata is read, fixing a stale relative `Data Source` path issue in the shared connection-string helper
+- source default code expressions are ignored by validation default comparison; validation compares the semantic default value rather than the C# syntax used to write it
+- diff-script generation, migration snapshots, and migration execution remain intentionally outside this slice
 
 ## Workstream E: Diff Script Generation
 

@@ -1,6 +1,6 @@
 # DataLinq CLI Documentation
 
-The DataLinq CLI tool lets you inspect configuration, generate models, generate SQL, and create databases from the command line. It is installed as the global `datalinq` tool.
+The DataLinq CLI tool lets you inspect configuration, generate models, generate SQL, create databases, and validate model metadata against a live database from the command line. It is installed as the global `datalinq` tool.
 
 ## Overview
 
@@ -23,21 +23,25 @@ graph TD
         CLI -- command --> CreateDB["create-database<br/><i>Create target database</i>"]
         CLI -- command --> CreateSQL["create-sql<br/><i>Generate schema SQL script</i>"]
         CLI -- command --> CreateModels["create-models<br/><i>Generate models from DB</i>"]
+        CLI -- command --> Validate["validate<br/><i>Report schema drift</i>"]
         CLI -- command --> ListCmd["list<br/><i>List configured databases</i>"]
 
         CreateDB -- Options --> CD_Opts["-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
         CreateSQL -- Options --> CS_Opts["<b>-o, --output path</b> (Required)<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
         CreateModels -- Options --> CM_Opts["--skip-source<br/>--overwrite-types<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
+        Validate -- Options --> Val_Opts["--output text|json<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
         ListCmd -- Options --> List_Opts["(Uses global options)"]
 
         CLI:::ToolStyle
         CreateDB:::CommandStyle
         CreateSQL:::CommandStyle
         CreateModels:::CommandStyle
+        Validate:::CommandStyle
         ListCmd:::CommandStyle
         CD_Opts:::OptionsStyle
         CS_Opts:::OptionsStyle
         CM_Opts:::OptionsStyle
+        Val_Opts:::OptionsStyle
         List_Opts:::OptionsStyle
         GlobalOpts:::OptionsStyle
         ConfigFile:::FileStyle
@@ -181,7 +185,48 @@ datalinq create-models [options]
 
 ---
 
-### 4. list
+### 4. validate
+
+**Purpose:**  
+Loads the configured C# model metadata, reads live database metadata through the selected provider, and reports schema drift without applying changes.
+
+**Usage:**  
+```bash
+datalinq validate [options]
+```
+
+**Options:**
+
+- **--output**  
+  *Description:* Output format. Supported values are `text` and `json`.  
+  *Default:* `text`
+
+- **-d, --datasource**  
+  *Description:* Name of the database instance on the server or the file on disk.  
+  *Optional*
+
+- **-n, --name**  
+  *Description:* The name as defined in the DataLinq configuration file.  
+  *Optional*
+
+- **-t, --type**  
+  *Description:* Specifies the database connection type (e.g., MySQL, MariaDB, SQLite).  
+  *Optional*
+
+- General options (`-v, --verbose` and `-c, --config`) are also available.
+
+**Exit codes:**
+
+- `0`: validation completed and no schema drift was detected
+- `1`: validation completed and schema drift was detected
+- `2`: command, configuration, connection, model parsing, or metadata loading failed
+
+**Important:**  
+`validate` is read-only. It reports drift; it does not generate migration scripts or apply schema changes.
+
+---
+
+### 5. list
 
 **Purpose:**  
 Lists all databases defined in your DataLinq configuration file.
@@ -225,6 +270,16 @@ datalinq list [options]
   datalinq create-models -n MyDatabase --overwrite-types
   ```
 
+- **Validating Models Against a Live Database:**
+  ```bash
+  datalinq validate -n MyDatabase -t SQLite
+  ```
+
+- **Validating with JSON Output:**
+  ```bash
+  datalinq validate -n MyDatabase --output json
+  ```
+
 - **Listing Databases from Config:**
   ```bash
   datalinq list -c ./datalinq.json -v
@@ -248,3 +303,6 @@ datalinq list [options]
 
 - **Running `create-models`:**  
   This command writes generated output directly to the configured destination directory. Treat it as a refresh of generated code, not as a preview command.
+
+- **Running `validate`:**  
+  This command reads live database metadata and can return exit code `1` for real schema drift even when the command itself succeeds. Treat exit code `1` as a validation result, not a CLI crash.

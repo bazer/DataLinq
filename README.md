@@ -88,6 +88,14 @@ Generate your data models directly from your database schema:
 datalinq create-models -n AppDb
 ```
 
+Validate your configured models against the live database:
+
+```bash
+datalinq validate -n AppDb
+```
+
+`validate` exits with `0` when no drift is found, `1` when schema drift is detected, and `2` for command or configuration failures. Use `--output json` when wiring the result into automation.
+
 If your config contains more than one database, pass `-n`.
 If the selected database contains more than one connection type, pass `-t`.
 

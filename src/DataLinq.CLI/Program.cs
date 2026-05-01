@@ -1,12 +1,13 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using CommandLine;
 using DataLinq.Config;
 using DataLinq.MariaDB;
 using DataLinq.MySql;
 using DataLinq.SQLite;
 using DataLinq.Tools;
-using ThrowAway;
 
 namespace DataLinq.CLI;
 
@@ -32,6 +33,13 @@ static class Program
 
         [Option("overwrite-types", Required = false, HelpText = "Force overwriting C# property types in existing models with types inferred from the database schema.")]
         public bool OverwriteTypes { get; set; }
+    }
+
+    [Verb("validate", HelpText = "Validate configured model metadata against a live database.")]
+    public class ValidateOptions : CreateOptions
+    {
+        [Option("output", Required = false, Default = "text", HelpText = "Output format: text or json.")]
+        public string Output { get; set; } = "text";
     }
 
     public class CreateOptions : Options
@@ -66,9 +74,10 @@ static class Program
     static DataLinqConfig ConfigFile;
     static string ConfigBasePath => ConfigFile.BasePath;
 
-    static public bool ReadConfig()
+    static public bool ReadConfig(Action<string>? log = null)
     {
-        var config = DataLinqConfig.FindAndReadConfigs(ConfigPath, Console.WriteLine);
+        var configLog = log ?? Console.WriteLine;
+        var config = DataLinqConfig.FindAndReadConfigs(ConfigPath, configLog);
 
         if (config.HasFailed)
         {
@@ -76,7 +85,7 @@ static class Program
             return false;
         }
 
-        Console.WriteLine();
+        configLog("");
         ConfigFile = config.Value;
 
         return true;
@@ -88,9 +97,10 @@ static class Program
         MariaDBProvider.RegisterProvider();
         SQLiteProvider.RegisterProvider();
 
+        var exitCode = 0;
 
         var parserResult = Parser.Default
-            .ParseArguments<Options, CreateModelsOptions, CreateSqlOptions, CreateDatabaseOptions, ListOptions>(args);
+            .ParseArguments<Options, CreateModelsOptions, CreateSqlOptions, CreateDatabaseOptions, ValidateOptions, ListOptions>(args);
 
         parserResult
             .WithParsed<Options>(options =>
@@ -110,7 +120,10 @@ static class Program
             .WithParsed<ListOptions>(options =>
             {
                 if (ReadConfig() == false)
+                {
+                    exitCode = 2;
                     return;
+                }
 
 
                 Console.WriteLine($"Databases in config:");
@@ -131,6 +144,7 @@ static class Program
                     if (result.HasFailed)
                     {
                         Console.WriteLine(result.Failure);
+                        exitCode = 2;
                         return;
                     }
 
@@ -140,12 +154,16 @@ static class Program
             .WithParsed<CreateModelsOptions>(options =>
             {
                 if (ReadConfig() == false)
+                {
+                    exitCode = 2;
                     return;
+                }
 
                 var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
                     Console.WriteLine(result.Failure);
+                    exitCode = 2;
                     return;
                 }
 
@@ -164,18 +182,23 @@ static class Program
                 if (databaseMetadata.HasFailed)
                 {
                     Console.WriteLine(databaseMetadata.Failure);
+                    exitCode = 2;
                     return;
                 }
             })
             .WithParsed<CreateSqlOptions>(options =>
             {
                 if (ReadConfig() == false)
+                {
+                    exitCode = 2;
                     return;
+                }
 
                 var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
                     Console.WriteLine(result.Failure);
+                    exitCode = 2;
                     return;
                 }
 
@@ -189,18 +212,23 @@ static class Program
                 if (sql.HasFailed)
                 {
                     Console.WriteLine(sql.Failure);
+                    exitCode = 2;
                     return;
                 }
             })
             .WithParsed<CreateDatabaseOptions>(options =>
             {
                 if (ReadConfig() == false)
+                {
+                    exitCode = 2;
                     return;
+                }
 
                 var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
                 if (result.HasFailed)
                 {
                     Console.WriteLine(result.Failure);
+                    exitCode = 2;
                     return;
                 }
 
@@ -209,12 +237,126 @@ static class Program
                 {
                 });
 
-                generator.Create(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
+                var createResult = generator.Create(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
+                if (createResult.HasFailed)
+                {
+                    Console.WriteLine(createResult.Failure);
+                    exitCode = 2;
+                    return;
+                }
+            })
+            .WithParsed<ValidateOptions>(options =>
+            {
+                exitCode = Validate(options);
             })
             .WithNotParsed(options =>
             {
                 Console.WriteLine($"Usage: datalinq [command] -n name");
+                exitCode = 2;
                 //Console.WriteLine(HelpText.AutoBuild(parserResult, _ => _, _ => _));
             });
+
+        Environment.ExitCode = exitCode;
+    }
+
+    private static int Validate(ValidateOptions options)
+    {
+        var output = ParseValidationOutput(options.Output);
+        if (output == null)
+        {
+            Console.WriteLine("Invalid output format. Expected 'text' or 'json'.");
+            return 2;
+        }
+
+        var configLog = output == ValidationOutput.Json && !options.Verbose
+            ? new Action<string>(_ => { })
+            : Console.WriteLine;
+
+        if (ReadConfig(configLog) == false)
+            return 2;
+
+        var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
+        if (result.HasFailed)
+        {
+            Console.WriteLine(result.Failure);
+            return 2;
+        }
+
+        var (_, connection) = result.Value;
+        var validator = new SchemaValidator(options.Verbose ? Console.WriteLine : _ => { });
+        var validation = validator.Validate(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
+        if (validation.HasFailed)
+        {
+            Console.WriteLine(validation.Failure);
+            return 2;
+        }
+
+        if (output == ValidationOutput.Json)
+            WriteValidationJson(validation.Value);
+        else
+            WriteValidationText(validation.Value);
+
+        return validation.Value.HasDifferences ? 1 : 0;
+    }
+
+    private static ValidationOutput? ParseValidationOutput(string value)
+    {
+        return value?.ToLowerInvariant() switch
+        {
+            "text" => ValidationOutput.Text,
+            "json" => ValidationOutput.Json,
+            _ => null
+        };
+    }
+
+    private static void WriteValidationText(SchemaValidationRunResult result)
+    {
+        Console.WriteLine($"Validation target: {result.DatabaseName} [{result.DatabaseType}] ({result.DataSourceName})");
+        Console.WriteLine($"Model tables: {result.ModelTableCount}; database tables: {result.DatabaseTableCount}");
+
+        if (!result.HasDifferences)
+        {
+            Console.WriteLine("No schema drift detected.");
+            return;
+        }
+
+        Console.WriteLine($"Schema drift detected: {result.Differences.Count} difference(s).");
+        foreach (var difference in result.Differences)
+        {
+            Console.WriteLine(
+                $"{difference.Severity} {difference.Kind} {difference.Path} [{difference.Safety}]: {difference.Message}");
+        }
+    }
+
+    private static void WriteValidationJson(SchemaValidationRunResult result)
+    {
+        var payload = new
+        {
+            database = result.DatabaseName,
+            databaseType = result.DatabaseType.ToString(),
+            dataSource = result.DataSourceName,
+            modelTableCount = result.ModelTableCount,
+            databaseTableCount = result.DatabaseTableCount,
+            hasDifferences = result.HasDifferences,
+            differences = result.Differences.Select(difference => new
+            {
+                kind = difference.Kind.ToString(),
+                severity = difference.Severity.ToString(),
+                safety = difference.Safety.ToString(),
+                path = difference.Path,
+                message = difference.Message
+            })
+        };
+
+        Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        }));
+    }
+
+    private enum ValidationOutput
+    {
+        Text,
+        Json
     }
 }

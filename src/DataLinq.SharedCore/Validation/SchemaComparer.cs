@@ -504,7 +504,7 @@ public sealed class SchemaComparer
             _ => attribute.Value.ToString()
         };
 
-        return $"{attribute.GetType().Name}|{value}|{attribute.CodeExpression}";
+        return $"{attribute.GetType().Name}|{value}";
     }
 
     private static string NormalizeSql(string sql) =>

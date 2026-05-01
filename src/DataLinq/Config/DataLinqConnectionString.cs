@@ -90,13 +90,14 @@ public record DataLinqConnectionString
 
     public DataLinqConnectionString ChangeValue(string key, string value)
     {
+        var normalizedKey = key.ToLowerInvariant();
         var builder = new DbConnectionStringBuilder
         {
             { key, value }
         };
 
         foreach (var entry in Entries)
-            if (entry.Key != key)
+            if (entry.Key != normalizedKey)
                 builder.Add(entry.Key, entry.Value);
 
         return new DataLinqConnectionString(builder.ToString());

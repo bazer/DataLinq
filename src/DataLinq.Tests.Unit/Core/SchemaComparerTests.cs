@@ -106,6 +106,22 @@ public class SchemaComparerTests
     }
 
     [Test]
+    public async Task Compare_DefaultCodeExpressionDifference_DoesNotCreateSchemaDrift()
+    {
+        var model = CreateDatabase(("account", ["id", "display_name"]));
+        var database = CreateDatabase(("account", ["id", "display_name"]));
+        var modelColumn = FindColumn(model, "account", "display_name");
+        var databaseColumn = FindColumn(database, "account", "display_name");
+
+        modelColumn.ValueProperty.SetAttributes([new DefaultAttribute("anonymous").SetCodeExpression("\"anonymous\"")]);
+        databaseColumn.ValueProperty.SetAttributes([new DefaultAttribute("anonymous")]);
+
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
+
+        await Assert.That(differences).IsEmpty();
+    }
+
+    [Test]
     public async Task Compare_Indexes_ReturnsAdditiveAndDestructiveDifferences()
     {
         var model = CreateDatabase(("account", ["id", "accounting_year", "account_number"]));
