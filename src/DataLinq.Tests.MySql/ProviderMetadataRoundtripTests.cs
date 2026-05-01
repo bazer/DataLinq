@@ -6,6 +6,7 @@ using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.Testing;
+using DataLinq.Validation;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.MySql;
@@ -42,8 +43,60 @@ public class ProviderMetadataRoundtripTests
             "DataLinq.Tests.Roundtrip",
             new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
         var differences = MetadataRoundtripComparison.CompareSupportedSubset(firstRead, secondRead, provider.DatabaseType);
+        var validationDifferences = SchemaComparer.Compare(firstRead, secondRead, provider.DatabaseType);
 
         await Assert.That(differences).IsEmpty();
+        await Assert.That(validationDifferences).IsEmpty();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_LiveSchemaDrift_ProducesValidationDifferences(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_LiveSchemaDrift_ProducesValidationDifferences),
+            """
+            CREATE TABLE `account` (
+                `id` INT PRIMARY KEY AUTO_INCREMENT,
+                `display_name` VARCHAR(64) NOT NULL DEFAULT 'anonymous'
+            );
+            """);
+
+        var model = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+
+        schema.ExecuteNonQuery("ALTER TABLE `account` ADD COLUMN `nickname` VARCHAR(64) NULL;");
+        schema.ExecuteNonQuery("CREATE INDEX `idx_account_nickname` ON `account` (`nickname`);");
+        schema.ExecuteNonQuery(
+            """
+            CREATE TABLE `audit_log` (
+                `id` INT PRIMARY KEY AUTO_INCREMENT
+            );
+            """);
+
+        var database = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var differences = SchemaComparer.Compare(model, database, provider.DatabaseType);
+
+        await Assert.That(differences.Select(x => x.Kind).ToArray())
+            .IsEquivalentTo([
+                SchemaDifferenceKind.ExtraColumn,
+                SchemaDifferenceKind.ExtraIndex,
+                SchemaDifferenceKind.ExtraTable
+            ]);
+        await Assert.That(differences.Single(x => x.Kind == SchemaDifferenceKind.ExtraColumn).Path)
+            .IsEqualTo("account.nickname");
+        await Assert.That(differences.Single(x => x.Kind == SchemaDifferenceKind.ExtraIndex).Path)
+            .IsEqualTo("account.idx_account_nickname");
+        await Assert.That(differences.Single(x => x.Kind == SchemaDifferenceKind.ExtraTable).Path)
+            .IsEqualTo("audit_log");
     }
 
     [Test]

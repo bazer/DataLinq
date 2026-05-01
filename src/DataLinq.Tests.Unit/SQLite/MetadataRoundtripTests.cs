@@ -10,6 +10,7 @@ using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
 using DataLinq.Testing;
+using DataLinq.Validation;
 using Microsoft.Data.Sqlite;
 using ThrowAway.Extensions;
 
@@ -30,8 +31,41 @@ public class MetadataRoundtripTests
         using var generated = SqliteRoundtripFixture.Create(generatedSql.Text);
         var secondRead = generated.ParseDatabase();
         var differences = MetadataRoundtripComparison.CompareSupportedSubset(firstRead, secondRead, DatabaseType.SQLite);
+        var validationDifferences = SchemaComparer.Compare(firstRead, secondRead, DatabaseType.SQLite);
 
         await Assert.That(differences).IsEmpty();
+        await Assert.That(validationDifferences).IsEmpty();
+    }
+
+    [Test]
+    public async Task ParseDatabase_LiveSchemaDrift_ProducesValidationDifferences()
+    {
+        using var fixture = SqliteRoundtripFixture.Create(
+            """
+            CREATE TABLE "account" (
+                "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+                "display_name" TEXT NOT NULL DEFAULT 'anonymous'
+            );
+            """);
+
+        var model = fixture.ParseDatabase();
+        fixture.ExecuteNonQuery("ALTER TABLE \"account\" ADD COLUMN \"nickname\" TEXT;");
+        fixture.ExecuteNonQuery(
+            """
+            CREATE TABLE "audit_log" (
+                "id" INTEGER PRIMARY KEY AUTOINCREMENT
+            );
+            """);
+
+        var database = fixture.ParseDatabase();
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
+
+        await Assert.That(differences.Select(x => x.Kind).ToArray())
+            .IsEquivalentTo([SchemaDifferenceKind.ExtraColumn, SchemaDifferenceKind.ExtraTable]);
+        await Assert.That(differences.Single(x => x.Kind == SchemaDifferenceKind.ExtraColumn).Path)
+            .IsEqualTo("account.nickname");
+        await Assert.That(differences.Single(x => x.Kind == SchemaDifferenceKind.ExtraTable).Path)
+            .IsEqualTo("audit_log");
     }
 
     [Test]
@@ -279,6 +313,15 @@ public class MetadataRoundtripTests
                     DatabasePath,
                     $"Data Source={DatabasePath}")
                 .ValueOrException();
+        }
+
+        public void ExecuteNonQuery(string statement)
+        {
+            using var connection = new SqliteConnection($"Data Source={DatabasePath}");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = statement;
+            command.ExecuteNonQuery();
         }
 
         public void Dispose()

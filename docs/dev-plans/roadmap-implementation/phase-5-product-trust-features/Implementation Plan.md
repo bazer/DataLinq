@@ -190,6 +190,14 @@ Tasks:
 2. Add or extend MySQL/MariaDB metadata-reader tests for validation-relevant fields.
 3. Document provider-specific fields that are intentionally ignored or normalized.
 
+Implemented slice:
+
+- SQLite metadata roundtrip tests now assert the production `SchemaComparer` accepts read/generated/read metadata for the supported validation subset
+- SQLite live drift tests mutate a parsed database and verify extra table/column drift is reported from metadata rereads
+- MySQL/MariaDB metadata roundtrip tests now assert the production `SchemaComparer` accepts read/generated/read metadata for the supported validation subset
+- MySQL/MariaDB live drift tests mutate parsed server schemas and verify extra table, column, and index drift is reported from metadata rereads
+- SQLite still intentionally ignores checks/comments; MySQL/MariaDB compare provider-scoped checks/comments when metadata supplies them
+
 ## Workstream D: CLI Validation Surface
 
 Goals:

@@ -34,8 +34,9 @@ The first validation slice has started:
 - provider capability rules from Phase 4 are encoded in `SchemaValidationCapabilities`
 - the pure comparer reports table and column presence drift
 - the comparer also reports supported column shape, simple/unique index, foreign-key, MySQL/MariaDB check, and MySQL/MariaDB comment drift
+- SQLite and MySQL/MariaDB metadata tests now verify the comparer against live/read metadata and deliberate drift
 - no CLI validation command exists yet
-- provider-backed drift tests and CLI validation output still need staged implementation
+- CLI validation output still needs staged implementation
 
 ## Documents
 
