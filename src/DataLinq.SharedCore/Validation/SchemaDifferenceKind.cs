@@ -5,5 +5,18 @@ public enum SchemaDifferenceKind
     MissingTable,
     ExtraTable,
     MissingColumn,
-    ExtraColumn
+    ExtraColumn,
+    ColumnTypeMismatch,
+    ColumnNullabilityMismatch,
+    ColumnPrimaryKeyMismatch,
+    ColumnAutoIncrementMismatch,
+    ColumnDefaultMismatch,
+    MissingIndex,
+    ExtraIndex,
+    MissingForeignKey,
+    ExtraForeignKey,
+    MissingCheck,
+    ExtraCheck,
+    TableCommentMismatch,
+    ColumnCommentMismatch
 }

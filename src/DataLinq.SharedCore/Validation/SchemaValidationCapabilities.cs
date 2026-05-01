@@ -11,6 +11,7 @@ public sealed class SchemaValidationCapabilities
         bool compareTables,
         bool compareColumns,
         bool compareColumnOrder,
+        bool compareColumnTypes,
         bool compareNullability,
         bool comparePrimaryKeys,
         bool compareAutoIncrement,
@@ -26,6 +27,7 @@ public sealed class SchemaValidationCapabilities
         CompareTables = compareTables;
         CompareColumns = compareColumns;
         CompareColumnOrder = compareColumnOrder;
+        CompareColumnTypes = compareColumnTypes;
         CompareNullability = compareNullability;
         ComparePrimaryKeys = comparePrimaryKeys;
         CompareAutoIncrement = compareAutoIncrement;
@@ -42,6 +44,7 @@ public sealed class SchemaValidationCapabilities
     public bool CompareTables { get; }
     public bool CompareColumns { get; }
     public bool CompareColumnOrder { get; }
+    public bool CompareColumnTypes { get; }
     public bool CompareNullability { get; }
     public bool ComparePrimaryKeys { get; }
     public bool CompareAutoIncrement { get; }
@@ -66,10 +69,11 @@ public sealed class SchemaValidationCapabilities
                     compareTables: true,
                     compareColumns: true,
                     compareColumnOrder: false,
-                    compareNullability: false,
-                    comparePrimaryKeys: false,
-                    compareAutoIncrement: false,
-                    compareDefaults: false,
+                    compareColumnTypes: true,
+                    compareNullability: true,
+                    comparePrimaryKeys: true,
+                    compareAutoIncrement: true,
+                    compareDefaults: true,
                     compareIndexes: true,
                     compareForeignKeys: true,
                     compareChecks: false,
@@ -84,10 +88,11 @@ public sealed class SchemaValidationCapabilities
                     compareTables: true,
                     compareColumns: true,
                     compareColumnOrder: false,
-                    compareNullability: false,
-                    comparePrimaryKeys: false,
-                    compareAutoIncrement: false,
-                    compareDefaults: false,
+                    compareColumnTypes: true,
+                    compareNullability: true,
+                    comparePrimaryKeys: true,
+                    compareAutoIncrement: true,
+                    compareDefaults: true,
                     compareIndexes: true,
                     compareForeignKeys: true,
                     compareChecks: true,
@@ -101,6 +106,7 @@ public sealed class SchemaValidationCapabilities
                     compareTables: true,
                     compareColumns: true,
                     compareColumnOrder: false,
+                    compareColumnTypes: false,
                     compareNullability: false,
                     comparePrimaryKeys: false,
                     compareAutoIncrement: false,

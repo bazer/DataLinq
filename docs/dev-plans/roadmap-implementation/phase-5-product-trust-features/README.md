@@ -32,9 +32,10 @@ The missing core is not DDL generation. The missing core is a provider-neutral c
 The first validation slice has started:
 
 - provider capability rules from Phase 4 are encoded in `SchemaValidationCapabilities`
-- the initial pure comparer reports table and column presence drift
+- the pure comparer reports table and column presence drift
+- the comparer also reports supported column shape, simple/unique index, foreign-key, MySQL/MariaDB check, and MySQL/MariaDB comment drift
 - no CLI validation command exists yet
-- type, nullability, default, index, and relation drift comparison still need staged implementation
+- provider-backed drift tests and CLI validation output still need staged implementation
 
 ## Documents
 

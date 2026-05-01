@@ -165,13 +165,17 @@ Tasks:
 3. Add nullability, auto-increment, type, default, index, and relation comparison in staged slices.
 4. Add unit tests using in-memory metadata fixtures.
 
-Initial implemented slice:
+Implemented slices:
 
 - `SchemaDifference` records kind, severity, safety, path, message, and optional model/database definitions
 - the pure comparer reports missing/extra tables and missing/extra columns deterministically
 - missing model objects in the database are classified as additive errors
 - extra database objects are classified as destructive warnings because removing them would be unsafe
-- later slices should extend this same model to type/nullability/default/index/relation drift rather than adding a second reporting shape
+- column type, nullability, primary-key, auto-increment, and default drift are reported as ambiguous errors because the required fix may be data-dependent
+- simple and unique index drift is compared by supported index identity: name, characteristic, type, and ordered database columns
+- foreign-key drift is compared by supported relation identity: constraint name, foreign-key table/columns, and candidate-key table/columns
+- MySQL/MariaDB check constraints and table/column comments are compared as provider-scoped metadata; SQLite checks and comments remain intentionally ignored by capability rules
+- signature changes for indexes, checks, and foreign keys are represented as missing plus extra metadata rather than guessed as renames
 
 ## Workstream C: Provider Metadata Verification
 
