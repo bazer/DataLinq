@@ -149,6 +149,8 @@ public class SqlGeneration
         => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(characteristic) ? "" : $"{characteristic} ")}INDEX {QuotedString(name)} {ParenthesisList(columns)} USING {type}");
     public SqlGeneration PrimaryKey(params string[] columns)
         => NewRow().Indent().Add($"PRIMARY KEY {ParenthesisList(columns)}");
+    public SqlGeneration Check(string name, string expression)
+        => NewRow().Indent().Add($"CONSTRAINT {QuotedString(name)} CHECK {ParenthesizeCheckExpression(expression)}");
     public virtual SqlGeneration UniqueKey(string name, params string[] columns)
         => NewRow().Indent().Add($"UNIQUE KEY {QuotedString(name)} {ParenthesisList(columns)}");
     public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
@@ -162,4 +164,30 @@ public class SqlGeneration
         => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(constraintName) ? "" : $"CONSTRAINT {QuotedString(constraintName)} ")}FOREIGN KEY {QuotedParenthesis(from)} REFERENCES {QuotedString(table)} {QuotedParenthesis(to)} {OnUpdateDelete(restrict)}");
     public string OnUpdateDelete(bool restrict)
         => restrict ? "ON UPDATE RESTRICT ON DELETE RESTRICT" : "ON UPDATE NO ACTION ON DELETE NO ACTION";
+
+    private string ParenthesizeCheckExpression(string expression)
+    {
+        var trimmed = expression.Trim();
+
+        return trimmed.StartsWith("(") && trimmed.EndsWith(")") && HasBalancedOuterParentheses(trimmed)
+            ? trimmed
+            : Parenthesis(trimmed);
+    }
+
+    private static bool HasBalancedOuterParentheses(string value)
+    {
+        var depth = 0;
+        for (int i = 0; i < value.Length; i++)
+        {
+            if (value[i] == '(')
+                depth++;
+            else if (value[i] == ')')
+                depth--;
+
+            if (depth == 0 && i < value.Length - 1)
+                return false;
+        }
+
+        return depth == 0;
+    }
 }

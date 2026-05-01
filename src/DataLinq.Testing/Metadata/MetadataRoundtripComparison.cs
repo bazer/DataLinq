@@ -54,6 +54,7 @@ public static class MetadataRoundtripComparison
 
             AddIfDifferent(differences, $"{path}.type", expectedTable.Type, actualTable.Type);
             AddIfDifferent(differences, $"{path}.comment", FormatComment(expectedTable.Model.Attributes, databaseType), FormatComment(actualTable.Model.Attributes, databaseType));
+            AddIfDifferent(differences, $"{path}.checks", FormatChecks(expectedTable.Model.Attributes, databaseType), FormatChecks(actualTable.Model.Attributes, databaseType));
             CompareColumns(expectedTable, actualTable, databaseType, differences);
             CompareIndexes(expectedTable, actualTable, differences);
             CompareRelationProperties(expectedTable.Model, actualTable.Model, differences);
@@ -223,6 +224,27 @@ public static class MetadataRoundtripComparison
         return effectiveComments.Count == 0
             ? null
             : string.Join("\n", effectiveComments);
+    }
+
+    private static string? FormatChecks(IEnumerable<Attribute> attributes, DatabaseType databaseType)
+    {
+        var checks = attributes.OfType<CheckAttribute>().ToList();
+        var providerChecks = checks
+            .Where(x => x.DatabaseType == databaseType)
+            .ToList();
+        var effectiveChecks = providerChecks.Count > 0
+            ? providerChecks
+            : checks
+                .Where(x => x.DatabaseType == DatabaseType.Default)
+                .ToList();
+
+        return effectiveChecks.Count == 0
+            ? null
+            : string.Join(
+                "\n",
+                effectiveChecks
+                    .Select(x => $"{x.Name}|{NormalizeSql(x.Expression)}")
+                    .OrderBy(x => x, StringComparer.Ordinal));
     }
 
     private static string? NormalizeSql(string? sql) =>

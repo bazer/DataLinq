@@ -186,6 +186,22 @@ public class SyntaxParser
             return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 1 or 2 arguments");
         }
 
+        if (name == "Check")
+        {
+            if (arguments.Count == 2)
+                return new CheckAttribute(arguments[0], arguments[1]);
+
+            if (arguments.Count == 3)
+            {
+                if (!Enum.TryParse(arguments[0].Split('.').Last(), out DatabaseType databaseType))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid DatabaseType value '{arguments[0]}'");
+
+                return new CheckAttribute(databaseType, arguments[1], arguments[2]);
+            }
+
+            return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 2 or 3 arguments");
+        }
+
         if (name == "Definition")
         {
             if (arguments.Count != 1)

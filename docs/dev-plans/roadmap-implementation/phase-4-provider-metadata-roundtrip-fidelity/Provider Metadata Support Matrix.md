@@ -48,7 +48,7 @@ The comparison is deliberately lower-level than the future schema validation com
 | Multiple foreign keys to the same table | Partially supported | Partially supported | Partially supported | Metadata import, generated relation names, and transaction-scoped runtime relation loading are covered for duplicate same-target FKs. Broader composite-key grouping is still pending. |
 | Composite foreign keys | Partially supported | Partially supported | Partially supported | Current per-column representation is not strong enough for validation. Constraint-level metadata is likely needed later in Phase 4. |
 | Relation property names | Partially supported | Partially supported | Partially supported | Duplicate same-target candidate-side names now derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Composite foreign-key naming still needs the constraint-level metadata work. |
-| Check constraints | Unsupported | Unsupported | Unsupported | Initial implementation should preserve raw provider expressions with `DatabaseType`; structured check metadata is deferred. |
+| Check constraints | Supported | Supported | Unsupported | MySQL/MariaDB check clauses import into raw provider-specific `[Check(DatabaseType, name, expression)]` model attributes, emit back to provider SQL, and roundtrip through the supported-subset comparison. Structured, provider-neutral check metadata is deferred. SQLite check parsing remains intentionally unsupported. |
 | Table comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` model attributes, generated C#, generated SQL `COMMENT` table options, and provider roundtrip comparison. SQLite has no native table comments. |
 | Column comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` property attributes, generated C#, generated SQL column `COMMENT` clauses, and provider roundtrip comparison. SQLite has no native column comments. |
 | Identifier casing comparison | Unknown | Unknown | Unknown | Validation needs provider-aware rules; this phase should document the support boundary. |
@@ -80,6 +80,7 @@ Shared metadata and generation:
 - `src/DataLinq.SharedCore/Metadata/ColumnIndex.cs`
 - `src/DataLinq.SharedCore/Metadata/RelationDefinition.cs`
 - `src/DataLinq.SharedCore/Metadata/RelationPart.cs`
+- `src/DataLinq.SharedCore/Attributes/CheckAttribute.cs`
 - `src/DataLinq.SharedCore/Attributes/CommentAttribute.cs`
 - `src/DataLinq.SharedCore/Factories/MetadataFactory.cs`
 - `src/DataLinq.SharedCore/Factories/Models/ModelFileFactory.cs`

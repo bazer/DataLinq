@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
@@ -81,22 +82,43 @@ public class GeneratorFileFactoryTests
         await Assert.That(generatedFile.contents.Contains("this.Count = 1;")).IsFalse();
     }
 
+    [Test]
+    public async Task CreateModelFiles_Comments_EmitXmlDocsInGeneratedTypes()
+    {
+        var database = CreateDatabaseWithDefaultValue(
+            propertyName: "Name",
+            propertyType: new CsTypeDeclaration(typeof(string)),
+            defaultValue: "generated",
+            includeComments: true);
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains("/// Generated model &amp; docs");
+        await Assert.That(generatedFile.contents).Contains("/// Generated property &lt;name&gt;");
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(
         string propertyName,
         CsTypeDeclaration propertyType,
         object defaultValue,
-        EnumProperty? enumProperty = null)
+        EnumProperty? enumProperty = null,
+        bool includeComments = false)
     {
         var database = new DatabaseDefinition("GeneratorDb", new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class));
         var model = new ModelDefinition(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class));
+        if (includeComments)
+            model.AddAttribute(new CommentAttribute("Generated model & docs"));
+
         var table = new TableDefinition("generator_table");
         var tableModel = new TableModel("GeneratorModels", database, model, table);
 
-        var property = new ValueProperty(
-            propertyName,
-            propertyType,
-            model,
-            [new ColumnAttribute(propertyName.ToLowerInvariant()), new DefaultAttribute(defaultValue)]);
+        var propertyAttributes = new Attribute[] { new ColumnAttribute(propertyName.ToLowerInvariant()), new DefaultAttribute(defaultValue) };
+        if (includeComments)
+            propertyAttributes = [.. propertyAttributes, new CommentAttribute("Generated property <name>")];
+
+        var property = new ValueProperty(propertyName, propertyType, model, propertyAttributes);
 
         if (enumProperty.HasValue)
             property.SetEnumProperty(enumProperty.Value);

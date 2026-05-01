@@ -161,6 +161,56 @@ public class ProviderMetadataRoundtripTests
         await Assert.That(differences).IsEmpty();
     }
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_CheckConstraints_RoundTripAsRawProviderAttributes(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_CheckConstraints_RoundTripAsRawProviderAttributes),
+            """
+            CREATE TABLE `checked_account` (
+                `id` INT PRIMARY KEY,
+                `amount` INT NOT NULL,
+                `status` VARCHAR(16) NOT NULL,
+                CONSTRAINT `CK_checked_account_amount` CHECK (`amount` >= 0),
+                CONSTRAINT `CK_checked_account_status` CHECK (`status` IN ('active', 'hold'))
+            );
+            """);
+
+        var database = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var account = database.TableModels.Single(x => x.Table.DbName == "checked_account");
+        var amountCheck = account.Model.Attributes.OfType<CheckAttribute>().Single(x => x.Name == "CK_checked_account_amount");
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "CheckedAccount.cs");
+        var generatedSql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(provider.DatabaseType)
+            .GetCreateTables(database, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = ServerSchemaDatabase.Create(
+            provider,
+            $"{nameof(ParseDatabase_CheckConstraints_RoundTripAsRawProviderAttributes)}_Generated",
+            generatedSql.Text);
+        var secondRead = generated.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(database, secondRead, provider.DatabaseType);
+
+        await Assert.That(amountCheck.DatabaseType).IsEqualTo(provider.DatabaseType);
+        await Assert.That(amountCheck.Expression).Contains("amount");
+        await Assert.That(generatedFile.contents).Contains($"[Check(DatabaseType.{provider.DatabaseType}, \"CK_checked_account_amount\",");
+        await Assert.That(generatedSql.Text).Contains("CONSTRAINT `CK_checked_account_amount` CHECK");
+        await Assert.That(differences).IsEmpty();
+    }
+
     private static readonly string[] FirstSliceSchemaStatements =
     [
         """

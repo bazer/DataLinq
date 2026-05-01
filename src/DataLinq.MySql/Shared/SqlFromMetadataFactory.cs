@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
@@ -105,6 +106,9 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
         foreach (var index in table.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
             sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());
+
+        foreach (var check in GetCheckAttributes(table.Model.Attributes))
+            sql.Check(check.Name, check.Expression);
     }
 
     public abstract DatabaseColumnType GetDbType(ColumnDefinition column);
@@ -174,6 +178,18 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
         return typedComment?.Text
             ?? comments.FirstOrDefault(x => x.DatabaseType == DatabaseType.Default)?.Text;
+    }
+
+    private IEnumerable<CheckAttribute> GetCheckAttributes(Attribute[] attributes)
+    {
+        var checks = attributes.OfType<CheckAttribute>().ToList();
+        var typedChecks = checks
+            .Where(x => x.DatabaseType == DatabaseType)
+            .ToList();
+
+        return typedChecks.Count > 0
+            ? typedChecks
+            : checks.Where(x => x.DatabaseType == DatabaseType.Default);
     }
 
     private static string QuoteSqlString(string value) => $"'{value.Replace("'", "''")}'";

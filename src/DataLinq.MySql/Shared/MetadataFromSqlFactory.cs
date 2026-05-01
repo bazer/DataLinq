@@ -10,6 +10,7 @@ using DataLinq.Extensions.Helpers;
 using DataLinq.MariaDB;
 using DataLinq.Metadata;
 using DataLinq.MySql.Shared;
+using MySqlConnector;
 using ThrowAway;
 
 namespace DataLinq.MySql;
@@ -108,6 +109,43 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
         return column;
     }
+
+    protected void ParseCheckConstraints(DatabaseDefinition database, DatabaseAccess informationSchemaAccess)
+    {
+        using var command = new MySqlCommand(
+            """
+            SELECT
+                tc.TABLE_NAME,
+                cc.CONSTRAINT_NAME,
+                cc.CHECK_CLAUSE
+            FROM information_schema.TABLE_CONSTRAINTS tc
+            JOIN information_schema.CHECK_CONSTRAINTS cc
+                ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+                AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+            WHERE tc.TABLE_SCHEMA = @schema
+                AND tc.CONSTRAINT_TYPE = 'CHECK'
+            ORDER BY tc.TABLE_NAME, cc.CONSTRAINT_NAME
+            """);
+        command.Parameters.AddWithValue("@schema", database.DbName);
+
+        using var reader = informationSchemaAccess.ExecuteReader(command);
+        var tableNameOrdinal = reader.GetOrdinal("TABLE_NAME");
+        var constraintNameOrdinal = reader.GetOrdinal("CONSTRAINT_NAME");
+        var checkClauseOrdinal = reader.GetOrdinal("CHECK_CLAUSE");
+
+        while (reader.ReadNextRow())
+        {
+            var tableName = reader.GetString(tableNameOrdinal);
+            var constraintName = reader.GetString(constraintNameOrdinal);
+            var checkClause = NormalizeCheckClause(reader.GetString(checkClauseOrdinal));
+            var tableModel = database.TableModels.SingleOrDefault(x => x.Table.DbName == tableName);
+
+            tableModel?.Model.AddAttribute(new CheckAttribute(databaseType, constraintName, checkClause));
+        }
+    }
+
+    private static string NormalizeCheckClause(string checkClause) =>
+        checkClause.Replace(@"\'", "'");
 
     protected DefaultAttribute? ParseDefaultValue(TableDefinition table, ICOLUMNS dbColumns, ValueProperty property)
     {

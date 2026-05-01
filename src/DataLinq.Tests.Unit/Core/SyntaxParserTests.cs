@@ -147,6 +147,28 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_Check()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Check(""CK_positive"", ""`amount` >= 0"")]");
+        var attribute = (CheckAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.DatabaseType).IsEqualTo(DatabaseType.Default);
+        await Assert.That(attribute.Name).IsEqualTo("CK_positive");
+        await Assert.That(attribute.Expression).IsEqualTo("`amount` >= 0");
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_ProviderCheck()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Check(DatabaseType.MySQL, ""CK_positive"", ""`amount` >= 0"")]");
+        var attribute = (CheckAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.DatabaseType).IsEqualTo(DatabaseType.MySQL);
+        await Assert.That(attribute.Name).IsEqualTo("CK_positive");
+        await Assert.That(attribute.Expression).IsEqualTo("`amount` >= 0");
+    }
+
+    [Test]
     public async Task ParseAttributeSyntax_PrimaryKey()
     {
         var (parser, syntax) = GetAttributeSyntax(@"[PrimaryKey]");

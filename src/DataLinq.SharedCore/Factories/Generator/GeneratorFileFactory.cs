@@ -197,6 +197,9 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> WriteInterface(ModelDefinition model, CsTypeDeclaration modelInterface, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps)
     {
+        foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
+            yield return row;
+
         yield return $"{namespaceTab}public partial interface {modelInterface.Name}: IModelInstance<{model.Database.CsType.Name}>";
         yield return namespaceTab + "{";
 
@@ -205,6 +208,9 @@ public class GeneratorFileFactory
             var prefix = valueProperty.EnumProperty != null && valueProperty.EnumProperty.Value.DeclaredInClass
                 ? $"{model.CsType.Name}."
                 : "";
+
+            foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(valueProperty.Attributes), $"{namespaceTab}{tab}"))
+                yield return row;
 
             yield return $"{namespaceTab}{tab}{prefix}{valueProperty.CsType.Name}{GetInterfacePropertyNullable(valueProperty)} {valueProperty.PropertyName} {{ get; }}";
         }
@@ -233,6 +239,9 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> WriteBaseClassPartial(ModelDefinition model, GeneratorFileFactoryOptions options)
     {
+        foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
+            yield return row;
+
         yield return $"{namespaceTab}public abstract partial {(options.UseRecords ? "record" : "class")} {model.CsType.Name}{(model.ModelInstanceInterface != null ? $": {model.ModelInstanceInterface.Value.Name}" : "")}";
         yield return namespaceTab + "{";
 
@@ -301,6 +310,9 @@ public class GeneratorFileFactory
 
     private IEnumerable<string> ImmutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)
     {
+        foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
+            yield return row;
+
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Immutable{model.CsType.Name}(IRowData rowData, IDataSourceAccess dataSource) : {model.CsType.Name}(rowData, dataSource)";
         yield return namespaceTab + "{";
         yield return $"{namespaceTab}{tab}public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new Immutable{model.CsType.Name}(rowData, dataSource);";
@@ -311,6 +323,10 @@ public class GeneratorFileFactory
             var c = valueProperty.Column;
 
             yield return $"{namespaceTab}{tab}private {GetCsTypeName(c.ValueProperty)}{GetImmutableFieldNullable(c.ValueProperty)} _{c.ValueProperty.PropertyName};";
+
+            foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(c.ValueProperty.Attributes), $"{namespaceTab}{tab}"))
+                yield return row;
+
             yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= ({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}(nameof({c.ValueProperty.PropertyName}));";
             yield return $"";
         }
@@ -350,6 +366,9 @@ public class GeneratorFileFactory
 
         if (model.ModelInstanceInterface != null)
             interfaces.Add(model.ModelInstanceInterface.Value.Name);
+
+        foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
+            yield return row;
 
         yield return $"{namespaceTab}public partial {(options.UseRecords ? "record" : "class")} Mutable{model.CsType.Name} : Mutable<{model.CsType.Name}>, {interfaces.ToJoinedString(", ")}";
         yield return namespaceTab + "{";
@@ -409,6 +428,9 @@ public class GeneratorFileFactory
                 : "";
 
             yield return "";
+            foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(c.ValueProperty.Attributes), $"{namespaceTab}{tab}"))
+                yield return row;
+
             yield return $"{namespaceTab}{tab}public {newModifier}virtual {GetMutablePropertyRequired(c.ValueProperty)}{GetCsTypeName(c.ValueProperty)}{nullableAnnotation} {c.ValueProperty.PropertyName}";
             yield return $"{namespaceTab}{tab}" + "{";
             yield return $"{namespaceTab}{tab}{tab}get => ({GetCsTypeName(c.ValueProperty)}{nullableAnnotation})GetValue(nameof({c.ValueProperty.PropertyName})){nullForgivingOperator};";
@@ -629,6 +651,31 @@ public class GeneratorFileFactory
             || MetadataTypeConverter.IsCsTypeNullable(property.CsType.Name)
             || !MetadataTypeConverter.IsKnownCsType(property.CsType.Name);
     }
+
+    private static string? GetDocumentationComment(IEnumerable<Attribute> attributes)
+    {
+        var comments = attributes.OfType<CommentAttribute>().ToList();
+
+        return comments.FirstOrDefault(x => x.DatabaseType == DatabaseType.Default)?.Text
+            ?? comments.FirstOrDefault()?.Text;
+    }
+
+    private static IEnumerable<string> FormatSummaryXmlDocs(string? text, string indent)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            yield break;
+
+        yield return $"{indent}/// <summary>";
+        foreach (var line in text!.Replace("\r\n", "\n").Split('\n'))
+            yield return $"{indent}/// {EscapeXmlDoc(line)}";
+        yield return $"{indent}/// </summary>";
+    }
+
+    private static string EscapeXmlDoc(string value) =>
+        value
+            .Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;");
 
     private IEnumerable<string> FileHeader(string namespaceName, bool useFileScopedNamespaces, IEnumerable<string> usings)
     {

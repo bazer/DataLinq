@@ -44,6 +44,7 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
 
         ParseIndices(database, informationSchemaDb);
         ParseRelations(database, informationSchemaDb);
+        ParseCheckConstraints(database, informationSchemaDb.Provider.DatabaseAccess);
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
         MetadataFactory.ParseInterfaces(database);

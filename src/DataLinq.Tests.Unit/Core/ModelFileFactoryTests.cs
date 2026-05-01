@@ -75,6 +75,9 @@ public class ModelFileFactoryTests
 
         await Assert.That(generatedFile.contents).Contains("[Comment(\"Table comment with \\\"quotes\\\"\")]");
         await Assert.That(generatedFile.contents).Contains("[Comment(\"Column comment with \\\"quotes\\\"\")]");
+        await Assert.That(generatedFile.contents).Contains("/// Table comment with \"quotes\"");
+        await Assert.That(generatedFile.contents).Contains("/// Column comment with \"quotes\"");
+        await Assert.That(generatedFile.contents).Contains("[Check(DatabaseType.MySQL, \"CK_comment_model_name\", \"`name` <> ''\")]");
 
         var syntaxTree = CSharpSyntaxTree.ParseText(generatedFile.contents);
         var syntaxErrors = syntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
@@ -148,6 +151,7 @@ public class ModelFileFactoryTests
         var database = new DatabaseDefinition("CommentDb", new CsTypeDeclaration("CommentDb", "TestNamespace", ModelCsType.Class));
         var model = new ModelDefinition(new CsTypeDeclaration("CommentModel", "TestNamespace", ModelCsType.Class));
         model.AddAttribute(new CommentAttribute("Table comment with \"quotes\""));
+        model.AddAttribute(new CheckAttribute(DatabaseType.MySQL, "CK_comment_model_name", "`name` <> ''"));
 
         var table = new TableDefinition("comment_model");
         var tableModel = new TableModel("CommentModels", database, model, table);

@@ -165,8 +165,14 @@ public class ModelFileFactory
     {
         var table = model.Table;
 
+        foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(model.Attributes), namespaceTab))
+            yield return row;
+
         foreach (var comment in model.Attributes.OfType<CommentAttribute>())
             yield return $"{namespaceTab}{FormatCommentAttribute(comment)}";
+
+        foreach (var check in model.Attributes.OfType<CheckAttribute>())
+            yield return $"{namespaceTab}{FormatCheckAttribute(check)}";
 
         if (table is ViewDefinition view)
         {
@@ -210,6 +216,9 @@ public class ModelFileFactory
         foreach (var valueProperty in valueProps)
         {
             var c = valueProperty.Column;
+
+            foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(valueProperty.Attributes), $"{namespaceTab}{tab}"))
+                yield return row;
 
             foreach (var comment in valueProperty.Attributes.OfType<CommentAttribute>())
                 yield return $"{namespaceTab}{tab}{FormatCommentAttribute(comment)}";
@@ -307,6 +316,41 @@ public class ModelFileFactory
             ? $"[Comment({text})]"
             : $"[Comment(DatabaseType.{comment.DatabaseType}, {text})]";
     }
+
+    private static string FormatCheckAttribute(CheckAttribute check)
+    {
+        var name = SymbolDisplay.FormatLiteral(check.Name, quote: true);
+        var expression = SymbolDisplay.FormatLiteral(check.Expression, quote: true);
+
+        return check.DatabaseType == DatabaseType.Default
+            ? $"[Check({name}, {expression})]"
+            : $"[Check(DatabaseType.{check.DatabaseType}, {name}, {expression})]";
+    }
+
+    private static string? GetDocumentationComment(IEnumerable<Attribute> attributes)
+    {
+        var comments = attributes.OfType<CommentAttribute>().ToList();
+
+        return comments.FirstOrDefault(x => x.DatabaseType == DatabaseType.Default)?.Text
+            ?? comments.FirstOrDefault()?.Text;
+    }
+
+    private static IEnumerable<string> FormatSummaryXmlDocs(string? text, string indent)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            yield break;
+
+        yield return $"{indent}/// <summary>";
+        foreach (var line in text!.Replace("\r\n", "\n").Split('\n'))
+            yield return $"{indent}/// {EscapeXmlDoc(line)}";
+        yield return $"{indent}/// </summary>";
+    }
+
+    private static string EscapeXmlDoc(string value) =>
+        value
+            .Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;");
 
     private string GetPropertyNullable(ColumnDefinition column)
     {

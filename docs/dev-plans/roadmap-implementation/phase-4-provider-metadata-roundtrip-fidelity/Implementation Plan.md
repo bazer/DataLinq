@@ -28,8 +28,8 @@ The gaps are equally concrete:
 - no provider metadata support matrix exists
 - no read/generate/re-read roundtrip harness exists
 - composite foreign keys are not represented as first-class constraint groups
-- check constraints are not imported even as raw provider expressions
-- MySQL/MariaDB comments are exposed by information_schema models but not imported into metadata
+- check constraints need a documented raw-expression boundary before any future structured metadata
+- MySQL/MariaDB comments need to survive metadata, generated code, and generated SQL roundtrips
 - SQLite advanced index and check-constraint details are not reliably parsed
 - relation naming is not deterministic enough for duplicate relation-name cases
 
@@ -135,6 +135,8 @@ Tasks:
 4. Add check-constraint fixtures and import/export raw expression attributes, including provider-specific variants on the same model.
 5. Document unsupported SQLite/native-comment behavior.
 6. Keep SQLite `CREATE TABLE` parsing narrow and warning-based when syntax exceeds the supported subset.
+
+Phase 4 boundary note: check constraints are represented as raw provider-specific `[Check(DatabaseType, name, expression)]` attributes. That is the right shape for fidelity work because it preserves what the provider reports without pretending DataLinq can understand every SQL expression. First-class structured check metadata should wait until schema validation or migrations need expression analysis.
 
 ## Workstream F: Identifier Robustness
 
