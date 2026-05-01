@@ -139,6 +139,18 @@ Tasks:
 3. Define how unsupported fields are ignored, warned about, or surfaced as informational differences.
 4. Record any Phase 4 gaps that still block trustworthy validation.
 
+Current capability boundary:
+
+- table and column presence are comparable for SQLite, MySQL, and MariaDB
+- SQLite table and column identifiers compare case-insensitively for presence checks
+- MySQL/MariaDB column identifiers compare case-insensitively, while table-name comparison still needs provider configuration for `lower_case_table_names`
+- ordinary simple, unique, and composite indexes are comparable for the supported ordered-column subset
+- single-column and composite foreign-key identity are comparable for the supported ordered relation metadata subset
+- MySQL/MariaDB raw check constraints and comments are comparable; SQLite check constraints and comments are intentionally ignored
+- unsupported index details, generated columns, collation/charset, deferrable foreign keys, and referential actions must not produce authoritative validation errors until metadata grows first-class fields for them
+
+Implemented first handoff: `SchemaValidationCapabilities` encodes this boundary in code so the comparer and future CLI use the same rules instead of re-interpreting the matrix.
+
 ## Workstream B: Difference Model and Pure Comparer
 
 Goals:
@@ -152,6 +164,14 @@ Tasks:
 2. Implement table and column presence comparison.
 3. Add nullability, auto-increment, type, default, index, and relation comparison in staged slices.
 4. Add unit tests using in-memory metadata fixtures.
+
+Initial implemented slice:
+
+- `SchemaDifference` records kind, severity, safety, path, message, and optional model/database definitions
+- the pure comparer reports missing/extra tables and missing/extra columns deterministically
+- missing model objects in the database are classified as additive errors
+- extra database objects are classified as destructive warnings because removing them would be unsafe
+- later slices should extend this same model to type/nullability/default/index/relation drift rather than adding a second reporting shape
 
 ## Workstream C: Provider Metadata Verification
 

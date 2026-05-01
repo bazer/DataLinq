@@ -27,6 +27,15 @@ The repo should have enough metadata machinery to start after Phase 4:
 
 The missing core is not DDL generation. The missing core is a provider-neutral comparison model that can explain drift accurately.
 
+## Current Slice
+
+The first validation slice has started:
+
+- provider capability rules from Phase 4 are encoded in `SchemaValidationCapabilities`
+- the initial pure comparer reports table and column presence drift
+- no CLI validation command exists yet
+- type, nullability, default, index, and relation drift comparison still need staged implementation
+
 ## Documents
 
 - `Implementation Plan.md`
