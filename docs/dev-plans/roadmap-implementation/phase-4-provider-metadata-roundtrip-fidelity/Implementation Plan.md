@@ -154,6 +154,14 @@ Tasks:
 3. Verify generated SQL re-quotes identifiers correctly.
 4. Record provider-specific casing rules that validation must respect.
 
+Phase 4 boundary note: provider-imported table and column names are sanitized into valid C# model, property, relation, and parameter identifiers, while the original provider names remain canonical in `[Table]`, `[Column]`, and generated SQL. The roundtrip comparer still compares provider-reported names exactly. The validation phase must add provider-aware identifier matching instead of reusing that exact comparer as-is.
+
+Provider casing rules for validation:
+
+- SQLite preserves declared identifier text in metadata but resolves identifiers case-insensitively for ordinary ASCII names. Validation should compare SQLite identifiers case-insensitively while still reporting the preserved declaration text.
+- MySQL and MariaDB column, index, alias, and routine names are effectively case-insensitive for validation purposes. Table and database name casing depends on server settings and filesystem behavior, especially `lower_case_table_names`, so validation must inspect or configure that rule before comparing table names.
+- DataLinq-generated C# identifiers are not schema identifiers. Validation should compare database names from metadata attributes, not generated C# model or property names.
+
 ## Proposed Execution Order
 
 1. Build the support matrix skeleton.

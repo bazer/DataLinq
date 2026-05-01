@@ -128,9 +128,7 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
              ? new TableDefinition(dbTables.TABLE_NAME)
              : new ViewDefinition(dbTables.TABLE_NAME);
 
-        var csName = options.CapitaliseNames && !table.DbName.IsFirstCharUpper()
-            ? table.DbName.ToPascalCase()
-            : table.DbName;
+        var csName = table.DbName.ToCSharpIdentifier(options.CapitaliseNames);
 
         var tableModel = new TableModel(csName, database, table, csName);
         if (!string.IsNullOrWhiteSpace(dbTables.TABLE_COMMENT))

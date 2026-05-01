@@ -187,8 +187,8 @@ public class MetadataFromServerFactoryTests
 
         await Assert.That(empFkAttribute.Name).IsEqualTo("dept_emp_ibfk_1");
         await Assert.That(deptFkAttribute.Name).IsEqualTo("dept_emp_ibfk_2");
-        await Assert.That(employees.Model.RelationProperties.ContainsKey("dept-emp")).IsTrue();
-        await Assert.That(departments.Model.RelationProperties.ContainsKey("dept-emp")).IsTrue();
+        await Assert.That(employees.Model.RelationProperties.ContainsKey("dept_emp")).IsTrue();
+        await Assert.That(departments.Model.RelationProperties.ContainsKey("dept_emp")).IsTrue();
         await Assert.That(deptEmp.Model.RelationProperties.ContainsKey("EmpNo")).IsTrue();
         await Assert.That(deptEmp.Model.RelationProperties.ContainsKey("DeptNo")).IsTrue();
         await Assert.That(indexAttribute.Name).IsEqualTo("dept_name");

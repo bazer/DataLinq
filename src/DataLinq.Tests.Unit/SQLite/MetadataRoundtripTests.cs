@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using DataLinq;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
 using DataLinq.Testing;
@@ -62,6 +63,39 @@ public class MetadataRoundtripTests
             .IsEquivalentTo(["AccountProfile", "InvoiceApprovedByAccount", "InvoiceCreatedByAccount", "InvoiceExternalAccount"]);
     }
 
+    [Test]
+    public async Task ParseDatabase_QuotedIdentifiers_RoundTripWithStableCSharpNames()
+    {
+        using var source = SqliteRoundtripFixture.CreateQuotedIdentifierSchema();
+
+        var firstRead = source.ParseDatabase();
+        var orderItems = firstRead.TableModels.Single(x => x.Table.DbName == "order-items");
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(firstRead)
+            .Single(file => file.path == "OrderItems.cs");
+        var generatedSql = new SqlFromSQLiteFactory()
+            .GetCreateTables(firstRead, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = SqliteRoundtripFixture.Create(generatedSql.Text);
+        var secondRead = generated.ParseDatabase();
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(firstRead, secondRead, DatabaseType.SQLite);
+
+        await Assert.That(orderItems.Model.CsType.Name).IsEqualTo("OrderItems");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "order-id").ValueProperty.PropertyName).IsEqualTo("OrderId");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "class").ValueProperty.PropertyName).IsEqualTo("Class");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "ship.to").ValueProperty.PropertyName).IsEqualTo("ShipTo");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "2fa code").ValueProperty.PropertyName).IsEqualTo("_2faCode");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "total$amount").ValueProperty.PropertyName).IsEqualTo("TotalAmount");
+        await Assert.That(generatedFile.contents).Contains("[Table(\"order-items\")]");
+        await Assert.That(generatedFile.contents).Contains("[Column(\"ship.to\")]");
+        await Assert.That(generatedFile.contents).Contains("[Column(\"2fa code\")]");
+        await Assert.That(generatedSql.Text).Contains("CREATE TABLE IF NOT EXISTS \"order-items\"");
+        await Assert.That(generatedSql.Text).Contains("\"ship.to\"");
+        await Assert.That(generatedSql.Text).Contains("\"2fa code\"");
+        await Assert.That(differences).IsEmpty();
+    }
+
     private sealed class SqliteRoundtripFixture : IDisposable
     {
         private SqliteRoundtripFixture(string databasePath)
@@ -105,6 +139,20 @@ public class MetadataRoundtripTests
                 """,
                 """
                 CREATE INDEX "idx_invoice_external_account" ON "invoice" ("external account id");
+                """);
+        }
+
+        public static SqliteRoundtripFixture CreateQuotedIdentifierSchema()
+        {
+            return Create(
+                """
+                CREATE TABLE "order-items" (
+                    "order-id" INTEGER PRIMARY KEY,
+                    "class" TEXT NOT NULL,
+                    "ship.to" TEXT NOT NULL,
+                    "2fa code" TEXT NOT NULL,
+                    "total$amount" INTEGER NOT NULL
+                );
                 """);
         }
 

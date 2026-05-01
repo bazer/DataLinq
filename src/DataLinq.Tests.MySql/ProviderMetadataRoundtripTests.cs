@@ -211,6 +211,64 @@ public class ProviderMetadataRoundtripTests
         await Assert.That(differences).IsEmpty();
     }
 
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_QuotedIdentifiers_RoundTripWithStableCSharpNames(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_QuotedIdentifiers_RoundTripWithStableCSharpNames),
+            """
+            CREATE TABLE `order-items` (
+                `order-id` INT PRIMARY KEY,
+                `class` VARCHAR(16) NOT NULL,
+                `ship.to` VARCHAR(64) NOT NULL,
+                `2fa code` VARCHAR(6) NOT NULL,
+                `total$amount` INT NOT NULL,
+                UNIQUE INDEX `UX_order-items_ship.to` (`ship.to`)
+            );
+            """);
+
+        var database = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var orderItems = database.TableModels.Single(x => x.Table.DbName == "order-items");
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "OrderItems.cs");
+        var generatedSql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(provider.DatabaseType)
+            .GetCreateTables(database, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = ServerSchemaDatabase.Create(
+            provider,
+            $"{nameof(ParseDatabase_QuotedIdentifiers_RoundTripWithStableCSharpNames)}_Generated",
+            generatedSql.Text);
+        var secondRead = generated.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(database, secondRead, provider.DatabaseType);
+
+        await Assert.That(orderItems.Model.CsType.Name).IsEqualTo("OrderItems");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "order-id").ValueProperty.PropertyName).IsEqualTo("OrderId");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "class").ValueProperty.PropertyName).IsEqualTo("Class");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "ship.to").ValueProperty.PropertyName).IsEqualTo("ShipTo");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "2fa code").ValueProperty.PropertyName).IsEqualTo("_2faCode");
+        await Assert.That(orderItems.Table.Columns.Single(x => x.DbName == "total$amount").ValueProperty.PropertyName).IsEqualTo("TotalAmount");
+        await Assert.That(generatedFile.contents).Contains("[Table(\"order-items\")]");
+        await Assert.That(generatedFile.contents).Contains("[Column(\"ship.to\")]");
+        await Assert.That(generatedFile.contents).Contains("[Column(\"2fa code\")]");
+        await Assert.That(generatedSql.Text).Contains("CREATE TABLE IF NOT EXISTS `order-items`");
+        await Assert.That(generatedSql.Text).Contains("`ship.to`");
+        await Assert.That(generatedSql.Text).Contains("`2fa code`");
+        await Assert.That(differences).IsEmpty();
+    }
+
     private static readonly string[] FirstSliceSchemaStatements =
     [
         """

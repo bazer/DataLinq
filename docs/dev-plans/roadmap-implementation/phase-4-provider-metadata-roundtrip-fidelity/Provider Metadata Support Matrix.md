@@ -34,7 +34,7 @@ The comparison is deliberately lower-level than the future schema validation com
 | --- | --- | --- | --- | --- |
 | Tables | Partially supported | Partially supported | Partially supported | Basic table read/write exists; roundtrip harness coverage starts in this phase. |
 | Views | Partially supported | Partially supported | Partially supported | View definitions are read and generated, but normalization and provider edge cases are not fully proven. |
-| Column names | Partially supported | Partially supported | Partially supported | Ordinary names work. Quoted identifiers, spaces, punctuation, and reserved words need conformance tests. |
+| Column names | Supported | Supported | Supported | Ordinary names and quoted identifiers with spaces, punctuation, C# keyword-shaped names, and leading digits roundtrip through provider metadata, generated attributes, and generated SQL. Original database names remain canonical. |
 | Column order | Partially supported | Partially supported | Partially supported | Metadata has stable column indexes; roundtrip comparison should assert order. |
 | Nullability | Partially supported | Partially supported | Partially supported | Basic read/write exists; provider quirks around primary keys and generated columns are not fully audited. |
 | Primary keys | Partially supported | Partially supported | Partially supported | Single and composite primary keys are represented; ordering needs explicit roundtrip tests. |
@@ -51,7 +51,7 @@ The comparison is deliberately lower-level than the future schema validation com
 | Check constraints | Supported | Supported | Unsupported | MySQL/MariaDB check clauses import into raw provider-specific `[Check(DatabaseType, name, expression)]` model attributes, emit back to provider SQL, and roundtrip through the supported-subset comparison. Structured, provider-neutral check metadata is deferred. SQLite check parsing remains intentionally unsupported. |
 | Table comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` model attributes, generated C#, generated SQL `COMMENT` table options, and provider roundtrip comparison. SQLite has no native table comments. |
 | Column comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` property attributes, generated C#, generated SQL column `COMMENT` clauses, and provider roundtrip comparison. SQLite has no native column comments. |
-| Identifier casing comparison | Unknown | Unknown | Unknown | Validation needs provider-aware rules; this phase should document the support boundary. |
+| Identifier casing comparison | Partially supported | Partially supported | Partially supported | Roundtrip comparison is exact because it compares provider-reported metadata snapshots. Validation must add provider-aware matching: SQLite preserves declaration text but resolves ordinary identifiers case-insensitively; MySQL/MariaDB table-name casing depends on server settings such as `lower_case_table_names`, while column and index names should be treated case-insensitively. |
 | Expression indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. SQLite detection may warn using `pragma_index_xinfo` later. |
 | Partial indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. |
 | Descending index parts | Unsupported | Unsupported | Unsupported | Provider-specific index options are not preserved yet. |
@@ -88,14 +88,18 @@ Shared metadata and generation:
 Initial provider tests:
 
 - `src/DataLinq.Tests.Unit/SQLite/MetadataFromSQLiteFactoryTests.cs`
+- `src/DataLinq.Tests.Unit/SQLite/MetadataRoundtripTests.cs`
 - `src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs`
+- `src/DataLinq.Tests.MySql/ProviderMetadataRoundtripTests.cs`
 
 ## First Slice Status
 
-The first implementation slice should move these entries from partially supported or unknown toward supported only when the new roundtrip tests prove them:
+The first implementation slice has moved these entries from partially supported or unknown toward supported only where roundtrip tests prove them:
 
-- column names with spaces
+- column names with spaces, punctuation, reserved C# word shapes, and leading digits
 - foreign-key columns that also have ordinary indexes
 - primary-key columns that are also foreign keys
 - composite foreign-key grouping and naming
 - broader deterministic relation property naming beyond the duplicate same-target cases now covered
+
+Identifier casing comparison is documented but not complete validation behavior. That belongs to Phase 5 because it needs provider-aware drift semantics, not just metadata roundtrip fidelity.

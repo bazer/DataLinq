@@ -101,8 +101,8 @@ public class MetadataFromSQLiteFactoryTests
         await Assert.That(employeeAttribute.Column).IsEqualTo("emp_no");
         await Assert.That(departmentAttribute.Column).IsEqualTo("dept_no");
 
-        await Assert.That(employeesTable.Model.RelationProperties.ContainsKey("dept-emp")).IsTrue();
-        await Assert.That(departmentsTable.Model.RelationProperties.ContainsKey("dept-emp")).IsTrue();
+        await Assert.That(employeesTable.Model.RelationProperties.ContainsKey("dept_emp")).IsTrue();
+        await Assert.That(departmentsTable.Model.RelationProperties.ContainsKey("dept_emp")).IsTrue();
         await Assert.That(deptEmpTable.Model.RelationProperties.ContainsKey("EmpNo")).IsTrue();
         await Assert.That(deptEmpTable.Model.RelationProperties.ContainsKey("DeptNo")).IsTrue();
     }

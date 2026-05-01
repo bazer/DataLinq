@@ -558,9 +558,7 @@ public static class MetadataFactory
 
     public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {
-        var name = capitaliseNames && !column.DbName.IsFirstCharUpper()
-            ? column.DbName.ToPascalCase()
-            : column.DbName;
+        var name = column.DbName.ToCSharpIdentifier(capitaliseNames);
 
         var type = MetadataTypeConverter.GetType(csTypeName);
 
