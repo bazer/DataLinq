@@ -48,6 +48,8 @@ public abstract int Age { get; }
 
 Multiple attributes should be allowed for the same table or property so one model can carry provider-specific check expressions for several backends at the same time.
 
+Column references inside the expression are provider SQL identifiers. They should refer to database column names, not C# property names.
+
 Provider readers should import check expressions verbatim where possible:
 
 - MySQL/MariaDB: import the provider expression from the available constraint metadata.

@@ -69,6 +69,7 @@ Those tests are a good base, but they are not yet a metadata roundtrip conforman
 - SQLite index parsing uses `pragma_index_list` and `pragma_index_info`, which is enough for simple and unique indexes but not enough for expression indexes or partial indexes. Those require `pragma_index_xinfo` and/or parsing `sqlite_schema.sql`.
 - Primary keys are reconstructed mostly from column metadata and then normalized into a generated `ColumnIndex`; provider constraint names are not preserved.
 - GitHub issue [#6](https://github.com/bazer/DataLinq/issues/6) reports a concrete composite-index roundtrip bug: CLI model generation emitted a unique two-column index attribute on only one property without the full ordered column list, and manual repair with `nameof(...)` exposed that the parser expects database column names rather than C# property names. Phase 4 should cover both the generated attribute shape and the accepted column-name contract.
+- Decision: `IndexAttribute.Columns` should use database column names as the canonical stored form. Model parsing may optionally resolve C# property names as a convenience later, but generated attributes and metadata roundtripping should emit database names.
 
 ### Checks
 
@@ -168,6 +169,137 @@ Deliverables:
 
 The goal is not to support every index option. The goal is to stop losing ordinary indexes and to know when advanced indexes are outside DataLinq's metadata contract.
 
+## Example API Shapes
+
+These examples are not final API commitments. They are sketches to make Phase 4 implementation choices concrete before code starts.
+
+### Composite Index Attributes
+
+Use database column names in the ordered column list:
+
+```csharp
+[Index(
+    "RakenskapsarFK_Kontonummer",
+    IndexCharacteristic.Unique,
+    IndexType.BTREE,
+    "RakenskapsarFK",
+    "Kontonummer")]
+[Column("RakenskapsarFK")]
+public abstract int AccountingYearId { get; }
+
+[Index(
+    "RakenskapsarFK_Kontonummer",
+    IndexCharacteristic.Unique,
+    IndexType.BTREE,
+    "RakenskapsarFK",
+    "Kontonummer")]
+[Column("Kontonummer")]
+public abstract int AccountNumber { get; }
+```
+
+The duplicate attribute on both participating properties is noisy, but it matches the current attribute model and makes each property visibly connected to the index. The metadata parser should collapse those attributes into one `ColumnIndex`.
+
+If we later allow a single class-level index attribute, the canonical names should still be database column names:
+
+```csharp
+[Index(
+    "RakenskapsarFK_Kontonummer",
+    IndexCharacteristic.Unique,
+    IndexType.BTREE,
+    "RakenskapsarFK",
+    "Kontonummer")]
+public abstract partial class Account { }
+```
+
+### Comments
+
+Comments should roundtrip through attributes and also populate metadata descriptions:
+
+```csharp
+[Comment("Customer invoices imported from the accounting system.")]
+[Table("invoice")]
+public abstract partial class Invoice { }
+
+/// <summary>
+/// Human-readable invoice number shown to users.
+/// </summary>
+[Comment("Human-readable invoice number shown to users.")]
+[Column("invoice_no")]
+public abstract string InvoiceNumber { get; }
+```
+
+The XML doc is generated presentation. The `[Comment]` string is the roundtrip payload.
+
+If provider-specific comments become necessary, the same pattern as checks can be extended later:
+
+```csharp
+[Comment(DatabaseType.MySQL, "Stored as a MySQL column comment.")]
+```
+
+### Raw Check Attributes
+
+Check expressions are provider SQL, so they are bound to `DatabaseType`:
+
+```csharp
+[Check(DatabaseType.MySQL, "`start_date` <= `end_date`")]
+[Check(DatabaseType.SQLite, "\"start_date\" <= \"end_date\"")]
+public abstract partial class Subscription { }
+```
+
+Column names inside the expression are provider SQL identifiers, not C# property names.
+
+### Composite Foreign-Key Attributes
+
+The metadata model should group composite foreign keys as constraints. Generated model code still needs to show how properties participate.
+
+One possible class-level shape:
+
+```csharp
+[ForeignKeyConstraint(
+    "FK_OrderLine_Order",
+    "orders",
+    ["order_id", "tenant_id"],
+    ["id", "tenant_id"])]
+public abstract partial class OrderLine { }
+```
+
+One possible property-level companion shape:
+
+```csharp
+[ForeignKeyPart("FK_OrderLine_Order", 0)]
+[Column("order_id")]
+public abstract int OrderId { get; }
+
+[ForeignKeyPart("FK_OrderLine_Order", 1)]
+[Column("tenant_id")]
+public abstract int TenantId { get; }
+```
+
+The class-level attribute carries the database relationship. The property-level attributes are mainly for readability, diagnostics, and source-location mapping.
+
+The corresponding metadata could be shaped like:
+
+```csharp
+public sealed class ForeignKeyConstraintDefinition
+{
+    public string Name { get; }
+    public TableDefinition ForeignKeyTable { get; }
+    public TableDefinition CandidateTable { get; }
+    public IReadOnlyList<ForeignKeyColumnMapping> Columns { get; }
+    public ReferentialAction? OnDelete { get; }
+    public ReferentialAction? OnUpdate { get; }
+}
+
+public sealed class ForeignKeyColumnMapping
+{
+    public int Ordinal { get; }
+    public ColumnDefinition ForeignKeyColumn { get; }
+    public ColumnDefinition CandidateColumn { get; }
+}
+```
+
+That shape avoids pretending each column owns the full relation, while still letting generated model properties point back to the constraint.
+
 ### Workstream E: Checks, Comments, and Descriptions
 
 Deliverables:
@@ -232,6 +364,7 @@ This phase is complete when:
 
 - **Check constraints:** Start with raw provider-specific expression attributes that include `DatabaseType`. Keep `CheckConstraintDefinition` as a later design, documented in `Check Constraint Metadata Design.md`.
 - **Comments:** Store comments both as metadata descriptions and as attributes on generated classes/properties. The attribute string is the roundtrip source of truth; XML docs are generated presentation.
+- **Index column names:** Store and generate database column names in `IndexAttribute.Columns`; do not use `nameof(...)` as the canonical roundtrip form.
 - **SQLite `CREATE TABLE` parsing:** Accept a narrow parser for supported fixtures and ordinary checks only. Avoid a general SQLite DDL parser; bail out visibly when syntax is outside the supported subset.
 - **Composite foreign keys:** Represent them as constraint objects in metadata. Keep generated model attributes connected to the participating properties so the C# surface remains understandable.
 - **Ambiguous relation names:** Derive generated relation property names from constraint names when table/column-derived names collide or are ambiguous.

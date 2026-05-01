@@ -99,7 +99,7 @@ Deliverables:
 
 - tests for simple, unique, composite, and foreign-key-overlapping indexes
 - regression coverage for GitHub issue #6, where CLI model generation lost the full column list for a composite unique index
-- clear validation/diagnostics for the `IndexAttribute.Columns` name contract, especially when users pass C# property names instead of database column names
+- clear validation/diagnostics for the `IndexAttribute.Columns` name contract: database column names are canonical; C# property names may only be a future convenience if explicitly resolved
 - MySQL/MariaDB index parsing that does not discard ordinary indexes just because a column participates in a foreign key
 - SQLite audit using `pragma_index_xinfo` where needed
 - unsupported status for expression, partial, invisible, descending, prefix-length, and provider-specific index options unless implemented
@@ -108,7 +108,7 @@ Tasks:
 
 1. Add fixture schemas for overlapping FK/index cases.
 2. Add a fixture for a unique composite index like `RakenskapsarFK_Kontonummer` and verify generated model attributes include the full ordered column list.
-3. Replace generic composite-index parse failures with source-located diagnostics that name the missing column and expected naming convention.
+3. Replace generic composite-index parse failures with source-located diagnostics that name the missing column and state that `IndexAttribute.Columns` expects database column names.
 4. Verify generated SQL preserves supported index shape.
 5. Decide which advanced index features are explicitly out of scope.
 
