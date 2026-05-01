@@ -105,14 +105,20 @@ public class SqlGeneration
     //    return this;
     //}
 
-    public virtual SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func)
+    public virtual SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func) =>
+        CreateTable(tableName, func, null);
+
+    public virtual SqlGeneration CreateTable(string tableName, Action<SqlGeneration> func, string? tableOptions)
     {
         sql.AddText($"CREATE TABLE IF NOT EXISTS {QuoteCharacter}{tableName}{QuoteCharacter} (\n");
         func(this);
         NewRow();
         sql.AddText(string.Join(",\n", CreateRows.ToArray()));
         CreateRows.Clear();
-        sql.AddText("\n);\n\n");
+        sql.AddText("\n)");
+        if (!string.IsNullOrWhiteSpace(tableOptions))
+            sql.AddText($" {tableOptions}");
+        sql.AddText(";\n\n");
         return this;
     }
     public virtual SqlGeneration CreateView(string viewName, string definition)

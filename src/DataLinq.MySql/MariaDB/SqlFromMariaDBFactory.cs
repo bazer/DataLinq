@@ -8,6 +8,8 @@ namespace DataLinq.MariaDB;
 
 public class SqlFromMariaDBFactory : SqlFromMetadataFactory
 {
+    protected override DatabaseType DatabaseType => DataLinq.DatabaseType.MariaDB;
+
     public override DatabaseColumnType GetDbType(ColumnDefinition column)
     {
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MariaDB))

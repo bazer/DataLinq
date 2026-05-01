@@ -7,6 +7,8 @@ namespace DataLinq.MySql;
 
 public class SqlFromMySqlFactory : SqlFromMetadataFactory
 {
+    protected override DatabaseType DatabaseType => DataLinq.DatabaseType.MySQL;
+
     public override DatabaseColumnType GetDbType(ColumnDefinition column)
     {
         if (column.DbTypes.Any(x => x.DatabaseType == DatabaseType.MySQL))

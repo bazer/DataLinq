@@ -53,6 +53,7 @@ public static class MetadataRoundtripComparison
             var path = expectedTable.DbName;
 
             AddIfDifferent(differences, $"{path}.type", expectedTable.Type, actualTable.Type);
+            AddIfDifferent(differences, $"{path}.comment", FormatComment(expectedTable.Model.Attributes, databaseType), FormatComment(actualTable.Model.Attributes, databaseType));
             CompareColumns(expectedTable, actualTable, databaseType, differences);
             CompareIndexes(expectedTable, actualTable, differences);
             CompareRelationProperties(expectedTable.Model, actualTable.Model, differences);
@@ -93,6 +94,7 @@ public static class MetadataRoundtripComparison
             AddIfDifferent(differences, $"{path}.autoIncrement", expectedColumn.AutoIncrement, actualColumn.AutoIncrement);
             AddIfDifferent(differences, $"{path}.dbType", FormatDbType(expectedColumn.GetDbTypeFor(databaseType)), FormatDbType(actualColumn.GetDbTypeFor(databaseType)));
             AddIfDifferent(differences, $"{path}.default", FormatDefault(expectedColumn.ValueProperty.GetDefaultAttribute()), FormatDefault(actualColumn.ValueProperty.GetDefaultAttribute()));
+            AddIfDifferent(differences, $"{path}.comment", FormatComment(expectedColumn.ValueProperty.Attributes, databaseType), FormatComment(actualColumn.ValueProperty.Attributes, databaseType));
 
             CompareForeignKeyAttributes(expectedColumn, actualColumn, differences);
         }
@@ -202,6 +204,25 @@ public static class MetadataRoundtripComparison
         };
 
         return $"{attribute.GetType().Name}|{value}|{attribute.CodeExpression}";
+    }
+
+    private static string? FormatComment(IEnumerable<Attribute> attributes, DatabaseType databaseType)
+    {
+        var comments = attributes.OfType<CommentAttribute>().ToList();
+        var providerComments = comments
+            .Where(x => x.DatabaseType == databaseType)
+            .Select(x => x.Text)
+            .ToList();
+        var effectiveComments = providerComments.Count > 0
+            ? providerComments
+            : comments
+                .Where(x => x.DatabaseType == DatabaseType.Default)
+                .Select(x => x.Text)
+                .ToList();
+
+        return effectiveComments.Count == 0
+            ? null
+            : string.Join("\n", effectiveComments);
     }
 
     private static string? NormalizeSql(string? sql) =>

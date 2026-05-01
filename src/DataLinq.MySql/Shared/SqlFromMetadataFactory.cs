@@ -13,6 +13,8 @@ namespace DataLinq.MySql;
 
 public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 {
+    protected abstract DatabaseType DatabaseType { get; }
+
     public static SqlFromMetadataFactory GetFactoryFromDatabaseType(DatabaseType databaseType)
     {
         if (databaseType == DatabaseType.MariaDB)
@@ -45,10 +47,11 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
         foreach (var table in sql.SortTablesByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.Table).Select(x => x.Table).ToList()))
         {
+            var tableComment = GetComment(table.Model.Attributes);
             sql.CreateTable(table.DbName, x =>
             {
                 CreateColumns(foreignKeyRestrict, x, table);
-            });
+            }, tableComment == null ? null : $"COMMENT={QuoteSqlString(tableComment)}");
         }
 
         foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewDefinition>().ToList()))
@@ -85,6 +88,9 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             sql.Nullable(column.Nullable)
                 .Autoincrement(column.AutoIncrement);
 
+            var comment = GetComment(column.ValueProperty.Attributes);
+            if (comment != null)
+                row.Space().Add($"COMMENT {QuoteSqlString(comment)}");
         }
 
         sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
@@ -159,6 +165,15 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             "Guid" or "System.Guid" => FormatGuidDefaultValue((Guid)defaultAttr.Value, dbType),
             _ => Convert.ToString(defaultAttr.Value, CultureInfo.InvariantCulture)
         };
+    }
+
+    private string? GetComment(Attribute[] attributes)
+    {
+        var comments = attributes.OfType<CommentAttribute>();
+        var typedComment = comments.FirstOrDefault(x => x.DatabaseType == DatabaseType);
+
+        return typedComment?.Text
+            ?? comments.FirstOrDefault(x => x.DatabaseType == DatabaseType.Default)?.Text;
     }
 
     private static string QuoteSqlString(string value) => $"'{value.Replace("'", "''")}'";

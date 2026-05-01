@@ -122,8 +122,8 @@ public class ProviderMetadataRoundtripTests
             """
             CREATE TABLE `commented_account` (
                 `id` INT PRIMARY KEY AUTO_INCREMENT COMMENT 'Identifier column',
-                `display_name` VARCHAR(64) NOT NULL COMMENT 'Column "display" label'
-            ) COMMENT='Table "account" comment';
+                `display_name` VARCHAR(64) NOT NULL COMMENT 'Column "display" owner''s label'
+            ) COMMENT='Table "account" owner''s comment';
             """);
 
         var database = schema.ParseDatabase(
@@ -136,11 +136,29 @@ public class ProviderMetadataRoundtripTests
         var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
             .CreateModelFiles(database)
             .Single(file => file.path == "CommentedAccount.cs");
+        var generatedSql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(provider.DatabaseType)
+            .GetCreateTables(database, foreignKeyRestrict: false)
+            .ValueOrException();
 
-        await Assert.That(account.Model.Attributes.OfType<CommentAttribute>().Single().Text).IsEqualTo("Table \"account\" comment");
-        await Assert.That(displayName.ValueProperty.Attributes.OfType<CommentAttribute>().Single().Text).IsEqualTo("Column \"display\" label");
-        await Assert.That(generatedFile.contents).Contains("[Comment(\"Table \\\"account\\\" comment\")]");
-        await Assert.That(generatedFile.contents).Contains("[Comment(\"Column \\\"display\\\" label\")]");
+        using var generated = ServerSchemaDatabase.Create(
+            provider,
+            $"{nameof(ParseDatabase_TableAndColumnComments_GeneratesCommentAttributes)}_Generated",
+            generatedSql.Text);
+        var secondRead = generated.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(database, secondRead, provider.DatabaseType);
+
+        await Assert.That(account.Model.Attributes.OfType<CommentAttribute>().Single().Text).IsEqualTo("Table \"account\" owner's comment");
+        await Assert.That(displayName.ValueProperty.Attributes.OfType<CommentAttribute>().Single().Text).IsEqualTo("Column \"display\" owner's label");
+        await Assert.That(generatedFile.contents).Contains("[Comment(\"Table \\\"account\\\" owner's comment\")]");
+        await Assert.That(generatedFile.contents).Contains("[Comment(\"Column \\\"display\\\" owner's label\")]");
+        await Assert.That(generatedSql.Text).Contains("COMMENT='Table \"account\" owner''s comment'");
+        await Assert.That(generatedSql.Text).Contains("COMMENT 'Column \"display\" owner''s label'");
+        await Assert.That(differences).IsEmpty();
     }
 
     private static readonly string[] FirstSliceSchemaStatements =
