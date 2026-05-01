@@ -1,7 +1,7 @@
 # Repository Instructions
 
 - The user prefers to handle commits personally for now. Do not create commits, amend commits, or push changes unless the user explicitly asks for that in the current conversation.
-- When finishing a coherent slice or feature and reaching a real stopping point, proactively include a suggested commit message in the final response even if the user did not ask for one yet.
+- When finishing a coherent slice or feature and reaching a real stopping point, proactively include a suggested commit message at the end of the final response even if the user did not ask for one yet. Prefer the descriptive multi-line style the user has been approving: concise subject, blank line, then a body that explains the actual change and why it matters.
 - Expanded agent workflow guidance lives in `docs/contributing/AI Assistant Guidance.md` and the internal tooling pages under `docs/contributing/`.
 - The legacy xUnit projects have been removed. All new tests should go into the TUnit test projects such as `src/DataLinq.Tests.Unit`, `src/DataLinq.Tests.Compliance`, `src/DataLinq.Tests.MySql`, or other active TUnit-based test projects.
 - For broad documentation or cleanup work, prefer starting with an audit and action plan before making large edits.

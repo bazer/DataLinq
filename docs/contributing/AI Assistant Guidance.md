@@ -22,6 +22,7 @@ Use the repo docs in this order:
 ## Non-Negotiable Repo Rules
 
 - Do not create commits, amend commits, or push changes unless the user explicitly asks in the current conversation.
+- When stopping at a coherent commit point, include a suggested commit message at the end of the final response. Use the descriptive style preferred in this repo: concise subject, blank line, then a body explaining the actual change and why it matters.
 - Do not publish NuGet packages unless the user explicitly asks in the current conversation.
 - New tests belong in the active TUnit test projects, not the removed legacy xUnit projects.
 - Documentation must describe shipped behavior, not roadmap material pretending to be shipped.
