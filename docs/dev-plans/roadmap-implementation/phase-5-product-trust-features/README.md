@@ -1,14 +1,14 @@
 > [!WARNING]
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
-# Phase 4: Product Trust Features
+# Phase 5: Product Trust Features
 
 **Status:** Planning.
 
 ## Scope
 
-This folder tracks the execution plan for the fourth roadmap phase described in [Roadmap.md](../../Roadmap.md).
+This folder tracks the execution plan for the fifth roadmap phase described in [Roadmap.md](../../Roadmap.md).
 
-Phase 4 is about making DataLinq safer to adopt in real projects:
+Phase 5 is about making DataLinq safer to adopt in real projects:
 
 1. detect schema drift between models and live databases
 2. report differences in a way a developer can act on
@@ -17,12 +17,13 @@ Phase 4 is about making DataLinq safer to adopt in real projects:
 
 ## Starting Stance
 
-The repo already has enough metadata machinery to start:
+The repo should have enough metadata machinery to start after Phase 4:
 
 - C# models can become `DatabaseDefinition` graphs
-- SQLite, MySQL, and MariaDB can read live database metadata
-- SQLite, MySQL, and MariaDB can generate create SQL from metadata
+- SQLite, MySQL, and MariaDB can read live database metadata with an explicit support boundary
+- SQLite, MySQL, and MariaDB can generate create SQL from supported metadata
 - the active TUnit suites already include metadata-from-server and provider SQL coverage
+- provider metadata roundtrip tests identify which schema features validation may compare
 
 The missing core is not DDL generation. The missing core is a provider-neutral comparison model that can explain drift accurately.
 
@@ -32,5 +33,6 @@ The missing core is not DDL generation. The missing core is a provider-neutral c
 
 ## Related Plans
 
+- [`../../providers-and-features/Provider Metadata Roundtrip Fidelity.md`](../../providers-and-features/Provider%20Metadata%20Roundtrip%20Fidelity.md)
 - [`../../providers-and-features/Migrations and Validation.md`](../../providers-and-features/Migrations%20and%20Validation.md)
 - [`../../Roadmap.md`](../../Roadmap.md)

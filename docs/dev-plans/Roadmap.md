@@ -20,7 +20,7 @@ Several important things are already true:
 - There is now a benchmark and observability foundation to build on, including the Phase 3 query/runtime hot-path lane used to keep optimization claims honest.
 - `RowData` has already moved to dense indexed storage, so the performance roadmap should build on that rather than pretending memory optimization is still only theoretical.
 - Metadata and generator hardening have removed some avoidable runtime work, but SQL building, query translation, projection materialization, and compatibility-sensitive runtime paths still contain meaningful dynamism and allocation overhead.
-- Product hardening features such as schema validation, migrations, and stronger diagnostics are still missing enough that DataLinq is easier to admire than to trust.
+- Provider metadata roundtrip fidelity is still not explicit enough. Schema validation, migrations, and stronger diagnostics should not build on guessed provider behavior.
 
 That last point matters. A fast ORM that is hard to validate or debug is still a risky tool.
 
@@ -103,11 +103,32 @@ Key related plans:
 - `query-and-runtime/Sql Generation Optimization.md`
 - `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
 
-### Phase 4: Product Trust Features
+### Phase 4: Provider Metadata Roundtrip Fidelity
 
 Goals:
 
-- implement schema validation and drift detection
+- audit MySQL, MariaDB, and SQLite metadata readers and SQL generators
+- define the supported provider metadata roundtrip subset
+- add create-read-generate-create-read tests for supported schema features
+- fix ordinary metadata holes around indexes, relations, comments, checks, and quoted identifiers
+- explicitly document advanced provider syntax that remains unsupported
+
+Why before schema validation:
+
+- validation can only compare metadata DataLinq actually preserves
+- current relation/index metadata is good enough for basics but too ambiguous for full trust
+- unsupported DDL features are acceptable only when they are visible, tested, and documented
+
+Key related plans:
+
+- `providers-and-features/Provider Metadata Roundtrip Fidelity.md`
+- `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
+
+### Phase 5: Product Trust Features
+
+Goals:
+
+- implement schema validation and drift detection using the Phase 4 support boundary
 - generate safe diff scripts
 - define a migration/snapshot workflow
 
@@ -115,13 +136,14 @@ Why before broad feature expansion:
 
 - this makes DataLinq safer to adopt in real projects
 - it addresses a more important product weakness than adding one more clever capability
+- it needs provider metadata fidelity first, otherwise drift reports will be built on partial facts
 
 Key related plans:
 
 - `providers-and-features/Migrations and Validation.md`
-- `roadmap-implementation/phase-4-product-trust-features/Implementation Plan.md`
+- `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
 
-### Phase 5: LINQ Translation Coverage and Query Composition
+### Phase 6: LINQ Translation Coverage and Query Composition
 
 Goals:
 
@@ -142,7 +164,7 @@ Key related plans:
 - `query-and-runtime/LINQ Translation Support.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
 
-### Phase 6: Native AOT and WebAssembly Readiness
+### Phase 7: Native AOT and WebAssembly Readiness
 
 Goals:
 
@@ -163,7 +185,7 @@ Key related plans:
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 
-### Phase 7: Cache, Memory, and Invalidation Foundations
+### Phase 8: Cache, Memory, and Invalidation Foundations
 
 Goals:
 
@@ -185,7 +207,7 @@ Key related plans:
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
 
-### Phase 8: Async and Loading Semantics
+### Phase 9: Async and Loading Semantics
 
 Goals:
 
@@ -209,7 +231,7 @@ Key related plans:
 
 - `query-and-runtime/Async and Lazy Loading.md`
 
-### Phase 9: Capability Expansion
+### Phase 10: Capability Expansion
 
 Goals:
 
@@ -229,7 +251,7 @@ Key related plans:
 - `query-and-runtime/Projections and Views.md`
 - `query-and-runtime/Batched mutations.md`
 
-### Phase 10: Dependency-Tracked Result-Set Caching
+### Phase 11: Dependency-Tracked Result-Set Caching
 
 Goals:
 
@@ -252,16 +274,16 @@ Key related plans:
 
 ## What Should Happen Right Now
 
-The next concrete stretch should move to product trust:
+The next concrete stretch should be provider metadata roundtrip fidelity:
 
-1. Turn the migrations and validation plan into an implementation plan.
-2. Define the first schema validation slice around current metadata and provider capabilities.
-3. Add tests that prove drift detection reports actionable, provider-specific differences.
-4. Keep generated migration/diff scripts conservative until validation behavior is trustworthy.
+1. Build the MySQL, MariaDB, and SQLite metadata support matrix.
+2. Add a provider roundtrip harness for create-read-generate-create-read behavior.
+3. Plug ordinary holes around indexes, primary-key-plus-foreign-key relations, multiple same-target foreign keys, quoted identifiers, comments, and check constraints.
+4. Explicitly document advanced provider syntax that remains unsupported.
 
-That is the right next move because Phase 3 made the runtime path cheaper enough to stop deferring the more important adoption blocker: whether DataLinq can detect and explain schema drift safely.
+That is the right next move because schema validation is only trustworthy if the metadata layer is trustworthy. A comparer that cannot tell whether the reader dropped a check constraint, comment, composite relation, or index detail is not a product-trust feature; it is a confidence trap.
 
-Immediately after the first useful product-trust slice, the next practical runtime feature work should be LINQ translation coverage: chained `Where`, projected local `Contains`, local object-list `Any(predicate)`, and better unsupported-query diagnostics.
+Immediately after the metadata fidelity phase, the next product-trust work should be schema validation and conservative diff scripts. LINQ translation coverage should follow that: chained `Where`, projected local `Contains`, local object-list `Any(predicate)`, and better unsupported-query diagnostics.
 
 ## What Is Explicitly Not First
 

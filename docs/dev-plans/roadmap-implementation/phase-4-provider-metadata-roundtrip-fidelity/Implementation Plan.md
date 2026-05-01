@@ -1,0 +1,199 @@
+> [!WARNING]
+> This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
+# Phase 4 Implementation Plan: Provider Metadata Roundtrip Fidelity
+
+**Status:** Planning.
+
+## Purpose
+
+This document turns the Phase 4 provider metadata fidelity goal from [Roadmap.md](../../Roadmap.md) into an execution plan.
+
+The point of this phase is to make the metadata layer honest enough for schema validation to build on.
+
+DataLinq does not need perfect provider DDL coverage before validation. It does need a tested and documented support boundary for MySQL, MariaDB, and SQLite.
+
+## Starting Baseline
+
+Useful foundations already exist:
+
+- C# model metadata can become `DatabaseDefinition` graphs
+- SQLite can read live metadata through `MetadataFromSQLiteFactory`
+- MySQL and MariaDB can read live metadata through provider-specific information-schema factories
+- SQLite, MySQL, and MariaDB can emit create-table SQL from metadata
+- index and relation metadata exists in `ColumnIndex`, `RelationDefinition`, and `RelationPart`
+- provider tests already cover basic metadata import and some default handling
+
+The gaps are equally concrete:
+
+- no provider metadata support matrix exists
+- no read/generate/re-read roundtrip harness exists
+- composite foreign keys are not represented as first-class constraint groups
+- check constraints are not first-class metadata
+- MySQL/MariaDB comments are exposed by information_schema models but not imported into metadata
+- SQLite advanced index and check-constraint details are not reliably parsed
+- relation naming is not deterministic enough for duplicate relation-name cases
+
+## Phase Objective
+
+By the end of this phase, DataLinq should be able to answer:
+
+1. Which MySQL/MariaDB/SQLite metadata features are supported?
+2. Which features are intentionally unsupported?
+3. Can supported features survive create-read-generate-create-read roundtrips?
+4. Do relation and index edge cases behave deterministically?
+5. Can the schema validation phase consume this support boundary without guessing?
+
+## Workstream A: Provider Support Matrix
+
+Deliverables:
+
+- feature matrix for tables, columns, primary keys, foreign keys, indexes, defaults, checks, comments, identifiers, views, and provider-specific options
+- support labels: supported, partially supported, unsupported, and unknown
+- links or notes pointing to implementation files and tests
+
+Tasks:
+
+1. Audit metadata readers for SQLite, MySQL, and MariaDB.
+2. Audit SQL generators for the same providers.
+3. Audit `DatabaseDefinition` metadata shape for representable features.
+4. Record unsupported provider syntax explicitly.
+
+## Workstream B: Roundtrip Harness
+
+Deliverables:
+
+- test helpers that create schema, read metadata, emit SQL, recreate schema, read metadata again, and compare the supported subset
+- SQLite fixture using local database files or in-memory keep-alive behavior
+- MySQL/MariaDB fixture using existing server test infrastructure
+- deterministic comparison output when a supported roundtrip field changes
+
+Tasks:
+
+1. Define the supported-subset comparison helper.
+2. Add a small SQLite roundtrip smoke test.
+3. Add MySQL/MariaDB roundtrip smoke tests.
+4. Expand fixtures as features are fixed.
+
+## Workstream C: Relations and Constraint Identity
+
+Deliverables:
+
+- coverage for primary-key columns that are also foreign keys across active providers
+- coverage for multiple foreign keys from one table to the same target table
+- deterministic relation property naming for duplicate relation-name cases
+- runtime relation loading tests inside transactions for multiple FKs to the same table
+- decision on first-class composite foreign-key metadata
+
+Tasks:
+
+1. Add regression tests for duplicate relation naming and ordering.
+2. Add runtime tests for multiple same-target foreign keys inside transactions.
+3. Add composite primary-key and composite foreign-key cases.
+4. Change metadata shape if per-column `ForeignKeyAttribute` proves too weak.
+
+## Workstream D: Index Fidelity
+
+Deliverables:
+
+- tests for simple, unique, composite, and foreign-key-overlapping indexes
+- MySQL/MariaDB index parsing that does not discard ordinary indexes just because a column participates in a foreign key
+- SQLite audit using `pragma_index_xinfo` where needed
+- unsupported status for expression, partial, invisible, descending, prefix-length, and provider-specific index options unless implemented
+
+Tasks:
+
+1. Add fixture schemas for overlapping FK/index cases.
+2. Verify generated SQL preserves supported index shape.
+3. Decide which advanced index features are explicitly out of scope.
+
+## Workstream E: Checks, Comments, and Descriptions
+
+Deliverables:
+
+- decision and metadata shape for check constraints
+- MySQL/MariaDB table and column comment import
+- generated XML docs from imported comments where reliable
+- provider SQL generation for comments if metadata exists
+- explicit SQLite stance for comments
+
+Tasks:
+
+1. Add MySQL/MariaDB comment import tests.
+2. Decide whether comments live as generic metadata descriptions or generation-only attributes.
+3. Add check-constraint fixtures and decide raw-expression versus structured metadata.
+4. Document unsupported SQLite/native-comment behavior.
+
+## Workstream F: Identifier Robustness
+
+Deliverables:
+
+- tests for columns with spaces in names
+- tests for reserved words and punctuation
+- stable generated C# property names with `[Column]` preserving database names
+- provider-aware identifier comparison rules for the next validation phase
+
+Tasks:
+
+1. Add provider schemas with quoted identifiers.
+2. Verify generated model attributes preserve original names.
+3. Verify generated SQL re-quotes identifiers correctly.
+4. Record provider-specific casing rules that validation must respect.
+
+## Proposed Execution Order
+
+1. Build the support matrix skeleton.
+2. Add the roundtrip harness skeleton.
+3. Add focused failing tests for identifiers, overlapping FK indexes, duplicate relation names, and multiple FKs to the same table.
+4. Fix simple metadata reader/generator losses found by those tests.
+5. Decide and implement or explicitly defer check constraints.
+6. Import MySQL/MariaDB comments and wire them into generated XML docs if the metadata shape is settled.
+7. Revisit composite foreign-key representation before validation starts.
+8. Update the validation plan with the final support boundary.
+
+## Verification Plan
+
+At minimum, each implementation slice should run the focused tests it changes.
+
+Before closing the phase, run:
+
+- `DataLinq.Tests.Unit`
+- SQLite metadata-reader and roundtrip tests
+- MySQL/MariaDB metadata-reader and roundtrip tests where local provider infrastructure is available
+- generator tests affected by XML docs, identifiers, indexes, and relations
+
+If local MySQL/MariaDB infrastructure is unavailable, record that honestly instead of claiming provider coverage.
+
+## Exit Criteria
+
+Phase 4 is complete when:
+
+- the provider support matrix is explicit and linked from the roadmap
+- supported metadata features have roundtrip tests
+- unsupported provider features are documented rather than implied
+- relation naming is deterministic for duplicate cases
+- multiple same-target foreign keys work in metadata and runtime loading
+- primary-key-plus-foreign-key behavior is tested across active providers
+- columns with spaces and reserved names are tested across active providers
+- check constraints and comments are either implemented or explicitly deferred per provider
+- the Phase 5 validation plan has been updated to consume the final support boundary
+
+## Non-Goals
+
+- full migration support
+- schema drift comparer implementation
+- a general-purpose SQL DDL parser
+- broad provider expansion
+- LINQ parser work
+- Native AOT or async runtime work
+
+## First Implementation Slice
+
+The first slice should produce the matrix and the harness, then immediately exercise the holes that already came up:
+
+1. columns with spaces
+2. foreign-key columns that also have ordinary indexes
+3. primary-key columns that are also foreign keys
+4. multiple foreign keys to the same table
+5. duplicate generated relation property names and ordering stability
+
+That gives the phase teeth. A matrix without tests is just a nicely formatted shrug.

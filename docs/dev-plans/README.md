@@ -51,14 +51,17 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-2-metadata-generator-and-diagnostics-hardening/Implementation Plan.md`
 - `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/README.md`
 - `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
-- `roadmap-implementation/phase-4-product-trust-features/README.md`
-- `roadmap-implementation/phase-4-product-trust-features/Implementation Plan.md`
+- `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/README.md`
+- `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
+- `roadmap-implementation/phase-5-product-trust-features/README.md`
+- `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
 
 ### Providers and features
 
 - `providers-and-features/In-Memory Provider.md`
 - `providers-and-features/JSON Data Type Support.md`
 - `providers-and-features/Migrations and Validation.md`
+- `providers-and-features/Provider Metadata Roundtrip Fidelity.md`
 
 ### Query and runtime
 
@@ -93,6 +96,6 @@ As of the Phase 3 closeout:
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
 - Phase 3 query/runtime hot-path optimization is implemented; the honest performance claim is lower allocation pressure on measured repeated-query paths.
 - The older benchmark, metadata, source-generator, and SQL-generation specs now have status notes explaining which parts landed and which remain future work.
-- The next missing roadmap execution artifact was Phase 4 product trust work, so `roadmap-implementation/phase-4-product-trust-features/` now defines the validation/migration execution plan.
+- The next roadmap execution artifact is Phase 4 provider metadata roundtrip fidelity, because validation needs a tested support boundary before it can compare schemas honestly.
 
-The main thing not to skip at this stage is schema validation. AOT, async, cache invalidation, projections, JSON columns, and result-set caching are still valid plans, but they should not jump ahead of drift detection and conservative schema tooling.
+The main thing not to skip at this stage is metadata fidelity for MySQL, MariaDB, and SQLite. Schema validation remains the next product-trust phase, but it should consume a tested provider support matrix instead of guessing what the metadata readers preserve.

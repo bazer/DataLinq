@@ -1,12 +1,12 @@
 > [!WARNING]
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
-# Phase 4 Implementation Plan: Product Trust Features
+# Phase 5 Implementation Plan: Product Trust Features
 
 **Status:** Planning.
 
 ## Purpose
 
-This document turns the Phase 4 goals from [Roadmap.md](../../Roadmap.md) into an execution plan.
+This document turns the Phase 5 goals from [Roadmap.md](../../Roadmap.md) into an execution plan.
 
 The point of this phase is not to ship a magical migration system first.
 
@@ -27,6 +27,7 @@ Several important things are already true:
 - provider-specific create-table SQL generation already exists
 - metadata-from-server tests already cover SQLite, MySQL, and MariaDB behavior
 - Phase 2 improved generator diagnostics and default-value validation
+- Phase 4 should provide the provider metadata roundtrip support boundary this phase relies on
 
 But the product-trust gap is still real:
 
@@ -127,15 +128,16 @@ Deliverables:
 
 Goals:
 
-- map the exact metadata currently available from code and from each provider
-- identify fields that are comparable now versus fields that need reader/generator hardening
+- consume the Phase 4 provider metadata support matrix
+- verify the comparer only treats supported metadata fields as authoritative
+- identify fields that are comparable now versus fields that remain intentionally unsupported
 
 Tasks:
 
-1. Audit `DatabaseDefinition`, table, column, index, relation, and default metadata.
-2. Audit SQLite, MySQL, and MariaDB metadata readers.
-3. Audit provider SQL generators for create-table and default-value behavior.
-4. Record known gaps before implementing the comparer.
+1. Review the provider metadata roundtrip matrix.
+2. Map supported metadata fields into comparer inputs.
+3. Define how unsupported fields are ignored, warned about, or surfaced as informational differences.
+4. Record any Phase 4 gaps that still block trustworthy validation.
 
 ## Workstream B: Difference Model and Pure Comparer
 
@@ -208,7 +210,7 @@ Tasks:
 
 ## Proposed Execution Order
 
-1. Audit current metadata and provider-reader capabilities.
+1. Consume the Phase 4 metadata support matrix and roundtrip test results.
 2. Add the schema difference model.
 3. Implement table/column presence comparison with unit tests.
 4. Extend comparison to types, nullability, defaults, indices, and relations.
@@ -233,7 +235,7 @@ If local MySQL/MariaDB infrastructure is unavailable, record that honestly.
 
 ## Exit Criteria
 
-Phase 4 is complete when:
+Phase 5 is complete when:
 
 - code metadata can be compared with live SQLite metadata
 - code metadata can be compared with live MySQL/MariaDB metadata

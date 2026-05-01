@@ -2,10 +2,10 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Database Validation & Migrations
 
-**Status:** Draft; selected as the next roadmap phase.
+**Status:** Draft; planned after provider metadata roundtrip fidelity.
 **Goal:** Provide tools to ensure the C# Model (`DatabaseDefinition`) stays synchronized with the physical Database Schema. The approach prioritizes safety and transparency over "magic" automation.
 
-**Roadmap placement:** Main roadmap Phase 4, after the query/runtime hot-path work and before AOT, async, cache, and broader capability expansion.
+**Roadmap placement:** Main roadmap Phase 5, after the provider metadata roundtrip fidelity phase and before AOT, async, cache, and broader capability expansion.
 
 ## Current Implementation State
 
@@ -16,6 +16,8 @@ The repo already has useful raw material for this plan:
 - SQLite, MySQL, and MariaDB can generate create-table SQL from metadata through provider-specific `SqlFromMetadataFactory` implementations
 - tests already cover meaningful metadata-from-server and SQL-from-metadata behavior
 
+Before this plan starts, Phase 4 should add a provider metadata support matrix and roundtrip tests. Validation should only compare metadata that the provider readers and SQL generators are known to preserve.
+
 What is still missing:
 
 - no provider-neutral schema difference model exists
@@ -23,6 +25,7 @@ What is still missing:
 - no `validate` or `diff` command exists in the public CLI
 - no migration snapshot, migration table, or versioned migration workflow exists
 - destructive schema changes do not yet have a formal safety model
+- provider metadata support boundaries need to be consumed from `Provider Metadata Roundtrip Fidelity.md`
 
 The first implementation slice should therefore be drift detection, not script generation. If the comparer cannot explain differences accurately, generating migration SQL is just automating confusion.
 
@@ -117,12 +120,14 @@ A system table tracking which migration IDs have been applied.
 
 ## 5. Schema Features Checklist
 
-To ensure robust validation, we must support parsing and diffing these specific features:
+To ensure robust validation, we must consume the provider support boundary from `Provider Metadata Roundtrip Fidelity.md` and support parsing/diffing the agreed subset of these features:
 
 *   [ ] **Check Constraints:** Parse `CHECK (...)` from SQL and validate against model attributes.
 *   [ ] **Comments/Descriptions:** Sync C# XML Summaries or `[Description]` attributes with DB Column Comments.
 *   [ ] **Collations:** Validate character set/collation compatibility.
 *   [ ] **JSON Columns:** Ensure simple `string` properties correctly map to `JSON` DB types where valid.
+*   [ ] **Composite Relations:** Validate composite primary keys, composite foreign keys, and columns that are both primary keys and foreign keys.
+*   [ ] **Identifier Fidelity:** Validate columns and tables with spaces, reserved words, punctuation, and provider-specific casing rules.
 
 ---
 

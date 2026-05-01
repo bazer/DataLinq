@@ -3,7 +3,7 @@
 **Status:** Draft
 **Goal:** Eliminate runtime code generation (JIT) and reflection from the "Hot Path" to enable DataLinq to run efficiently in **Native AOT** environments (AWS Lambda, CLI tools) and **WebAssembly** (Blazor Wasm in the browser).
 
-**Roadmap placement:** Main roadmap Phase 6, after product-trust work and the LINQ translation coverage pass, before the deeper cache/invalidation work.
+**Roadmap placement:** Main roadmap Phase 7, after provider metadata fidelity, product-trust work, and the LINQ translation coverage pass, before the deeper cache/invalidation work.
 
 ---
 
