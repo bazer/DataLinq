@@ -55,6 +55,7 @@ Those tests are a good base, but they are not yet a metadata roundtrip conforman
 ### Constraints and Relations
 
 - Composite foreign keys are currently represented through per-column `ForeignKeyAttribute` values. That is enough for simple relations, but it is a weak shape for constraint-level fidelity because order, grouping, and referenced candidate key semantics belong to the constraint, not to each column in isolation.
+- Composite foreign keys should probably become constraint objects in metadata. Model properties should still carry attributes that connect each property to the constraint, but the canonical metadata should group the columns by constraint name and ordinal.
 - A foreign key that is also part of a primary key needs explicit test coverage across MySQL, MariaDB, and SQLite. There is already a MySQL/MariaDB regression test for a primary-key column that is also a foreign key, but the broader composite and roundtrip behavior is not proven.
 - Multiple foreign keys from one table to the same target table need deterministic relation identity, deterministic generated property names, and runtime relation loading tests. The current `_2` suffix behavior is pragmatic, but it is not a robust naming strategy if metadata ordering changes.
 - Relation loading inside transactions needs coverage where several foreign keys point to the same table. This is a runtime correctness bug class, not just metadata cosmetics.
@@ -73,12 +74,14 @@ Those tests are a good base, but they are not yet a metadata roundtrip conforman
 - DataLinq does not currently have a first-class check constraint metadata shape.
 - MySQL/MariaDB support check constraints, but the exact introspection path differs by version and provider. MySQL 8.0.16+ enforces checks; older versions parse but ignore them.
 - SQLite supports `CHECK (...)`, but reliable introspection usually requires parsing the original `CREATE TABLE` SQL in `sqlite_schema.sql`.
+- The Phase 4 implementation should start with raw provider-specific check expressions on attributes, with the expression string as the canonical roundtrip payload. A future first-class `CheckConstraintDefinition` is documented separately in `Check Constraint Metadata Design.md`.
 
 ### Comments and Descriptions
 
 - MySQL/MariaDB information-schema models already expose table and column comment fields, but the metadata reader does not currently import them into a first-class DataLinq metadata concept.
 - SQLite has no native table or column comments. Any SQLite comment support must be explicitly convention-based or declared unsupported.
 - Generated C# XML documentation should be tied to imported comments only when the origin is reliable. A lossy provider comment should not silently overwrite better source comments.
+- Comments should exist both as metadata descriptions and as attributes on generated model classes/properties. The attribute string should be the canonical roundtrip payload; XML docs should be generated from it where appropriate, not treated as the source of truth.
 
 ### Identifiers and Quoting
 
@@ -108,8 +111,8 @@ This matrix is the first artifact this phase should make precise. The entries be
 | Foreign keys | Basic per-column metadata exists | Basic per-column metadata exists | Basic per-column metadata exists | Upgrade constraint grouping before validation relies on it |
 | Composite foreign keys | Weak current representation | Weak current representation | Weak current representation | Add first-class constraint-level tests and likely metadata changes |
 | Multiple FKs to same table | Risky naming/runtime area | Risky naming/runtime area | Risky naming/runtime area | Fix determinism and runtime loading |
-| Check constraints | Not first-class | Not first-class | Not first-class | Add first-class metadata or explicitly defer |
-| Table/column comments | Available from information_schema, not imported | Available from information_schema, not imported | No native support | Import MySQL/MariaDB; document SQLite stance |
+| Check constraints | Not first-class | Not first-class | Not first-class | Start with raw expression attributes; defer structured metadata |
+| Table/column comments | Available from information_schema, not imported | Available from information_schema, not imported | No native support | Store as metadata and attributes; generate XML docs where useful |
 | Column names with spaces | Quoting exists, full flow not proven | Quoting exists, full flow not proven | Quoting exists, full flow not proven | Support and test |
 | Partial/expression indexes | Not represented | Not represented | Not represented | Explicitly unsupported initially |
 | Generated/computed columns | Not represented | Not represented | Not represented | Explicitly unsupported initially |
@@ -147,6 +150,7 @@ Deliverables:
 - tests for multiple foreign keys from one table to the same target table
 - deterministic relation property naming rules
 - runtime tests for relation loading inside transactions with several foreign keys to the same table
+- metadata representation for composite foreign-key constraints, with generated attributes on model properties clearly linking each participating property to the constraint
 
 This workstream may require metadata shape changes. If it does, make them here, before the schema comparer starts depending on the current weak shape.
 
@@ -165,13 +169,18 @@ The goal is not to support every index option. The goal is to stop losing ordina
 
 Deliverables:
 
-- first-class decision on check constraint metadata
+- raw provider-specific check expression attributes as the initial implementation
+- design note for future first-class check constraint metadata
 - MySQL/MariaDB table and column comment import
+- metadata descriptions for imported comments
+- comment attributes on generated model classes/properties as the canonical roundtrip payload
 - generated XML documentation from database comments where reliable
 - SQL generation of comments where metadata exists
 - explicit SQLite comment stance
 
 For SQLite, the honest default is probably unsupported native comments, with optional future support through conventions. Pretending SQLite has normal column comments would be fiction.
+
+SQLite check constraints are different: SQLite supports checks, but extracting them means parsing `sqlite_schema.sql`. Keep that parser deliberately narrow. It should handle ordinary `CREATE TABLE` checks, quoted identifiers, string literals, and nested parentheses well enough for supported fixtures, and it should bail out with a warning instead of guessing on virtual tables, `CREATE TABLE AS SELECT`, generated columns, exotic conflict clauses, or expressions it cannot tokenize safely.
 
 ### Workstream F: Identifier Robustness
 
@@ -216,10 +225,10 @@ This phase is complete when:
 - changing LINQ translation behavior
 - broad provider expansion beyond MySQL, MariaDB, and SQLite
 
-## Open Questions
+## Decisions From Initial Review
 
-- Should check constraints become a first-class `CheckConstraintDefinition`, or should they start as raw provider-specific expressions?
-- Should comments be stored as generic descriptions on metadata nodes, or as attributes used only by generation?
-- How much SQLite `CREATE TABLE` parsing is acceptable before it becomes a maintenance trap?
-- Should composite foreign keys be represented as constraint objects instead of per-column attributes?
-- Should relation property names be derived from constraint names when column/table names are ambiguous?
+- **Check constraints:** Start with raw provider-specific expression attributes. Keep `CheckConstraintDefinition` as a later design, documented in `Check Constraint Metadata Design.md`.
+- **Comments:** Store comments both as metadata descriptions and as attributes on generated classes/properties. The attribute string is the roundtrip source of truth; XML docs are generated presentation.
+- **SQLite `CREATE TABLE` parsing:** Accept a narrow parser for supported fixtures and ordinary checks only. Avoid a general SQLite DDL parser; bail out visibly when syntax is outside the supported subset.
+- **Composite foreign keys:** Represent them as constraint objects in metadata. Keep generated model attributes connected to the participating properties so the C# surface remains understandable.
+- **Ambiguous relation names:** Derive generated relation property names from constraint names when table/column-derived names collide or are ambiguous.

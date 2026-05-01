@@ -28,7 +28,7 @@ The gaps are equally concrete:
 - no provider metadata support matrix exists
 - no read/generate/re-read roundtrip harness exists
 - composite foreign keys are not represented as first-class constraint groups
-- check constraints are not first-class metadata
+- check constraints are not imported even as raw provider expressions
 - MySQL/MariaDB comments are exposed by information_schema models but not imported into metadata
 - SQLite advanced index and check-constraint details are not reliably parsed
 - relation naming is not deterministic enough for duplicate relation-name cases
@@ -83,13 +83,15 @@ Deliverables:
 - deterministic relation property naming for duplicate relation-name cases
 - runtime relation loading tests inside transactions for multiple FKs to the same table
 - decision on first-class composite foreign-key metadata
+- generated model attributes that keep each participating property visibly connected to the composite constraint
 
 Tasks:
 
 1. Add regression tests for duplicate relation naming and ordering.
 2. Add runtime tests for multiple same-target foreign keys inside transactions.
 3. Add composite primary-key and composite foreign-key cases.
-4. Change metadata shape if per-column `ForeignKeyAttribute` proves too weak.
+4. Introduce constraint-level metadata for composite foreign keys if per-column `ForeignKeyAttribute` proves too weak.
+5. Use constraint names to derive relation property names when table/column-derived names collide or are ambiguous.
 
 ## Workstream D: Index Fidelity
 
@@ -110,8 +112,11 @@ Tasks:
 
 Deliverables:
 
-- decision and metadata shape for check constraints
+- raw provider-specific check expression attributes
+- future-design note for first-class check constraint metadata
 - MySQL/MariaDB table and column comment import
+- metadata descriptions populated from imported comments
+- comment attributes on generated model classes/properties
 - generated XML docs from imported comments where reliable
 - provider SQL generation for comments if metadata exists
 - explicit SQLite stance for comments
@@ -119,9 +124,11 @@ Deliverables:
 Tasks:
 
 1. Add MySQL/MariaDB comment import tests.
-2. Decide whether comments live as generic metadata descriptions or generation-only attributes.
-3. Add check-constraint fixtures and decide raw-expression versus structured metadata.
-4. Document unsupported SQLite/native-comment behavior.
+2. Store imported comments in metadata and emit attributes so comments roundtrip through generated models.
+3. Generate XML docs from comment metadata where it improves generated code.
+4. Add check-constraint fixtures and import/export raw expression attributes.
+5. Document unsupported SQLite/native-comment behavior.
+6. Keep SQLite `CREATE TABLE` parsing narrow and warning-based when syntax exceeds the supported subset.
 
 ## Workstream F: Identifier Robustness
 
@@ -145,8 +152,8 @@ Tasks:
 2. Add the roundtrip harness skeleton.
 3. Add focused failing tests for identifiers, overlapping FK indexes, duplicate relation names, and multiple FKs to the same table.
 4. Fix simple metadata reader/generator losses found by those tests.
-5. Decide and implement or explicitly defer check constraints.
-6. Import MySQL/MariaDB comments and wire them into generated XML docs if the metadata shape is settled.
+5. Implement raw check expression attributes and defer structured check metadata.
+6. Import MySQL/MariaDB comments into metadata, generated attributes, and XML docs where appropriate.
 7. Revisit composite foreign-key representation before validation starts.
 8. Update the validation plan with the final support boundary.
 
