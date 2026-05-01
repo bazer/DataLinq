@@ -99,6 +99,7 @@ Deliverables:
 
 - tests for simple, unique, composite, and foreign-key-overlapping indexes
 - regression coverage for GitHub issue #6, where CLI model generation lost the full column list for a composite unique index
+- class-level `IndexAttribute` generation for composite indexes to avoid duplicate property-level declarations that can drift
 - clear validation/diagnostics for the `IndexAttribute.Columns` name contract: database column names are canonical; C# property names may only be a future convenience if explicitly resolved
 - MySQL/MariaDB index parsing that does not discard ordinary indexes just because a column participates in a foreign key
 - SQLite audit using `pragma_index_xinfo` where needed
@@ -107,7 +108,7 @@ Deliverables:
 Tasks:
 
 1. Add fixture schemas for overlapping FK/index cases.
-2. Add a fixture for a unique composite index like `RakenskapsarFK_Kontonummer` and verify generated model attributes include the full ordered column list.
+2. Add a fixture for a unique composite index like `RakenskapsarFK_Kontonummer` and verify generated models use one class-level attribute with the full ordered column list.
 3. Replace generic composite-index parse failures with source-located diagnostics that name the missing column and state that `IndexAttribute.Columns` expects database column names.
 4. Verify generated SQL preserves supported index shape.
 5. Decide which advanced index features are explicitly out of scope.
@@ -121,7 +122,7 @@ Deliverables:
 - MySQL/MariaDB table and column comment import
 - metadata descriptions populated from imported comments
 - comment attributes on generated model classes/properties
-- generated XML docs from imported comments where reliable
+- source-generated XML docs from imported comments and metadata where reliable
 - provider SQL generation for comments if metadata exists
 - explicit SQLite stance for comments
 
@@ -129,7 +130,7 @@ Tasks:
 
 1. Add MySQL/MariaDB comment import tests.
 2. Store imported comments in metadata and emit attributes so comments roundtrip through generated models.
-3. Generate XML docs from comment metadata where it improves generated code.
+3. Generate XML docs from `[Comment]` attributes and metadata where it improves generated code, without making XML doc text the schema roundtrip source.
 4. Add check-constraint fixtures and import/export raw expression attributes, including provider-specific variants on the same model.
 5. Document unsupported SQLite/native-comment behavior.
 6. Keep SQLite `CREATE TABLE` parsing narrow and warning-based when syntax exceeds the supported subset.

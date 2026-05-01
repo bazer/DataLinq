@@ -83,7 +83,7 @@ Those tests are a good base, but they are not yet a metadata roundtrip conforman
 - MySQL/MariaDB information-schema models already expose table and column comment fields, but the metadata reader does not currently import them into a first-class DataLinq metadata concept.
 - SQLite has no native table or column comments. Any SQLite comment support must be explicitly convention-based or declared unsupported.
 - Generated C# XML documentation should be tied to imported comments only when the origin is reliable. A lossy provider comment should not silently overwrite better source comments.
-- Comments should exist both as metadata descriptions and as attributes on generated model classes/properties. The attribute string should be the canonical roundtrip payload; XML docs should be generated from it where appropriate, not treated as the source of truth.
+- Comments should exist both as metadata descriptions and as attributes on generated model classes/properties. The attribute string should be the canonical roundtrip payload; XML docs should be source-generated from it where appropriate, not treated as the source of truth.
 
 ### Identifiers and Quoting
 
@@ -115,7 +115,7 @@ This matrix is the first artifact this phase should make precise. The entries be
 | Composite foreign keys | Weak current representation | Weak current representation | Weak current representation | Add first-class constraint-level tests and likely metadata changes |
 | Multiple FKs to same table | Risky naming/runtime area | Risky naming/runtime area | Risky naming/runtime area | Fix determinism and runtime loading |
 | Check constraints | Not first-class | Not first-class | Not first-class | Start with raw `DatabaseType`-bound expression attributes; defer structured metadata |
-| Table/column comments | Available from information_schema, not imported | Available from information_schema, not imported | No native support | Store as metadata and attributes; generate XML docs where useful |
+| Table/column comments | Available from information_schema, not imported | Available from information_schema, not imported | No native support | Store as metadata and attributes; source-generate XML docs where useful |
 | Column names with spaces | Quoting exists, full flow not proven | Quoting exists, full flow not proven | Quoting exists, full flow not proven | Support and test |
 | Partial/expression indexes | Not represented | Not represented | Not represented | Explicitly unsupported initially |
 | Generated/computed columns | Not represented | Not represented | Not represented | Explicitly unsupported initially |
@@ -162,7 +162,7 @@ This workstream may require metadata shape changes. If it does, make them here, 
 Deliverables:
 
 - tests for simple, unique, composite, and foreign-key-overlapping indexes
-- regression coverage for GitHub issue #6: CLI-generated composite index attributes must carry the full ordered column list, and model parsing must give a useful diagnostic if an index references property names where database column names are required
+- regression coverage for GitHub issue #6: CLI-generated composite index attributes must be class-level declarations carrying the full ordered column list, and model parsing must give a useful diagnostic if an index references property names where database column names are required
 - MySQL/MariaDB handling for indexes that include foreign-key columns without dropping non-FK index metadata
 - SQLite `pragma_index_xinfo` audit for expression/partial index detection
 - explicit unsupported diagnostics or documentation for partial/expression indexes and provider-specific options
@@ -175,31 +175,7 @@ These examples are not final API commitments. They are sketches to make Phase 4 
 
 ### Composite Index Attributes
 
-Use database column names in the ordered column list:
-
-```csharp
-[Index(
-    "RakenskapsarFK_Kontonummer",
-    IndexCharacteristic.Unique,
-    IndexType.BTREE,
-    "RakenskapsarFK",
-    "Kontonummer")]
-[Column("RakenskapsarFK")]
-public abstract int AccountingYearId { get; }
-
-[Index(
-    "RakenskapsarFK_Kontonummer",
-    IndexCharacteristic.Unique,
-    IndexType.BTREE,
-    "RakenskapsarFK",
-    "Kontonummer")]
-[Column("Kontonummer")]
-public abstract int AccountNumber { get; }
-```
-
-The duplicate attribute on both participating properties is noisy, but it matches the current attribute model and makes each property visibly connected to the index. The metadata parser should collapse those attributes into one `ColumnIndex`.
-
-If we later allow a single class-level index attribute, the canonical names should still be database column names:
+Use a single class-level attribute with database column names in the ordered column list:
 
 ```csharp
 [Index(
@@ -209,7 +185,15 @@ If we later allow a single class-level index attribute, the canonical names shou
     "RakenskapsarFK",
     "Kontonummer")]
 public abstract partial class Account { }
+
+[Column("RakenskapsarFK")]
+public abstract int AccountingYearId { get; }
+
+[Column("Kontonummer")]
+public abstract int AccountNumber { get; }
 ```
+
+This should replace duplicate property-level attributes for composite indexes. Duplicated attributes create an unnecessary consistency problem: two declarations that should describe the same index can drift. A class-level declaration is the single source of truth, and `Column` attributes keep the property-to-database-column mapping visible.
 
 ### Comments
 
@@ -220,15 +204,27 @@ Comments should roundtrip through attributes and also populate metadata descript
 [Table("invoice")]
 public abstract partial class Invoice { }
 
-/// <summary>
-/// Human-readable invoice number shown to users.
-/// </summary>
 [Comment("Human-readable invoice number shown to users.")]
 [Column("invoice_no")]
 public abstract string InvoiceNumber { get; }
 ```
 
-The XML doc is generated presentation. The `[Comment]` string is the roundtrip payload.
+The `[Comment]` string is the roundtrip payload. XML docs should be generated by the source generator from that attribute and other metadata, rather than generated into model files as user-editable source text. That keeps the diffable schema source in one place: the attribute.
+
+Generated XML docs can include more than the comment string where useful:
+
+```csharp
+/// <summary>
+/// Human-readable invoice number shown to users.
+/// </summary>
+/// <remarks>
+/// Database column: invoice_no.
+/// Required.
+/// </remarks>
+public abstract string InvoiceNumber { get; }
+```
+
+The user should edit `[Comment(...)]`, not the generated XML doc output.
 
 If provider-specific comments become necessary, the same pattern as checks can be extended later:
 
@@ -309,7 +305,7 @@ Deliverables:
 - MySQL/MariaDB table and column comment import
 - metadata descriptions for imported comments
 - comment attributes on generated model classes/properties as the canonical roundtrip payload
-- generated XML documentation from database comments where reliable
+- source-generated XML documentation from database comments and metadata where reliable
 - SQL generation of comments where metadata exists
 - explicit SQLite comment stance
 
@@ -363,8 +359,10 @@ This phase is complete when:
 ## Decisions From Initial Review
 
 - **Check constraints:** Start with raw provider-specific expression attributes that include `DatabaseType`. Keep `CheckConstraintDefinition` as a later design, documented in `Check Constraint Metadata Design.md`.
-- **Comments:** Store comments both as metadata descriptions and as attributes on generated classes/properties. The attribute string is the roundtrip source of truth; XML docs are generated presentation.
+- **Comments:** Store comments both as metadata descriptions and as attributes on generated classes/properties. The attribute string is the roundtrip source of truth; XML docs are source-generated presentation.
 - **Index column names:** Store and generate database column names in `IndexAttribute.Columns`; do not use `nameof(...)` as the canonical roundtrip form.
+- **Composite indexes:** Use class-level `IndexAttribute` declarations for composite indexes, not duplicate property-level declarations.
+- **XML docs for comments:** Generate XML docs from `[Comment]` and metadata through the source generator. Do not make XML doc source the roundtrip payload.
 - **SQLite `CREATE TABLE` parsing:** Accept a narrow parser for supported fixtures and ordinary checks only. Avoid a general SQLite DDL parser; bail out visibly when syntax is outside the supported subset.
 - **Composite foreign keys:** Represent them as constraint objects in metadata. Keep generated model attributes connected to the participating properties so the C# surface remains understandable.
 - **Ambiguous relation names:** Derive generated relation property names from constraint names when table/column-derived names collide or are ambiguous.
