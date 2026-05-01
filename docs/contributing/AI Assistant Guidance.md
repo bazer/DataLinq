@@ -28,6 +28,7 @@ Use the repo docs in this order:
 - Documentation must describe shipped behavior, not roadmap material pretending to be shipped.
 - For broad documentation work, start with an audit and action plan before making a large batch of edits.
 - Prefer sandboxed execution first for build, test, local project CLI, and non-destructive git inspection commands. Do not request sandbox escalation preemptively for `dotnet run`, `dotnet build`, `dotnet test`, `DataLinq.Dev.CLI`, `DataLinq.Testing.CLI`, or `DataLinq.Benchmark.CLI`; retry outside the sandbox only after a sandboxed attempt fails with a likely sandbox, network, cache, or filesystem-permission issue.
+- On native Windows, prefer `.\scripts\dotnet-sandbox.ps1 ...` for sandboxed `dotnet` commands. Raw `dotnet` may try to read or write profile-scoped .NET and NuGet state, while the wrapper pins `DOTNET_CLI_HOME`, `APPDATA`, `LOCALAPPDATA`, temp paths, NuGet HTTP cache, NuGet scratch space, and restore config to workspace-local paths. For `run`, `build`, `test`, `pack`, and `publish`, the wrapper adds `--no-restore` because sandboxed execution should consume existing restore assets instead of trying blocked NuGet.org network calls. Use an explicit restore command when package assets are missing.
 
 ## Use the Repo Tools, Not Ad Hoc Commands
 
@@ -49,36 +50,36 @@ Using raw `dotnet`, raw Podman commands, or direct BenchmarkDotNet invocation as
 
 For normal code work:
 
-```bash
-dotnet run --project src/DataLinq.Dev.CLI -- doctor --profile repo
-dotnet run --project src/DataLinq.Dev.CLI -- restore
-dotnet run --project src/DataLinq.Dev.CLI -- build
+```powershell
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- doctor --profile repo
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- restore
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- build
 ```
 
 For targeted tests:
 
-```bash
-dotnet run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
+```powershell
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Dev.CLI -- test src/DataLinq.Tests.Unit/DataLinq.Tests.Unit.csproj
 ```
 
 For provider-matrix or server-backed runs:
 
-```bash
-dotnet run --project src/DataLinq.Testing.CLI -- list
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+```powershell
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- list
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
 ```
 
 The compliance quick suite is known to run successfully inside the Codex sandbox on native Windows:
 
-```bash
-dotnet run --project src/DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+```powershell
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
 ```
 
 For benchmarks:
 
-```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- list
-dotnet run --project src/DataLinq.Benchmark.CLI -- run
+```powershell
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Benchmark.CLI -- list
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Benchmark.CLI -- run
 ```
 
 ## Documentation Boundaries

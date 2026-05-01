@@ -5,6 +5,7 @@
 - Expanded agent workflow guidance lives in `docs/contributing/AI Assistant Guidance.md` and the internal tooling pages under `docs/contributing/`.
 - The legacy xUnit projects have been removed. All new tests should go into the TUnit test projects such as `src/DataLinq.Tests.Unit`, `src/DataLinq.Tests.Compliance`, `src/DataLinq.Tests.MySql`, or other active TUnit-based test projects.
 - Prefer running build, test, local project CLI, and non-destructive git inspection commands inside the sandbox first. Do not request sandbox escalation preemptively for `dotnet run`, `dotnet build`, `dotnet test`, `DataLinq.Dev.CLI`, `DataLinq.Testing.CLI`, or `DataLinq.Benchmark.CLI`; escalate only after a sandboxed attempt fails with a likely sandbox, network, cache, or filesystem-permission issue.
+- For sandboxed `dotnet` commands on native Windows, prefer `.\scripts\dotnet-sandbox.ps1 ...` over raw `dotnet ...`. The wrapper pins `DOTNET_CLI_HOME`, `APPDATA`, `LOCALAPPDATA`, temp paths, NuGet HTTP cache, NuGet scratch space, and restore config to workspace-local paths so first-run/toolpath sentinel and NuGet profile writes stay inside the sandbox.
 - For broad documentation or cleanup work, prefer starting with an audit and action plan before making large edits.
 - Once the plan is agreed, prefer autonomous execution to a solid stopping point instead of repeated check-ins.
 - Sub-agents are allowed for parallelizable repo work once the scope is clear.
