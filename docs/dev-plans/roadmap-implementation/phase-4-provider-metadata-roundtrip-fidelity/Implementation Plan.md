@@ -112,7 +112,7 @@ Tasks:
 
 Deliverables:
 
-- raw provider-specific check expression attributes
+- raw provider-specific check expression attributes with `DatabaseType`
 - future-design note for first-class check constraint metadata
 - MySQL/MariaDB table and column comment import
 - metadata descriptions populated from imported comments
@@ -126,7 +126,7 @@ Tasks:
 1. Add MySQL/MariaDB comment import tests.
 2. Store imported comments in metadata and emit attributes so comments roundtrip through generated models.
 3. Generate XML docs from comment metadata where it improves generated code.
-4. Add check-constraint fixtures and import/export raw expression attributes.
+4. Add check-constraint fixtures and import/export raw expression attributes, including provider-specific variants on the same model.
 5. Document unsupported SQLite/native-comment behavior.
 6. Keep SQLite `CREATE TABLE` parsing narrow and warning-based when syntax exceeds the supported subset.
 

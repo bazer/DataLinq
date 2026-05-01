@@ -20,35 +20,40 @@ Conceptually:
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = true)]
 public sealed class CheckAttribute : Attribute
 {
-    public CheckAttribute(string expression)
+    public CheckAttribute(DatabaseType databaseType, string expression)
     {
+        DatabaseType = databaseType;
         Expression = expression;
     }
 
+    public DatabaseType DatabaseType { get; }
     public string Expression { get; }
 }
 ```
 
 The exact name can be decided during implementation. `CheckAttribute` is short; `CheckConstraintAttribute` is more explicit. I slightly prefer `CheckAttribute` for model code if it stays unambiguous beside existing attributes.
 
-The important part is not the type name. The important part is that the expression string is the canonical roundtrip payload.
+The important part is not the type name. The important part is that the expression string is the canonical roundtrip payload and that it is bound to the backend dialect it came from.
 
 Examples:
 
 ```csharp
-[Check("start_date <= end_date")]
+[Check(DatabaseType.MySQL, "start_date <= end_date")]
+[Check(DatabaseType.SQLite, "\"start_date\" <= \"end_date\"")]
 public abstract partial class Subscription { }
 
-[Check("age >= 0")]
+[Check(DatabaseType.MariaDB, "age >= 0")]
 public abstract int Age { get; }
 ```
+
+Multiple attributes should be allowed for the same table or property so one model can carry provider-specific check expressions for several backends at the same time.
 
 Provider readers should import check expressions verbatim where possible:
 
 - MySQL/MariaDB: import the provider expression from the available constraint metadata.
 - SQLite: import simple table/column checks only if a limited parser can safely extract them from `sqlite_schema.sql`.
 
-Provider SQL generators should emit the expression verbatim for the provider. No cross-provider expression translation should happen in this first slice.
+Provider SQL generators should prefer an attribute whose `DatabaseType` matches the target provider. If no exact match exists, they may attempt translation from a parsed expression only when the parser/translator can prove the expression is within a supported subset. Otherwise generation should fail or warn explicitly rather than emitting a plausible but changed constraint.
 
 ## Why Raw Expressions First
 
@@ -79,7 +84,7 @@ public sealed class CheckConstraintDefinition
     public TableDefinition Table { get; }
     public ColumnDefinition[] Columns { get; }
     public string Expression { get; }
-    public DatabaseType? ProviderExpressionDialect { get; }
+    public DatabaseType DatabaseType { get; }
     public CheckExpressionNode? ParsedExpression { get; }
 }
 ```
@@ -95,10 +100,34 @@ To justify first-class check constraints, DataLinq would need:
 - constraint names where providers expose them
 - stable ordering for generated SQL and schema comparison
 - provider-aware normalization so equivalent expressions do not create noisy drift reports
+- provider-aware expression selection so SQL generation uses the matching `DatabaseType` expression before considering translation
 - parser support good enough to avoid corrupting expressions
+- translator support for a deliberately small cross-provider expression subset
 - clear unsupported-expression diagnostics
 
 Without those pieces, `CheckConstraintDefinition` would mostly be a string in a fancier coat.
+
+## Provider-Specific Expressions and Translation
+
+The attribute-level `DatabaseType` is not decoration. It is the dialect label that makes the raw expression meaningful.
+
+SQL generation should use this order:
+
+1. exact `DatabaseType` match
+2. provider-compatible match only if explicitly defined, for example MySQL/MariaDB compatibility where tested
+3. parsed-expression translation for a narrow supported subset
+4. visible failure or warning
+
+The translator should start tiny:
+
+- column references
+- literals
+- comparison operators
+- `AND`, `OR`, and `NOT`
+- parentheses
+- simple `IS NULL` / `IS NOT NULL`
+
+Do not start by translating provider functions, regex operators, JSON path expressions, collations, or casts. Those features are exactly why the raw provider string must remain available.
 
 ## Parsed Expression Design
 
@@ -120,9 +149,9 @@ The `CheckRawExpression` escape hatch is essential. Provider SQL expression gram
 
 Validation should compare check constraints in layers:
 
-1. exact expression match after trivial whitespace normalization
+1. exact `DatabaseType` match plus expression match after trivial whitespace normalization
 2. provider-specific normalization for identifier quoting and redundant parentheses
-3. parsed-tree comparison only for expressions DataLinq confidently understands
+3. parsed-tree comparison only for expressions DataLinq confidently understands within the same dialect or a tested compatible dialect
 4. informational warning for unsupported expressions rather than a false mismatch or false match
 
 Blunt rule: if DataLinq cannot parse an expression confidently, it should still preserve it, but it should not claim semantic equivalence.

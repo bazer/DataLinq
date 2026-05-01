@@ -74,7 +74,7 @@ Those tests are a good base, but they are not yet a metadata roundtrip conforman
 - DataLinq does not currently have a first-class check constraint metadata shape.
 - MySQL/MariaDB support check constraints, but the exact introspection path differs by version and provider. MySQL 8.0.16+ enforces checks; older versions parse but ignore them.
 - SQLite supports `CHECK (...)`, but reliable introspection usually requires parsing the original `CREATE TABLE` SQL in `sqlite_schema.sql`.
-- The Phase 4 implementation should start with raw provider-specific check expressions on attributes, with the expression string as the canonical roundtrip payload. A future first-class `CheckConstraintDefinition` is documented separately in `Check Constraint Metadata Design.md`.
+- The Phase 4 implementation should start with raw provider-specific check expressions on attributes, with the expression string and its `DatabaseType` as the canonical roundtrip payload. A future first-class `CheckConstraintDefinition` is documented separately in `Check Constraint Metadata Design.md`.
 
 ### Comments and Descriptions
 
@@ -111,7 +111,7 @@ This matrix is the first artifact this phase should make precise. The entries be
 | Foreign keys | Basic per-column metadata exists | Basic per-column metadata exists | Basic per-column metadata exists | Upgrade constraint grouping before validation relies on it |
 | Composite foreign keys | Weak current representation | Weak current representation | Weak current representation | Add first-class constraint-level tests and likely metadata changes |
 | Multiple FKs to same table | Risky naming/runtime area | Risky naming/runtime area | Risky naming/runtime area | Fix determinism and runtime loading |
-| Check constraints | Not first-class | Not first-class | Not first-class | Start with raw expression attributes; defer structured metadata |
+| Check constraints | Not first-class | Not first-class | Not first-class | Start with raw `DatabaseType`-bound expression attributes; defer structured metadata |
 | Table/column comments | Available from information_schema, not imported | Available from information_schema, not imported | No native support | Store as metadata and attributes; generate XML docs where useful |
 | Column names with spaces | Quoting exists, full flow not proven | Quoting exists, full flow not proven | Quoting exists, full flow not proven | Support and test |
 | Partial/expression indexes | Not represented | Not represented | Not represented | Explicitly unsupported initially |
@@ -169,7 +169,7 @@ The goal is not to support every index option. The goal is to stop losing ordina
 
 Deliverables:
 
-- raw provider-specific check expression attributes as the initial implementation
+- raw provider-specific check expression attributes as the initial implementation, with a `DatabaseType` on each attribute
 - design note for future first-class check constraint metadata
 - MySQL/MariaDB table and column comment import
 - metadata descriptions for imported comments
@@ -227,7 +227,7 @@ This phase is complete when:
 
 ## Decisions From Initial Review
 
-- **Check constraints:** Start with raw provider-specific expression attributes. Keep `CheckConstraintDefinition` as a later design, documented in `Check Constraint Metadata Design.md`.
+- **Check constraints:** Start with raw provider-specific expression attributes that include `DatabaseType`. Keep `CheckConstraintDefinition` as a later design, documented in `Check Constraint Metadata Design.md`.
 - **Comments:** Store comments both as metadata descriptions and as attributes on generated classes/properties. The attribute string is the roundtrip source of truth; XML docs are generated presentation.
 - **SQLite `CREATE TABLE` parsing:** Accept a narrow parser for supported fixtures and ordinary checks only. Avoid a general SQLite DDL parser; bail out visibly when syntax is outside the supported subset.
 - **Composite foreign keys:** Represent them as constraint objects in metadata. Keep generated model attributes connected to the participating properties so the C# surface remains understandable.
