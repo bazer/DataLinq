@@ -98,6 +98,8 @@ Tasks:
 Deliverables:
 
 - tests for simple, unique, composite, and foreign-key-overlapping indexes
+- regression coverage for GitHub issue #6, where CLI model generation lost the full column list for a composite unique index
+- clear validation/diagnostics for the `IndexAttribute.Columns` name contract, especially when users pass C# property names instead of database column names
 - MySQL/MariaDB index parsing that does not discard ordinary indexes just because a column participates in a foreign key
 - SQLite audit using `pragma_index_xinfo` where needed
 - unsupported status for expression, partial, invisible, descending, prefix-length, and provider-specific index options unless implemented
@@ -105,8 +107,10 @@ Deliverables:
 Tasks:
 
 1. Add fixture schemas for overlapping FK/index cases.
-2. Verify generated SQL preserves supported index shape.
-3. Decide which advanced index features are explicitly out of scope.
+2. Add a fixture for a unique composite index like `RakenskapsarFK_Kontonummer` and verify generated model attributes include the full ordered column list.
+3. Replace generic composite-index parse failures with source-located diagnostics that name the missing column and expected naming convention.
+4. Verify generated SQL preserves supported index shape.
+5. Decide which advanced index features are explicitly out of scope.
 
 ## Workstream E: Checks, Comments, and Descriptions
 
@@ -150,7 +154,7 @@ Tasks:
 
 1. Build the support matrix skeleton.
 2. Add the roundtrip harness skeleton.
-3. Add focused failing tests for identifiers, overlapping FK indexes, duplicate relation names, and multiple FKs to the same table.
+3. Add focused failing tests for identifiers, composite indexes from issue #6, overlapping FK indexes, duplicate relation names, and multiple FKs to the same table.
 4. Fix simple metadata reader/generator losses found by those tests.
 5. Implement raw check expression attributes and defer structured check metadata.
 6. Import MySQL/MariaDB comments into metadata, generated attributes, and XML docs where appropriate.

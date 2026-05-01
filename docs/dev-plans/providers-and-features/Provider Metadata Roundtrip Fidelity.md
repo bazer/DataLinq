@@ -68,6 +68,7 @@ Those tests are a good base, but they are not yet a metadata roundtrip conforman
 - Index fidelity is currently column/name/type/unique-oriented. It does not preserve all provider-specific details such as prefix length, expression indexes, partial predicates, descending order, visibility, parser options, or index comments.
 - SQLite index parsing uses `pragma_index_list` and `pragma_index_info`, which is enough for simple and unique indexes but not enough for expression indexes or partial indexes. Those require `pragma_index_xinfo` and/or parsing `sqlite_schema.sql`.
 - Primary keys are reconstructed mostly from column metadata and then normalized into a generated `ColumnIndex`; provider constraint names are not preserved.
+- GitHub issue [#6](https://github.com/bazer/DataLinq/issues/6) reports a concrete composite-index roundtrip bug: CLI model generation emitted a unique two-column index attribute on only one property without the full ordered column list, and manual repair with `nameof(...)` exposed that the parser expects database column names rather than C# property names. Phase 4 should cover both the generated attribute shape and the accepted column-name contract.
 
 ### Checks
 
@@ -108,6 +109,7 @@ This matrix is the first artifact this phase should make precise. The entries be
 | Defaults | Literal/current timestamp subset | Literal/current timestamp subset | Literal/current timestamp subset | Support subset; warn on skipped expressions |
 | Composite primary keys | Basic metadata exists | Basic metadata exists | Basic metadata exists | Support and test ordering |
 | Simple and unique indexes | Basic read/write exists | Basic read/write exists | Basic read/write exists | Support and test |
+| Composite index model generation | Known bug in issue #6 | Known bug class | Needs coverage | Emit full ordered column list and define DB-name vs property-name contract |
 | Foreign keys | Basic per-column metadata exists | Basic per-column metadata exists | Basic per-column metadata exists | Upgrade constraint grouping before validation relies on it |
 | Composite foreign keys | Weak current representation | Weak current representation | Weak current representation | Add first-class constraint-level tests and likely metadata changes |
 | Multiple FKs to same table | Risky naming/runtime area | Risky naming/runtime area | Risky naming/runtime area | Fix determinism and runtime loading |
@@ -159,6 +161,7 @@ This workstream may require metadata shape changes. If it does, make them here, 
 Deliverables:
 
 - tests for simple, unique, composite, and foreign-key-overlapping indexes
+- regression coverage for GitHub issue #6: CLI-generated composite index attributes must carry the full ordered column list, and model parsing must give a useful diagnostic if an index references property names where database column names are required
 - MySQL/MariaDB handling for indexes that include foreign-key columns without dropping non-FK index metadata
 - SQLite `pragma_index_xinfo` audit for expression/partial index detection
 - explicit unsupported diagnostics or documentation for partial/expression indexes and provider-specific options
