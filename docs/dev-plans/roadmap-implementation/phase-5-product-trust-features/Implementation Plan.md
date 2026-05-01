@@ -262,6 +262,19 @@ Tasks:
 3. Decide how rename detection would be represented.
 4. Stop before implementing full migration execution unless validation and diff generation are already solid.
 
+Implemented slice:
+
+- `SchemaMigrationSnapshot` defines snapshot format version 1 for the validation-supported schema subset
+- snapshots serialize database identity, model identity, generated UTC timestamp, tables, columns, provider-specific column types, semantic defaults, simple/unique indexes, foreign-key identities, supported checks, and comments
+- snapshot output is deterministic so generated migration artifacts can be reviewed and compared without runtime metadata noise
+- unit coverage verifies provider-specific fields, ordering, comments/checks, and JSON round-tripping
+- migration execution remains intentionally deferred; this slice does not add `add-migration`, `update-database`, runtime auto-migration, or an applied-migrations table implementation
+- rename detection is defined as an explicit future migration operation, not a silent inference from missing-plus-added schema differences
+
+Design note:
+
+- [Snapshot Migration Design](Snapshot%20Migration%20Design.md) records the proposed snapshot file, migration identity, applied-migration table, and rename-handling rules for the next phase.
+
 ## Proposed Execution Order
 
 1. Consume the Phase 4 metadata support matrix and roundtrip test results.
