@@ -42,12 +42,12 @@ The comparison is deliberately lower-level than the future schema validation com
 | Defaults | Partially supported | Partially supported | Partially supported | Literal and current timestamp/date/time subsets exist. Expression defaults remain unsupported unless explicitly parsed. |
 | Simple indexes | Partially supported | Partially supported | Partially supported | Basic shape exists; MySQL/MariaDB currently need coverage for indexes that overlap foreign-key columns. |
 | Unique indexes | Partially supported | Partially supported | Partially supported | Simple unique indexes exist; composite unique model generation needs issue #6 regression coverage. |
-| Composite indexes | Partially supported | Partially supported | Partially supported | Metadata can carry ordered columns. Generated model attributes should become class-level for composite indexes. |
+| Composite indexes | Partially supported | Partially supported | Partially supported | Metadata carries ordered columns, and generated model attributes are class-level for composite indexes. Advanced provider-specific index options remain unsupported. |
 | Foreign keys | Partially supported | Partially supported | Partially supported | Per-column metadata exists. Constraint-level grouping is still weak. |
 | Primary-key columns that are also foreign keys | Partially supported | Partially supported | Partially supported | MySQL has some regression coverage; cross-provider roundtrip coverage is required. |
-| Multiple foreign keys to the same table | Partially supported | Partially supported | Partially supported | Metadata import and generated relation names are covered for duplicate same-target FKs. Runtime relation loading inside transactions still needs coverage. |
+| Multiple foreign keys to the same table | Partially supported | Partially supported | Partially supported | Metadata import, generated relation names, and transaction-scoped runtime relation loading are covered for duplicate same-target FKs. Broader composite-key grouping is still pending. |
 | Composite foreign keys | Partially supported | Partially supported | Partially supported | Current per-column representation is not strong enough for validation. Constraint-level metadata is likely needed later in Phase 4. |
-| Relation property names | Partially supported | Partially supported | Partially supported | Duplicate same-target candidate-side names now derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Broader runtime coverage is still pending. |
+| Relation property names | Partially supported | Partially supported | Partially supported | Duplicate same-target candidate-side names now derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Composite foreign-key naming still needs the constraint-level metadata work. |
 | Check constraints | Unsupported | Unsupported | Unsupported | Initial implementation should preserve raw provider expressions with `DatabaseType`; structured check metadata is deferred. |
 | Table comments | Unsupported | Unsupported | Unsupported | MySQL/MariaDB expose comments in information_schema, but import/generation is not yet wired. SQLite has no native table comments. |
 | Column comments | Unsupported | Unsupported | Unsupported | Same stance as table comments. |
@@ -95,5 +95,5 @@ The first implementation slice should move these entries from partially supporte
 - column names with spaces
 - foreign-key columns that also have ordinary indexes
 - primary-key columns that are also foreign keys
-- runtime loading for multiple foreign keys to the same target table
-- broader deterministic relation property naming beyond the duplicate same-target metadata cases now covered
+- composite foreign-key grouping and naming
+- broader deterministic relation property naming beyond the duplicate same-target cases now covered
