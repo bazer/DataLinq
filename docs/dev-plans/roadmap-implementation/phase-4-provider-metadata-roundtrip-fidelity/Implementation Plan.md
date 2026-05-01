@@ -116,6 +116,8 @@ Tasks:
 4. Verify generated SQL preserves supported index shape.
 5. Decide which advanced index features are explicitly out of scope.
 
+Phase 4 boundary note: ordinary simple, unique, and composite indexes preserve ordered database column names through metadata, generated model attributes, generated SQL, and provider re-read for the supported MySQL/MariaDB/SQLite subset. SQLite uses `pragma_index_xinfo` so expression and descending index parts are identified instead of accidentally treated as normal columns. Partial, expression, descending, prefix-length, invisible, and other provider-specific index options remain unsupported unless later metadata adds first-class fields for them.
+
 ## Workstream E: Checks, Comments, and Descriptions
 
 Deliverables:

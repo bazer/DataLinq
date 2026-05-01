@@ -97,6 +97,32 @@ public class MetadataRoundtripTests
     }
 
     [Test]
+    public async Task ParseDatabase_CompositeIndexes_RoundTripPreservesOrderedColumnsAndNames()
+    {
+        using var source = SqliteRoundtripFixture.CreateCompositeIndexSchema();
+
+        var firstRead = source.ParseDatabase();
+        var account = firstRead.TableModels.Single(x => x.Table.DbName == "account").Table;
+        var lookupIndex = account.ColumnIndices.Single(x => x.Name == "idx_account_lookup");
+        var uniqueIndex = account.ColumnIndices.Single(x => x.Name == "ux_account_year_number");
+        var generatedSql = new SqlFromSQLiteFactory()
+            .GetCreateTables(firstRead, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = SqliteRoundtripFixture.Create(generatedSql.Text);
+        var secondRead = generated.ParseDatabase();
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(firstRead, secondRead, DatabaseType.SQLite);
+
+        await Assert.That(lookupIndex.Characteristic).IsEqualTo(IndexCharacteristic.Simple);
+        await Assert.That(lookupIndex.Columns.Select(x => x.DbName).SequenceEqual(["accounting_year", "account_number"])).IsTrue();
+        await Assert.That(uniqueIndex.Characteristic).IsEqualTo(IndexCharacteristic.Unique);
+        await Assert.That(uniqueIndex.Columns.Select(x => x.DbName).SequenceEqual(["accounting_year", "account_number"])).IsTrue();
+        await Assert.That(generatedSql.Text).Contains("CREATE INDEX IF NOT EXISTS \"idx_account_lookup\" ON \"account\" (\"accounting_year\", \"account_number\")");
+        await Assert.That(generatedSql.Text).Contains("CREATE UNIQUE INDEX IF NOT EXISTS \"ux_account_year_number\" ON \"account\" (\"accounting_year\", \"account_number\")");
+        await Assert.That(differences).IsEmpty();
+    }
+
+    [Test]
     public async Task ParseDatabase_CompositeForeignKey_RoundTripAsSingleRelation()
     {
         using var source = SqliteRoundtripFixture.CreateCompositeForeignKeySchema();
@@ -205,6 +231,25 @@ public class MetadataRoundtripTests
                     "sku" TEXT NOT NULL,
                     CONSTRAINT "FK_order_line_header" FOREIGN KEY ("tenant_id", "order_no") REFERENCES "order_header"("tenant_id", "order_no")
                 );
+                """);
+        }
+
+        public static SqliteRoundtripFixture CreateCompositeIndexSchema()
+        {
+            return Create(
+                """
+                CREATE TABLE "account" (
+                    "id" INTEGER PRIMARY KEY,
+                    "accounting_year" INTEGER NOT NULL,
+                    "account_number" INTEGER NOT NULL,
+                    "display_name" TEXT NOT NULL
+                );
+                """,
+                """
+                CREATE INDEX "idx_account_lookup" ON "account" ("accounting_year", "account_number");
+                """,
+                """
+                CREATE UNIQUE INDEX "ux_account_year_number" ON "account" ("accounting_year", "account_number");
                 """);
         }
 

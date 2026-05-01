@@ -79,25 +79,89 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
-            foreach (var reader in dbAccess.ReadReader($"SELECT l.name, l.origin, l.\"unique\", i.seqno, i.name FROM pragma_index_list('{tableModel.Table.DbName}') l JOIN pragma_index_info(l.name) i"))
+            foreach (var indexReader in dbAccess.ReadReader($"SELECT name, origin, \"unique\", partial FROM pragma_index_list({QuoteSqlLiteral(tableModel.Table.DbName)})"))
             {
-                var column = tableModel
-                    .Table.Columns.Single(x => x.DbName == reader.GetString(4));
-
-                var name = reader.GetString(0);
-                if (name.StartsWith("sqlite_autoindex"))
-                    name = column.DbName;
-
-                // Determine the type and characteristic of the index.
-                var indexType = IndexType.BTREE;  // SQLite predominantly uses B-tree
-                var indexCharacteristic = reader.GetInt32(2) == 1
+                var rawIndexName = indexReader.GetString(0);
+                var origin = indexReader.GetString(1);
+                var indexCharacteristic = indexReader.GetInt32(2) == 1
                     ? IndexCharacteristic.Unique
                     : IndexCharacteristic.Simple;
+                var isPartial = indexReader.GetInt32(3) == 1;
 
-                column.ValueProperty.AddAttribute(new IndexAttribute(name, indexCharacteristic, indexType));
+                if (origin == "pk")
+                    continue;
+
+                if (isPartial)
+                {
+                    options.Log?.Invoke($"Warning: Skipping unsupported SQLite partial index '{rawIndexName}' on table '{tableModel.Table.DbName}'.");
+                    continue;
+                }
+
+                var indexColumns = new List<ColumnDefinition>();
+                var skipIndex = false;
+
+                foreach (var columnReader in dbAccess.ReadReader($"SELECT seqno, cid, name, \"desc\", \"key\" FROM pragma_index_xinfo({QuoteSqlLiteral(rawIndexName)}) WHERE \"key\" = 1 ORDER BY seqno"))
+                {
+                    var cid = columnReader.GetInt32(1);
+                    var isDescending = columnReader.GetInt32(3) == 1;
+
+                    if (cid < 0 || columnReader.IsDbNull(2))
+                    {
+                        options.Log?.Invoke($"Warning: Skipping unsupported SQLite expression index '{rawIndexName}' on table '{tableModel.Table.DbName}'.");
+                        skipIndex = true;
+                        break;
+                    }
+
+                    if (isDescending)
+                    {
+                        options.Log?.Invoke($"Warning: Skipping unsupported SQLite descending index '{rawIndexName}' on table '{tableModel.Table.DbName}'.");
+                        skipIndex = true;
+                        break;
+                    }
+
+                    var columnName = columnReader.GetString(2);
+                    var column = tableModel
+                        .Table.Columns.SingleOrDefault(x => x.DbName == columnName);
+
+                    if (column == null)
+                    {
+                        options.Log?.Invoke($"Warning: Skipping SQLite index '{rawIndexName}' on table '{tableModel.Table.DbName}' because column '{columnName}' was not imported.");
+                        skipIndex = true;
+                        break;
+                    }
+
+                    indexColumns.Add(column);
+                }
+
+                if (skipIndex || indexColumns.Count == 0)
+                    continue;
+
+                var name = rawIndexName.StartsWith("sqlite_autoindex", StringComparison.Ordinal)
+                    ? GetAutoIndexName(tableModel.Table, indexColumns, indexCharacteristic)
+                    : rawIndexName;
+
+                var columnNames = indexColumns.Select(x => x.DbName).ToArray();
+                foreach (var column in indexColumns)
+                {
+                    column.ValueProperty.AddAttribute(new IndexAttribute(name, indexCharacteristic, IndexType.BTREE, columnNames));
+                }
             }
         }
     }
+
+    private static string GetAutoIndexName(TableDefinition table, IReadOnlyList<ColumnDefinition> columns, IndexCharacteristic characteristic)
+    {
+        if (columns.Count == 1)
+            return columns[0].DbName;
+
+        var suffix = characteristic == IndexCharacteristic.Unique
+            ? "unique"
+            : characteristic.ToString().ToLowerInvariant();
+
+        return $"{table.DbName}_{string.Join("_", columns.Select(x => x.DbName))}_{suffix}";
+    }
+
+    private static string QuoteSqlLiteral(string value) => $"'{value.Replace("'", "''")}'";
 
     private void ParseRelations(DatabaseDefinition database, DatabaseAccess dbAccess)
     {

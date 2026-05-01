@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
 using Microsoft.Data.Sqlite;
@@ -121,6 +122,68 @@ public class MetadataFromSQLiteFactoryTests
         await Assert.That(indexAttribute.Type).IsEqualTo(IndexType.BTREE);
         await Assert.That(columnIndex.Columns.Count).IsEqualTo(1);
         await Assert.That(ReferenceEquals(deptNameColumn, columnIndex.Columns[0])).IsTrue();
+    }
+
+    [Test]
+    public async Task ParseIndices_CompositeIndex_PreservesOrderedColumns()
+    {
+        using var fixture = SqliteMetadataFixture.Create(
+            """
+            CREATE TABLE account (
+                id INTEGER PRIMARY KEY,
+                accounting_year INTEGER NOT NULL,
+                account_number INTEGER NOT NULL,
+                display_name TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE UNIQUE INDEX idx_account_year_number ON account (accounting_year, account_number);
+            """);
+
+        var database = fixture.ParseDatabase("TempSqliteDb", "TempSqliteDb", "DataLinq.Tests");
+        var table = database.TableModels.Single(tm => tm.Table.DbName == "account").Table;
+        var index = table.ColumnIndices.Single(x => x.Name == "idx_account_year_number");
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "account.cs");
+
+        await Assert.That(index.Characteristic).IsEqualTo(IndexCharacteristic.Unique);
+        await Assert.That(index.Columns.Select(x => x.DbName).SequenceEqual(["accounting_year", "account_number"])).IsTrue();
+        await Assert.That(generatedFile.contents).Contains("[Index(\"idx_account_year_number\", IndexCharacteristic.Unique, IndexType.BTREE, \"accounting_year\", \"account_number\")]");
+        await Assert.That(generatedFile.contents).DoesNotContain("[Index(\"idx_account_year_number\", IndexCharacteristic.Unique, IndexType.BTREE, \"accounting_year\", \"account_number\")]\n    [Column(\"accounting_year\")]");
+    }
+
+    [Test]
+    public async Task ParseIndices_UnsupportedSQLiteIndexShapesWarnAndSkip()
+    {
+        using var fixture = SqliteMetadataFixture.Create(
+            """
+            CREATE TABLE unsupported_indexes (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                count INTEGER NOT NULL
+            );
+            """,
+            """
+            CREATE INDEX idx_unsupported_expression ON unsupported_indexes (lower(name));
+            """,
+            """
+            CREATE INDEX idx_unsupported_partial ON unsupported_indexes (name) WHERE count > 0;
+            """,
+            """
+            CREATE INDEX idx_unsupported_descending ON unsupported_indexes (name DESC);
+            """);
+        var warnings = new List<string>();
+
+        var table = fixture.ParseDatabase("TempSqliteDb", "TempSqliteDb", "DataLinq.Tests", new MetadataFromDatabaseFactoryOptions
+        {
+            Log = warnings.Add
+        }).TableModels.Single().Table;
+
+        await Assert.That(table.ColumnIndices.Any(x => x.Name.StartsWith("idx_unsupported", StringComparison.Ordinal))).IsFalse();
+        await Assert.That(warnings.Any(x => x.Contains("Skipping unsupported SQLite expression index 'idx_unsupported_expression'", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(warnings.Any(x => x.Contains("Skipping unsupported SQLite partial index 'idx_unsupported_partial'", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(warnings.Any(x => x.Contains("Skipping unsupported SQLite descending index 'idx_unsupported_descending'", StringComparison.Ordinal))).IsTrue();
     }
 
     [Test]

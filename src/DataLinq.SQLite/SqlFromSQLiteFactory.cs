@@ -43,9 +43,6 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
                 if (table.PrimaryKeyColumns.Length > 1)
                     sql.PrimaryKey(table.PrimaryKeyColumns.Select(x => x.DbName).ToArray());
 
-                foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique))
-                    sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
-
                 foreach (var relation in table.ColumnIndices
                     .Where(x => x.Characteristic == IndexCharacteristic.ForeignKey)
                     .SelectMany(x => x.RelationParts)
@@ -56,8 +53,12 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
                 }
             });
 
-            foreach (var index in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Simple))
-                sql.CreateIndex(table.DbName, index.Name, index.Columns.Select(x => x.DbName).ToArray());
+            foreach (var index in table.ColumnIndices.Where(x => x.Characteristic is IndexCharacteristic.Simple or IndexCharacteristic.Unique))
+                sql.CreateIndex(
+                    table.DbName,
+                    index.Name,
+                    index.Characteristic == IndexCharacteristic.Unique,
+                    index.Columns.Select(x => x.DbName).ToArray());
         }
 
         foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.View).Cast<ViewDefinition>().ToList()))
@@ -220,9 +221,9 @@ public class SQLiteGeneration : SqlGeneration
     public override SqlGeneration UniqueKey(string name, params string[] columns)
         => NewRow().Indent().Add($"CONSTRAINT {QuotedString(name)} UNIQUE {ParenthesisList(columns)}");
 
-    public SqlGeneration CreateIndex(string tableName, string indexName, params string[] columns)
+    public SqlGeneration CreateIndex(string tableName, string indexName, bool unique, params string[] columns)
     {
-        sql.AddText($"CREATE INDEX IF NOT EXISTS {QuotedString(indexName)} ON {QuotedString(tableName)} {ParenthesisList(columns)};\n\n");
+        sql.AddText($"CREATE {(unique ? "UNIQUE " : "")}INDEX IF NOT EXISTS {QuotedString(indexName)} ON {QuotedString(tableName)} {ParenthesisList(columns)};\n\n");
         return this;
     }
 }

@@ -40,9 +40,9 @@ The comparison is deliberately lower-level than the future schema validation com
 | Primary keys | Partially supported | Partially supported | Partially supported | Single and composite primary keys are represented; ordering needs explicit roundtrip tests. |
 | Autoincrement | Partially supported | Partially supported | Partially supported | Basic support exists; SQLite detection is narrow and should stay test-driven. |
 | Defaults | Partially supported | Partially supported | Partially supported | Literal and current timestamp/date/time subsets exist. Expression defaults remain unsupported unless explicitly parsed. |
-| Simple indexes | Partially supported | Partially supported | Partially supported | Basic shape exists; MySQL/MariaDB currently need coverage for indexes that overlap foreign-key columns. |
-| Unique indexes | Partially supported | Partially supported | Partially supported | Simple unique indexes exist; composite unique model generation needs issue #6 regression coverage. |
-| Composite indexes | Partially supported | Partially supported | Partially supported | Metadata carries ordered columns, and generated model attributes are class-level for composite indexes. Advanced provider-specific index options remain unsupported. |
+| Simple indexes | Supported | Supported | Supported | Ordinary named indexes preserve ordered database column names through metadata, generated model attributes, generated SQL, and provider re-read. |
+| Unique indexes | Supported | Supported | Supported | Named unique indexes preserve ordered database column names. SQLite emits named unique indexes instead of anonymous table constraints so provider re-read keeps stable names. |
+| Composite indexes | Supported | Supported | Supported | Metadata carries ordered columns, and generated model attributes are class-level for composite indexes. Advanced provider-specific index options remain unsupported. |
 | Foreign keys | Partially supported | Partially supported | Partially supported | Single-column and composite key identity roundtrip through ordered relation metadata and generated SQL. Referential actions and provider-specific options are not represented. |
 | Primary-key columns that are also foreign keys | Partially supported | Partially supported | Partially supported | MySQL has some regression coverage; cross-provider roundtrip coverage is required. |
 | Multiple foreign keys to the same table | Partially supported | Partially supported | Partially supported | Metadata import, generated relation names, and transaction-scoped runtime relation loading are covered for duplicate same-target FKs. Broader composite-key grouping is still pending. |
@@ -52,9 +52,9 @@ The comparison is deliberately lower-level than the future schema validation com
 | Table comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` model attributes, generated C#, generated SQL `COMMENT` table options, and provider roundtrip comparison. SQLite has no native table comments. |
 | Column comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` property attributes, generated C#, generated SQL column `COMMENT` clauses, and provider roundtrip comparison. SQLite has no native column comments. |
 | Identifier casing comparison | Partially supported | Partially supported | Partially supported | Roundtrip comparison is exact because it compares provider-reported metadata snapshots. Validation must add provider-aware matching: SQLite preserves declaration text but resolves ordinary identifiers case-insensitively; MySQL/MariaDB table-name casing depends on server settings such as `lower_case_table_names`, while column and index names should be treated case-insensitively. |
-| Expression indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. SQLite detection may warn using `pragma_index_xinfo` later. |
-| Partial indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. |
-| Descending index parts | Unsupported | Unsupported | Unsupported | Provider-specific index options are not preserved yet. |
+| Expression indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. SQLite detects expression indexes with `pragma_index_xinfo`, warns, and skips them rather than importing a misleading partial shape. |
+| Partial indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. SQLite detects partial indexes, warns, and skips them. |
+| Descending index parts | Unsupported | Unsupported | Unsupported | Provider-specific index ordering is not represented. SQLite detects descending parts, warns, and skips the index. |
 | Prefix-length index parts | Unsupported | Unsupported | Unsupported | MySQL/MariaDB-specific detail is not represented. |
 | Invisible indexes | Unsupported | Unsupported | Unsupported | Provider-specific detail is not represented. |
 | Generated/computed columns | Unsupported | Unsupported | Unsupported | No first-class metadata shape exists. |
@@ -101,6 +101,7 @@ The first implementation slice has moved these entries from partially supported 
 - foreign-key columns that also have ordinary indexes
 - primary-key columns that are also foreign keys
 - composite foreign-key grouping and naming
+- simple, unique, and composite indexes for the ordinary ordered-column subset
 - broader deterministic relation property naming beyond the duplicate same-target cases now covered
 
 Identifier casing comparison is documented but not complete validation behavior. That belongs to Phase 5 because it needs provider-aware drift semantics, not just metadata roundtrip fidelity.
