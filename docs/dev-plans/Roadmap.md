@@ -121,7 +121,28 @@ Key related plans:
 - `providers-and-features/Migrations and Validation.md`
 - `roadmap-implementation/phase-4-product-trust-features/Implementation Plan.md`
 
-### Phase 5: Native AOT and WebAssembly Readiness
+### Phase 5: LINQ Translation Coverage and Query Composition
+
+Goals:
+
+- document the real LINQ-to-SQL support matrix
+- fix common local-collection predicate shapes such as projected `Contains` and object-list `Any(predicate)`
+- make chained `Where` composition reliably preserve all predicates
+- harden fixed true/false condition handling for empty collections and boolean grouping
+- improve translation diagnostics for unsupported query shapes
+
+Why here:
+
+- these are ordinary application-query patterns, not speculative provider expansion
+- the current parser already supports enough to justify tightening gaps instead of rewriting it
+- AOT and broader query-pipeline work will be cleaner if supported and unsupported expression shapes are classified first
+
+Key related plans:
+
+- `query-and-runtime/LINQ Translation Support.md`
+- `query-and-runtime/Query Pipeline Abstraction.md`
+
+### Phase 6: Native AOT and WebAssembly Readiness
 
 Goals:
 
@@ -142,7 +163,7 @@ Key related plans:
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 
-### Phase 6: Cache, Memory, and Invalidation Foundations
+### Phase 7: Cache, Memory, and Invalidation Foundations
 
 Goals:
 
@@ -164,7 +185,7 @@ Key related plans:
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
 
-### Phase 7: Async and Loading Semantics
+### Phase 8: Async and Loading Semantics
 
 Goals:
 
@@ -188,7 +209,7 @@ Key related plans:
 
 - `query-and-runtime/Async and Lazy Loading.md`
 
-### Phase 8: Capability Expansion
+### Phase 9: Capability Expansion
 
 Goals:
 
@@ -208,7 +229,7 @@ Key related plans:
 - `query-and-runtime/Projections and Views.md`
 - `query-and-runtime/Batched mutations.md`
 
-### Phase 9: Dependency-Tracked Result-Set Caching
+### Phase 10: Dependency-Tracked Result-Set Caching
 
 Goals:
 
@@ -239,6 +260,8 @@ The next concrete stretch should move to product trust:
 4. Keep generated migration/diff scripts conservative until validation behavior is trustworthy.
 
 That is the right next move because Phase 3 made the runtime path cheaper enough to stop deferring the more important adoption blocker: whether DataLinq can detect and explain schema drift safely.
+
+Immediately after the first useful product-trust slice, the next practical runtime feature work should be LINQ translation coverage: chained `Where`, projected local `Contains`, local object-list `Any(predicate)`, and better unsupported-query diagnostics.
 
 ## What Is Explicitly Not First
 

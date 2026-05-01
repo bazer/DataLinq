@@ -22,7 +22,7 @@ Still not implemented:
 - property access has not universally moved to generated `GetFast(int)`-style accessors
 - this work improves AOT-readiness, but it does not make DataLinq Native AOT-safe
 
-The next serious continuation belongs in the Phase 5 AOT/WebAssembly work, not in Phase 4 product trust.
+The next serious continuation belongs in the Phase 6 AOT/WebAssembly work, after the near-term product-trust and LINQ translation coverage passes.
 
 ---
 

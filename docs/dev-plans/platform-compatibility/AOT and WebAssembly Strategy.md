@@ -3,7 +3,7 @@
 **Status:** Draft
 **Goal:** Eliminate runtime code generation (JIT) and reflection from the "Hot Path" to enable DataLinq to run efficiently in **Native AOT** environments (AWS Lambda, CLI tools) and **WebAssembly** (Blazor Wasm in the browser).
 
-**Roadmap placement:** Main roadmap Phase 5, after query/runtime hot-path optimization and before the deeper cache/invalidation work.
+**Roadmap placement:** Main roadmap Phase 6, after product-trust work and the LINQ translation coverage pass, before the deeper cache/invalidation work.
 
 ---
 
@@ -116,7 +116,7 @@ This document uses workstreams rather than numbered phases so it does not confli
 1.  [ ] **Workstream A: AOT-hostile path audit**
     *   inventory remaining `Expression.Compile()` usage
     *   classify each call site as hot-path, once-per-query, startup-only, or fallback-only
-    *   decide which paths must be eliminated for Phase 5 and which can stay behind explicit compatibility warnings
+    *   decide which paths must be eliminated for the AOT/WebAssembly phase and which can stay behind explicit compatibility warnings
 2.  [ ] **Workstream B: Generated materializers and selectors**
     *   implement generated materializers where row or projection materialization still depends on runtime expression compilation
     *   keep the common entity-selection path fast and reflection-free
