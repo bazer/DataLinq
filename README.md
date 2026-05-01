@@ -96,6 +96,14 @@ datalinq validate -n AppDb
 
 `validate` exits with `0` when no drift is found, `1` when schema drift is detected, and `2` for command or configuration failures. Use `--output json` when wiring the result into automation.
 
+Generate a conservative SQL suggestion script for supported additive drift:
+
+```bash
+datalinq diff -n AppDb -o update_schema.sql
+```
+
+`diff` is read-only. It comments destructive, ambiguous, or unsupported changes instead of applying them.
+
 If your config contains more than one database, pass `-n`.
 If the selected database contains more than one connection type, pass `-t`.
 

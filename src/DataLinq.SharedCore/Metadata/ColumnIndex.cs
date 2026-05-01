@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
+using DataLinq.Interfaces;
 
 namespace DataLinq.Metadata;
 
 /// <summary>
 /// Represents an index associated with one or more columns in a database table.
 /// </summary>
-public class ColumnIndex
+public class ColumnIndex : IDefinition
 {
     /// <summary>
     /// Table that the index belongs to.
@@ -37,6 +38,8 @@ public class ColumnIndex
     /// Gets or sets the name of the index.
     /// </summary>
     public string Name { get; }
+
+    public CsFileDeclaration? CsFile => Table.CsFile;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ColumnIndex"/> class.

@@ -266,7 +266,7 @@ public sealed class SchemaComparer
                 SchemaDifferenceSafety.Additive,
                 $"{modelTable.DbName}.{modelIndex.Name}",
                 $"Database table '{databaseTable.DbName}' is missing index '{modelIndex.Name}' on ({modelIndex.Columns}).",
-                modelTable,
+                modelIndex.Index,
                 null));
         }
 
@@ -282,7 +282,7 @@ public sealed class SchemaComparer
                 $"{databaseTable.DbName}.{databaseIndex.Name}",
                 $"Database table '{databaseTable.DbName}' has extra index '{databaseIndex.Name}' on ({databaseIndex.Columns}).",
                 null,
-                databaseTable));
+                databaseIndex.Index));
         }
     }
 
@@ -416,6 +416,7 @@ public sealed class SchemaComparer
         return table.ColumnIndices
             .Where(x => x.Characteristic is IndexCharacteristic.Simple or IndexCharacteristic.Unique)
             .Select(index => new IndexSignature(
+                index,
                 index.Name,
                 index.Characteristic,
                 index.Type,
@@ -518,14 +519,16 @@ public sealed class SchemaComparer
 
     private sealed class IndexSignature
     {
-        public IndexSignature(string name, IndexCharacteristic characteristic, IndexType type, string columns)
+        public IndexSignature(ColumnIndex index, string name, IndexCharacteristic characteristic, IndexType type, string columns)
         {
+            Index = index;
             Name = name;
             Characteristic = characteristic;
             Type = type;
             Columns = columns;
         }
 
+        public ColumnIndex Index { get; }
         public string Name { get; }
         public IndexCharacteristic Characteristic { get; }
         public IndexType Type { get; }

@@ -1,6 +1,6 @@
 # DataLinq CLI Documentation
 
-The DataLinq CLI tool lets you inspect configuration, generate models, generate SQL, create databases, and validate model metadata against a live database from the command line. It is installed as the global `datalinq` tool.
+The DataLinq CLI tool lets you inspect configuration, generate models, generate SQL, create databases, validate model metadata against a live database, and generate conservative schema diff scripts from the command line. It is installed as the global `datalinq` tool.
 
 ## Overview
 
@@ -24,12 +24,14 @@ graph TD
         CLI -- command --> CreateSQL["create-sql<br/><i>Generate schema SQL script</i>"]
         CLI -- command --> CreateModels["create-models<br/><i>Generate models from DB</i>"]
         CLI -- command --> Validate["validate<br/><i>Report schema drift</i>"]
+        CLI -- command --> Diff["diff<br/><i>Generate conservative drift SQL</i>"]
         CLI -- command --> ListCmd["list<br/><i>List configured databases</i>"]
 
         CreateDB -- Options --> CD_Opts["-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
         CreateSQL -- Options --> CS_Opts["<b>-o, --output path</b> (Required)<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
         CreateModels -- Options --> CM_Opts["--skip-source<br/>--overwrite-types<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
         Validate -- Options --> Val_Opts["--output text|json<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
+        Diff -- Options --> Diff_Opts["-o, --output path<br/>-d, --datasource name<br/>-n, --name config_name<br/>-t, --type db_type"]
         ListCmd -- Options --> List_Opts["(Uses global options)"]
 
         CLI:::ToolStyle
@@ -37,11 +39,13 @@ graph TD
         CreateSQL:::CommandStyle
         CreateModels:::CommandStyle
         Validate:::CommandStyle
+        Diff:::CommandStyle
         ListCmd:::CommandStyle
         CD_Opts:::OptionsStyle
         CS_Opts:::OptionsStyle
         CM_Opts:::OptionsStyle
         Val_Opts:::OptionsStyle
+        Diff_Opts:::OptionsStyle
         List_Opts:::OptionsStyle
         GlobalOpts:::OptionsStyle
         ConfigFile:::FileStyle
@@ -226,7 +230,45 @@ datalinq validate [options]
 
 ---
 
-### 5. list
+### 5. diff
+
+**Purpose:**
+Runs schema validation and emits a conservative SQL suggestion script for supported additive drift. The command is read-only and does not apply changes.
+
+**Usage:**
+```bash
+datalinq diff [options]
+```
+
+**Options:**
+
+- **-o, --output**
+  *Description:* Path to the SQL script file. If omitted, the script is written to stdout.
+  *Optional*
+
+- **-d, --datasource**
+  *Description:* Name of the database instance on the server or the file on disk.
+  *Optional*
+
+- **-n, --name**
+  *Description:* The name as defined in the DataLinq configuration file.
+  *Optional*
+
+- **-t, --type**
+  *Description:* Specifies the database connection type (e.g., MySQL, MariaDB, SQLite).
+  *Optional*
+
+- General options (`-v, --verbose` and `-c, --config`) are also available.
+
+**Generated SQL boundary:**
+
+- executable SQL is generated for missing tables, supported missing columns, and supported missing simple or unique indexes
+- destructive, ambiguous, and unsupported changes are emitted as SQL comments with manual-review text
+- primary-key column additions are commented because they usually require provider-specific table rebuild or migration handling
+
+---
+
+### 6. list
 
 **Purpose:**  
 Lists all databases defined in your DataLinq configuration file.
@@ -280,6 +322,11 @@ datalinq list [options]
   datalinq validate -n MyDatabase --output json
   ```
 
+- **Generating a Conservative Diff Script:**
+  ```bash
+  datalinq diff -n MyDatabase -t MariaDB -o update_schema.sql
+  ```
+
 - **Listing Databases from Config:**
   ```bash
   datalinq list -c ./datalinq.json -v
@@ -306,3 +353,6 @@ datalinq list [options]
 
 - **Running `validate`:**  
   This command reads live database metadata and can return exit code `1` for real schema drift even when the command itself succeeds. Treat exit code `1` as a validation result, not a CLI crash.
+
+- **Running `diff`:**
+  This command suggests SQL from current model-vs-database state. It is stateless, so it cannot infer renames. Review the script before executing it.

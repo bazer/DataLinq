@@ -42,6 +42,13 @@ static class Program
         public string Output { get; set; } = "text";
     }
 
+    [Verb("diff", HelpText = "Generate a conservative SQL script for configured model drift.")]
+    public class DiffOptions : CreateOptions
+    {
+        [Option('o', "output", HelpText = "Path to output file. If omitted, the script is written to stdout.", Required = false)]
+        public string OutputFile { get; set; } = "";
+    }
+
     public class CreateOptions : Options
     {
         [Option('d', "datasource", HelpText = "Name of the database instance on the server or file on disk, depending on the connection type", Required = false)]
@@ -100,7 +107,7 @@ static class Program
         var exitCode = 0;
 
         var parserResult = Parser.Default
-            .ParseArguments<Options, CreateModelsOptions, CreateSqlOptions, CreateDatabaseOptions, ValidateOptions, ListOptions>(args);
+            .ParseArguments<Options, CreateModelsOptions, CreateSqlOptions, CreateDatabaseOptions, ValidateOptions, DiffOptions, ListOptions>(args);
 
         parserResult
             .WithParsed<Options>(options =>
@@ -249,6 +256,10 @@ static class Program
             {
                 exitCode = Validate(options);
             })
+            .WithParsed<DiffOptions>(options =>
+            {
+                exitCode = Diff(options);
+            })
             .WithNotParsed(options =>
             {
                 Console.WriteLine($"Usage: datalinq [command] -n name");
@@ -268,18 +279,54 @@ static class Program
             return 2;
         }
 
-        var configLog = output == ValidationOutput.Json && !options.Verbose
+        if (!TryValidateSchema(options, output == ValidationOutput.Json && !options.Verbose, out var validation))
+            return 2;
+
+        if (output == ValidationOutput.Json)
+            WriteValidationJson(validation);
+        else
+            WriteValidationText(validation);
+
+        return validation.HasDifferences ? 1 : 0;
+    }
+
+    private static int Diff(DiffOptions options)
+    {
+        if (!TryValidateSchema(options, !options.Verbose, out var validation))
+            return 2;
+
+        var script = new SchemaDiffScriptGenerator().Generate(validation.DatabaseType, validation.Differences);
+
+        if (!string.IsNullOrWhiteSpace(options.OutputFile))
+        {
+            File.WriteAllText(options.OutputFile, script);
+            if (options.Verbose)
+                Console.WriteLine($"Wrote schema diff script to {options.OutputFile}");
+        }
+        else
+        {
+            Console.Write(script);
+        }
+
+        return 0;
+    }
+
+    private static bool TryValidateSchema(CreateOptions options, bool quietConfig, out SchemaValidationRunResult validationResult)
+    {
+        validationResult = null!;
+
+        var configLog = quietConfig
             ? new Action<string>(_ => { })
             : Console.WriteLine;
 
         if (ReadConfig(configLog) == false)
-            return 2;
+            return false;
 
         var result = ConfigFile.GetConnection(options.Name, ConfigReader.ParseDatabaseType(options.ConnectionType));
         if (result.HasFailed)
         {
             Console.WriteLine(result.Failure);
-            return 2;
+            return false;
         }
 
         var (_, connection) = result.Value;
@@ -288,15 +335,11 @@ static class Program
         if (validation.HasFailed)
         {
             Console.WriteLine(validation.Failure);
-            return 2;
+            return false;
         }
 
-        if (output == ValidationOutput.Json)
-            WriteValidationJson(validation.Value);
-        else
-            WriteValidationText(validation.Value);
-
-        return validation.Value.HasDifferences ? 1 : 0;
+        validationResult = validation.Value;
+        return true;
     }
 
     private static ValidationOutput? ParseValidationOutput(string value)

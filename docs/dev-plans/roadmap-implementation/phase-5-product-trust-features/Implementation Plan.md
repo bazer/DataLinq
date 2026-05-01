@@ -238,6 +238,17 @@ Tasks:
 3. Add provider-specific tests for generated SQL.
 4. Keep runtime auto-apply out of the first implementation slice.
 
+Implemented slice:
+
+- `SchemaDiffScriptGenerator` turns validation differences into a read-only SQL suggestion script for SQLite, MySQL, and MariaDB
+- executable SQL is generated for missing tables, supported missing non-primary-key columns, and supported missing simple/unique indexes
+- missing-table scripts include primary keys and supported simple/unique indexes; foreign keys and other complex constraints remain outside the first generated subset unless represented by the basic table shape
+- destructive, ambiguous, informational, and unsupported differences are emitted as SQL comments with manual-review text instead of executable SQL
+- adding a primary-key column to an existing table is deliberately commented out because it usually needs provider-specific rebuild or migration handling
+- `datalinq diff` exposes the generator through the public CLI, writing to `-o/--output` or stdout
+- provider-specific unit coverage verifies SQLite table/index output, MySQL missing-column output, MariaDB missing-index output, and destructive drift comments
+- runtime auto-apply and versioned migration execution remain non-goals for this workstream
+
 ## Workstream F: Snapshot Migration Design
 
 Goals:
