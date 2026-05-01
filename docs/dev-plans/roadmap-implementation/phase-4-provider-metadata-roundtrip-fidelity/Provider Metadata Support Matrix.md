@@ -45,9 +45,9 @@ The comparison is deliberately lower-level than the future schema validation com
 | Composite indexes | Partially supported | Partially supported | Partially supported | Metadata can carry ordered columns. Generated model attributes should become class-level for composite indexes. |
 | Foreign keys | Partially supported | Partially supported | Partially supported | Per-column metadata exists. Constraint-level grouping is still weak. |
 | Primary-key columns that are also foreign keys | Partially supported | Partially supported | Partially supported | MySQL has some regression coverage; cross-provider roundtrip coverage is required. |
-| Multiple foreign keys to the same table | Unknown | Unknown | Unknown | Needs deterministic relation naming and runtime relation loading tests. |
+| Multiple foreign keys to the same table | Partially supported | Partially supported | Partially supported | Metadata import and generated relation names are covered for duplicate same-target FKs. Runtime relation loading inside transactions still needs coverage. |
 | Composite foreign keys | Partially supported | Partially supported | Partially supported | Current per-column representation is not strong enough for validation. Constraint-level metadata is likely needed later in Phase 4. |
-| Relation property names | Partially supported | Partially supported | Partially supported | Existing generated names are useful but not deterministic enough for ambiguous duplicate cases. |
+| Relation property names | Partially supported | Partially supported | Partially supported | Duplicate same-target candidate-side names now derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Broader runtime coverage is still pending. |
 | Check constraints | Unsupported | Unsupported | Unsupported | Initial implementation should preserve raw provider expressions with `DatabaseType`; structured check metadata is deferred. |
 | Table comments | Unsupported | Unsupported | Unsupported | MySQL/MariaDB expose comments in information_schema, but import/generation is not yet wired. SQLite has no native table comments. |
 | Column comments | Unsupported | Unsupported | Unsupported | Same stance as table comments. |
@@ -95,5 +95,5 @@ The first implementation slice should move these entries from partially supporte
 - column names with spaces
 - foreign-key columns that also have ordinary indexes
 - primary-key columns that are also foreign keys
-- multiple foreign keys to the same target table
-- deterministic relation property names for duplicate relation cases
+- runtime loading for multiple foreign keys to the same target table
+- broader deterministic relation property naming beyond the duplicate same-target metadata cases now covered

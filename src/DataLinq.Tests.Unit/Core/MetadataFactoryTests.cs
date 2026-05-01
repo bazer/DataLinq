@@ -87,6 +87,45 @@ public class MetadataFactoryTests
         return db;
     }
 
+    private DatabaseDefinition CreateDuplicateRelationNameDatabaseForRelationTests()
+    {
+        var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
+        var dbCsType = new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class);
+        var accountCsType = new CsTypeDeclaration("Account", "TestNamespace", ModelCsType.Class);
+        var invoiceCsType = new CsTypeDeclaration("Invoice", "TestNamespace", ModelCsType.Class);
+
+        var db = new DatabaseDefinition("TestDb", dbCsType);
+
+        var accountModel = new ModelDefinition(accountCsType);
+        accountModel.SetInterfaces([iTableModel]);
+        var accountTable = MetadataFactory.ParseTable(accountModel).ValueOrException();
+        accountTable.SetDbName("account");
+        var accountTableModel = new TableModel("Accounts", db, accountModel, accountTable);
+        var accountIdProperty = CreateTestValueProperty(accountModel, "AccountId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("account_id")]);
+        var accountIdColumn = MetadataFactory.ParseColumn(accountTable, accountIdProperty);
+        accountTable.SetColumns([accountIdColumn]);
+
+        var invoiceModel = new ModelDefinition(invoiceCsType);
+        invoiceModel.SetInterfaces([iTableModel]);
+        var invoiceTable = MetadataFactory.ParseTable(invoiceModel).ValueOrException();
+        invoiceTable.SetDbName("invoice");
+        var invoiceTableModel = new TableModel("Invoices", db, invoiceModel, invoiceTable);
+        var invoiceIdProperty = CreateTestValueProperty(invoiceModel, "InvoiceId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("invoice_id")]);
+        var createdByProperty = CreateTestValueProperty(invoiceModel, "CreatedByAccountId", typeof(int), [new ForeignKeyAttribute("account", "account_id", "FK_invoice_created_by"), new ColumnAttribute("created_by_account_id")]);
+        var approvedByProperty = CreateTestValueProperty(invoiceModel, "ApprovedByAccountId", typeof(int), [new ForeignKeyAttribute("account", "account_id", "FK_invoice_approved_by"), new ColumnAttribute("approved_by_account_id")]);
+        var invoiceIdColumn = MetadataFactory.ParseColumn(invoiceTable, invoiceIdProperty);
+        var createdByColumn = MetadataFactory.ParseColumn(invoiceTable, createdByProperty);
+        var approvedByColumn = MetadataFactory.ParseColumn(invoiceTable, approvedByProperty);
+        invoiceTable.SetColumns([invoiceIdColumn, createdByColumn, approvedByColumn]);
+
+        db.SetTableModels([accountTableModel, invoiceTableModel]);
+
+        MetadataFactory.ParseIndices(db).ValueOrException();
+        MetadataFactory.ParseRelations(db).ValueOrException();
+
+        return db;
+    }
+
     [Test]
     public async Task ParseTableAttribute_SetsDbNameAndType()
     {
@@ -660,5 +699,26 @@ public class MetadataFactoryTests
         await Assert.That(ReferenceEquals(orderForeignKeyColumn, orderForeignKeyIndex.Columns[0])).IsTrue();
         await Assert.That(ReferenceEquals(orderForeignKeyIndex, orderToUserRelation.RelationPart!.ColumnIndex)).IsTrue();
         await Assert.That(ReferenceEquals(userPrimaryKeyIndex, orderToUserRelation.RelationPart.GetOtherSide().ColumnIndex)).IsTrue();
+    }
+
+    [Test]
+    public async Task ParseRelations_MultipleForeignKeysToSameTable_DerivesCandidateSideNamesFromConstraints()
+    {
+        var db = CreateDuplicateRelationNameDatabaseForRelationTests();
+        var account = db.TableModels.Single(tm => tm.Table.DbName == "account").Table;
+        var invoice = db.TableModels.Single(tm => tm.Table.DbName == "invoice").Table;
+
+        await Assert.That(invoice.Model.RelationProperties.Keys.OrderBy(x => x).ToArray())
+            .IsEquivalentTo(["ApprovedByAccount", "CreatedByAccount"]);
+        await Assert.That(account.Model.RelationProperties.Keys.OrderBy(x => x).ToArray())
+            .IsEquivalentTo(["InvoiceApprovedBy", "InvoiceCreatedBy"]);
+        await Assert.That(account.Model.RelationProperties.ContainsKey("Invoice")).IsFalse();
+        await Assert.That(account.Model.RelationProperties.Keys.Any(x => x.StartsWith("Invoice_", StringComparison.Ordinal))).IsFalse();
+
+        var createdBy = account.Model.RelationProperties["InvoiceCreatedBy"];
+        var approvedBy = account.Model.RelationProperties["InvoiceApprovedBy"];
+
+        await Assert.That(createdBy.RelationPart.Relation.ConstraintName).IsEqualTo("FK_invoice_created_by");
+        await Assert.That(approvedBy.RelationPart.Relation.ConstraintName).IsEqualTo("FK_invoice_approved_by");
     }
 }

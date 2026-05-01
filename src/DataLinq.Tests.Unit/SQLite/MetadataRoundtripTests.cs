@@ -58,7 +58,8 @@ public class MetadataRoundtripTests
         await Assert.That(invoice.Columns.Count(x => x.ForeignKey)).IsEqualTo(3);
         await Assert.That(invoice.Model.RelationProperties.Keys.OrderBy(x => x).ToArray())
             .IsEquivalentTo(["ApprovedByAccount", "CreatedByAccount", "ExternalAccount"]);
-        await Assert.That(account.Model.RelationProperties.Count).IsEqualTo(4);
+        await Assert.That(account.Model.RelationProperties.Keys.OrderBy(x => x).ToArray())
+            .IsEquivalentTo(["AccountProfile", "InvoiceApprovedByAccount", "InvoiceCreatedByAccount", "InvoiceExternalAccount"]);
     }
 
     private sealed class SqliteRoundtripFixture : IDisposable

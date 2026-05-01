@@ -377,7 +377,7 @@ public static class MetadataFactory
                 }
                 else
                 {
-                    var propName = manySideModel.CsType.Name;
+                    var propName = GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumn, attribute);
                     var genericTypeName = manySideModel.CsType.Name;
                     var propType = new CsTypeDeclaration($"IImmutableRelation<{genericTypeName}>", "DataLinq.Instances", ModelCsType.Interface);
                     var propAttr = new RelationAttribute(manySideModel.Table.DbName, foreignKeyColumn.DbName, attribute.Name);
@@ -465,6 +465,74 @@ public static class MetadataFactory
                 (a.Name == null || a.Name == constraintName)
             )
         );
+    }
+
+    private static string GetCandidateKeyRelationPropertyName(ModelDefinition manySideModel, ModelDefinition oneSideModel, ColumnDefinition foreignKeyColumn, ForeignKeyAttribute attribute)
+    {
+        if (!HasMultipleForeignKeyConstraintsBetween(manySideModel.Table, oneSideModel.Table))
+            return manySideModel.CsType.Name;
+
+        var relationName = attribute.Name.Any(char.IsLetter)
+            ? GetRelationPropertyNameFromConstraint(manySideModel.CsType.Name, attribute.Name)
+            : GetRelationPropertyNameFromColumn(manySideModel.CsType.Name, foreignKeyColumn.DbName);
+
+        return string.IsNullOrEmpty(relationName)
+            ? manySideModel.CsType.Name
+            : relationName;
+    }
+
+    private static bool HasMultipleForeignKeyConstraintsBetween(TableDefinition foreignKeyTable, TableDefinition candidateTable)
+    {
+        return foreignKeyTable.Columns
+            .SelectMany(column => column.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
+            .Where(attribute => attribute.Table == candidateTable.DbName)
+            .Select(attribute => attribute.Name)
+            .Distinct(StringComparer.Ordinal)
+            .Count() > 1;
+    }
+
+    private static string GetRelationPropertyNameFromConstraint(string fallbackPrefix, string constraintName)
+    {
+        var words = Regex
+            .Split(constraintName, "[^A-Za-z0-9]+")
+            .Where(word => !string.IsNullOrWhiteSpace(word))
+            .ToList();
+
+        if (words.Count == 0)
+            return string.Empty;
+
+        if (string.Equals(words[0], "fk", StringComparison.OrdinalIgnoreCase))
+            words.RemoveAt(0);
+
+        if (words.Count > 0 && string.Equals(words[words.Count - 1], "fk", StringComparison.OrdinalIgnoreCase))
+            words.RemoveAt(words.Count - 1);
+
+        if (words.Count == 0)
+            return string.Empty;
+
+        var propertyName = words
+            .Select(word => word.FirstCharToUpper())
+            .ToJoinedString("");
+
+        return propertyName.StartsWith(fallbackPrefix, StringComparison.Ordinal)
+            ? propertyName
+            : fallbackPrefix + propertyName;
+    }
+
+    private static string GetRelationPropertyNameFromColumn(string fallbackPrefix, string columnName)
+    {
+        var nameWithoutCommonSuffix = Regex.Replace(columnName, "(_id| id|id|fk)$", "", RegexOptions.IgnoreCase);
+        var words = Regex
+            .Split(nameWithoutCommonSuffix, "[^A-Za-z0-9]+")
+            .Where(word => !string.IsNullOrWhiteSpace(word));
+
+        var propertyName = words
+            .Select(word => word.FirstCharToUpper())
+            .ToJoinedString("");
+
+        return string.IsNullOrEmpty(propertyName)
+            ? string.Empty
+            : fallbackPrefix + propertyName;
     }
 
     public static void AddRelationProperty(ModelDefinition model, string propertyName, CsTypeDeclaration propertyType, RelationPart relationPart, RelationAttribute relationAttribute)
