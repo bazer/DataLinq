@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.Core.Factories.Models;
 using DataLinq.MySql;
 using DataLinq.Testing;
 using ThrowAway.Extensions;
@@ -78,6 +79,36 @@ public class ProviderMetadataRoundtripTests
         await Assert.That(invoice.Model.RelationProperties.Keys.OrderBy(x => x).ToArray())
             .IsEquivalentTo(["ApprovedByAccount", "CreatedByAccount", "ExternalAccount"]);
         await Assert.That(account.Model.RelationProperties.Count).IsEqualTo(4);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_CompositeUniqueIndex_GeneratesClassLevelIndexWithDatabaseColumnNames(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_CompositeUniqueIndex_GeneratesClassLevelIndexWithDatabaseColumnNames),
+            """
+            CREATE TABLE `account` (
+                `id` INT PRIMARY KEY AUTO_INCREMENT,
+                `RakenskapsarFK` INT NOT NULL,
+                `Kontonummer` INT NOT NULL,
+                UNIQUE INDEX `IX_Account_RakenskapsarFK_Kontonummer` (`RakenskapsarFK`, `Kontonummer`)
+            );
+            """);
+
+        var database = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "Account.cs");
+
+        await Assert.That(generatedFile.contents).Contains("[Index(\"IX_Account_RakenskapsarFK_Kontonummer\", IndexCharacteristic.Unique, IndexType.BTREE, \"RakenskapsarFK\", \"Kontonummer\")]");
+        await Assert.That(generatedFile.contents).DoesNotContain("[Index(\"IX_Account_RakenskapsarFK_Kontonummer\", IndexCharacteristic.Unique, IndexType.BTREE, \"RakenskapsarFK\", \"Kontonummer\")]\n    [Column(\"RakenskapsarFK\")]");
+        await Assert.That(generatedFile.contents).DoesNotContain("[Index(\"IX_Account_RakenskapsarFK_Kontonummer\", IndexCharacteristic.Unique, IndexType.BTREE, \"RakenskapsarFK\", \"Kontonummer\")]\n    [Column(\"Kontonummer\")]");
     }
 
     private static readonly string[] FirstSliceSchemaStatements =

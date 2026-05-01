@@ -87,6 +87,37 @@ public static class MetadataFactory
 
     public static Option<bool, IDLOptionFailure> ParseIndices(DatabaseDefinition database)
     {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            foreach (var indexAttribute in tableModel.Model.Attributes.OfType<IndexAttribute>())
+            {
+                if (!indexAttribute.Columns.Any())
+                    return CreateIndexFailure(
+                        tableModel.Model,
+                        indexAttribute,
+                        $"Class-level index '{indexAttribute.Name}' on table '{tableModel.Table.DbName}' must specify its columns. IndexAttribute.Columns expects database column names.");
+
+                if (!TryResolveIndexColumns(tableModel.Table, indexAttribute, out var columnsForIndex, out var missingColumn))
+                    return CreateIndexFailure(
+                        tableModel.Model,
+                        indexAttribute,
+                        $"Index '{indexAttribute.Name}' on table '{tableModel.Table.DbName}' references column '{missingColumn}', but that column does not exist. IndexAttribute.Columns expects database column names, not C# property names.");
+
+                try
+                {
+                    tableModel.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
+                }
+                catch (InvalidOperationException exception)
+                {
+                    return CreateIndexFailure(tableModel.Model, indexAttribute, exception.Message);
+                }
+                catch (ArgumentException exception)
+                {
+                    return CreateIndexFailure(tableModel.Model, indexAttribute, exception.Message);
+                }
+            }
+        }
+
         var indices = database.TableModels
             .Where(x => !x.IsStub)
             .SelectMany(tableModel => tableModel.Table.Columns
@@ -109,18 +140,11 @@ public static class MetadataFactory
                     List<ColumnDefinition> columnsForIndex;
                     if (indexAttribute.Columns.Any())
                     {
-                        columnsForIndex = [];
-                        foreach (var colName in indexAttribute.Columns)
-                        {
-                            var indexColumn = column.Table.Columns.SingleOrDefault(c => c.DbName == colName);
-                            if (indexColumn == null)
-                                return CreateIndexFailure(
-                                    column,
-                                    indexAttribute,
-                                    $"Index '{indexAttribute.Name}' on table '{column.Table.DbName}' references column '{colName}', but that column does not exist.");
-
-                            columnsForIndex.Add(indexColumn);
-                        }
+                        if (!TryResolveIndexColumns(column.Table, indexAttribute, out columnsForIndex, out var missingColumn))
+                            return CreateIndexFailure(
+                                column,
+                                indexAttribute,
+                                $"Index '{indexAttribute.Name}' on table '{column.Table.DbName}' references column '{missingColumn}', but that column does not exist. IndexAttribute.Columns expects database column names, not C# property names.");
                     }
                     else
                     {
@@ -144,6 +168,43 @@ public static class MetadataFactory
         }
 
         return true;
+    }
+
+    private static bool TryResolveIndexColumns(
+        TableDefinition table,
+        IndexAttribute indexAttribute,
+        out List<ColumnDefinition> columnsForIndex,
+        out string? missingColumn)
+    {
+        columnsForIndex = [];
+        missingColumn = null;
+
+        foreach (var columnName in indexAttribute.Columns)
+        {
+            var indexColumn = table.Columns.SingleOrDefault(c => c.DbName == columnName);
+            if (indexColumn == null)
+            {
+                missingColumn = columnName;
+                return false;
+            }
+
+            columnsForIndex.Add(indexColumn);
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure CreateIndexFailure(ModelDefinition model, IndexAttribute attribute, string message)
+    {
+        var attributeLocation = model.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        var modelLocation = model.GetSourceLocation();
+        if (modelLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, modelLocation.Value);
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, model);
     }
 
     private static IDLOptionFailure CreateIndexFailure(ColumnDefinition column, IndexAttribute attribute, string message)

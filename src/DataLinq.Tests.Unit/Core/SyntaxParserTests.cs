@@ -338,6 +338,28 @@ public abstract partial class MyModel : ITableModel<TestDb>
     }
 
     [Test]
+    public async Task ParseModelSyntax_WithClassLevelIndexAttribute()
+    {
+        var (parser, syntax) = GetTypeSyntax(
+            """
+[Table("my_models")]
+[Index("idx_multi", IndexCharacteristic.Unique, IndexType.BTREE, "first_col", "second_col")]
+public abstract partial class MyModel : ITableModel<TestDb>
+{
+    [Column("first_col")] public abstract int First { get; }
+    [Column("second_col")] public abstract int Second { get; }
+}
+""");
+        var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration(typeof(TestDb)));
+        var model = parser.ParseTableModel(db, syntax, "MyModels").ValueOrException().Model;
+        var index = model.Attributes.OfType<IndexAttribute>().Single();
+
+        await Assert.That(index.Name).IsEqualTo("idx_multi");
+        await Assert.That(index.Characteristic).IsEqualTo(IndexCharacteristic.Unique);
+        await Assert.That(index.Columns).IsEquivalentTo(["first_col", "second_col"]);
+    }
+
+    [Test]
     public async Task GetTableTypeSyntax()
     {
         const string code = """

@@ -174,6 +174,17 @@ public class ModelFileFactory
             yield return $"{namespaceTab}[Table(\"{table.DbName}\")]";
         }
 
+        foreach (var index in table.ColumnIndices
+            .Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey &&
+                        x.Characteristic != IndexCharacteristic.ForeignKey &&
+                        x.Characteristic != IndexCharacteristic.VirtualDataLinq &&
+                        x.Columns.Count > 1)
+            .OrderBy(x => x.Name, StringComparer.Ordinal))
+        {
+            var columns = index.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ");
+            yield return $"{namespaceTab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}, {columns})]";
+        }
+
         if (model.ModelInstanceInterface != null)
             yield return $"{namespaceTab}[Interface<{model.ModelInstanceInterface.Value.Name}>]";
 
@@ -199,13 +210,9 @@ public class ModelFileFactory
             if (c.PrimaryKey)
                 yield return $"{namespaceTab}{tab}[PrimaryKey]";
 
-            foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
+            foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq && x.Columns.Count == 1))
             {
-                var columns = index.Columns.Count() > 1
-                    ? "," + index.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")
-                    : string.Empty;
-
-                yield return $"{namespaceTab}{tab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}{columns})]";
+                yield return $"{namespaceTab}{tab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type})]";
             }
 
             foreach (var index in c.ColumnIndices)

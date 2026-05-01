@@ -575,6 +575,45 @@ public class MetadataFactoryTests
     }
 
     [Test]
+    public async Task ParseIndices_ClassLevelMultiColumn_BuildsSingleIndex()
+    {
+        var (_, _, model, table) = CreateTestHierarchy(tableName: "MultiIndexTable");
+        model.SetAttributes([new IndexAttribute("idx_multi", IndexCharacteristic.Unique, IndexType.BTREE, "col1", "col2")]);
+        var property1 = CreateTestValueProperty(model, "Prop1", typeof(string), [new ColumnAttribute("col1")]);
+        var property2 = CreateTestValueProperty(model, "Prop2", typeof(int), [new ColumnAttribute("col2")]);
+
+        var property1Column = MetadataFactory.ParseColumn(table, property1);
+        var property2Column = MetadataFactory.ParseColumn(table, property2);
+        table.SetColumns([property1Column, property2Column]);
+
+        MetadataFactory.ParseIndices(model.Database).ValueOrException();
+        var index = table.ColumnIndices.Single();
+
+        await Assert.That(index.Name).IsEqualTo("idx_multi");
+        await Assert.That(index.Characteristic).IsEqualTo(IndexCharacteristic.Unique);
+        await Assert.That(index.Columns.Select(x => x.DbName).ToArray()).IsEquivalentTo(["col1", "col2"]);
+    }
+
+    [Test]
+    public async Task ParseIndices_MissingColumnDiagnostic_NamesDatabaseColumnContract()
+    {
+        var (_, _, model, table) = CreateTestHierarchy(tableName: "MultiIndexTable");
+        model.SetAttributes([new IndexAttribute("idx_multi", IndexCharacteristic.Unique, IndexType.BTREE, "Prop1", "col2")]);
+        var property1 = CreateTestValueProperty(model, "Prop1", typeof(string), [new ColumnAttribute("col1")]);
+        var property2 = CreateTestValueProperty(model, "Prop2", typeof(int), [new ColumnAttribute("col2")]);
+
+        var property1Column = MetadataFactory.ParseColumn(table, property1);
+        var property2Column = MetadataFactory.ParseColumn(table, property2);
+        table.SetColumns([property1Column, property2Column]);
+
+        var result = MetadataFactory.ParseIndices(model.Database);
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.Message).Contains("IndexAttribute.Columns expects database column names, not C# property names.");
+        await Assert.That(failure.Message).Contains("Prop1");
+    }
+
+    [Test]
     public async Task ParseRelations_OneToManyAndBackReference_LinksBothSides()
     {
         var db = CreateMultiTableDatabaseForRelationTests();

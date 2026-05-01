@@ -102,7 +102,7 @@ public enum IndexCharacteristic
 /// <summary>
 /// Represents an index attribute for a database column.
 /// </summary>
-[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
 public sealed class IndexAttribute : Attribute
 {
     /// <summary>
