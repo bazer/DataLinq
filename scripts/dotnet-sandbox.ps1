@@ -14,7 +14,6 @@ $tempPath = Join-Path $profileRoot 'Temp'
 $originalLocalAppData = $env:LOCALAPPDATA
 $defaultPodmanPath = if ($originalLocalAppData) { Join-Path $originalLocalAppData 'Programs\Podman\podman.exe' } else { $null }
 $defaultPodmanSocket = if ($originalLocalAppData) { Join-Path $originalLocalAppData 'Temp\podman\podman-machine-default-api.sock' } else { $null }
-$testInfraStatePath = Join-Path $repoRoot 'artifacts\testdata\testinfra-state.json'
 
 New-Item -ItemType Directory -Force -Path $dotnetCliHome | Out-Null
 New-Item -ItemType Directory -Force -Path $nugetHttpCache | Out-Null
@@ -54,19 +53,6 @@ if (-not $env:DATALINQ_TEST_PODMAN_PATH -and $defaultPodmanPath -and (Test-Path 
 
 if (-not $env:DATALINQ_TEST_PODMAN_SOCKET -and $defaultPodmanSocket -and (Test-Path -LiteralPath $defaultPodmanSocket)) {
     $env:DATALINQ_TEST_PODMAN_SOCKET = $defaultPodmanSocket
-}
-
-if (-not $env:DATALINQ_TEST_DB_HOST -and (Test-Path -LiteralPath $testInfraStatePath)) {
-    try {
-        $testInfraState = Get-Content -LiteralPath $testInfraStatePath -Raw | ConvertFrom-Json
-        $persistedHost = $testInfraState.Host
-        if ($persistedHost -and $persistedHost -notin @('127.0.0.1', 'localhost', '::1')) {
-            $env:DATALINQ_TEST_DB_HOST = $persistedHost
-        }
-    }
-    catch {
-        # Ignore stale or partial state; the Testing CLI will surface any real infra failure.
-    }
 }
 
 $arguments = [System.Collections.Generic.List[string]]::new()
