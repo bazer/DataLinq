@@ -311,19 +311,37 @@ public static class MetadataFactory
                 table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
         }
 
-        foreach (var foreignKeyColumn in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).SelectMany(x => x.Table.Columns.Where(y => y.ForeignKey)))
+        foreach (var foreignKeyGroup in database.TableModels
+            .Where(x => !x.IsStub && x.Table.Type == TableType.Table)
+            .Select(x => x.Table)
+            .SelectMany(table => table.Columns
+                .Where(column => column.ForeignKey)
+                .SelectMany(column => column.ValueProperty.Attributes
+                    .OfType<ForeignKeyAttribute>()
+                    .Select(attribute => new ForeignKeyColumn(column, attribute))))
+            .GroupBy(x => new { ForeignKeyTable = x.Column.Table, x.Attribute.Name, CandidateTableName = x.Attribute.Table }))
         {
-            foreach (var attribute in foreignKeyColumn.ValueProperty.Attributes.OfType<ForeignKeyAttribute>())
+            var orderedForeignKeys = foreignKeyGroup
+                .OrderBy(x => x.Attribute.Ordinal ?? x.Column.Index)
+                .ThenBy(x => x.Column.Index)
+                .ToList();
+            var firstForeignKey = orderedForeignKeys[0];
+            var firstAttribute = firstForeignKey.Attribute;
+            var foreignKeyTable = firstForeignKey.Column.Table;
+            var candidateTableModel = database
+                .TableModels.FirstOrDefault(x => x.Table.DbName == firstAttribute.Table);
+
+            if (candidateTableModel == null)
+                return CreateForeignKeyFailure(
+                    firstForeignKey.Column,
+                    firstAttribute,
+                    $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' references table '{firstAttribute.Table}', but no matching table exists in database '{database.DbName}'.");
+
+            var candidateColumns = new List<ColumnDefinition>();
+            foreach (var foreignKey in orderedForeignKeys)
             {
-                var candidateTableModel = database
-                    .TableModels.FirstOrDefault(x => x.Table.DbName == attribute.Table);
-
-                if (candidateTableModel == null)
-                    return CreateForeignKeyFailure(
-                        foreignKeyColumn,
-                        attribute,
-                        $"Foreign key '{attribute.Name}' on column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' references table '{attribute.Table}', but no matching table exists in database '{database.DbName}'.");
-
+                var foreignKeyColumn = foreignKey.Column;
+                var attribute = foreignKey.Attribute;
                 var candidateColumn = candidateTableModel
                     .Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
 
@@ -333,56 +351,67 @@ public static class MetadataFactory
                         attribute,
                         $"Foreign key '{attribute.Name}' on column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' references column '{attribute.Table}.{attribute.Column}', but that column does not exist.");
 
-                var manySideModel = foreignKeyColumn.Table.Model;
-                var oneSideModel = candidateColumn.Table.Model;
+                candidateColumns.Add(candidateColumn);
+            }
 
-                var foreignKeyIndex = foreignKeyColumn.ColumnIndices.FirstOrDefault(x => x.Characteristic == IndexCharacteristic.ForeignKey);
-                if (foreignKeyIndex == null)
-                {
-                    foreignKeyIndex = new ColumnIndex(foreignKeyColumn.DbName, IndexCharacteristic.ForeignKey, IndexType.BTREE, [foreignKeyColumn]);
-                    foreignKeyColumn.Table.ColumnIndices.Add(foreignKeyIndex);
-                }
+            var foreignKeyColumns = orderedForeignKeys.Select(x => x.Column).ToList();
+            var manySideModel = foreignKeyTable.Model;
+            var oneSideModel = candidateTableModel.Model;
 
-                var candidateKeyIndex = candidateColumn.Table.ColumnIndices.First(x => x.Characteristic == IndexCharacteristic.PrimaryKey);
+            var foreignKeyIndex = foreignKeyTable.ColumnIndices.FirstOrDefault(x =>
+                x.Characteristic == IndexCharacteristic.ForeignKey &&
+                x.Name == firstAttribute.Name &&
+                ColumnsMatch(x.Columns, foreignKeyColumns));
+            if (foreignKeyIndex == null)
+            {
+                foreignKeyIndex = new ColumnIndex(firstAttribute.Name, IndexCharacteristic.ForeignKey, IndexType.BTREE, foreignKeyColumns);
+                foreignKeyTable.ColumnIndices.Add(foreignKeyIndex);
+            }
 
-                var relation = new RelationDefinition(attribute.Name, RelationType.OneToMany);
-                var manySidePart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "");
-                var oneSidePart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "");
-                relation.ForeignKey = manySidePart;
-                relation.CandidateKey = oneSidePart;
+            var candidateKeyIndex = FindCandidateKeyIndex(candidateTableModel.Table, candidateColumns);
+            if (candidateKeyIndex == null)
+                return CreateForeignKeyFailure(
+                    firstForeignKey.Column,
+                    firstAttribute,
+                    $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' references columns '{candidateColumns.Select(x => x.DbName).ToJoinedString(", ")}' on table '{candidateTableModel.Table.DbName}', but no matching primary or unique key exists.");
 
-                // --- Link or Create Many-to-One Property ---
-                var manyToOneProp = GetRelationProperty(manySideModel, oneSideModel.Table.DbName, candidateColumn.DbName, attribute.Name);
-                if (manyToOneProp != null)
-                {
-                    manyToOneProp.SetRelationPart(manySidePart);
-                    if (!manySidePart.ColumnIndex.RelationParts.Contains(manySidePart))
-                        manySidePart.ColumnIndex.RelationParts.Add(manySidePart);
-                }
-                else
-                {
-                    var propName = Regex.Replace(foreignKeyColumn.DbName, "(_id|id|fk)$", "", RegexOptions.IgnoreCase).ToPascalCase();
-                    var propType = oneSideModel.CsType;
-                    var propAttr = new RelationAttribute(oneSideModel.Table.DbName, candidateColumn.DbName, attribute.Name);
-                    AddRelationProperty(manySideModel, propName, propType, manySidePart, propAttr);
-                }
+            var relation = new RelationDefinition(firstAttribute.Name, RelationType.OneToMany);
+            var manySidePart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "");
+            var oneSidePart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "");
+            relation.ForeignKey = manySidePart;
+            relation.CandidateKey = oneSidePart;
 
-                // --- Link or Create One-to-Many Property ---
-                var oneToManyProp = GetRelationProperty(oneSideModel, manySideModel.Table.DbName, foreignKeyColumn.DbName, attribute.Name);
-                if (oneToManyProp != null)
-                {
-                    oneToManyProp.SetRelationPart(oneSidePart);
-                    if (!oneSidePart.ColumnIndex.RelationParts.Contains(oneSidePart))
-                        oneSidePart.ColumnIndex.RelationParts.Add(oneSidePart);
-                }
-                else
-                {
-                    var propName = GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumn, attribute);
-                    var genericTypeName = manySideModel.CsType.Name;
-                    var propType = new CsTypeDeclaration($"IImmutableRelation<{genericTypeName}>", "DataLinq.Instances", ModelCsType.Interface);
-                    var propAttr = new RelationAttribute(manySideModel.Table.DbName, foreignKeyColumn.DbName, attribute.Name);
-                    AddRelationProperty(oneSideModel, propName, propType, oneSidePart, propAttr);
-                }
+            // --- Link or Create Many-to-One Property ---
+            var manyToOneProp = GetRelationProperty(manySideModel, oneSideModel.Table.DbName, candidateColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
+            if (manyToOneProp != null)
+            {
+                manyToOneProp.SetRelationPart(manySidePart);
+                if (!manySidePart.ColumnIndex.RelationParts.Contains(manySidePart))
+                    manySidePart.ColumnIndex.RelationParts.Add(manySidePart);
+            }
+            else
+            {
+                var propName = GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute);
+                var propType = oneSideModel.CsType;
+                var propAttr = new RelationAttribute(oneSideModel.Table.DbName, candidateColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
+                AddRelationProperty(manySideModel, propName, propType, manySidePart, propAttr);
+            }
+
+            // --- Link or Create One-to-Many Property ---
+            var oneToManyProp = GetRelationProperty(oneSideModel, manySideModel.Table.DbName, foreignKeyColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
+            if (oneToManyProp != null)
+            {
+                oneToManyProp.SetRelationPart(oneSidePart);
+                if (!oneSidePart.ColumnIndex.RelationParts.Contains(oneSidePart))
+                    oneSidePart.ColumnIndex.RelationParts.Add(oneSidePart);
+            }
+            else
+            {
+                var propName = GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute);
+                var genericTypeName = manySideModel.CsType.Name;
+                var propType = new CsTypeDeclaration($"IImmutableRelation<{genericTypeName}>", "DataLinq.Instances", ModelCsType.Interface);
+                var propAttr = new RelationAttribute(manySideModel.Table.DbName, foreignKeyColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
+                AddRelationProperty(oneSideModel, propName, propType, oneSidePart, propAttr);
             }
         }
 
@@ -455,26 +484,81 @@ public static class MetadataFactory
         return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, foreignKeyColumn);
     }
 
-    private static RelationProperty? GetRelationProperty(ModelDefinition model, string referencedTableName, string referencedColumnName, string constraintName)
+    private static ColumnIndex? FindCandidateKeyIndex(TableDefinition table, IReadOnlyList<ColumnDefinition> columns)
     {
-        // Find a property in the model that has a [Relation] attribute matching the target table, column, and constraint name.
+        return table.ColumnIndices.FirstOrDefault(index =>
+            index.Characteristic is IndexCharacteristic.PrimaryKey or IndexCharacteristic.Unique &&
+            ColumnsMatch(index.Columns, columns));
+    }
+
+    private static bool ColumnsMatch(IReadOnlyList<ColumnDefinition> left, IReadOnlyList<ColumnDefinition> right)
+    {
+        if (left.Count != right.Count)
+            return false;
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (!ReferenceEquals(left[i], right[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private sealed class ForeignKeyColumn
+    {
+        public ForeignKeyColumn(ColumnDefinition column, ForeignKeyAttribute attribute)
+        {
+            Column = column;
+            Attribute = attribute;
+        }
+
+        public ColumnDefinition Column { get; }
+        public ForeignKeyAttribute Attribute { get; }
+
+        public void Deconstruct(out ColumnDefinition column, out ForeignKeyAttribute attribute)
+        {
+            column = Column;
+            attribute = Attribute;
+        }
+    }
+
+    private static RelationProperty? GetRelationProperty(ModelDefinition model, string referencedTableName, string[] referencedColumnNames, string constraintName)
+    {
+        // Find a property in the model that has a [Relation] attribute matching the target table, columns, and constraint name.
         return model.RelationProperties.Values.SingleOrDefault(p =>
             p.Attributes.OfType<RelationAttribute>().Any(a =>
                 a.Table == referencedTableName &&
-                a.Columns.Contains(referencedColumnName) && // Check if the column is in the list
+                a.Columns.SequenceEqual(referencedColumnNames) &&
                 (a.Name == null || a.Name == constraintName)
             )
         );
     }
 
-    private static string GetCandidateKeyRelationPropertyName(ModelDefinition manySideModel, ModelDefinition oneSideModel, ColumnDefinition foreignKeyColumn, ForeignKeyAttribute attribute)
+    private static string GetForeignKeyRelationPropertyName(ModelDefinition manySideModel, ModelDefinition oneSideModel, IReadOnlyList<ColumnDefinition> foreignKeyColumns, ForeignKeyAttribute attribute)
+    {
+        if (foreignKeyColumns.Count > 1)
+        {
+            if (!HasMultipleForeignKeyConstraintsBetween(manySideModel.Table, oneSideModel.Table))
+                return oneSideModel.CsType.Name;
+
+            var constraintName = GetRelationPropertyNameFromConstraint(oneSideModel.CsType.Name, attribute.Name);
+            return string.IsNullOrEmpty(constraintName)
+                ? oneSideModel.CsType.Name
+                : constraintName;
+        }
+
+        return Regex.Replace(foreignKeyColumns[0].DbName, "(_id|id|fk)$", "", RegexOptions.IgnoreCase).ToPascalCase();
+    }
+
+    private static string GetCandidateKeyRelationPropertyName(ModelDefinition manySideModel, ModelDefinition oneSideModel, IReadOnlyList<ColumnDefinition> foreignKeyColumns, ForeignKeyAttribute attribute)
     {
         if (!HasMultipleForeignKeyConstraintsBetween(manySideModel.Table, oneSideModel.Table))
             return manySideModel.CsType.Name;
 
         var relationName = attribute.Name.Any(char.IsLetter)
             ? GetRelationPropertyNameFromConstraint(manySideModel.CsType.Name, attribute.Name)
-            : GetRelationPropertyNameFromColumn(manySideModel.CsType.Name, foreignKeyColumn.DbName);
+            : GetRelationPropertyNameFromColumn(manySideModel.CsType.Name, foreignKeyColumns[0].DbName);
 
         return string.IsNullOrEmpty(relationName)
             ? manySideModel.CsType.Name

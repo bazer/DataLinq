@@ -94,6 +94,8 @@ Tasks:
 4. Introduce constraint-level metadata for composite foreign keys if per-column `ForeignKeyAttribute` proves too weak.
 5. Use constraint names to derive relation property names when table/column-derived names collide or are ambiguous.
 
+Phase 4 boundary note: composite foreign keys remain visible on each participating value property through `[ForeignKey]` attributes, but relation metadata groups matching constraint names into a single ordered `RelationDefinition`. Generated model files preserve the column order with ordinal foreign-key attributes and array-based `[Relation]` attributes. Generated provider SQL emits one composite `FOREIGN KEY` constraint instead of one invalid per-column constraint. Provider-specific referential actions such as cascade, restrict, deferrable, and match options are still outside the metadata contract.
+
 ## Workstream D: Index Fidelity
 
 Deliverables:

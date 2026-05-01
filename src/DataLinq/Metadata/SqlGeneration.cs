@@ -155,13 +155,13 @@ public class SqlGeneration
         => NewRow().Indent().Add($"UNIQUE KEY {QuotedString(name)} {ParenthesisList(columns)}");
     public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
         => ForeignKey(
-            relation.Relation.ConstraintName == relation.ColumnIndex.Columns.First().DbName ? null : relation.Relation.ConstraintName, 
-            relation.ColumnIndex.Columns.Select(x=> x.DbName).ToJoinedString(", "), 
-            relation.Relation.CandidateKey.ColumnIndex.Table.DbName, 
-            relation.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).ToJoinedString(", "), 
+            relation.Relation.ConstraintName == relation.ColumnIndex.Columns.First().DbName ? null : relation.Relation.ConstraintName,
+            relation.ColumnIndex.Columns.Select(x => x.DbName).ToArray(),
+            relation.Relation.CandidateKey.ColumnIndex.Table.DbName,
+            relation.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).ToArray(),
             restrict);
-    public SqlGeneration ForeignKey(string? constraintName, string from, string table, string to, bool restrict)
-        => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(constraintName) ? "" : $"CONSTRAINT {QuotedString(constraintName)} ")}FOREIGN KEY {QuotedParenthesis(from)} REFERENCES {QuotedString(table)} {QuotedParenthesis(to)} {OnUpdateDelete(restrict)}");
+    public SqlGeneration ForeignKey(string? constraintName, string[] from, string table, string[] to, bool restrict)
+        => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(constraintName) ? "" : $"CONSTRAINT {QuotedString(constraintName)} ")}FOREIGN KEY {ParenthesisList(from)} REFERENCES {QuotedString(table)} {ParenthesisList(to)} {OnUpdateDelete(restrict)}");
     public string OnUpdateDelete(bool restrict)
         => restrict ? "ON UPDATE RESTRICT ON DELETE RESTRICT" : "ON UPDATE NO ACTION ON DELETE NO ACTION";
 

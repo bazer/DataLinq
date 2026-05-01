@@ -235,7 +235,12 @@ public class ModelFileFactory
             {
                 foreach (var relationPart in index.RelationParts.Where(x => x.Type == RelationPartType.ForeignKey))
                 {
-                    yield return $"{namespaceTab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName}\", \"{relationPart.Relation.CandidateKey.ColumnIndex.Columns[0].DbName}\", \"{relationPart.Relation.ConstraintName}\")]";
+                    var columnOrdinal = relationPart.ColumnIndex.Columns.IndexOf(c);
+                    var candidateColumn = relationPart.Relation.CandidateKey.ColumnIndex.Columns[columnOrdinal];
+                    var ordinalArgument = relationPart.ColumnIndex.Columns.Count > 1
+                        ? $", {columnOrdinal + 1}"
+                        : "";
+                    yield return $"{namespaceTab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName}\", \"{candidateColumn.DbName}\", \"{relationPart.Relation.ConstraintName}\"{ordinalArgument})]";
                 }
             }
 
@@ -289,7 +294,7 @@ public class ModelFileFactory
             if (otherPart.ColumnIndex.Columns.Count == 1)
                 relationParameters.Add($"\"{otherPart.ColumnIndex.Columns[0].DbName}\"");
             else
-                relationParameters.Add($"\"[{otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")}]");
+                relationParameters.Add($"new string[] {{ {otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")} }}");
 
             if (relationProperty.RelationName != null)
                 relationParameters.Add($"\"{relationProperty.RelationName}\"");

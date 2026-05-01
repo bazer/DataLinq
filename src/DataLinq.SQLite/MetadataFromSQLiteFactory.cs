@@ -103,12 +103,13 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
-            foreach (var reader in dbAccess.ReadReader($"SELECT id, \"table\", \"from\", \"to\" FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
+            foreach (var reader in dbAccess.ReadReader($"SELECT id, seq, \"table\", \"from\", \"to\" FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
             {
                 var keyName = reader.GetString(0);
-                var tableName = reader.GetString(1);
-                var fromColumnName = reader.GetString(2);
-                var toColumnName = reader.GetString(3);
+                var ordinal = reader.GetInt32(1);
+                var tableName = reader.GetString(2);
+                var fromColumnName = reader.GetString(3);
+                var toColumnName = reader.GetString(4);
 
                 var foreignKeyColumn = tableModel
                     .Table.Columns.SingleOrDefault(x => x.DbName == fromColumnName);
@@ -118,7 +119,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
                 // The only job of this method is to mark the column and add the attribute.
                 foreignKeyColumn.SetForeignKey();
-                foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumnName, keyName));
+                foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumnName, keyName, ordinal));
             }
         }
     }

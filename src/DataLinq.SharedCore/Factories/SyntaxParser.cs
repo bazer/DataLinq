@@ -282,10 +282,11 @@ public class SyntaxParser
 
         if (name == "Relation")
         {
+            var rawArguments = attributeSyntax.ArgumentList?.Arguments.ToList() ?? [];
             if (arguments.Count == 2)
-                return new RelationAttribute(arguments[0], arguments[1]);
+                return new RelationAttribute(arguments[0], ParseAttributeStringArrayArgument(rawArguments[1]));
             else if (arguments.Count == 3)
-                return new RelationAttribute(arguments[0], arguments[1], arguments[2]);
+                return new RelationAttribute(arguments[0], ParseAttributeStringArrayArgument(rawArguments[1]), arguments[2]);
             else
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' doesn't have 2 or 3 arguments");
         }
@@ -300,10 +301,18 @@ public class SyntaxParser
 
         if (name == "ForeignKey")
         {
-            if (arguments.Count != 3)
-                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' must have 3 arguments");
+            if (arguments.Count == 3)
+                return new ForeignKeyAttribute(arguments[0], arguments[1], arguments[2]);
 
-            return new ForeignKeyAttribute(arguments[0], arguments[1], arguments[2]);
+            if (arguments.Count == 4)
+            {
+                if (!TryParseInt(arguments[3], out var ordinal))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid ordinal value '{arguments[3]}' for attribute '{name}'");
+
+                return new ForeignKeyAttribute(arguments[0], arguments[1], arguments[2], ordinal);
+            }
+
+            return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' must have 3 or 4 arguments");
         }
 
         if (name == "Enum")
@@ -500,6 +509,28 @@ public class SyntaxParser
             return stringValue;
 
         return argument.Expression.ToString().Trim('"');
+    }
+
+    private static string[] ParseAttributeStringArrayArgument(AttributeArgumentSyntax argument)
+    {
+        if (argument.Expression is not ArrayCreationExpressionSyntax and not ImplicitArrayCreationExpressionSyntax)
+            return [ParseAttributeArgument(argument)];
+
+        var initializer = argument.Expression switch
+        {
+            ArrayCreationExpressionSyntax arrayCreation => arrayCreation.Initializer,
+            ImplicitArrayCreationExpressionSyntax implicitArrayCreation => implicitArrayCreation.Initializer,
+            _ => null
+        };
+
+        if (initializer == null)
+            return [];
+
+        return initializer.Expressions
+            .Select(expression => expression is LiteralExpressionSyntax literal && literal.Token.Value is string stringValue
+                ? stringValue
+                : expression.ToString().Trim('"'))
+            .ToArray();
     }
 
     private static Option<Attribute, IDLOptionFailure> FailAttribute(AttributeSyntax attributeSyntax, DLFailureType type, string message)

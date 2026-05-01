@@ -99,10 +99,14 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         //foreach (var uniqueIndex in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Unique))
         //    sql.UniqueKey(uniqueIndex.Name, uniqueIndex.Columns.Select(x => x.DbName).ToArray());
 
-        foreach (var foreignKey in table.Columns.Where(x => x.ForeignKey))
-            foreach (var index in foreignKey.ColumnIndices)
-                foreach (var relation in index.RelationParts)
-                    sql.ForeignKey(relation, foreignKeyRestrict);
+        foreach (var relation in table.ColumnIndices
+            .Where(x => x.Characteristic == IndexCharacteristic.ForeignKey)
+            .SelectMany(x => x.RelationParts)
+            .Where(x => x.Type == RelationPartType.ForeignKey)
+            .DistinctBy(x => x.Relation))
+        {
+            sql.ForeignKey(relation, foreignKeyRestrict);
+        }
 
         foreach (var index in table.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq))
             sql.Index(index.Name, index.Characteristic != IndexCharacteristic.Simple ? index.Characteristic.ToString().ToUpper() : null, index.Type.ToString().ToUpper(), index.Columns.Select(x => x.DbName).ToArray());

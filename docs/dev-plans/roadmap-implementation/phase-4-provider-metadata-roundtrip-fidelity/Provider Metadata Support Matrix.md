@@ -43,11 +43,11 @@ The comparison is deliberately lower-level than the future schema validation com
 | Simple indexes | Partially supported | Partially supported | Partially supported | Basic shape exists; MySQL/MariaDB currently need coverage for indexes that overlap foreign-key columns. |
 | Unique indexes | Partially supported | Partially supported | Partially supported | Simple unique indexes exist; composite unique model generation needs issue #6 regression coverage. |
 | Composite indexes | Partially supported | Partially supported | Partially supported | Metadata carries ordered columns, and generated model attributes are class-level for composite indexes. Advanced provider-specific index options remain unsupported. |
-| Foreign keys | Partially supported | Partially supported | Partially supported | Per-column metadata exists. Constraint-level grouping is still weak. |
+| Foreign keys | Partially supported | Partially supported | Partially supported | Single-column and composite key identity roundtrip through ordered relation metadata and generated SQL. Referential actions and provider-specific options are not represented. |
 | Primary-key columns that are also foreign keys | Partially supported | Partially supported | Partially supported | MySQL has some regression coverage; cross-provider roundtrip coverage is required. |
 | Multiple foreign keys to the same table | Partially supported | Partially supported | Partially supported | Metadata import, generated relation names, and transaction-scoped runtime relation loading are covered for duplicate same-target FKs. Broader composite-key grouping is still pending. |
-| Composite foreign keys | Partially supported | Partially supported | Partially supported | Current per-column representation is not strong enough for validation. Constraint-level metadata is likely needed later in Phase 4. |
-| Relation property names | Partially supported | Partially supported | Partially supported | Duplicate same-target candidate-side names now derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Composite foreign-key naming still needs the constraint-level metadata work. |
+| Composite foreign keys | Supported | Supported | Supported | Participating `[ForeignKey]` attributes are grouped by constraint into one ordered `RelationDefinition`, generated relation attributes preserve ordered column arrays, and provider SQL emits one composite `FOREIGN KEY`. |
+| Relation property names | Partially supported | Partially supported | Partially supported | Duplicate same-target candidate-side names derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Composite foreign-key relation names are stable for the supported grouping shape. |
 | Check constraints | Supported | Supported | Unsupported | MySQL/MariaDB check clauses import into raw provider-specific `[Check(DatabaseType, name, expression)]` model attributes, emit back to provider SQL, and roundtrip through the supported-subset comparison. Structured, provider-neutral check metadata is deferred. SQLite check parsing remains intentionally unsupported. |
 | Table comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` model attributes, generated C#, generated SQL `COMMENT` table options, and provider roundtrip comparison. SQLite has no native table comments. |
 | Column comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` property attributes, generated C#, generated SQL column `COMMENT` clauses, and provider roundtrip comparison. SQLite has no native column comments. |
@@ -89,6 +89,7 @@ Initial provider tests:
 
 - `src/DataLinq.Tests.Unit/SQLite/MetadataFromSQLiteFactoryTests.cs`
 - `src/DataLinq.Tests.Unit/SQLite/MetadataRoundtripTests.cs`
+- `src/DataLinq.Tests.Unit/Core/SyntaxParserTests.cs`
 - `src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs`
 - `src/DataLinq.Tests.MySql/ProviderMetadataRoundtripTests.cs`
 

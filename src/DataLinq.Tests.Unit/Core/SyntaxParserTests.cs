@@ -186,6 +186,19 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
         await Assert.That(attribute.Table).IsEqualTo("OtherTable");
         await Assert.That(attribute.Column).IsEqualTo("OtherId");
         await Assert.That(attribute.Name).IsEqualTo("FK_Name");
+        await Assert.That(attribute.Ordinal).IsNull();
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_ForeignKeyWithOrdinal()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[ForeignKey(""OtherTable"", ""OtherId"", ""FK_Name"", 2)]");
+        var attribute = (ForeignKeyAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.Table).IsEqualTo("OtherTable");
+        await Assert.That(attribute.Column).IsEqualTo("OtherId");
+        await Assert.That(attribute.Name).IsEqualTo("FK_Name");
+        await Assert.That(attribute.Ordinal).IsEqualTo(2);
     }
 
     [Test]
@@ -197,6 +210,17 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
         await Assert.That(attribute.Table).IsEqualTo("OtherTable");
         await Assert.That(attribute.Columns.Length).IsEqualTo(1);
         await Assert.That(attribute.Columns[0]).IsEqualTo("FkCol");
+        await Assert.That(attribute.Name).IsEqualTo("RelName");
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_RelationWithColumnArray()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Relation(""OtherTable"", new string[] { ""TenantId"", ""OrderNo"" }, ""RelName"")]");
+        var attribute = (RelationAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.Table).IsEqualTo("OtherTable");
+        await Assert.That(attribute.Columns).IsEquivalentTo(["TenantId", "OrderNo"]);
         await Assert.That(attribute.Name).IsEqualTo("RelName");
     }
 

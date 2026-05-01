@@ -113,7 +113,7 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
 
             // The only job of this method is to mark the column and add the attribute.
             foreignKeyColumn.SetForeignKey();
-            foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME));
+            foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME, (int)key.ORDINAL_POSITION));
         }
     }
 

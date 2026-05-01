@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
+using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.Testing;
 using ThrowAway.Extensions;
@@ -266,6 +267,68 @@ public class ProviderMetadataRoundtripTests
         await Assert.That(generatedSql.Text).Contains("CREATE TABLE IF NOT EXISTS `order-items`");
         await Assert.That(generatedSql.Text).Contains("`ship.to`");
         await Assert.That(generatedSql.Text).Contains("`2fa code`");
+        await Assert.That(differences).IsEmpty();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_CompositeForeignKey_RoundTripAsSingleRelation(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_CompositeForeignKey_RoundTripAsSingleRelation),
+            """
+            CREATE TABLE `order_header` (
+                `tenant_id` INT NOT NULL,
+                `order_no` INT NOT NULL,
+                `summary` VARCHAR(64) NOT NULL,
+                PRIMARY KEY (`tenant_id`, `order_no`)
+            );
+            """,
+            """
+            CREATE TABLE `order_line` (
+                `line_id` INT PRIMARY KEY,
+                `tenant_id` INT NOT NULL,
+                `order_no` INT NOT NULL,
+                `sku` VARCHAR(64) NOT NULL,
+                CONSTRAINT `FK_order_line_header` FOREIGN KEY (`tenant_id`, `order_no`) REFERENCES `order_header`(`tenant_id`, `order_no`)
+            );
+            """);
+
+        var database = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var orderLine = database.TableModels.Single(x => x.Table.DbName == "order_line");
+        var foreignKeyIndex = orderLine.Table.ColumnIndices.Single(x => x.Characteristic == IndexCharacteristic.ForeignKey);
+        var foreignKeyPart = foreignKeyIndex.RelationParts.Single(x => x.Type == RelationPartType.ForeignKey);
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "OrderLine.cs");
+        var generatedSql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(provider.DatabaseType)
+            .GetCreateTables(database, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = ServerSchemaDatabase.Create(
+            provider,
+            $"{nameof(ParseDatabase_CompositeForeignKey_RoundTripAsSingleRelation)}_Generated",
+            generatedSql.Text);
+        var secondRead = generated.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(database, secondRead, provider.DatabaseType);
+
+        await Assert.That(foreignKeyIndex.Columns.Select(x => x.DbName).SequenceEqual(["tenant_id", "order_no"])).IsTrue();
+        await Assert.That(foreignKeyPart.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).SequenceEqual(["tenant_id", "order_no"])).IsTrue();
+        await Assert.That(orderLine.Model.RelationProperties.Keys).Contains("OrderHeader");
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"tenant_id\", \"FK_order_line_header\", 1)]");
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"order_no\", \"FK_order_line_header\", 2)]");
+        await Assert.That(generatedFile.contents).Contains("[Relation(\"order_header\", new string[] { \"tenant_id\", \"order_no\" }, \"FK_order_line_header\")]");
+        await Assert.That(generatedSql.Text).Contains("FOREIGN KEY (`tenant_id`, `order_no`) REFERENCES `order_header` (`tenant_id`, `order_no`)");
         await Assert.That(differences).IsEmpty();
     }
 

@@ -96,6 +96,36 @@ public class MetadataRoundtripTests
         await Assert.That(differences).IsEmpty();
     }
 
+    [Test]
+    public async Task ParseDatabase_CompositeForeignKey_RoundTripAsSingleRelation()
+    {
+        using var source = SqliteRoundtripFixture.CreateCompositeForeignKeySchema();
+
+        var firstRead = source.ParseDatabase();
+        var orderLine = firstRead.TableModels.Single(x => x.Table.DbName == "order_line");
+        var foreignKeyIndex = orderLine.Table.ColumnIndices.Single(x => x.Characteristic == IndexCharacteristic.ForeignKey);
+        var foreignKeyPart = foreignKeyIndex.RelationParts.Single(x => x.Type == RelationPartType.ForeignKey);
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(firstRead)
+            .Single(file => file.path == "OrderLine.cs");
+        var generatedSql = new SqlFromSQLiteFactory()
+            .GetCreateTables(firstRead, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = SqliteRoundtripFixture.Create(generatedSql.Text);
+        var secondRead = generated.ParseDatabase();
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(firstRead, secondRead, DatabaseType.SQLite);
+
+        await Assert.That(foreignKeyIndex.Columns.Select(x => x.DbName).SequenceEqual(["tenant_id", "order_no"])).IsTrue();
+        await Assert.That(foreignKeyPart.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).SequenceEqual(["tenant_id", "order_no"])).IsTrue();
+        await Assert.That(orderLine.Model.RelationProperties.Keys).Contains("OrderHeader");
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"tenant_id\", \"0\", 1)]");
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"order_no\", \"0\", 2)]");
+        await Assert.That(generatedFile.contents).Contains("[Relation(\"order_header\", new string[] { \"tenant_id\", \"order_no\" }, \"0\")]");
+        await Assert.That(generatedSql.Text).Contains("FOREIGN KEY (\"tenant_id\", \"order_no\") REFERENCES \"order_header\" (\"tenant_id\", \"order_no\")");
+        await Assert.That(differences).IsEmpty();
+    }
+
     private sealed class SqliteRoundtripFixture : IDisposable
     {
         private SqliteRoundtripFixture(string databasePath)
@@ -152,6 +182,28 @@ public class MetadataRoundtripTests
                     "ship.to" TEXT NOT NULL,
                     "2fa code" TEXT NOT NULL,
                     "total$amount" INTEGER NOT NULL
+                );
+                """);
+        }
+
+        public static SqliteRoundtripFixture CreateCompositeForeignKeySchema()
+        {
+            return Create(
+                """
+                CREATE TABLE "order_header" (
+                    "tenant_id" INTEGER NOT NULL,
+                    "order_no" INTEGER NOT NULL,
+                    "summary" TEXT NOT NULL,
+                    PRIMARY KEY ("tenant_id", "order_no")
+                );
+                """,
+                """
+                CREATE TABLE "order_line" (
+                    "line_id" INTEGER PRIMARY KEY,
+                    "tenant_id" INTEGER NOT NULL,
+                    "order_no" INTEGER NOT NULL,
+                    "sku" TEXT NOT NULL,
+                    CONSTRAINT "FK_order_line_header" FOREIGN KEY ("tenant_id", "order_no") REFERENCES "order_header"("tenant_id", "order_no")
                 );
                 """);
         }
