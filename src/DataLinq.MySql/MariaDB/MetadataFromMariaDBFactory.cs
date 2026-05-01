@@ -56,14 +56,17 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
         // Fetch table-column pairs that are part of a foreign key relationship
         var foreignKeyColumns = informationSchemaDb.Query().KEY_COLUMN_USAGE
             .Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_TABLE_NAME != null)
-            .Select(x => new { x.TABLE_NAME, x.COLUMN_NAME })
+            .Select(x => new { x.TABLE_NAME, x.COLUMN_NAME, x.CONSTRAINT_NAME })
             .ToList();
 
         var indexGroups = informationSchemaDb.Query()
             .STATISTICS.Where(x => x.TABLE_SCHEMA == database.DbName && x.INDEX_NAME != "PRIMARY")
             .ToList()
-            .Where(x => !foreignKeyColumns.Any(fk => fk.TABLE_NAME == x.TABLE_NAME && fk.COLUMN_NAME == x.COLUMN_NAME))
-            .GroupBy(x => x.INDEX_NAME);
+            .Where(x => !foreignKeyColumns.Any(fk =>
+                fk.TABLE_NAME == x.TABLE_NAME &&
+                fk.COLUMN_NAME == x.COLUMN_NAME &&
+                fk.CONSTRAINT_NAME == x.INDEX_NAME))
+            .GroupBy(x => new { x.TABLE_NAME, x.INDEX_NAME });
 
         foreach (var dbIndexGroup in indexGroups)
         {

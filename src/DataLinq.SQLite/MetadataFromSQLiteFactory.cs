@@ -180,9 +180,10 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         }
 
         var column = new ColumnDefinition(dbName, table);
-        column.SetNullable(reader.GetBoolean(3) == false);
+        var primaryKey = reader.GetBoolean(5);
+        column.SetNullable(!primaryKey && reader.GetBoolean(3) == false);
         column.SetAutoIncrement(hasAutoIncrement);
-        column.SetPrimaryKey(reader.GetBoolean(5));
+        column.SetPrimaryKey(primaryKey);
         column.AddDbType(dbType);
 
         var csType = ParseCsType(dbType, dbName);

@@ -25,6 +25,7 @@ That distinction matters. Schema validation should compare the database DataLinq
 ## Documents
 
 - `Implementation Plan.md`
+- `Provider Metadata Support Matrix.md`
 
 ## Related Plans
 

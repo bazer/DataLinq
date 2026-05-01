@@ -51,6 +51,9 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
                         foreach (var relation in index.RelationParts)
                             sql.ForeignKey(relation, foreignKeyRestrict);
             });
+
+            foreach (var index in table.ColumnIndices.Where(x => x.Characteristic == IndexCharacteristic.Simple))
+                sql.CreateIndex(table.DbName, index.Name, index.Columns.Select(x => x.DbName).ToArray());
         }
 
         foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Select(x => x.Table).Where(x => x.Type == TableType.View).Cast<ViewDefinition>().ToList()))
@@ -212,4 +215,10 @@ public class SQLiteGeneration : SqlGeneration
 
     public override SqlGeneration UniqueKey(string name, params string[] columns)
         => NewRow().Indent().Add($"CONSTRAINT {QuotedString(name)} UNIQUE {ParenthesisList(columns)}");
+
+    public SqlGeneration CreateIndex(string tableName, string indexName, params string[] columns)
+    {
+        sql.AddText($"CREATE INDEX IF NOT EXISTS {QuotedString(indexName)} ON {QuotedString(tableName)} {ParenthesisList(columns)};\n\n");
+        return this;
+    }
 }

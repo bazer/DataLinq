@@ -50,6 +50,7 @@ Deliverables:
 - feature matrix for tables, columns, primary keys, foreign keys, indexes, defaults, checks, comments, identifiers, views, and provider-specific options
 - support labels: supported, partially supported, unsupported, and unknown
 - links or notes pointing to implementation files and tests
+- initial artifact: [Provider Metadata Support Matrix.md](Provider%20Metadata%20Support%20Matrix.md)
 
 Tasks:
 
