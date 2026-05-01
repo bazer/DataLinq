@@ -4,6 +4,7 @@
 - When finishing a coherent slice or feature and reaching a real stopping point, proactively include a suggested commit message at the end of the final response even if the user did not ask for one yet. Prefer the descriptive multi-line style the user has been approving: concise subject, blank line, then a body that explains the actual change and why it matters.
 - Expanded agent workflow guidance lives in `docs/contributing/AI Assistant Guidance.md` and the internal tooling pages under `docs/contributing/`.
 - The legacy xUnit projects have been removed. All new tests should go into the TUnit test projects such as `src/DataLinq.Tests.Unit`, `src/DataLinq.Tests.Compliance`, `src/DataLinq.Tests.MySql`, or other active TUnit-based test projects.
+- Prefer running build, test, local project CLI, and non-destructive git inspection commands inside the sandbox first. Do not request sandbox escalation preemptively for `dotnet run`, `dotnet build`, `dotnet test`, `DataLinq.Dev.CLI`, `DataLinq.Testing.CLI`, or `DataLinq.Benchmark.CLI`; escalate only after a sandboxed attempt fails with a likely sandbox, network, cache, or filesystem-permission issue.
 - For broad documentation or cleanup work, prefer starting with an audit and action plan before making large edits.
 - Once the plan is agreed, prefer autonomous execution to a solid stopping point instead of repeated check-ins.
 - Sub-agents are allowed for parallelizable repo work once the scope is clear.

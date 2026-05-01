@@ -27,6 +27,7 @@ Use the repo docs in this order:
 - New tests belong in the active TUnit test projects, not the removed legacy xUnit projects.
 - Documentation must describe shipped behavior, not roadmap material pretending to be shipped.
 - For broad documentation work, start with an audit and action plan before making a large batch of edits.
+- Prefer sandboxed execution first for build, test, local project CLI, and non-destructive git inspection commands. Do not request sandbox escalation preemptively for `dotnet run`, `dotnet build`, `dotnet test`, `DataLinq.Dev.CLI`, `DataLinq.Testing.CLI`, or `DataLinq.Benchmark.CLI`; retry outside the sandbox only after a sandboxed attempt fails with a likely sandbox, network, cache, or filesystem-permission issue.
 
 ## Use the Repo Tools, Not Ad Hoc Commands
 
@@ -65,6 +66,12 @@ For provider-matrix or server-backed runs:
 ```bash
 dotnet run --project src/DataLinq.Testing.CLI -- list
 dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+```
+
+The compliance quick suite is known to run successfully inside the Codex sandbox on native Windows:
+
+```bash
+dotnet run --project src/DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
 ```
 
 For benchmarks:
