@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
 # Phase 4: Provider Metadata Roundtrip Fidelity
 
-**Status:** Planning.
+**Status:** Implemented for the Phase 5 validation support boundary.
 
 ## Scope
 
@@ -18,9 +18,30 @@ Phase 4 is a provider metadata fidelity gate before schema validation and migrat
 
 ## Starting Stance
 
-The repo already has metadata readers and create-SQL generators for SQLite, MySQL, and MariaDB, but they do not yet form a proven roundtrip contract.
+The repo now has metadata readers, create-SQL generators, and provider roundtrip tests for the supported SQLite, MySQL, and MariaDB schema subset. It is not a full provider DDL contract, and it should not pretend to be one.
 
-That distinction matters. Schema validation should compare the database DataLinq claims to understand, not the database DataLinq accidentally simplified.
+That distinction matters. Schema validation compares the database shape DataLinq claims to understand, not every possible feature a provider can parse.
+
+## Current Status
+
+Done:
+
+- provider metadata support matrix exists and is linked from the phase
+- create-read-generate-create-read roundtrip tests exist for the supported subset
+- ordinary simple, unique, and composite indexes preserve ordered database column identity
+- composite foreign keys are grouped into ordered relation metadata and emitted as one provider constraint
+- duplicate same-target relation names are deterministic enough for the supported cases
+- quoted identifiers, spaces, punctuation, C# keyword-shaped names, and leading digits preserve database names through generated attributes and SQL
+- MySQL/MariaDB checks and comments roundtrip as raw provider-scoped attributes
+- SQLite advanced checks/comments and provider-specific index details are explicitly unsupported rather than guessed
+
+Deferred:
+
+- referential actions such as cascade/restrict/set-null
+- collation and charset metadata
+- generated/computed columns
+- expression, partial, descending, prefix-length, and invisible indexes
+- a general SQL DDL parser
 
 ## Documents
 

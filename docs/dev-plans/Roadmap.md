@@ -20,7 +20,8 @@ Several important things are already true:
 - There is now a benchmark and observability foundation to build on, including the Phase 3 query/runtime hot-path lane used to keep optimization claims honest.
 - `RowData` has already moved to dense indexed storage, so the performance roadmap should build on that rather than pretending memory optimization is still only theoretical.
 - Metadata and generator hardening have removed some avoidable runtime work, but SQL building, query translation, projection materialization, and compatibility-sensitive runtime paths still contain meaningful dynamism and allocation overhead.
-- Provider metadata roundtrip fidelity is still not explicit enough. Schema validation, migrations, and stronger diagnostics should not build on guessed provider behavior.
+- Provider metadata roundtrip fidelity now has an explicit support boundary for SQLite, MySQL, and MariaDB, including tested coverage for the ordinary table/column/index/relation subset and documented unsupported provider details.
+- Schema validation and conservative diff-script tooling now exist for that supported subset; full versioned migration execution remains intentionally deferred.
 
 That last point matters. A fast ORM that is hard to validate or debug is still a risky tool.
 
@@ -105,6 +106,8 @@ Key related plans:
 
 ### Phase 4: Provider Metadata Roundtrip Fidelity
 
+Status: implemented for the validation support boundary; broader provider DDL fidelity remains intentionally scoped.
+
 Goals:
 
 - audit MySQL, MariaDB, and SQLite metadata readers and SQL generators
@@ -126,11 +129,14 @@ Key related plans:
 
 ### Phase 5: Product Trust Features
 
+Status: substantially implemented; versioned migration execution is deferred with a concrete snapshot design.
+
 Goals:
 
 - implement schema validation and drift detection using the Phase 4 support boundary
 - generate safe diff scripts
 - define a migration/snapshot workflow
+- avoid runtime auto-migration until validation, diffing, and migration history semantics are proven
 
 Why before broad feature expansion:
 
@@ -142,6 +148,7 @@ Key related plans:
 
 - `providers-and-features/Migrations and Validation.md`
 - `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
+- `roadmap-implementation/phase-5-product-trust-features/Snapshot Migration Design.md`
 
 ### Phase 6: LINQ Translation Coverage and Query Composition
 
@@ -274,16 +281,18 @@ Key related plans:
 
 ## What Should Happen Right Now
 
-The next concrete stretch should be provider metadata roundtrip fidelity:
+Phase 4 is no longer the next concrete stretch. It has done its job: DataLinq now has a documented provider metadata support boundary that Phase 5 could consume.
 
-1. Build the MySQL, MariaDB, and SQLite metadata support matrix.
-2. Add a provider roundtrip harness for create-read-generate-create-read behavior.
-3. Plug ordinary holes around indexes, primary-key-plus-foreign-key relations, multiple same-target foreign keys, quoted identifiers, comments, and check constraints.
-4. Explicitly document advanced provider syntax that remains unsupported.
+Phase 5 is also past the risky core:
 
-That is the right next move because schema validation is only trustworthy if the metadata layer is trustworthy. A comparer that cannot tell whether the reader dropped a check constraint, comment, composite relation, or index detail is not a product-trust feature; it is a confidence trap.
+1. `SchemaComparer` reports deterministic drift for the supported SQLite/MySQL/MariaDB metadata subset.
+2. `datalinq validate` exposes that comparison through the public CLI.
+3. `SchemaDiffScriptGenerator` and `datalinq diff` generate conservative SQL suggestions for additive changes and comment out destructive or ambiguous drift.
+4. `SchemaMigrationSnapshot` and the snapshot design document define the next migration-history contract without pretending full migration execution exists.
 
-Immediately after the metadata fidelity phase, the next product-trust work should be schema validation and conservative diff scripts. LINQ translation coverage should follow that: chained `Where`, projected local `Contains`, local object-list `Any(predicate)`, and better unsupported-query diagnostics.
+The next roadmap phase should therefore be Phase 6: LINQ translation coverage and query composition. The specific first targets remain chained `Where`, projected local `Contains`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
+
+The only Phase 5 work worth doing before moving on would be a final cross-provider verification pass or a deliberate decision to turn snapshot design into real `add-migration` / `update-database` work. My opinion: do the verification pass, close Phase 5 as product-trust groundwork, and move to Phase 6 before building full migration execution. The migration foundation is now concrete enough to resume later without guessing.
 
 ## What Is Explicitly Not First
 

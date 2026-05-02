@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 5 Implementation Plan: Product Trust Features
 
-**Status:** In progress.
+**Status:** Substantially implemented; full versioned migration execution is deferred.
 
 ## Purpose
 
@@ -27,9 +27,9 @@ Several important things are already true:
 - provider-specific create-table SQL generation already exists
 - metadata-from-server tests already cover SQLite, MySQL, and MariaDB behavior
 - Phase 2 improved generator diagnostics and default-value validation
-- Phase 4 should provide the provider metadata roundtrip support boundary this phase relies on
+- Phase 4 provides the provider metadata roundtrip support boundary this phase relies on
 
-But the product-trust gap is still real:
+At the start of this phase, the product-trust gap was:
 
 - there is no provider-neutral schema difference model
 - there is no comparer that explains model-vs-database drift
@@ -37,7 +37,7 @@ But the product-trust gap is still real:
 - there is no safe diff-script generator
 - there is no migration snapshot or applied-migration table
 
-That means the first target should be schema validation and drift reporting, not migration execution.
+Current status: the difference model, comparer, validation CLI, conservative diff-script generator, and snapshot DTO now exist. The remaining gap is full versioned migration execution: `add-migration`, `update-database`, runtime migration APIs, and applied-migration table implementation.
 
 ## Phase Objective
 
@@ -47,6 +47,13 @@ By the end of this phase, DataLinq should be able to answer four questions hones
 2. Are drift reports specific enough to fix the model or database without reading provider internals?
 3. Can DataLinq generate conservative SQL diff scripts without silently destroying data?
 4. Have we deliberately deferred versioned migrations until validation and stateless diffing are credible?
+
+Current answers:
+
+1. Yes. The comparer and provider verification tests cover the supported SQLite, MySQL, and MariaDB metadata subset.
+2. Yes for the supported subset. Differences include kind, severity, safety, path, and actionable messages.
+3. Yes for conservative additive scripts. Destructive, ambiguous, informational, and unsupported differences are commented out.
+4. Yes. Versioned migration execution is deferred, but the snapshot format and migration-history design are now concrete.
 
 ## Design Stance
 
@@ -286,6 +293,8 @@ Design note:
 7. Add conservative diff-script generation.
 8. Scope snapshot migrations as follow-up work.
 
+Execution status: complete for the original product-trust groundwork. The remaining migration work is a separate execution phase or an explicit Phase 5 extension, not a prerequisite for trustworthy validation/diff tooling.
+
 ## Verification Plan
 
 At minimum, each implementation slice should run the focused tests it touches.
@@ -312,6 +321,15 @@ Phase 5 is complete when:
 - conservative diff-script generation exists for additive changes
 - destructive or ambiguous changes are clearly marked and not auto-applied by default
 - snapshot/versioned migrations are either implemented in a narrow first slice or explicitly deferred with a concrete follow-up plan
+
+Status against exit criteria:
+
+- satisfied for schema validation, drift reporting, and conservative diff scripts
+- satisfied for snapshot scoping through `SchemaMigrationSnapshot` and [Snapshot Migration Design](Snapshot%20Migration%20Design.md)
+- not satisfied for full migration execution, because that was explicitly deferred rather than implemented
+- before declaring the phase fully closed, run a final all-target verification pass across unit, compliance, SQLite, MySQL, and MariaDB suites
+
+Recommended next step: treat Phase 5 as substantially complete, perform the final verification pass when provider infrastructure is available, and then move to Phase 6 unless full migration execution becomes the immediate priority.
 
 ## Non-Goals
 

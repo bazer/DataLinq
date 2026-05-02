@@ -2,7 +2,7 @@
 > This document is roadmap material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Provider Metadata Roundtrip Fidelity
 
-**Status:** Draft; proposed as the next roadmap phase before schema validation and migrations.
+**Status:** Implemented for the Phase 4 validation support boundary; remaining provider-fidelity ideas are future work.
 
 ## Purpose
 
@@ -48,9 +48,23 @@ The current tests already cover useful basics:
 - MySQL/MariaDB default parsing in `src/DataLinq.Tests.MySql/MetadataFromSqlFactoryDefaultParsingTests.cs`
 - reserved keyword mutation tests in `src/DataLinq.Tests.MySql/ReservedKeywordMutationTests.cs`
 
-Those tests are a good base, but they are not yet a metadata roundtrip conformance suite.
+Those tests have since grown into the Phase 4 metadata roundtrip conformance suite for the supported subset. The authoritative current matrix is [Provider Metadata Support Matrix](../roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Provider%20Metadata%20Support%20Matrix.md).
 
-## Current Known Gaps
+## Current Implementation Status
+
+Implemented for the validation boundary:
+
+- create-read-generate-create-read roundtrip tests for SQLite, MySQL, and MariaDB supported metadata
+- ordinary simple, unique, and composite index fidelity with ordered database column names
+- composite foreign-key grouping into ordered relation metadata and generated provider SQL
+- deterministic relation naming for duplicate same-target and composite-key cases covered by tests
+- quoted identifier preservation through generated C# attributes and generated SQL
+- MySQL/MariaDB raw check-expression attributes and comments
+- explicit unsupported status for advanced provider-specific index options, generated columns, collation/charset, deferrable foreign keys, and referential actions
+
+The sections below preserve the original audit rationale and design choices. Where they conflict with the Phase 4 support matrix, the support matrix is the current source of truth.
+
+## Historical Known Gaps
 
 ### Constraints and Relations
 
@@ -101,7 +115,7 @@ Those tests are a good base, but they are not yet a metadata roundtrip conforman
 
 ## Provider Feature Matrix
 
-This matrix is the first artifact this phase should make precise. The entries below are initial audit categories, not final claims.
+This matrix was the first artifact this phase needed to make precise. The authoritative current matrix now lives in [Provider Metadata Support Matrix](../roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Provider%20Metadata%20Support%20Matrix.md). The entries below are retained as historical audit context, not final support claims.
 
 | Feature | MySQL | MariaDB | SQLite | Desired stance |
 | --- | --- | --- | --- | --- |

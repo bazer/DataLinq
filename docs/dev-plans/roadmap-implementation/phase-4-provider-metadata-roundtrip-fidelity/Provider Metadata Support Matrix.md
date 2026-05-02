@@ -2,9 +2,9 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Provider Metadata Support Matrix
 
-**Status:** Phase 4 in progress.
+**Status:** Phase 4 implemented for the Phase 5 validation support boundary.
 
-This matrix records the metadata subset DataLinq intends to preserve through provider roundtrips for MySQL, MariaDB, and SQLite.
+This matrix records the metadata subset DataLinq preserves through provider roundtrips for MySQL, MariaDB, and SQLite, plus the provider details that remain outside the current contract.
 
 Support labels:
 
@@ -93,9 +93,9 @@ Initial provider tests:
 - `src/DataLinq.Tests.MySql/MetadataFromServerFactoryTests.cs`
 - `src/DataLinq.Tests.MySql/ProviderMetadataRoundtripTests.cs`
 
-## First Slice Status
+## Phase 4 Closeout Status
 
-The first implementation slice has moved these entries from partially supported or unknown toward supported only where roundtrip tests prove them:
+Phase 4 moved these entries from partially supported or unknown toward supported only where roundtrip tests prove them:
 
 - column names with spaces, punctuation, reserved C# word shapes, and leading digits
 - foreign-key columns that also have ordinary indexes
@@ -103,5 +103,9 @@ The first implementation slice has moved these entries from partially supported 
 - composite foreign-key grouping and naming
 - simple, unique, and composite indexes for the ordinary ordered-column subset
 - broader deterministic relation property naming beyond the duplicate same-target cases now covered
+- MySQL/MariaDB raw check expressions and comments as provider-scoped metadata
+- unsupported advanced index, collation, generated-column, and referential-action details are documented rather than treated as comparable validation facts
 
-Identifier casing comparison is documented but not complete validation behavior. That belongs to Phase 5 because it needs provider-aware drift semantics, not just metadata roundtrip fidelity.
+Identifier casing comparison is documented here as provider behavior and consumed in Phase 5 as validation semantics. SQLite table and column presence checks are case-insensitive. MySQL/MariaDB column matching is case-insensitive, while table-name casing still depends on provider/server configuration such as `lower_case_table_names`.
+
+This matrix should continue to be updated when DataLinq adds first-class metadata for deferred provider features. Until then, unsupported details should stay out of authoritative schema validation.

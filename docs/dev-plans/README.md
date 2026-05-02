@@ -53,8 +53,10 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
 - `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/README.md`
 - `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
+- `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Provider Metadata Support Matrix.md`
 - `roadmap-implementation/phase-5-product-trust-features/README.md`
 - `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
+- `roadmap-implementation/phase-5-product-trust-features/Snapshot Migration Design.md`
 
 ### Providers and features
 
@@ -91,12 +93,15 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ## Current Stage Audit
 
-As of the Phase 3 closeout:
+As of the Phase 5 status review on 2026-05-02:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
 - Phase 3 query/runtime hot-path optimization is implemented; the honest performance claim is lower allocation pressure on measured repeated-query paths.
-- The older benchmark, metadata, source-generator, and SQL-generation specs now have status notes explaining which parts landed and which remain future work.
-- The next roadmap execution artifact is Phase 4 provider metadata roundtrip fidelity, because validation needs a tested support boundary before it can compare schemas honestly.
+- Phase 4 provider metadata roundtrip fidelity is implemented for the validation support boundary: the matrix is explicit, ordinary indexes/relations/identifiers/checks/comments are covered where supported, and unsupported provider details are documented instead of implied.
+- Phase 5 product-trust work is substantially implemented: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
+- The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
-The main thing not to skip at this stage is metadata fidelity for MySQL, MariaDB, and SQLite. Schema validation remains the next product-trust phase, but it should consume a tested provider support matrix instead of guessing what the metadata readers preserve.
+The next roadmap execution artifact should be Phase 6 LINQ translation coverage and query composition, unless we deliberately pause to turn the Phase 5 snapshot design into full migration execution.
+
+The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

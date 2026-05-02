@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 4 Implementation Plan: Provider Metadata Roundtrip Fidelity
 
-**Status:** Planning.
+**Status:** Implemented for the Phase 5 validation support boundary.
 
 ## Purpose
 
@@ -23,15 +23,15 @@ Useful foundations already exist:
 - index and relation metadata exists in `ColumnIndex`, `RelationDefinition`, and `RelationPart`
 - provider tests already cover basic metadata import and some default handling
 
-The gaps are equally concrete:
+The original gaps have been narrowed to an explicit support boundary:
 
-- no provider metadata support matrix exists
-- no read/generate/re-read roundtrip harness exists
-- composite foreign keys are not represented as first-class constraint groups
-- check constraints need a documented raw-expression boundary before any future structured metadata
-- MySQL/MariaDB comments need to survive metadata, generated code, and generated SQL roundtrips
-- SQLite advanced index and check-constraint details are not reliably parsed
-- relation naming is not deterministic enough for duplicate relation-name cases
+- the provider metadata support matrix exists
+- read/generate/re-read roundtrip tests exist for the supported subset
+- composite foreign keys are grouped by constraint into ordered relation metadata
+- check constraints use documented raw provider-specific expressions
+- MySQL/MariaDB comments survive metadata, generated code, generated SQL, and provider roundtrips
+- SQLite advanced index and check/comment details are either skipped with warnings or documented as unsupported
+- duplicate relation-name cases have deterministic generated names for the supported shapes
 
 ## Phase Objective
 
@@ -42,6 +42,8 @@ By the end of this phase, DataLinq should be able to answer:
 3. Can supported features survive create-read-generate-create-read roundtrips?
 4. Do relation and index edge cases behave deterministically?
 5. Can the schema validation phase consume this support boundary without guessing?
+
+Current answer: yes, for the supported SQLite/MySQL/MariaDB subset recorded in [Provider Metadata Support Matrix.md](Provider%20Metadata%20Support%20Matrix.md). Phase 5 now consumes that boundary through `SchemaValidationCapabilities` and provider verification tests.
 
 ## Workstream A: Provider Support Matrix
 
@@ -177,6 +179,8 @@ Provider casing rules for validation:
 7. Revisit composite foreign-key representation before validation starts.
 8. Update the validation plan with the final support boundary.
 
+Execution status: these steps have been completed for the validation support boundary. The remaining provider-fidelity ideas are deliberately future work, not blockers for Phase 5.
+
 ## Verification Plan
 
 At minimum, each implementation slice should run the focused tests it changes.
@@ -203,6 +207,12 @@ Phase 4 is complete when:
 - columns with spaces and reserved names are tested across active providers
 - check constraints and comments are either implemented or explicitly deferred per provider
 - the Phase 5 validation plan has been updated to consume the final support boundary
+
+Status against exit criteria:
+
+- complete for the current validation boundary
+- not complete as a full DDL fidelity project, which was never the right bar for this phase
+- remaining unsupported provider features are documented as future metadata/modeling work rather than validation inputs
 
 ## Non-Goals
 

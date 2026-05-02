@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
 # Phase 5: Product Trust Features
 
-**Status:** Planning.
+**Status:** Substantially implemented; full versioned migration execution is deferred.
 
 ## Scope
 
@@ -17,7 +17,7 @@ Phase 5 is about making DataLinq safer to adopt in real projects:
 
 ## Starting Stance
 
-The repo should have enough metadata machinery to start after Phase 4:
+The repo now has enough metadata machinery from Phase 4:
 
 - C# models can become `DatabaseDefinition` graphs
 - SQLite, MySQL, and MariaDB can read live database metadata with an explicit support boundary
@@ -25,22 +25,33 @@ The repo should have enough metadata machinery to start after Phase 4:
 - the active TUnit suites already include metadata-from-server and provider SQL coverage
 - provider metadata roundtrip tests identify which schema features validation may compare
 
-The missing core is not DDL generation. The missing core is a provider-neutral comparison model that can explain drift accurately.
+The missing core is no longer drift detection. The comparer, validator, CLI surface, conservative diff generator, and snapshot DTO now exist.
 
-## Current Slice
+## Current Status
 
-The first validation slice has started:
+Implemented:
 
 - provider capability rules from Phase 4 are encoded in `SchemaValidationCapabilities`
-- the pure comparer reports table and column presence drift
-- the comparer also reports supported column shape, simple/unique index, foreign-key, MySQL/MariaDB check, and MySQL/MariaDB comment drift
+- the pure comparer reports table, column, supported column shape, simple/unique index, foreign-key, MySQL/MariaDB check, and MySQL/MariaDB comment drift
 - SQLite and MySQL/MariaDB metadata tests now verify the comparer against live/read metadata and deliberate drift
-- no CLI validation command exists yet
-- CLI validation output still needs staged implementation
+- `datalinq validate` exposes drift detection through text and JSON output with CI-oriented exit codes
+- `datalinq diff` emits conservative SQL suggestions for supported additive drift and comments out destructive or ambiguous drift
+- `SchemaMigrationSnapshot` defines a deterministic versioned snapshot JSON shape
+- `Snapshot Migration Design.md` records migration identity, applied-migration table, and explicit rename handling for later execution work
+
+Deferred:
+
+- `add-migration`
+- `update-database`
+- runtime migration APIs
+- applied-migration table implementation
+- automatic rename inference
+- destructive migration execution
 
 ## Documents
 
 - `Implementation Plan.md`
+- `Snapshot Migration Design.md`
 
 ## Related Plans
 
