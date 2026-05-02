@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # LINQ Translation Support Audit and Roadmap
 
-**Status:** Draft; proposed as a soon-ish roadmap phase after provider metadata fidelity and initial product-trust work.
+**Status:** Phase 6 planning source; the execution plan lives in [`../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`](../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation%20Plan.md).
 
 ## Purpose
 

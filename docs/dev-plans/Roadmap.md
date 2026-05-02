@@ -152,6 +152,8 @@ Key related plans:
 
 ### Phase 6: LINQ Translation Coverage and Query Composition
 
+Status: planned; implementation plan created.
+
 Goals:
 
 - document the real LINQ-to-SQL support matrix
@@ -168,6 +170,7 @@ Why here:
 
 Key related plans:
 
+- `roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`
 - `query-and-runtime/LINQ Translation Support.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
 
@@ -293,6 +296,8 @@ Phase 5 is now closed for roadmap purposes as the product-trust groundwork phase
 The final closeout pass confirmed the generators, unit suite, SQLite compliance lane, and MariaDB validation/provider lanes. The local MySQL 8.4 lane was blocked by a host-port authentication issue after container recreation: in-container clients could authenticate with the provisioned users, but host-side MySqlConnector calls were denied as `datalinq` from `localhost`. That is infrastructure/environment work, not missing Phase 5 validation behavior.
 
 The next roadmap phase should therefore be Phase 6: LINQ translation coverage and query composition. The specific first targets remain chained `Where`, projected local `Contains`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
+
+The Phase 6 implementation plan now exists. The first slice should audit the current tested support matrix, add regression coverage for chained `Where(...)`, and fix predicate composition before expanding local collection translation.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
