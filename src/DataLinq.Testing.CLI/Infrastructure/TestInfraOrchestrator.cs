@@ -184,6 +184,7 @@ internal sealed class TestInfraOrchestrator(
         arguments.Add($"--max_connections={settings.ServerMaxConnections}");
         arguments.Add("--character-set-server=utf8mb4");
         arguments.Add("--collation-server=utf8mb4_unicode_ci");
+        arguments.Add("--skip-name-resolve");
 
         podman.Execute(arguments).ThrowIfFailed($"Failed to create container '{containerName}'.");
     }
@@ -339,22 +340,31 @@ internal sealed class TestInfraOrchestrator(
 
     private string BuildPrivilegeSql()
     {
-        var statements = new List<string>
+        string[] hostPatterns = ["%", "localhost"];
+        var statements = new List<string>();
+
+        foreach (var hostPattern in hostPatterns)
         {
-            $"CREATE USER IF NOT EXISTS '{settings.ApplicationUser}'@'%' IDENTIFIED BY '{EscapeSqlLiteral(settings.ApplicationPassword)}';",
-            $"ALTER USER '{settings.ApplicationUser}'@'%' IDENTIFIED BY '{EscapeSqlLiteral(settings.ApplicationPassword)}';"
-        };
+            statements.Add($"CREATE USER IF NOT EXISTS '{settings.ApplicationUser}'@'{hostPattern}' IDENTIFIED BY '{EscapeSqlLiteral(settings.ApplicationPassword)}';");
+            statements.Add($"ALTER USER '{settings.ApplicationUser}'@'{hostPattern}' IDENTIFIED BY '{EscapeSqlLiteral(settings.ApplicationPassword)}';");
+        }
 
         if (string.Equals(settings.AdminUser, settings.ApplicationUser, StringComparison.Ordinal))
         {
-            statements.Add($"GRANT ALL PRIVILEGES ON *.* TO '{settings.ApplicationUser}'@'%' WITH GRANT OPTION;");
+            foreach (var hostPattern in hostPatterns)
+            {
+                statements.Add($"GRANT ALL PRIVILEGES ON *.* TO '{settings.ApplicationUser}'@'{hostPattern}' WITH GRANT OPTION;");
+            }
         }
         else
         {
-            statements.Add($"GRANT ALL PRIVILEGES ON *.* TO '{settings.ApplicationUser}'@'%';");
-            statements.Add($"CREATE USER IF NOT EXISTS '{settings.AdminUser}'@'%' IDENTIFIED BY '{EscapeSqlLiteral(settings.AdminPassword)}';");
-            statements.Add($"ALTER USER '{settings.AdminUser}'@'%' IDENTIFIED BY '{EscapeSqlLiteral(settings.AdminPassword)}';");
-            statements.Add($"GRANT ALL PRIVILEGES ON *.* TO '{settings.AdminUser}'@'%' WITH GRANT OPTION;");
+            foreach (var hostPattern in hostPatterns)
+            {
+                statements.Add($"GRANT ALL PRIVILEGES ON *.* TO '{settings.ApplicationUser}'@'{hostPattern}';");
+                statements.Add($"CREATE USER IF NOT EXISTS '{settings.AdminUser}'@'{hostPattern}' IDENTIFIED BY '{EscapeSqlLiteral(settings.AdminPassword)}';");
+                statements.Add($"ALTER USER '{settings.AdminUser}'@'{hostPattern}' IDENTIFIED BY '{EscapeSqlLiteral(settings.AdminPassword)}';");
+                statements.Add($"GRANT ALL PRIVILEGES ON *.* TO '{settings.AdminUser}'@'{hostPattern}' WITH GRANT OPTION;");
+            }
         }
 
         statements.Add("FLUSH PRIVILEGES;");

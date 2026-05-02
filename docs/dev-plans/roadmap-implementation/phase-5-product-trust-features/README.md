@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
 # Phase 5: Product Trust Features
 
-**Status:** Substantially implemented; full versioned migration execution is deferred.
+**Status:** Implemented for validation, conservative diffing, and snapshot scoping; full versioned migration execution is deferred.
 
 ## Scope
 
@@ -25,7 +25,7 @@ The repo now has enough metadata machinery from Phase 4:
 - the active TUnit suites already include metadata-from-server and provider SQL coverage
 - provider metadata roundtrip tests identify which schema features validation may compare
 
-The missing core is no longer drift detection. The comparer, validator, CLI surface, conservative diff generator, and snapshot DTO now exist.
+The missing core is no longer drift detection. The comparer, validator, CLI surface, conservative diff generator, and snapshot DTO now exist, and Phase 5 is closed for this intended product-trust scope.
 
 ## Current Status
 
@@ -47,6 +47,11 @@ Deferred:
 - applied-migration table implementation
 - automatic rename inference
 - destructive migration execution
+
+Closeout note:
+
+- the generators, unit suite, SQLite compliance lane, and MariaDB compliance/provider lanes were verified through the testing CLI
+- the local MySQL 8.4 host-port lane remains blocked by an authentication issue where in-container clients authenticate but host-side MySqlConnector calls are denied as `localhost`; that belongs to infrastructure follow-up, not Phase 5 product-trust scope
 
 ## Documents
 

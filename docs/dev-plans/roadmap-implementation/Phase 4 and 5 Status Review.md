@@ -8,9 +8,9 @@
 
 Phase 4 is implemented for the provider metadata boundary Phase 5 needed.
 
-Phase 5 is substantially implemented for product trust: validation, drift reporting, conservative diff scripts, and snapshot scoping are in place.
+Phase 5 is implemented for product trust: validation, drift reporting, conservative diff scripts, and snapshot scoping are in place.
 
-The honest remaining gap is full versioned migration execution. That is not a small missing helper; it is a separate product surface with history tracking, checksums, transaction semantics, rename operations, and failure recovery. It should not be smuggled into the validation phase.
+Full versioned migration execution remains intentionally deferred. That is not a small missing helper; it is a separate product surface with history tracking, checksums, transaction semantics, rename operations, and failure recovery. It should not be smuggled into the validation phase.
 
 ## Phase 4: Done
 
@@ -36,7 +36,7 @@ Still out of scope:
 
 Verdict: Phase 4 can be considered complete for roadmap purposes. It is not complete as a fantasy "all DDL fidelity" project, but that was never the right goal.
 
-## Phase 5: Mostly Done
+## Phase 5: Done
 
 Implemented:
 
@@ -65,14 +65,32 @@ Still out of scope:
 
 Verdict: Phase 5 has delivered the product-trust foundation. Full migration execution should be treated as a future dedicated workstream, not as cleanup.
 
+## Closeout Verification
+
+The final closeout pass used the testing CLI rather than direct test project invocations.
+
+Verified:
+
+- `run --suite all --alias all --batch-size 2 --output failures --build` built the generators, unit, compliance, and MySQL/MariaDB suites; generators passed `31/31`; unit passed `273/273`; the SQLite compliance batch passed `306/306`.
+- `run --suite compliance --targets 'mariadb-10.11,mariadb-11.4,mariadb-11.8' --batch-size 2 --output failures --build` passed all MariaDB compliance batches.
+- `run --suite mysql --targets 'mariadb-10.11,mariadb-11.4,mariadb-11.8' --batch-size 2 --output failures --build` passed all MariaDB provider batches.
+- `reset --targets mariadb-11.8` followed by `run --suite mysql --targets mariadb-11.8 --output failures --build` passed against a freshly recreated MariaDB 11.8 target.
+
+Local blocker:
+
+- `mysql-8.4` failed host-side MySqlConnector authentication after container recreation with access denied for `datalinq` from `localhost`.
+- Container inspection showed the expected `%` and `localhost` users and grants, and in-container `mysql` clients could authenticate successfully.
+- Test infrastructure provisioning was hardened to create both wildcard and localhost users and to start server containers with name resolution disabled, but the remaining MySQL 8.4 host-port behavior still needs separate infrastructure investigation.
+
+This blocker does not change the Phase 5 product-trust conclusion. It blocks one local provider lane, not the validation/diff/snapshot implementation itself.
+
 ## Roadmap Position
 
-The roadmap is now effectively between Phase 5 and Phase 6.
+The roadmap is now at Phase 6.
 
 Recommended move:
 
-1. Run one final all-target verification pass when provider infrastructure is available.
-2. Close Phase 5 as the validation/diff/snapshot-scoping phase.
-3. Start Phase 6: LINQ translation coverage and query composition.
+1. Keep full migration execution as a future dedicated feature.
+2. Start Phase 6: LINQ translation coverage and query composition.
 
 Only choose full migration execution next if it is more valuable than LINQ coverage right now. The migration foundation is concrete enough to resume later; the query-translation gaps affect ordinary application code sooner.

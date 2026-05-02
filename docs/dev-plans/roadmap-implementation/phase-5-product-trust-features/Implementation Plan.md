@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 5 Implementation Plan: Product Trust Features
 
-**Status:** Substantially implemented; full versioned migration execution is deferred.
+**Status:** Implemented for validation, conservative diffing, and snapshot scoping; full versioned migration execution is deferred.
 
 ## Purpose
 
@@ -37,7 +37,7 @@ At the start of this phase, the product-trust gap was:
 - there is no safe diff-script generator
 - there is no migration snapshot or applied-migration table
 
-Current status: the difference model, comparer, validation CLI, conservative diff-script generator, and snapshot DTO now exist. The remaining gap is full versioned migration execution: `add-migration`, `update-database`, runtime migration APIs, and applied-migration table implementation.
+Current status: the difference model, comparer, validation CLI, conservative diff-script generator, and snapshot DTO now exist. Phase 5 is closed for that product-trust scope. Full versioned migration execution remains future work: `add-migration`, `update-database`, runtime migration APIs, and applied-migration table implementation.
 
 ## Phase Objective
 
@@ -293,7 +293,7 @@ Design note:
 7. Add conservative diff-script generation.
 8. Scope snapshot migrations as follow-up work.
 
-Execution status: complete for the original product-trust groundwork. The remaining migration work is a separate execution phase or an explicit Phase 5 extension, not a prerequisite for trustworthy validation/diff tooling.
+Execution status: complete for the original product-trust groundwork. The remaining migration work is a separate execution phase or explicit future feature, not a prerequisite for trustworthy validation/diff tooling.
 
 ## Verification Plan
 
@@ -308,6 +308,25 @@ Before closing the phase, run:
 - CLI tests for validation report formatting and exit codes
 
 If local MySQL/MariaDB infrastructure is unavailable, record that honestly.
+
+## Closeout Verification
+
+The final closeout pass used `DataLinq.Testing.CLI` through `scripts/dotnet-sandbox.ps1`.
+
+Verified:
+
+- `run --suite all --alias all --batch-size 2 --output failures --build` built the generators, unit, compliance, and MySQL/MariaDB suites. The generators passed `31/31`, unit passed `273/273`, and the SQLite compliance batch passed `306/306`.
+- `run --suite compliance --targets 'mariadb-10.11,mariadb-11.4,mariadb-11.8' --batch-size 2 --output failures --build` passed all MariaDB compliance batches.
+- `run --suite mysql --targets 'mariadb-10.11,mariadb-11.4,mariadb-11.8' --batch-size 2 --output failures --build` passed all MariaDB provider batches.
+- `reset --targets mariadb-11.8` followed by `run --suite mysql --targets mariadb-11.8 --output failures --build` passed against a freshly recreated MariaDB 11.8 target, including the current test-infrastructure provisioning path.
+
+Local blocker:
+
+- The `mysql-8.4` host-port lane failed after container recreation because host-side MySqlConnector calls were denied as `datalinq` from `localhost`.
+- Container inspection showed the expected `%` and `localhost` users and grants, and in-container `mysql` clients could authenticate successfully.
+- Test infrastructure provisioning now creates both wildcard and localhost users and disables server-side name resolution for recreated containers. That is useful hardening, but the remaining MySQL 8.4 host-port behavior needs separate infrastructure investigation.
+
+This is a real local verification gap, but not evidence of missing Phase 5 validation/diff/snapshot behavior.
 
 ## Exit Criteria
 
@@ -326,10 +345,11 @@ Status against exit criteria:
 
 - satisfied for schema validation, drift reporting, and conservative diff scripts
 - satisfied for snapshot scoping through `SchemaMigrationSnapshot` and [Snapshot Migration Design](Snapshot%20Migration%20Design.md)
+- satisfied for the explicit migration deferral requirement through the concrete follow-up snapshot and migration-history design
 - not satisfied for full migration execution, because that was explicitly deferred rather than implemented
-- before declaring the phase fully closed, run a final all-target verification pass across unit, compliance, SQLite, MySQL, and MariaDB suites
+- final closeout verification is recorded above; the remaining `mysql-8.4` host-port auth issue is an infrastructure follow-up
 
-Recommended next step: treat Phase 5 as substantially complete, perform the final verification pass when provider infrastructure is available, and then move to Phase 6 unless full migration execution becomes the immediate priority.
+Recommended next step: move to Phase 6 unless full migration execution becomes the immediate priority.
 
 ## Non-Goals
 

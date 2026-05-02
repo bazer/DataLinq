@@ -93,15 +93,15 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ## Current Stage Audit
 
-As of the Phase 5 status review on 2026-05-02:
+As of the Phase 5 closeout on 2026-05-02:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
 - Phase 3 query/runtime hot-path optimization is implemented; the honest performance claim is lower allocation pressure on measured repeated-query paths.
 - Phase 4 provider metadata roundtrip fidelity is implemented for the validation support boundary: the matrix is explicit, ordinary indexes/relations/identifiers/checks/comments are covered where supported, and unsupported provider details are documented instead of implied.
-- Phase 5 product-trust work is substantially implemented: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
+- Phase 5 product-trust work is implemented for the intended validation/diff/snapshot scope: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
 - The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
-The next roadmap execution artifact should be Phase 6 LINQ translation coverage and query composition, unless we deliberately pause to turn the Phase 5 snapshot design into full migration execution.
+The next roadmap execution artifact should be Phase 6 LINQ translation coverage and query composition, unless we deliberately pause to start the separate full migration-execution feature.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

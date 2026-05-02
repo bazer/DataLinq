@@ -22,13 +22,13 @@ What are we actually going to do, in what order, and how will we know it worked?
 | Phase 2: Metadata, Generator, and Diagnostics Hardening | Implemented | `phase-2-metadata-generator-and-diagnostics-hardening/` |
 | Phase 3: Query and Runtime Hot Path Optimization | Implemented | `phase-3-query-and-runtime-hot-path-optimization/` |
 | Phase 4: Provider Metadata Roundtrip Fidelity | Implemented for the validation support boundary | `phase-4-provider-metadata-roundtrip-fidelity/` |
-| Phase 5: Product Trust Features | Substantially implemented; full migration execution deferred | `phase-5-product-trust-features/` |
+| Phase 5: Product Trust Features | Implemented for validation/diff/snapshot scope; full migration execution deferred | `phase-5-product-trust-features/` |
 
 ## Current Roadmap Position
 
-As of 2026-05-02, the active roadmap frontier is between Phase 5 and Phase 6.
+As of 2026-05-02, the active roadmap frontier is Phase 6.
 
-Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. The remaining Phase 5 gap is not drift detection; it is full versioned migration execution.
+Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. Full versioned migration execution is not a remaining Phase 5 cleanup task; it is a separate future product surface.
 
 Unless migration execution becomes the immediate product priority, the next implementation plan should be Phase 6 LINQ translation coverage and query composition.
 

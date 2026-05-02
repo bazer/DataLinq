@@ -206,9 +206,11 @@ Responsibilities:
 * decide container names deterministically
 * start containers
 * wait for readiness
-* provision elevated test users
+* provision elevated test users for both wildcard host access and localhost-style host-port resolution
 * stop and remove containers
 * persist the resolved runtime state
+
+Server containers should be started with name resolution disabled where the image supports it. The test harness cares about deterministic host-port access, not reverse-DNS identity surprises during MySQL/MariaDB authentication.
 
 Platform-specific behavior should be isolated to:
 

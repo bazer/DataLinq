@@ -129,7 +129,7 @@ Key related plans:
 
 ### Phase 5: Product Trust Features
 
-Status: substantially implemented; versioned migration execution is deferred with a concrete snapshot design.
+Status: implemented for validation, conservative diffing, and snapshot scoping; full versioned migration execution is deferred with a concrete snapshot design.
 
 Goals:
 
@@ -283,16 +283,18 @@ Key related plans:
 
 Phase 4 is no longer the next concrete stretch. It has done its job: DataLinq now has a documented provider metadata support boundary that Phase 5 could consume.
 
-Phase 5 is also past the risky core:
+Phase 5 is now closed for roadmap purposes as the product-trust groundwork phase:
 
 1. `SchemaComparer` reports deterministic drift for the supported SQLite/MySQL/MariaDB metadata subset.
 2. `datalinq validate` exposes that comparison through the public CLI.
 3. `SchemaDiffScriptGenerator` and `datalinq diff` generate conservative SQL suggestions for additive changes and comment out destructive or ambiguous drift.
 4. `SchemaMigrationSnapshot` and the snapshot design document define the next migration-history contract without pretending full migration execution exists.
 
+The final closeout pass confirmed the generators, unit suite, SQLite compliance lane, and MariaDB validation/provider lanes. The local MySQL 8.4 lane was blocked by a host-port authentication issue after container recreation: in-container clients could authenticate with the provisioned users, but host-side MySqlConnector calls were denied as `datalinq` from `localhost`. That is infrastructure/environment work, not missing Phase 5 validation behavior.
+
 The next roadmap phase should therefore be Phase 6: LINQ translation coverage and query composition. The specific first targets remain chained `Where`, projected local `Contains`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
 
-The only Phase 5 work worth doing before moving on would be a final cross-provider verification pass or a deliberate decision to turn snapshot design into real `add-migration` / `update-database` work. My opinion: do the verification pass, close Phase 5 as product-trust groundwork, and move to Phase 6 before building full migration execution. The migration foundation is now concrete enough to resume later without guessing.
+Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
 ## What Is Explicitly Not First
 

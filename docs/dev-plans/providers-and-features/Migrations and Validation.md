@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Database Validation & Migrations
 
-**Status:** Draft specification with validation, conservative diffing, and snapshot DTO slices partially implemented.
+**Status:** Draft specification with validation, conservative diffing, and snapshot DTO slices implemented; full migration execution remains future work.
 **Goal:** Provide tools to ensure the C# Model (`DatabaseDefinition`) stays synchronized with the physical Database Schema. The approach prioritizes safety and transparency over "magic" automation.
 
 **Roadmap placement:** Main roadmap Phase 5, after the provider metadata roundtrip fidelity phase and before AOT, async, cache, and broader capability expansion.
@@ -36,7 +36,7 @@ What is still missing:
 - no automatic snapshot workflow exists around generated migration artifacts
 - no confirmed rename operation model exists
 
-The remaining implementation work should therefore be versioned migration design and execution, not more stateless drift detection. If the migration workflow cannot represent history and explicit renames, it will turn real schema evolution into guessed drop/add scripts.
+The remaining implementation work should therefore be versioned migration execution, not more stateless drift detection. If the migration workflow cannot represent history and explicit renames, it will turn real schema evolution into guessed drop/add scripts.
 
 ---
 
@@ -145,5 +145,5 @@ To ensure robust validation, we must consume the provider support boundary from 
 1.  [x] **Core:** Implement `SchemaComparer` logic for the supported metadata subset.
 2.  [x] **CLI:** Implement `datalinq validate` command.
 3.  [x] **Tools:** Implement conservative diff-script generation for MySQL/MariaDB and SQLite additive changes.
-4.  [x] **Core:** Define the snapshot JSON format.
+4.  [x] **Core:** Define the snapshot JSON format and migration-history contract.
 5.  [ ] **Future:** Implement `add-migration`, explicit rename operations, migration artifacts, and applied-migration tracking.
