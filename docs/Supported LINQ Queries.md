@@ -20,6 +20,7 @@ The following operations are covered by tests:
 - `Min(...)`
 - `Max(...)`
 - `Average(...)`
+- `Join(...)`
 - `Single(...)`
 - `SingleOrDefault(...)`
 - `First(...)`
@@ -160,6 +161,42 @@ var departments = db.Query().Departments
 
 Relation-property projections are not supported in provider `Select(...)` yet. Load rows first with `ToList()` and then traverse relation properties explicitly so the extra relation queries are visible in your code.
 
+## Supported Explicit Joins
+
+The test suite covers one narrow explicit inner `Join(...)` shape:
+
+- one outer DataLinq query source
+- one inner DataLinq query source
+- direct member equality keys such as `outer.DepartmentId` and `inner.Id`
+- nullable `.Value` key selectors such as `employee.emp_no.Value`
+- a result selector that projects row-local values from both materialized rows
+
+Example:
+
+```csharp
+var rows = db.Query().DepartmentEmployees
+    .Join(
+        db.Query().Departments,
+        departmentEmployee => departmentEmployee.dept_no,
+        department => department.DeptNo,
+        (departmentEmployee, department) => new
+        {
+            departmentEmployee.emp_no,
+            department.Name
+        })
+    .ToList();
+```
+
+The implementation uses a SQL inner join to select primary keys from both sides, then materializes both rows through DataLinq caches and applies the result selector as normal .NET code. That keeps projection semantics consistent with regular `Select(...)`, but it is not yet a general SQL projection engine.
+
+These join shapes are not supported yet:
+
+- `GroupJoin(...)`
+- left/outer join patterns such as `DefaultIfEmpty()`
+- composite anonymous-object join keys
+- additional `Where(...)`, `OrderBy(...)`, paging, or result operators over the joined result
+- relation-property joins or relation-property projections inside the result selector
+
 ## Supported Scalar Aggregates
 
 The test suite covers SQL-backed scalar aggregates over direct numeric member selectors:
@@ -242,7 +279,7 @@ The test suite explicitly expects `NotSupportedException` for:
 The current docs do not claim support for these because this pass has not verified them rigorously enough:
 
 - `GroupBy(...)`
-- general-purpose `Join(...)`
+- `GroupJoin(...)`, outer joins, composite-key joins, and additional filtering/ordering/paging over joined results
 - aggregate operators over computed selectors, grouped aggregates, or relation properties
 - relation-property projections inside provider `Select(...)`
 - broader client-side method translation inside SQL predicates beyond the string members listed above

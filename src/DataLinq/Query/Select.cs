@@ -65,7 +65,9 @@ public class Select<T> : IQuery
             for (var i = 0; i < whatList.Count; i++)
             {
                 AddColumnSeparator(sql, i);
-                AddColumnPrefix(sql, alias);
+                if (whatList[i].StartsWith(query.EscapeCharacter, StringComparison.Ordinal))
+                    AddColumnPrefix(sql, alias);
+
                 sql.AddText(whatList[i]);
             }
 

@@ -3,7 +3,7 @@
 
 # LINQ Translation Support Matrix
 
-**Status:** Current Phase 7 Workstream C baseline; update whenever LINQ translator support changes.
+**Status:** Current Phase 7 Workstream D baseline; update whenever LINQ translator support changes.
 
 This matrix records what the active compliance tests prove today, where the public support docs are accurate, and which gaps remain outside the documented support boundary.
 
@@ -90,12 +90,19 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Computed scalar projection | row-local string concatenation and materialized member chains after SQL filtering, ordering, and paging | `Translation/EmployeesProjectionTranslationTests.cs` | Client projection is deliberate here. Do not generalize this to SQL predicate method translation. |
 | Views and primary-key lookup | querying generated views and direct `Get<T>(key)` lookup | `SeededEmployeesQueryTests.cs`, `EmployeesQueryBehaviorTests.cs` | Direct lookup is not a LINQ predicate but belongs in the surrounding query support docs. |
 
+## Explicit Joins
+
+| Area | Currently tested support | Evidence | Audit notes |
+| --- | --- | --- | --- |
+| Inner `Join(...)` | one explicit inner join between two direct DataLinq query sources, direct member equality keys, nullable `.Value` key normalization, and row-local result projection from both sides | `Translation/EmployeesJoinTranslationTests.cs` | Phase 7 Workstream D keeps this deliberately narrow. SQL selects primary keys from both sides, then DataLinq materializes rows and applies the result selector client-side. |
+| Unsupported join shapes | composite anonymous-object keys, `GroupJoin(...)`, filtering over the joined result, and relation-property result projection fail with `QueryTranslationException` | `Translation/EmployeesJoinTranslationTests.cs` | Outer joins, additional ordering/paging/result operators over joined results, relation-property joins, and multi-join pipelines are outside the documented boundary. |
+
 ## Unsupported or Not Yet Proven
 
 These shapes are intentionally not part of the documented support boundary today:
 
 - `GroupBy(...)`
-- LINQ `Join(...)`
+- `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, and additional filtering/ordering/paging over explicit joined results
 - relation-property query expansion
 - aggregate result operators over computed selectors, grouped aggregates, or relation properties
 - arbitrary local `Enumerable` method chains inside predicates

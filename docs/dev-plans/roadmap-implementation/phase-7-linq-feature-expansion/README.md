@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
 # Phase 7: LINQ Feature Expansion
 
-**Status:** Planned.
+**Status:** In progress; Workstreams A through D are implemented.
 
 ## Scope
 
@@ -52,4 +52,3 @@ Relevant docs:
 ## Documents
 
 - `Implementation Plan.md`
-

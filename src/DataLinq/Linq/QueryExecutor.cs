@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using DataLinq.Exceptions;
+using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -109,10 +110,13 @@ internal class QueryExecutor : IQueryExecutor
             {
                 query.Where(where);
             }
-
-            if (body is OrderByClause orderBy)
+            else if (body is OrderByClause orderBy)
             {
                 query.OrderBy(orderBy);
+            }
+            else if (body is JoinClause or GroupJoinClause)
+            {
+                throw new QueryTranslationException($"Join body clause '{body.GetType().Name}' is only supported for collection projection queries. Query model: {queryModel}");
             }
         }
 
@@ -197,10 +201,16 @@ internal class QueryExecutor : IQueryExecutor
     }
 
     private static void ValidateProjectionExpression(Expression selector, TableDefinition table, SelectClause selectClause)
+        => ValidateProjectionExpression(selector, new Dictionary<Type, TableDefinition>
+        {
+            [table.Model.CsType.Type!] = table
+        }, selectClause);
+
+    private static void ValidateProjectionExpression(Expression selector, IReadOnlyDictionary<Type, TableDefinition> tablesByType, SelectClause selectClause)
     {
         try
         {
-            new ProjectionValidationVisitor(table, selectClause).Visit(selector);
+            new ProjectionValidationVisitor(tablesByType, selectClause).Visit(selector);
         }
         catch (QueryTranslationException)
         {
@@ -210,6 +220,13 @@ internal class QueryExecutor : IQueryExecutor
         {
             throw new QueryTranslationException($"Selector expression '{selectClause.Selector}' is not supported for LINQ Select projection.", exception);
         }
+    }
+
+    private sealed class JoinQuerySource(IQuerySource querySource, TableDefinition table, string alias)
+    {
+        public IQuerySource QuerySource { get; } = querySource;
+        public TableDefinition Table { get; } = table;
+        public string Alias { get; } = alias;
     }
 
     private sealed class ProjectionQuerySourceVisitor(ParameterExpression rowParameter) : ExpressionVisitor
@@ -223,7 +240,27 @@ internal class QueryExecutor : IQueryExecutor
         }
     }
 
-    private sealed class ProjectionValidationVisitor(TableDefinition table, SelectClause selectClause) : ExpressionVisitor
+    private sealed class JoinedProjectionQuerySourceVisitor(
+        ParameterExpression rowParameter,
+        IReadOnlyDictionary<IQuerySource, int> sourceIndexes) : ExpressionVisitor
+    {
+        protected override Expression VisitExtension(Expression node)
+        {
+            if (node is QuerySourceReferenceExpression querySource)
+            {
+                if (!sourceIndexes.TryGetValue(querySource.ReferencedQuerySource, out var index))
+                    throw new QueryTranslationException($"Join projection references unsupported query source '{querySource.ReferencedQuerySource.ItemName}'.");
+
+                return Expression.Convert(Expression.ArrayIndex(rowParameter, Expression.Constant(index)), querySource.Type);
+            }
+
+            return base.VisitExtension(node);
+        }
+    }
+
+    private sealed class ProjectionValidationVisitor(
+        IReadOnlyDictionary<Type, TableDefinition> tablesByType,
+        SelectClause selectClause) : ExpressionVisitor
     {
         protected override Expression VisitExtension(Expression node)
         {
@@ -250,19 +287,44 @@ internal class QueryExecutor : IQueryExecutor
         }
 
         private bool IsRelationPropertyAccess(MemberExpression node)
-            => table.Model.RelationProperties.ContainsKey(node.Member.Name) &&
-               IsRootedInQuerySource(node.Expression);
+        {
+            if (!TryGetQuerySourceType(node.Expression, out var sourceType))
+                return false;
 
-        private static bool IsRootedInQuerySource(Expression? expression)
-            => expression switch
+            return tablesByType.TryGetValue(sourceType, out var table) &&
+                   table.Model.RelationProperties.ContainsKey(node.Member.Name);
+        }
+
+        private static bool TryGetQuerySourceType(Expression? expression, out Type sourceType)
+        {
+            switch (expression)
             {
-                QuerySourceReferenceExpression => true,
-                MemberExpression memberExpression => IsRootedInQuerySource(memberExpression.Expression),
-                MethodCallExpression methodCallExpression => IsRootedInQuerySource(methodCallExpression.Object) ||
-                    methodCallExpression.Arguments.Any(IsRootedInQuerySource),
-                UnaryExpression unaryExpression => IsRootedInQuerySource(unaryExpression.Operand),
-                _ => false
-            };
+                case QuerySourceReferenceExpression querySource:
+                    sourceType = querySource.Type;
+                    return true;
+
+                case MemberExpression memberExpression:
+                    return TryGetQuerySourceType(memberExpression.Expression, out sourceType);
+
+                case MethodCallExpression methodCallExpression:
+                    if (TryGetQuerySourceType(methodCallExpression.Object, out sourceType))
+                        return true;
+
+                    foreach (var argument in methodCallExpression.Arguments)
+                    {
+                        if (TryGetQuerySourceType(argument, out sourceType))
+                            return true;
+                    }
+
+                    break;
+
+                case UnaryExpression unaryExpression:
+                    return TryGetQuerySourceType(unaryExpression.Operand, out sourceType);
+            }
+
+            sourceType = null!;
+            return false;
+        }
     }
 
     /// <summary>
@@ -274,9 +336,139 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     public IEnumerable<T?> ExecuteCollection<T>(QueryModel queryModel)
     {
+        if (queryModel.BodyClauses.Any(static body => body is JoinClause or GroupJoinClause))
+            return ExecuteJoinedCollection<T>(queryModel);
+
         return ParseQueryModel<T>(queryModel)
             .Execute()
             .Select(GetSelectFunc<T>(queryModel.SelectClause, Table));
+    }
+
+    private IEnumerable<T?> ExecuteJoinedCollection<T>(QueryModel queryModel)
+    {
+        if (queryModel.BodyClauses.Any(static body => body is GroupJoinClause))
+            throw new QueryTranslationException($"GroupJoin is not supported. Use a simple inner Join with direct member keys. Query model: {queryModel}");
+
+        var joinClauses = queryModel.BodyClauses.OfType<JoinClause>().ToArray();
+        if (joinClauses.Length != 1)
+            throw new QueryTranslationException($"Only a single explicit inner Join is supported. Query model: {queryModel}");
+
+        if (queryModel.BodyClauses.Any(static body => body is not JoinClause))
+            throw new QueryTranslationException($"Join queries currently support only the Join body clause. Filtering, ordering, and additional from clauses over joins are not supported yet. Query model: {queryModel}");
+
+        if (queryModel.ResultOperators.Any())
+            throw new QueryTranslationException($"Result operators over explicit Join queries are not supported yet. Query model: {queryModel}");
+
+        var joinClause = joinClauses[0];
+        var rootSource = new JoinQuerySource(queryModel.MainFromClause, Table, "t0");
+        var innerSource = new JoinQuerySource(joinClause, GetTableForModelType(joinClause.ItemType), "t1");
+        var sources = new[] { rootSource, innerSource };
+
+        ValidateJoinInnerSequence(joinClause);
+
+        var outerColumn = GetJoinKeyColumn(rootSource, joinClause.OuterKeySelector, "outer");
+        var innerColumn = GetJoinKeyColumn(innerSource, joinClause.InnerKeySelector, "inner");
+
+        var query = new SqlQuery<T>(Table, Transaction, rootSource.Alias);
+        query.Join(innerSource.Table.DbName, innerSource.Alias)
+            .On(on => on.Where(outerColumn.DbName, rootSource.Alias).EqualToColumn(innerColumn.DbName, innerSource.Alias));
+
+        var select = query.SelectQuery();
+        select.What(GetJoinedPrimaryKeySelectors(query, sources).ToArray());
+
+        var projector = GetJoinedSelectFunc<T>(queryModel.SelectClause, sources);
+        foreach (var reader in select.ReadReader())
+        {
+            var rows = new object?[sources.Length];
+            for (var sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
+            {
+                var source = sources[sourceIndex];
+                var key = ReadJoinedPrimaryKey(reader, source, sourceIndex);
+                rows[sourceIndex] = Transaction.Provider.GetTableCache(source.Table).GetRow(key, Transaction)
+                    ?? throw new InvalidOperationException($"Joined row for table '{source.Table.DbName}' and key '{key}' could not be materialized.");
+            }
+
+            yield return projector(rows);
+        }
+    }
+
+    private TableDefinition GetTableForModelType(Type modelType)
+    {
+        return Transaction.Provider.Metadata.TableModels
+            .SingleOrDefault(x => x.Model.CsType.Type == modelType)
+            ?.Table
+            ?? throw new QueryTranslationException($"Join inner sequence type '{modelType}' is not a mapped DataLinq table model.");
+    }
+
+    private static void ValidateJoinInnerSequence(JoinClause joinClause)
+    {
+        if (joinClause.InnerSequence is not ConstantExpression { Value: IQueryable })
+            throw new QueryTranslationException($"Join inner sequence '{joinClause.InnerSequence}' is not supported. Only direct DataLinq query sources are supported.");
+    }
+
+    private static ColumnDefinition GetJoinKeyColumn(JoinQuerySource source, Expression keySelector, string side)
+    {
+        var selector = UnwrapConvert(keySelector);
+        if (selector is MemberExpression { Member.Name: "Value", Expression: MemberExpression nullableMember } &&
+            Nullable.GetUnderlyingType(nullableMember.Type) is not null)
+        {
+            selector = nullableMember;
+        }
+
+        if (selector is not MemberExpression memberExpression ||
+            memberExpression.Expression is not QuerySourceReferenceExpression querySource ||
+            !ReferenceEquals(querySource.ReferencedQuerySource, source.QuerySource))
+        {
+            throw new QueryTranslationException($"The {side} Join key selector '{keySelector}' is not supported. Only direct member keys and nullable Value member keys are supported.");
+        }
+
+        return source.Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == memberExpression.Member.Name)
+            ?? throw new QueryTranslationException($"The {side} Join key member '{memberExpression.Member.Name}' is not mapped on table '{source.Table.DbName}'.");
+    }
+
+    private static IEnumerable<string> GetJoinedPrimaryKeySelectors<T>(SqlQuery<T> query, IReadOnlyList<JoinQuerySource> sources)
+    {
+        for (var sourceIndex = 0; sourceIndex < sources.Count; sourceIndex++)
+        {
+            var source = sources[sourceIndex];
+            for (var columnIndex = 0; columnIndex < source.Table.PrimaryKeyColumns.Length; columnIndex++)
+            {
+                var column = source.Table.PrimaryKeyColumns[columnIndex];
+                yield return $"{source.Alias}.{query.EscapeCharacter}{column.DbName}{query.EscapeCharacter} AS {query.EscapeCharacter}{GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex)}{query.EscapeCharacter}";
+            }
+        }
+    }
+
+    private static IKey ReadJoinedPrimaryKey(IDataLinqDataReader reader, JoinQuerySource source, int sourceIndex)
+    {
+        var values = source.Table.PrimaryKeyColumns
+            .Select((column, columnIndex) => reader.GetValue<object>(column, reader.GetOrdinal(GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex))))
+            .ToArray();
+
+        return KeyFactory.CreateKeyFromValues(values);
+    }
+
+    private static string GetJoinedPrimaryKeyAlias(int sourceIndex, int columnIndex)
+        => $"dl_{sourceIndex}_pk_{columnIndex}";
+
+    private static Func<object?[], T?> GetJoinedSelectFunc<T>(SelectClause selectClause, IReadOnlyList<JoinQuerySource> sources)
+    {
+        var selector = UnwrapConvert(selectClause.Selector);
+        var sourceIndexes = sources
+            .Select((source, index) => (source.QuerySource, index))
+            .ToDictionary(x => x.QuerySource, x => x.index);
+        var tablesByType = sources.ToDictionary(x => x.Table.Model.CsType.Type!, x => x.Table);
+
+        ValidateProjectionExpression(selector, tablesByType, selectClause);
+
+        var rowParameter = Expression.Parameter(typeof(object[]), "rows");
+        Expression rebuilt = new JoinedProjectionQuerySourceVisitor(rowParameter, sourceIndexes).Visit(selector)
+            ?? throw new QueryTranslationException($"Join selector expression '{selectClause.Selector}' could not be rebuilt for client projection.");
+
+        if (rebuilt.Type != typeof(T))
+            rebuilt = Expression.Convert(rebuilt, typeof(T));
+
+        return Expression.Lambda<Func<object?[], T?>>(rebuilt, rowParameter).Compile();
     }
 
     /// <summary>

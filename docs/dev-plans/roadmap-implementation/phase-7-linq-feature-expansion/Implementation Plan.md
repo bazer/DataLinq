@@ -99,8 +99,10 @@ Tasks:
 
 Initial boundary:
 
-- supported: `outer.Join(inner, outerKey, innerKey, (outer, inner) => new { ... })` with direct member keys
-- not supported yet: left join, group join, composite anonymous-object keys, relation-property joins
+- supported: `outer.Join(inner, outerKey, innerKey, (outer, inner) => new { ... })` with direct member keys or nullable `.Value` keys
+- not supported yet: left join, group join, composite anonymous-object keys, relation-property joins, additional filtering/ordering/paging over joined results
+
+Status: Complete. Workstream D adds a narrow SQL-backed explicit inner `Join(...)` baseline for one outer DataLinq query source and one inner DataLinq query source. The SQL join selects primary keys from both sides with internal aliases, materializes both rows through DataLinq caches, and applies the result selector post-materialization. Composite keys, `GroupJoin(...)`, filtering over joined results, and relation-property result projections now have focused `QueryTranslationException` coverage.
 
 ## Workstream E: Relation-Aware Predicate Translation
 
