@@ -82,6 +82,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `query-and-runtime/LINQ Translation Support.md`
 - `query-and-runtime/Projections and Views.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
+- `query-and-runtime/Relation-Aware Join API.md`
 - `query-and-runtime/Result set caching.md`
 - `query-and-runtime/Sql Generation Optimization.md`
 
