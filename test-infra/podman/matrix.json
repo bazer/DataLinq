@@ -6,7 +6,7 @@
       "family": "MySql",
       "version": "8.4",
       "image": "mysql:8.4",
-      "hostPort": 3307,
+      "hostPort": 13307,
       "isLts": true,
       "isDefault": true
     },
@@ -16,7 +16,7 @@
       "family": "MariaDb",
       "version": "10.11",
       "image": "mariadb:10.11",
-      "hostPort": 3310,
+      "hostPort": 13310,
       "isLts": true,
       "isDefault": false
     },
@@ -26,7 +26,7 @@
       "family": "MariaDb",
       "version": "11.4",
       "image": "mariadb:11.4",
-      "hostPort": 3309,
+      "hostPort": 13309,
       "isLts": true,
       "isDefault": false
     },
@@ -36,7 +36,7 @@
       "family": "MariaDb",
       "version": "11.8",
       "image": "mariadb:11.8",
-      "hostPort": 3308,
+      "hostPort": 13308,
       "isLts": true,
       "isDefault": true
     }

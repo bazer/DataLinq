@@ -61,13 +61,8 @@ internal sealed class TestInfraOrchestrator(
 
         Task.WhenAll(waitTasks).GetAwaiter().GetResult();
         if (selection.ServerTargets.Count > 0)
-            PersistState(selection, host);
+            RefreshRuntimeState(host);
         ConsoleSync.WriteLine($"Test infrastructure is ready for targets [{string.Join(", ", selection.Targets.Select(x => x.Id))}].");
-    }
-
-    public void PersistState(CliTargetSelection selection)
-    {
-        PersistState(selection, ResolveHost(selection));
     }
 
     public void Down(bool remove, CliTargetSelection? selection)
@@ -189,7 +184,7 @@ internal sealed class TestInfraOrchestrator(
         podman.Execute(arguments).ThrowIfFailed($"Failed to create container '{containerName}'.");
     }
 
-    private void RefreshRuntimeState()
+    private void RefreshRuntimeState(string? host = null)
     {
         var runningServerTargets = TestCliCatalog.Targets
             .Where(x => x.ServerTarget is not null && ContainerRunning(settings.GetContainerName(x.ServerTarget)))
@@ -202,13 +197,15 @@ internal sealed class TestInfraOrchestrator(
             return;
         }
 
-        var host = PodmanHostResolver.Resolve(podman);
-        stateStore.Save(stateStore.BuildState(settings, new CliTargetSelection(null, runningServerTargets), host));
-    }
-
-    private void PersistState(CliTargetSelection selection, string host)
-    {
-        stateStore.Save(stateStore.BuildState(settings, selection, host));
+        var runningTargets = TestCliCatalog.Targets
+            .Where(x => x.ServerTarget is null)
+            .Concat(runningServerTargets)
+            .ToArray();
+        var aliasName = ResolveAliasName(runningTargets);
+        stateStore.Save(stateStore.BuildState(
+            settings,
+            new CliTargetSelection(aliasName, runningTargets),
+            host ?? PodmanHostResolver.Resolve(podman)));
     }
 
     private string ResolveHost(CliTargetSelection selection)
@@ -217,6 +214,20 @@ internal sealed class TestInfraOrchestrator(
             return Environment.GetEnvironmentVariable("DATALINQ_TEST_DB_HOST") ?? "127.0.0.1";
 
         return PodmanHostResolver.Resolve(podman);
+    }
+
+    private static string? ResolveAliasName(IReadOnlyList<TestCliTarget> targets)
+    {
+        var targetIds = targets.Select(x => x.Id).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+
+        foreach (var alias in TestCliCatalog.Aliases)
+        {
+            var aliasTargetIds = alias.TargetIds.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (targetIds.SequenceEqual(aliasTargetIds, StringComparer.OrdinalIgnoreCase))
+                return alias.Name;
+        }
+
+        return null;
     }
 
     private void CleanupLegacyArtifacts(bool remove)

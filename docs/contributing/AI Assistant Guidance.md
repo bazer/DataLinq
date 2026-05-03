@@ -28,8 +28,8 @@ Use the repo docs in this order:
 - Documentation must describe shipped behavior, not roadmap material pretending to be shipped.
 - For broad documentation work, start with an audit and action plan before making a large batch of edits.
 - Prefer sandboxed execution first for build, test, local project CLI, and non-destructive git inspection commands. Do not request sandbox escalation preemptively for `dotnet run`, `dotnet build`, `dotnet test`, `DataLinq.Dev.CLI`, `DataLinq.Testing.CLI`, or `DataLinq.Benchmark.CLI`; retry outside the sandbox only after a sandboxed attempt fails with a likely sandbox, network, cache, or filesystem-permission issue.
-- On native Windows, prefer `.\scripts\dotnet-sandbox.ps1 ...` for sandboxed `dotnet` commands. Raw `dotnet` may try to read or write profile-scoped .NET and NuGet state, while the wrapper pins `DOTNET_CLI_HOME`, `APPDATA`, `LOCALAPPDATA`, temp paths, NuGet HTTP cache, NuGet scratch space, and restore config to workspace-local paths. Before rewriting `LOCALAPPDATA`, the wrapper captures the real Podman executable and machine socket paths and exposes them through `DATALINQ_TEST_PODMAN_PATH` and `DATALINQ_TEST_PODMAN_SOCKET`; this is required because the Testing CLI normally resolves Podman from `LOCALAPPDATA`. The wrapper must not set `DATALINQ_TEST_DB_HOST`; doing so can force sandboxed server-backed runs toward a Podman VM host that the sandbox cannot open sockets to. For `run`, `build`, `test`, `pack`, and `publish`, the wrapper adds `--no-restore` because sandboxed execution should consume existing restore assets instead of trying blocked NuGet.org network calls. Use an explicit restore command when package assets are missing.
-- Do not use `dotnet-sandbox.ps1` for `DataLinq.Testing.CLI up`, `wait`, `reset`, or server-backed `run` commands against MySQL/MariaDB on native Windows. In the Codex sandbox, TCP to the Podman VM host can be blocked, while loopback can fail through MySQL `localhost` user matching. Run server-backed provider lanes through the normal Testing CLI outside the sandbox after approval. If a sandboxed attempt overwrites `artifacts/testdata/testinfra-state.json` with `127.0.0.1` or narrows the persisted target list, repair that state by running normal `dotnet run --project src\DataLinq.Testing.CLI -- wait --alias latest` outside the sandbox once.
+- On native Windows, prefer `.\scripts\dotnet-sandbox.ps1 ...` for sandboxed `dotnet` commands. Raw `dotnet` may try to read or write profile-scoped .NET and NuGet state, while the wrapper pins `DOTNET_CLI_HOME`, `APPDATA`, `LOCALAPPDATA`, temp paths, NuGet HTTP cache, NuGet scratch space, and restore config to workspace-local paths. Before rewriting `LOCALAPPDATA`, the wrapper captures the real Podman executable and machine socket paths and exposes them through `DATALINQ_TEST_PODMAN_PATH` and `DATALINQ_TEST_PODMAN_SOCKET`; this is required because the Testing CLI normally resolves Podman from `LOCALAPPDATA`. For `run`, `build`, `test`, `pack`, and `publish`, the wrapper adds `--no-restore` because sandboxed execution should consume existing restore assets instead of trying blocked NuGet.org network calls. Use an explicit restore command when package assets are missing.
+- For sandboxed server-backed Testing CLI runs on native Windows, set `DATALINQ_TEST_DB_HOST=127.0.0.1` for the command. The sandbox blocks TCP to the Podman VM host, but loopback reaches Podman's `wslrelay` listeners when the matrix ports are free. The matrix uses `13307` through `13310` specifically to avoid common local MySQL/MariaDB services. Server-backed `run` commands refresh `artifacts/testdata/testinfra-state.json` from the actually running containers, so a targeted verification should not leave the state narrowed to one server target. If a server-backed sandbox run reports `datalinq`@`localhost` access denied, first check whether the configured port is owned by a local database process instead of `wslrelay`.
 
 ## Use the Repo Tools, Not Ad Hoc Commands
 
@@ -69,6 +69,14 @@ For provider-matrix or server-backed runs:
 ./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI -- list
 dotnet run --project src/DataLinq.Testing.CLI -- wait --alias latest
 dotnet run --project src/DataLinq.Testing.CLI -- run --suite all --alias latest --batch-size 4
+```
+
+For sandboxed server-backed verification after the containers already exist:
+
+```powershell
+$env:DATALINQ_TEST_DB_HOST = '127.0.0.1'
+./scripts/dotnet-sandbox.ps1 run --project src/DataLinq.Testing.CLI --no-build -- run --suite mysql --targets mysql-8.4 --output failures
+Remove-Item Env:DATALINQ_TEST_DB_HOST
 ```
 
 The compliance quick suite is local/SQLite-oriented and is known to run successfully inside the Codex sandbox on native Windows:

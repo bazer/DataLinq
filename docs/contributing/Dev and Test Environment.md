@@ -165,14 +165,16 @@ The CLI pulls missing images, creates containers, waits for readiness, provision
 artifacts/testdata/testinfra-state.json
 ```
 
+Runtime state describes the infrastructure that is actually running. Server-backed `up`, `wait`, and `run` commands refresh it from the running containers plus the local SQLite targets; a one-target test run should not leave later runs thinking only that target exists.
+
 The default ports are:
 
 | Target | Port |
 | --- | ---: |
-| MySQL 8.4 | 3307 |
-| MariaDB 11.8 | 3308 |
-| MariaDB 11.4 | 3309 |
-| MariaDB 10.11 | 3310 |
+| MySQL 8.4 | 13307 |
+| MariaDB 11.8 | 13308 |
+| MariaDB 11.4 | 13309 |
+| MariaDB 10.11 | 13310 |
 
 Check running containers directly when needed:
 
@@ -281,7 +283,7 @@ dotnet run --project src/DataLinq.Testing.CLI -- run --alias latest --build
 
 ### Port Already in Use
 
-The server-backed targets use ports 3307 through 3310. If one is already occupied, stop the conflicting process or override the target matrix deliberately. Do not run random local MySQL services on those ports and expect the tests to be meaningful.
+The server-backed targets use ports 13307 through 13310. If one is already occupied, stop the conflicting process or override the target matrix deliberately. Do not run random local MySQL services on those ports and expect the tests to be meaningful. These ports intentionally avoid the common local MySQL/MariaDB range around 3306 through 3310.
 
 ### Runtime State Looks Wrong
 
@@ -296,6 +298,8 @@ Refresh it by rerunning:
 ```powershell
 dotnet run --project src/DataLinq.Testing.CLI -- up --alias latest
 ```
+
+The refreshed state is based on containers that are actually running, not only the alias in the command. If it lists extra server targets, stop or remove those containers explicitly.
 
 or remove and recreate containers:
 

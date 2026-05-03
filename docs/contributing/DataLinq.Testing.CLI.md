@@ -43,7 +43,7 @@ Useful option:
 
 ### `wait`
 
-Waits for the selected targets to become ready and writes runtime state.
+Waits for the selected targets to become ready and refreshes runtime state from the containers that are actually running.
 
 ```bash
 dotnet run --project src/DataLinq.Testing.CLI -- wait --alias latest
@@ -160,9 +160,11 @@ artifacts/testdata/cli-logs/
 That runtime state is how the test harness discovers:
 
 - the resolved host
-- the active target ids
+- the running server target ids, plus local SQLite targets
 - published ports
 - configured test credentials
+
+Server-backed `up`, `wait`, and `run` commands refresh this file from the containers that are actually running. A targeted `run --targets mysql-8.4` selects MySQL for that run, but it should not permanently narrow runtime state if other Podman targets are still running.
 
 If you bypass the CLI and expect the suites to “just know” the active provider matrix, you are making the repo harder than it needs to be.
 

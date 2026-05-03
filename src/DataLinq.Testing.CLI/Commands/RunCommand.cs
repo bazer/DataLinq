@@ -234,9 +234,6 @@ internal static class RunCommand
                         overallExitCode = result.ExitCode;
                 }
             }
-
-            if (usedTargets)
-                orchestrator.PersistState(selection);
         }
         finally
         {
