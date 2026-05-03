@@ -375,7 +375,11 @@ public static class MetadataFactory
                     firstAttribute,
                     $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' references columns '{candidateColumns.Select(x => x.DbName).ToJoinedString(", ")}' on table '{candidateTableModel.Table.DbName}', but no matching primary or unique key exists.");
 
-            var relation = new RelationDefinition(firstAttribute.Name, RelationType.OneToMany);
+            var relation = new RelationDefinition(firstAttribute.Name, RelationType.OneToMany)
+            {
+                OnUpdate = firstAttribute.OnUpdate,
+                OnDelete = firstAttribute.OnDelete
+            };
             var manySidePart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "");
             var oneSidePart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "");
             relation.ForeignKey = manySidePart;

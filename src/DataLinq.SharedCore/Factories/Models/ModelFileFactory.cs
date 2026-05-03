@@ -237,10 +237,24 @@ public class ModelFileFactory
                 {
                     var columnOrdinal = relationPart.ColumnIndex.Columns.IndexOf(c);
                     var candidateColumn = relationPart.Relation.CandidateKey.ColumnIndex.Columns[columnOrdinal];
-                    var ordinalArgument = relationPart.ColumnIndex.Columns.Count > 1
-                        ? $", {columnOrdinal + 1}"
-                        : "";
-                    yield return $"{namespaceTab}{tab}[ForeignKey(\"{relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName}\", \"{candidateColumn.DbName}\", \"{relationPart.Relation.ConstraintName}\"{ordinalArgument})]";
+                    var foreignKeyArguments = new List<string>
+                    {
+                        SymbolDisplay.FormatLiteral(relationPart.Relation.CandidateKey.ColumnIndex.Table.DbName, quote: true),
+                        SymbolDisplay.FormatLiteral(candidateColumn.DbName, quote: true),
+                        SymbolDisplay.FormatLiteral(relationPart.Relation.ConstraintName, quote: true)
+                    };
+
+                    if (relationPart.ColumnIndex.Columns.Count > 1)
+                        foreignKeyArguments.Add((columnOrdinal + 1).ToString());
+
+                    if (relationPart.Relation.OnUpdate != ReferentialAction.Unspecified ||
+                        relationPart.Relation.OnDelete != ReferentialAction.Unspecified)
+                    {
+                        foreignKeyArguments.Add($"ReferentialAction.{relationPart.Relation.OnUpdate}");
+                        foreignKeyArguments.Add($"ReferentialAction.{relationPart.Relation.OnDelete}");
+                    }
+
+                    yield return $"{namespaceTab}{tab}[ForeignKey({foreignKeyArguments.ToJoinedString(", ")})]";
                 }
             }
 
@@ -273,6 +287,8 @@ public class ModelFileFactory
                     yield return $"{namespaceTab}{tab}[DefaultCurrentTimestamp]";
                 else if (defaultAttr is DefaultNewUUIDAttribute)
                     yield return $"{namespaceTab}{tab}[DefaultNewUUID]";
+                else if (defaultAttr is DefaultSqlAttribute defaultSql)
+                    yield return $"{namespaceTab}{tab}[DefaultSql(DatabaseType.{defaultSql.DatabaseType}, {SymbolDisplay.FormatLiteral(defaultSql.Expression, quote: true)})]";
                 else if (defaultAttr != null)
                     yield return $"{namespaceTab}{tab}[Default({valueProperty.GetDefaultValueCode()})]";
             }

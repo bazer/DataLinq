@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
@@ -72,7 +73,12 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
         foreach (var dbIndexGroup in indexGroups)
         {
             var indexedColumns = dbIndexGroup.OrderBy(x => x.SEQ_IN_INDEX).ToList();
-            var columnNames = indexedColumns.Select(x => x.COLUMN_NAME).ToArray();
+            var unsupportedIndexReason = GetUnsupportedIndexReason(indexedColumns);
+            if (unsupportedIndexReason != null)
+            {
+                options.Log?.Invoke($"Warning: Skipping unsupported MariaDB {unsupportedIndexReason} index '{dbIndexGroup.First().INDEX_NAME}' on table '{dbIndexGroup.First().TABLE_NAME}'.");
+                continue;
+            }
 
             // Determine the type and characteristic of the index.
             var indexType = dbIndexGroup.First().INDEX_TYPE.ToUpper() switch
@@ -88,19 +94,51 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
                 ? IndexCharacteristic.Unique
                 : IndexCharacteristic.Simple;
 
+            var columns = new List<ColumnDefinition>();
+            var skipIndex = false;
             foreach (var indexColumn in indexedColumns)
             {
                 var column = database
                     .TableModels.SingleOrDefault(x => x.Table.DbName == indexColumn.TABLE_NAME)?
                     .Table.Columns.SingleOrDefault(x => x.DbName == indexColumn.COLUMN_NAME);
 
-                column?.ValueProperty.AddAttribute(new IndexAttribute(dbIndexGroup.First().INDEX_NAME, indexCharacteristic, indexType, columnNames));
+                if (column == null)
+                {
+                    options.Log?.Invoke($"Warning: Skipping MariaDB index '{dbIndexGroup.First().INDEX_NAME}' on table '{dbIndexGroup.First().TABLE_NAME}' because column '{indexColumn.COLUMN_NAME}' was not imported.");
+                    skipIndex = true;
+                    break;
+                }
+
+                columns.Add(column);
             }
+
+            if (skipIndex || columns.Count == 0)
+                continue;
+
+            var columnNames = columns.Select(x => x.DbName).ToArray();
+            foreach (var column in columns)
+                column.ValueProperty.AddAttribute(new IndexAttribute(dbIndexGroup.First().INDEX_NAME, indexCharacteristic, indexType, columnNames));
         }
+    }
+
+    private static string? GetUnsupportedIndexReason(IReadOnlyList<STATISTICS> indexedColumns)
+    {
+        if (indexedColumns.Any(x => x.SUB_PART.HasValue))
+            return "prefix-length";
+
+        if (indexedColumns.Any(x => string.Equals(x.COLLATION, "D", StringComparison.OrdinalIgnoreCase)))
+            return "descending";
+
+        if (indexedColumns.Any(x => string.Equals(x.IGNORED, "YES", StringComparison.OrdinalIgnoreCase)))
+            return "ignored";
+
+        return null;
     }
 
     protected void ParseRelations(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
     {
+        var referentialActions = ParseReferentialActions(database, informationSchemaDb.Provider.DatabaseAccess);
+
         foreach (var key in informationSchemaDb.Query()
             .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
         {
@@ -111,9 +149,27 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
             if (foreignKeyColumn == null || key.REFERENCED_TABLE_NAME == null || key.REFERENCED_COLUMN_NAME == null)
                 continue;
 
+            var candidateColumn = database
+                .TableModels.SingleOrDefault(x => x.Table.DbName == key.REFERENCED_TABLE_NAME)?
+                .Table.Columns.SingleOrDefault(x => x.DbName == key.REFERENCED_COLUMN_NAME);
+
+            if (candidateColumn == null)
+            {
+                options.Log?.Invoke($"Warning: Skipping foreign key '{key.CONSTRAINT_NAME}' on table '{key.TABLE_NAME}' because referenced column '{key.REFERENCED_TABLE_NAME}.{key.REFERENCED_COLUMN_NAME}' was not imported.");
+                continue;
+            }
+
+            referentialActions.TryGetValue((key.TABLE_NAME, key.CONSTRAINT_NAME), out var actions);
+
             // The only job of this method is to mark the column and add the attribute.
             foreignKeyColumn.SetForeignKey();
-            foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(key.REFERENCED_TABLE_NAME, key.REFERENCED_COLUMN_NAME, key.CONSTRAINT_NAME, (int)key.ORDINAL_POSITION));
+            foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(
+                key.REFERENCED_TABLE_NAME,
+                key.REFERENCED_COLUMN_NAME,
+                key.CONSTRAINT_NAME,
+                (int)key.ORDINAL_POSITION,
+                actions.OnUpdate,
+                actions.OnDelete));
         }
     }
 
@@ -140,7 +196,9 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
         table.SetColumns(informationSchemaDb.Query()
             .COLUMNS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == table.DbName)
             .AsEnumerable()
-            .Select(x => ParseColumn(table, (ICOLUMNS)x)));
+            .OrderBy(x => x.ORDINAL_POSITION)
+            .Select(x => ParseColumn(table, (ICOLUMNS)x))
+            .OfType<ColumnDefinition>());
 
         return tableModel;
     }

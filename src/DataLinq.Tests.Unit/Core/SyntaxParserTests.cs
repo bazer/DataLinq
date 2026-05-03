@@ -202,6 +202,20 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_ForeignKeyWithReferentialActions()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[ForeignKey(""OtherTable"", ""OtherId"", ""FK_Name"", 2, ReferentialAction.Cascade, ReferentialAction.SetNull)]");
+        var attribute = (ForeignKeyAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.Table).IsEqualTo("OtherTable");
+        await Assert.That(attribute.Column).IsEqualTo("OtherId");
+        await Assert.That(attribute.Name).IsEqualTo("FK_Name");
+        await Assert.That(attribute.Ordinal).IsEqualTo(2);
+        await Assert.That(attribute.OnUpdate).IsEqualTo(ReferentialAction.Cascade);
+        await Assert.That(attribute.OnDelete).IsEqualTo(ReferentialAction.SetNull);
+    }
+
+    [Test]
     public async Task ParseAttributeSyntax_Relation()
     {
         var (parser, syntax) = GetAttributeSyntax(@"[Relation(""OtherTable"", ""FkCol"", ""RelName"")]");
@@ -279,6 +293,16 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
 
         await Assert.That(attribute.Value).IsEqualTo("StatusEnum.Active");
         await Assert.That(attribute.CodeExpression).IsEqualTo("StatusEnum.Active");
+    }
+
+    [Test]
+    public async Task ParseAttributeSyntax_DefaultSql()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[DefaultSql(DatabaseType.MySQL, ""(json_object())"")]");
+        var attribute = (DefaultSqlAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.DatabaseType).IsEqualTo(DatabaseType.MySQL);
+        await Assert.That(attribute.Expression).IsEqualTo("(json_object())");
     }
 
     [Test]

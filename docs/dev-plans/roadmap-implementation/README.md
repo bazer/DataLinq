@@ -22,15 +22,18 @@ What are we actually going to do, in what order, and how will we know it worked?
 | Phase 2: Metadata, Generator, and Diagnostics Hardening | Implemented | `phase-2-metadata-generator-and-diagnostics-hardening/` |
 | Phase 3: Query and Runtime Hot Path Optimization | Implemented | `phase-3-query-and-runtime-hot-path-optimization/` |
 | Phase 4: Provider Metadata Roundtrip Fidelity | Implemented for the validation support boundary | `phase-4-provider-metadata-roundtrip-fidelity/` |
+| Phase 4B: Provider Fidelity Hardening | Implemented | `phase-4b-provider-fidelity-hardening/` |
 | Phase 5: Product Trust Features | Implemented for validation/diff/snapshot scope; full migration execution deferred | `phase-5-product-trust-features/` |
 | Phase 6: LINQ Translation Coverage and Query Composition | Implemented | `phase-6-linq-translation-coverage-and-query-composition/` |
 | Phase 7: LINQ Feature Expansion | Implemented | `phase-7-linq-feature-expansion/` |
 
 ## Current Roadmap Position
 
-As of the Phase 7 completion update on 2026-05-03, the active roadmap frontier is Phase 8 unless full migration execution becomes the immediate product priority.
+As of the Phase 4B completion update on 2026-05-03, the active roadmap frontier is Phase 8 unless full migration execution becomes the immediate product priority.
 
 Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. Full versioned migration execution is not a remaining Phase 5 cleanup task; it is a separate future product surface.
+
+Phase 4B plugged the most useful Phase 4 metadata gaps before the roadmap moved on: referential actions, advanced index guardrails, generated-column guardrails, raw provider defaults, explicit MySQL/MariaDB column ordering, and view validation.
 
 Unless migration execution becomes the immediate product priority, the next implementation work should be Phase 8 Native AOT and WebAssembly readiness.
 

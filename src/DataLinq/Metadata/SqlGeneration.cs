@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Attributes;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Query;
 
@@ -159,11 +160,49 @@ public class SqlGeneration
             relation.ColumnIndex.Columns.Select(x => x.DbName).ToArray(),
             relation.Relation.CandidateKey.ColumnIndex.Table.DbName,
             relation.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).ToArray(),
-            restrict);
+            restrict,
+            relation.Relation.OnUpdate,
+            relation.Relation.OnDelete);
     public SqlGeneration ForeignKey(string? constraintName, string[] from, string table, string[] to, bool restrict)
-        => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(constraintName) ? "" : $"CONSTRAINT {QuotedString(constraintName)} ")}FOREIGN KEY {ParenthesisList(from)} REFERENCES {QuotedString(table)} {ParenthesisList(to)} {OnUpdateDelete(restrict)}");
+        => ForeignKey(
+            constraintName,
+            from,
+            table,
+            to,
+            restrict,
+            ReferentialAction.Unspecified,
+            ReferentialAction.Unspecified);
+    public SqlGeneration ForeignKey(
+        string? constraintName,
+        string[] from,
+        string table,
+        string[] to,
+        bool restrict,
+        ReferentialAction onUpdate,
+        ReferentialAction onDelete)
+        => NewRow().Indent().Add($"{(string.IsNullOrWhiteSpace(constraintName) ? "" : $"CONSTRAINT {QuotedString(constraintName)} ")}FOREIGN KEY {ParenthesisList(from)} REFERENCES {QuotedString(table)} {ParenthesisList(to)} {OnUpdateDelete(restrict, onUpdate, onDelete)}");
     public string OnUpdateDelete(bool restrict)
-        => restrict ? "ON UPDATE RESTRICT ON DELETE RESTRICT" : "ON UPDATE NO ACTION ON DELETE NO ACTION";
+        => OnUpdateDelete(restrict, ReferentialAction.Unspecified, ReferentialAction.Unspecified);
+
+    public string OnUpdateDelete(bool restrict, ReferentialAction onUpdate, ReferentialAction onDelete)
+    {
+        var fallback = restrict ? ReferentialAction.Restrict : ReferentialAction.NoAction;
+        var updateAction = onUpdate == ReferentialAction.Unspecified ? fallback : onUpdate;
+        var deleteAction = onDelete == ReferentialAction.Unspecified ? fallback : onDelete;
+
+        return $"ON UPDATE {FormatReferentialAction(updateAction)} ON DELETE {FormatReferentialAction(deleteAction)}";
+    }
+
+    private static string FormatReferentialAction(ReferentialAction action) =>
+        action switch
+        {
+            ReferentialAction.NoAction => "NO ACTION",
+            ReferentialAction.Restrict => "RESTRICT",
+            ReferentialAction.Cascade => "CASCADE",
+            ReferentialAction.SetNull => "SET NULL",
+            ReferentialAction.SetDefault => "SET DEFAULT",
+            _ => "NO ACTION"
+        };
 
     private string ParenthesizeCheckExpression(string expression)
     {

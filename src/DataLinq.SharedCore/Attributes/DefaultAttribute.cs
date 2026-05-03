@@ -40,6 +40,15 @@ public class DefaultAttribute<T>(T value) : DefaultAttribute(value ?? throw new 
 }
 
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
+public class DefaultSqlAttribute(DatabaseType databaseType, string expression) : DefaultAttribute(expression)
+{
+    public DatabaseType DatabaseType { get; } = databaseType;
+    public string Expression { get; } = string.IsNullOrWhiteSpace(expression)
+        ? throw new ArgumentException("Default SQL expression cannot be empty.", nameof(expression))
+        : expression;
+}
+
+[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
 public class DefaultCurrentTimestampAttribute() : DefaultAttribute(DynamicFunctions.CurrentTimestamp)
 {
     public DynamicFunctions DateTimeDefault => (DynamicFunctions)Value;

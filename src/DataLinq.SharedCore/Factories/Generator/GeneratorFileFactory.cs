@@ -565,6 +565,7 @@ public class GeneratorFileFactory
             .ThenByDescending(x => x.Attributes.Any(a => a is ForeignKeyAttribute))
             .ThenBy(x => x.PropertyName)
             .Where(x => x.Column.ValueProperty.Attributes.Any(a => a is DefaultAttribute))
+            .Where(x => x.Column.ValueProperty.GetDefaultAttribute() is not DefaultSqlAttribute)
             .Where(x => !Options.SuppressedDefaultValueProperties.Contains(x))
             .ToList();
     }

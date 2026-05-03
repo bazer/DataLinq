@@ -312,7 +312,32 @@ public class SyntaxParser
                 return new ForeignKeyAttribute(arguments[0], arguments[1], arguments[2], ordinal);
             }
 
-            return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' must have 3 or 4 arguments");
+            if (arguments.Count == 5)
+            {
+                if (!TryParseReferentialAction(arguments[3], out var onUpdate))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid ON UPDATE referential action '{arguments[3]}' for attribute '{name}'");
+
+                if (!TryParseReferentialAction(arguments[4], out var onDelete))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid ON DELETE referential action '{arguments[4]}' for attribute '{name}'");
+
+                return new ForeignKeyAttribute(arguments[0], arguments[1], arguments[2], onUpdate, onDelete);
+            }
+
+            if (arguments.Count == 6)
+            {
+                if (!TryParseInt(arguments[3], out var compositeOrdinal))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid ordinal value '{arguments[3]}' for attribute '{name}'");
+
+                if (!TryParseReferentialAction(arguments[4], out var onUpdate))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid ON UPDATE referential action '{arguments[4]}' for attribute '{name}'");
+
+                if (!TryParseReferentialAction(arguments[5], out var onDelete))
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Invalid ON DELETE referential action '{arguments[5]}' for attribute '{name}'");
+
+                return new ForeignKeyAttribute(arguments[0], arguments[1], arguments[2], compositeOrdinal, onUpdate, onDelete);
+            }
+
+            return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' must have 3, 4, 5, or 6 arguments");
         }
 
         if (name == "Enum")
@@ -335,6 +360,17 @@ public class SyntaxParser
 
             var codeExpression = attributeSyntax.ArgumentList?.Arguments[0].Expression.ToString();
             return new DefaultAttribute(arguments[0]).SetCodeExpression(codeExpression);
+        }
+
+        if (name == "DefaultSql")
+        {
+            if (arguments.Count != 2)
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' must have 2 arguments");
+
+            if (!Enum.TryParse(arguments[0].Split('.').Last(), out DatabaseType databaseType))
+                return FailAttribute(attributeSyntax, DLFailureType.InvalidType, $"Invalid DatabaseType value '{arguments[0]}'");
+
+            return new DefaultSqlAttribute(databaseType, arguments[1]);
         }
 
         if (name == "DefaultCurrentTimestamp")
@@ -546,6 +582,9 @@ public class SyntaxParser
 
     private static bool TryParseInt(string value, out int result) =>
         int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+
+    private static bool TryParseReferentialAction(string value, out ReferentialAction result) =>
+        Enum.TryParse(value.Split('.').Last(), out result);
 
     private static bool TryParseUlong(string value, out ulong result) =>
         ulong.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);

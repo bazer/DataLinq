@@ -27,6 +27,7 @@ public interface ICOLUMNS
     string IS_NULLABLE { get; }
     COLUMN_KEY COLUMN_KEY { get; }
     string EXTRA { get; }
+    string? GENERATION_EXPRESSION { get; }
     string COLUMN_DEFAULT { get; }
     string COLUMN_NAME { get; }
     string COLUMN_COMMENT { get; }

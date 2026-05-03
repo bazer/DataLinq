@@ -56,8 +56,14 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
     }
 
-    protected ColumnDefinition ParseColumn(TableDefinition table, ICOLUMNS dbColumns)
+    protected ColumnDefinition? ParseColumn(TableDefinition table, ICOLUMNS dbColumns)
     {
+        if (IsGeneratedColumn(dbColumns))
+        {
+            options.Log?.Invoke($"Warning: Skipping unsupported {databaseType} generated column '{table.DbName}.{dbColumns.COLUMN_NAME}'.");
+            return null;
+        }
+
         var dbType = new DatabaseColumnType(databaseType, dbColumns.DATA_TYPE);
 
         if (dbColumns.COLUMN_TYPE.Contains("unsigned"))
@@ -110,6 +116,24 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         return column;
     }
 
+    private static bool IsGeneratedColumn(ICOLUMNS dbColumns)
+    {
+        var extra = dbColumns.EXTRA.Replace("_", " ");
+        if (extra.Contains("VIRTUAL GENERATED", StringComparison.OrdinalIgnoreCase) ||
+            extra.Contains("STORED GENERATED", StringComparison.OrdinalIgnoreCase) ||
+            extra.Contains("PERSISTENT", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var isGeneratedProperty = dbColumns.GetType().GetProperty("IS_GENERATED");
+        var isGeneratedValue = isGeneratedProperty?.GetValue(dbColumns)?.ToString();
+
+        return !string.IsNullOrWhiteSpace(isGeneratedValue) &&
+            !string.Equals(isGeneratedValue, "NEVER", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(isGeneratedValue, "NO", StringComparison.OrdinalIgnoreCase);
+    }
+
     protected void ParseCheckConstraints(DatabaseDefinition database, DatabaseAccess informationSchemaAccess)
     {
         using var command = new MySqlCommand(
@@ -144,6 +168,53 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         }
     }
 
+    protected Dictionary<(string TableName, string ConstraintName), (ReferentialAction OnUpdate, ReferentialAction OnDelete)> ParseReferentialActions(
+        DatabaseDefinition database,
+        DatabaseAccess informationSchemaAccess)
+    {
+        using var command = new MySqlCommand(
+            """
+            SELECT
+                TABLE_NAME,
+                CONSTRAINT_NAME,
+                UPDATE_RULE,
+                DELETE_RULE
+            FROM information_schema.REFERENTIAL_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = @schema
+            """);
+        command.Parameters.AddWithValue("@schema", database.DbName);
+
+        using var reader = informationSchemaAccess.ExecuteReader(command);
+        var tableNameOrdinal = reader.GetOrdinal("TABLE_NAME");
+        var constraintNameOrdinal = reader.GetOrdinal("CONSTRAINT_NAME");
+        var updateRuleOrdinal = reader.GetOrdinal("UPDATE_RULE");
+        var deleteRuleOrdinal = reader.GetOrdinal("DELETE_RULE");
+        var actions = new Dictionary<(string TableName, string ConstraintName), (ReferentialAction OnUpdate, ReferentialAction OnDelete)>();
+
+        while (reader.ReadNextRow())
+        {
+            var key = (reader.GetString(tableNameOrdinal), reader.GetString(constraintNameOrdinal));
+            actions[key] = (
+                ParseReferentialAction(reader.GetString(updateRuleOrdinal)),
+                ParseReferentialAction(reader.GetString(deleteRuleOrdinal)));
+        }
+
+        return actions;
+    }
+
+    protected static ReferentialAction ParseReferentialAction(string? value)
+    {
+        return value?.Trim().ToUpperInvariant() switch
+        {
+            "NO ACTION" => ReferentialAction.NoAction,
+            "RESTRICT" => ReferentialAction.Restrict,
+            "CASCADE" => ReferentialAction.Cascade,
+            "SET NULL" => ReferentialAction.SetNull,
+            "SET DEFAULT" => ReferentialAction.SetDefault,
+            _ => ReferentialAction.Unspecified
+        };
+    }
+
     private static string NormalizeCheckClause(string checkClause) =>
         checkClause.Replace(@"\'", "'");
 
@@ -168,6 +239,9 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         if (property.CsType.Type == typeof(bool) && normalizedExpression.StartsWith("b'"))
             return new DefaultAttribute(normalizedExpression == "b'1'");
 
+        if (!IsTypedSqlLiteralDefault(normalizedExpression, property))
+            return new DefaultSqlAttribute(databaseType, FormatRawDefaultExpression(dbColumns.COLUMN_DEFAULT.Trim(), normalizedExpression));
+
         var normalizedDefault = NormalizeSqlLiteral(normalizedExpression);
 
         if (IsUnsupportedZeroDateDefault(normalizedDefault, property))
@@ -181,6 +255,66 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         return new DefaultAttribute(value);
 
     }
+
+    private static bool IsTypedSqlLiteralDefault(string defaultValue, ValueProperty property)
+    {
+        if (IsSqlStringLiteral(defaultValue))
+            return true;
+
+        if (property.EnumProperty != null)
+            return IsIntegerLiteral(defaultValue);
+
+        var type = property.CsType.Type;
+        if (type == null)
+            return false;
+
+        if (type == typeof(bool))
+            return defaultValue is "0" or "1" ||
+                string.Equals(defaultValue, "TRUE", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(defaultValue, "FALSE", StringComparison.OrdinalIgnoreCase);
+
+        if (type == typeof(string))
+            return !LooksLikeSqlExpression(defaultValue);
+
+        if (type == typeof(char))
+            return !LooksLikeSqlExpression(defaultValue);
+
+        if (type == typeof(DateOnly) ||
+            type == typeof(TimeOnly) ||
+            type == typeof(DateTime) ||
+            type == typeof(DateTimeOffset) ||
+            type == typeof(TimeSpan) ||
+            type == typeof(Guid))
+        {
+            return false;
+        }
+
+        if (type == typeof(float) ||
+            type == typeof(double) ||
+            type == typeof(decimal))
+        {
+            return decimal.TryParse(defaultValue, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+        }
+
+        return IsIntegerLiteral(defaultValue);
+    }
+
+    private static bool IsSqlStringLiteral(string defaultValue) =>
+        defaultValue.Length >= 2 &&
+        defaultValue[0] == '\'' &&
+        defaultValue[^1] == '\'';
+
+    private static bool LooksLikeSqlExpression(string defaultValue) =>
+        defaultValue.Contains('(') ||
+        defaultValue.Contains(')');
+
+    private static string FormatRawDefaultExpression(string rawDefault, string normalizedExpression) =>
+        rawDefault.StartsWith("(", StringComparison.Ordinal)
+            ? rawDefault
+            : $"({normalizedExpression})";
+
+    private static bool IsIntegerLiteral(string defaultValue) =>
+        decimal.TryParse(defaultValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
 
     private static bool IsCurrentTimestampDefault(string defaultValue) =>
         defaultValue.StartsWith("CURRENT_TIMESTAMP", StringComparison.OrdinalIgnoreCase) ||

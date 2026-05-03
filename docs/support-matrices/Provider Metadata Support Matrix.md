@@ -32,32 +32,32 @@ The comparison is deliberately lower-level than the future schema validation com
 
 | Feature | MySQL | MariaDB | SQLite | Notes |
 | --- | --- | --- | --- | --- |
-| Tables | Partially supported | Partially supported | Partially supported | Basic table read/write exists; roundtrip harness coverage starts in this phase. |
-| Views | Partially supported | Partially supported | Partially supported | View definitions are read and generated, but normalization and provider edge cases are not fully proven. |
+| Tables | Supported | Supported | Supported | Ordinary table read/write roundtrips are covered by provider metadata suites. |
+| Views | Partially supported | Partially supported | Partially supported | View definitions are read and generated, and validation now compares view presence, table/view type, and columns. Full view-definition normalization remains deferred. |
 | Column names | Supported | Supported | Supported | Ordinary names and quoted identifiers with spaces, punctuation, C# keyword-shaped names, and leading digits roundtrip through provider metadata, generated attributes, and generated SQL. Original database names remain canonical. |
-| Column order | Partially supported | Partially supported | Partially supported | Metadata has stable column indexes; roundtrip comparison should assert order. |
-| Nullability | Partially supported | Partially supported | Partially supported | Basic read/write exists; provider quirks around primary keys and generated columns are not fully audited. |
-| Primary keys | Partially supported | Partially supported | Partially supported | Single and composite primary keys are represented; ordering needs explicit roundtrip tests. |
-| Autoincrement | Partially supported | Partially supported | Partially supported | Basic support exists; SQLite detection is narrow and should stay test-driven. |
-| Defaults | Partially supported | Partially supported | Partially supported | Literal and current timestamp/date/time subsets exist. Expression defaults remain unsupported unless explicitly parsed. |
+| Column order | Supported | Supported | Supported | MySQL/MariaDB import columns by `ORDINAL_POSITION`; SQLite uses `pragma_table_info` order. Roundtrip comparison asserts ordered column sequences. |
+| Nullability | Supported | Supported | Supported | Ordinary nullable/non-nullable columns roundtrip. Generated columns are intentionally skipped instead of treated as ordinary nullable columns. |
+| Primary keys | Supported | Supported | Supported | Single and composite primary keys are represented and ordered. |
+| Autoincrement | Supported | Supported | Supported | MySQL/MariaDB `AUTO_INCREMENT` and the tested SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` shape roundtrip. |
+| Defaults | Supported | Supported | Partially supported | MySQL/MariaDB preserve typed literals, current date/time/timestamp aliases, UUID defaults, and raw expression defaults through provider-scoped `[DefaultSql]`. SQLite preserves typed literals and current date/time/timestamp defaults, while unsupported expression/blob defaults still warn and skip. |
 | Simple indexes | Supported | Supported | Supported | Ordinary named indexes preserve ordered database column names through metadata, generated model attributes, generated SQL, and provider re-read. |
 | Unique indexes | Supported | Supported | Supported | Named unique indexes preserve ordered database column names. SQLite emits named unique indexes instead of anonymous table constraints so provider re-read keeps stable names. |
 | Composite indexes | Supported | Supported | Supported | Metadata carries ordered columns, and generated model attributes are class-level for composite indexes. Advanced provider-specific index options remain unsupported. |
-| Foreign keys | Partially supported | Partially supported | Partially supported | Single-column and composite key identity roundtrip through ordered relation metadata and generated SQL. Referential actions and provider-specific options are not represented. |
-| Primary-key columns that are also foreign keys | Partially supported | Partially supported | Partially supported | MySQL has some regression coverage; cross-provider roundtrip coverage is required. |
-| Multiple foreign keys to the same table | Partially supported | Partially supported | Partially supported | Metadata import, generated relation names, and transaction-scoped runtime relation loading are covered for duplicate same-target FKs. Broader composite-key grouping is still pending. |
+| Foreign keys | Supported | Supported | Supported | Single-column and composite key identity roundtrip through ordered relation metadata and generated SQL. `ON UPDATE` and `ON DELETE` actions are represented for provider-supported actions. |
+| Primary-key columns that are also foreign keys | Supported | Supported | Supported | Covered by provider metadata and generator regression tests. |
+| Multiple foreign keys to the same table | Supported | Supported | Supported | Metadata import, generated relation names, and transaction-scoped runtime relation loading are covered for duplicate same-target FKs. |
 | Composite foreign keys | Supported | Supported | Supported | Participating `[ForeignKey]` attributes are grouped by constraint into one ordered `RelationDefinition`, generated relation attributes preserve ordered column arrays, and provider SQL emits one composite `FOREIGN KEY`. |
-| Relation property names | Partially supported | Partially supported | Partially supported | Duplicate same-target candidate-side names derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Composite foreign-key relation names are stable for the supported grouping shape. |
+| Relation property names | Supported | Supported | Supported | Duplicate same-target candidate-side names derive from semantic constraint names when providers expose them, with column-name fallback for provider ordinals such as SQLite FK ids. Composite foreign-key relation names are stable for the supported grouping shape. |
 | Check constraints | Supported | Supported | Unsupported | MySQL/MariaDB check clauses import into raw provider-specific `[Check(DatabaseType, name, expression)]` model attributes, emit back to provider SQL, and roundtrip through the supported-subset comparison. Structured, provider-neutral check metadata is deferred. SQLite check parsing remains intentionally unsupported. |
 | Table comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` model attributes, generated C#, generated SQL `COMMENT` table options, and provider roundtrip comparison. SQLite has no native table comments. |
 | Column comments | Supported | Supported | Unsupported | MySQL/MariaDB comments import into `[Comment]` property attributes, generated C#, generated SQL column `COMMENT` clauses, and provider roundtrip comparison. SQLite has no native column comments. |
 | Identifier casing comparison | Partially supported | Partially supported | Partially supported | Roundtrip comparison is exact because it compares provider-reported metadata snapshots. Validation must add provider-aware matching: SQLite preserves declaration text but resolves ordinary identifiers case-insensitively; MySQL/MariaDB table-name casing depends on server settings such as `lower_case_table_names`, while column and index names should be treated case-insensitively. |
-| Expression indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. SQLite detects expression indexes with `pragma_index_xinfo`, warns, and skips them rather than importing a misleading partial shape. |
+| Expression indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. SQLite detects expression indexes with `pragma_index_xinfo`, warns, and skips them. MySQL expression index rows are skipped when `information_schema.STATISTICS` exposes them as expressions. |
 | Partial indexes | Unsupported | Unsupported | Unsupported | Outside the current metadata contract. SQLite detects partial indexes, warns, and skips them. |
-| Descending index parts | Unsupported | Unsupported | Unsupported | Provider-specific index ordering is not represented. SQLite detects descending parts, warns, and skips the index. |
-| Prefix-length index parts | Unsupported | Unsupported | Unsupported | MySQL/MariaDB-specific detail is not represented. |
-| Invisible indexes | Unsupported | Unsupported | Unsupported | Provider-specific detail is not represented. |
-| Generated/computed columns | Unsupported | Unsupported | Unsupported | No first-class metadata shape exists. |
+| Descending index parts | Unsupported | Unsupported | Unsupported | Provider-specific index ordering is not represented. SQLite, MySQL, and MariaDB detect descending parts where metadata exposes them, warn, and skip the index. |
+| Prefix-length index parts | Unsupported | Unsupported | Unsupported | MySQL/MariaDB-specific detail is not represented. Prefix-length indexes warn and skip instead of importing as ordinary indexes. |
+| Invisible or ignored indexes | Unsupported | Unsupported | Unsupported | Provider-specific detail is not represented. MySQL invisible indexes and MariaDB ignored indexes warn and skip when metadata exposes them. |
+| Generated/computed columns | Unsupported | Unsupported | Unsupported | No first-class read-only/generated column shape exists yet. MySQL/MariaDB generated columns warn and skip instead of becoming mutable value properties. |
 | Collation and character set | Unsupported | Unsupported | Unsupported | No first-class column/table metadata shape exists. |
 | Deferrable foreign keys | Unsupported | Unsupported | Unsupported | SQLite exposes syntax DataLinq does not represent. |
 
@@ -82,6 +82,8 @@ Shared metadata and generation:
 - `src/DataLinq.SharedCore/Metadata/RelationPart.cs`
 - `src/DataLinq.SharedCore/Attributes/CheckAttribute.cs`
 - `src/DataLinq.SharedCore/Attributes/CommentAttribute.cs`
+- `src/DataLinq.SharedCore/Attributes/DefaultAttribute.cs`
+- `src/DataLinq.SharedCore/Attributes/ForeignKeyAttribute.cs`
 - `src/DataLinq.SharedCore/Factories/MetadataFactory.cs`
 - `src/DataLinq.SharedCore/Factories/Models/ModelFileFactory.cs`
 
@@ -109,3 +111,17 @@ Phase 4 moved these entries from partially supported or unknown toward supported
 Identifier casing comparison is documented here as provider behavior and consumed in Phase 5 as validation semantics. SQLite table and column presence checks are case-insensitive. MySQL/MariaDB column matching is case-insensitive, while table-name casing still depends on provider/server configuration such as `lower_case_table_names`.
 
 This matrix should continue to be updated when DataLinq adds first-class metadata for deferred provider features. Until then, unsupported details should stay out of authoritative schema validation.
+
+## Phase 4B Closeout Status
+
+Phase 4B hardened the practical gaps found in the Phase 4 review:
+
+- foreign-key referential actions are represented on `[ForeignKey]` and `RelationDefinition`
+- generated provider SQL preserves explicit `ON UPDATE` and `ON DELETE` actions
+- validation and roundtrip comparison include referential actions
+- MySQL/MariaDB column import uses provider ordinal positions
+- MySQL/MariaDB raw expression defaults preserve provider SQL through `[DefaultSql(DatabaseType, expression)]`
+- raw provider defaults are not assigned as fake C# constructor defaults
+- MySQL/MariaDB generated columns warn and skip
+- MySQL/MariaDB prefix-length indexes warn and skip, with additional guardrails for other lossy index shapes where metadata exposes them
+- schema validation now includes views for presence, table/view type, and columns

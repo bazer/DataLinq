@@ -161,7 +161,7 @@ public static class MetadataRoundtripComparison
         $"{index.Name}|{index.Characteristic}|{index.Type}|{string.Join(",", index.Columns.Select(x => x.DbName))}";
 
     private static string FormatForeignKeyAttribute(ForeignKeyAttribute attribute) =>
-        $"{attribute.Name}|{attribute.Table}|{attribute.Column}";
+        $"{attribute.Name}|{attribute.Table}|{attribute.Column}|{attribute.OnUpdate}|{attribute.OnDelete}";
 
     private static string FormatRelationProperty(RelationProperty property)
     {
@@ -174,6 +174,8 @@ public static class MetadataRoundtripComparison
             property.CsType.Name,
             relationPart.Type,
             relationPart.Relation.ConstraintName,
+            relationPart.Relation.OnUpdate,
+            relationPart.Relation.OnDelete,
             index.Table.DbName,
             string.Join(",", index.Columns.Select(x => x.DbName)));
     }
@@ -196,6 +198,9 @@ public static class MetadataRoundtripComparison
     {
         if (attribute == null)
             return null;
+
+        if (attribute is DefaultSqlAttribute defaultSql)
+            return $"{attribute.GetType().Name}|{defaultSql.DatabaseType}|{NormalizeSql(defaultSql.Expression)}";
 
         var value = attribute.Value switch
         {

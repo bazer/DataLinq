@@ -93,6 +93,10 @@ public class ValueProperty : PropertyDefinition
                 _ => throw new NotImplementedException(),
             };
         }
+        else if (defaultAttr is DefaultSqlAttribute)
+        {
+            return null;
+        }
 
         return defaultAttr?.Value.ToString();
     }
@@ -103,6 +107,9 @@ public class ValueProperty : PropertyDefinition
 
         if (defaultAttr is DefaultCurrentTimestampAttribute || defaultAttr is DefaultNewUUIDAttribute)
             return GetDefaultValue();
+
+        if (defaultAttr is DefaultSqlAttribute)
+            return null;
 
         if (defaultAttr == null)
             return null;

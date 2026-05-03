@@ -137,6 +137,11 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         if (defaultAttr is DefaultNewUUIDAttribute)
             return "UUID()";
 
+        if (defaultAttr is DefaultSqlAttribute defaultSql)
+            return defaultSql.DatabaseType is DatabaseType.Default || defaultSql.DatabaseType == DatabaseType
+                ? defaultSql.Expression
+                : null;
+
         if (column.ValueProperty.EnumProperty.HasValue)
         {
             var enumDefaultValue = ResolveEnumDefaultValue(column.ValueProperty, defaultAttr);

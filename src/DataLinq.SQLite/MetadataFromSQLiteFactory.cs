@@ -167,13 +167,15 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
-            foreach (var reader in dbAccess.ReadReader($"SELECT id, seq, \"table\", \"from\", \"to\" FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
+            foreach (var reader in dbAccess.ReadReader($"SELECT id, seq, \"table\", \"from\", \"to\", on_update, on_delete FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
             {
                 var keyName = reader.GetString(0);
                 var ordinal = reader.GetInt32(1);
                 var tableName = reader.GetString(2);
                 var fromColumnName = reader.GetString(3);
                 var toColumnName = reader.GetString(4);
+                var onUpdate = ParseReferentialAction(reader.GetString(5));
+                var onDelete = ParseReferentialAction(reader.GetString(6));
 
                 var foreignKeyColumn = tableModel
                     .Table.Columns.SingleOrDefault(x => x.DbName == fromColumnName);
@@ -181,11 +183,34 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                 if (foreignKeyColumn == null)
                     continue;
 
+                var candidateColumn = database
+                    .TableModels.SingleOrDefault(x => x.Table.DbName == tableName)?
+                    .Table.Columns.SingleOrDefault(x => x.DbName == toColumnName);
+
+                if (candidateColumn == null)
+                {
+                    options.Log?.Invoke($"Warning: Skipping foreign key '{keyName}' on table '{tableModel.Table.DbName}' because referenced column '{tableName}.{toColumnName}' was not imported.");
+                    continue;
+                }
+
                 // The only job of this method is to mark the column and add the attribute.
                 foreignKeyColumn.SetForeignKey();
-                foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumnName, keyName, ordinal));
+                foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumnName, keyName, ordinal, onUpdate, onDelete));
             }
         }
+    }
+
+    private static ReferentialAction ParseReferentialAction(string? value)
+    {
+        return value?.Trim().ToUpperInvariant() switch
+        {
+            "NO ACTION" => ReferentialAction.NoAction,
+            "RESTRICT" => ReferentialAction.Restrict,
+            "CASCADE" => ReferentialAction.Cascade,
+            "SET NULL" => ReferentialAction.SetNull,
+            "SET DEFAULT" => ReferentialAction.SetDefault,
+            _ => ReferentialAction.Unspecified
+        };
     }
 
     private TableModel ParseTable(DatabaseDefinition database, IDataLinqDataReader reader, DatabaseAccess dbAccess)

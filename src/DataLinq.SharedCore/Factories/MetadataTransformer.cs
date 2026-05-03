@@ -197,7 +197,9 @@ public class MetadataTransformer
                 var mergedRelationDefinition = new RelationDefinition(constraintName, destRelation.RelationPart.Relation.Type)
                 {
                     ForeignKey = destRelation.RelationPart.Relation.ForeignKey,
-                    CandidateKey = destRelation.RelationPart.Relation.CandidateKey
+                    CandidateKey = destRelation.RelationPart.Relation.CandidateKey,
+                    OnUpdate = destRelation.RelationPart.Relation.OnUpdate,
+                    OnDelete = destRelation.RelationPart.Relation.OnDelete
                 };
 
                 // Create the final RelationProperty using the C# name from the source

@@ -125,6 +125,11 @@ public class SqlFromSQLiteFactory : ISqlFromMetadataFactory
             };
         }
 
+        if (defaultAttr is DefaultSqlAttribute defaultSql)
+            return defaultSql.DatabaseType is DatabaseType.Default or DatabaseType.SQLite
+                ? defaultSql.Expression
+                : null;
+
         if (column.ValueProperty.EnumProperty.HasValue)
             return Convert.ToInt32(defaultAttr.Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
 

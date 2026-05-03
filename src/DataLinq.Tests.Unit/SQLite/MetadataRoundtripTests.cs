@@ -179,10 +179,51 @@ public class MetadataRoundtripTests
         await Assert.That(foreignKeyIndex.Columns.Select(x => x.DbName).SequenceEqual(["tenant_id", "order_no"])).IsTrue();
         await Assert.That(foreignKeyPart.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).SequenceEqual(["tenant_id", "order_no"])).IsTrue();
         await Assert.That(orderLine.Model.RelationProperties.Keys).Contains("OrderHeader");
-        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"tenant_id\", \"0\", 1)]");
-        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"order_no\", \"0\", 2)]");
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"tenant_id\", \"0\", 1");
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"order_no\", \"0\", 2");
         await Assert.That(generatedFile.contents).Contains("[Relation(\"order_header\", new string[] { \"tenant_id\", \"order_no\" }, \"0\")]");
         await Assert.That(generatedSql.Text).Contains("FOREIGN KEY (\"tenant_id\", \"order_no\") REFERENCES \"order_header\" (\"tenant_id\", \"order_no\")");
+        await Assert.That(differences).IsEmpty();
+    }
+
+    [Test]
+    public async Task ParseDatabase_ForeignKeyReferentialActions_RoundTrip()
+    {
+        using var source = SqliteRoundtripFixture.Create(
+            """
+            CREATE TABLE "account" (
+                "id" INTEGER PRIMARY KEY
+            );
+            """,
+            """
+            CREATE TABLE "invoice" (
+                "id" INTEGER PRIMARY KEY,
+                "account_id" INTEGER NULL,
+                CONSTRAINT "FK_invoice_account" FOREIGN KEY ("account_id") REFERENCES "account"("id") ON UPDATE CASCADE ON DELETE SET NULL
+            );
+            """);
+
+        var firstRead = source.ParseDatabase();
+        var invoice = firstRead.TableModels.Single(x => x.Table.DbName == "invoice").Table;
+        var relation = invoice.ColumnIndices
+            .SelectMany(x => x.RelationParts)
+            .Single(x => x.Type == RelationPartType.ForeignKey)
+            .Relation;
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(firstRead)
+            .Single(file => file.path == "Invoice.cs");
+        var generatedSql = new SqlFromSQLiteFactory()
+            .GetCreateTables(firstRead, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = SqliteRoundtripFixture.Create(generatedSql.Text);
+        var secondRead = generated.ParseDatabase();
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(firstRead, secondRead, DatabaseType.SQLite);
+
+        await Assert.That(relation.OnUpdate).IsEqualTo(ReferentialAction.Cascade);
+        await Assert.That(relation.OnDelete).IsEqualTo(ReferentialAction.SetNull);
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"account\", \"id\", \"0\", ReferentialAction.Cascade, ReferentialAction.SetNull)]");
+        await Assert.That(generatedSql.Text).Contains("ON UPDATE CASCADE ON DELETE SET NULL");
         await Assert.That(differences).IsEmpty();
     }
 

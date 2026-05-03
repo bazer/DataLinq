@@ -122,6 +122,23 @@ public class SchemaComparerTests
     }
 
     [Test]
+    public async Task Compare_RawProviderDefaults_CompareProviderExpression()
+    {
+        var model = CreateDatabase(("account", ["id", "payload"]));
+        var database = CreateDatabase(("account", ["id", "payload"]));
+        var modelColumn = FindColumn(model, "account", "payload");
+        var databaseColumn = FindColumn(database, "account", "payload");
+
+        modelColumn.ValueProperty.SetAttributes([new DefaultSqlAttribute(DatabaseType.MySQL, "(json_object())")]);
+        databaseColumn.ValueProperty.SetAttributes([new DefaultSqlAttribute(DatabaseType.MySQL, "(json_array())")]);
+
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.MySQL);
+
+        await Assert.That(differences.Select(x => x.Kind).ToArray())
+            .IsEquivalentTo([SchemaDifferenceKind.ColumnDefaultMismatch]);
+    }
+
+    [Test]
     public async Task Compare_Indexes_ReturnsAdditiveAndDestructiveDifferences()
     {
         var model = CreateDatabase(("account", ["id", "accounting_year", "account_number"]));
@@ -173,6 +190,64 @@ public class SchemaComparerTests
     }
 
     [Test]
+    public async Task Compare_ForeignKeyActions_ArePartOfRelationSignature()
+    {
+        var model = CreateDatabase(("account", ["id"]), ("invoice", ["account_id"]));
+        var database = CreateDatabase(("account", ["id"]), ("invoice", ["account_id"]));
+
+        AddForeignKey(
+            model,
+            "FK_invoice_account",
+            "invoice",
+            ["account_id"],
+            "account",
+            ["id"],
+            ReferentialAction.Cascade,
+            ReferentialAction.SetNull);
+        AddForeignKey(
+            database,
+            "FK_invoice_account",
+            "invoice",
+            ["account_id"],
+            "account",
+            ["id"],
+            ReferentialAction.NoAction,
+            ReferentialAction.NoAction);
+
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
+
+        await Assert.That(differences.Select(x => x.Kind).ToArray())
+            .IsEquivalentTo([SchemaDifferenceKind.MissingForeignKey, SchemaDifferenceKind.ExtraForeignKey]);
+    }
+
+    [Test]
+    public async Task Compare_Views_ComparePresenceTypeAndColumns()
+    {
+        var model = CreateDatabaseWithObjects(
+            ("account", TableType.Table, ["id"]),
+            ("current_account", TableType.View, ["id", "display_name"]),
+            ("account_lookup", TableType.View, ["id"]));
+        var database = CreateDatabaseWithObjects(
+            ("account", TableType.Table, ["id"]),
+            ("current_account", TableType.View, ["id"]),
+            ("account_lookup", TableType.Table, ["id"]),
+            ("legacy_account", TableType.View, ["id"]));
+
+        var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
+
+        await Assert.That(differences.Select(x => x.Kind).ToArray())
+            .IsEquivalentTo([
+                SchemaDifferenceKind.TableTypeMismatch,
+                SchemaDifferenceKind.MissingColumn,
+                SchemaDifferenceKind.ExtraTable
+            ]);
+        await Assert.That(differences.Single(x => x.Kind == SchemaDifferenceKind.MissingColumn).Path)
+            .IsEqualTo("current_account.display_name");
+        await Assert.That(differences.Single(x => x.Kind == SchemaDifferenceKind.ExtraTable).Message)
+            .Contains("extra view 'legacy_account'");
+    }
+
+    [Test]
     public async Task Compare_MariaDbChecksAndComments_UsesProviderSpecificMetadata()
     {
         var model = CreateDatabase(("account", ["id"]));
@@ -210,12 +285,19 @@ public class SchemaComparerTests
 
     private static DatabaseDefinition CreateDatabase(params (string tableName, string[] columns)[] tables)
     {
+        return CreateDatabaseWithObjects(tables.Select(table => (table.tableName, TableType.Table, table.columns)).ToArray());
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithObjects(params (string objectName, TableType type, string[] columns)[] objects)
+    {
         var database = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "DataLinq.Tests", ModelCsType.Class));
-        var tableModels = tables.Select(table =>
+        var tableModels = objects.Select(table =>
         {
-            var model = new ModelDefinition(new CsTypeDeclaration(ToCsName(table.tableName), "DataLinq.Tests", ModelCsType.Class));
-            var tableDefinition = new TableDefinition(table.tableName);
-            var tableModel = new TableModel(ToCsName(table.tableName), database, model, tableDefinition);
+            var model = new ModelDefinition(new CsTypeDeclaration(ToCsName(table.objectName), "DataLinq.Tests", ModelCsType.Class));
+            var tableDefinition = table.type == TableType.View
+                ? new ViewDefinition(table.objectName)
+                : new TableDefinition(table.objectName);
+            var tableModel = new TableModel(ToCsName(table.objectName), database, model, tableDefinition);
             var columns = table.columns.Select((columnName, index) =>
             {
                 var property = new ValueProperty(ToCsName(columnName), new CsTypeDeclaration(typeof(int)), model, []);
@@ -249,7 +331,9 @@ public class SchemaComparerTests
         string foreignKeyTableName,
         string[] foreignKeyColumns,
         string candidateKeyTableName,
-        string[] candidateKeyColumns)
+        string[] candidateKeyColumns,
+        ReferentialAction onUpdate = ReferentialAction.Unspecified,
+        ReferentialAction onDelete = ReferentialAction.Unspecified)
     {
         var foreignKeyTable = FindTable(database, foreignKeyTableName);
         var candidateKeyTable = FindTable(database, candidateKeyTableName);
@@ -263,7 +347,11 @@ public class SchemaComparerTests
             IndexCharacteristic.PrimaryKey,
             IndexType.BTREE,
             candidateKeyColumns.Select(column => FindColumn(database, candidateKeyTableName, column)).ToList());
-        var relation = new RelationDefinition(constraintName, RelationType.OneToMany);
+        var relation = new RelationDefinition(constraintName, RelationType.OneToMany)
+        {
+            OnUpdate = onUpdate,
+            OnDelete = onDelete
+        };
         var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, candidateKeyTable.Model.CsType.Name);
         var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, foreignKeyTable.Model.CsType.Name);
 

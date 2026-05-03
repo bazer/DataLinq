@@ -35,6 +35,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Metadata and generation
 
 - `metadata-and-generation/Metadata Architecture.md`
+- `metadata-and-generation/Scalar Converter Support.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 
 ### Performance
@@ -54,6 +55,8 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
 - `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/README.md`
 - `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
+- `roadmap-implementation/phase-4b-provider-fidelity-hardening/README.md`
+- `roadmap-implementation/phase-4b-provider-fidelity-hardening/Implementation Plan.md`
 - `roadmap-implementation/phase-5-product-trust-features/README.md`
 - `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
 - `roadmap-implementation/phase-5-product-trust-features/Snapshot Migration Design.md`
@@ -97,12 +100,13 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ## Current Stage Audit
 
-As of the Phase 7 completion update on 2026-05-03:
+As of the Phase 4B completion update on 2026-05-03:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
 - Phase 3 query/runtime hot-path optimization is implemented; the honest performance claim is lower allocation pressure on measured repeated-query paths.
 - Phase 4 provider metadata roundtrip fidelity is implemented for the validation support boundary: the matrix is explicit, ordinary indexes/relations/identifiers/checks/comments are covered where supported, and unsupported provider details are documented instead of implied.
+- Phase 4B provider fidelity hardening is implemented: referential actions, MySQL/MariaDB column ordering, raw provider defaults, generated-column guardrails, advanced index guardrails, and view validation are now covered at their documented boundaries.
 - Phase 5 product-trust work is implemented for the intended validation/diff/snapshot scope: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
 - Phase 6 LINQ translation coverage and query composition is implemented: the support audit, chained `Where(...)` fix, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics have landed.
 - Phase 7 LINQ feature expansion is implemented: scalar aggregates, computed projections, nullable predicate polish, explicit joins, and relation-aware predicate translation have landed within their documented support boundaries.

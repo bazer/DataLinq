@@ -4,6 +4,7 @@ public enum SchemaDifferenceKind
 {
     MissingTable,
     ExtraTable,
+    TableTypeMismatch,
     MissingColumn,
     ExtraColumn,
     ColumnTypeMismatch,

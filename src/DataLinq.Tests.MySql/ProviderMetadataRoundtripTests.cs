@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
@@ -378,10 +380,175 @@ public class ProviderMetadataRoundtripTests
         await Assert.That(foreignKeyIndex.Columns.Select(x => x.DbName).SequenceEqual(["tenant_id", "order_no"])).IsTrue();
         await Assert.That(foreignKeyPart.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).SequenceEqual(["tenant_id", "order_no"])).IsTrue();
         await Assert.That(orderLine.Model.RelationProperties.Keys).Contains("OrderHeader");
-        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"tenant_id\", \"FK_order_line_header\", 1)]");
-        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"order_no\", \"FK_order_line_header\", 2)]");
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"tenant_id\", \"FK_order_line_header\", 1");
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"order_header\", \"order_no\", \"FK_order_line_header\", 2");
         await Assert.That(generatedFile.contents).Contains("[Relation(\"order_header\", new string[] { \"tenant_id\", \"order_no\" }, \"FK_order_line_header\")]");
         await Assert.That(generatedSql.Text).Contains("FOREIGN KEY (`tenant_id`, `order_no`) REFERENCES `order_header` (`tenant_id`, `order_no`)");
+        await Assert.That(differences).IsEmpty();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_ForeignKeyReferentialActions_RoundTrip(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_ForeignKeyReferentialActions_RoundTrip),
+            """
+            CREATE TABLE `account` (
+                `id` INT PRIMARY KEY
+            );
+            """,
+            """
+            CREATE TABLE `invoice` (
+                `id` INT PRIMARY KEY,
+                `account_id` INT NULL,
+                CONSTRAINT `FK_invoice_account` FOREIGN KEY (`account_id`) REFERENCES `account`(`id`) ON UPDATE CASCADE ON DELETE SET NULL
+            );
+            """);
+
+        var firstRead = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var invoice = firstRead.TableModels.Single(x => x.Table.DbName == "invoice").Table;
+        var relation = invoice.ColumnIndices
+            .SelectMany(x => x.RelationParts)
+            .Single(x => x.Type == RelationPartType.ForeignKey)
+            .Relation;
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(firstRead)
+            .Single(file => file.path == "Invoice.cs");
+        var generatedSql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(provider.DatabaseType)
+            .GetCreateTables(firstRead, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = ServerSchemaDatabase.Create(
+            provider,
+            $"{nameof(ParseDatabase_ForeignKeyReferentialActions_RoundTrip)}_Generated",
+            generatedSql.Text);
+        var secondRead = generated.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(firstRead, secondRead, provider.DatabaseType);
+
+        await Assert.That(relation.OnUpdate).IsEqualTo(ReferentialAction.Cascade);
+        await Assert.That(relation.OnDelete).IsEqualTo(ReferentialAction.SetNull);
+        await Assert.That(generatedFile.contents).Contains("[ForeignKey(\"account\", \"id\", \"FK_invoice_account\", ReferentialAction.Cascade, ReferentialAction.SetNull)]");
+        await Assert.That(generatedSql.Text).Contains("ON UPDATE CASCADE ON DELETE SET NULL");
+        await Assert.That(differences).IsEmpty();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_UnsupportedPrefixIndexesWarnAndSkip(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_UnsupportedPrefixIndexesWarnAndSkip),
+            """
+            CREATE TABLE `prefix_indexed_account` (
+                `id` INT PRIMARY KEY,
+                `display_name` VARCHAR(64) NOT NULL,
+                INDEX `idx_prefix_display_name` (`display_name`(8))
+            );
+            """);
+        var warnings = new List<string>();
+
+        var database = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true, Log = warnings.Add });
+        var table = database.TableModels.Single(x => x.Table.DbName == "prefix_indexed_account").Table;
+
+        await Assert.That(table.ColumnIndices.Any(x => x.Name == "idx_prefix_display_name")).IsFalse();
+        await Assert.That(warnings.Any(x =>
+            x.Contains($"Skipping unsupported {provider.DatabaseType} prefix-length index 'idx_prefix_display_name'", System.StringComparison.Ordinal)))
+            .IsTrue();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_GeneratedColumnsWarnAndSkip(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_GeneratedColumnsWarnAndSkip),
+            """
+            CREATE TABLE `generated_account` (
+                `id` INT PRIMARY KEY,
+                `first_name` VARCHAR(32) NOT NULL,
+                `last_name` VARCHAR(32) NOT NULL,
+                `full_name` VARCHAR(65) GENERATED ALWAYS AS (CONCAT(`first_name`, ' ', `last_name`)) STORED
+            );
+            """);
+        var warnings = new List<string>();
+
+        var database = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true, Log = warnings.Add });
+        var table = database.TableModels.Single(x => x.Table.DbName == "generated_account").Table;
+
+        await Assert.That(table.Columns.Any(x => x.DbName == "full_name")).IsFalse();
+        await Assert.That(warnings.Any(x =>
+            x.Contains($"Skipping unsupported {provider.DatabaseType} generated column 'generated_account.full_name'", System.StringComparison.Ordinal)))
+            .IsTrue();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_RawExpressionDefaults_RoundTripAsProviderSql(TestProviderDescriptor provider)
+    {
+        using var schema = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_RawExpressionDefaults_RoundTripAsProviderSql),
+            """
+            CREATE TABLE `raw_default_account` (
+                `id` INT PRIMARY KEY,
+                `counter` INT NOT NULL DEFAULT (0 + 1)
+            );
+            """);
+
+        var firstRead = schema.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var counter = firstRead.TableModels
+            .Single(x => x.Table.DbName == "raw_default_account")
+            .Table.Columns.Single(x => x.DbName == "counter");
+        var defaultSql = (DefaultSqlAttribute)counter.ValueProperty.GetDefaultAttribute()!;
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(firstRead)
+            .Single(file => file.path == "RawDefaultAccount.cs");
+        var generatedSql = SqlFromMetadataFactory
+            .GetFactoryFromDatabaseType(provider.DatabaseType)
+            .GetCreateTables(firstRead, foreignKeyRestrict: false)
+            .ValueOrException();
+
+        using var generated = ServerSchemaDatabase.Create(
+            provider,
+            $"{nameof(ParseDatabase_RawExpressionDefaults_RoundTripAsProviderSql)}_Generated",
+            generatedSql.Text);
+        var secondRead = generated.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var differences = MetadataRoundtripComparison.CompareSupportedSubset(firstRead, secondRead, provider.DatabaseType);
+
+        await Assert.That(defaultSql.DatabaseType).IsEqualTo(provider.DatabaseType);
+        await Assert.That(defaultSql.Expression).Contains("0 + 1");
+        await Assert.That(generatedFile.contents).Contains($"[DefaultSql(DatabaseType.{provider.DatabaseType},");
+        await Assert.That(generatedSql.Text).Contains("DEFAULT");
+        await Assert.That(generatedSql.Text).Contains("0 + 1");
         await Assert.That(differences).IsEmpty();
     }
 
