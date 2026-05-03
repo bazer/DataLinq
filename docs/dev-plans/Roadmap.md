@@ -127,6 +127,23 @@ Key related plans:
 - `providers-and-features/Provider Metadata Roundtrip Fidelity.md`
 - `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
 
+### Phase 4B: Provider Fidelity Hardening
+
+Status: implemented as a focused follow-up to the Phase 4 matrix review.
+
+Why this phase exists:
+
+- the Phase 4 matrix still has several practical partials that are cheap enough to fix before moving on
+- referential actions are expected DDL behavior and should not disappear during metadata roundtrips
+- unsupported provider index and generated-column shapes should be explicit warnings, not misleading metadata
+- raw provider default expressions need a provider-scoped representation rather than string-literal abuse
+- schema validation should include views at the safe presence and column boundary
+- MySQL/MariaDB column ordering should use provider ordinals, not incidental information-schema query order
+
+Execution plan:
+
+- `roadmap-implementation/phase-4b-provider-fidelity-hardening/Implementation Plan.md`
+
 ### Phase 5: Product Trust Features
 
 Status: implemented for validation, conservative diffing, and snapshot scoping; full versioned migration execution is deferred with a concrete snapshot design.
@@ -149,23 +166,6 @@ Key related plans:
 - `providers-and-features/Migrations and Validation.md`
 - `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
 - `roadmap-implementation/phase-5-product-trust-features/Snapshot Migration Design.md`
-
-### Phase 4B: Provider Fidelity Hardening
-
-Status: implemented as a focused follow-up to the Phase 4 matrix review.
-
-Why this phase exists:
-
-- the Phase 4 matrix still has several practical partials that are cheap enough to fix before moving on
-- referential actions are expected DDL behavior and should not disappear during metadata roundtrips
-- unsupported provider index and generated-column shapes should be explicit warnings, not misleading metadata
-- raw provider default expressions need a provider-scoped representation rather than string-literal abuse
-- schema validation should include views at the safe presence and column boundary
-- MySQL/MariaDB column ordering should use provider ordinals, not incidental information-schema query order
-
-Execution plan:
-
-- `roadmap-implementation/phase-4b-provider-fidelity-hardening/Implementation Plan.md`
 
 ### Phase 6: LINQ Translation Coverage and Query Composition
 
