@@ -2,9 +2,11 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 7 Implementation Plan: LINQ Feature Expansion
 
+**Status:** Implemented.
+
 ## Purpose
 
-Phase 6 made the existing LINQ translator support boundary explicit, fixed correctness gaps, and added `QueryTranslationException` diagnostics. Phase 7 should now add the next practical query features users will expect from a small ORM without turning this into a broad provider rewrite.
+Phase 6 made the existing LINQ translator support boundary explicit, fixed correctness gaps, and added `QueryTranslationException` diagnostics. Phase 7 adds the next practical query features users will expect from a small ORM without turning this into a broad provider rewrite.
 
 ## Goals
 

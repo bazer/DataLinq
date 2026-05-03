@@ -24,19 +24,19 @@ What are we actually going to do, in what order, and how will we know it worked?
 | Phase 4: Provider Metadata Roundtrip Fidelity | Implemented for the validation support boundary | `phase-4-provider-metadata-roundtrip-fidelity/` |
 | Phase 5: Product Trust Features | Implemented for validation/diff/snapshot scope; full migration execution deferred | `phase-5-product-trust-features/` |
 | Phase 6: LINQ Translation Coverage and Query Composition | Implemented | `phase-6-linq-translation-coverage-and-query-composition/` |
-| Phase 7: LINQ Feature Expansion | Planned; implementation plan created | `phase-7-linq-feature-expansion/` |
+| Phase 7: LINQ Feature Expansion | Implemented | `phase-7-linq-feature-expansion/` |
 
 ## Current Roadmap Position
 
-As of the Phase 7 planning update on 2026-05-03, the active roadmap frontier is Phase 7.
+As of the Phase 7 completion update on 2026-05-03, the active roadmap frontier is Phase 8 unless full migration execution becomes the immediate product priority.
 
 Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. Full versioned migration execution is not a remaining Phase 5 cleanup task; it is a separate future product surface.
 
-Unless migration execution becomes the immediate product priority, the next implementation work should be Phase 7 LINQ feature expansion.
+Unless migration execution becomes the immediate product priority, the next implementation work should be Phase 8 Native AOT and WebAssembly readiness.
 
-The Phase 6 plan has completed the support-matrix audit, chained `Where(...)` correctness, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics.
+The Phase 6 plan completed the support-matrix audit, chained `Where(...)` correctness, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics.
 
-The Phase 7 plan now captures scalar aggregates, projection expansion, nullable predicate polish, a narrow LINQ `Join(...)` baseline, and relation-aware predicate translation as the next query-engine expansion target.
+The Phase 7 plan completed scalar aggregates, projection expansion, nullable predicate polish, a narrow LINQ `Join(...)` baseline, and relation-aware predicate translation.
 
 For the consolidated checkpoint, see [Phase 4 and 5 Status Review](Phase%204%20and%205%20Status%20Review.md).
 

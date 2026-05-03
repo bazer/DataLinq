@@ -152,7 +152,7 @@ Key related plans:
 
 ### Phase 6: LINQ Translation Coverage and Query Composition
 
-Status: planned; implementation plan created.
+Status: implemented.
 
 Goals:
 
@@ -176,7 +176,7 @@ Key related plans:
 
 ### Phase 7: LINQ Feature Expansion
 
-Status: planned; implementation plan created.
+Status: implemented.
 
 Goals:
 
@@ -213,7 +213,7 @@ Why here:
 
 - Phase 2 created some of the generator hooks this work needs, but it did not eliminate every AOT-hostile path
 - Phase 3 made the query/runtime path cheaper first, so the AOT/WASM work starts from the cleaner runtime shape
-- Phase 7 should clarify projection and relation-query execution paths before AOT locks down more runtime behavior
+- Phase 7 clarified projection and relation-query execution paths before AOT locks down more runtime behavior
 - platform compatibility is concrete enough to deserve a real phase, but not urgent enough to interrupt the current hot-path work
 
 Key related plans:
@@ -321,9 +321,11 @@ Phase 5 is now closed for roadmap purposes as the product-trust groundwork phase
 
 The final closeout pass confirmed the generators, unit suite, SQLite compliance lane, and MariaDB validation/provider lanes.
 
-Phase 6 LINQ translation coverage and query composition is now implemented for its planned support boundary: support-matrix audit, chained `Where(...)`, projected local `Contains(...)`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
+Phase 6 LINQ translation coverage and query composition is implemented for its planned support boundary: support-matrix audit, chained `Where(...)`, projected local `Contains(...)`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
 
-The next roadmap phase should therefore be Phase 7: LINQ feature expansion, unless we deliberately pause to prioritize full migration execution.
+Phase 7 LINQ feature expansion is implemented for its planned support boundary: scalar aggregates, computed post-materialization projections, nullable predicate polish, a narrow explicit `Join(...)` baseline, and one-to-many relation existence predicates.
+
+The next roadmap phase should therefore be Phase 8: Native AOT and WebAssembly readiness, unless we deliberately pause to prioritize full migration execution.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

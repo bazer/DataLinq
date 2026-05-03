@@ -468,6 +468,9 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
     private static bool IsRelationPredicateSource(Expression? expression, MainFromClause? childQuerySource, ParameterExpression? childParameter)
     {
+        if (expression is null)
+            return false;
+
         expression = UnwrapConvert(expression);
 
         if (expression is QuerySourceReferenceExpression querySource && childQuerySource is not null)
@@ -495,11 +498,13 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
     private static bool ContainsQuerySource(Expression? expression)
     {
+        if (expression is null)
+            return false;
+
         expression = UnwrapConvert(expression);
 
         return expression switch
         {
-            null => false,
             QuerySourceReferenceExpression => true,
             SubQueryExpression => true,
             MemberExpression memberExpression => ContainsQuerySource(memberExpression.Expression),
@@ -559,7 +564,7 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
     private static object? NormalizeRelationPredicateValue(ColumnDefinition column, object? value)
     {
-        var columnType = Nullable.GetUnderlyingType(column.ValueProperty.CsType.Type) ?? column.ValueProperty.CsType.Type;
+        var columnType = GetNonNullableColumnType(column);
         if (columnType == typeof(char))
             return NormalizeCharComparisonValue(value);
 
@@ -707,11 +712,19 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
     private static ValueOperand NormalizeValueOperandForColumnType(ColumnDefinition column, ValueOperand valueOperand)
     {
-        var columnType = Nullable.GetUnderlyingType(column.ValueProperty.CsType.Type) ?? column.ValueProperty.CsType.Type;
+        var columnType = GetNonNullableColumnType(column);
         if (columnType != typeof(char))
             return valueOperand;
 
         return Operand.Value(valueOperand.Values.Select(NormalizeCharComparisonValue).ToArray());
+    }
+
+    private static Type GetNonNullableColumnType(ColumnDefinition column)
+    {
+        var columnType = column.ValueProperty.CsType.Type
+            ?? throw new QueryTranslationException($"Column '{column.DbName}' has no CLR type metadata.");
+
+        return Nullable.GetUnderlyingType(columnType) ?? columnType;
     }
 
     private static object? NormalizeCharComparisonValue(object? value) => value switch
