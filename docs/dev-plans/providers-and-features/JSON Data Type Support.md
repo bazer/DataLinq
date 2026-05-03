@@ -5,6 +5,8 @@
 **Status:** Draft
 **Goal:** Treat JSON columns not just as "strings," but as structured, queryable data types within the DataLinq ecosystem. This includes typed mapping to C# POCOs, deep LINQ querying, and efficient serialization strategies.
 
+**Related foundation:** Whole-value JSON serialization/deserialization should build on [Scalar Converter Support](../metadata-and-generation/Scalar%20Converter%20Support.md). This document owns provider-native JSON path querying, JSON indexing semantics, and partial JSON update behavior.
+
 ---
 
 ## 1. The Data Model (Storage & Mapping)
