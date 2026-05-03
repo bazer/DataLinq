@@ -4,6 +4,8 @@ This page is intentionally conservative.
 
 It describes query shapes that are clearly exercised by the test suite today. If a LINQ shape is not listed here, do not assume it is supported just because it looks reasonable.
 
+For the detailed maintainer evidence behind these claims, see the [LINQ Translation Support Matrix](support-matrices/LINQ%20Translation%20Support%20Matrix.md).
+
 ## Core Query Operations
 
 The following operations are covered by tests:

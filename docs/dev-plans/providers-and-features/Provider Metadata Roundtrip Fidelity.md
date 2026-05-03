@@ -48,7 +48,7 @@ The current tests already cover useful basics:
 - MySQL/MariaDB default parsing in `src/DataLinq.Tests.MySql/MetadataFromSqlFactoryDefaultParsingTests.cs`
 - reserved keyword mutation tests in `src/DataLinq.Tests.MySql/ReservedKeywordMutationTests.cs`
 
-Those tests have since grown into the Phase 4 metadata roundtrip conformance suite for the supported subset. The authoritative current matrix is [Provider Metadata Support Matrix](../roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Provider%20Metadata%20Support%20Matrix.md).
+Those tests have since grown into the Phase 4 metadata roundtrip conformance suite for the supported subset. The authoritative current matrix is [Provider Metadata Support Matrix](../../support-matrices/Provider%20Metadata%20Support%20Matrix.md).
 
 ## Current Implementation Status
 
@@ -115,7 +115,7 @@ The sections below preserve the original audit rationale and design choices. Whe
 
 ## Provider Feature Matrix
 
-This matrix was the first artifact this phase needed to make precise. The authoritative current matrix now lives in [Provider Metadata Support Matrix](../roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Provider%20Metadata%20Support%20Matrix.md). The entries below are retained as historical audit context, not final support claims.
+This matrix was the first artifact this phase needed to make precise. The authoritative current matrix now lives in [Provider Metadata Support Matrix](../../support-matrices/Provider%20Metadata%20Support%20Matrix.md). The entries below are retained as historical audit context, not final support claims.
 
 | Feature | MySQL | MariaDB | SQLite | Desired stance |
 | --- | --- | --- | --- | --- |

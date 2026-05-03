@@ -14,6 +14,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Cross-cutting
 
 - `Roadmap.md`
+- current support matrices live outside this folder in `../support-matrices/`
 
 ### Architecture
 
@@ -53,7 +54,6 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
 - `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/README.md`
 - `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
-- `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Provider Metadata Support Matrix.md`
 - `roadmap-implementation/phase-5-product-trust-features/README.md`
 - `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
 - `roadmap-implementation/phase-5-product-trust-features/Snapshot Migration Design.md`

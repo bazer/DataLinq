@@ -176,6 +176,8 @@ The active target matrix still lives in:
 test-infra/podman/matrix.json
 ```
 
+The public summary of aliases, server targets, and profiles is the [Test Provider Matrix](../support-matrices/Test%20Provider%20Matrix.md).
+
 Important environment-variable overrides include:
 
 - `DATALINQ_TEST_CONTAINER_PREFIX`

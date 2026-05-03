@@ -26,7 +26,7 @@ That distinction matters. Schema validation compares the database shape DataLinq
 
 Done:
 
-- provider metadata support matrix exists and is linked from the phase
+- provider metadata support matrix exists in the central support-matrices folder and is linked from the phase
 - create-read-generate-create-read roundtrip tests exist for the supported subset
 - ordinary simple, unique, and composite indexes preserve ordered database column identity
 - composite foreign keys are grouped into ordered relation metadata and emitted as one provider constraint
@@ -46,7 +46,7 @@ Deferred:
 ## Documents
 
 - `Implementation Plan.md`
-- `Provider Metadata Support Matrix.md`
+- [`Provider Metadata Support Matrix.md`](../../../support-matrices/Provider%20Metadata%20Support%20Matrix.md)
 
 ## Related Plans
 

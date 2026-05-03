@@ -22,6 +22,15 @@
       href: Telemetry Integration Example.md
     - name: Supported LINQ Queries
       href: Supported LINQ Queries.md
+    - name: Support Matrices
+      href: support-matrices/index.md
+      items:
+        - name: LINQ Translation Support Matrix
+          href: support-matrices/LINQ Translation Support Matrix.md
+        - name: Provider Metadata Support Matrix
+          href: support-matrices/Provider Metadata Support Matrix.md
+        - name: Test Provider Matrix
+          href: support-matrices/Test Provider Matrix.md
     - name: Transactions
       href: Transactions.md
     - name: Attributes and Model Definitions

@@ -43,7 +43,7 @@ By the end of this phase, DataLinq should be able to answer:
 4. Do relation and index edge cases behave deterministically?
 5. Can the schema validation phase consume this support boundary without guessing?
 
-Current answer: yes, for the supported SQLite/MySQL/MariaDB subset recorded in [Provider Metadata Support Matrix.md](Provider%20Metadata%20Support%20Matrix.md). Phase 5 now consumes that boundary through `SchemaValidationCapabilities` and provider verification tests.
+Current answer: yes, for the supported SQLite/MySQL/MariaDB subset recorded in [Provider Metadata Support Matrix.md](../../../support-matrices/Provider%20Metadata%20Support%20Matrix.md). Phase 5 now consumes that boundary through `SchemaValidationCapabilities` and provider verification tests.
 
 ## Workstream A: Provider Support Matrix
 
@@ -52,7 +52,7 @@ Deliverables:
 - feature matrix for tables, columns, primary keys, foreign keys, indexes, defaults, checks, comments, identifiers, views, and provider-specific options
 - support labels: supported, partially supported, unsupported, and unknown
 - links or notes pointing to implementation files and tests
-- initial artifact: [Provider Metadata Support Matrix.md](Provider%20Metadata%20Support%20Matrix.md)
+- initial artifact: [Provider Metadata Support Matrix.md](../../../support-matrices/Provider%20Metadata%20Support%20Matrix.md)
 
 Tasks:
 

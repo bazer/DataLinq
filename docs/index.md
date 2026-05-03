@@ -57,6 +57,7 @@ Once the basics are in place, move into the deeper working docs:
 - [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md)
 - [Transactions](Transactions.md)
 - [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
+- [Support Matrices](support-matrices/index.md)
 
 ## Documentation Areas
 
@@ -74,6 +75,8 @@ If you already know what you need, jump directly to the major sections:
 - [Caching and Mutation](Caching%20and%20Mutation.md)
 - [Diagnostics and Metrics](Diagnostics%20and%20Metrics.md)
 - [Transactions](Transactions.md)
+- [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
+- [Support Matrices](support-matrices/index.md)
 - [Attributes and Model Definitions](Attributes%20and%20Model%20Definitions.md)
 - [Troubleshooting](Troubleshooting.md)
 

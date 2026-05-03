@@ -105,4 +105,4 @@ The translator's real job is narrow and useful:
 - project entities, scalar members, and simple anonymous shapes
 - fail loudly when the expression shape is outside the implemented surface
 
-If you want the exact supported surface, the [Supported LINQ Queries](Supported%20LINQ%20Queries.md) page is the better source than this internals overview.
+If you want the exact supported surface, the [Supported LINQ Queries](Supported%20LINQ%20Queries.md) page is the better source than this internals overview. If you need the test-backed maintenance evidence, use the [LINQ Translation Support Matrix](support-matrices/LINQ%20Translation%20Support%20Matrix.md).

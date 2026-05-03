@@ -1,8 +1,8 @@
-> [!WARNING]
-> This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
+> [!NOTE]
+> This matrix is the current metadata-fidelity support boundary. It is not an exhaustive DDL compatibility promise. If a provider feature is not listed as supported and backed by tests, treat it as unsupported.
 # Provider Metadata Support Matrix
 
-**Status:** Phase 4 implemented for the Phase 5 validation support boundary.
+**Status:** Current provider metadata matrix; moved from the Phase 4 roadmap folder after the Phase 5 validation boundary consumed it.
 
 This matrix records the metadata subset DataLinq preserves through provider roundtrips for MySQL, MariaDB, and SQLite, plus the provider details that remain outside the current contract.
 

@@ -228,6 +228,8 @@ datalinq validate [options]
 **Important:**  
 `validate` is read-only. It reports drift; it does not generate migration scripts or apply schema changes.
 
+For the provider metadata boundary behind validation, see the [Provider Metadata Support Matrix](support-matrices/Provider%20Metadata%20Support%20Matrix.md).
+
 ---
 
 ### 5. diff
@@ -265,6 +267,8 @@ datalinq diff [options]
 - executable SQL is generated for missing tables, supported missing columns, and supported missing simple or unique indexes
 - destructive, ambiguous, and unsupported changes are emitted as SQL comments with manual-review text
 - primary-key column additions are commented because they usually require provider-specific table rebuild or migration handling
+
+For the metadata subset that `diff` can reason about, see the [Provider Metadata Support Matrix](support-matrices/Provider%20Metadata%20Support%20Matrix.md).
 
 ---
 

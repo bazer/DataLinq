@@ -133,6 +133,8 @@ The test CLI has three useful aliases:
 - `all`
   Runs every supported target: SQLite, MySQL 8.4, MariaDB 10.11, MariaDB 11.4, and MariaDB 11.8.
 
+The central target inventory is the [Test Provider Matrix](../support-matrices/Test%20Provider%20Matrix.md).
+
 List the suites, aliases, targets, and current runtime state:
 
 ```powershell

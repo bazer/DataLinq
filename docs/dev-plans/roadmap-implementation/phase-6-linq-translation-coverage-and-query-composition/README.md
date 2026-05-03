@@ -53,7 +53,7 @@ Relevant docs:
 ## Documents
 
 - `Implementation Plan.md`
-- `Support Matrix.md`
+- [`LINQ Translation Support Matrix.md`](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 
 ## Related Plans
 
