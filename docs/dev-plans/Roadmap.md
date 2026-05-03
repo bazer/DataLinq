@@ -257,6 +257,7 @@ Why not first:
 
 Key related plans:
 
+- `architecture/Distributed Cache Coordination and CDC.md`
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
 
