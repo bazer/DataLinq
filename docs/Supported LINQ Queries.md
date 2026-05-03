@@ -10,7 +10,10 @@ The following operations are covered by tests:
 
 - `ToList()`
 - `Count()`
+- `Count(predicate)`
 - `Any()`
+- `Any(predicate)`
+- `Where(...).Any()`
 - `Single(...)`
 - `SingleOrDefault(...)`
 - `First(...)`
@@ -61,6 +64,11 @@ The test suite covers `Contains(...)` against in-memory collections used as an `
 - arrays
 - `List<T>`
 - `HashSet<T>`
+- the tested `ReadOnlySpan<T>` shape
+
+Empty local `Contains(...)` predicates are also covered in direct, negated, `AND`, and `OR` compositions. The translator treats those as fixed true/false conditions instead of emitting invalid `IN ()` SQL.
+
+Empty local `Any(predicate)` has similar fixed-condition coverage. That does not mean arbitrary non-empty object-list `Any(predicate)` is broadly supported; phase 6 tracks that separately.
 
 ### String members
 
@@ -100,6 +108,8 @@ The test suite covers nullable-boolean comparisons such as:
 - `x.IsDeleted == null`
 - `x.IsDeleted != true`
 - `x.IsDeleted != false`
+
+It also covers guarded nullable value member access in selected date/time predicates, such as `x.last_login.HasValue && x.last_login.Value.Hour == hour`. Treat that as tested guard-plus-member translation, not as a promise that every nullable expression shape can become SQL.
 
 ## Supported Projection Shapes
 
@@ -182,5 +192,7 @@ The current docs do not claim support for these because this pass has not verifi
 - general-purpose `Join(...)`
 - aggregate operators such as `Sum(...)`, `Min(...)`, `Max(...)`, or `Average(...)`
 - broader client-side method translation beyond the string members listed above
+- projected local collection pipelines such as `ids.Select(x => x.Id).Contains(row.Id)` unless materialized first
+- non-empty local object-list predicates such as `items.Any(item => item.Id == row.Id)`
 
 That does not automatically mean they are impossible. It means the docs should not lie about them.

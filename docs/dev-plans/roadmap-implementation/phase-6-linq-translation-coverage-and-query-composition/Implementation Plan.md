@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 6 Implementation Plan: LINQ Translation Coverage and Query Composition
 
-**Status:** Planned.
+**Status:** In progress. Workstream A has a support-matrix baseline in [`Support Matrix.md`](Support%20Matrix.md).
 
 ## Purpose
 
@@ -148,8 +148,8 @@ Tasks:
 
 Expected output:
 
-- a support matrix section or child document
-- a short list of first regression tests
+- a support matrix section or child document: [`Support Matrix.md`](Support%20Matrix.md)
+- a short list of first regression tests: recorded in [`Support Matrix.md`](Support%20Matrix.md#first-regression-tests-to-add)
 - no production behavior changes yet
 
 ## Workstream B: Chained `Where(...)` Correctness
