@@ -55,7 +55,7 @@ Do not look at `Join.cs`, `Insert.cs`, or `Update.cs` and conclude that LINQ `Jo
 
 **WhereVisitor.cs**
 - Traverses the expression tree representing a `Where` clause.
-- Handles comparisons, logical composition, string methods, list-based `Contains`, projected local collection extraction, and a narrow set of `Any(...)`-style cases.
+- Handles comparisons, logical composition, string methods, list-based `Contains`, projected local collection extraction, and local `Any(predicate)` equality-membership cases that can become `IN` predicates.
 - Unsupported methods fail with `NotImplementedException` instead of quietly degrading into nonsense.
 
 ## 5. Building WHERE Clauses

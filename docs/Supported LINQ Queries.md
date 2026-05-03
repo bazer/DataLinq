@@ -70,7 +70,13 @@ The test suite covers `Contains(...)` against in-memory collections used as an `
 
 Empty local `Contains(...)` predicates are also covered in direct, negated, `AND`, and `OR` compositions. The translator treats those as fixed true/false conditions instead of emitting invalid `IN ()` SQL.
 
-Empty local `Any(predicate)` has similar fixed-condition coverage. That does not mean arbitrary non-empty object-list `Any(predicate)` is broadly supported; phase 6 tracks that separately.
+Local `Any(predicate)` over in-memory collections is covered for equality-membership shapes that can safely become `IN (...)` or `NOT IN (...)`:
+
+- `ids.Any(id => id == row.Id)`
+- `items.Any(item => item.Id == row.Id)`
+- reversed equality such as `items.Any(item => row.Id == item.Id)`
+
+Empty local `Any(predicate)` has similar fixed-condition coverage. Compound local predicates are still not supported for non-empty collections; write those as an explicit local projection plus `Contains(...)` when the intent is membership.
 
 ### String members
 
@@ -194,6 +200,5 @@ The current docs do not claim support for these because this pass has not verifi
 - general-purpose `Join(...)`
 - aggregate operators such as `Sum(...)`, `Min(...)`, `Max(...)`, or `Average(...)`
 - broader client-side method translation beyond the string members listed above
-- non-empty local object-list predicates such as `items.Any(item => item.Id == row.Id)`
 
 That does not automatically mean they are impossible. It means the docs should not lie about them.

@@ -32,9 +32,9 @@ The evidence column intentionally points at test files instead of implementation
 | Multiple collection predicates | combined local collection membership with `&&`, additional string predicates, and range predicates | `EmployeesQueryBehaviorTests.cs` | Useful coverage for Workstream D regression safety. |
 | Empty local `Contains` | false fixed condition, negated true condition, composition with `AND` and `OR` | `Translation/EmployeesContainsTranslationTests.cs`, `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` | Behavior exists, but Workstream E should document a truth table and add any missing nested cases. |
 | Constant-item `Contains` | constant true and constant false predicates collapse to fixed conditions | `Translation/EmployeesContainsTranslationTests.cs` | Public docs did not call this out. This is implementation behavior worth preserving. |
-| Empty local `Any(predicate)` | false fixed condition, negated true condition, composition with `AND` and `OR`; complex predicate is ignored when the sequence is empty | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` | Public docs were vague. Non-empty local `Any(predicate)` support is still narrow and should not be documented broadly yet. |
+| Empty local `Any(predicate)` | false fixed condition, negated true condition, composition with `AND` and `OR`; complex predicate is ignored when the sequence is empty | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` | Public docs now distinguish empty fixed-condition behavior from non-empty equality membership. Workstream E still owns the explicit truth table. |
 | Projected local `Contains` | `localObjects.Select(x => x.Value).Contains(row.NullableColumn.Value)` and empty projected local sequences | `Translation/EmployeesContainsTranslationTests.cs` | Workstream C added guarded local sequence extraction and regression coverage. This is now tested for safe local projections that do not reference the database query source. |
-| Local object-list `Any(predicate)` | Empty-list behavior is proven; non-empty object-member equality is not proven | `Translation/EmployeesEmptyListQueryTests.cs` | Phase 6 Workstream D target. Do not document non-empty object-list support as shipped yet. |
+| Local object-list `Any(predicate)` | scalar item equality, object-member equality, reversed equality, nullable wrapper normalization, and negated `NOT IN` membership | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesLocalAnyPredicateTests.cs` | Workstream D covers equality-membership shapes only. Compound non-empty local predicates remain unsupported. |
 
 ## Member and Method Translation
 
@@ -82,7 +82,6 @@ These shapes are intentionally not part of the documented support boundary today
 - LINQ `Join(...)`
 - relation-property query expansion
 - aggregate result operators such as `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)`
-- non-empty local object-list `Any(item => item.Member == row.Column)`
 - arbitrary local `Enumerable` method chains inside predicates
 - arbitrary client methods inside SQL predicates
 - nested database subqueries

@@ -171,46 +171,13 @@ internal class WhereVisitor<T> : ExpressionVisitor
                             subQuery.QueryModel.BodyClauses[0] is WhereClause subWhereClause &&
                             subWhereClause.Predicate is BinaryExpression binary && binary.NodeType == ExpressionType.Equal)
                         {
-                            Expression? outerQuerySide = null;
-                            // Check which side of the binary.Equal is the outer member access
-                            if (IsOuterQueryMember(binary.Left, subQuery.QueryModel.MainFromClause) &&
-                                IsSubQueryParameter(binary.Right, subQuery.QueryModel.MainFromClause))
-                            {
-                                outerQuerySide = binary.Left;
-                            }
-                            else if (IsOuterQueryMember(binary.Right, subQuery.QueryModel.MainFromClause) &&
-                                     IsSubQueryParameter(binary.Left, subQuery.QueryModel.MainFromClause))
-                            {
-                                outerQuerySide = binary.Right;
-                            }
-
-                            MemberExpression? finalOuterMemberAccess = null;
-                            if (outerQuerySide is MemberExpression mo)
-                            {
-                                finalOuterMemberAccess = mo;
-                            }
-                            else if (outerQuerySide is UnaryExpression uo &&
-                                     uo.NodeType == ExpressionType.Convert &&
-                                     uo.Operand is MemberExpression umo)
-                            {
-                                // Ensure the conversion is to a compatible type if needed for stripping,
-                                // but usually, we just want the underlying MemberExpression.
-                                finalOuterMemberAccess = umo;
-                            }
-
-                            if (finalOuterMemberAccess != null)
-                            {
-                                // Ensure the MemberExpression is accessing a property of the outer query's source
-                                if (finalOuterMemberAccess.Expression is QuerySourceReferenceExpression qsr &&
-                                    qsr.ReferencedQuerySource != subQuery.QueryModel.MainFromClause)
-                                {
-                                    var fieldName = builder.GetColumnMaybe(finalOuterMemberAccess)?.DbName ?? finalOuterMemberAccess.Member.Name;
-                                    var whereClause = builder.CurrentParentGroup.AddWhere(fieldName, null, connectionType);
-                                    if (isSubQueryGloballyNegated) whereClause.NotIn(listToProcess);
-                                    else whereClause.In(listToProcess);
-                                    return node;
-                                }
-                            }
+                            if (TryTranslateLocalAnyEquality(
+                                    binary,
+                                    subQuery.QueryModel.MainFromClause,
+                                    listToProcess,
+                                    connectionType,
+                                    isSubQueryGloballyNegated))
+                                return node;
                         }
                         // If structure doesn't match, fall through to the exception
                         throw new NotImplementedException($"Translation for 'Any(predicate)' with a non-empty list and this predicate structure is not implemented. Predicate: {subQuery.QueryModel.BodyClauses.FirstOrDefault()}");
@@ -224,32 +191,101 @@ internal class WhereVisitor<T> : ExpressionVisitor
         return base.VisitExtension(node);
     }
 
-    protected bool IsOuterQueryMember(Expression expr, MainFromClause subQueryFromClause)
+    private bool TryTranslateLocalAnyEquality(
+        BinaryExpression binary,
+        MainFromClause subQueryFromClause,
+        object?[] sourceValues,
+        BooleanType connectionType,
+        bool isNegated)
     {
-        // Strip UnaryExpression (like Convert) if present
-        if (expr is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
+        return TryTranslateLocalAnyEqualitySide(binary.Left, binary.Right, subQueryFromClause, sourceValues, connectionType, isNegated) ||
+               TryTranslateLocalAnyEqualitySide(binary.Right, binary.Left, subQueryFromClause, sourceValues, connectionType, isNegated);
+    }
+
+    private bool TryTranslateLocalAnyEqualitySide(
+        Expression outerCandidate,
+        Expression localCandidate,
+        MainFromClause subQueryFromClause,
+        object?[] sourceValues,
+        BooleanType connectionType,
+        bool isNegated)
+    {
+        if (!TryGetOuterQueryMember(outerCandidate, subQueryFromClause, out var outerMember) ||
+            !TryGetLocalAnyValues(localCandidate, subQueryFromClause, sourceValues, out var values))
         {
-            expr = unary.Operand;
+            return false;
         }
 
-        if (expr is MemberExpression me && me.Expression is QuerySourceReferenceExpression qsr)
-            return qsr.ReferencedQuerySource != subQueryFromClause;
+        var fieldName = builder.GetColumnMaybe(outerMember)?.DbName ?? outerMember.Member.Name;
+        var whereClause = builder.CurrentParentGroup.AddWhere(fieldName, null, connectionType);
+        if (isNegated) whereClause.NotIn(values);
+        else whereClause.In(values);
+
+        return true;
+    }
+
+    private static bool TryGetOuterQueryMember(
+        Expression expression,
+        MainFromClause subQueryFromClause,
+        out MemberExpression outerMember)
+    {
+        expression = LocalSequenceExtractor.UnwrapQueryColumnAccess(expression);
+
+        if (expression is MemberExpression member &&
+            member.Expression is QuerySourceReferenceExpression querySourceReference &&
+            querySourceReference.ReferencedQuerySource != subQueryFromClause)
+        {
+            outerMember = member;
+            return true;
+        }
+
+        outerMember = null!;
         return false;
     }
 
-    protected bool IsSubQueryParameter(Expression expr, MainFromClause subQueryFromClause)
+    private static bool TryGetLocalAnyValues(
+        Expression expression,
+        MainFromClause subQueryFromClause,
+        object?[] sourceValues,
+        out object?[] values)
     {
-        // Strip UnaryExpression (like Convert) if present
-        if (expr is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
+        expression = LocalSequenceExtractor.UnwrapQueryColumnAccess(expression);
+
+        if (IsSubQueryParameterExpression(expression, subQueryFromClause))
         {
-            expr = unary.Operand;
+            values = sourceValues;
+            return true;
         }
+
+        if (!IsLocalSequenceExpression(expression, subQueryFromClause))
+        {
+            values = [];
+            return false;
+        }
+
+        return LocalSequenceExtractor.TryProject(subQueryFromClause, expression, sourceValues, out values);
+    }
+
+    private static bool IsLocalSequenceExpression(Expression expression, MainFromClause subQueryFromClause)
+    {
+        expression = LocalSequenceExtractor.UnwrapQueryColumnAccess(expression);
+
+        return expression switch
+        {
+            ParameterExpression parameter => parameter.Name == subQueryFromClause.ItemName && parameter.Type == subQueryFromClause.ItemType,
+            QuerySourceReferenceExpression querySourceReference => querySourceReference.ReferencedQuerySource == subQueryFromClause,
+            MemberExpression { Expression: not null } memberExpression => IsLocalSequenceExpression(memberExpression.Expression, subQueryFromClause),
+            _ => false
+        };
+    }
+
+    private static bool IsSubQueryParameterExpression(Expression expr, MainFromClause subQueryFromClause)
+    {
+        expr = LocalSequenceExtractor.UnwrapQueryColumnAccess(expr);
 
         if (expr is ParameterExpression pe)
             return pe.Name == subQueryFromClause.ItemName && pe.Type == subQueryFromClause.ItemType;
 
-        // Sometimes the parameter from the subquery's MainFromClause is wrapped in a QuerySourceReferenceExpression
-        // when used in the predicate of a WhereClause within that same subquery.
         if (expr is QuerySourceReferenceExpression qsr)
             return qsr.ReferencedQuerySource == subQueryFromClause;
 

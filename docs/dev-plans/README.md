@@ -102,9 +102,9 @@ As of the Phase 6 implementation-plan kickoff on 2026-05-02:
 - Phase 3 query/runtime hot-path optimization is implemented; the honest performance claim is lower allocation pressure on measured repeated-query paths.
 - Phase 4 provider metadata roundtrip fidelity is implemented for the validation support boundary: the matrix is explicit, ordinary indexes/relations/identifiers/checks/comments are covered where supported, and unsupported provider details are documented instead of implied.
 - Phase 5 product-trust work is implemented for the intended validation/diff/snapshot scope: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
-- Phase 6 LINQ translation coverage and query composition has an implementation plan; the first slice should audit the tested support matrix and fix chained `Where(...)` correctness before widening local collection translation.
+- Phase 6 LINQ translation coverage and query composition is in progress; the support audit, chained `Where(...)` fix, projected local `Contains(...)`, and equality-based local object-list `Any(predicate)` expansion have landed.
 - The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
-The next roadmap execution work should be Phase 6 LINQ translation coverage and query composition, unless we deliberately pause to start the separate full migration-execution feature.
+The next roadmap execution work should continue Phase 6 with fixed-condition invariants and unsupported-query diagnostics, unless we deliberately pause to start the separate full migration-execution feature.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

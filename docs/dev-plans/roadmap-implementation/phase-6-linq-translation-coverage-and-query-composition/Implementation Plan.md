@@ -196,7 +196,7 @@ Implementation note:
 
 ## Workstream D: Local Collection Predicate Expansion
 
-Status: Not started. Projected local `Contains(...)` support and tests landed during Workstream C; this workstream should now focus on the remaining local object-list `Any(predicate)` expansion and any remaining membership translation cleanup.
+Status: Complete. Workstream D expanded local `Any(predicate)` membership translation for equality-only scalar and object-member shapes, reusing the guarded local sequence extraction path from Workstream C.
 
 Goals:
 
@@ -205,12 +205,12 @@ Goals:
 
 Tasks:
 
-1. Rework direct `Contains(...)` translation to use the shared local sequence helper.
-2. Add projected local `Contains(...)` tests.
-3. Rework subquery/result-operator `Contains` translation to share the same column/value extraction path where possible.
-4. Add local object-list `Any(predicate)` tests for item equality, item-member equality, reversed equality, and nullable conversion wrappers.
-5. Translate only equality membership to `IN`/`NOT IN`.
-6. Leave compound local predicates unsupported with a clear diagnostic unless the collection is empty and the truth value is already known.
+1. Rework direct `Contains(...)` translation to use the shared local sequence helper. Complete in Workstream C.
+2. Add projected local `Contains(...)` tests. Complete in Workstream C.
+3. Rework subquery/result-operator `Contains` translation to share the same column/value extraction path where possible. Complete in Workstream C.
+4. Add local object-list `Any(predicate)` tests for item equality, item-member equality, reversed equality, and nullable conversion wrappers. Complete.
+5. Translate only equality membership to `IN`/`NOT IN`. Complete.
+6. Leave compound local predicates unsupported with a clear diagnostic unless the collection is empty and the truth value is already known. Non-empty compound predicates remain unsupported; Workstream F owns the diagnostic cleanup.
 
 ## Workstream E: Fixed Boolean Conditions
 

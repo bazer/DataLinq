@@ -87,6 +87,38 @@ internal static class LocalSequenceExtractor
         }
     }
 
+    internal static bool TryProject(
+        MainFromClause mainFromClause,
+        Expression selector,
+        object?[] sourceValues,
+        out object?[] values)
+    {
+        values = [];
+        selector = UnwrapQueryColumnAccess(selector);
+
+        if (selector is QuerySourceReferenceExpression querySourceReference &&
+            querySourceReference.ReferencedQuerySource == mainFromClause)
+        {
+            values = sourceValues;
+            return true;
+        }
+
+        if (ContainsForbiddenQueryReference(selector, mainFromClause))
+            return false;
+
+        try
+        {
+            var projector = CompileProjection(mainFromClause, selector);
+            values = sourceValues.Select(projector).ToArray();
+            return true;
+        }
+        catch
+        {
+            values = [];
+            return false;
+        }
+    }
+
     internal static Expression UnwrapQueryColumnAccess(Expression expression)
     {
         while (expression is UnaryExpression unary &&
@@ -194,6 +226,14 @@ internal static class LocalSequenceExtractor
 
     private sealed class QuerySourceReplacementVisitor(IQuerySource querySource, ParameterExpression parameter) : ExpressionVisitor
     {
+        protected override Expression VisitParameter(ParameterExpression node)
+        {
+            if (node.Name == querySource.ItemName && node.Type == querySource.ItemType)
+                return parameter;
+
+            return base.VisitParameter(node);
+        }
+
         protected override Expression VisitExtension(Expression node)
         {
             if (node is QuerySourceReferenceExpression querySourceReference &&
