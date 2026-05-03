@@ -75,6 +75,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `providers-and-features/Check Constraint Metadata Design.md`
 - `providers-and-features/Migrations and Validation.md`
 - `providers-and-features/Provider Metadata Roundtrip Fidelity.md`
+- `providers-and-features/SQLite Transaction Isolation Alignment.md`
 
 ### Query and runtime
 
