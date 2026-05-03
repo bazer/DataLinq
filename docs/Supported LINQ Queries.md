@@ -66,6 +66,7 @@ The test suite covers `Contains(...)` against in-memory collections used as an `
 - `List<T>`
 - `HashSet<T>`
 - the tested `ReadOnlySpan<T>` shape
+- projected local sequences such as `localIds.Select(x => x.Value).Contains(row.Id.Value)` when the projection is fully local
 
 Empty local `Contains(...)` predicates are also covered in direct, negated, `AND`, and `OR` compositions. The translator treats those as fixed true/false conditions instead of emitting invalid `IN ()` SQL.
 
@@ -193,7 +194,6 @@ The current docs do not claim support for these because this pass has not verifi
 - general-purpose `Join(...)`
 - aggregate operators such as `Sum(...)`, `Min(...)`, `Max(...)`, or `Average(...)`
 - broader client-side method translation beyond the string members listed above
-- projected local collection pipelines such as `ids.Select(x => x.Id).Contains(row.Id)` unless materialized first
 - non-empty local object-list predicates such as `items.Any(item => item.Id == row.Id)`
 
 That does not automatically mean they are impossible. It means the docs should not lie about them.

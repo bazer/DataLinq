@@ -175,6 +175,8 @@ Implementation note:
 
 ## Workstream C: Shared Local Sequence Extraction
 
+Status: Implemented. Local sequence extraction now has a guarded helper used by existing collection translation paths, including projected local `Contains(...)` sequences.
+
 Goals:
 
 - stop duplicating `Contains(...)` and `Any(predicate)` local-value logic
@@ -193,6 +195,8 @@ Implementation note:
 - This helper should live near the translator code first. Promote it only if multiple translator components genuinely need it.
 
 ## Workstream D: Local Collection Predicate Expansion
+
+Status: Not started. Projected local `Contains(...)` support and tests landed during Workstream C; this workstream should now focus on the remaining local object-list `Any(predicate)` expansion and any remaining membership translation cleanup.
 
 Goals:
 

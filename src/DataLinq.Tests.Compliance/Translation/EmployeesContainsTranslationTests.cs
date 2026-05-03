@@ -82,6 +82,50 @@ public class EmployeesContainsTranslationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Contains_ProjectedLocalSequenceFiltersRows(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Contains_ProjectedLocalSequenceFiltersRows),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var ids = employeesDatabase.Query().Employees
+            .OrderBy(x => x.emp_no)
+            .Take(3)
+            .Select(x => x.emp_no.Value)
+            .ToArray();
+        var localIds = ids.Select(x => new LocalEmployeeId(x)).ToArray();
+
+        var results = employeesDatabase.Query().Employees
+            .Where(x => localIds.Select(id => id.Value).Contains(x.emp_no.Value))
+            .OrderBy(x => x.emp_no)
+            .Select(x => x.emp_no.Value)
+            .ToArray();
+
+        await Assert.That(results).IsEquivalentTo(ids);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Contains_EmptyProjectedLocalSequenceReturnsNoRows(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Contains_EmptyProjectedLocalSequenceReturnsNoRows),
+            EmployeesSeedMode.Bogus);
+
+        var localIds = Array.Empty<LocalEmployeeId>();
+
+        var results = databaseScope.Database.Query().Employees
+            .Where(x => localIds.Select(id => id.Value).Contains(x.emp_no.Value))
+            .ToList();
+
+        await Assert.That(results).IsEmpty();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Contains_ConstantTrueReturnsAllRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -125,4 +169,6 @@ public class EmployeesContainsTranslationTests
 
         await Assert.That(count).IsEqualTo(0);
     }
+
+    private sealed record LocalEmployeeId(int Value);
 }

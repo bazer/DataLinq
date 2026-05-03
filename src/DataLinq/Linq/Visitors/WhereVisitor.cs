@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using DataLinq.Query;
@@ -85,12 +83,6 @@ internal class WhereVisitor<T> : ExpressionVisitor
                 }
             }
 
-            // Evaluate the collection part of the subquery (e.g., the list in list.Contains(x.Prop))
-            // This is done ONCE for the subquery.
-            var collectionExpr = Visit(subQuery.QueryModel.MainFromClause.FromExpression)!;
-            var collectionValue = builder.GetConstant(collectionExpr);
-            var listToProcess = ConvertToList(collectionValue);
-
             bool isSubQueryGloballyNegated = builder.Negations > 0; // Negation applies to the whole subquery result
             if (isSubQueryGloballyNegated)
                 builder.DecrementNegations();
@@ -99,6 +91,10 @@ internal class WhereVisitor<T> : ExpressionVisitor
             {
                 if (resultOperator is ContainsResultOperator containsResultOperator)
                 {
+                    // Evaluate the local sequence part of the subquery once. This supports safe local projections
+                    // such as ids.Select(x => x.Id).Contains(row.Id) while rejecting database-dependent sequences.
+                    var listToProcess = LocalSequenceExtractor.Evaluate(subQuery.QueryModel);
+
                     // bool isSubQueryGloballyNegated was already determined above and applies to the whole Contains operation.
 
                     if (listToProcess.Length == 0)
@@ -112,6 +108,8 @@ internal class WhereVisitor<T> : ExpressionVisitor
                     {
                         // List is not empty, now it's safe to evaluate the item to find.
                         var itemToFindInListExpression = Visit(containsResultOperator.Item)!;
+
+                        itemToFindInListExpression = LocalSequenceExtractor.UnwrapQueryColumnAccess(itemToFindInListExpression);
 
                         if (itemToFindInListExpression is MemberExpression memberOuter &&
                             memberOuter.Expression is QuerySourceReferenceExpression)
@@ -146,6 +144,8 @@ internal class WhereVisitor<T> : ExpressionVisitor
                 }
                 else if (resultOperator is AnyResultOperator)
                 {
+                    var listToProcess = LocalSequenceExtractor.Evaluate(subQuery.QueryModel.MainFromClause.FromExpression);
+
                     // bool isSubQueryGloballyNegated is already determined
 
                     if (subQuery.QueryModel.BodyClauses.Count == 0) // .Any() without predicate
@@ -294,17 +294,13 @@ internal class WhereVisitor<T> : ExpressionVisitor
         }
         else if (node.Method.Name == "Contains" && node.Arguments.Count == 2 && node.Object == null)
         {
-            var collectionExpr = Visit(node.Arguments[0])!;
-            var collectionValue = builder.GetConstant(collectionExpr);
-            var listToProcess = ConvertToList(collectionValue);
+            var listToProcess = EvaluateLocalSequenceExpression(node.Arguments[0]);
 
             bool isCallNegated = builder.Negations > 0;
             if (isCallNegated)
                 builder.DecrementNegations();
 
-            Expression itemExpr = node.Arguments[1];
-            if (itemExpr is UnaryExpression u && u.NodeType == ExpressionType.Convert)
-                itemExpr = u.Operand;
+            Expression itemExpr = LocalSequenceExtractor.UnwrapQueryColumnAccess(node.Arguments[1]);
 
             if (listToProcess.Length == 0)
             {
@@ -345,9 +341,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
                  node.Method.GetGenericMethodDefinition().DeclaringType == typeof(Enumerable) &&
                  node.Method.Name == "Any" && node.Arguments.Count == 1)
         {
-            var collectionExpr = Visit(node.Arguments[0])!;
-            var collectionValue = builder.GetConstant(collectionExpr);
-            var listToProcess = ConvertToList(collectionValue);
+            var listToProcess = EvaluateLocalSequenceExpression(node.Arguments[0]);
 
             bool isCallNegated = builder.Negations > 0;
             if (isCallNegated)
@@ -409,15 +403,13 @@ internal class WhereVisitor<T> : ExpressionVisitor
         return node;
     }
 
-    protected static object[] ConvertToList(object? obj)
+    private object?[] EvaluateLocalSequenceExpression(Expression expression)
     {
-        return obj switch
-        {
-            null => [],
-            object[] arr => arr,
-            IEnumerable<object> enumerable => enumerable.ToArray(),
-            IEnumerable enumerable => enumerable.Cast<object>().ToArray(),
-            _ => throw new ArgumentException("Object is not a list or IEnumerable."),
-        };
+        if (LocalSequenceExtractor.TryEvaluate(expression, out var values))
+            return values;
+
+        var visitedExpression = Visit(expression)!;
+        return LocalSequenceExtractor.Evaluate(visitedExpression);
     }
+
 }
