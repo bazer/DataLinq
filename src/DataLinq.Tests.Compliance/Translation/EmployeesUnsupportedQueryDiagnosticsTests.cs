@@ -46,19 +46,19 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task UnsupportedSelectorThrowsQueryTranslationException(TestProviderDescriptor provider)
+    public async Task UnsupportedRelationSelectorThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(UnsupportedSelectorThrowsQueryTranslationException),
+            nameof(UnsupportedRelationSelectorThrowsQueryTranslationException),
             EmployeesSeedMode.Bogus);
 
         await AssertTranslationFailure(
-            () => databaseScope.Database.Query().Employees
-                .Select(x => x.first_name + x.last_name)
+            () => databaseScope.Database.Query().Departments
+                .Select(x => x.Managers)
                 .ToList(),
-            "Selector expression",
-            "not supported");
+            "Relation property 'Managers'",
+            "LINQ Select projection");
     }
 
     [Test]

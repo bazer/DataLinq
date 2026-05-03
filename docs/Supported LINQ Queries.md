@@ -127,11 +127,15 @@ It also covers guarded nullable value member access in selected date/time predic
 
 ## Supported Projection Shapes
 
-The test suite covers:
+`Select(...)` projections are evaluated after DataLinq has translated SQL filtering, ordering, and paging and materialized the selected rows. They are not SQL `SELECT`-list expressions today. That is less efficient for wide rows than SQL-backed projection, but it keeps projection semantics honest: projection code runs as normal .NET code over the materialized model instance.
+
+The test suite covers row-local projections such as:
 
 - selecting the full model
 - selecting a scalar property such as `Select(x => x.DeptNo)`
 - selecting an anonymous type such as `Select(x => new { no = x.DeptNo, name = x.Name })`
+- computed scalar projections such as `Select(x => x.first_name + ":" + x.emp_no.Value)`
+- computed anonymous projections using materialized member chains such as `Trim()`, `ToUpper()`, and `Length`
 
 Example:
 
@@ -145,6 +149,8 @@ var departments = db.Query().Departments
     })
     .ToList();
 ```
+
+Relation-property projections are not supported in provider `Select(...)` yet. Load rows first with `ToList()` and then traverse relation properties explicitly so the extra relation queries are visible in your code.
 
 ## Supported Scalar Aggregates
 
@@ -231,6 +237,7 @@ The current docs do not claim support for these because this pass has not verifi
 - `GroupBy(...)`
 - general-purpose `Join(...)`
 - aggregate operators over computed selectors, grouped aggregates, or relation properties
-- broader client-side method translation beyond the string members listed above
+- relation-property projections inside provider `Select(...)`
+- broader client-side method translation inside SQL predicates beyond the string members listed above
 
 That does not automatically mean they are impossible. It means the docs should not lie about them.

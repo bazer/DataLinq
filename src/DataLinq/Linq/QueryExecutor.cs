@@ -138,7 +138,7 @@ internal class QueryExecutor : IQueryExecutor
         return query;
     }
 
-    private static Func<object?, T?> GetSelectFunc<T>(SelectClause selectClause)
+    private static Func<object?, T?> GetSelectFunc<T>(SelectClause selectClause, TableDefinition table)
     {
         if (selectClause == null)
             throw new ArgumentNullException(nameof(selectClause));
@@ -174,87 +174,95 @@ internal class QueryExecutor : IQueryExecutor
             //return Expression.Lambda<Func<object?, T?>>(body, param).Compile();
         }
 
-        // Handle member access (single or chained) by rebuilding lambda with correct root parameter cast
-        if (selector is MemberExpression memberExpression)
+        var param = Expression.Parameter(typeof(object), "x");
+        ValidateProjectionExpression(selector, table, selectClause);
+        Expression rebuilt = new ProjectionQuerySourceVisitor(param).Visit(selector)
+            ?? throw new QueryTranslationException($"Selector expression '{selectClause.Selector}' could not be rebuilt for client projection.");
+
+        if (rebuilt.Type != typeof(T))
         {
-            // Find ultimate root expression (should be the query source parameter)
-            Expression root = memberExpression;
-            while (root is MemberExpression m && m.Expression != null)
+            if (Nullable.GetUnderlyingType(rebuilt.Type) == typeof(T))
             {
-                root = m.Expression;
+                var valueProp = rebuilt.Type.GetProperty("Value");
+                if (valueProp != null)
+                    rebuilt = Expression.Property(rebuilt, valueProp);
             }
-
-            var entityType = root.Type; // Expected type of the row instance
-            var param = Expression.Parameter(typeof(object), "x");
-            var castParam = Expression.Convert(param, entityType);
-
-            // Rebuild the member access chain replacing original root with castParam
-            Expression rebuilt = ReplaceRoot(memberExpression, root, castParam);
-
-            // Ensure resulting type matches T (apply conversion if needed)
-            if (rebuilt.Type != typeof(T))
+            else
             {
-                // Attempt implicit conversion (handles Nullable<T> -> T etc.)
-                if (Nullable.GetUnderlyingType(rebuilt.Type) == typeof(T))
-                {
-                    // Access .Value for Nullable<T>
-                    var valueProp = rebuilt.Type.GetProperty("Value");
-                    if (valueProp != null)
-                        rebuilt = Expression.Property(rebuilt, valueProp);
-                }
-                else
-                {
-                    rebuilt = Expression.Convert(rebuilt, typeof(T));
-                }
+                rebuilt = Expression.Convert(rebuilt, typeof(T));
             }
-
-            var lambda = Expression.Lambda<Func<object?, T?>>(rebuilt, param);
-            return lambda.Compile();
-        }
-        else if (selector.NodeType == ExpressionType.New && selector is NewExpression newExpression)
-        {
-            if (newExpression.Arguments.Count == 0)
-                throw new QueryTranslationException($"Projection constructor '{newExpression}' has no arguments. Expression: {selectClause.Selector}");
-
-            if (newExpression.Arguments[0] is not MemberExpression argumentExpression || argumentExpression.Expression == null)
-                throw new QueryTranslationException($"Projection argument '{newExpression.Arguments[0]}' is not supported. Expression: {selectClause.Selector}");
-
-            var memberType = argumentExpression.Expression.Type;
-            var param = Expression.Parameter(typeof(object));
-            var convert = Expression.Convert(param, memberType);
-
-            var arguments = newExpression.Arguments.Select(x =>
-            {
-                if (x is not MemberExpression memberExp)
-                    throw new QueryTranslationException($"Projection argument '{x}' is not supported. Expression: {selectClause.Selector}");
-
-                return Expression.MakeMemberAccess(convert, memberExp.Member);
-            });
-
-            if (newExpression.Constructor == null)
-                throw new QueryTranslationException($"Projection constructor '{newExpression}' is not supported. Expression: {selectClause.Selector}");
-
-            var expression = Expression.New(newExpression.Constructor, arguments, newExpression.Members);
-            var lambda = Expression.Lambda<Func<object?, T?>>(expression, param);
-            return lambda.Compile();
         }
 
-        throw new QueryTranslationException($"Selector expression '{selectClause.Selector}' with node type '{selectClause.Selector.NodeType}' is not supported.");
+        return Expression.Lambda<Func<object?, T?>>(rebuilt, param).Compile();
+    }
 
-        // Local helper to rebuild chain replacing root
-        static Expression ReplaceRoot(MemberExpression memberExpr, Expression originalRoot, Expression newRoot)
+    private static void ValidateProjectionExpression(Expression selector, TableDefinition table, SelectClause selectClause)
+    {
+        try
         {
-            if (memberExpr.Expression == originalRoot)
-            {
-                return Expression.MakeMemberAccess(newRoot, memberExpr.Member);
-            }
-            if (memberExpr.Expression is MemberExpression inner)
-            {
-                var replacedInner = ReplaceRoot(inner, originalRoot, newRoot);
-                return Expression.MakeMemberAccess(replacedInner, memberExpr.Member);
-            }
-            return memberExpr; // Fallback (should not occur for expected patterns)
+            new ProjectionValidationVisitor(table, selectClause).Visit(selector);
         }
+        catch (QueryTranslationException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new QueryTranslationException($"Selector expression '{selectClause.Selector}' is not supported for LINQ Select projection.", exception);
+        }
+    }
+
+    private sealed class ProjectionQuerySourceVisitor(ParameterExpression rowParameter) : ExpressionVisitor
+    {
+        protected override Expression VisitExtension(Expression node)
+        {
+            if (node is QuerySourceReferenceExpression querySource)
+                return Expression.Convert(rowParameter, querySource.Type);
+
+            return base.VisitExtension(node);
+        }
+    }
+
+    private sealed class ProjectionValidationVisitor(TableDefinition table, SelectClause selectClause) : ExpressionVisitor
+    {
+        protected override Expression VisitExtension(Expression node)
+        {
+            if (node is QuerySourceReferenceExpression)
+                return node;
+
+            if (node is SubQueryExpression)
+                throw new QueryTranslationException($"Subquery projection '{node}' is not supported in LINQ Select projection. Expression: {selectClause.Selector}");
+
+            return base.VisitExtension(node);
+        }
+
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (IsRelationPropertyAccess(node))
+            {
+                throw new QueryTranslationException(
+                    $"Relation property '{node.Member.Name}' is not supported in LINQ Select projection. " +
+                    "Projection expressions are evaluated after materializing the selected rows; load relation data explicitly after ToList(). " +
+                    $"Expression: {selectClause.Selector}");
+            }
+
+            return base.VisitMember(node);
+        }
+
+        private bool IsRelationPropertyAccess(MemberExpression node)
+            => table.Model.RelationProperties.ContainsKey(node.Member.Name) &&
+               IsRootedInQuerySource(node.Expression);
+
+        private static bool IsRootedInQuerySource(Expression? expression)
+            => expression switch
+            {
+                QuerySourceReferenceExpression => true,
+                MemberExpression memberExpression => IsRootedInQuerySource(memberExpression.Expression),
+                MethodCallExpression methodCallExpression => IsRootedInQuerySource(methodCallExpression.Object) ||
+                    methodCallExpression.Arguments.Any(IsRootedInQuerySource),
+                UnaryExpression unaryExpression => IsRootedInQuerySource(unaryExpression.Operand),
+                _ => false
+            };
     }
 
     /// <summary>
@@ -268,7 +276,7 @@ internal class QueryExecutor : IQueryExecutor
     {
         return ParseQueryModel<T>(queryModel)
             .Execute()
-            .Select(GetSelectFunc<T>(queryModel.SelectClause));
+            .Select(GetSelectFunc<T>(queryModel.SelectClause, Table));
     }
 
     /// <summary>
@@ -288,7 +296,7 @@ internal class QueryExecutor : IQueryExecutor
 
         var sequence = ParseQueryModel<T>(queryModel)
             .Execute()
-            .Select(GetSelectFunc<T>(queryModel.SelectClause));
+            .Select(GetSelectFunc<T>(queryModel.SelectClause, Table));
 
         if (queryModel.ResultOperators.Any())
         {

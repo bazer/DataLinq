@@ -3,7 +3,7 @@
 
 # LINQ Translation Support Matrix
 
-**Status:** Current Phase 7 Workstream A baseline; update whenever LINQ translator support changes.
+**Status:** Current Phase 7 Workstream B baseline; update whenever LINQ translator support changes.
 
 This matrix records what the active compliance tests prove today, where the public support docs are accurate, and which gaps remain outside the documented support boundary.
 
@@ -86,7 +86,8 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Ordering plus filtering | `Where(...).OrderBy(...)`, `OrderBy(...).Where(...)`, and `Where(...).OrderBy(...).Where(...)` | `EmployeesQueryBehaviorTests.cs` | Phase 6 has a focused regression proving the outer predicate is preserved after an inner ordering clause. |
 | Full-model projection | selecting the model entity | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
 | Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
-| Anonymous projection | `Select(x => new { ... })` for simple property members | `EmployeesQueryBehaviorTests.cs` | Public docs match this. Do not generalize to nested object creation or computed selectors. |
+| Anonymous projection | `Select(x => new { ... })` for simple property members and row-local computed expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesProjectionTranslationTests.cs` | Phase 7 Workstream B documents these as post-materialization projections, not SQL-backed `SELECT`-list expressions. Relation-property projections remain rejected to avoid hidden N+1 behavior. |
+| Computed scalar projection | row-local string concatenation and materialized member chains after SQL filtering, ordering, and paging | `Translation/EmployeesProjectionTranslationTests.cs` | Client projection is deliberate here. Do not generalize this to SQL predicate method translation. |
 | Views and primary-key lookup | querying generated views and direct `Get<T>(key)` lookup | `SeededEmployeesQueryTests.cs`, `EmployeesQueryBehaviorTests.cs` | Direct lookup is not a LINQ predicate but belongs in the surrounding query support docs. |
 
 ## Unsupported or Not Yet Proven
@@ -100,7 +101,8 @@ These shapes are intentionally not part of the documented support boundary today
 - arbitrary local `Enumerable` method chains inside predicates
 - arbitrary client methods inside SQL predicates
 - nested database subqueries
-- complex selector expressions beyond entity, scalar member, and simple anonymous-object projection
+- relation-property projections inside provider `Select(...)`
+- nested database subqueries inside provider `Select(...)`
 
 Unsupported predicate methods, non-empty compound local `Any(predicate)` shapes, unsupported selectors, and unsupported scalar result operators now have focused `QueryTranslationException` coverage in `Translation/EmployeesUnsupportedQueryDiagnosticsTests.cs`.
 

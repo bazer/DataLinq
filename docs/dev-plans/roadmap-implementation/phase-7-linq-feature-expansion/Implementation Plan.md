@@ -64,6 +64,8 @@ Design note:
 
 - SQL-backed projections are better for data volume, but post-materialization projection may be acceptable for shapes that already selected full rows. The docs must be blunt about which path each shape uses.
 
+Status: Complete. Workstream B supports row-local computed scalar and anonymous projections as post-materialization projections after SQL filtering, ordering, and paging. Relation-property projections and nested subquery projections remain rejected with targeted `QueryTranslationException` diagnostics so projection support does not hide N+1 relation traversal or database subqueries.
+
 ## Workstream C: Nullable Predicate Polish
 
 Goals:
