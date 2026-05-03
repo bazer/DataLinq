@@ -26,6 +26,7 @@ What are we actually going to do, in what order, and how will we know it worked?
 | Phase 5: Product Trust Features | Implemented for validation/diff/snapshot scope; full migration execution deferred | `phase-5-product-trust-features/` |
 | Phase 6: LINQ Translation Coverage and Query Composition | Implemented | `phase-6-linq-translation-coverage-and-query-composition/` |
 | Phase 7: LINQ Feature Expansion | Implemented | `phase-7-linq-feature-expansion/` |
+| Phase 8: Native AOT and WebAssembly Readiness | Draft implementation plan | `phase-8-native-aot-and-webassembly-readiness/` |
 
 ## Current Roadmap Position
 
@@ -40,6 +41,8 @@ Unless migration execution becomes the immediate product priority, the next impl
 The Phase 6 plan completed the support-matrix audit, chained `Where(...)` correctness, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics.
 
 The Phase 7 plan completed scalar aggregates, projection expansion, nullable predicate polish, a narrow LINQ `Join(...)` baseline, and relation-aware predicate translation.
+
+The Phase 8 plan starts from an audit of remaining `Expression.Compile()` usage, generated metadata/factory hooks, trimming-sensitive reflection, SQLite browser packaging, and cache worker behavior. The planned first move is executable Native AOT, trimming, and Blazor WebAssembly smoke coverage before runtime compatibility claims are made.
 
 For the consolidated checkpoint, see [Phase 4 and 5 Status Review](Phase%204%20and%205%20Status%20Review.md).
 

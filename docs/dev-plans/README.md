@@ -64,6 +64,8 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`
 - `roadmap-implementation/phase-7-linq-feature-expansion/README.md`
 - `roadmap-implementation/phase-7-linq-feature-expansion/Implementation Plan.md`
+- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/README.md`
+- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
 
 ### Providers and features
 
@@ -110,6 +112,7 @@ As of the Phase 4B completion update on 2026-05-03:
 - Phase 5 product-trust work is implemented for the intended validation/diff/snapshot scope: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
 - Phase 6 LINQ translation coverage and query composition is implemented: the support audit, chained `Where(...)` fix, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics have landed.
 - Phase 7 LINQ feature expansion is implemented: scalar aggregates, computed projections, nullable predicate polish, explicit joins, and relation-aware predicate translation have landed within their documented support boundaries.
+- Phase 8 Native AOT and WebAssembly readiness has a draft implementation plan grounded in the current dynamic-code, reflection, SQLite browser, and cache-worker audit.
 - The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
 The next roadmap execution work should be Phase 8 Native AOT and WebAssembly readiness, unless we deliberately pause to start the separate full migration-execution feature.
