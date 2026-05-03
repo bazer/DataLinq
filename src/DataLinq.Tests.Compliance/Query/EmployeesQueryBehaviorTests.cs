@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Instances;
+using DataLinq.Query;
 using DataLinq.Tests.Models.Employees;
 using DataLinq.Testing;
+using Remotion.Linq.Parsing.Structure;
 
 namespace DataLinq.Tests.Compliance;
 
@@ -71,6 +74,113 @@ public class EmployeesQueryBehaviorTests
         await Assert.That(notStartsWith.Select(x => x.DeptNo).ToArray()).IsEquivalentTo(new[] { "d010", "d011", "d012", "d013", "d014", "d015", "d016", "d017", "d018", "d019", "d020" });
         await Assert.That(endsWith.Select(x => x.DeptNo).ToArray()).IsEquivalentTo(new[] { "d002", "d012" });
         await Assert.That(notEndsWith.Count).IsEqualTo(18);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Query_ChainedWherePredicates_ComposeAcrossResultOperators(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Query_ChainedWherePredicates_ComposeAcrossResultOperators),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+
+        var firstPredicateOnly = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Select(x => x.DeptNo)
+            .ToArray();
+        var secondPredicateOnly = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.EndsWith("2"))
+            .Select(x => x.DeptNo)
+            .ToArray();
+
+        var chained = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Where(x => x.DeptNo.EndsWith("2"))
+            .Select(x => x.DeptNo)
+            .ToArray();
+
+        var count = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Where(x => x.DeptNo.EndsWith("2"))
+            .Count();
+        var any = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Where(x => x.DeptNo.EndsWith("2"))
+            .Any();
+        var missingAny = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Where(x => x.DeptNo == "d012")
+            .Any();
+        var single = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Where(x => x.DeptNo.EndsWith("2"))
+            .SingleOrDefault();
+        var first = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Where(x => x.DeptNo != "d001")
+            .OrderBy(x => x.DeptNo)
+            .First();
+        var page = employeesDatabase.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Where(x => x.DeptNo != "d005")
+            .OrderBy(x => x.DeptNo)
+            .Skip(1)
+            .Take(3)
+            .Select(x => x.DeptNo)
+            .ToArray();
+
+        await Assert.That(firstPredicateOnly.Length).IsGreaterThan(chained.Length);
+        await Assert.That(secondPredicateOnly.Length).IsGreaterThan(chained.Length);
+        await Assert.That(chained).IsEquivalentTo(new[] { "d002" });
+        await Assert.That(count).IsEqualTo(1);
+        await Assert.That(any).IsTrue();
+        await Assert.That(missingAny).IsFalse();
+        await Assert.That(single).IsNotNull();
+        await Assert.That(single!.DeptNo).IsEqualTo("d002");
+        await Assert.That(first.DeptNo).IsEqualTo("d002");
+        await Assert.That(string.Join(",", page)).IsEqualTo("d002,d003,d004");
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Query_ChainedWhereAfterOrdering_PreservesOuterPredicateAndOrdering(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Query_ChainedWhereAfterOrdering_PreservesOuterPredicateAndOrdering),
+            EmployeesSeedMode.Bogus);
+
+        var result = databaseScope.Database.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .OrderByDescending(x => x.DeptNo)
+            .Where(x => x.DeptNo != "d005")
+            .Select(x => x.DeptNo)
+            .ToArray();
+
+        await Assert.That(string.Join(",", result)).IsEqualTo("d009,d008,d007,d006,d004,d003,d002,d001");
+    }
+
+    [Test]
+    public async Task Query_ChainedWherePredicates_RenderBothPredicatesInSql()
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            TestProviderMatrix.SQLiteInMemory,
+            nameof(Query_ChainedWherePredicates_RenderBothPredicatesInSql),
+            EmployeesSeedMode.Bogus);
+
+        var query = databaseScope.Database.Query().Departments
+            .Where(x => x.DeptNo.StartsWith("d00"))
+            .Where(x => x.DeptNo.EndsWith("2"));
+        var sql = BuildLinqSelect(databaseScope.Database, query).ToSql();
+        var parameterValues = sql.Parameters.Select(x => x.Value).ToArray();
+
+        await Assert.That(sql.Text.Contains("WHERE", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(sql.Parameters.Count).IsEqualTo(2);
+        await Assert.That(parameterValues.Contains("d00%")).IsTrue();
+        await Assert.That(parameterValues.Contains("%2")).IsTrue();
     }
 
     [Test]
@@ -597,5 +707,26 @@ public class EmployeesQueryBehaviorTests
         }
 
         await Assert.That(threw).IsTrue();
+    }
+
+    private static Select<TModel> BuildLinqSelect<TModel>(Database<EmployeesDb> database, IQueryable<TModel> query)
+    {
+        var queryParser = QueryParser.CreateDefault();
+        var queryModel = queryParser.GetParsedQuery(query.Expression);
+        var table = database.Provider.Metadata.TableModels
+            .Single(x => x.Model.CsType.Type == typeof(TModel))
+            .Table;
+        var queryExecutorType = typeof(Database<EmployeesDb>).Assembly.GetType("DataLinq.Linq.QueryExecutor", throwOnError: true)!;
+        var executor = Activator.CreateInstance(
+            queryExecutorType,
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
+            binder: null,
+            args: [database.Provider.ReadOnlyAccess, table],
+            culture: null)!;
+        var parseMethod = queryExecutorType
+            .GetMethod("ParseQueryModel", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .MakeGenericMethod(typeof(TModel));
+
+        return (Select<TModel>)parseMethod.Invoke(executor, [queryModel])!;
     }
 }

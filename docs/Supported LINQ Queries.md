@@ -52,6 +52,7 @@ This includes:
 
 Test coverage exists for:
 
+- chained `Where(...).Where(...)` predicates over the same source
 - `&&`
 - `||`
 - `!`

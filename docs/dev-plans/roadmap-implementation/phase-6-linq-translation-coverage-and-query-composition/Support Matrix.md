@@ -13,7 +13,7 @@ The evidence column intentionally points at test files instead of implementation
 
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
-| Scalar equality and inequality | `==`, `!=`, reversed constant/member equality, missing-row filters | `src/DataLinq.Tests.Compliance/Query/EmployeesQueryBehaviorTests.cs` | Public docs match this. Chained `Where(a).Where(b)` is not separately proven and remains the first correctness gap. |
+| Scalar equality and inequality | `==`, `!=`, reversed constant/member equality, missing-row filters, chained `Where(a).Where(b)` | `src/DataLinq.Tests.Compliance/Query/EmployeesQueryBehaviorTests.cs` | Chained `Where(a).Where(b)` is now separately covered across collection, scalar, single-row, and paging result shapes. |
 | Range comparison | `>`, `>=`, `<`, `<=` against constants and selected member expressions | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesDateTimeMemberTests.cs` | Public docs match this. |
 | Enum comparison | enum equality, inequality, negated enum equality | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
 | Property-to-property comparison | equality, inequality, greater-than, less-than-or-equal comparisons between translated operands | `EmployeesQueryBehaviorTests.cs` | Public docs mention this, but the coverage is narrow and should not be generalized to arbitrary expressions. |
@@ -67,8 +67,8 @@ The evidence column intentionally points at test files instead of implementation
 | Area | Currently tested support | Evidence | Audit notes |
 | --- | --- | --- | --- |
 | Ordering | `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, mixed ascending/descending ordering | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries | `EmployeesQueryBehaviorTests.cs` | Public docs match this. Workstream B should add composition tests around nested query models. |
-| Ordering plus filtering | `Where(...).OrderBy(...)`, `OrderBy(...).Where(...)` appears in existing tests but is not isolated as a composition regression | `EmployeesQueryBehaviorTests.cs` | Add focused Workstream B tests before changing parser flow. |
+| Paging | `Skip`, `Take`, `Skip(...).Take(...)` with ordered queries and composed chained predicates | `EmployeesQueryBehaviorTests.cs` | Workstream B now includes a chained-filter paging regression. |
+| Ordering plus filtering | `Where(...).OrderBy(...)`, `OrderBy(...).Where(...)`, and `Where(...).OrderBy(...).Where(...)` | `EmployeesQueryBehaviorTests.cs` | Workstream B now has a focused regression proving the outer predicate is preserved after an inner ordering clause. |
 | Full-model projection | selecting the model entity | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
 | Scalar projection | `Select(x => x.Property)` | `EmployeesQueryBehaviorTests.cs`, translation tests | Public docs match this. |
 | Anonymous projection | `Select(x => new { ... })` for simple property members | `EmployeesQueryBehaviorTests.cs` | Public docs match this. Do not generalize to nested object creation or computed selectors. |

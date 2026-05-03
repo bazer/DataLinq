@@ -154,6 +154,8 @@ Expected output:
 
 ## Workstream B: Chained `Where(...)` Correctness
 
+Status: Implemented in the first Workstream B slice for normal chained query composition over the same source.
+
 Goals:
 
 - fix the highest-risk correctness issue first

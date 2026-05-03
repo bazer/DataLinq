@@ -33,7 +33,8 @@ Do not look at `Join.cs`, `Insert.cs`, or `Update.cs` and conclude that LINQ `Jo
   - `QueryExecutor` is responsible for turning a `QueryModel` into an executable query.
 - **Steps in translation:**
   - **Extract QueryModel:**
-    - The executor recursively unwraps subqueries, member access, method calls, and unary expressions until it finds the real `QueryModel`.
+    - The executor recursively unwraps subqueries, member access, method calls, and unary expressions until it finds the innermost source `QueryModel`.
+    - Nested query models are composed inner-first: the inner model builds the base `SqlQuery<T>`, and the outer model then applies its own body clauses and result operators. This is what preserves normal fluent composition such as `Where(a).Where(b)` and `Where(a).OrderBy(...).Where(b)`.
   - **Parse body clauses:**
     - In practice, the current implementation handles `WhereClause` and `OrderByClause`.
   - **Apply result operators:**

@@ -90,15 +90,16 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     private Select<T> ParseQueryModel<T>(QueryModel queryModel)
     {
+        return BuildSqlQuery<T>(queryModel).SelectQuery();
+    }
+
+    private SqlQuery<T> BuildSqlQuery<T>(QueryModel queryModel)
+    {
         // Extract the subquery model from the main clause if necessary
         var subQueryModel = ExtractQueryModel(queryModel.MainFromClause.FromExpression);
-        if (subQueryModel != null)
-        {
-            // Recursively parse the subquery model
-            return ParseQueryModel<T>(subQueryModel);
-        }
-
-        var query = new SqlQuery<T>(Table, Transaction);
+        var query = subQueryModel != null
+            ? BuildSqlQuery<T>(subQueryModel)
+            : new SqlQuery<T>(Table, Transaction);
 
         foreach (var body in queryModel.BodyClauses)
         {
@@ -132,7 +133,7 @@ internal class QueryExecutor : IQueryExecutor
                 query.Limit(1);
         }
 
-        return query.SelectQuery();
+        return query;
     }
 
     private static Func<object?, T?> GetSelectFunc<T>(SelectClause selectClause)
