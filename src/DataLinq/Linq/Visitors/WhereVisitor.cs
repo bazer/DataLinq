@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using DataLinq.Exceptions;
 using DataLinq.Query;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -137,7 +138,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
                         }
                         else
                         {
-                            throw new NotImplementedException($"Contains operator's item expression '{itemToFindInListExpression}' resolved to an unhandled type. It should be a direct member access on an outer query source or a constant.");
+                            throw new QueryTranslationException($"Contains item expression '{itemToFindInListExpression}' is not supported. Expected member access on the query source or a constant.");
                         }
                     }
                     return node; // Processed ContainsResultOperator
@@ -180,10 +181,10 @@ internal class WhereVisitor<T> : ExpressionVisitor
                                 return node;
                         }
                         // If structure doesn't match, fall through to the exception
-                        throw new NotImplementedException($"Translation for 'Any(predicate)' with a non-empty list and this predicate structure is not implemented. Predicate: {subQuery.QueryModel.BodyClauses.FirstOrDefault()}");
+                        throw new QueryTranslationException($"Any(predicate) over a non-empty local sequence only supports equality membership against a query column. Predicate: {subQuery.QueryModel.BodyClauses.FirstOrDefault()}");
                     }
                 }
-                else throw new NotImplementedException($"Result operator '{resultOperator}' within SubQuery is not implemented.");
+                else throw new QueryTranslationException($"Result operator '{resultOperator}' within a predicate subquery is not supported. Subquery: {subQuery.QueryModel}");
             }
             return node; // Should be unreachable if a result operator was present and handled.
                          // If no result operator, subQuery might be part of a JOIN or other structure.
@@ -364,7 +365,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
             }
             else
             {
-                throw new NotImplementedException($"Contains item expression '{itemExpr}' is not supported. Expected member access on query source or constant.");
+                throw new QueryTranslationException($"Contains item expression '{itemExpr}' is not supported. Expected member access on the query source or a constant.");
             }
         }
         // Gracefully handle op_Implicit wrapping an array/span; just visit its single argument
@@ -390,7 +391,7 @@ internal class WhereVisitor<T> : ExpressionVisitor
             builder.CurrentParentGroup.AddFixedCondition(effectiveRelation, connectionType);
         }
         else
-            throw new NotImplementedException($"Direct translation of method '{node.Method.Name}' with these arguments is not implemented. Expression: {node}");
+            throw new QueryTranslationException($"Method '{node.Method.Name}' is not supported in LINQ predicate translation. Expression: {node}");
 
         return node;
     }

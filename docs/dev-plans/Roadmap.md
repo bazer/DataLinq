@@ -295,9 +295,9 @@ Phase 5 is now closed for roadmap purposes as the product-trust groundwork phase
 
 The final closeout pass confirmed the generators, unit suite, SQLite compliance lane, and MariaDB validation/provider lanes. The local MySQL 8.4 lane was blocked by a host-port authentication issue after container recreation: in-container clients could authenticate with the provisioned users, but host-side MySqlConnector calls were denied as `datalinq` from `localhost`. That is infrastructure/environment work, not missing Phase 5 validation behavior.
 
-The next roadmap phase should therefore be Phase 6: LINQ translation coverage and query composition. The specific first targets remain chained `Where`, projected local `Contains`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
+Phase 6 LINQ translation coverage and query composition is now implemented for its planned support boundary: support-matrix audit, chained `Where(...)`, projected local `Contains(...)`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
 
-The Phase 6 implementation plan now exists. The first slice should audit the current tested support matrix, add regression coverage for chained `Where(...)`, and fix predicate composition before expanding local collection translation.
+The next roadmap selection should therefore move beyond Phase 6 unless we deliberately pause to prioritize full migration execution.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

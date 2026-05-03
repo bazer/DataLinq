@@ -1,5 +1,5 @@
-﻿using System;
 using System.Linq.Expressions;
+using DataLinq.Exceptions;
 using Remotion.Linq.Clauses;
 
 namespace DataLinq.Linq.Visitors;
@@ -25,7 +25,7 @@ internal class OrderByVisitor<T> : ExpressionVisitor
         if (node.NodeType == ExpressionType.MemberAccess)
             builder.AddOrderBy(node, direction);
         else
-            throw new NotImplementedException($"Operation '{node}' not implemented");
+            throw new QueryTranslationException($"OrderBy expression '{node}' is not supported.");
 
         return node;
     }

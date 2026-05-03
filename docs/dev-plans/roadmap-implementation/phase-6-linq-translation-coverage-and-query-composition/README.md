@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
 # Phase 6: LINQ Translation Coverage and Query Composition
 
-**Status:** In progress; Workstreams A through E complete.
+**Status:** Complete.
 
 ## Scope
 
@@ -40,6 +40,7 @@ Relevant test files:
 - `src/DataLinq.Tests.Compliance/Translation/EmployeesLocalAnyPredicateTests.cs`
 - `src/DataLinq.Tests.Compliance/Translation/EmployeesNullableBooleanTests.cs`
 - `src/DataLinq.Tests.Compliance/Translation/EmployeesStringMemberTests.cs`
+- `src/DataLinq.Tests.Compliance/Translation/EmployeesUnsupportedQueryDiagnosticsTests.cs`
 - `src/DataLinq.Tests.Compliance/Translation/EmployeesDateTimeMemberTests.cs`
 - `src/DataLinq.Tests.Compliance/Translation/CharPredicateTranslationTests.cs`
 

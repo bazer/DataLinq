@@ -88,7 +88,7 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
             case SqlOperationType.ListContains: where.In(values); break; // This is for pre-evaluated list.Contains results
             case SqlOperationType.IsNullOrEmpty: where.EqualToNull().Where(Operand.RawSql(GetSqlForFunction(SqlFunctionType.StringLength, field))).EqualTo(0); break;
             case SqlOperationType.IsNullOrWhiteSpace: where.EqualToNull().Where(Operand.RawSql(GetSqlForFunction(SqlFunctionType.StringTrim, field))).EqualTo(""); break;
-            default: throw new NotImplementedException($"Operation '{operation}' in AddWhereToGroup is not implemented.");
+            default: throw new QueryTranslationException($"SQL operation '{operation}' is not supported while translating a LINQ predicate.");
         }
     }
 
@@ -440,6 +440,6 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
         ExpressionType.GreaterThanOrEqual => Operator.GreaterThanOrEqual,
         ExpressionType.LessThan => Operator.LessThan,
         ExpressionType.LessThanOrEqual => Operator.LessThanOrEqual,
-        _ => throw new NotImplementedException($"Expression type '{type}' is not supported for relation mapping.")
+        _ => throw new QueryTranslationException($"Expression type '{type}' is not supported for relation mapping.")
     };
 }

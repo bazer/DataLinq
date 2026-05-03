@@ -165,7 +165,7 @@ flowchart TD
 ## Practical Caveats
 
 - If row order matters, order explicitly before calling `First`, `Last`, or paging operators. Unordered "first" is fake determinism.
-- Unsupported LINQ shapes typically fail with `NotImplementedException` during translation. They do not silently become good ideas.
+- Unsupported LINQ shapes should fail with `QueryTranslationException` during translation. They do not silently become good ideas.
 - `Last()` and `LastOrDefault()` are supported in tested cases, but they are not the fast path. If what you really mean is "highest by X", write that as `OrderByDescending(...).First()` and be done with it.
 - If you are unsure whether a query shape is supported, simplify it to the documented surface or add a test before depending on it.
 

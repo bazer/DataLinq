@@ -188,7 +188,7 @@ The test suite explicitly expects `NotSupportedException` for:
 - `Last()` and `LastOrDefault()` are supported in tested scenarios, but they are not the query engine's nicest path. If what you mean is "top by X", write `OrderByDescending(...).First()` instead.
 - `Any(predicate)` is covered for straightforward cases. If a more elaborate `Any(predicate)` feels clever, flatten it into `Where(...).Any()` unless you have a test proving your exact shape works.
 - Prefer query shapes already covered by tests. That is the brutally honest rule. Unsupported LINQ in ORMs does not fail gracefully; it usually fails late and irritates you.
-- Unsupported translation usually surfaces as `NotImplementedException`, not as a helpful warning.
+- Unsupported translation should surface as `QueryTranslationException` with the unsupported method, operator, selector, or predicate expression in the message.
 - If you are writing a new query shape and you are not sure whether it is supported, add a test first and then document it.
 
 ## Not Yet Documented as Supported

@@ -87,6 +87,8 @@ These shapes are intentionally not part of the documented support boundary today
 - nested database subqueries
 - complex selector expressions beyond entity, scalar member, and simple anonymous-object projection
 
+Unsupported predicate methods, non-empty compound local `Any(predicate)` shapes, unsupported selectors, and unsupported scalar result operators now have focused `QueryTranslationException` coverage in `Translation/EmployeesUnsupportedQueryDiagnosticsTests.cs`.
+
 ## First Regression Tests To Add
 
 Workstream B should start with tests that make dropped predicates impossible to miss:

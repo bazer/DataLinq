@@ -25,7 +25,7 @@ Generated output is generated output. Do not hand-edit it and then act surprised
 
 Keep hand-written changes in your source model files or partial classes, not in generated files.
 
-## A Query Throws `NotImplementedException`
+## A Query Throws `QueryTranslationException`
 
 That usually means the LINQ translator does not support the exact expression shape you wrote.
 
@@ -35,6 +35,8 @@ What to do:
 2. prefer `Where(...).Any()` over elaborate `Any(predicate)` shapes
 3. prefer explicit ordering plus `First()` over relying on `Last()` to mean "highest"
 4. if the query really should be supported, add a focused test first
+
+The exception message should name the unsupported method, operator, selector, or predicate expression. If it does not, that is a diagnostics bug worth fixing.
 
 ## `First()` or `Last()` Returns a Surprising Row
 

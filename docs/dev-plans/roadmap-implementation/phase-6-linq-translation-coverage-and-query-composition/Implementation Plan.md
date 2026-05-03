@@ -32,7 +32,7 @@ The current risks are also concrete:
 - local `Contains(...)` works for direct materialized collections but projected local collections often need manual `ToArray()` materialization
 - local `Any(predicate)` over object lists only recognizes a narrow equality shape
 - empty collections and fixed true/false conditions work in several cases but are not governed by one explicit truth table
-- unsupported translation paths often throw raw `NotImplementedException`
+- unsupported translation paths previously threw raw `NotImplementedException`
 
 ## Phase Objective
 
@@ -244,6 +244,8 @@ Tasks:
 
 ## Workstream F: Unsupported Query Diagnostics
 
+Status: Complete. Workstream F added `QueryTranslationException`, replaced the common raw `NotImplementedException` paths in LINQ predicate, selector, ordering, and result-operator translation, and added compliance tests for representative unsupported shapes.
+
 Goals:
 
 - make unsupported translation failures useful to developers
@@ -251,11 +253,11 @@ Goals:
 
 Tasks:
 
-1. Define `QueryTranslationException` or a similarly scoped exception if an existing exception is not a good fit.
-2. Replace common raw `NotImplementedException` paths in predicate and selector translation.
-3. Include method/operator names and expression text in the error message.
-4. Add tests for representative unsupported shapes.
-5. Update `docs/Troubleshooting.md`, `docs/Supported LINQ Queries.md`, and `docs/Query Translator.md` after behavior lands.
+1. Define `QueryTranslationException` or a similarly scoped exception if an existing exception is not a good fit. Complete.
+2. Replace common raw `NotImplementedException` paths in predicate and selector translation. Complete.
+3. Include method/operator names and expression text in the error message. Complete for the representative predicate, selector, and result-operator paths covered here.
+4. Add tests for representative unsupported shapes. Complete.
+5. Update `docs/Troubleshooting.md`, `docs/Supported LINQ Queries.md`, and `docs/Query Translator.md` after behavior lands. Complete.
 
 ## Proposed Execution Order
 
@@ -266,8 +268,8 @@ Tasks:
 5. Implement projected `Contains(...)`.
 6. Implement local object-list `Any(predicate)`.
 7. Tighten fixed-condition invariants.
-8. Add query translation diagnostics.
-9. Update user-facing LINQ docs.
+8. Add query translation diagnostics. Complete.
+9. Update user-facing LINQ docs. Complete.
 
 ## Verification Plan
 

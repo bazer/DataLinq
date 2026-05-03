@@ -2,13 +2,13 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # LINQ Translation Support Audit and Roadmap
 
-**Status:** Phase 6 planning source; the execution plan lives in [`../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`](../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation%20Plan.md).
+**Status:** Phase 6 planning source; the execution plan in [`../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`](../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation%20Plan.md) has been implemented for its planned support boundary.
 
 ## Purpose
 
 DataLinq's LINQ provider has grown enough useful translation behavior that the missing parts now hurt more than a simple "not implemented" bucket suggests.
 
-The next LINQ work should start with a real support matrix and targeted fixes, not a broad query-provider rewrite.
+The Phase 6 LINQ work started with a real support matrix and targeted fixes, not a broad query-provider rewrite. Future LINQ expansion should keep that same discipline.
 
 The immediate user-facing gaps are:
 
@@ -122,7 +122,7 @@ The implementation exists in pieces. It needs tests and clearer invariants so fu
 
 ### Unsupported Expression Shapes Are Not Classified
 
-Current failures are often raw `NotImplementedException` messages from visitor internals. We should distinguish:
+Common translator failures now use `QueryTranslationException` rather than raw `NotImplementedException` messages from visitor internals. Future diagnostics work should continue to distinguish:
 
 - unsupported but valid LINQ shape
 - valid shape that should become SQL soon

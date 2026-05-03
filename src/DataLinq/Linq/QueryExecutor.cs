@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using DataLinq.Exceptions;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
@@ -212,10 +213,10 @@ internal class QueryExecutor : IQueryExecutor
         else if (selector.NodeType == ExpressionType.New && selector is NewExpression newExpression)
         {
             if (newExpression.Arguments.Count == 0)
-                throw new NotImplementedException($"'{newExpression}' constructor without arguments is not implemented");
+                throw new QueryTranslationException($"Projection constructor '{newExpression}' has no arguments. Expression: {selectClause.Selector}");
 
             if (newExpression.Arguments[0] is not MemberExpression argumentExpression || argumentExpression.Expression == null)
-                throw new NotImplementedException($"'{newExpression.Arguments[0]}' argument is not implemented");
+                throw new QueryTranslationException($"Projection argument '{newExpression.Arguments[0]}' is not supported. Expression: {selectClause.Selector}");
 
             var memberType = argumentExpression.Expression.Type;
             var param = Expression.Parameter(typeof(object));
@@ -224,20 +225,20 @@ internal class QueryExecutor : IQueryExecutor
             var arguments = newExpression.Arguments.Select(x =>
             {
                 if (x is not MemberExpression memberExp)
-                    throw new NotImplementedException($"'{x}' argument is not implemented");
+                    throw new QueryTranslationException($"Projection argument '{x}' is not supported. Expression: {selectClause.Selector}");
 
                 return Expression.MakeMemberAccess(convert, memberExp.Member);
             });
 
             if (newExpression.Constructor == null)
-                throw new NotImplementedException($"'{newExpression}' constructor is not implemented");
+                throw new QueryTranslationException($"Projection constructor '{newExpression}' is not supported. Expression: {selectClause.Selector}");
 
             var expression = Expression.New(newExpression.Constructor, arguments, newExpression.Members);
             var lambda = Expression.Lambda<Func<object?, T?>>(expression, param);
             return lambda.Compile();
         }
 
-        throw new NotImplementedException($"Unsupported selector expression '{selectClause.Selector}' of type '{selectClause.Selector.NodeType}'");
+        throw new QueryTranslationException($"Selector expression '{selectClause.Selector}' with node type '{selectClause.Selector.NodeType}' is not supported.");
 
         // Local helper to rebuild chain replacing root
         static Expression ReplaceRoot(MemberExpression memberExpr, Expression originalRoot, Expression newRoot)
@@ -292,11 +293,11 @@ internal class QueryExecutor : IQueryExecutor
                 SingleResultOperator => returnDefaultWhenEmpty ? sequence.SingleOrDefault() : sequence.Single(),
                 FirstResultOperator => returnDefaultWhenEmpty ? sequence.FirstOrDefault() : sequence.First(),
                 LastResultOperator => returnDefaultWhenEmpty ? sequence.LastOrDefault() : sequence.Last(),
-                var op => throw new NotImplementedException($"Unknown operator '{op.GetType().Name}'")
+                var op => throw new QueryTranslationException($"Single-result operator '{op.GetType().Name}' is not supported. Query model: {queryModel}")
             };
         }
 
-        throw new NotImplementedException();
+        throw new QueryTranslationException($"Single-result execution requires a result operator. Query model: {queryModel}");
     }
 
     /// <summary>
@@ -319,7 +320,7 @@ internal class QueryExecutor : IQueryExecutor
             if (op is CountResultOperator || op is AnyResultOperator)
                 select.What("COUNT(*)");
             else
-                throw new NotImplementedException($"Query results operator '{op.GetType().Name}' is not implemented");
+                throw new QueryTranslationException($"Scalar result operator '{op.GetType().Name}' is not supported. Query model: {queryModel}");
 
             // Execute the scalar query
             var result = select.ExecuteScalar();
@@ -351,6 +352,6 @@ internal class QueryExecutor : IQueryExecutor
             throw new InvalidOperationException($"Unexpected result type '{result?.GetType()}' for operator '{op.GetType().Name}'");
         }
 
-        throw new NotImplementedException($"The query model lacks a results operator: '{queryModel}'");
+        throw new QueryTranslationException($"Scalar execution requires a result operator. Query model: {queryModel}");
     }
 }

@@ -42,7 +42,7 @@ Do not look at `Join.cs`, `Insert.cs`, or `Update.cs` and conclude that LINQ `Jo
     - Final terminal semantics are still applied in the executor itself.
   - **Build projections:**
     - `GetSelectFunc<T>` supports the entity itself, member-access chains, and simple constructor-based anonymous projections.
-    - Unsupported selector shapes fail explicitly with `NotImplementedException`.
+    - Unsupported selector shapes fail explicitly with `QueryTranslationException`.
 - **Execution:**
   - The executor builds a `SqlQuery<T>`, executes it, and maps results through projection delegates.
   - For entity reads, that path integrates with DataLinq's cache-aware row materialization.
@@ -56,7 +56,7 @@ Do not look at `Join.cs`, `Insert.cs`, or `Update.cs` and conclude that LINQ `Jo
 **WhereVisitor.cs**
 - Traverses the expression tree representing a `Where` clause.
 - Handles comparisons, logical composition, string methods, list-based `Contains`, projected local collection extraction, and local `Any(predicate)` equality-membership cases that can become `IN` predicates.
-- Unsupported methods fail with `NotImplementedException` instead of quietly degrading into nonsense.
+- Unsupported methods fail with `QueryTranslationException` instead of quietly degrading into nonsense.
 
 ## 5. Building WHERE Clauses
 
