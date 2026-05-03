@@ -174,7 +174,32 @@ Key related plans:
 - `query-and-runtime/LINQ Translation Support.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
 
-### Phase 7: Native AOT and WebAssembly Readiness
+### Phase 7: LINQ Feature Expansion
+
+Status: planned; implementation plan created.
+
+Goals:
+
+- add simple scalar aggregates: `Sum`, `Min`, `Max`, and `Average`
+- expand projection support for computed but defensible selectors
+- make nullable predicate support boring and explicitly documented
+- add a narrow explicit LINQ `Join` baseline
+- design and implement relation-aware query predicates over generated relation properties
+
+Why here:
+
+- Phase 6 classified the LINQ translator surface and made unsupported shapes fail clearly
+- aggregates, projections, joins, and relation predicates are now the practical gaps users will hit next
+- relation-aware translation is important enough to design deliberately instead of smuggling it into a cleanup phase
+- these features are more immediately application-facing than platform compatibility work
+
+Key related plans:
+
+- `roadmap-implementation/phase-7-linq-feature-expansion/Implementation Plan.md`
+- `query-and-runtime/LINQ Translation Support.md`
+- `query-and-runtime/Query Pipeline Abstraction.md`
+
+### Phase 8: Native AOT and WebAssembly Readiness
 
 Goals:
 
@@ -187,7 +212,8 @@ Goals:
 Why here:
 
 - Phase 2 created some of the generator hooks this work needs, but it did not eliminate every AOT-hostile path
-- Phase 3 should make the query/runtime path cheaper first, so the AOT/WASM work starts from the cleaner runtime shape
+- Phase 3 made the query/runtime path cheaper first, so the AOT/WASM work starts from the cleaner runtime shape
+- Phase 7 should clarify projection and relation-query execution paths before AOT locks down more runtime behavior
 - platform compatibility is concrete enough to deserve a real phase, but not urgent enough to interrupt the current hot-path work
 
 Key related plans:
@@ -195,7 +221,7 @@ Key related plans:
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 
-### Phase 8: Cache, Memory, and Invalidation Foundations
+### Phase 9: Cache, Memory, and Invalidation Foundations
 
 Goals:
 
@@ -217,7 +243,7 @@ Key related plans:
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
 
-### Phase 9: Async and Loading Semantics
+### Phase 10: Async and Loading Semantics
 
 Goals:
 
@@ -241,7 +267,7 @@ Key related plans:
 
 - `query-and-runtime/Async and Lazy Loading.md`
 
-### Phase 10: Capability Expansion
+### Phase 11: Capability Expansion
 
 Goals:
 
@@ -261,7 +287,7 @@ Key related plans:
 - `query-and-runtime/Projections and Views.md`
 - `query-and-runtime/Batched mutations.md`
 
-### Phase 11: Dependency-Tracked Result-Set Caching
+### Phase 12: Dependency-Tracked Result-Set Caching
 
 Goals:
 
@@ -297,7 +323,7 @@ The final closeout pass confirmed the generators, unit suite, SQLite compliance 
 
 Phase 6 LINQ translation coverage and query composition is now implemented for its planned support boundary: support-matrix audit, chained `Where(...)`, projected local `Contains(...)`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
 
-The next roadmap selection should therefore move beyond Phase 6 unless we deliberately pause to prioritize full migration execution.
+The next roadmap phase should therefore be Phase 7: LINQ feature expansion, unless we deliberately pause to prioritize full migration execution.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

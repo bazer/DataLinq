@@ -95,7 +95,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ## Current Stage Audit
 
-As of the Phase 6 implementation-plan kickoff on 2026-05-02:
+As of the Phase 7 planning update on 2026-05-03:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
@@ -103,8 +103,9 @@ As of the Phase 6 implementation-plan kickoff on 2026-05-02:
 - Phase 4 provider metadata roundtrip fidelity is implemented for the validation support boundary: the matrix is explicit, ordinary indexes/relations/identifiers/checks/comments are covered where supported, and unsupported provider details are documented instead of implied.
 - Phase 5 product-trust work is implemented for the intended validation/diff/snapshot scope: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
 - Phase 6 LINQ translation coverage and query composition is implemented: the support audit, chained `Where(...)` fix, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics have landed.
+- Phase 7 LINQ feature expansion is planned next: scalar aggregates, computed projections, nullable predicate polish, explicit joins, and relation-aware predicate translation.
 - The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
-The next roadmap execution work should move beyond Phase 6, unless we deliberately pause to start the separate full migration-execution feature.
+The next roadmap execution work should be Phase 7 LINQ feature expansion, unless we deliberately pause to start the separate full migration-execution feature.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

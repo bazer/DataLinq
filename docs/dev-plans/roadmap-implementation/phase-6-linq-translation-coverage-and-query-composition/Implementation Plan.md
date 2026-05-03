@@ -301,10 +301,10 @@ Phase 6 is complete when:
 
 - full query-provider rewrite
 - query-pipeline abstraction or provider-independent IR
-- arbitrary joins through LINQ
+- arbitrary joins through LINQ; a narrow explicit join baseline is planned for Phase 7
 - arbitrary subqueries against database tables
-- `GroupBy(...)` and aggregate expansion
-- implicit relation-property query translation
+- `GroupBy(...)` and aggregate expansion; simple scalar aggregates are planned for Phase 7
+- implicit relation-property query translation; relation-aware predicates are planned for Phase 7
 - client-side fallback for unsupported predicates
 - in-memory provider work
 - Native AOT or WebAssembly readiness work
