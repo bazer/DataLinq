@@ -8,6 +8,7 @@ using DataLinq.Query;
 using DataLinq.Utils;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
+using Remotion.Linq.Clauses.ResultOperators;
 
 namespace DataLinq.Linq;
 
@@ -16,6 +17,7 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
     private readonly NonNegativeInt negations = new(0); // Tracks pending NOT operations
     private readonly NonNegativeInt ors = new(0);       // Tracks if the next item should be ORed
     private readonly Stack<WhereGroup<T>> whereGroups = new(); // Manages logical grouping (parentheses)
+    private int relationSubqueryCounter;
 
     internal WhereGroup<T> CurrentParentGroup => whereGroups.Count > 0 ? whereGroups.Peek() : query.GetBaseWhereGroup();
 
@@ -126,6 +128,487 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
         CurrentParentGroup.AddWhere(comparison, GetNextConnectionType(), isNegated);
     }
+
+    internal bool TryAddRelationAnySubQuery(SubQueryExpression subQuery, BooleanType connectionType, bool isNegated)
+    {
+        if (!TryGetRelationProperty(subQuery.QueryModel.MainFromClause.FromExpression, out var relationProperty))
+            return false;
+
+        if (subQuery.QueryModel.ResultOperators.Count != 1 ||
+            subQuery.QueryModel.ResultOperators[0] is not AnyResultOperator)
+        {
+            throw new QueryTranslationException($"Relation subquery '{subQuery.QueryModel}' is not supported. Only relation Any(...) predicates are supported in this context.");
+        }
+
+        var predicate = GetOptionalRelationWherePredicate(subQuery.QueryModel.BodyClauses, subQuery.QueryModel.ToString());
+        AddRelationExists(relationProperty, predicate, subQuery.QueryModel.MainFromClause, null, connectionType, isNegated);
+        return true;
+    }
+
+    internal bool TryAddRelationAnyMethodCall(MethodCallExpression node, BooleanType connectionType)
+    {
+        if (!IsEnumerableMethod(node, nameof(Enumerable.Any)) || node.Arguments.Count is not (1 or 2))
+            return false;
+
+        if (!TryGetRelationProperty(node.Arguments[0], out var relationProperty))
+            return false;
+
+        var isNegated = Negations > 0;
+        if (isNegated)
+            DecrementNegations();
+
+        var (predicate, parameter) = node.Arguments.Count == 2
+            ? GetRelationLambdaPredicate(node.Arguments[1], node.ToString())
+            : (null, null);
+
+        AddRelationExists(relationProperty, predicate, null, parameter, connectionType, isNegated);
+        return true;
+    }
+
+    internal bool TryAddRelationCountComparison(BinaryExpression node)
+    {
+        if (TryGetRelationCount(node.Left, out var relationProperty, out var predicate, out var childQuerySource, out var childParameter) &&
+            TryGetConstantInt(node.Right, out var constant))
+        {
+            return AddRelationCountComparison(relationProperty, predicate, childQuerySource, childParameter, node.NodeType, constant);
+        }
+
+        if (TryGetRelationCount(node.Right, out relationProperty, out predicate, out childQuerySource, out childParameter) &&
+            TryGetConstantInt(node.Left, out constant))
+        {
+            return AddRelationCountComparison(relationProperty, predicate, childQuerySource, childParameter, ReverseExpressionType(node.NodeType), constant);
+        }
+
+        return false;
+    }
+
+    private bool AddRelationCountComparison(
+        RelationProperty relationProperty,
+        Expression? predicate,
+        MainFromClause? childQuerySource,
+        ParameterExpression? childParameter,
+        ExpressionType comparisonType,
+        int constant)
+    {
+        if (!TryGetCountExistsSemantics(comparisonType, constant, out var shouldExist))
+        {
+            throw new QueryTranslationException(
+                $"Relation Count() comparison '{comparisonType} {constant}' is not supported. " +
+                "Use Count() > 0, Count() >= 1, Count() != 0, Count() == 0, Count() <= 0, or Count() < 1.");
+        }
+
+        var isNegated = Negations > 0;
+        if (isNegated)
+            DecrementNegations();
+
+        if (isNegated)
+            shouldExist = !shouldExist;
+
+        AddRelationExists(relationProperty, predicate, childQuerySource, childParameter, GetNextConnectionType(), isNegated: !shouldExist);
+        return true;
+    }
+
+    private static bool TryGetCountExistsSemantics(ExpressionType comparisonType, int constant, out bool shouldExist)
+    {
+        switch (comparisonType)
+        {
+            case ExpressionType.GreaterThan when constant == 0:
+            case ExpressionType.GreaterThanOrEqual when constant == 1:
+            case ExpressionType.NotEqual when constant == 0:
+                shouldExist = true;
+                return true;
+
+            case ExpressionType.Equal when constant == 0:
+            case ExpressionType.LessThanOrEqual when constant == 0:
+            case ExpressionType.LessThan when constant == 1:
+                shouldExist = false;
+                return true;
+
+            default:
+                shouldExist = false;
+                return false;
+        }
+    }
+
+    private static ExpressionType ReverseExpressionType(ExpressionType expressionType) => expressionType switch
+    {
+        ExpressionType.GreaterThan => ExpressionType.LessThan,
+        ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
+        ExpressionType.LessThan => ExpressionType.GreaterThan,
+        ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
+        _ => expressionType
+    };
+
+    private bool TryGetRelationCount(
+        Expression expression,
+        out RelationProperty relationProperty,
+        out Expression? predicate,
+        out MainFromClause? childQuerySource,
+        out ParameterExpression? childParameter)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (expression is SubQueryExpression subQuery &&
+            subQuery.QueryModel.ResultOperators.Count == 1 &&
+            subQuery.QueryModel.ResultOperators[0] is CountResultOperator &&
+            TryGetRelationProperty(subQuery.QueryModel.MainFromClause.FromExpression, out relationProperty))
+        {
+            predicate = GetOptionalRelationWherePredicate(subQuery.QueryModel.BodyClauses, subQuery.QueryModel.ToString());
+            childQuerySource = subQuery.QueryModel.MainFromClause;
+            childParameter = null;
+            return true;
+        }
+
+        if (expression is MethodCallExpression methodCall &&
+            IsEnumerableMethod(methodCall, nameof(Enumerable.Count)) &&
+            methodCall.Arguments.Count is 1 or 2 &&
+            TryGetRelationProperty(methodCall.Arguments[0], out relationProperty))
+        {
+            if (methodCall.Arguments.Count == 2)
+            {
+                (predicate, childParameter) = GetRelationLambdaPredicate(methodCall.Arguments[1], methodCall.ToString());
+            }
+            else
+            {
+                predicate = null;
+                childParameter = null;
+            }
+
+            childQuerySource = null;
+            return true;
+        }
+
+        relationProperty = null!;
+        predicate = null;
+        childQuerySource = null;
+        childParameter = null;
+        return false;
+    }
+
+    private static Expression? GetOptionalRelationWherePredicate(IList<IBodyClause> bodyClauses, string expression)
+    {
+        if (bodyClauses.Count == 0)
+            return null;
+
+        if (bodyClauses.Count == 1 && bodyClauses[0] is WhereClause whereClause)
+            return whereClause.Predicate;
+
+        throw new QueryTranslationException($"Relation predicate '{expression}' is not supported. Only a single Where predicate inside Any(...) or Count(...) is supported.");
+    }
+
+    private static (Expression predicate, ParameterExpression parameter) GetRelationLambdaPredicate(Expression expression, string sourceExpression)
+    {
+        expression = UnwrapConvert(expression);
+        if (expression is UnaryExpression { NodeType: ExpressionType.Quote } quote)
+            expression = quote.Operand;
+
+        if (expression is LambdaExpression lambda && lambda.Parameters.Count == 1)
+            return (lambda.Body, lambda.Parameters[0]);
+
+        throw new QueryTranslationException($"Relation predicate lambda '{sourceExpression}' is not supported.");
+    }
+
+    private bool TryGetRelationProperty(Expression expression, out RelationProperty relationProperty)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (expression is MemberExpression memberExpression &&
+            memberExpression.Expression is QuerySourceReferenceExpression querySource &&
+            querySource.Type == query.Table.Model.CsType.Type &&
+            query.Table.Model.RelationProperties.TryGetValue(memberExpression.Member.Name, out relationProperty!))
+        {
+            return true;
+        }
+
+        relationProperty = null!;
+        return false;
+    }
+
+    private void AddRelationExists(
+        RelationProperty relationProperty,
+        Expression? predicate,
+        MainFromClause? childQuerySource,
+        ParameterExpression? childParameter,
+        BooleanType connectionType,
+        bool isNegated)
+    {
+        var relationPart = relationProperty.RelationPart;
+        if (relationPart.Type != RelationPartType.CandidateKey)
+        {
+            throw new QueryTranslationException(
+                $"Relation property '{relationProperty.PropertyName}' is not supported in relation predicate translation. " +
+                "Only collection relations from the candidate-key side are supported.");
+        }
+
+        var childPart = relationPart.GetOtherSide();
+        var parentColumns = relationPart.ColumnIndex.Columns;
+        var childColumns = childPart.ColumnIndex.Columns;
+        if (parentColumns.Count != childColumns.Count)
+            throw new QueryTranslationException($"Relation property '{relationProperty.PropertyName}' has mismatched relation column counts.");
+
+        var childTable = childPart.ColumnIndex.Table;
+        ValidateRelationPredicateSource(relationProperty, childTable, childQuerySource, childParameter);
+
+        var alias = $"r{relationSubqueryCounter++}";
+        var existsQuery = new SqlQuery<object>(childTable, query.DataSource, alias);
+        var existsWhere = existsQuery.GetBaseWhereGroup();
+
+        for (var index = 0; index < parentColumns.Count; index++)
+        {
+            existsWhere
+                .AddWhere(childColumns[index].DbName, alias, BooleanType.And)
+                .EqualToRaw(FormatOuterColumn(parentColumns[index]));
+        }
+
+        if (predicate is not null)
+            AddRelationPredicate(existsWhere, childTable, alias, childQuerySource, childParameter, predicate, BooleanType.And);
+
+        CurrentParentGroup.AddExists(existsQuery, connectionType, isNegated);
+    }
+
+    private static void ValidateRelationPredicateSource(
+        RelationProperty relationProperty,
+        TableDefinition childTable,
+        MainFromClause? childQuerySource,
+        ParameterExpression? childParameter)
+    {
+        var childType = childTable.Model.CsType.Type;
+        if (childQuerySource is not null && childQuerySource.ItemType != childType)
+        {
+            throw new QueryTranslationException(
+                $"Relation property '{relationProperty.PropertyName}' subquery item type '{childQuerySource.ItemType}' does not match related table model '{childType}'.");
+        }
+
+        if (childParameter is not null && childParameter.Type != childType)
+        {
+            throw new QueryTranslationException(
+                $"Relation property '{relationProperty.PropertyName}' predicate parameter type '{childParameter.Type}' does not match related table model '{childType}'.");
+        }
+    }
+
+    private void AddRelationPredicate(
+        WhereGroup<object> group,
+        TableDefinition childTable,
+        string childAlias,
+        MainFromClause? childQuerySource,
+        ParameterExpression? childParameter,
+        Expression predicate,
+        BooleanType connectionType)
+    {
+        predicate = UnwrapConvert(predicate);
+
+        if (predicate is BinaryExpression { NodeType: ExpressionType.AndAlso or ExpressionType.OrElse } compound)
+        {
+            var joinType = compound.NodeType == ExpressionType.OrElse ? BooleanType.Or : BooleanType.And;
+            var subGroup = new WhereGroup<object>(group.Query, joinType);
+            group.AddSubGroup(subGroup, connectionType);
+            AddRelationPredicate(subGroup, childTable, childAlias, childQuerySource, childParameter, compound.Left, BooleanType.And);
+            AddRelationPredicate(subGroup, childTable, childAlias, childQuerySource, childParameter, compound.Right, joinType);
+            return;
+        }
+
+        if (predicate is not BinaryExpression comparison)
+        {
+            throw new QueryTranslationException($"Relation predicate '{predicate}' is not supported. Only simple comparison predicates are supported.");
+        }
+
+        if (!TryAddRelationPredicateComparison(group, childTable, childAlias, childQuerySource, childParameter, comparison, connectionType))
+        {
+            throw new QueryTranslationException(
+                $"Relation predicate '{predicate}' is not supported. " +
+                "Expected a direct related-row member compared with a local value.");
+        }
+    }
+
+    private bool TryAddRelationPredicateComparison(
+        WhereGroup<object> group,
+        TableDefinition childTable,
+        string childAlias,
+        MainFromClause? childQuerySource,
+        ParameterExpression? childParameter,
+        BinaryExpression comparison,
+        BooleanType connectionType)
+    {
+        if (TryGetRelationPredicateColumn(comparison.Left, childTable, childQuerySource, childParameter, out var column) &&
+            TryGetRelationPredicateValue(comparison.Right, out var value))
+        {
+            AddRelationPredicateWhere(group, childAlias, column, GetOperator(comparison.NodeType), value, connectionType);
+            return true;
+        }
+
+        if (TryGetRelationPredicateColumn(comparison.Right, childTable, childQuerySource, childParameter, out column) &&
+            TryGetRelationPredicateValue(comparison.Left, out value))
+        {
+            AddRelationPredicateWhere(group, childAlias, column, ReverseOperator(GetOperator(comparison.NodeType)), value, connectionType);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryGetRelationPredicateColumn(
+        Expression expression,
+        TableDefinition childTable,
+        MainFromClause? childQuerySource,
+        ParameterExpression? childParameter,
+        out ColumnDefinition column)
+    {
+        expression = UnwrapNullableValueMember(UnwrapConvert(expression));
+
+        if (expression is MemberExpression memberExpression &&
+            IsRelationPredicateSource(memberExpression.Expression, childQuerySource, childParameter))
+        {
+            column = childTable.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == memberExpression.Member.Name)!;
+            return column is not null;
+        }
+
+        column = null!;
+        return false;
+    }
+
+    private static bool IsRelationPredicateSource(Expression? expression, MainFromClause? childQuerySource, ParameterExpression? childParameter)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (expression is QuerySourceReferenceExpression querySource && childQuerySource is not null)
+            return ReferenceEquals(querySource.ReferencedQuerySource, childQuerySource);
+
+        if (expression is ParameterExpression parameter && childParameter is not null)
+            return parameter == childParameter;
+
+        return false;
+    }
+
+    private bool TryGetRelationPredicateValue(Expression expression, out object? value)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (ContainsQuerySource(expression))
+        {
+            value = null;
+            return false;
+        }
+
+        value = GetConstant(expression);
+        return true;
+    }
+
+    private static bool ContainsQuerySource(Expression? expression)
+    {
+        expression = UnwrapConvert(expression);
+
+        return expression switch
+        {
+            null => false,
+            QuerySourceReferenceExpression => true,
+            SubQueryExpression => true,
+            MemberExpression memberExpression => ContainsQuerySource(memberExpression.Expression),
+            MethodCallExpression methodCall => ContainsQuerySource(methodCall.Object) || methodCall.Arguments.Any(ContainsQuerySource),
+            UnaryExpression unaryExpression => ContainsQuerySource(unaryExpression.Operand),
+            BinaryExpression binaryExpression => ContainsQuerySource(binaryExpression.Left) || ContainsQuerySource(binaryExpression.Right),
+            _ => false
+        };
+    }
+
+    private static void AddRelationPredicateWhere(
+        WhereGroup<object> group,
+        string childAlias,
+        ColumnDefinition column,
+        Operator @operator,
+        object? value,
+        BooleanType connectionType)
+    {
+        value = NormalizeRelationPredicateValue(column, value);
+
+        if (@operator == Operator.NotEqual &&
+            column.ValueProperty.CsNullable &&
+            value is not null)
+        {
+            var orGroup = new WhereGroup<object>(group.Query, BooleanType.Or);
+            group.AddSubGroup(orGroup, connectionType);
+            orGroup.AddWhere(column.DbName, childAlias, BooleanType.And).NotEqualTo(value);
+            orGroup.AddWhere(column.DbName, childAlias, BooleanType.Or).EqualToNull();
+            return;
+        }
+
+        var where = group.AddWhere(column.DbName, childAlias, connectionType);
+        switch (@operator)
+        {
+            case Operator.Equal:
+                where.EqualTo(value);
+                break;
+            case Operator.NotEqual:
+                where.NotEqualTo(value);
+                break;
+            case Operator.GreaterThan:
+                where.GreaterThan(value);
+                break;
+            case Operator.GreaterThanOrEqual:
+                where.GreaterThanOrEqual(value);
+                break;
+            case Operator.LessThan:
+                where.LessThan(value);
+                break;
+            case Operator.LessThanOrEqual:
+                where.LessThanOrEqual(value);
+                break;
+            default:
+                throw new QueryTranslationException($"Relation predicate operator '{@operator}' is not supported.");
+        }
+    }
+
+    private static object? NormalizeRelationPredicateValue(ColumnDefinition column, object? value)
+    {
+        var columnType = Nullable.GetUnderlyingType(column.ValueProperty.CsType.Type) ?? column.ValueProperty.CsType.Type;
+        if (columnType == typeof(char))
+            return NormalizeCharComparisonValue(value);
+
+        return value;
+    }
+
+    private string FormatOuterColumn(ColumnDefinition column)
+    {
+        var qualifier = string.IsNullOrWhiteSpace(query.Alias)
+            ? EscapeIdentifier(query.Table.DbName)
+            : query.Alias;
+
+        return $"{qualifier}.{EscapeIdentifier(column.DbName)}";
+    }
+
+    private string EscapeIdentifier(string identifier)
+        => $"{query.EscapeCharacter}{identifier}{query.EscapeCharacter}";
+
+    private static bool TryGetConstantInt(Expression expression, out int value)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (expression is ConstantExpression constantExpression)
+        {
+            value = Convert.ToInt32(constantExpression.Value, System.Globalization.CultureInfo.InvariantCulture);
+            return true;
+        }
+
+        value = 0;
+        return false;
+    }
+
+    private static bool IsEnumerableMethod(MethodCallExpression node, string methodName)
+    {
+        if (!node.Method.IsGenericMethod || node.Method.Name != methodName)
+            return false;
+
+        var genericDefinition = node.Method.GetGenericMethodDefinition();
+        return genericDefinition.DeclaringType == typeof(Enumerable);
+    }
+
+    private static Operator ReverseOperator(Operator @operator) => @operator switch
+    {
+        Operator.GreaterThan => Operator.LessThan,
+        Operator.GreaterThanOrEqual => Operator.LessThanOrEqual,
+        Operator.LessThan => Operator.GreaterThan,
+        Operator.LessThanOrEqual => Operator.GreaterThanOrEqual,
+        _ => @operator
+    };
 
     private bool TryAddNullableNotEqualComparison(Comparison comparison)
     {
@@ -280,6 +763,17 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
             Nullable.GetUnderlyingType(memberExpression.Expression.Type) is not null)
         {
             return memberExpression.Expression;
+        }
+
+        return expression;
+    }
+
+    private static Expression UnwrapConvert(Expression expression)
+    {
+        while (expression is UnaryExpression unary &&
+               (unary.NodeType == ExpressionType.Convert || unary.NodeType == ExpressionType.ConvertChecked || unary.NodeType == ExpressionType.Quote))
+        {
+            expression = unary.Operand;
         }
 
         return expression;

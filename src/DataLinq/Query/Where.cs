@@ -31,6 +31,26 @@ public interface IWhere<T> : IQueryPart
 {
 }
 
+internal class ExistsWhere<T>(SqlQuery<object> subQuery, bool isNegated = false) : IWhere<T>
+{
+    public void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false)
+    {
+        if (addParentheses)
+            sql.AddText("(");
+
+        if (isNegated)
+            sql.AddText("NOT ");
+
+        sql.AddText("EXISTS (SELECT 1 FROM ");
+        subQuery.AddTableName(sql, subQuery.Table.DbName, subQuery.Alias);
+        subQuery.GetWhere(sql, prefix);
+        sql.AddText(")");
+
+        if (addParentheses)
+            sql.AddText(")");
+    }
+}
+
 public class Where<T> : IWhere<T>
 {
     internal Operand? Left;

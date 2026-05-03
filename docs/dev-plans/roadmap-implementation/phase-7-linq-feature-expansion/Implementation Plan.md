@@ -125,6 +125,15 @@ Preferred first implementation:
 - translate one-to-many `Any(predicate)` into `EXISTS` using relation metadata
 - reject relation projections and relation aggregates until separately designed
 
+Design note:
+
+- The first shipped relation-aware slice should remain `EXISTS`-based rather than join-backed. `EXISTS` preserves parent-row cardinality, avoids duplicate parent rows, and keeps relation materialization/cache behavior separate from predicate translation.
+- Relation predicate SQL correlates the parent table's candidate key columns with the related table's foreign key columns from `RelationPart` metadata.
+- Related-row predicate bodies are intentionally limited to direct related-row member comparisons against local values, with simple `&&`/`||` grouping. Traversing another relation from the related row is rejected so the translator does not silently become a multi-hop join planner.
+- `Count()` support is limited to forms that reduce to existence or non-existence (`> 0`, `>= 1`, `!= 0`, `== 0`, `<= 0`, `< 1`). Threshold counts such as `Count() > 1` still need aggregate or grouped-subquery design.
+
+Status: Complete. Workstream E translates generated one-to-many relation `Any()`, `Any(predicate)`, negated `Any(predicate)`, and existence-equivalent `Count()` comparisons into correlated `EXISTS` predicates. The implementation supports direct related-row member comparisons and simple boolean groups, and adds focused diagnostics for relation traversal inside the related-row predicate and unsupported count thresholds.
+
 ## Verification Plan
 
 At minimum, each workstream should run:

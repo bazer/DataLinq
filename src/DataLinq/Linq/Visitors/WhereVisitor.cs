@@ -88,6 +88,9 @@ internal class WhereVisitor<T> : ExpressionVisitor
             if (isSubQueryGloballyNegated)
                 builder.DecrementNegations();
 
+            if (builder.TryAddRelationAnySubQuery(subQuery, connectionType, isSubQueryGloballyNegated))
+                return node;
+
             foreach (var resultOperator in subQuery.QueryModel.ResultOperators)
             {
                 if (resultOperator is ContainsResultOperator containsResultOperator)
@@ -330,6 +333,9 @@ internal class WhereVisitor<T> : ExpressionVisitor
         // Determine how this method call condition connects to the previous one in the current group
         var connectionType = builder.GetNextConnectionType();
 
+        if (builder.TryAddRelationAnyMethodCall(node, connectionType))
+            return node;
+
         // Handle static string.IsNullOrEmpty and string.IsNullOrWhiteSpace
         if (node.Method.IsStatic && node.Method.DeclaringType == typeof(string) && (node.Method.Name == "IsNullOrEmpty" || node.Method.Name == "IsNullOrWhiteSpace"))
         {
@@ -441,6 +447,9 @@ internal class WhereVisitor<T> : ExpressionVisitor
             builder.PopWhereGroup();
             return node;
         }
+
+        if (builder.TryAddRelationCountComparison(node))
+            return node;
 
         // For all other binary expressions, they must be comparisons. Let the builder handle them.
         var comparison = builder.ParseComparison(node);

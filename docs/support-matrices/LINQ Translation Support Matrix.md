@@ -3,7 +3,7 @@
 
 # LINQ Translation Support Matrix
 
-**Status:** Current Phase 7 Workstream D baseline; update whenever LINQ translator support changes.
+**Status:** Current Phase 7 Workstream E baseline; update whenever LINQ translator support changes.
 
 This matrix records what the active compliance tests prove today, where the public support docs are accurate, and which gaps remain outside the documented support boundary.
 
@@ -21,6 +21,14 @@ The evidence column intentionally points at test files instead of implementation
 | Nullable boolean predicates | nullable bool compared to `true`, `false`, and `null`; negated equality forms | `Translation/EmployeesNullableBooleanTests.cs` | Public docs match this. |
 | Nullable value predicates | `.HasValue`, `!HasValue`, guarded `.Value` comparisons, selected guarded date/time member access, and mixed nullable/non-nullable equality and inequality | `Translation/EmployeesNullablePredicateTests.cs`, `Translation/EmployeesDateTimeMemberTests.cs` | Phase 7 Workstream C documents the support boundary. `nullable != nonNullable` includes null rows to match C# lifted nullable semantics. |
 | Character predicates | LINQ char predicate matches raw SQL parameter behavior | `Translation/CharPredicateTranslationTests.cs`, `Query/SQLiteInMemoryBehaviorTests.cs` | Public docs did not call this out; it is a narrow parameter/type-fidelity case. |
+
+## Relation Predicate Translation
+
+| Area | Currently tested support | Evidence | Audit notes |
+| --- | --- | --- | --- |
+| One-to-many relation existence | generated collection relation `Any()`, `Any(predicate)`, negated `Any(predicate)`, and existence-equivalent `Count()` comparisons | `Translation/EmployeesRelationPredicateTranslationTests.cs` | Phase 7 Workstream E translates these to correlated `EXISTS` subqueries. `Count()` support is deliberately limited to forms reducible to existence or non-existence. |
+| Related-row predicate body | direct related-row member comparisons against local values, plus simple `&&` and `||` groups | `Translation/EmployeesRelationPredicateTranslationTests.cs` | This is not arbitrary predicate translation for a second query source. Relation traversal from the related row remains rejected. |
+| Unsupported relation predicate shapes | relation traversal inside the related-row predicate and unsupported `Count()` thresholds fail with `QueryTranslationException` | `Translation/EmployeesRelationPredicateTranslationTests.cs` | Many-to-one relation predicates, relation projections, and relation aggregates beyond existence-equivalent `Count()` forms remain outside the documented boundary. |
 
 ## Local Collections and Fixed Conditions
 
@@ -103,7 +111,7 @@ These shapes are intentionally not part of the documented support boundary today
 
 - `GroupBy(...)`
 - `GroupJoin(...)`, outer joins, composite-key joins, multi-join pipelines, and additional filtering/ordering/paging over explicit joined results
-- relation-property query expansion
+- relation-property query expansion beyond the documented one-to-many `Any(...)` and existence-equivalent `Count()` predicates
 - aggregate result operators over computed selectors, grouped aggregates, or relation properties
 - arbitrary local `Enumerable` method chains inside predicates
 - arbitrary client methods inside SQL predicates

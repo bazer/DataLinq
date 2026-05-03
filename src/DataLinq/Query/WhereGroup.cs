@@ -154,6 +154,14 @@ public class WhereGroup<T> : IWhere<T>
         return AddWhereInternal(new Where<T>(this, fixedRelation), explicitConnectionType);
     }
 
+    internal ExistsWhere<T> AddExists(SqlQuery<object> subQuery, BooleanType explicitConnectionType, bool isNegated = false)
+    {
+        var where = new ExistsWhere<T>(subQuery, isNegated);
+        whereList ??= new List<(IWhere<T> where, BooleanType connectionToPrevious)>();
+        whereList.Add((where, explicitConnectionType));
+        return where;
+    }
+
     public WhereGroup<T> AddSubGroup(WhereGroup<T> group, BooleanType explicitConnectionType)
     {
         return AddSubGroupInternal(group, explicitConnectionType);

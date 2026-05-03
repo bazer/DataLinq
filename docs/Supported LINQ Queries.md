@@ -134,6 +134,35 @@ It also covers nullable value predicates such as:
 
 For `nullable != nonNullable`, null rows are included, matching C# lifted nullable semantics.
 
+## Supported Relation Predicates
+
+Generated one-to-many relation properties can be used in a narrow set of SQL-backed predicates. The translator emits a correlated `EXISTS` subquery instead of lazy-loading the relation for every candidate row.
+
+The test suite covers:
+
+- `parent.Children.Any()`
+- `!parent.Children.Any(...)`
+- `parent.Children.Any(child => child.Column == value)`
+- simple related-row comparisons with `==`, `!=`, `>`, `>=`, `<`, and `<=`
+- simple `&&` and `||` groups inside the relation predicate
+- existence-equivalent counts such as `parent.Children.Count() > 0`, `Count() >= 1`, `Count() != 0`, `Count() == 0`, `Count() <= 0`, and `Count() < 1`
+
+Example:
+
+```csharp
+var departments = db.Query().Departments
+    .Where(department => department.Managers.Any(manager => manager.emp_no == employeeNumber))
+    .ToList();
+```
+
+This first slice is intentionally not a relation traversal engine. These shapes are not supported yet:
+
+- relation projections inside provider `Select(...)`
+- relation aggregates other than the documented existence-equivalent `Count()` comparisons
+- thresholds such as `Children.Count() > 1`
+- predicates that traverse another relation from the related row, such as `child.Parent.Name == value`
+- many-to-one relation property predicates outside the one-to-many `Any(...)`/existence pattern
+
 ## Supported Projection Shapes
 
 `Select(...)` projections are evaluated after DataLinq has translated SQL filtering, ordering, and paging and materialized the selected rows. They are not SQL `SELECT`-list expressions today. That is less efficient for wide rows than SQL-backed projection, but it keeps projection semantics honest: projection code runs as normal .NET code over the materialized model instance.
@@ -281,7 +310,7 @@ The current docs do not claim support for these because this pass has not verifi
 - `GroupBy(...)`
 - `GroupJoin(...)`, outer joins, composite-key joins, and additional filtering/ordering/paging over joined results
 - aggregate operators over computed selectors, grouped aggregates, or relation properties
-- relation-property projections inside provider `Select(...)`
+- relation-property projections inside provider `Select(...)` and relation traversal inside relation predicates
 - broader client-side method translation inside SQL predicates beyond the string members listed above
 
 That does not automatically mean they are impossible. It means the docs should not lie about them.
