@@ -223,16 +223,7 @@ Goals:
 
 Truth table:
 
-| Query shape | Fixed condition | SQL predicate |
-| --- | --- | --- |
-| `empty.Contains(value)` | false | `1=0` |
-| `!empty.Contains(value)` | true | `1=1` |
-| `empty.Any()` | false | `1=0` |
-| `!empty.Any()` | true | `1=1` |
-| `empty.Any(predicate)` | false without visiting `predicate` | `1=0` |
-| `!empty.Any(predicate)` | true without visiting `predicate` | `1=1` |
-| constant `local.Contains(item)` when the item is present | true | `1=1` |
-| constant `local.Contains(item)` when the item is absent | false | `1=0` |
+- The canonical fixed-condition truth table now lives in the [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md#fixed-condition-truth-table).
 
 Tasks:
 

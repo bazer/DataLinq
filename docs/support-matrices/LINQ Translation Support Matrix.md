@@ -36,6 +36,21 @@ The evidence column intentionally points at test files instead of implementation
 | Projected local `Contains` | `localObjects.Select(x => x.Value).Contains(row.NullableColumn.Value)` and empty projected local sequences | `Translation/EmployeesContainsTranslationTests.cs` | Phase 6 added guarded local sequence extraction and regression coverage. This is now tested for safe local projections that do not reference the database query source. |
 | Local object-list `Any(predicate)` | scalar item equality, object-member equality, reversed equality, nullable wrapper normalization, and negated `NOT IN` membership | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesLocalAnyPredicateTests.cs` | Equality-membership shapes are covered. Compound non-empty local predicates remain unsupported. |
 
+### Fixed-Condition Truth Table
+
+These shapes intentionally collapse to fixed SQL predicates instead of generating invalid SQL or visiting predicate bodies that do not matter.
+
+| Query shape | Fixed condition | SQL predicate | Evidence |
+| --- | --- | --- | --- |
+| `empty.Contains(value)` | false | `1=0` | `Translation/EmployeesContainsTranslationTests.cs`, `Translation/EmployeesEmptyListQueryTests.cs` |
+| `!empty.Contains(value)` | true | `1=1` | `Translation/EmployeesContainsTranslationTests.cs`, `Translation/EmployeesEmptyListQueryTests.cs` |
+| `empty.Any()` | false | `1=0` | `Translation/EmployeesEmptyListQueryTests.cs` |
+| `!empty.Any()` | true | `1=1` | `Translation/EmployeesEmptyListQueryTests.cs` |
+| `empty.Any(predicate)` | false without visiting `predicate` | `1=0` | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` |
+| `!empty.Any(predicate)` | true without visiting `predicate` | `1=1` | `Translation/EmployeesEmptyListQueryTests.cs`, `Translation/EmployeesBooleanLogicTests.cs` |
+| constant `local.Contains(item)` when the item is present | true | `1=1` | `Translation/EmployeesContainsTranslationTests.cs` |
+| constant `local.Contains(item)` when the item is absent | false | `1=0` | `Translation/EmployeesContainsTranslationTests.cs` |
+
 ## Member and Method Translation
 
 | Area | Currently tested support | Evidence | Audit notes |
