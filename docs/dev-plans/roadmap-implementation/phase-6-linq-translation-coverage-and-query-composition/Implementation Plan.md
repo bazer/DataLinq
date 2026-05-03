@@ -214,18 +214,33 @@ Tasks:
 
 ## Workstream E: Fixed Boolean Conditions
 
+Status: Complete. Workstream E documented the fixed-condition truth table and added nested grouping regressions for empty `Contains(...)` and empty `Any(predicate)` paths, including tests that prove unsupported item/predicate expressions are not visited when the empty local sequence already determines the result.
+
 Goals:
 
 - make fixed conditions boring and correct
 - avoid boolean grouping regressions while adding local collection support
 
+Truth table:
+
+| Query shape | Fixed condition | SQL predicate |
+| --- | --- | --- |
+| `empty.Contains(value)` | false | `1=0` |
+| `!empty.Contains(value)` | true | `1=1` |
+| `empty.Any()` | false | `1=0` |
+| `!empty.Any()` | true | `1=1` |
+| `empty.Any(predicate)` | false without visiting `predicate` | `1=0` |
+| `!empty.Any(predicate)` | true without visiting `predicate` | `1=1` |
+| constant `local.Contains(item)` when the item is present | true | `1=1` |
+| constant `local.Contains(item)` when the item is absent | false | `1=0` |
+
 Tasks:
 
-1. Document the truth table in the implementation plan or a query-support child doc.
-2. Add tests around empty `Contains` and empty `Any(predicate)` inside nested `AND`, `OR`, and negated groups.
-3. Review `WhereGroup<T>.AddFixedCondition` and SQL rendering for parenthesis and connection-type stability.
-4. Confirm empty local sequence predicates do not evaluate unsupported predicate bodies.
-5. Run the compliance translation lane across SQLite and the available server-backed targets.
+1. Document the truth table in the implementation plan or a query-support child doc. Complete.
+2. Add tests around empty `Contains` and empty `Any(predicate)` inside nested `AND`, `OR`, and negated groups. Complete.
+3. Review `WhereGroup<T>.AddFixedCondition` and SQL rendering for parenthesis and connection-type stability. Complete; fixed conditions are stored as normal `Where<T>` children and therefore preserve each child's explicit connector inside parenthesized groups.
+4. Confirm empty local sequence predicates do not evaluate unsupported predicate bodies. Complete.
+5. Run the compliance translation lane across SQLite and the available server-backed targets. Complete for quick SQLite and MariaDB 11.8 in this slice.
 
 ## Workstream F: Unsupported Query Diagnostics
 

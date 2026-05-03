@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a document explicitly says so.
 # Phase 6: LINQ Translation Coverage and Query Composition
 
-**Status:** In progress; Workstreams A through D complete.
+**Status:** In progress; Workstreams A through E complete.
 
 ## Scope
 

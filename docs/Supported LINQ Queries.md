@@ -76,7 +76,7 @@ Local `Any(predicate)` over in-memory collections is covered for equality-member
 - `items.Any(item => item.Id == row.Id)`
 - reversed equality such as `items.Any(item => row.Id == item.Id)`
 
-Empty local `Any(predicate)` has similar fixed-condition coverage. Compound local predicates are still not supported for non-empty collections; write those as an explicit local projection plus `Contains(...)` when the intent is membership.
+Empty local `Any(predicate)` has similar fixed-condition coverage. For empty local collections, `Contains(...)`, `Any()`, and `Any(predicate)` become `1=0`; negating those expressions becomes `1=1`. The predicate body is not visited when an empty local sequence already decides the result. Compound local predicates are still not supported for non-empty collections; write those as an explicit local projection plus `Contains(...)` when the intent is membership.
 
 ### String members
 

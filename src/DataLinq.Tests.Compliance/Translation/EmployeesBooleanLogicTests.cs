@@ -233,6 +233,136 @@ public class EmployeesBooleanLogicTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Boolean_NestedEmptyContainsAndOr_ReturnsExpectedRows(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Boolean_NestedEmptyContainsAndOr_ReturnsExpectedRows),
+            EmployeesSeedMode.Bogus);
+
+        var employees = GetOrderedEmployees(databaseScope.Database);
+        var scenario = GetScenario(employees);
+
+        var expected = employees
+            .Where(e => ((false && e.first_name == scenario.FirstNameA) || e.last_name == scenario.LastNameC) &&
+                        e.gender == scenario.GenderD)
+            .ToList();
+
+        var result = databaseScope.Database.Query().Employees
+            .Where(e => ((Array.Empty<int>().Contains(e.emp_no!.Value) && e.first_name == scenario.FirstNameA) ||
+                         e.last_name == scenario.LastNameC) &&
+                        e.gender == scenario.GenderD)
+            .OrderBy(e => e.emp_no)
+            .ToList();
+
+        await AssertEmployeeIdentityEqual(expected, result);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Boolean_NestedEmptyAnyOrAnd_ReturnsExpectedRows(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Boolean_NestedEmptyAnyOrAnd_ReturnsExpectedRows),
+            EmployeesSeedMode.Bogus);
+
+        var employees = GetOrderedEmployees(databaseScope.Database);
+        var scenario = GetScenario(employees);
+
+        var expected = employees
+            .Where(e => (false || e.first_name == scenario.FirstNameA) &&
+                        (e.last_name == scenario.LastNameC || e.gender == scenario.GenderD))
+            .ToList();
+
+        var result = databaseScope.Database.Query().Employees
+            .Where(e => (Array.Empty<int>().Any(id => id == e.emp_no!.Value) || e.first_name == scenario.FirstNameA) &&
+                        (e.last_name == scenario.LastNameC || e.gender == scenario.GenderD))
+            .OrderBy(e => e.emp_no)
+            .ToList();
+
+        await AssertEmployeeIdentityEqual(expected, result);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Boolean_NegatedNestedEmptyContainsGroup_ReturnsExpectedRows(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Boolean_NegatedNestedEmptyContainsGroup_ReturnsExpectedRows),
+            EmployeesSeedMode.Bogus);
+
+        var employees = GetOrderedEmployees(databaseScope.Database);
+        var scenario = GetScenario(employees);
+
+        var expected = employees
+            .Where(e => !(false || (e.first_name == scenario.FirstNameB && e.last_name == scenario.LastNameC)) &&
+                        e.emp_no == scenario.EmpAId)
+            .ToList();
+
+        var result = databaseScope.Database.Query().Employees
+            .Where(e => !(Array.Empty<int>().Contains(e.emp_no!.Value) ||
+                          (e.first_name == scenario.FirstNameB && e.last_name == scenario.LastNameC)) &&
+                        e.emp_no == scenario.EmpAId)
+            .OrderBy(e => e.emp_no)
+            .ToList();
+
+        await AssertEmployeeIdentityEqual(expected, result);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Boolean_EmptyContainsDoesNotVisitUnsupportedItemExpression(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Boolean_EmptyContainsDoesNotVisitUnsupportedItemExpression),
+            EmployeesSeedMode.Bogus);
+
+        var employees = GetOrderedEmployees(databaseScope.Database);
+        var scenario = GetScenario(employees);
+
+        var expected = employees
+            .Where(e => e.emp_no == scenario.EmpAId)
+            .ToList();
+
+        var result = databaseScope.Database.Query().Employees
+            .Where(e => Array.Empty<int>().Contains(ThrowIfEvaluated(e.emp_no!.Value)) ||
+                        e.emp_no == scenario.EmpAId)
+            .OrderBy(e => e.emp_no)
+            .ToList();
+
+        await AssertEmployeeIdentityEqual(expected, result);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Boolean_EmptyAnyDoesNotVisitUnsupportedPredicateExpression(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
+            provider,
+            nameof(Boolean_EmptyAnyDoesNotVisitUnsupportedPredicateExpression),
+            EmployeesSeedMode.Bogus);
+
+        var employees = GetOrderedEmployees(databaseScope.Database);
+        var scenario = GetScenario(employees);
+
+        var expected = employees
+            .Where(e => e.emp_no == scenario.EmpAId)
+            .ToList();
+
+        var result = databaseScope.Database.Query().Employees
+            .Where(e => Array.Empty<int>().Any(id => id == ThrowIfEvaluated(e.emp_no!.Value)) ||
+                        e.emp_no == scenario.EmpAId)
+            .OrderBy(e => e.emp_no)
+            .ToList();
+
+        await AssertEmployeeIdentityEqual(expected, result);
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Boolean_NegatedSimpleOrSimpleWithinSuperset_ReturnsExpectedRows(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
@@ -311,6 +441,9 @@ public class EmployeesBooleanLogicTests
         => database.Query().Employees
             .OrderBy(e => e.emp_no)
             .ToList();
+
+    private static int ThrowIfEvaluated(int value)
+        => throw new InvalidOperationException($"Fixed-condition test unexpectedly evaluated value {value}.");
 
     private static BooleanScenario GetScenario(List<Employee> employees)
     {
