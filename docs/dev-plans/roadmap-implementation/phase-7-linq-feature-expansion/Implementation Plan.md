@@ -80,6 +80,8 @@ Tasks:
 3. Confirm SQL null semantics match C# semantics for tested predicates.
 4. Update the support matrix and user docs.
 
+Status: Complete. Workstream C adds focused nullable predicate coverage for `.HasValue`, `!HasValue`, guarded `.Value` comparisons, guarded nullable date/time member access, and mixed nullable/non-nullable equality and inequality. `nullable != nonNullable` now emits SQL that includes null rows, matching C# lifted nullable semantics for the documented shape.
+
 ## Workstream D: Explicit LINQ `Join(...)` Baseline
 
 Goals:

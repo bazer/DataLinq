@@ -3,7 +3,7 @@
 
 # LINQ Translation Support Matrix
 
-**Status:** Current Phase 7 Workstream B baseline; update whenever LINQ translator support changes.
+**Status:** Current Phase 7 Workstream C baseline; update whenever LINQ translator support changes.
 
 This matrix records what the active compliance tests prove today, where the public support docs are accurate, and which gaps remain outside the documented support boundary.
 
@@ -19,7 +19,7 @@ The evidence column intentionally points at test files instead of implementation
 | Property-to-property comparison | equality, inequality, greater-than, less-than-or-equal comparisons between translated operands | `EmployeesQueryBehaviorTests.cs` | Public docs mention this, but the coverage is narrow and should not be generalized to arbitrary expressions. |
 | Boolean grouping | `&&`, `||`, `!`, nested grouped predicates, De Morgan-style groups | `Translation/EmployeesBooleanLogicTests.cs`, `EmployeesQueryBehaviorTests.cs` | Public docs match this at a high level. Fixed true/false conditions now have dedicated regression coverage. |
 | Nullable boolean predicates | nullable bool compared to `true`, `false`, and `null`; negated equality forms | `Translation/EmployeesNullableBooleanTests.cs` | Public docs match this. |
-| Nullable value guards | `HasValue && Value.Member == constant` for selected date/time members | `Translation/EmployeesDateTimeMemberTests.cs` | Public docs understated this by keeping `HasValue` in the not-yet-documented bucket. The tested support is still guarded-member access, not general nullable algebra. |
+| Nullable value predicates | `.HasValue`, `!HasValue`, guarded `.Value` comparisons, selected guarded date/time member access, and mixed nullable/non-nullable equality and inequality | `Translation/EmployeesNullablePredicateTests.cs`, `Translation/EmployeesDateTimeMemberTests.cs` | Phase 7 Workstream C documents the support boundary. `nullable != nonNullable` includes null rows to match C# lifted nullable semantics. |
 | Character predicates | LINQ char predicate matches raw SQL parameter behavior | `Translation/CharPredicateTranslationTests.cs`, `Query/SQLiteInMemoryBehaviorTests.cs` | Public docs did not call this out; it is a narrow parameter/type-fidelity case. |
 
 ## Local Collections and Fixed Conditions

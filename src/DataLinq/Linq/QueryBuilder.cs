@@ -116,12 +116,54 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
             // as SQL's `col = 1` and `col = 0` correctly exclude NULLs, matching C#'s behavior.
         }
 
+        if (TryAddNullableNotEqualComparison(comparison))
+            return;
+
         // --- Regular Comparison Logic ---
         var isNegated = Negations > 0;
         if (isNegated)
             DecrementNegations();
 
         CurrentParentGroup.AddWhere(comparison, GetNextConnectionType(), isNegated);
+    }
+
+    private bool TryAddNullableNotEqualComparison(Comparison comparison)
+    {
+        if (comparison.Operator != Operator.NotEqual || Negations > 0)
+            return false;
+
+        if (TryGetNullableColumnAndNonNullValue(comparison.Left, comparison.Right, out var columnOperand, out var valueOperand) ||
+            TryGetNullableColumnAndNonNullValue(comparison.Right, comparison.Left, out columnOperand, out valueOperand))
+        {
+            var orGroup = new WhereGroup<T>(query, BooleanType.Or)
+                .Where(columnOperand.ColumnDefinition.DbName).NotEqualTo(valueOperand.FirstValue)
+                .Where(columnOperand.ColumnDefinition.DbName).EqualToNull();
+
+            CurrentParentGroup.AddSubGroup(orGroup, GetNextConnectionType());
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetNullableColumnAndNonNullValue(
+        Operand left,
+        Operand right,
+        out ColumnOperandWithDefinition columnOperand,
+        out ValueOperand valueOperand)
+    {
+        if (left is ColumnOperandWithDefinition column &&
+            column.ColumnDefinition.ValueProperty.CsNullable &&
+            right is ValueOperand { HasOneValue: true, IsNull: false } value)
+        {
+            columnOperand = column;
+            valueOperand = value;
+            return true;
+        }
+
+        columnOperand = null!;
+        valueOperand = null!;
+        return false;
     }
 
     protected bool IsNegatedNullableBool(Comparison comparison, out ColumnOperandWithDefinition? columnOperand, out ValueOperand? valueOperand)
@@ -202,6 +244,8 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
         if (expression is UnaryExpression unary && unary.NodeType == ExpressionType.Convert)
             expression = unary.Operand;
 
+        expression = UnwrapNullableValueMember(expression);
+
         // Detect chained string functions like x.first_name.Trim().Length
         if (expression is MemberExpression m1 && TryGetChainedStringFunction(m1, out var chainSql))
             return Operand.RawSql(chainSql);
@@ -228,6 +272,17 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
 
         // If it's anything else, it must be a literal value to be evaluated
         return Operand.Value(GetConstant(expression));
+    }
+
+    private static Expression UnwrapNullableValueMember(Expression expression)
+    {
+        if (expression is MemberExpression { Member.Name: "Value", Expression: not null } memberExpression &&
+            Nullable.GetUnderlyingType(memberExpression.Expression.Type) is not null)
+        {
+            return memberExpression.Expression;
+        }
+
+        return expression;
     }
 
     private bool TryGetChainedStringFunction(MemberExpression outerMember, out string sql)

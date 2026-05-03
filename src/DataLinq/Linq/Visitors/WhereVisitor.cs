@@ -295,6 +295,25 @@ internal class WhereVisitor<T> : ExpressionVisitor
 
     protected override Expression VisitMember(MemberExpression node)
     {
+        if (node.Member.Name == nameof(Nullable<int>.HasValue) &&
+            node.Expression is MemberExpression nullableMember &&
+            Nullable.GetUnderlyingType(nullableMember.Type) is not null &&
+            nullableMember.Expression is QuerySourceReferenceExpression)
+        {
+            var isNegated = builder.Negations > 0;
+            if (isNegated)
+                builder.DecrementNegations();
+
+            var field = builder.GetColumn(nullableMember).DbName;
+            builder.AddWhereToGroup(
+                builder.CurrentParentGroup,
+                builder.GetNextConnectionType(),
+                isNegated ? SqlOperationType.EqualNull : SqlOperationType.NotEqualNull,
+                field);
+
+            return node;
+        }
+
         // Handles something like x.NullableInt.Value -> treats it as x.NullableInt
         if (node.Member.Name == "Value" && node.Expression != null && Nullable.GetUnderlyingType(node.Expression.Type) != null)
         {

@@ -123,7 +123,15 @@ The test suite covers nullable-boolean comparisons such as:
 - `x.IsDeleted != true`
 - `x.IsDeleted != false`
 
-It also covers guarded nullable value member access in selected date/time predicates, such as `x.last_login.HasValue && x.last_login.Value.Hour == hour`. Treat that as tested guard-plus-member translation, not as a promise that every nullable expression shape can become SQL.
+It also covers nullable value predicates such as:
+
+- `x.last_login.HasValue`
+- `!x.last_login.HasValue`
+- guarded `.Value` comparisons such as `x.last_login.HasValue && x.last_login.Value == login`
+- guarded nullable date/time member access such as `x.created_at.HasValue && x.created_at.Value.Minute == minute`
+- mixed nullable/non-nullable equality and inequality such as `x.last_login == login` and `x.last_login != login`
+
+For `nullable != nonNullable`, null rows are included, matching C# lifted nullable semantics.
 
 ## Supported Projection Shapes
 
@@ -233,7 +241,6 @@ The test suite explicitly expects `NotSupportedException` for:
 
 The current docs do not claim support for these because this pass has not verified them rigorously enough:
 
-- nullable `.HasValue` checks
 - `GroupBy(...)`
 - general-purpose `Join(...)`
 - aggregate operators over computed selectors, grouped aggregates, or relation properties
