@@ -272,7 +272,7 @@ Before closing the phase, run:
 - `run --suite compliance --alias quick --output failures --build`
 - `run --suite compliance --targets mariadb-11.8 --output failures --build`
 - `run --suite compliance --targets 'mariadb-10.11,mariadb-11.4,mariadb-11.8' --batch-size 2 --output failures --build` when the full MariaDB matrix is available
-- `run --suite compliance --targets mysql-8.4 --output failures --build` only when the current local MySQL 8.4 host-port authentication issue is resolved
+- `run --suite compliance --targets mysql-8.4 --output failures --build`
 
 For documentation changes, also run `docfx docfx.json` and verify generated output when feasible.
 

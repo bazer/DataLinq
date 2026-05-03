@@ -126,7 +126,7 @@ At minimum, each workstream should run:
 - `run --suite compliance --targets mariadb-11.8 --output failures --build`
 - `docfx docfx.json` when docs change
 
-Before closing the phase, run the broadest available server-backed compliance matrix. MySQL 8.4 remains dependent on the local host-port authentication issue being fixed.
+Before closing the phase, run the broadest available server-backed compliance matrix, including MySQL 8.4 and the current MariaDB targets when available.
 
 ## Exit Criteria
 
@@ -138,4 +138,3 @@ Phase 7 is complete when:
 - a narrow explicit LINQ `Join(...)` shape is supported or consciously deferred with design notes
 - relation-aware predicate translation has a tested first slice and a defensible design boundary
 - unsupported query shapes continue to fail with useful `QueryTranslationException` messages
-

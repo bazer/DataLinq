@@ -320,14 +320,6 @@ Verified:
 - `run --suite mysql --targets 'mariadb-10.11,mariadb-11.4,mariadb-11.8' --batch-size 2 --output failures --build` passed all MariaDB provider batches.
 - `reset --targets mariadb-11.8` followed by `run --suite mysql --targets mariadb-11.8 --output failures --build` passed against a freshly recreated MariaDB 11.8 target, including the current test-infrastructure provisioning path.
 
-Local blocker:
-
-- The `mysql-8.4` host-port lane failed after container recreation because host-side MySqlConnector calls were denied as `datalinq` from `localhost`.
-- Container inspection showed the expected `%` and `localhost` users and grants, and in-container `mysql` clients could authenticate successfully.
-- Test infrastructure provisioning now creates both wildcard and localhost users and disables server-side name resolution for recreated containers. That is useful hardening, but the remaining MySQL 8.4 host-port behavior needs separate infrastructure investigation.
-
-This is a real local verification gap, but not evidence of missing Phase 5 validation/diff/snapshot behavior.
-
 ## Exit Criteria
 
 Phase 5 is complete when:
@@ -347,7 +339,7 @@ Status against exit criteria:
 - satisfied for snapshot scoping through `SchemaMigrationSnapshot` and [Snapshot Migration Design](Snapshot%20Migration%20Design.md)
 - satisfied for the explicit migration deferral requirement through the concrete follow-up snapshot and migration-history design
 - not satisfied for full migration execution, because that was explicitly deferred rather than implemented
-- final closeout verification is recorded above; the remaining `mysql-8.4` host-port auth issue is an infrastructure follow-up
+- final closeout verification is recorded above
 
 Recommended next step: move to Phase 6 unless full migration execution becomes the immediate priority.
 

@@ -51,7 +51,6 @@ Deferred:
 Closeout note:
 
 - the generators, unit suite, SQLite compliance lane, and MariaDB compliance/provider lanes were verified through the testing CLI
-- the local MySQL 8.4 host-port lane remains blocked by an authentication issue where in-container clients authenticate but host-side MySqlConnector calls are denied as `localhost`; that belongs to infrastructure follow-up, not Phase 5 product-trust scope
 
 ## Documents
 

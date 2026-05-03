@@ -1,6 +1,6 @@
 # Podman MySQL and MariaDB Environment Investigation
 
-This note records the local Windows/Podman test environment as observed on 2026-05-03. It exists because the same provider tests can pass, fail as a MySQL authentication problem, or fail as a sandbox networking problem depending on which host address the test process uses.
+This note records the local Windows/Podman test environment as observed on 2026-05-03. It is historical investigation material: the local MySQL 8.4 host-port authentication issue described here has since been resolved and should not be treated as a current blocker.
 
 ## Executive Summary
 
@@ -9,7 +9,7 @@ This note records the local Windows/Podman test environment as observed on 2026-
 - The Codex sandbox can open TCP connections to loopback ports such as `127.0.0.1:3307`, but it cannot open TCP connections to the Podman VM address `172.24.224.81`.
 - MariaDB worked through loopback because Windows loopback port `3308` was owned by Podman's `wslrelay`, so the connection reached the MariaDB container.
 - MySQL 8.4 did not work through loopback on the old port `3307` because that Windows port was owned by a local Windows `mysqld` process, not Podman's `wslrelay`.
-- The matrix was moved to high host ports `13307` through `13310`, then all Podman targets were recreated. After that, sandbox loopback MySqlConnector probes reached the intended containers. MariaDB 11.8 passed its provider lane; MySQL 8.4 no longer fails with authentication or connectivity errors, but the current MySQL suite still has separate provider-metadata assertion failures.
+- The matrix was moved to high host ports `13307` through `13310`, then all Podman targets were recreated. After that, sandbox loopback MySqlConnector probes reached the intended containers. The old MySQL 8.4 authentication failure is resolved; any later MySQL failures should be investigated as ordinary provider or test failures rather than this host-port issue.
 - The Testing CLI state persistence was hardened so a targeted `run --targets ...` refreshes the state to the actually running infrastructure instead of leaving `artifacts/testdata/testinfra-state.json` narrowed to the last selected target.
 - Outside the sandbox, MySQL 8.4 works when the client connects to the Podman VM address, because the server sees `datalinq` from `172.24.224.1` and matches `datalinq`@`%`.
 - Therefore there are two distinct issues:

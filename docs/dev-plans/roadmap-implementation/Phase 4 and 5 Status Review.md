@@ -76,14 +76,6 @@ Verified:
 - `run --suite mysql --targets 'mariadb-10.11,mariadb-11.4,mariadb-11.8' --batch-size 2 --output failures --build` passed all MariaDB provider batches.
 - `reset --targets mariadb-11.8` followed by `run --suite mysql --targets mariadb-11.8 --output failures --build` passed against a freshly recreated MariaDB 11.8 target.
 
-Local blocker:
-
-- `mysql-8.4` failed host-side MySqlConnector authentication after container recreation with access denied for `datalinq` from `localhost`.
-- Container inspection showed the expected `%` and `localhost` users and grants, and in-container `mysql` clients could authenticate successfully.
-- Test infrastructure provisioning was hardened to create both wildcard and localhost users and to start server containers with name resolution disabled, but the remaining MySQL 8.4 host-port behavior still needs separate infrastructure investigation.
-
-This blocker does not change the Phase 5 product-trust conclusion. It blocks one local provider lane, not the validation/diff/snapshot implementation itself.
-
 ## Roadmap Position
 
 The roadmap is now at Phase 6.

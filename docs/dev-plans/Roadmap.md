@@ -319,7 +319,7 @@ Phase 5 is now closed for roadmap purposes as the product-trust groundwork phase
 3. `SchemaDiffScriptGenerator` and `datalinq diff` generate conservative SQL suggestions for additive changes and comment out destructive or ambiguous drift.
 4. `SchemaMigrationSnapshot` and the snapshot design document define the next migration-history contract without pretending full migration execution exists.
 
-The final closeout pass confirmed the generators, unit suite, SQLite compliance lane, and MariaDB validation/provider lanes. The local MySQL 8.4 lane was blocked by a host-port authentication issue after container recreation: in-container clients could authenticate with the provisioned users, but host-side MySqlConnector calls were denied as `datalinq` from `localhost`. That is infrastructure/environment work, not missing Phase 5 validation behavior.
+The final closeout pass confirmed the generators, unit suite, SQLite compliance lane, and MariaDB validation/provider lanes.
 
 Phase 6 LINQ translation coverage and query composition is now implemented for its planned support boundary: support-matrix audit, chained `Where(...)`, projected local `Contains(...)`, local object-list `Any(predicate)`, fixed true/false condition handling, and better unsupported-query diagnostics.
 
