@@ -3,7 +3,7 @@
 
 # LINQ Translation Support Matrix
 
-**Status:** Current Phase 6 closeout baseline; update whenever LINQ translator support changes.
+**Status:** Current Phase 7 Workstream A baseline; update whenever LINQ translator support changes.
 
 This matrix records what the active compliance tests prove today, where the public support docs are accurate, and which gaps remain outside the documented support boundary.
 
@@ -75,7 +75,7 @@ These shapes intentionally collapse to fixed SQL predicates instead of generatin
 | Single-row operators | `Single(predicate)`, `SingleOrDefault(predicate)`, `First(predicate)`, `FirstOrDefault(predicate)` | `EmployeesQueryBehaviorTests.cs`, `Translation/EmployeesStringMemberTests.cs` | Public docs match this. |
 | Last-row operators | `Last()`, `LastOrDefault(predicate)` in ordered scenarios | `EmployeesQueryBehaviorTests.cs` | Public docs match this but should keep the existing advice to order explicitly. |
 | Unsupported tail/while operators | `TakeLast`, `SkipLast`, `TakeWhile`, `SkipWhile` throw `NotSupportedException` | `EmployeesQueryBehaviorTests.cs` | Public docs match this. |
-| Aggregates | `Sum`, `Min`, `Max`, `Average` are not documented as supported | none in query compliance coverage | Planned for Phase 7 as narrow scalar aggregate support. |
+| Scalar aggregates | `Sum`, `Min`, `Max`, `Average` over direct numeric members, nullable numeric members, nullable `.Value`, and filtered sequences | `Translation/EmployeesAggregateTranslationTests.cs` | Phase 7 Workstream A keeps the boundary narrow: no computed selector aggregates, grouped aggregates, or relation-property aggregates. |
 
 ## Ordering, Paging, and Projection
 
@@ -96,7 +96,7 @@ These shapes are intentionally not part of the documented support boundary today
 - `GroupBy(...)`
 - LINQ `Join(...)`
 - relation-property query expansion
-- aggregate result operators such as `Sum(...)`, `Min(...)`, `Max(...)`, and `Average(...)`
+- aggregate result operators over computed selectors, grouped aggregates, or relation properties
 - arbitrary local `Enumerable` method chains inside predicates
 - arbitrary client methods inside SQL predicates
 - nested database subqueries

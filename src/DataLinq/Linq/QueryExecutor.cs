@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -282,6 +283,9 @@ internal class QueryExecutor : IQueryExecutor
     /// </remarks>
     public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
     {
+        if (queryModel.ResultOperators.FirstOrDefault() is SumResultOperator or MinResultOperator or MaxResultOperator or AverageResultOperator)
+            return ExecuteScalar<T>(queryModel);
+
         var sequence = ParseQueryModel<T>(queryModel)
             .Execute()
             .Select(GetSelectFunc<T>(queryModel.SelectClause));
@@ -316,42 +320,127 @@ internal class QueryExecutor : IQueryExecutor
             var select = ParseQueryModel<T>(queryModel);
             var op = queryModel.ResultOperators[0];
 
-            // Modify the SQL query for Count() or Any()
             if (op is CountResultOperator || op is AnyResultOperator)
+            {
                 select.What("COUNT(*)");
+            }
+            else if (op is SumResultOperator || op is MinResultOperator || op is MaxResultOperator || op is AverageResultOperator)
+            {
+                select.What(GetAggregateSelectorSql(select.Query, queryModel.SelectClause, op));
+            }
             else
+            {
                 throw new QueryTranslationException($"Scalar result operator '{op.GetType().Name}' is not supported. Query model: {queryModel}");
+            }
 
-            // Execute the scalar query
             var result = select.ExecuteScalar();
-
-            // Handle the result for different types
-            if (result is int intResult)
-            {
-                if (typeof(T) == typeof(int))
-                    return (T)(object)intResult;
-
-                if (typeof(T) == typeof(long))
-                    return (T)(object)(long)intResult;
-
-                if (typeof(T) == typeof(bool) && op is AnyResultOperator)
-                    return (T)(object)(intResult > 0);
-            }
-            else if (result is long longResult)
-            {
-                if (typeof(T) == typeof(long))
-                    return (T)(object)longResult;
-
-                if (typeof(T) == typeof(int))
-                    return (T)(object)(int)longResult;
-
-                if (typeof(T) == typeof(bool) && op is AnyResultOperator)
-                    return (T)(object)(longResult > 0);
-            }
-
-            throw new InvalidOperationException($"Unexpected result type '{result?.GetType()}' for operator '{op.GetType().Name}'");
+            return ConvertScalarResult<T>(result, op, queryModel);
         }
 
         throw new QueryTranslationException($"Scalar execution requires a result operator. Query model: {queryModel}");
+    }
+
+    private static T ConvertScalarResult<T>(object? result, ResultOperatorBase op, QueryModel queryModel)
+    {
+        if (result is DBNull)
+            result = null;
+
+        if (op is AnyResultOperator)
+            return (T)(object)(Convert.ToInt64(result ?? 0, CultureInfo.InvariantCulture) > 0);
+
+        if (result is null)
+        {
+            if (op is SumResultOperator || Nullable.GetUnderlyingType(typeof(T)) is not null)
+                return default!;
+
+            throw new InvalidOperationException($"Scalar result operator '{op.GetType().Name}' returned no value. Query model: {queryModel}");
+        }
+
+        var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        if (targetType.IsInstanceOfType(result))
+            return (T)result;
+
+        return (T)Convert.ChangeType(result, targetType, CultureInfo.InvariantCulture);
+    }
+
+    private static string GetAggregateSelectorSql<T>(SqlQuery<T> query, SelectClause selectClause, ResultOperatorBase op)
+    {
+        var selector = UnwrapConvert(selectClause.Selector);
+        var columnExpression = GetAggregateColumnExpression(query, selector, op);
+
+        return op switch
+        {
+            SumResultOperator => $"COALESCE(SUM({columnExpression}), 0)",
+            MinResultOperator => $"MIN({columnExpression})",
+            MaxResultOperator => $"MAX({columnExpression})",
+            AverageResultOperator => $"AVG({columnExpression})",
+            _ => throw new QueryTranslationException($"Scalar result operator '{op.GetType().Name}' is not supported. Query model selector: {selectClause.Selector}")
+        };
+    }
+
+    private static string GetAggregateColumnExpression<T>(SqlQuery<T> query, Expression selector, ResultOperatorBase op)
+    {
+        if (selector is not MemberExpression memberExpression)
+            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported for '{op.GetType().Name}'. Only direct numeric members and nullable Value members are supported.");
+
+        memberExpression = UnwrapNullableValueMember(memberExpression);
+
+        if (memberExpression.Expression is not QuerySourceReferenceExpression)
+            throw new QueryTranslationException($"Aggregate selector '{selector}' is not supported for '{op.GetType().Name}'. Only direct numeric members and nullable Value members are supported.");
+
+        if (!IsNumericType(selector.Type))
+            throw new QueryTranslationException($"Aggregate selector '{selector}' for '{op.GetType().Name}' must be numeric. Selector type: {selector.Type}");
+
+        var column = query.Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == memberExpression.Member.Name)
+            ?? throw new QueryTranslationException($"Aggregate selector member '{memberExpression.Member.Name}' was not found on table '{query.Table.DbName}'. Selector: {selector}");
+
+        return $"{query.EscapeCharacter}{column.DbName}{query.EscapeCharacter}";
+    }
+
+    private static MemberExpression UnwrapNullableValueMember(MemberExpression memberExpression)
+    {
+        if (memberExpression.Member.Name == nameof(Nullable<int>.Value) &&
+            memberExpression.Expression is MemberExpression innerMember &&
+            Nullable.GetUnderlyingType(innerMember.Type) is not null)
+        {
+            return innerMember;
+        }
+
+        return memberExpression;
+    }
+
+    private static Expression UnwrapConvert(Expression expression)
+    {
+        while (expression is UnaryExpression unary &&
+               (unary.NodeType == ExpressionType.Convert || unary.NodeType == ExpressionType.ConvertChecked || unary.NodeType == ExpressionType.Quote))
+        {
+            expression = unary.Operand;
+        }
+
+        return expression;
+    }
+
+    private static bool IsNumericType(Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (type.IsEnum)
+            return false;
+
+        return Type.GetTypeCode(type) switch
+        {
+            TypeCode.Byte or
+            TypeCode.SByte or
+            TypeCode.Int16 or
+            TypeCode.UInt16 or
+            TypeCode.Int32 or
+            TypeCode.UInt32 or
+            TypeCode.Int64 or
+            TypeCode.UInt64 or
+            TypeCode.Single or
+            TypeCode.Double or
+            TypeCode.Decimal => true,
+            _ => false
+        };
     }
 }

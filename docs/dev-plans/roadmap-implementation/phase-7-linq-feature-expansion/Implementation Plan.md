@@ -43,6 +43,8 @@ Initial boundary:
 - supported: aggregate selector is a direct member or nullable `.Value` member already understood by the translator
 - not supported yet: aggregate over computed selector, grouped aggregate, relation aggregate
 
+Status: Complete. Workstream A adds SQL-backed `Sum`, `Min`, `Max`, and `Average` for direct numeric members, nullable numeric members, nullable `.Value` selectors, and filtered sequences. Empty filtered sequences follow documented LINQ aggregate behavior for the tested supported forms, and computed aggregate selectors remain rejected with `QueryTranslationException`.
+
 ## Workstream B: Projection Expansion
 
 Goals:

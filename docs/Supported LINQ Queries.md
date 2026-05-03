@@ -16,6 +16,10 @@ The following operations are covered by tests:
 - `Any()`
 - `Any(predicate)`
 - `Where(...).Any()`
+- `Sum(...)`
+- `Min(...)`
+- `Max(...)`
+- `Average(...)`
 - `Single(...)`
 - `SingleOrDefault(...)`
 - `First(...)`
@@ -142,6 +146,32 @@ var departments = db.Query().Departments
     .ToList();
 ```
 
+## Supported Scalar Aggregates
+
+The test suite covers SQL-backed scalar aggregates over direct numeric member selectors:
+
+- `Sum(x => x.Number)`
+- `Min(x => x.Number)`
+- `Max(x => x.Number)`
+- `Average(x => x.Number)`
+
+Filtered aggregates are also covered:
+
+```csharp
+var total = db.Query().Managers
+    .Where(x => x.dept_fk.StartsWith("d00"))
+    .Sum(x => x.emp_no);
+```
+
+Nullable numeric members are supported when the selector is the nullable member itself or its nullable `.Value` member:
+
+```csharp
+var min = db.Query().Employees.Min(x => x.emp_no);
+var sum = db.Query().Employees.Sum(x => x.emp_no!.Value);
+```
+
+`Sum(...)` returns zero for an empty filtered sequence. Nullable `Min(...)`, `Max(...)`, and `Average(...)` return `null` for an empty filtered sequence. Aggregates over computed selectors, grouped aggregates, and relation-property aggregates are not supported yet.
+
 ## Supported Ordering and Paging
 
 The test suite covers:
@@ -200,7 +230,7 @@ The current docs do not claim support for these because this pass has not verifi
 - nullable `.HasValue` checks
 - `GroupBy(...)`
 - general-purpose `Join(...)`
-- aggregate operators such as `Sum(...)`, `Min(...)`, `Max(...)`, or `Average(...)`
+- aggregate operators over computed selectors, grouped aggregates, or relation properties
 - broader client-side method translation beyond the string members listed above
 
 That does not automatically mean they are impossible. It means the docs should not lie about them.

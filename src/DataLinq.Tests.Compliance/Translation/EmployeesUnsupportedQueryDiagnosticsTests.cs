@@ -63,18 +63,18 @@ public class EmployeesUnsupportedQueryDiagnosticsTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task UnsupportedScalarResultOperatorThrowsQueryTranslationException(TestProviderDescriptor provider)
+    public async Task UnsupportedAggregateSelectorThrowsQueryTranslationException(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,
-            nameof(UnsupportedScalarResultOperatorThrowsQueryTranslationException),
+            nameof(UnsupportedAggregateSelectorThrowsQueryTranslationException),
             EmployeesSeedMode.Bogus);
 
         await AssertTranslationFailure(
             () => databaseScope.Database.Query().Employees
-                .Sum(x => x.emp_no!.Value),
-            "Scalar result operator 'SumResultOperator'",
-            "Query model:");
+                .Sum(x => x.emp_no!.Value + 1),
+            "Aggregate selector",
+            "SumResultOperator");
     }
 
     private static bool HasKnownPrefix(string value)
