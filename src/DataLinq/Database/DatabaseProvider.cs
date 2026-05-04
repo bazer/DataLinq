@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Cache;
@@ -20,7 +21,12 @@ namespace DataLinq;
 /// Provides a generic abstract database provider for a specific type of database model.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<T>
+public abstract class DatabaseProvider<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : DatabaseProvider, IDatabaseProvider<T>
     where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     //public static DatabaseProvider<T> GetPrimaryProvider()
@@ -92,6 +98,10 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// <param name="databaseName">The name of the database (optional).</param>
     protected DatabaseProvider(
         string connectionString,
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicProperties)]
         Type type,
         DatabaseType databaseType,
         DataLinqLoggingConfiguration loggingConfiguration,

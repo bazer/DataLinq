@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace DataLinq.Config;
 
@@ -23,16 +24,18 @@ public record ConfigFileDatabase
     public bool? RemoveInterfacePrefix { get; set; }
     public bool? SeparateTablesAndViews { get; set; }
     public List<ConfigFileDatabaseConnection> Connections { get; set; } = new();
-    public string FileEncoding { get; set; }
+    public string FileEncoding { get; set; } = "UTF8";
     public Encoding ParseFileEncoding() => ConfigReader.ParseFileEncoding(FileEncoding);
 }
 
 public record ConfigFileDatabaseConnection
 {
+    [JsonIgnore]
     public DatabaseType ParsedType => ConfigReader.ParseDatabaseType(Type);
     public string? Type { get; set; }
     public string? DatabaseName { get; set; }
     public string? DataSourceName { get; set; }
     public string? ConnectionString { get; set; }
+    [JsonIgnore]
     public DataLinqConnectionString? ParsedConnectionString => new DataLinqConnectionString(ConnectionString);
 }

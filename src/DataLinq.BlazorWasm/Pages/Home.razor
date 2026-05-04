@@ -1,0 +1,90 @@
+@page "/"
+@using DataLinq.PlatformCompatibility.Smoke
+
+<PageTitle>DataLinq WASM SQLite Smoke</PageTitle>
+
+<main class="shell">
+    <section class="summary">
+        <div>
+            <p class="eyebrow">Phase 8 browser probe</p>
+            <h1>DataLinq SQLite on WebAssembly</h1>
+        </div>
+        <span class="status @StatusClass">@StatusText</span>
+    </section>
+
+    @if (result is null && error is null)
+    {
+        <p>Running smoke query: @stage</p>
+    }
+    else if (error is not null)
+    {
+        <pre class="error">@error</pre>
+    }
+    else if (result is not null)
+    {
+        <section class="metrics" aria-label="Smoke metrics">
+            <div>
+                <span>Owners</span>
+                <strong>@result.OwnerCount</strong>
+            </div>
+            <div>
+                <span>Tasks</span>
+                <strong>@result.TaskCount</strong>
+            </div>
+            <div>
+                <span>Open</span>
+                <strong>@result.OpenTaskCount</strong>
+            </div>
+            <div>
+                <span>First query</span>
+                <strong>@Format(result.FirstQueryDuration)</strong>
+            </div>
+            <div>
+                <span>Repeated query</span>
+                <strong>@Format(result.RepeatedQueryDuration)</strong>
+            </div>
+        </section>
+
+        <section>
+            <h2>@result.FirstTaskTitle</h2>
+            <p>@result.RelatedOwnerName owns the first generated model row.</p>
+            <ul>
+                @foreach (var projection in result.Projections)
+                {
+                    <li>@projection.NormalizedTitle <span>@projection.PriorityScore</span></li>
+                }
+            </ul>
+        </section>
+    }
+</main>
+
+@code {
+    private PlatformSmokeResult? result;
+    private string? error;
+    private string stage = "starting";
+
+    private string StatusText => error is not null ? "failed" : result?.Passed == true ? "passed" : "running";
+    private string StatusClass => error is not null ? "failed" : result?.Passed == true ? "passed" : "running";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+
+        try
+        {
+            result = await PlatformSmokeRunner.RunAsync(async nextStage =>
+            {
+                stage = nextStage;
+                Console.WriteLine(nextStage);
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception exception)
+        {
+            error = exception.ToString();
+        }
+    }
+
+    private static string Format(TimeSpan duration) => $"{duration.TotalMilliseconds:0.###} ms";
+
+}

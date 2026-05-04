@@ -2,6 +2,7 @@
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DataLinq.MySql;
 
@@ -29,7 +30,12 @@ public class MySqlDatabaseCreator : IDatabaseProviderCreator
     /// <param name="connectionString">The connection string for the database.</param>
     /// <param name="databaseName">The name of the database.</param>
     /// <returns>An instance of MySqlDatabase for the specified model type.</returns>
-    Database<T> IDatabaseProviderCreator.GetDatabaseProvider<T>(string connectionString, string databaseName)
+    Database<T> IDatabaseProviderCreator.GetDatabaseProvider<
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicProperties)]
+        T>(string connectionString, string databaseName)
     {
         return new MySqlDatabase<T>(connectionString, databaseName, loggerFactory);
     }
@@ -48,7 +54,12 @@ public class MySqlDatabaseCreator : IDatabaseProviderCreator
 /// Represents a MySQL database provider specific to a given database model type.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public class MySqlDatabase<T> : Database<T>
+public class MySqlDatabase<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : Database<T>
      where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     /// <summary>

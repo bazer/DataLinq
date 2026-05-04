@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.ComponentModel;
 
 namespace DataLinq.Utils;
 
@@ -14,7 +13,7 @@ public static class TypeUtils
         {
             if (!nullableTypes.TryGetValue(returnType, out Type? nullableType))
             {
-                nullableType = new NullableConverter(returnType).UnderlyingType;
+                nullableType = Nullable.GetUnderlyingType(returnType) ?? returnType;
                 nullableTypes.TryAdd(returnType, nullableType);
             }
 

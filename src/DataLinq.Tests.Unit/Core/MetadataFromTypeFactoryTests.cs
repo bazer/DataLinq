@@ -175,7 +175,8 @@ public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabase
                 typeof(BootstrapHookRow),
                 typeof(ImmutableBootstrapHookRow),
                 null,
-                new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableBootstrapHookRow.NewDataLinqImmutableInstance))
+                new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableBootstrapHookRow.NewDataLinqImmutableInstance),
+                TableType.View)
         ]);
 
     public static GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>

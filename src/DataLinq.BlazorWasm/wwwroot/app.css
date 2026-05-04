@@ -1,0 +1,139 @@
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #1c2430;
+    background: #f6f8fb;
+}
+
+.shell {
+    width: min(960px, calc(100vw - 32px));
+    margin: 0 auto;
+    padding: 48px 0;
+}
+
+.boot-status {
+    width: min(960px, calc(100vw - 32px));
+    margin: 16px auto 0;
+    padding: 10px 12px;
+    border: 1px solid #d6deea;
+    border-radius: 6px;
+    background: #fff;
+    color: #455264;
+    font-size: 0.9rem;
+}
+
+.boot-status[data-status="passed"] {
+    border-color: #a7dfbf;
+    background: #ecfbf2;
+    color: #0f5f36;
+}
+
+.boot-status[data-status="failed"] {
+    border-color: #f0b7b7;
+    background: #fff0f0;
+    color: #8f1717;
+}
+
+.summary {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.eyebrow {
+    margin: 0 0 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: #546070;
+}
+
+h1 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+h2 {
+    margin: 0 0 8px;
+    font-size: 1.25rem;
+}
+
+.status {
+    min-width: 88px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.status.running {
+    background: #fff2c6;
+    color: #594100;
+}
+
+.status.passed {
+    background: #d9f7e7;
+    color: #0f5f36;
+}
+
+.status.failed {
+    background: #ffe0e0;
+    color: #8f1717;
+}
+
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.metrics div {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid #dce3ec;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.metrics span {
+    color: #657181;
+    font-size: 0.9rem;
+}
+
+.metrics strong {
+    font-size: 1.35rem;
+}
+
+ul {
+    padding-left: 20px;
+}
+
+li {
+    margin: 8px 0;
+}
+
+li span {
+    margin-left: 8px;
+    color: #657181;
+}
+
+.error {
+    overflow: auto;
+    padding: 16px;
+    border-radius: 8px;
+    background: #2a1010;
+    color: #ffe6e6;
+}
+
+@media (max-width: 640px) {
+    .summary {
+        display: grid;
+    }
+}

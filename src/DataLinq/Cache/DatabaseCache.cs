@@ -13,6 +13,8 @@ namespace DataLinq.Cache;
 
 public class DatabaseCache : IDisposable
 {
+    internal static Func<bool> IsBrowserRuntime { get; set; } = static () => OperatingSystem.IsBrowser();
+
     public IDatabaseProvider Database { get; set; }
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
     public Dictionary<TableDefinition, TableCache> TableCaches { get; }
@@ -34,6 +36,9 @@ public class DatabaseCache : IDisposable
 
         if (!cacheCleanupInterval.Any())
             cacheCleanupInterval = (CacheCleanupType.Minutes, 5L).Yield().ToList();
+
+        if (IsBrowserRuntime())
+            return;
 
         foreach (var timespan in cacheCleanupInterval.Select(x => GetFromCacheCleanupType(x.cleanupType, x.amount)))
         {

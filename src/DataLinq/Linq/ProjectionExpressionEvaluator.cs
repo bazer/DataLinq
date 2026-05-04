@@ -238,13 +238,41 @@ internal static class ProjectionExpressionEvaluator
         var values = newArray.Expressions
             .Select(expression => EvaluateCore(expression, querySourceValues, parameterValues))
             .ToArray();
-        var array = Array.CreateInstance(elementType, values.Length);
+        if (elementType == typeof(string))
+            return values.Select(value => (string?)ConvertValue(value, elementType)).ToArray();
+        if (elementType == typeof(int))
+            return CreateArray<int>(values, elementType);
+        if (elementType == typeof(long))
+            return CreateArray<long>(values, elementType);
+        if (elementType == typeof(short))
+            return CreateArray<short>(values, elementType);
+        if (elementType == typeof(byte))
+            return CreateArray<byte>(values, elementType);
+        if (elementType == typeof(bool))
+            return CreateArray<bool>(values, elementType);
+        if (elementType == typeof(decimal))
+            return CreateArray<decimal>(values, elementType);
+        if (elementType == typeof(double))
+            return CreateArray<double>(values, elementType);
+        if (elementType == typeof(float))
+            return CreateArray<float>(values, elementType);
+        if (elementType == typeof(Guid))
+            return CreateArray<Guid>(values, elementType);
+        if (elementType == typeof(DateTime))
+            return CreateArray<DateTime>(values, elementType);
+        if (elementType == typeof(DateOnly))
+            return CreateArray<DateOnly>(values, elementType);
+        if (elementType == typeof(TimeOnly))
+            return CreateArray<TimeOnly>(values, elementType);
+        if (elementType == typeof(object))
+            return values;
 
-        for (var i = 0; i < values.Length; i++)
-            array.SetValue(ConvertValue(values[i], elementType), i);
-
-        return array;
+        throw new QueryTranslationException(
+            $"Projection array creation for element type '{elementType.FullName}' is not supported without runtime array activation.");
     }
+
+    private static T[] CreateArray<T>(object?[] values, Type elementType) =>
+        values.Select(value => (T)ConvertValue(value, elementType)!).ToArray();
 
     private static object? EvaluateConditional(
         ConditionalExpression conditional,
@@ -266,7 +294,7 @@ internal static class ProjectionExpressionEvaluator
         if (value is null)
             return nullableType is not null || !targetType.IsValueType
                 ? null
-                : Activator.CreateInstance(targetType);
+                : GetDefaultValue(targetType);
 
         if (targetType.IsInstanceOfType(value))
             return value;
@@ -276,6 +304,49 @@ internal static class ProjectionExpressionEvaluator
             return Enum.ToObject(conversionType, value);
 
         return Convert.ChangeType(value, conversionType, CultureInfo.InvariantCulture);
+    }
+
+    private static object GetDefaultValue(Type targetType)
+    {
+        if (targetType == typeof(bool))
+            return false;
+        if (targetType == typeof(byte))
+            return default(byte);
+        if (targetType == typeof(sbyte))
+            return default(sbyte);
+        if (targetType == typeof(short))
+            return default(short);
+        if (targetType == typeof(ushort))
+            return default(ushort);
+        if (targetType == typeof(int))
+            return default(int);
+        if (targetType == typeof(uint))
+            return default(uint);
+        if (targetType == typeof(long))
+            return default(long);
+        if (targetType == typeof(ulong))
+            return default(ulong);
+        if (targetType == typeof(float))
+            return default(float);
+        if (targetType == typeof(double))
+            return default(double);
+        if (targetType == typeof(decimal))
+            return default(decimal);
+        if (targetType == typeof(char))
+            return default(char);
+        if (targetType == typeof(DateTime))
+            return default(DateTime);
+        if (targetType == typeof(DateOnly))
+            return default(DateOnly);
+        if (targetType == typeof(TimeOnly))
+            return default(TimeOnly);
+        if (targetType == typeof(Guid))
+            return default(Guid);
+        if (targetType.IsEnum)
+            return Enum.ToObject(targetType, 0);
+
+        throw new QueryTranslationException(
+            $"Projection cannot materialize null as non-nullable value type '{targetType.FullName}' without runtime activation.");
     }
 
     private static QueryTranslationException Unsupported(Expression expression) =>

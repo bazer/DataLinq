@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DataLinq.Linq;
 
@@ -16,16 +17,11 @@ internal static class TypeSystem
     /// <param name="seqType">The type of the sequence.</param>
     /// <returns>The element type of the sequence. If the sequence type is not an <see cref="IEnumerable"/>,
     /// or if it is a string, returns the sequence type itself.</returns>
-    internal static Type GetElementType(Type seqType)
+    internal static Type GetElementType(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+        Type seqType)
     {
-        var ienum = FindIEnumerable(seqType);
-
-        // If no IEnumerable interface is found, return the sequence type itself.
-        if (ienum == null)
-            return seqType;
-
-        // The element type is the generic argument of the IEnumerable interface.
-        return ienum.GetGenericArguments()[0];
+        return FindIEnumerableElementType(seqType) ?? seqType;
     }
 
     /// <summary>
@@ -38,26 +34,18 @@ internal static class TypeSystem
     /// or implements any interfaces that are assignable from <see cref="IEnumerable{T}"/>,
     /// and recursively checks the base type if necessary.
     /// </remarks>
-    private static Type? FindIEnumerable(Type seqType)
+    private static Type? FindIEnumerableElementType(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+        Type seqType)
     {
         if (seqType == null || seqType == typeof(string))
             return null;
 
         if (seqType.IsArray)
-            return typeof(IEnumerable<>).MakeGenericType(seqType.GetElementType()!);
+            return seqType.GetElementType();
 
-        if (seqType.IsGenericType)
-        {
-            foreach (Type arg in seqType.GetGenericArguments())
-            {
-                Type ienum = typeof(IEnumerable<>).MakeGenericType(arg);
-
-                if (ienum.IsAssignableFrom(seqType))
-                {
-                    return ienum;
-                }
-            }
-        }
+        if (IsGenericEnumerable(seqType))
+            return seqType.GetGenericArguments()[0];
 
         Type[] ifaces = seqType.GetInterfaces();
 
@@ -65,19 +53,20 @@ internal static class TypeSystem
         {
             foreach (Type iface in ifaces)
             {
-                var ienum = FindIEnumerable(iface);
-
-                if (ienum != null)
-                    return ienum;
+                if (IsGenericEnumerable(iface))
+                    return iface.GetGenericArguments()[0];
             }
         }
 
         // Recursively check the base type if it's not the root object type.
         if (seqType.BaseType != null && seqType.BaseType != typeof(object))
         {
-            return FindIEnumerable(seqType.BaseType);
+            return FindIEnumerableElementType(seqType.BaseType);
         }
 
         return null;
     }
+
+    private static bool IsGenericEnumerable(Type type) =>
+        type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>);
 }

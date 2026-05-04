@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Interfaces;
@@ -10,7 +11,12 @@ namespace DataLinq.Metadata;
 
 public interface IDatabaseProviderCreator
 {
-    Database<T> GetDatabaseProvider<T>(string connectionString, string databaseName) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>;
+    Database<T> GetDatabaseProvider<
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicProperties)]
+        T>(string connectionString, string databaseName) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>;
     bool IsDatabaseType(string typeName);
     IDatabaseProviderCreator UseLoggerFactory(ILoggerFactory? loggerFactory);
 }

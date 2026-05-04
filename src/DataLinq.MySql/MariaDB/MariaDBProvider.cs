@@ -4,6 +4,7 @@ using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.Query;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DataLinq.MariaDB;
 
@@ -28,7 +29,12 @@ public class MariaDBProvider : IDatabaseProviderRegister
     }
 }
 
-public class MariaDBProvider<T> : SqlProvider<T> where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+public class MariaDBProvider<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : SqlProvider<T> where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     public bool IsMariaDbUuidSupported { get; private set; }
 

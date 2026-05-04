@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using DataLinq.Extensions.Helpers;
@@ -19,7 +20,12 @@ public class SqlProviderConstants : IDatabaseProviderConstants
     public bool SupportsMultipleDatabases { get; } = true;
 }
 
-public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
+public abstract class SqlProvider<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : DatabaseProvider<T>, IDisposable
     where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     private readonly SqlDataLinqDataWriter dataWriter;

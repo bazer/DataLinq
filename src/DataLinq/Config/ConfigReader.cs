@@ -2,6 +2,7 @@
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using DataLinq.Metadata;
 
@@ -41,7 +42,7 @@ public static class ConfigReader
         var file = File.ReadAllText(path);
         var withoutComments = RemoveComments(file);
 
-        return JsonSerializer.Deserialize<ConfigFile>(withoutComments);
+        return JsonSerializer.Deserialize(withoutComments, DataLinqConfigJsonContext.Default.ConfigFile);
     }
 
     private static string RemoveComments(string json)
@@ -56,3 +57,6 @@ public static class ConfigReader
     }
 
 }
+
+[JsonSerializable(typeof(ConfigFile))]
+internal partial class DataLinqConfigJsonContext : JsonSerializerContext;

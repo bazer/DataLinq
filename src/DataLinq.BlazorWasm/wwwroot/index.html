@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DataLinq WASM SQLite Smoke</title>
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+</head>
+
+<body>
+    <div id="boot-status" class="boot-status" data-status="running">booting</div>
+    <div id="app"></div>
+    <script>
+        window.datalinqLog = [];
+        for (const method of ["log", "warn", "error"]) {
+            const original = console[method].bind(console);
+            console[method] = (...values) => {
+                window.datalinqLog.push({
+                    method,
+                    message: values.map(value => value && value.stack ? value.stack : String(value)).join(" ")
+                });
+                original(...values);
+            };
+        }
+
+        window.datalinqSmoke = {
+            setStage(stage, status) {
+                const element = document.getElementById("boot-status");
+                if (!element) {
+                    return;
+                }
+
+                element.dataset.status = status || "running";
+                element.textContent = stage || "running";
+            }
+        };
+
+        window.addEventListener("error", event => {
+            window.datalinqSmoke.setStage(`boot-failed: ${event.message}`, "failed");
+        });
+
+        window.addEventListener("unhandledrejection", event => {
+            const reason = event.reason && event.reason.message ? event.reason.message : event.reason;
+            window.datalinqSmoke.setStage(`boot-failed: ${reason}`, "failed");
+        });
+
+        const appElement = document.getElementById("app");
+        const mirrorRenderedStatus = () => {
+            const statusElement = appElement && appElement.querySelector(".status");
+            const status = statusElement && statusElement.textContent && statusElement.textContent.trim();
+            if (status === "passed" || status === "failed") {
+                window.datalinqSmoke.setStage(status, status);
+            }
+        };
+        new MutationObserver(mirrorRenderedStatus).observe(appElement, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
+    </script>
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+    <script>
+        Blazor.start()
+            .then(() => window.datalinqSmoke.setStage("runtime-started", "running"))
+            .catch(error => {
+                const message = error && error.message ? error.message : error;
+                window.datalinqSmoke.setStage(`boot-failed: ${message}`, "failed");
+            });
+    </script>
+</body>
+
+</html>

@@ -187,7 +187,7 @@ public class GeneratorFileFactory
                 ? $"typeof({GetGlobalMutableTypeName(tableModel.Model.CsType)})"
                 : "null";
 
-            yield return $"{namespaceTab}{tab}{tab}new(\"{tableModel.CsPropertyName}\", typeof({modelType}), typeof({immutableType}), {mutableType}, new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>({immutableType}.NewDataLinqImmutableInstance)),";
+            yield return $"{namespaceTab}{tab}{tab}new(\"{tableModel.CsPropertyName}\", typeof({modelType}), typeof({immutableType}), {mutableType}, new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>({immutableType}.NewDataLinqImmutableInstance), global::DataLinq.Metadata.TableType.{tableModel.Table.Type}),";
         }
 
         yield return $"{namespaceTab}{tab}]);";

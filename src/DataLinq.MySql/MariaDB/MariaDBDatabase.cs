@@ -2,6 +2,7 @@
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DataLinq.MariaDB;
 
@@ -14,7 +15,12 @@ public class MariaDBDatabaseCreator : IDatabaseProviderCreator
         return typeName.Equals("mariadb", System.StringComparison.OrdinalIgnoreCase);
     }
 
-    public Database<T> GetDatabaseProvider<T>(string connectionString, string databaseName) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
+    public Database<T> GetDatabaseProvider<
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicProperties)]
+        T>(string connectionString, string databaseName) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
     {
         return new MariaDBDatabase<T>(connectionString, databaseName, loggerFactory);
     }
@@ -26,7 +32,12 @@ public class MariaDBDatabaseCreator : IDatabaseProviderCreator
     }
 }
 
-public class MariaDBDatabase<T> : Database<T>
+public class MariaDBDatabase<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : Database<T>
      where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     /// <summary>
