@@ -37,6 +37,9 @@ internal static class LocalSequenceExtractor
         if (ContainsForbiddenQueryReference(expression, allowedQuerySource: null))
             return false;
 
+        if (TryEvaluateEnumerableSelect(expression, out values))
+            return true;
+
         object? value;
         try
         {
@@ -76,8 +79,9 @@ internal static class LocalSequenceExtractor
 
         try
         {
-            var projector = CompileProjection(queryModel.MainFromClause, selector);
-            values = sourceValues.Select(projector).ToArray();
+            values = sourceValues
+                .Select(value => ProjectionExpressionEvaluator.Evaluate(selector, queryModel.MainFromClause, value))
+                .ToArray();
             return true;
         }
         catch
@@ -108,8 +112,9 @@ internal static class LocalSequenceExtractor
 
         try
         {
-            var projector = CompileProjection(mainFromClause, selector);
-            values = sourceValues.Select(projector).ToArray();
+            values = sourceValues
+                .Select(value => ProjectionExpressionEvaluator.Evaluate(selector, mainFromClause, value))
+                .ToArray();
             return true;
         }
         catch
@@ -142,6 +147,38 @@ internal static class LocalSequenceExtractor
         return expression;
     }
 
+    private static bool TryEvaluateEnumerableSelect(Expression expression, out object?[] values)
+    {
+        values = [];
+
+        if (expression is not MethodCallExpression methodCall ||
+            methodCall.Method.Name != nameof(Enumerable.Select) ||
+            methodCall.Arguments.Count != 2)
+        {
+            return false;
+        }
+
+        if (!TryEvaluate(methodCall.Arguments[0], out var sourceValues))
+            return false;
+
+        var selector = UnwrapLambda(methodCall.Arguments[1]);
+        if (selector is null || selector.Parameters.Count != 1)
+            return false;
+
+        values = sourceValues
+            .Select(value => ProjectionExpressionEvaluator.Evaluate(selector.Body, selector.Parameters[0], value))
+            .ToArray();
+        return true;
+    }
+
+    private static LambdaExpression? UnwrapLambda(Expression expression)
+    {
+        while (expression is UnaryExpression { NodeType: ExpressionType.Quote } quote)
+            expression = quote.Operand;
+
+        return expression as LambdaExpression;
+    }
+
     private static object? EvaluateLocalExpression(Expression expression)
     {
         if (expression is ConstantExpression constantExpression)
@@ -154,21 +191,12 @@ internal static class LocalSequenceExtractor
         if (evaluatedExpression is ConstantExpression constantAfterEval)
             return constantAfterEval.Value;
 
-        return Expression.Lambda(evaluatedExpression!).Compile().DynamicInvoke();
-    }
-
-    private static Func<object?, object?> CompileProjection(MainFromClause mainFromClause, Expression selector)
-    {
-        var parameter = Expression.Parameter(mainFromClause.ItemType, mainFromClause.ItemName);
-        var body = new QuerySourceReplacementVisitor(mainFromClause, parameter).Visit(selector)!;
-        var lambda = Expression.Lambda(body, parameter).Compile();
-
-        return value => lambda.DynamicInvoke(value);
+        return ProjectionExpressionEvaluator.Evaluate(evaluatedExpression!);
     }
 
     private static Expression NormalizeSequenceExpression(Expression expression)
     {
-        // ReadOnlySpan<T> cannot be boxed or returned from DynamicInvoke. The current translator only needs
+        // ReadOnlySpan<T> cannot be boxed. The current translator only needs
         // the backing local array for the tested implicit array-to-span shape.
         if (expression.Type.IsByRefLike &&
             expression is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } implicitCall)
@@ -224,25 +252,4 @@ internal static class LocalSequenceExtractor
         }
     }
 
-    private sealed class QuerySourceReplacementVisitor(IQuerySource querySource, ParameterExpression parameter) : ExpressionVisitor
-    {
-        protected override Expression VisitParameter(ParameterExpression node)
-        {
-            if (node.Name == querySource.ItemName && node.Type == querySource.ItemType)
-                return parameter;
-
-            return base.VisitParameter(node);
-        }
-
-        protected override Expression VisitExtension(Expression node)
-        {
-            if (node is QuerySourceReferenceExpression querySourceReference &&
-                querySourceReference.ReferencedQuerySource == querySource)
-            {
-                return parameter;
-            }
-
-            return node.CanReduce ? Visit(node.Reduce()) : node;
-        }
-    }
 }

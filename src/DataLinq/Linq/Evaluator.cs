@@ -88,16 +88,13 @@ internal static class Evaluator
                     else if (memberExpr.Member is System.Reflection.PropertyInfo prop)
                         val = prop.GetValue(constExpr.Value);
                     else
-                        goto Compile; // Fallback to compilation if it's not a simple field/prop
+                        return Expression.Constant(ProjectionExpressionEvaluator.Evaluate(e), e.Type);
 
                     return Expression.Constant(val, e.Type);
                 }
             }
 
-        Compile:
-            LambdaExpression lambda = Expression.Lambda(e);
-            Delegate fn = lambda.Compile();
-            return Expression.Constant(fn.DynamicInvoke(null), e.Type);
+            return Expression.Constant(ProjectionExpressionEvaluator.Evaluate(e), e.Type);
         }
     }
 
