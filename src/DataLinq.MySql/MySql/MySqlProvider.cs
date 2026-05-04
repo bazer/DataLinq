@@ -3,6 +3,7 @@ using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Query;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DataLinq.MySql;
 
@@ -27,7 +28,12 @@ public class MySQLProvider : IDatabaseProviderRegister
     }
 }
 
-public class MySqlProvider<T> : SqlProvider<T> where T : class, IDatabaseModel
+public class MySqlProvider<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : SqlProvider<T> where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     static MySqlProvider()
     {

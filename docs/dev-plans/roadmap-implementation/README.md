@@ -26,23 +26,23 @@ What are we actually going to do, in what order, and how will we know it worked?
 | Phase 5: Product Trust Features | Implemented for validation/diff/snapshot scope; full migration execution deferred | `phase-5-product-trust-features/` |
 | Phase 6: LINQ Translation Coverage and Query Composition | Implemented | `phase-6-linq-translation-coverage-and-query-composition/` |
 | Phase 7: LINQ Feature Expansion | Implemented | `phase-7-linq-feature-expansion/` |
-| Phase 8: Native AOT and WebAssembly Readiness | Draft implementation plan | `phase-8-native-aot-and-webassembly-readiness/` |
+| Phase 8: Native AOT and WebAssembly Readiness | Implemented for generated SQLite AOT/WASM boundary | `phase-8-native-aot-and-webassembly-readiness/` |
 
 ## Current Roadmap Position
 
-As of the Phase 4B completion update on 2026-05-03, the active roadmap frontier is Phase 8 unless full migration execution becomes the immediate product priority.
+As of the Phase 8 closeout update on 2026-05-04, the active roadmap frontier moves to Phase 9 unless full migration execution becomes the immediate product priority.
 
 Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. Full versioned migration execution is not a remaining Phase 5 cleanup task; it is a separate future product surface.
 
 Phase 4B plugged the most useful Phase 4 metadata gaps before the roadmap moved on: referential actions, advanced index guardrails, generated-column guardrails, raw provider defaults, explicit MySQL/MariaDB column ordering, and view validation.
 
-Unless migration execution becomes the immediate product priority, the next implementation work should be Phase 8 Native AOT and WebAssembly readiness.
+Unless migration execution becomes the immediate product priority, the next implementation work should be Phase 9 cache, memory, and invalidation foundations.
 
 The Phase 6 plan completed the support-matrix audit, chained `Where(...)` correctness, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics.
 
 The Phase 7 plan completed scalar aggregates, projection expansion, nullable predicate polish, a narrow LINQ `Join(...)` baseline, and relation-aware predicate translation.
 
-The Phase 8 plan starts from an audit of remaining `Expression.Compile()` usage, generated metadata/factory hooks, trimming-sensitive reflection, SQLite browser packaging, and cache worker behavior. The planned first move is executable Native AOT, trimming, and Blazor WebAssembly smoke coverage before runtime compatibility claims are made.
+The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. The result is intentionally scoped: generated hooks are now required for the AOT path, hot-path `Expression.Compile()` use has been removed from the checked LINQ/instance surface, and browser cache startup avoids the cleanup worker. Broad public compatibility still needs dependency cleanup around `Remotion.Linq`, SQLitePCLRaw WebAssembly varargs warnings, no-AOT interpreter failures, and Roslyn payload leakage.
 
 For the consolidated checkpoint, see [Phase 4 and 5 Status Review](Phase%204%20and%205%20Status%20Review.md).
 

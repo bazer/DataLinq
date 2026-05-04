@@ -2,6 +2,9 @@
 
 	<PropertyGroup>
 		<Description>SQLite support for DataLinq - a lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
+		<!-- Keep analyzer warnings visible without claiming package-level AOT compatibility yet. -->
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<EnableAotAnalyzer>true</EnableAotAnalyzer>
 	</PropertyGroup>
 
 	<ItemGroup>

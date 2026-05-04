@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -48,8 +49,13 @@ public class SQLiteProviderConstants : IDatabaseProviderConstants
     public bool SupportsMultipleDatabases { get; } = false;
 }
 
-public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
-    where T : class, IDatabaseModel
+public class SQLiteProvider<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : DatabaseProvider<T>, IDisposable
+    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     private readonly SqliteConnectionStringBuilder connectionStringBuilder;
     private readonly IDisposable? keepAliveConnection;

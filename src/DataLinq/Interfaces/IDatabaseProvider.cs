@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using DataLinq.Cache;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -57,8 +58,13 @@ public interface IDatabaseProvider : IDisposable
     Sql GetCreateSql();
 }
 
-public interface IDatabaseProvider<T> : IDatabaseProvider
-    where T : class, IDatabaseModel
+public interface IDatabaseProvider<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : IDatabaseProvider
+    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     new ReadOnlyAccess<T> ReadOnlyAccess { get; }
 }

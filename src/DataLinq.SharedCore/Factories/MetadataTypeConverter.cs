@@ -76,7 +76,34 @@ public static class MetadataTypeConverter
         };
     }
 
-    public static Type? GetType(string typeName) => Type.GetType(GetFullTypeName(typeName));
+    public static Type? GetType(string typeName) => typeName.ToLowerInvariant() switch
+    {
+        "sbyte" => typeof(sbyte),
+        "byte" => typeof(byte),
+        "short" => typeof(short),
+        "ushort" => typeof(ushort),
+        "int" => typeof(int),
+        "uint" => typeof(uint),
+        "long" => typeof(long),
+        "ulong" => typeof(ulong),
+        "char" => typeof(char),
+        "float" => typeof(float),
+        "double" => typeof(double),
+        "bool" => typeof(bool),
+        "decimal" => typeof(decimal),
+        "datetime" => typeof(DateTime),
+#if NET6_0_OR_GREATER
+        "dateonly" => typeof(DateOnly),
+        "timeonly" => typeof(TimeOnly),
+#else
+        "dateonly" => Type.GetType("System.DateOnly"),
+        "timeonly" => Type.GetType("System.TimeOnly"),
+#endif
+        "guid" => typeof(Guid),
+        "string" => typeof(string),
+        "byte[]" => typeof(byte[]),
+        _ => null
+    };
 
     public static string GetFullTypeName(string typeName) => typeName.ToLowerInvariant() switch
     {

@@ -163,12 +163,24 @@ public class MetadataFromTypeFactoryTests
     }
 }
 
-public sealed class BootstrapHookDb : IDatabaseModel
+public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabaseModel<BootstrapHookDb>
 {
+    public static BootstrapHookDb NewDataLinqDatabase(IDataSourceAccess dataSource) => new();
+
+    public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
+        new(
+        [
+            new(
+                "Rows",
+                typeof(BootstrapHookRow),
+                typeof(ImmutableBootstrapHookRow),
+                null,
+                new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableBootstrapHookRow.NewDataLinqImmutableInstance),
+                TableType.View)
+        ]);
+
     public static GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>
-    [
-        new("Rows", typeof(BootstrapHookRow))
-    ];
+        GetDataLinqGeneratedModel().TableModels;
 }
 
 [View("bootstrap_rows")]
@@ -182,5 +194,8 @@ public abstract partial class BootstrapHookRow(IRowData rowData, IDataSourceAcce
 public partial class ImmutableBootstrapHookRow(IRowData rowData, IDataSourceAccess dataSource)
     : BootstrapHookRow(rowData, dataSource)
 {
+    public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) =>
+        new ImmutableBootstrapHookRow(rowData, dataSource);
+
     public override int Id => (int)GetValue(nameof(Id));
 }

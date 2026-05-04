@@ -2,11 +2,30 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
 # Phase 8 Implementation Plan: Native AOT and WebAssembly Readiness
 
-**Status:** Draft implementation plan.
+**Status:** Implemented for the generated SQLite Native AOT, trimming, and WebAssembly AOT boundary.
 
 ## Purpose
 
 Phase 8 makes DataLinq honest about Native AOT, trimming, and browser WebAssembly. The point is not to sprinkle `<IsTrimmable>true</IsTrimmable>` into project files and declare victory. The point is to prove the supported path with executable smoke projects, remove hot-path dynamic code, and clearly fence off compatibility fallbacks that are not AOT-safe.
+
+## Closeout Result
+
+Phase 8 now has executable proof projects and compatibility results recorded in [Compatibility Results.md](Compatibility%20Results.md).
+
+The implemented support boundary is intentionally narrow:
+
+- generated SQLite database models
+- generated metadata hooks
+- generated mutable/immutable instance construction
+- schema creation from generated metadata
+- ordinary SQLite insert/query/relation/projection smoke behavior
+- Native AOT publish and executable run
+- trimmed publish and executable run
+- Blazor WebAssembly AOT publish and browser run
+
+The phase does not claim broad AOT/WASM support. No-AOT browser WebAssembly fails in the Mono interpreter for the SQLite/DataLinq path, `Remotion.Linq` still emits Native AOT/trimming warnings, SQLitePCLRaw emits WebAssembly native varargs warnings, and Roslyn assemblies are still present in constrained publish payloads because the runtime package references compiler APIs.
+
+That result is good enough to close the phase because it proves the architecture direction and removes the dangerous silent fallbacks. It is not good enough to market as complete platform support.
 
 ## Audit Snapshot
 
@@ -14,11 +33,11 @@ Current repo state as of the planning audit:
 
 - The roadmap and roadmap implementation index already identify Phase 8 as the next frontier unless full migration execution is deliberately prioritized first.
 - Phase 7 is implemented for its planned support boundary: aggregates, computed projections, nullable predicates, joins, and relation-aware predicates.
-- The active quick lane passes: generators 31/31, unit 283/283, SQLite compliance 389/389.
+- The active verification lane now passes for generators 31/31, unit 284/284, and SQLite compliance 389/389.
 - Core projects target `net8.0`, `net9.0`, and `net10.0`, which is good for current AOT analyzer coverage.
 - `Microsoft.Data.Sqlite` is on `10.0.6`; its package brings in `SQLitePCLRaw.bundle_e_sqlite3` `2.1.11`, and the restored assets include `browser-wasm` native assets selected from the `net9.0` asset group for the `net10.0` restore.
 - The existing `src/DataLinq.Blazor` project is an ASP.NET Core web sample, not a standalone browser WebAssembly proof.
-- No runtime project currently opts into `IsTrimmable`, `IsAotCompatible`, `EnableTrimAnalyzer`, or `EnableAotAnalyzer`.
+- Runtime analyzer coverage is enabled for `DataLinq` without setting `IsAotCompatible`; the broad compatibility flag remains intentionally withheld until dependency warnings are resolved.
 
 Verdict: nothing blocks starting Phase 8. The blockers are the Phase 8 work.
 
@@ -282,4 +301,3 @@ Phase 8 is complete when:
 - a standalone Blazor WebAssembly SQLite sample publishes and runs
 - browser cache cleanup behavior is explicitly handled
 - docs do not present Native AOT or WebAssembly support as shipped beyond the proven boundary
-

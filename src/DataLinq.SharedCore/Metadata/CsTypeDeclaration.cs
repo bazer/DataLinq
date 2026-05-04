@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Reflection;
 using DataLinq.Core.Factories;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -39,7 +38,7 @@ public readonly record struct CsTypeDeclaration
 
         Type = type;
         Name = MetadataTypeConverter.GetKeywordName(type);
-        Namespace = type.Namespace;
+        Namespace = type.Namespace ?? string.Empty;
         ModelCsType = ParseModelCsType(type);
     }
 
@@ -98,12 +97,7 @@ public readonly record struct CsTypeDeclaration
     public static ModelCsType ParseModelCsType(Type type)
     {
         if (type.IsClass)
-        {
-            if (type.GetProperty("EqualityContract", BindingFlags.NonPublic | BindingFlags.Instance) != null)
-                return ModelCsType.Record;
-
             return ModelCsType.Class;
-        }
 
         if (type.IsInterface)
             return ModelCsType.Interface;

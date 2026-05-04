@@ -1,4 +1,6 @@
-﻿namespace DataLinq.Interfaces;
+using System.Diagnostics.CodeAnalysis;
+
+namespace DataLinq.Interfaces;
 
 public interface IDataSourceAccess
 {
@@ -6,8 +8,13 @@ public interface IDataSourceAccess
     IDatabaseAccess DatabaseAccess { get; }
 }
 
-public interface IDataSourceAccess<T> : IDataSourceAccess
-    where T : class, IDatabaseModel
+public interface IDataSourceAccess<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : IDataSourceAccess
+    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     new IDatabaseProvider<T> Provider { get; }
     public T Query();

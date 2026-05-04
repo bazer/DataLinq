@@ -136,7 +136,7 @@ public class MariaDbGuidTypeMappingTests
     }
 
     private static MariaDBDatabase<TDatabase> CreateMariaDbDatabase<TDatabase>(string connectionString, string databaseName)
-        where TDatabase : class, IDatabaseModel
+        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
         => new(connectionString, databaseName, loggerFactory: null);
 
     private static string RemoveGuidFormat(string connectionString)

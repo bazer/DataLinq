@@ -218,6 +218,8 @@ Key related plans:
 
 ### Phase 8: Native AOT and WebAssembly Readiness
 
+Status: implemented for the generated SQLite Native AOT, trimming, and WebAssembly AOT boundary.
+
 Goals:
 
 - remove hot-path `Expression.Compile()` usage where generated or interpreted alternatives are practical
@@ -235,6 +237,8 @@ Why here:
 
 Key related plans:
 
+- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
+- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 
@@ -344,7 +348,9 @@ Phase 6 LINQ translation coverage and query composition is implemented for its p
 
 Phase 7 LINQ feature expansion is implemented for its planned support boundary: scalar aggregates, computed post-materialization projections, nullable predicate polish, a narrow explicit `Join(...)` baseline, and one-to-many relation existence predicates.
 
-The next roadmap phase should therefore be Phase 8: Native AOT and WebAssembly readiness, unless we deliberately pause to prioritize full migration execution.
+Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw emits WebAssembly native varargs warnings, and Roslyn still leaks into constrained publish payloads.
+
+The next roadmap phase should therefore be Phase 9: cache, memory, and invalidation foundations, unless we deliberately pause to prioritize full migration execution.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

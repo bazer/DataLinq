@@ -1,94 +1,180 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
+using DataLinq.Instances;
+using DataLinq.Interfaces;
 using ThrowAway;
 
 namespace DataLinq.Metadata;
 
 public static class MetadataFromTypeFactory
 {
+    private const string GeneratedDatabaseModelMethodName = "GetDataLinqGeneratedModel";
     private const string GeneratedTableModelsMethodName = "GetDataLinqGeneratedTableModels";
 
-    public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel(Type type) => DLOptionFailure.CatchAll(() =>
+    public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel<
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicProperties)]
+        TDatabase>()
+        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase> =>
+        DLOptionFailure.CatchAll(() => ParseDatabaseFromGeneratedModel(typeof(TDatabase), TDatabase.GetDataLinqGeneratedModel()));
+
+    public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel(
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicProperties)]
+        Type type) => DLOptionFailure.CatchAll(() =>
+        ParseDatabaseFromGeneratedModel(type, GetGeneratedDatabaseModel(type)));
+
+    private static DatabaseDefinition ParseDatabaseFromGeneratedModel(
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicProperties)]
+        Type type,
+        GeneratedDatabaseModelDeclaration generatedModel)
     {
         var database = new DatabaseDefinition(type.Name, csType: new CsTypeDeclaration(type));
         database.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
         database.ParseAttributes();
-        database.SetTableModels(GetTableTypes(type)
-            .Select(x => database.ParseTableModel(x.type, x.csName)));
+        database.SetTableModels(generatedModel.TableModels
+            .Select(database.ParseTableModel));
 
         MetadataFactory.ParseIndices(database);
         MetadataFactory.ParseRelations(database);
         MetadataFactory.IndexColumns(database);
 
         return database;
-    });
-
-    private static TableModel ParseTableModel(this DatabaseDefinition database, Type type, string csPropertyName) =>
-        new(csPropertyName, database, type.ParseModel());
-
-    private static IEnumerable<(string csName, Type type)> GetTableTypes(Type databaseType)
-    {
-        var generatedTableModels = GetGeneratedTableTypes(databaseType);
-        if (generatedTableModels is not null)
-            return generatedTableModels;
-
-        return databaseType
-            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-            .Select(GetTableType);
     }
 
-    private static IEnumerable<(string csName, Type type)>? GetGeneratedTableTypes(Type databaseType)
+    private static TableModel ParseTableModel(this DatabaseDefinition database, GeneratedTableModelDeclaration declaration)
     {
-        var method = databaseType.GetMethod(
+        var model = declaration.ModelType.ParseModel(declaration);
+        var table = ParseTable(model, declaration.TableType);
+        return new TableModel(declaration.CsPropertyName, database, model, table);
+    }
+
+    private static TableDefinition ParseTable(ModelDefinition model, TableType tableType)
+    {
+        TableDefinition table = tableType switch
+        {
+            TableType.Table => new TableDefinition(model.CsType.Name),
+            TableType.View => new ViewDefinition(model.CsType.Name),
+            _ => throw new NotSupportedException($"Generated table type '{tableType}' is not supported for model '{model.CsType.Name}'.")
+        };
+
+        foreach (var attribute in model.Attributes)
+        {
+            if (attribute is TableAttribute tableAttribute)
+                table.SetDbName(tableAttribute.Name);
+
+            if (attribute is ViewAttribute viewAttribute)
+                table.SetDbName(viewAttribute.Name);
+
+            if (attribute is UseCacheAttribute useCache)
+                table.UseCache = useCache.UseCache;
+
+            if (attribute is CacheLimitAttribute cacheLimit)
+                table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+
+            if (attribute is IndexCacheAttribute indexCache)
+                table.IndexCache.Add((indexCache.Type, indexCache.Amount));
+
+            if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
+                view.SetDefinition(definitionAttribute.Sql);
+        }
+
+        table.SetColumns(model.ValueProperties.Values.Select(table.ParseColumn));
+        return table;
+    }
+
+    private static GeneratedDatabaseModelDeclaration GetGeneratedDatabaseModel(
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods |
+            DynamicallyAccessedMemberTypes.NonPublicMethods)]
+        Type databaseType)
+    {
+        var generatedModelMethod = databaseType.GetMethod(
+            GeneratedDatabaseModelMethodName,
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: Type.EmptyTypes,
+            modifiers: null);
+
+        if (generatedModelMethod is not null)
+        {
+            if (generatedModelMethod.ReturnType != typeof(GeneratedDatabaseModelDeclaration))
+            {
+                throw new InvalidOperationException(
+                    $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedDatabaseModelMethodName}' must return '{typeof(GeneratedDatabaseModelDeclaration).FullName}'.");
+            }
+
+            return (GeneratedDatabaseModelDeclaration)generatedModelMethod.Invoke(null, null)!;
+        }
+
+        var generatedTableModelsMethod = databaseType.GetMethod(
             GeneratedTableModelsMethodName,
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
             binder: null,
             types: Type.EmptyTypes,
             modifiers: null);
 
-        if (method is null)
-            return null;
+        if (generatedTableModelsMethod is null)
+        {
+            throw new InvalidOperationException(
+                $"Database model '{databaseType.FullName}' is missing the generated DataLinq metadata hook. " +
+                "Run the DataLinq source generator and ensure the database model is declared as a partial class.");
+        }
 
-        if (!typeof(IEnumerable<GeneratedTableModelDeclaration>).IsAssignableFrom(method.ReturnType))
+        if (!typeof(IEnumerable<GeneratedTableModelDeclaration>).IsAssignableFrom(generatedTableModelsMethod.ReturnType))
         {
             throw new InvalidOperationException(
                 $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedTableModelsMethodName}' must return '{typeof(IEnumerable<GeneratedTableModelDeclaration>).FullName}'.");
         }
 
-        var declarations = (IEnumerable<GeneratedTableModelDeclaration>?)method.Invoke(null, null);
+        var declarations = (IEnumerable<GeneratedTableModelDeclaration>?)generatedTableModelsMethod.Invoke(null, null);
         if (declarations is null)
         {
             throw new InvalidOperationException(
                 $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedTableModelsMethodName}' returned null.");
         }
 
-        return declarations.Select(static declaration => (declaration.CsPropertyName, declaration.ModelType));
+        return new GeneratedDatabaseModelDeclaration(declarations.ToArray());
     }
 
-    private static (string csName, Type type) GetTableType(this PropertyInfo property)
-    {
-        var type = property.PropertyType;
-
-        if (type.GetGenericTypeDefinition() == typeof(DbRead<>))
-            return (property.Name, type.GetGenericArguments()[0]);
-        else
-            throw new NotImplementedException();
-    }
-
-    private static ModelDefinition ParseModel(this Type type)
+    private static ModelDefinition ParseModel(
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicProperties |
+            DynamicallyAccessedMemberTypes.NonPublicProperties |
+            DynamicallyAccessedMemberTypes.Interfaces)]
+        this Type type,
+        GeneratedTableModelDeclaration generatedDeclaration)
     {
         var model = new ModelDefinition(new CsTypeDeclaration(type));
 
         model.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
 
-        model.SetInterfaces(type.GetInterfaces().Where(x => !IsModelInstanceInterface(x)).Select(x => new CsTypeDeclaration(x)));
-        model.SetModelInstanceInterface(type.GetInterfaces().Where(IsModelInstanceInterface).Select(x => new CsTypeDeclaration(x)).FirstOrDefault());
+        var interfaces = type.GetInterfaces();
+        var modelInstanceInterfaceType = interfaces.Any(IsModelInstanceContract)
+            ? interfaces.FirstOrDefault(IsApplicationInterface)
+            : null;
+
+        model.SetInterfaces(interfaces
+            .Where(x => x != modelInstanceInterfaceType)
+            .Select(x => new CsTypeDeclaration(x)));
+        model.SetModelInstanceInterface(
+            modelInstanceInterfaceType is not null
+                ? new CsTypeDeclaration(modelInstanceInterfaceType)
+                : null);
 
         if (type.Namespace != null)
             model.SetUsings([new(type.Namespace)]);
@@ -110,32 +196,36 @@ public static class MetadataFromTypeFactory
             .ThenBy(x => x.name)
             .Select(x => new ModelUsing(x.name)));
 
-        model.SetImmutableType(FindType(type, $"{model.CsType.Namespace}.Immutable{model.CsType.Name}"));
+        if (generatedDeclaration.ImmutableType is null)
+        {
+            throw new InvalidOperationException(
+                $"Generated table declaration for '{type.FullName}' is missing the immutable model type.");
+        }
 
-        if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel")))
-            model.SetMutableType(FindType(type, $"{model.CsType.Namespace}.Mutable{model.CsType.Name}"));
+        if (generatedDeclaration.ImmutableFactory is null)
+        {
+            throw new InvalidOperationException(
+                $"Generated table declaration for '{type.FullName}' is missing the immutable factory hook.");
+        }
+
+        model.SetImmutableType(new CsTypeDeclaration(generatedDeclaration.ImmutableType));
+        model.SetImmutableFactory(generatedDeclaration.ImmutableFactory);
+
+        if (generatedDeclaration.MutableType is not null)
+            model.SetMutableType(new CsTypeDeclaration(generatedDeclaration.MutableType));
 
         return model;
     }
 
-    private static bool IsModelInstanceInterface(Type type)
+    private static bool IsApplicationInterface(Type type)
     {
-        if (type.Namespace?.StartsWith("System") == true ||
-            type.Namespace?.StartsWith("DataLinq.Instance") == true ||
-            type.Namespace?.StartsWith("DataLinq.Interfaces") == true)
-            return false;
-
-        return type.GetInterfaces().Any(x => x.Name.StartsWith("IModelInstance"));
+        return type.Namespace?.StartsWith("System") != true &&
+            type.Namespace?.StartsWith("DataLinq.Instance") != true &&
+            type.Namespace?.StartsWith("DataLinq.Interfaces") != true;
     }
 
-    private static CsTypeDeclaration FindType(Type modelType, string name)
-    {
-        var type = modelType.Assembly.GetTypes().FirstOrDefault(x => x.FullName == name);
-
-        return type == null
-            ? throw new NotImplementedException($"Type '{name}' not found")
-            : new CsTypeDeclaration(type);
-    }
+    private static bool IsModelInstanceContract(Type type) =>
+        type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IModelInstance<>);
 
     private static PropertyDefinition ParseProperty(this PropertyInfo propertyInfo, ModelDefinition model)
     {
@@ -164,7 +254,10 @@ public static class MetadataFromTypeFactory
                 var enumType = property.CsType.Type;
                 var declaredInClass = enumType.DeclaringType == model.CsType.Type;
 
-                var enumValues = Enum.GetValues(enumType).Cast<int>().ToList();
+                var enumValues = Enum.GetValuesAsUnderlyingType(enumType)
+                    .Cast<object>()
+                    .Select(Convert.ToInt32)
+                    .ToList();
                 var csEnumValues = Enum.GetNames(enumType).Select((x, i) => (x, enumValues[i])).ToList();
 
                 valueProp.SetEnumProperty(new EnumProperty(enumValueList, csEnumValues, declaredInClass));

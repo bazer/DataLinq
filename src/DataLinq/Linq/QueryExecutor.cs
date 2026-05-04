@@ -171,33 +171,17 @@ internal class QueryExecutor : IQueryExecutor
             // If T is the Model type, just cast.
             return SelectFuncCache<T>.Identity;
 
-            //var param = Expression.Parameter(typeof(object), "x");
-            //Expression body = typeof(T) == typeof(object)
-            //    ? param
-            //    : Expression.Convert(param, typeof(T));
-            //return Expression.Lambda<Func<object?, T?>>(body, param).Compile();
         }
 
-        var param = Expression.Parameter(typeof(object), "x");
         ValidateProjectionExpression(selector, table, selectClause);
-        Expression rebuilt = new ProjectionQuerySourceVisitor(param).Visit(selector)
-            ?? throw new QueryTranslationException($"Selector expression '{selectClause.Selector}' could not be rebuilt for client projection.");
+        var querySources = GetReferencedQuerySources(selector);
 
-        if (rebuilt.Type != typeof(T))
+        return value =>
         {
-            if (Nullable.GetUnderlyingType(rebuilt.Type) == typeof(T))
-            {
-                var valueProp = rebuilt.Type.GetProperty("Value");
-                if (valueProp != null)
-                    rebuilt = Expression.Property(rebuilt, valueProp);
-            }
-            else
-            {
-                rebuilt = Expression.Convert(rebuilt, typeof(T));
-            }
-        }
-
-        return Expression.Lambda<Func<object?, T?>>(rebuilt, param).Compile();
+            var querySourceValues = querySources.ToDictionary(source => source, _ => value);
+            var projected = ProjectionExpressionEvaluator.Evaluate(selector, querySourceValues);
+            return ConvertProjectionResult<T>(projected);
+        };
     }
 
     private static void ValidateProjectionExpression(Expression selector, TableDefinition table, SelectClause selectClause)
@@ -227,35 +211,6 @@ internal class QueryExecutor : IQueryExecutor
         public IQuerySource QuerySource { get; } = querySource;
         public TableDefinition Table { get; } = table;
         public string Alias { get; } = alias;
-    }
-
-    private sealed class ProjectionQuerySourceVisitor(ParameterExpression rowParameter) : ExpressionVisitor
-    {
-        protected override Expression VisitExtension(Expression node)
-        {
-            if (node is QuerySourceReferenceExpression querySource)
-                return Expression.Convert(rowParameter, querySource.Type);
-
-            return base.VisitExtension(node);
-        }
-    }
-
-    private sealed class JoinedProjectionQuerySourceVisitor(
-        ParameterExpression rowParameter,
-        IReadOnlyDictionary<IQuerySource, int> sourceIndexes) : ExpressionVisitor
-    {
-        protected override Expression VisitExtension(Expression node)
-        {
-            if (node is QuerySourceReferenceExpression querySource)
-            {
-                if (!sourceIndexes.TryGetValue(querySource.ReferencedQuerySource, out var index))
-                    throw new QueryTranslationException($"Join projection references unsupported query source '{querySource.ReferencedQuerySource.ItemName}'.");
-
-                return Expression.Convert(Expression.ArrayIndex(rowParameter, Expression.Constant(index)), querySource.Type);
-            }
-
-            return base.VisitExtension(node);
-        }
     }
 
     private sealed class ProjectionValidationVisitor(
@@ -461,14 +416,51 @@ internal class QueryExecutor : IQueryExecutor
 
         ValidateProjectionExpression(selector, tablesByType, selectClause);
 
-        var rowParameter = Expression.Parameter(typeof(object[]), "rows");
-        Expression rebuilt = new JoinedProjectionQuerySourceVisitor(rowParameter, sourceIndexes).Visit(selector)
-            ?? throw new QueryTranslationException($"Join selector expression '{selectClause.Selector}' could not be rebuilt for client projection.");
+        return rows =>
+        {
+            var querySourceValues = sourceIndexes.ToDictionary(x => x.Key, x => rows[x.Value]);
+            var projected = ProjectionExpressionEvaluator.Evaluate(selector, querySourceValues);
+            return ConvertProjectionResult<T>(projected);
+        };
+    }
 
-        if (rebuilt.Type != typeof(T))
-            rebuilt = Expression.Convert(rebuilt, typeof(T));
+    private static IReadOnlyList<IQuerySource> GetReferencedQuerySources(Expression expression)
+    {
+        var visitor = new QuerySourceCollector();
+        visitor.Visit(expression);
+        return visitor.QuerySources;
+    }
 
-        return Expression.Lambda<Func<object?[], T?>>(rebuilt, rowParameter).Compile();
+    private static T? ConvertProjectionResult<T>(object? value)
+    {
+        if (value is null)
+            return default;
+
+        if (value is T typed)
+            return typed;
+
+        var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        return (T)Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
+    }
+
+    private sealed class QuerySourceCollector : ExpressionVisitor
+    {
+        private readonly List<IQuerySource> querySources = [];
+
+        public IReadOnlyList<IQuerySource> QuerySources => querySources;
+
+        protected override Expression VisitExtension(Expression node)
+        {
+            if (node is QuerySourceReferenceExpression querySourceReference)
+            {
+                if (!querySources.Contains(querySourceReference.ReferencedQuerySource))
+                    querySources.Add(querySourceReference.ReferencedQuerySource);
+
+                return node;
+            }
+
+            return node.CanReduce ? Visit(node.Reduce()) : node;
+        }
     }
 
     /// <summary>

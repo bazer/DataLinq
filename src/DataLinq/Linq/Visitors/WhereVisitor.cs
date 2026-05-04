@@ -461,11 +461,36 @@ internal class WhereVisitor<T> : ExpressionVisitor
         {
             var leftVal = builder.GetConstant(node.Left);
             var rightVal = builder.GetConstant(node.Right);
-            bool result = (bool)Expression.Lambda(Expression.MakeBinary(node.NodeType, Expression.Constant(leftVal), Expression.Constant(rightVal))).Compile().DynamicInvoke();
+            bool result = EvaluateConstantBinary(node.NodeType, leftVal, rightVal);
             builder.CurrentParentGroup.AddFixedCondition(result ? Operator.AlwaysTrue : Operator.AlwaysFalse, builder.GetNextConnectionType());
         }
 
         return node;
+    }
+
+    private static bool EvaluateConstantBinary(ExpressionType nodeType, object? left, object? right)
+    {
+        return nodeType switch
+        {
+            ExpressionType.Equal => Equals(left, right),
+            ExpressionType.NotEqual => !Equals(left, right),
+            ExpressionType.GreaterThan => Compare(left, right) > 0,
+            ExpressionType.GreaterThanOrEqual => Compare(left, right) >= 0,
+            ExpressionType.LessThan => Compare(left, right) < 0,
+            ExpressionType.LessThanOrEqual => Compare(left, right) <= 0,
+            _ => throw new QueryTranslationException($"Constant binary expression '{nodeType}' is not supported in LINQ predicate translation.")
+        };
+    }
+
+    private static int Compare(object? left, object? right)
+    {
+        if (left is null || right is null)
+            throw new QueryTranslationException("Null constant values can only be compared with equality in LINQ predicate translation.");
+
+        if (left is IComparable comparable)
+            return comparable.CompareTo(right);
+
+        throw new QueryTranslationException($"Constant value '{left}' does not support comparison in LINQ predicate translation.");
     }
 
     private object?[] EvaluateLocalSequenceExpression(Expression expression)

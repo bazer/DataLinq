@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -14,8 +15,13 @@ namespace DataLinq;
 /// The main interface for working with the database.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
-    where T : class, IDatabaseModel
+public abstract class Database<
+    [DynamicallyAccessedMembers(
+        DynamicallyAccessedMemberTypes.PublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicMethods |
+        DynamicallyAccessedMemberTypes.NonPublicProperties)]
+    T> : IDisposable, IDataSourceAccess<T>
+    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     /// <summary>
     /// Gets the type of the database.
