@@ -16,7 +16,7 @@ internal static class TestDatabaseLifecycle
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> ServerAdminLocks = new(StringComparer.OrdinalIgnoreCase);
 
     public static Database<TDatabase> CreateDatabase<TDatabase>(TestConnectionDefinition connection)
-        where TDatabase : class, IDatabaseModel
+        where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
     {
         var creator = PluginHook.DatabaseProviders.Single(x => x.Key == connection.DatabaseType).Value;
         return creator.GetDatabaseProvider<TDatabase>(connection.ConnectionString, connection.DataSourceName);

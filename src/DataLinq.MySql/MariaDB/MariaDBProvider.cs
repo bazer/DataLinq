@@ -28,7 +28,7 @@ public class MariaDBProvider : IDatabaseProviderRegister
     }
 }
 
-public class MariaDBProvider<T> : SqlProvider<T> where T : class, IDatabaseModel
+public class MariaDBProvider<T> : SqlProvider<T> where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     public bool IsMariaDbUuidSupported { get; private set; }
 

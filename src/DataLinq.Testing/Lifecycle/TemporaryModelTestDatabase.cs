@@ -5,7 +5,7 @@ using DataLinq.Metadata;
 namespace DataLinq.Testing;
 
 public sealed class TemporaryModelTestDatabase<TDatabase> : IDisposable
-    where TDatabase : class, IDatabaseModel
+    where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase>
 {
     private readonly PodmanTestEnvironmentSettings _settings;
     private bool _disposed;

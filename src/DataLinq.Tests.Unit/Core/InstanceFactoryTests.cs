@@ -4,6 +4,7 @@ using System.Data;
 using System.Threading.Tasks;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
+using DataLinq.Metadata;
 using DataLinq.Mutation;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -20,7 +21,7 @@ public class InstanceFactoryTests
         await Assert.That(database.DataSource).IsSameReferenceAs(dataSource);
     }
 
-    private sealed class FactoryDatabase : IDatabaseModel
+    private sealed class FactoryDatabase : IDatabaseModel, IDataLinqGeneratedDatabaseModel<FactoryDatabase>
     {
         public FactoryDatabase(DataSourceAccess dataSource)
         {
@@ -28,6 +29,11 @@ public class InstanceFactoryTests
         }
 
         public DataSourceAccess DataSource { get; }
+
+        public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() => new([]);
+
+        public static FactoryDatabase NewDataLinqDatabase(IDataSourceAccess dataSource) =>
+            new((DataSourceAccess)dataSource);
     }
 
     private sealed class FakeDataSourceAccess : DataSourceAccess

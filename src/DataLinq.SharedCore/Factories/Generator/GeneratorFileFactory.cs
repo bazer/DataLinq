@@ -170,15 +170,30 @@ public class GeneratorFileFactory
             .OrderBy(static x => x.CsPropertyName, StringComparer.Ordinal)
             .ToArray();
 
-        yield return $"{namespaceTab}public partial class {database.CsType.Name}";
+        yield return $"{namespaceTab}public partial class {database.CsType.Name} : global::DataLinq.Interfaces.IDataLinqGeneratedDatabaseModel<{database.CsType.Name}>";
         yield return namespaceTab + "{";
-        yield return $"{namespaceTab}{tab}public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>";
+        yield return $"{namespaceTab}{tab}public static {database.CsType.Name} NewDataLinqDatabase(global::DataLinq.Interfaces.IDataSourceAccess dataSource) =>";
+        yield return $"{namespaceTab}{tab}{tab}new {GetGlobalTypeName(database.CsType)}((global::DataLinq.Mutation.DataSourceAccess)dataSource);";
+        yield return "";
+        yield return $"{namespaceTab}{tab}public static global::DataLinq.Metadata.GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>";
+        yield return $"{namespaceTab}{tab}{tab}new(";
         yield return $"{namespaceTab}{tab}[";
 
         foreach (var tableModel in tableModels)
-            yield return $"{namespaceTab}{tab}{tab}new(\"{tableModel.CsPropertyName}\", typeof({GetGlobalTypeName(tableModel.Model.CsType)})),";
+        {
+            var modelType = GetGlobalTypeName(tableModel.Model.CsType);
+            var immutableType = GetGlobalImmutableTypeName(tableModel.Model.CsType);
+            var mutableType = tableModel.Table.Type == TableType.Table
+                ? $"typeof({GetGlobalMutableTypeName(tableModel.Model.CsType)})"
+                : "null";
 
-        yield return $"{namespaceTab}{tab}];";
+            yield return $"{namespaceTab}{tab}{tab}new(\"{tableModel.CsPropertyName}\", typeof({modelType}), typeof({immutableType}), {mutableType}, new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>({immutableType}.NewDataLinqImmutableInstance)),";
+        }
+
+        yield return $"{namespaceTab}{tab}]);";
+        yield return "";
+        yield return $"{namespaceTab}{tab}public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>";
+        yield return $"{namespaceTab}{tab}{tab}GetDataLinqGeneratedModel().TableModels;";
         yield return namespaceTab + "}";
         yield return "";
     }
@@ -488,11 +503,11 @@ public class GeneratorFileFactory
         }
 
         //Insert
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}transaction.Insert(model.Mutate(changes));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Insert(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Insert(this Transaction transaction, Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Insert(changes, transaction);";
@@ -502,11 +517,11 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}{tab}model.GetDataSource().Provider.Commit(transaction => model.Update(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}transaction.Update(model.Mutate(changes));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update(this Transaction transaction, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Update<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Update(transaction));";
 
         //Save
@@ -514,18 +529,18 @@ public class GeneratorFileFactory
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Database<T> database, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Update(model, changes);";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Transaction transaction, {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes) =>";
         yield return $"{namespaceTab}{tab}{tab}model.Update(changes, transaction);";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this {model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(changes, transaction));";
 
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}transaction.Save(model.Mutate(changes));";
-        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel =>";
+        yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save<T>(this Mutable{model.CsType.Name} model, Action<Mutable{model.CsType.Name}> changes, Database<T> database) where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T> =>";
         yield return $"{namespaceTab}{tab}{tab}database.Commit(transaction => model.Save(changes, transaction));";
         yield return $"{namespaceTab}{tab}public static {model.CsType.Name} Save(this Mutable{model.CsType.Name} model, Transaction transaction) =>";
         yield return $"{namespaceTab}{tab}{tab}transaction.Save(model);";
@@ -586,6 +601,16 @@ public class GeneratorFileFactory
         => string.IsNullOrWhiteSpace(csType.Namespace)
             ? $"global::{csType.Name}"
             : $"global::{csType.Namespace}.{csType.Name}";
+
+    private static string GetGlobalImmutableTypeName(CsTypeDeclaration csType)
+        => string.IsNullOrWhiteSpace(csType.Namespace)
+            ? $"global::Immutable{csType.Name}"
+            : $"global::{csType.Namespace}.Immutable{csType.Name}";
+
+    private static string GetGlobalMutableTypeName(CsTypeDeclaration csType)
+        => string.IsNullOrWhiteSpace(csType.Namespace)
+            ? $"global::Mutable{csType.Name}"
+            : $"global::{csType.Namespace}.Mutable{csType.Name}";
 
     private string GetImmutablePropertyNullable(ValueProperty property)
     {

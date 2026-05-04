@@ -49,7 +49,7 @@ public class SQLiteProviderConstants : IDatabaseProviderConstants
 }
 
 public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
-    where T : class, IDatabaseModel
+    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     private readonly SqliteConnectionStringBuilder connectionStringBuilder;
     private readonly IDisposable? keepAliveConnection;

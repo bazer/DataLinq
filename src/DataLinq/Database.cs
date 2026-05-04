@@ -15,7 +15,7 @@ namespace DataLinq;
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
 public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
-    where T : class, IDatabaseModel
+    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     /// <summary>
     /// Gets the type of the database.

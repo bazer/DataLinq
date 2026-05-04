@@ -447,7 +447,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
 public class Transaction<T> : Transaction, IDataSourceAccess<T>
-    where T : class, IDatabaseModel
+    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     /// <summary>
     /// Gets the database for the transaction.

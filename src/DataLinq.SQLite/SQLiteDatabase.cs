@@ -30,7 +30,7 @@ public class SQLiteDatabaseCreator : IDatabaseProviderCreator
 }
 
 public class SQLiteDatabase<T> : Database<T>
-     where T : class, IDatabaseModel
+     where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     public SQLiteDatabase(string connectionString, ILoggerFactory? loggerFactory = null) :
         this(connectionString, null, loggerFactory)

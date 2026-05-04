@@ -49,7 +49,7 @@ public class MySqlDatabaseCreator : IDatabaseProviderCreator
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
 public class MySqlDatabase<T> : Database<T>
-     where T : class, IDatabaseModel
+     where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     /// <summary>
     /// Initializes a new instance of the MySqlDatabase with the specified connection string.

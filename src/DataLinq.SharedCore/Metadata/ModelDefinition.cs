@@ -17,6 +17,8 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     public TableDefinition Table => TableModel.Table;
     public CsTypeDeclaration? ImmutableType { get; private set; }
     public void SetImmutableType(CsTypeDeclaration immutableType) => ImmutableType = immutableType;
+    public Delegate? ImmutableFactory { get; private set; }
+    public void SetImmutableFactory(Delegate immutableFactory) => ImmutableFactory = immutableFactory;
     public CsTypeDeclaration? MutableType { get; private set; }
     public void SetMutableType(CsTypeDeclaration mutableType) => MutableType = mutableType;
     public CsTypeDeclaration? ModelInstanceInterface { get; private set; }

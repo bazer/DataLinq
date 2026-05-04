@@ -6,11 +6,13 @@ using System.Data;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Cache;
+using DataLinq.ErrorHandling;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using ThrowAway;
 
 namespace DataLinq;
 
@@ -19,7 +21,7 @@ namespace DataLinq;
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
 public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<T>
-    where T : class, IDatabaseModel
+    where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     //public static DatabaseProvider<T> GetPrimaryProvider()
     //{
@@ -34,7 +36,8 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
     /// </summary>
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
-    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration) : base(connectionString, typeof(T), databaseType, loggingConfiguration)
+    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration)
+        : base(connectionString, typeof(T), databaseType, loggingConfiguration, metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>)
     {
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
@@ -45,7 +48,8 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database.</param>
-    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName) : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName)
+    protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName)
+        : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName, MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>)
     {
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
@@ -86,7 +90,13 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     /// <param name="type">The type of the model that the database contains.</param>
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database (optional).</param>
-    protected DatabaseProvider(string connectionString, Type type, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName = null)
+    protected DatabaseProvider(
+        string connectionString,
+        Type type,
+        DatabaseType databaseType,
+        DataLinqLoggingConfiguration loggingConfiguration,
+        string? databaseName = null,
+        Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory = null)
     {
         lock (lockObject)
         {
@@ -96,7 +106,9 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
             }
             else
             {
-                Metadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(type);
+                Metadata = metadataFactory is null
+                    ? MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(type)
+                    : metadataFactory();
                 DatabaseDefinition.LoadedDatabases.TryAdd(type, Metadata);
 
                 if (Metadata.UseCache)
