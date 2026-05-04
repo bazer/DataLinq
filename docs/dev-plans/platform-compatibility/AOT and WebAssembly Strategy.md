@@ -5,6 +5,8 @@
 
 **Roadmap placement:** Main roadmap Phase 8, after provider metadata fidelity, product-trust work, the LINQ translation coverage pass, and the LINQ feature-expansion pass, before the deeper cache/invalidation work.
 
+**Follow-up:** Phase 8 proved the generated SQLite AOT/WASM AOT smoke path. The remaining practical work for clean warnings and reasonable payload size is tracked in [Practical AOT and Size Plan](Practical%20AOT%20and%20Size%20Plan.md).
+
 ---
 
 ## 1. The Core Problem: The Interpreter Fallback
