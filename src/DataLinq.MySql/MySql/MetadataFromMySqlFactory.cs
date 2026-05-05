@@ -45,12 +45,7 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
         ParseIndices(database, informationSchemaDb);
         ParseRelations(database, informationSchemaDb);
         ParseCheckConstraints(database, informationSchemaDb.Provider.DatabaseAccess);
-        MetadataFactory.ParseIndices(database);
-        MetadataFactory.ParseRelations(database);
-        MetadataFactory.ParseInterfaces(database);
-        MetadataFactory.IndexColumns(database);
-
-        return database;
+        return new MetadataDefinitionFactory().BuildProviderMetadata(database);
     });
 
     protected void ParseIndices(DatabaseDefinition database, MySqlDatabase<MySQLInformationSchema> informationSchemaDb)

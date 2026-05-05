@@ -51,12 +51,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
         ParseIndices(database, dbAccess);
         ParseRelations(database, dbAccess);
-        MetadataFactory.ParseIndices(database);
-        MetadataFactory.ParseRelations(database);
-        MetadataFactory.ParseInterfaces(database);
-        MetadataFactory.IndexColumns(database);
-
-        return database;
+        return new MetadataDefinitionFactory().BuildProviderMetadata(database);
     });
 
     private IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)

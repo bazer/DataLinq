@@ -110,6 +110,21 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failureMessage).Contains("orders.customer_id");
     }
 
+    [Test]
+    public async Task BuildProviderMetadata_ProviderStyleDraft_AssignsInterfacesOrdinalsAndPrimaryKeyIndex()
+    {
+        var database = CreateProviderStyleDraft();
+
+        var built = new MetadataDefinitionFactory().BuildProviderMetadata(database).ValueOrException();
+
+        var table = built.TableModels.Single().Table;
+
+        await Assert.That(table.Model.ModelInstanceInterface.HasValue).IsTrue();
+        await Assert.That(table.Model.ModelInstanceInterface!.Value.Name).IsEqualTo("IItem");
+        await Assert.That(table.Columns.Select(c => c.Index).ToArray()).IsEquivalentTo([0, 1]);
+        await Assert.That(table.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.PrimaryKey)).IsTrue();
+    }
+
     private static DatabaseDefinition CreateRelationDraft(string foreignKeyName = "FK_Order_User")
     {
         var database = new DatabaseDefinition(
@@ -134,6 +149,23 @@ public class MetadataDefinitionFactoryTests
             orderModel.TableModel
         ]);
 
+        return database;
+    }
+
+    private static DatabaseDefinition CreateProviderStyleDraft()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var table = new TableDefinition("items");
+        var tableModel = new TableModel("Items", database, table, "Item");
+
+        AddValueProperties(
+            tableModel.Model,
+            ("ItemId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("item_id")]),
+            ("Name", typeof(string), [new ColumnAttribute("name")]));
+
+        database.SetTableModels([tableModel]);
         return database;
     }
 

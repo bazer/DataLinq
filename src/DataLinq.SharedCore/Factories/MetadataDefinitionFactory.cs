@@ -11,6 +11,19 @@ public sealed class MetadataDefinitionFactory
     public Option<DatabaseDefinition, IDLOptionFailure> Build(DatabaseDefinition draft) =>
         DLOptionFailure.CatchAll(() => BuildCore(draft));
 
+    public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(DatabaseDefinition draft) =>
+        DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(draft));
+
+    private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
+    {
+        if (draft is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
+
+        MetadataFactory.ParseInterfaces(draft);
+
+        return BuildCore(draft);
+    }
+
     private static Option<DatabaseDefinition, IDLOptionFailure> BuildCore(DatabaseDefinition draft)
     {
         if (draft is null)
