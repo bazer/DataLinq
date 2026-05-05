@@ -36,6 +36,43 @@ Use this decision table:
 | run `quick`, `latest`, or `all` target aliases | [`DataLinq.Testing.CLI`](DataLinq.Testing.CLI.md) |
 | run or compare benchmarks | [`DataLinq.Benchmark.CLI`](DataLinq.Benchmark.CLI.md) |
 
+## Native Windows Sandbox Build Notes
+
+The sandboxed path is still the default first attempt, but two failure modes are easy to misread.
+
+### Restore and Package Cache
+
+`.\scripts\dotnet-sandbox.ps1` intentionally redirects .NET and NuGet state into the repo-local `.dotnet-cli/` tree. On a cold cache, sandboxed restore can fail with warnings/errors like:
+
+```text
+NU1801: Unable to load the service index for source https://api.nuget.org/v3/index.json.
+NU1101: Unable to find package Spectre.Console.
+NU1101: Unable to find package System.CommandLine.
+```
+
+That does not mean those project references are wrong. It means the sandbox could not reach NuGet.org and the package was not already in the workspace-local cache. Retry the same restore command outside the sandbox, then return to sandboxed build/test work.
+
+### WebAssembly Task Host
+
+`src/DataLinq.BlazorWasm/DataLinq.BlazorWasm.csproj` currently exercises the .NET WebAssembly SDK. In the Codex sandbox on native Windows, the WebAssembly build can fail while running `MarshalingPInvokeScanner`:
+
+```text
+MSB4216: Could not run the "MarshalingPInvokeScanner" task because MSBuild could not create or connect to a task host with runtime "NET" and architecture "x64".
+MSB4027: The "MarshalingPInvokeScanner" task generated invalid items from the "IncompatibleAssemblies" output parameter.
+```
+
+The full solution build may surface the same underlying problem less helpfully as:
+
+```text
+Build FAILED.
+    0 Warning(s)
+    0 Error(s)
+```
+
+When that happens, do not burn time hunting phantom compiler errors. Verify the Blazor WebAssembly project, or the whole solution, outside the sandbox. If it succeeds there, document the sandbox limitation in your final note and continue with source-level warnings or failures separately.
+
+The `WASM0001` warnings emitted by the successful outside-sandbox build are different. They are real SDK warnings about `SQLitePCLRaw.provider.e_sqlite3` exposing varargs native SQLite functions that WebAssembly cannot call safely. Treat those as product/runtime compatibility work, not as sandbox noise.
+
 ## Canonical Tool Pages
 
 - [DataLinq.Dev.CLI](DataLinq.Dev.CLI.md)
