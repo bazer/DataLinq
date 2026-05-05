@@ -195,14 +195,19 @@ Exit criteria:
 - supported LINQ matrix remains green
 - unsupported query diagnostics remain specific
 
-## Workstream 3: Make the AOT Contract Explicit
+## Workstream 3: Make the Generated Contract Explicit
 
 Phase 8 already made generated hooks mandatory for the generic database/provider path. That was the correct call.
 
-The next step is to turn that into a clean product contract:
+The focused execution plan is [Generated Metadata Contract and Runtime Fallback Removal](../metadata-and-generation/Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md).
+
+The next step is to turn generated models into a clean product contract:
 
 - document generated models as the only AOT-supported model path
 - mark reflection-discovered metadata APIs as compatibility APIs, not AOT APIs
+- remove stale generated-hook compatibility shims instead of accepting old generated output
+- validate generated table declarations during provider initialization
+- move ordinary generated-model metadata startup away from attribute/property reflection
 - add analyzer diagnostics when a database model is used without generated hooks in an AOT-intended project
 - expose narrowly named APIs where useful, such as `OpenGeneratedDatabase<T>()` or equivalent factory helpers, if that improves discoverability
 - make runtime exception messages point to source generation and the missing hook contract
@@ -216,6 +221,8 @@ Fallbacks are fine for desktop compatibility. They are poison for AOT confidence
 Exit criteria:
 
 - missing generated hook diagnostics are covered by unit or generator tests
+- malformed generated table declarations fail before materialization
+- generated model startup does not rediscover ordinary metadata through runtime reflection
 - docs clearly separate AOT-supported and compatibility-only paths
 - no AOT smoke test depends on reflection fallback
 

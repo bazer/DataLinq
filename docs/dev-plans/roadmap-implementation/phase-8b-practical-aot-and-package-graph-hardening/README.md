@@ -22,6 +22,9 @@ This phase should stay focused on package graph, query-pipeline dependency, warn
 
 In scope:
 
+- making missing generated hooks an initialization failure instead of a runtime fallback path
+- removing the stale generated table-model hook compatibility shim
+- moving ordinary generated-model metadata startup away from reflection
 - repeatable size reports for Native AOT, trimmed, and WebAssembly publishes
 - banned-payload checks for Roslyn files in runtime outputs
 - splitting runtime-safe metadata from Roslyn/generator code
@@ -45,20 +48,23 @@ Out of scope:
 This execution slice is intentionally split across focused design documents:
 
 - [Practical AOT and Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
+- [Generated Metadata Contract and Runtime Fallback Removal](../../metadata-and-generation/Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md)
 - [Remotion.Linq Replacement Plan](../../query-and-runtime/Remotion.Linq%20Replacement%20Plan.md)
 - [Phase 8 Compatibility Results](../phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md)
 - [AOT and WebAssembly Strategy](../../platform-compatibility/AOT%20and%20WebAssembly%20Strategy.md)
 
 ## Recommended Order
 
-1. Add automated size reports and banned-file checks.
-2. Split runtime-safe metadata from Roslyn/generator code.
-3. Remove Roslyn from the runtime package graph and verify publish-size improvement.
-4. Introduce a DataLinq-owned query plan behind the current Remotion parser.
-5. Move SQL generation behind that plan.
-6. Build the supported-subset expression parser for generated/AOT mode.
-7. Remove or isolate Remotion from the practical AOT support boundary.
-8. Investigate SQLitePCLRaw WebAssembly warnings and document the exact call-path disposition.
+1. Remove stale generated-hook compatibility and make malformed generated declarations fail during initialization.
+2. Add automated size reports and banned-file checks.
+3. Split runtime-safe metadata from Roslyn/generator code.
+4. Remove Roslyn from the runtime package graph and verify publish-size improvement.
+5. Generate complete runtime metadata for generated models and keep reflection paths compatibility-only.
+6. Introduce a DataLinq-owned query plan behind the current Remotion parser.
+7. Move SQL generation behind that plan.
+8. Build the supported-subset expression parser for generated/AOT mode.
+9. Remove or isolate Remotion from the practical AOT support boundary.
+10. Investigate SQLitePCLRaw WebAssembly warnings and document the exact call-path disposition.
 
 ## Exit Criteria
 
@@ -66,6 +72,8 @@ Phase 8B is done when:
 
 - trimmed and WebAssembly outputs no longer contain Roslyn payloads
 - size reports can be refreshed without manual folder inspection
+- missing generated hooks and malformed generated declarations fail before materialization
+- generated model startup no longer rediscovers ordinary metadata through reflection
 - generated SQLite Native AOT and trimmed publishes run without DataLinq-owned warnings
 - Remotion is removed from, or isolated outside, the supported generated/AOT path
 - the WebAssembly SQLitePCLRaw warning disposition is documented with call-path evidence

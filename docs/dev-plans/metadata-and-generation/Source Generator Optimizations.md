@@ -5,11 +5,13 @@
 **Status:** Partially implemented by Roadmap Phase 2 and Phase 8; runtime/package-graph AOT cleanup remains.
 **Goal:** Shift the heavy lifting of object instantiation, metadata discovery, and property mapping from **Runtime** (Reflection/Dictionaries) to **Compile Time** (Source Generation). This enables instant startup, Native AOT compatibility, and O(1) property access.
 
+For the current fail-fast generated hook plan, see [Generated Metadata Contract and Runtime Fallback Removal](Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md).
+
 ## Current Implementation State
 
-Phase 2 implemented the low-risk parts that paid off immediately:
+Phase 2 and Phase 8 implemented the low-risk parts that paid off immediately:
 
-- generated immutable models now expose a fast factory hook that `InstanceFactory` can discover before falling back to expression compilation
+- generated immutable models now expose a fast factory hook, and the checked runtime source no longer contains the old `Expression.Compile()` constructor fallback
 - `RowData` stores values densely and supports indexed column access
 - column indices are assigned during metadata parsing
 - the incremental generator uses normalized model declarations and stronger input comparers
@@ -17,7 +19,8 @@ Phase 2 implemented the low-risk parts that paid off immediately:
 
 Still not implemented:
 
-- `InstanceFactory` is not gone; it still owns fallback paths and database factory delegates
+- `InstanceFactory` is not gone; it still owns materialization dispatch and last-resort factory-shape guards
+- the stale `GetDataLinqGeneratedTableModels()` compatibility hook still exists and should be removed
 - the generator does not emit a complete static `BuildMetadata()` graph for runtime startup
 - property access has not universally moved to generated `GetFast(int)`-style accessors
 - this work improves AOT-readiness, and Phase 8 proved a generated SQLite smoke boundary, but it does not make DataLinq broadly Native AOT-safe
@@ -29,10 +32,13 @@ The next serious continuation belongs in the Phase 8B practical AOT/package-grap
 ## 1. Generated Object Factories (The "New" Operator)
 
 ### 1.1. The Problem
-Currently, `DataLinq.Instances.InstanceFactory` uses `System.Linq.Expressions` to compile delegates at runtime for creating `Immutable<T>` instances.
-*   **Performance:** Dictionary lookups on every row read.
-*   **AOT:** Runtime code generation breaks Native AOT (Ahead-of-Time) compilation.
-*   **Complexity:** Hard to debug runtime expression trees.
+Older versions of this plan assumed `DataLinq.Instances.InstanceFactory` would need to stop expression-compiling immutable constructors. The current runtime source has already moved past that specific issue: generated declarations carry immutable factory delegates and missing factories throw.
+
+The remaining factory problem is stricter but simpler:
+
+*   **Contract:** malformed generated table declarations should fail during provider initialization, not during row materialization.
+*   **Runtime shape:** `InstanceFactory` still dispatches through a delegate stored on mutable metadata.
+*   **Clarity:** stale generated hooks should not remain accepted as compatibility fallbacks.
 
 ### 1.2. The Solution
 The Source Generator will emit a strongly-typed factory method for every model.
@@ -130,10 +136,10 @@ public override string first_name => (string)rowData.GetFast(1);
 
 ## 4. Implementation Checklist
 
-1.  [ ] **Kill `InstanceFactory`:**
-    *   Create `IModelFactory<T>` interface in SharedCore.
-    *   Update Generator to emit inner Factory classes or static methods.
-    *   Update `Database<T>` to use these factories instead of `InstanceFactory`.
+1.  **Tighten generated hook contract:**
+    *   Remove the stale `GetDataLinqGeneratedTableModels()` shim.
+    *   Validate generated table declarations during provider initialization.
+    *   Require immutable factories for all generated models and mutable types for ordinary tables.
 2.  **Metadata Generation:**
     *   Update Generator to emit a `BuildMetadata()` method returning the full `DatabaseDefinition`.
     *   Change runtime to prefer this static metadata over Reflection-based loading.

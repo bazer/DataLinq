@@ -252,6 +252,8 @@ Status: active recommended follow-up after Phase 8.
 
 Goals:
 
+- make generated hooks and generated metadata a strict fail-fast runtime contract
+- remove stale generated-hook compatibility shims that hide broken or stale generated output
 - split Roslyn/compiler dependencies out of the runtime package graph
 - add repeatable size reports and banned-payload checks for AOT, trimmed, and WebAssembly publishes
 - introduce the DataLinq-owned query-plan boundary that lets `Remotion.Linq` be replaced or isolated
@@ -261,6 +263,7 @@ Goals:
 Why before cache/memory work:
 
 - Phase 8 produced real proof, but not a clean product support story
+- silent generated-hook fallback is incompatible with a credible generated/AOT support boundary
 - the remaining AOT blockers are concrete and measured, not vague architecture concerns
 - Roslyn payload leakage is embarrassing and should be fixed before users start evaluating browser or trimmed output
 - replacing or isolating Remotion also unlocks the later query-pipeline abstraction work more cleanly than treating it as a distant rewrite
@@ -268,6 +271,7 @@ Why before cache/memory work:
 Key related plans:
 
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
+- `metadata-and-generation/Generated Metadata Contract and Runtime Fallback Removal.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 - `query-and-runtime/Remotion.Linq Replacement Plan.md`
 
