@@ -110,11 +110,12 @@ Today `GetDataLinqGeneratedModel()` avoids database-property scanning, but `Meta
 
 Recommended direction:
 
-1. Add a generated hook that returns a complete `DatabaseDefinition`, or extend the existing generated declaration into a complete metadata declaration.
-2. Prefer a generated metadata builder over reflection in `MetadataFromTypeFactory`.
-3. Keep reflection parsing only behind an explicit compatibility method if it is still needed for tooling or tests.
-4. Move shared metadata construction helpers into runtime-safe code that does not depend on Roslyn.
-5. Keep relation/index construction deterministic and test it against current `MetadataFromTypeFactory` output.
+1. Introduce the immutable metadata builder/factory foundation described in [Immutable Metadata Definitions and Factory Plan](Immutable%20Metadata%20Definitions%20and%20Factory%20Plan.md).
+2. Add a generated hook that returns complete metadata builder declarations, or extend the existing generated declaration into a complete metadata declaration.
+3. Prefer a generated metadata builder/declaration path over reflection in `MetadataFromTypeFactory`.
+4. Keep reflection parsing only behind an explicit compatibility method if it is still needed for tooling or tests.
+5. Move shared metadata construction helpers into runtime-safe code that does not depend on Roslyn.
+6. Keep relation/index construction deterministic and test it against current `MetadataFromTypeFactory` output.
 
 Potential generated hook:
 
@@ -193,13 +194,14 @@ Boundary:
 
 1. Remove stale hook compatibility.
 2. Tighten declaration validation.
-3. Add generated metadata side by side with reflected metadata and assert equivalence.
-4. Switch generated-provider startup to generated metadata.
-5. Generate indexed value access.
-6. Generate relation and mutable metadata handles.
-7. Delete or quarantine compatibility reflection paths that are no longer needed.
+3. Introduce builder-built immutable metadata definitions.
+4. Add generated metadata side by side with reflected metadata and assert equivalence.
+5. Switch generated-provider startup to generated metadata.
+6. Generate indexed value access.
+7. Generate relation and mutable metadata handles.
+8. Delete or quarantine compatibility reflection paths that are no longer needed.
 
-This order matters. Failing fast first gives clean errors before generated metadata changes the startup shape. Generated metadata second removes the biggest normal startup reflection. Indexed access third attacks the hot path only after column index stability is proven.
+This order matters. Failing fast first gives clean errors before generated metadata changes the startup shape. Immutable builder-built definitions keep the generated metadata work from targeting the current mutable graph. Generated metadata then removes the biggest normal startup reflection. Indexed access attacks the hot path only after column index stability is proven.
 
 ## Verification
 
@@ -207,6 +209,7 @@ Required tests:
 
 - generator output tests for emitted hooks and absence of old shim
 - runtime initialization tests for missing generated hook pieces
+- immutable metadata factory tests proving built definitions cannot be mutated after construction
 - metadata equivalence tests comparing generated metadata against current reflected metadata for `EmployeesDb`, `AllroundBenchmark`, and platform smoke models
 - mutation tests for generated mutable table metadata
 - relation tests for generated relation handles

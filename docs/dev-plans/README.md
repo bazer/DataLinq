@@ -33,6 +33,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Metadata and generation
 
 - `metadata-and-generation/Generated Metadata Contract and Runtime Fallback Removal.md`
+- `metadata-and-generation/Immutable Metadata Definitions and Factory Plan.md`
 - `metadata-and-generation/Metadata Architecture.md`
 - `metadata-and-generation/Scalar Converter Support.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
@@ -121,9 +122,9 @@ As of the Phase 8 completion update on 2026-05-05:
 - Phase 6 LINQ translation coverage and query composition is implemented: the support audit, chained `Where(...)` fix, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics have landed.
 - Phase 7 LINQ feature expansion is implemented: scalar aggregates, computed projections, nullable predicate polish, explicit joins, and relation-aware predicate translation have landed within their documented support boundaries.
 - Phase 8 Native AOT and WebAssembly readiness is implemented for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary. The honest follow-up work is the practical AOT package graph: split Roslyn from the runtime package, replace or isolate `Remotion.Linq`, investigate SQLitePCLRaw WebAssembly warnings, and automate size reports.
-- Phase 8B practical AOT and package graph hardening is the recommended next execution slice if constrained-platform support is the priority. It should convert the Phase 8 smoke proof into a cleaner generated-contract, package, and warning story before public docs claim more than a narrow generated SQLite boundary.
+- Phase 8B practical AOT and package graph hardening is the recommended next execution slice if constrained-platform support is the priority. It should convert the Phase 8 smoke proof into a cleaner generated-contract, immutable metadata snapshot, package, and warning story before public docs claim more than a narrow generated SQLite boundary.
 - The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
-The next roadmap execution work should be Phase 8B practical AOT cleanup, starting with generated-hook fail-fast behavior and then runtime/Roslyn separation and the Remotion replacement path, unless we deliberately pause to start the separate full migration-execution feature or move straight to Phase 9 cache/memory foundations.
+The next roadmap execution work should be Phase 8B practical AOT cleanup, starting with generated-hook fail-fast behavior, then the immutable metadata builder/factory foundation before full generated metadata startup, and then runtime/Roslyn separation and the Remotion replacement path, unless we deliberately pause to start the separate full migration-execution feature or move straight to Phase 9 cache/memory foundations.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.
