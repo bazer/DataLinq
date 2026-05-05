@@ -38,6 +38,18 @@ public class MetadataRoundtripTests
     }
 
     [Test]
+    public async Task ParseDatabase_GeneratedModelSource_PreservesProviderMetadataShape()
+    {
+        using var source = SqliteRoundtripFixture.CreateFirstSliceSchema();
+
+        var providerMetadata = source.ParseDatabase();
+        var sourceMetadata = MetadataSourceRoundtrip.ParseGeneratedModelSource(providerMetadata);
+
+        await Assert.That(MetadataEquivalenceDigest.CreateText(sourceMetadata, includeDatabaseStorageName: false))
+            .IsEqualTo(MetadataEquivalenceDigest.CreateText(providerMetadata, includeDatabaseStorageName: false));
+    }
+
+    [Test]
     public async Task ParseDatabase_LiveSchemaDrift_ProducesValidationDifferences()
     {
         using var fixture = SqliteRoundtripFixture.Create(

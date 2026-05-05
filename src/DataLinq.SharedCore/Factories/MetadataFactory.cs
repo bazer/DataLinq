@@ -746,6 +746,9 @@ public static class MetadataFactory
         var relationProperty = new RelationProperty(propertyName, propertyType, model, [relationAttribute]);
         relationProperty.SetRelationName(relationAttribute.Name);
         relationProperty.SetRelationPart(relationPart); // Directly link the part
+        if (relationPart.Type == RelationPartType.ForeignKey && relationPart.ColumnIndex.Columns.Any(x => x.Nullable))
+            relationProperty.SetCsNullable();
+
         model.AddProperty(relationProperty);
 
         // Also ensure the back-reference on the index is set
@@ -778,7 +781,7 @@ public static class MetadataFactory
 
         var property = new ValueProperty(name, csType, column.Table.Model, GetAttributes(column));
         property.SetCsSize(MetadataTypeConverter.CsTypeSize(csTypeName));
-        property.SetCsNullable(column.Nullable); // && MetadataTypeConverter.IsCsTypeNullable(csTypeName));
+        property.SetCsNullable(column.Nullable || column.AutoIncrement);
         //property.SetAttributes(GetAttributes(property));
         property.SetColumn(column);
 

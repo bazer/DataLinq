@@ -53,6 +53,26 @@ public class ProviderMetadataRoundtripTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
+    public async Task ParseDatabase_GeneratedModelSource_PreservesProviderMetadataShape(TestProviderDescriptor provider)
+    {
+        using var source = ServerSchemaDatabase.Create(
+            provider,
+            nameof(ParseDatabase_GeneratedModelSource_PreservesProviderMetadataShape),
+            FirstSliceSchemaStatements);
+
+        var providerMetadata = source.ParseDatabase(
+            "RoundtripDb",
+            "RoundtripDb",
+            "DataLinq.Tests.Roundtrip",
+            new MetadataFromDatabaseFactoryOptions { CapitaliseNames = true });
+        var sourceMetadata = MetadataSourceRoundtrip.ParseGeneratedModelSource(providerMetadata);
+
+        await Assert.That(MetadataEquivalenceDigest.CreateText(sourceMetadata, includeDatabaseStorageName: false))
+            .IsEqualTo(MetadataEquivalenceDigest.CreateText(providerMetadata, includeDatabaseStorageName: false));
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveServerProviders))]
     public async Task ParseDatabase_LiveSchemaDrift_ProducesValidationDifferences(TestProviderDescriptor provider)
     {
         using var schema = ServerSchemaDatabase.Create(

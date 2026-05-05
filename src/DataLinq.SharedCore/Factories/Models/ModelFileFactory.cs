@@ -129,7 +129,8 @@ public class ModelFileFactory
     private IEnumerable<string> ModelFileContents(ModelDefinition model, ModelFileFactoryOptions options)
     {
         var valueProps = model.ValueProperties.Values
-            .OrderBy(x => x.Type)
+            .OrderBy(x => x.Column.Index)
+            .ThenBy(x => x.Type)
             .ThenByDescending(x => x.Attributes.Any(x => x is PrimaryKeyAttribute))
             .ThenByDescending(x => x.Attributes.Any(x => x is ForeignKeyAttribute))
             .ThenBy(x => x.PropertyName)
@@ -319,7 +320,10 @@ public class ModelFileFactory
 
 
             if (relationProperty.RelationPart.Type == RelationPartType.ForeignKey)
-                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{(options.UseNullableReferenceTypes ? "?" : "")} {relationProperty.PropertyName} {{ get; }}";
+            {
+                var nullableAnnotation = options.UseNullableReferenceTypes && relationProperty.CsNullable ? "?" : "";
+                yield return $"{namespaceTab}{tab}public abstract {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableAnnotation} {relationProperty.PropertyName} {{ get; }}";
+            }
             else
                 yield return $"{namespaceTab}{tab}public abstract IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} {{ get; }}";
 
