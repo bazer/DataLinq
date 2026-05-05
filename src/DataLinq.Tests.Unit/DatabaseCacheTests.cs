@@ -34,14 +34,151 @@ public class DatabaseCacheTests
         }
     }
 
-    private static DatabaseDefinition CreateMetadata()
+    [Test]
+    [NotInParallel]
+    public async Task Constructor_UseCacheDefaults_AreEffectiveWithoutMutatingMetadata()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        var metadata = CreateMetadata(includeExplicitCleanup: false);
+        metadata.SetCache(true);
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(metadata),
+                DataLinqLoggingConfiguration.NullConfiguration);
+
+            await Assert.That(metadata.CacheLimits.Count).IsEqualTo(0);
+            await Assert.That(metadata.CacheCleanup.Count).IsEqualTo(0);
+            await Assert.That(metadata.IndexCache.Count).IsEqualTo(0);
+
+            await Assert.That(cache.Policy.DatabaseCacheLimits.Count).IsEqualTo(2);
+            await Assert.That(cache.Policy.DatabaseCacheLimits[0].limitType).IsEqualTo(CacheLimitType.Megabytes);
+            await Assert.That(cache.Policy.DatabaseCacheLimits[0].amount).IsEqualTo(256);
+            await Assert.That(cache.Policy.DatabaseCacheLimits[1].limitType).IsEqualTo(CacheLimitType.Minutes);
+            await Assert.That(cache.Policy.DatabaseCacheLimits[1].amount).IsEqualTo(30);
+
+            await Assert.That(cache.Policy.CacheCleanup.Count).IsEqualTo(1);
+            await Assert.That(cache.Policy.CacheCleanup[0].cleanupType).IsEqualTo(CacheCleanupType.Minutes);
+            await Assert.That(cache.Policy.CacheCleanup[0].amount).IsEqualTo(10);
+
+            var indexCachePolicy = cache.GetIndexCachePolicy();
+            await Assert.That(indexCachePolicy.Item1).IsEqualTo(IndexCacheType.MaxAmountRows);
+            await Assert.That(indexCachePolicy.amount).IsEqualTo(1000000);
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task ProviderConstructor_UseCacheDefaults_DoesNotMutateMetadata()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        var metadata = CreateMetadata(includeExplicitCleanup: false);
+        metadata.SetCache(true);
+
+        DatabaseDefinition.LoadedDatabases.TryRemove(typeof(CacheDefaultsDatabaseModel), out _);
+
+        try
+        {
+            using var provider = new CacheDefaultsProvider(metadata);
+
+            await Assert.That(provider.Metadata.CacheLimits.Count).IsEqualTo(0);
+            await Assert.That(provider.Metadata.CacheCleanup.Count).IsEqualTo(0);
+            await Assert.That(provider.Metadata.IndexCache.Count).IsEqualTo(0);
+            await Assert.That(provider.State.Cache.Policy.DatabaseCacheLimits.Count).IsEqualTo(2);
+            await Assert.That(provider.State.Cache.GetIndexCachePolicy().Item1).IsEqualTo(IndexCacheType.MaxAmountRows);
+        }
+        finally
+        {
+            DatabaseDefinition.LoadedDatabases.TryRemove(typeof(CacheDefaultsDatabaseModel), out _);
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task Constructor_CacheDisabledDefaultPolicyKeepsLegacyCleanupOnly()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        var metadata = CreateMetadata(includeExplicitCleanup: false);
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(metadata),
+                DataLinqLoggingConfiguration.NullConfiguration);
+
+            await Assert.That(cache.Policy.DatabaseCacheLimits.Count).IsEqualTo(0);
+            await Assert.That(cache.Policy.IndexCache.Count).IsEqualTo(0);
+            await Assert.That(cache.Policy.CacheCleanup.Count).IsEqualTo(1);
+            await Assert.That(cache.Policy.CacheCleanup[0].cleanupType).IsEqualTo(CacheCleanupType.Minutes);
+            await Assert.That(cache.Policy.CacheCleanup[0].amount).IsEqualTo(5);
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    private static DatabaseDefinition CreateMetadata(bool includeExplicitCleanup = true)
     {
         var definition = new DatabaseDefinition(
             "cachetest",
             new CsTypeDeclaration("CacheTestDb", "DataLinq.Tests.Unit", ModelCsType.Class));
 
-        definition.CacheCleanup.Add((CacheCleanupType.Minutes, 1));
+        if (includeExplicitCleanup)
+            definition.CacheCleanup.Add((CacheCleanupType.Minutes, 1));
+
         return definition;
+    }
+
+    private sealed class CacheDefaultsDatabaseModel
+    {
+    }
+
+    private sealed class CacheDefaultsProvider : DataLinq.DatabaseProvider
+    {
+        public CacheDefaultsProvider(DatabaseDefinition metadata)
+            : base(
+                "Data Source=:memory:",
+                typeof(CacheDefaultsDatabaseModel),
+                DatabaseType.SQLite,
+                DataLinqLoggingConfiguration.NullConfiguration,
+                metadataFactory: () => metadata)
+        {
+        }
+
+        public override IDatabaseProviderConstants Constants => throw new NotSupportedException();
+        public override DatabaseAccess DatabaseAccess => throw new NotSupportedException();
+
+        public override IDbCommand ToDbCommand(IQuery query) => throw new NotSupportedException();
+        public override string GetLastIdQuery() => throw new NotSupportedException();
+        public override string GetSqlForFunction(SqlFunctionType functionType, string columnName, object[]? arguments) => throw new NotSupportedException();
+        public override string GetOperatorSql(Operator @operator) => throw new NotSupportedException();
+        public override Sql GetParameter(Sql sql, string key, object? value) => throw new NotSupportedException();
+        public override Sql GetParameterValue(Sql sql, string key) => throw new NotSupportedException();
+        public override Sql GetParameterComparison(Sql sql, string field, Operator relation, string[] key) => throw new NotSupportedException();
+        public override string GetParameterName(Operator relation, string[] key) => throw new NotSupportedException();
+        public override Sql GetLimitOffset(Sql sql, int? limit, int? offset) => throw new NotSupportedException();
+        public override Sql GetTableName(Sql sql, string tableName, string? alias = null) => throw new NotSupportedException();
+        public override Sql GetCreateSql() => throw new NotSupportedException();
+        public override DatabaseTransaction GetNewDatabaseTransaction(TransactionType type) => throw new NotSupportedException();
+        public override DatabaseTransaction AttachDatabaseTransaction(IDbTransaction dbTransaction, TransactionType type) => throw new NotSupportedException();
+        public override bool DatabaseExists(string? databaseName = null) => throw new NotSupportedException();
+        public override bool TableExists(string tableName, string? databaseName = null) => throw new NotSupportedException();
+        public override bool FileOrServerExists() => throw new NotSupportedException();
+        public override IDataLinqDataWriter GetWriter() => throw new NotSupportedException();
+        public override IDbConnection GetDbConnection() => throw new NotSupportedException();
     }
 
     private sealed class FakeDatabaseProvider(DatabaseDefinition metadata) : IDatabaseProvider

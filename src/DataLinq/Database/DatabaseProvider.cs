@@ -4,8 +4,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using DataLinq.Attributes;
 using DataLinq.Cache;
 using DataLinq.ErrorHandling;
 using DataLinq.Interfaces;
@@ -120,25 +118,6 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
                     ? MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(type)
                     : metadataFactory();
                 DatabaseDefinition.LoadedDatabases.TryAdd(type, Metadata);
-
-                if (Metadata.UseCache)
-                {
-                    if (!Metadata.CacheLimits.Any())
-                    {
-                        Metadata.CacheLimits.Add((CacheLimitType.Megabytes, 256));
-                        Metadata.CacheLimits.Add((CacheLimitType.Minutes, 30));
-                    }
-
-                    if (!Metadata.CacheCleanup.Any())
-                    {
-                        Metadata.CacheCleanup.Add((CacheCleanupType.Minutes, 10));
-                    }
-
-                    if (!Metadata.IndexCache.Any())
-                    {
-                        Metadata.IndexCache.Add((IndexCacheType.MaxAmountRows, 1000000));
-                    }
-                }
             }
         }
 

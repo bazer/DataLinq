@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
-using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
@@ -16,6 +15,7 @@ public class DatabaseCache : IDisposable
     internal static Func<bool> IsBrowserRuntime { get; set; } = static () => OperatingSystem.IsBrowser();
 
     public IDatabaseProvider Database { get; set; }
+    internal DatabaseCachePolicy Policy { get; }
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
     public Dictionary<TableDefinition, TableCache> TableCaches { get; }
 
@@ -27,20 +27,16 @@ public class DatabaseCache : IDisposable
     {
         this.Database = database;
         this.loggingConfiguration = loggingConfiguration;
+        this.Policy = DatabaseCachePolicy.FromMetadata(database.Metadata);
         this.TableCaches = this.Database.Metadata.TableModels
             .ToDictionary(x => x.Table, x => new TableCache(x.Table, this, loggingConfiguration));
 
         this.MakeSnapshot();
 
-        var cacheCleanupInterval = database.Metadata.CacheCleanup;
-
-        if (!cacheCleanupInterval.Any())
-            cacheCleanupInterval = (CacheCleanupType.Minutes, 5L).Yield().ToList();
-
         if (IsBrowserRuntime())
             return;
 
-        foreach (var timespan in cacheCleanupInterval.Select(x => GetFromCacheCleanupType(x.cleanupType, x.amount)))
+        foreach (var timespan in Policy.CacheCleanup.Select(x => GetFromCacheCleanupType(x.cleanupType, x.amount)))
         {
             this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), timespan);
             this.CleanCacheWorker.Start();
@@ -84,13 +80,13 @@ public class DatabaseCache : IDisposable
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
     {
-        if (!Database.Metadata.IndexCache.Any() || Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.None))
+        if (!Policy.IndexCache.Any() || Policy.IndexCache.Any(x => x.indexCacheType == IndexCacheType.None))
             return (IndexCacheType.None, 0);
 
-        if (Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
-            return (IndexCacheType.MaxAmountRows, Database.Metadata.IndexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
+        if (Policy.IndexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
+            return (IndexCacheType.MaxAmountRows, Policy.IndexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
 
-        if (Database.Metadata.IndexCache.Any(x => x.indexCacheType == IndexCacheType.All))
+        if (Policy.IndexCache.Any(x => x.indexCacheType == IndexCacheType.All))
             return (IndexCacheType.All, null);
 
         throw new NotImplementedException();
@@ -135,7 +131,7 @@ public class DatabaseCache : IDisposable
             }
         }
 
-        foreach (var (limitType, amount) in Database.Metadata.CacheLimits)
+        foreach (var (limitType, amount) in Policy.DatabaseCacheLimits)
         {
             foreach (var rows in RemoveRowsByLimit(limitType, amount))
                 yield return rows;
