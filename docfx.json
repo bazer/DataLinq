@@ -16,7 +16,6 @@
             "**/*[Bb]lazor*.csproj",
             "**/*[Cc][Ll][Ii]*.csproj",
             "**/*[Dd]ev*.csproj",
-            "**/*[Tt]ools*.csproj",
             "**/[Ee]xample*/**/*.csproj",
             "**/[Ss]ample*/**/*.csproj",
             "**/*[Ss]moke*.csproj"
