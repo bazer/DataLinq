@@ -196,21 +196,12 @@ public class MetadataFromModelsFactory
 
         database.SetTableModels(models);
 
-        if (!MetadataFactory.ValidateUniqueTableNames(database).TryUnwrap(out _, out var duplicateFailure))
-            return duplicateFailure;
+        if (!new MetadataDefinitionFactory().Build(database).TryUnwrap(out var builtDatabase, out var buildFailure))
+            return buildFailure;
 
-        if (!MetadataFactory.ValidateUniqueColumnNames(database).TryUnwrap(out _, out var duplicateColumnFailure))
-            return duplicateColumnFailure;
+        if (builtDatabase.TableModels.Any(x => x.CsPropertyName == builtDatabase.CsType.Name))
+            builtDatabase.SetCsType(builtDatabase.CsType.MutateName($"{builtDatabase.CsType.Name}Db"));
 
-        if (!MetadataFactory.ParseIndices(database).TryUnwrap(out _, out var indexFailure))
-            return indexFailure;
-
-        if (!MetadataFactory.ParseRelations(database).TryUnwrap(out _, out var relationFailure))
-            return relationFailure;
-
-        if (database.TableModels.Any(x => x.CsPropertyName == database.CsType.Name))
-            database.SetCsType(database.CsType.MutateName($"{database.CsType.Name}Db"));
-
-        return database;
+        return builtDatabase;
     }
 }

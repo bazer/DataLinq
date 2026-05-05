@@ -184,6 +184,8 @@ Exit criteria:
 
 ## Workstream C: Immutable Metadata Builder And Factory Foundation
 
+**Status:** In progress. First foundation slice landed on 2026-05-05.
+
 Goals:
 
 - move mutation into a builder/factory layer
@@ -194,13 +196,21 @@ Tasks:
 
 1. Add metadata builder/draft types side by side with the current metadata graph.
 2. Represent source-model metadata, generated declarations, SQLite metadata, MySQL metadata, and MariaDB metadata in builder form.
-3. Introduce a `MetadataDefinitionFactory` or equivalent factory that owns validation, normalization, relation resolution, column ordinal assignment, cache metadata interpretation, and freeze/finalization.
-4. Make expected invalid-model failures return `Option<DatabaseDefinition, IDLOptionFailure>` rather than arbitrary exceptions.
+3. [in progress] Introduce a `MetadataDefinitionFactory` or equivalent factory that owns validation, normalization, relation resolution, column ordinal assignment, cache metadata interpretation, and freeze/finalization.
+4. [in progress] Make expected invalid-model failures return `Option<DatabaseDefinition, IDLOptionFailure>` rather than arbitrary exceptions.
 5. Add equivalence tests comparing builder-built metadata against current metadata for generated `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model.
 6. Add provider metadata equivalence tests for SQLite and the supported MySQL/MariaDB subset.
 7. Move runtime cache defaults out of metadata mutation. Provider initialization should compute effective cache policy rather than appending defaults into `DatabaseDefinition`.
 8. Replace in-place metadata transform behavior with a builder/snapshot merge path.
 9. After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections.
+
+Foundation slice notes:
+
+- Added `MetadataDefinitionFactory.Build(...)` as the first centralized finalization path for metadata drafts.
+- The factory now owns duplicate table validation, duplicate column validation, index parsing, relation resolution, and column ordinal assignment for the paths wired so far.
+- `MetadataFromTypeFactory` and source-generator `MetadataFromModelsFactory` now call the factory instead of open-coding those finalization steps.
+- New unit coverage proves the factory assigns ordinals, creates primary/foreign-key indices, resolves bidirectional relation parts, and returns failures for duplicate columns and missing primary keys.
+- This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable; the next C slices need real builder/draft inputs, provider parity, cache-policy separation, and API sealing before the workstream can be marked complete.
 
 Design stance:
 

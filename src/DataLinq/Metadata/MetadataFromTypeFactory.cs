@@ -34,7 +34,7 @@ public static class MetadataFromTypeFactory
         Type type) => DLOptionFailure.CatchAll(() =>
         ParseDatabaseFromGeneratedModel(type, GetGeneratedDatabaseModel(type)));
 
-    private static DatabaseDefinition ParseDatabaseFromGeneratedModel(
+    private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromGeneratedModel(
         [DynamicallyAccessedMembers(
             DynamicallyAccessedMemberTypes.PublicMethods |
             DynamicallyAccessedMemberTypes.NonPublicMethods |
@@ -50,11 +50,7 @@ public static class MetadataFromTypeFactory
         database.SetTableModels(generatedModel.TableModels
             .Select(database.ParseTableModel));
 
-        MetadataFactory.ParseIndices(database);
-        MetadataFactory.ParseRelations(database);
-        MetadataFactory.IndexColumns(database);
-
-        return database;
+        return new MetadataDefinitionFactory().Build(database);
     }
 
     private static TableModel ParseTableModel(this DatabaseDefinition database, GeneratedTableModelDeclaration declaration)
