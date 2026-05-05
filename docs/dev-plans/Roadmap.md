@@ -22,6 +22,7 @@ Several important things are already true:
 - Metadata and generator hardening have removed some avoidable runtime work, but SQL building, query translation, projection materialization, and compatibility-sensitive runtime paths still contain meaningful dynamism and allocation overhead.
 - Provider metadata roundtrip fidelity now has an explicit support boundary for SQLite, MySQL, and MariaDB, including tested coverage for the ordinary table/column/index/relation subset and documented unsupported provider details.
 - Schema validation and conservative diff-script tooling now exist for that supported subset; full versioned migration execution remains intentionally deferred.
+- Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT, but it also exposed the practical compatibility debt: Roslyn still leaks into constrained publish payloads, `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw still emits WebAssembly native varargs warnings, and no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path yet.
 
 That last point matters. A fast ORM that is hard to validate or debug is still a risky tool.
 
@@ -239,8 +240,36 @@ Key related plans:
 
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
+- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
+- `platform-compatibility/Practical AOT and Size Plan.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
+- `query-and-runtime/Remotion.Linq Replacement Plan.md`
+
+### Phase 8B: Practical AOT and Package Graph Hardening
+
+Status: active recommended follow-up after Phase 8.
+
+Goals:
+
+- split Roslyn/compiler dependencies out of the runtime package graph
+- add repeatable size reports and banned-payload checks for AOT, trimmed, and WebAssembly publishes
+- introduce the DataLinq-owned query-plan boundary that lets `Remotion.Linq` be replaced or isolated
+- investigate SQLitePCLRaw WebAssembly warnings instead of blindly suppressing them
+- define the narrow public compatibility contract without pretending the whole ORM is AOT-compatible
+
+Why before cache/memory work:
+
+- Phase 8 produced real proof, but not a clean product support story
+- the remaining AOT blockers are concrete and measured, not vague architecture concerns
+- Roslyn payload leakage is embarrassing and should be fixed before users start evaluating browser or trimmed output
+- replacing or isolating Remotion also unlocks the later query-pipeline abstraction work more cleanly than treating it as a distant rewrite
+
+Key related plans:
+
+- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
+- `platform-compatibility/Practical AOT and Size Plan.md`
+- `query-and-runtime/Remotion.Linq Replacement Plan.md`
 
 ### Phase 9: Cache, Memory, and Invalidation Foundations
 
@@ -350,7 +379,7 @@ Phase 7 LINQ feature expansion is implemented for its planned support boundary: 
 
 Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw emits WebAssembly native varargs warnings, and Roslyn still leaks into constrained publish payloads.
 
-The next roadmap phase should therefore be Phase 9: cache, memory, and invalidation foundations, unless we deliberately pause to prioritize full migration execution.
+The next execution slice should be Phase 8B practical AOT/package-graph hardening if DataLinq wants to turn the Phase 8 smoke proof into a support claim that can survive contact with users. Phase 9 cache, memory, and invalidation foundations should follow after that, unless we deliberately choose to prioritize full migration execution or cache/memory work over constrained-platform polish.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

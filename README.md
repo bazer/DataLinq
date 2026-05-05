@@ -140,6 +140,7 @@ After that, the deeper working docs are:
 - [Caching and Mutation](docs/Caching%20and%20Mutation.md)
 - [Diagnostics and Metrics](docs/Diagnostics%20and%20Metrics.md)
 - [Supported LINQ Queries](docs/Supported%20LINQ%20Queries.md)
+- [Platform Compatibility](docs/Platform%20Compatibility.md)
 - [Transactions](docs/Transactions.md)
 - [Attributes and Model Definitions](docs/Attributes%20and%20Model%20Definitions.md)
 - [Troubleshooting](docs/Troubleshooting.md)

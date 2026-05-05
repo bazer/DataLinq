@@ -1,8 +1,9 @@
 > [!WARNING]
-> This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a description of shipped behavior unless a section explicitly says so.
+> This is an archived roadmap checkpoint. It records the Phase 4/5 closeout state from 2026-05-02 and is not current execution guidance.
 # Phase 4 and 5 Status Review
 
 **Date:** 2026-05-02
+**Status:** Archived historical checkpoint.
 
 ## Bottom Line
 
@@ -78,9 +79,9 @@ Verified:
 
 ## Roadmap Position
 
-The roadmap is now at Phase 6.
+At the time of this review, the roadmap was moving to Phase 6. That recommendation has since been superseded by the implemented Phase 6, Phase 7, and Phase 8 work.
 
-Recommended move:
+Historical recommended move at the time:
 
 1. Keep full migration execution as a future dedicated feature.
 2. Start Phase 6: LINQ translation coverage and query composition.

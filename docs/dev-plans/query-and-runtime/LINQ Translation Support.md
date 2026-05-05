@@ -2,7 +2,9 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # LINQ Translation Support Audit and Roadmap
 
-**Status:** Phase 6 planning source; the execution plan in [`../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`](../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation%20Plan.md) has been implemented for its planned support boundary.
+**Status:** Historical Phase 6 planning source. The execution plan in [`../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`](../roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation%20Plan.md) has been implemented for its planned support boundary, and Phase 7 implemented the next feature-expansion boundary.
+
+The gap examples below describe the pre-Phase 6 audit state. For current support, use the public [LINQ Translation Support Matrix](../../support-matrices/LINQ%20Translation%20Support%20Matrix.md) and the newer [Remotion.Linq Replacement Plan](Remotion.Linq%20Replacement%20Plan.md).
 
 ## Purpose
 
@@ -208,7 +210,7 @@ Those may still be valuable, but they are larger roadmap items. The near-term wo
 
 ## Roadmap Placement
 
-This work should happen after the first product-trust/schema-validation slice, but before Native AOT/WebAssembly work.
+This work happened after the first product-trust/schema-validation slice and before the Phase 8 Native AOT/WebAssembly proof. Its current value is as historical context for why the Remotion replacement work must preserve the documented support matrix instead of inventing a new query surface.
 
 Reason:
 

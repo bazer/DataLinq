@@ -58,6 +58,7 @@ Once the basics are in place, move into the deeper working docs:
 - [Transactions](Transactions.md)
 - [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
 - [Support Matrices](support-matrices/index.md)
+- [Platform Compatibility](Platform%20Compatibility.md)
 
 ## Documentation Areas
 
@@ -77,6 +78,7 @@ If you already know what you need, jump directly to the major sections:
 - [Transactions](Transactions.md)
 - [Supported LINQ Queries](Supported%20LINQ%20Queries.md)
 - [Support Matrices](support-matrices/index.md)
+- [Platform Compatibility](Platform%20Compatibility.md)
 - [Attributes and Model Definitions](Attributes%20and%20Model%20Definitions.md)
 - [Troubleshooting](Troubleshooting.md)
 

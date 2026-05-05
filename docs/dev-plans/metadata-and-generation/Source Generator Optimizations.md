@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Source Generator Optimizations
 
-**Status:** Partially implemented by Roadmap Phase 2; AOT-oriented work remains.
+**Status:** Partially implemented by Roadmap Phase 2 and Phase 8; runtime/package-graph AOT cleanup remains.
 **Goal:** Shift the heavy lifting of object instantiation, metadata discovery, and property mapping from **Runtime** (Reflection/Dictionaries) to **Compile Time** (Source Generation). This enables instant startup, Native AOT compatibility, and O(1) property access.
 
 ## Current Implementation State
@@ -20,9 +20,9 @@ Still not implemented:
 - `InstanceFactory` is not gone; it still owns fallback paths and database factory delegates
 - the generator does not emit a complete static `BuildMetadata()` graph for runtime startup
 - property access has not universally moved to generated `GetFast(int)`-style accessors
-- this work improves AOT-readiness, but it does not make DataLinq Native AOT-safe
+- this work improves AOT-readiness, and Phase 8 proved a generated SQLite smoke boundary, but it does not make DataLinq broadly Native AOT-safe
 
-The next serious continuation belongs in the Phase 8 AOT/WebAssembly work, after the near-term provider metadata fidelity, product-trust, LINQ translation coverage, and LINQ feature-expansion passes.
+The next serious continuation belongs in the Phase 8B practical AOT/package-graph work: split Roslyn from the runtime surface, keep generated hooks as the AOT path, and avoid silently falling back to reflection or dynamic-code paths under constrained publishing.
 
 ---
 

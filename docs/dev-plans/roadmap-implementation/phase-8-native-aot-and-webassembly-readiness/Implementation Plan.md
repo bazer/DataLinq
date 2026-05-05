@@ -31,7 +31,7 @@ That result is good enough to close the phase because it proves the architecture
 
 Current repo state as of the planning audit:
 
-- The roadmap and roadmap implementation index already identify Phase 8 as the next frontier unless full migration execution is deliberately prioritized first.
+- At the time of the initial audit, the roadmap and roadmap implementation index identified Phase 8 as the next frontier unless full migration execution was deliberately prioritized first.
 - Phase 7 is implemented for its planned support boundary: aggregates, computed projections, nullable predicates, joins, and relation-aware predicates.
 - The active verification lane now passes for generators 31/31, unit 284/284, and SQLite compliance 389/389.
 - Core projects target `net8.0`, `net9.0`, and `net10.0`, which is good for current AOT analyzer coverage.

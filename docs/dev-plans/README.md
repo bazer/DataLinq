@@ -21,10 +21,6 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `architecture/Applications patterns.md`
 - `architecture/Distributed Cache Coordination and CDC.md`
 
-### Documentation
-
-- `documentation/Documentation Overhaul.md`
-
 ### Platform compatibility
 
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
@@ -69,6 +65,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/README.md`
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
+- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
 
 ### Providers and features
 
@@ -99,11 +96,14 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ### Archive
 
+- `archive/documentation/README.md`
+- `archive/roadmap-implementation/README.md`
 - `archive/testing/README.md`
 
 ## Notes
 
 - The active testing material now lives under `testing/`, while completed migration records live under `archive/testing/`.
+- Completed or superseded documentation and roadmap checkpoints now live under `archive/` so active planning pages do not point readers at old "next step" guidance.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
 - The `roadmap-implementation/` folder is where high-level roadmap phases are turned into concrete execution plans. It should stay tightly linked to `Roadmap.md` rather than drifting into a second roadmap.
 
@@ -120,8 +120,9 @@ As of the Phase 8 completion update on 2026-05-05:
 - Phase 6 LINQ translation coverage and query composition is implemented: the support audit, chained `Where(...)` fix, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics have landed.
 - Phase 7 LINQ feature expansion is implemented: scalar aggregates, computed projections, nullable predicate polish, explicit joins, and relation-aware predicate translation have landed within their documented support boundaries.
 - Phase 8 Native AOT and WebAssembly readiness is implemented for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary. The honest follow-up work is the practical AOT package graph: split Roslyn from the runtime package, replace or isolate `Remotion.Linq`, investigate SQLitePCLRaw WebAssembly warnings, and automate size reports.
+- Phase 8B practical AOT and package graph hardening is the recommended next execution slice if constrained-platform support is the priority. It should convert the Phase 8 smoke proof into a cleaner package and warning story before public docs claim more than a narrow generated SQLite boundary.
 - The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
-The next roadmap execution work should be practical AOT cleanup, especially runtime/Roslyn separation and the Remotion replacement path, unless we deliberately pause to start the separate full migration-execution feature.
+The next roadmap execution work should be Phase 8B practical AOT cleanup, especially runtime/Roslyn separation and the Remotion replacement path, unless we deliberately pause to start the separate full migration-execution feature or move straight to Phase 9 cache/memory foundations.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

@@ -1,6 +1,8 @@
 > [!WARNING]
-> This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
+> This is an archived documentation cleanup plan. It is retained as historical audit context, not as the current documentation backlog.
 # Documentation Overhaul Plan
+
+**Status:** Archived first-pass docs audit. The current docs structure has already consumed the main navigation and onboarding recommendations from this plan.
 
 ## Purpose
 
@@ -349,4 +351,3 @@ The first documentation overhaul pass is done when all of the following are true
 If a claim in the docs cannot be defended from the codebase, tests, or package metadata, it should be removed, softened, or moved to roadmap/spec material.
 
 Documentation that is confidently wrong is worse than documentation that is missing.
-
