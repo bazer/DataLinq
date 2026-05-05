@@ -138,6 +138,17 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(tableModel.Table.DbName).IsEqualTo("bootstrap_rows");
     }
 
+    [Test]
+    public async Task ParseDatabase_OldGeneratedTableBootstrapOnly_ReturnsMissingGeneratedModelHookFailure()
+    {
+        var result = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(OldBootstrapHookOnlyDb));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.Failure.ToString()!).Contains(typeof(OldBootstrapHookOnlyDb).FullName!);
+        await Assert.That(result.Failure.ToString()!).Contains("GetDataLinqGeneratedModel");
+        await Assert.That(result.Failure.ToString()!).Contains("missing the generated DataLinq metadata hook");
+    }
+
     private static async Task AssertValueProperty(ModelDefinition model, string propertyName, string expectedTypeName, bool? expectedNullable = null)
     {
         await Assert.That(model.ValueProperties.ContainsKey(propertyName)).IsTrue();
@@ -178,9 +189,20 @@ public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabase
                 new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableBootstrapHookRow.NewDataLinqImmutableInstance),
                 TableType.View)
         ]);
+}
 
+public sealed class OldBootstrapHookOnlyDb : IDatabaseModel
+{
     public static GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>
-        GetDataLinqGeneratedModel().TableModels;
+    [
+        new(
+            "Rows",
+            typeof(OldBootstrapHookOnlyRow),
+            typeof(ImmutableOldBootstrapHookOnlyRow),
+            null,
+            new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableOldBootstrapHookOnlyRow.NewDataLinqImmutableInstance),
+            TableType.View)
+    ];
 }
 
 [View("bootstrap_rows")]
@@ -196,6 +218,23 @@ public partial class ImmutableBootstrapHookRow(IRowData rowData, IDataSourceAcce
 {
     public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) =>
         new ImmutableBootstrapHookRow(rowData, dataSource);
+
+    public override int Id => (int)GetValue(nameof(Id));
+}
+
+[View("old_bootstrap_rows")]
+public abstract partial class OldBootstrapHookOnlyRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<OldBootstrapHookOnlyRow, OldBootstrapHookOnlyDb>(rowData, dataSource), IViewModel<OldBootstrapHookOnlyDb>
+{
+    [Column("id")]
+    public abstract int Id { get; }
+}
+
+public partial class ImmutableOldBootstrapHookOnlyRow(IRowData rowData, IDataSourceAccess dataSource)
+    : OldBootstrapHookOnlyRow(rowData, dataSource)
+{
+    public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) =>
+        new ImmutableOldBootstrapHookOnlyRow(rowData, dataSource);
 
     public override int Id => (int)GetValue(nameof(Id));
 }

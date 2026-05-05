@@ -103,6 +103,8 @@ The lanes can overlap, but the dependency order is real:
 
 ## Workstream A: Generated Hook Fail-Fast Cleanup
 
+**Status:** Complete as of 2026-05-05.
+
 Goals:
 
 - remove obsolete generated-hook compatibility
@@ -111,20 +113,31 @@ Goals:
 
 Tasks:
 
-1. Stop emitting `GetDataLinqGeneratedTableModels()` from `GeneratorFileFactory`.
-2. Remove tests that assert the old hook is generated, replacing them with tests that assert it is absent.
-3. Remove `MetadataFromTypeFactory` fallback to `GetDataLinqGeneratedTableModels()`.
-4. Keep `GetDataLinqGeneratedModel()` as the only generated metadata bootstrap hook.
-5. Add a runtime test for a database type with only the old hook and assert a clear initialization failure.
-6. Make the error message name the missing generated DataLinq metadata hook and the database type.
-7. Add release-note or migration-note material for consumers with stale generated output.
+1. [x] Stop emitting `GetDataLinqGeneratedTableModels()` from `GeneratorFileFactory`.
+2. [x] Remove tests that assert the old hook is generated, replacing them with tests that assert it is absent.
+3. [x] Remove `MetadataFromTypeFactory` fallback to `GetDataLinqGeneratedTableModels()`.
+4. [x] Keep `GetDataLinqGeneratedModel()` as the only generated metadata bootstrap hook.
+5. [x] Add a runtime test for a database type with only the old hook and assert a clear initialization failure.
+6. [x] Make the error message name the missing generated DataLinq metadata hook and the database type.
+7. [x] Add release-note or migration-note material for consumers with stale generated output.
+
+Implementation notes:
+
+- `GeneratorFileFactory` now emits only `GetDataLinqGeneratedModel()` on generated database partials.
+- `MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(Type)` no longer accepts the old `GetDataLinqGeneratedTableModels()` hook as a compatibility fallback.
+- The missing-hook failure names the database type and the required `GetDataLinqGeneratedModel` hook.
+- Generator and runtime tests now assert that the stale hook is absent and that stale generated output fails during metadata initialization.
+
+Migration note:
+
+Projects carrying checked-in or otherwise stale generated DataLinq output must regenerate with a current `DataLinq.Generators` package. Generated database partials that only expose `GetDataLinqGeneratedTableModels()` are no longer accepted; the required bootstrap hook is `GetDataLinqGeneratedModel()`.
 
 Exit criteria:
 
-- generated output contains `GetDataLinqGeneratedModel()` and does not contain `GetDataLinqGeneratedTableModels()`
-- the old hook alone is not accepted
-- generator and unit tests prove both absence and failure behavior
-- no Phase 8 smoke path depends on the stale hook
+- [x] generated output contains `GetDataLinqGeneratedModel()` and does not contain `GetDataLinqGeneratedTableModels()`
+- [x] the old hook alone is not accepted
+- [x] generator and unit tests prove both absence and failure behavior
+- [x] no Phase 8 smoke path depends on the stale hook
 
 ## Workstream B: Generated Declaration Validation
 

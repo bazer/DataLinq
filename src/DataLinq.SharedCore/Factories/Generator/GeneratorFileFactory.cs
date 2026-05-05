@@ -191,9 +191,6 @@ public class GeneratorFileFactory
         }
 
         yield return $"{namespaceTab}{tab}]);";
-        yield return "";
-        yield return $"{namespaceTab}{tab}public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>";
-        yield return $"{namespaceTab}{tab}{tab}GetDataLinqGeneratedModel().TableModels;";
         yield return namespaceTab + "}";
         yield return "";
     }

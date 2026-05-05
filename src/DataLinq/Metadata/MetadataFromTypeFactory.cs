@@ -16,7 +16,6 @@ namespace DataLinq.Metadata;
 public static class MetadataFromTypeFactory
 {
     private const string GeneratedDatabaseModelMethodName = "GetDataLinqGeneratedModel";
-    private const string GeneratedTableModelsMethodName = "GetDataLinqGeneratedTableModels";
 
     public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel<
         [DynamicallyAccessedMembers(
@@ -121,34 +120,9 @@ public static class MetadataFromTypeFactory
             return (GeneratedDatabaseModelDeclaration)generatedModelMethod.Invoke(null, null)!;
         }
 
-        var generatedTableModelsMethod = databaseType.GetMethod(
-            GeneratedTableModelsMethodName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
-            binder: null,
-            types: Type.EmptyTypes,
-            modifiers: null);
-
-        if (generatedTableModelsMethod is null)
-        {
-            throw new InvalidOperationException(
-                $"Database model '{databaseType.FullName}' is missing the generated DataLinq metadata hook. " +
-                "Run the DataLinq source generator and ensure the database model is declared as a partial class.");
-        }
-
-        if (!typeof(IEnumerable<GeneratedTableModelDeclaration>).IsAssignableFrom(generatedTableModelsMethod.ReturnType))
-        {
-            throw new InvalidOperationException(
-                $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedTableModelsMethodName}' must return '{typeof(IEnumerable<GeneratedTableModelDeclaration>).FullName}'.");
-        }
-
-        var declarations = (IEnumerable<GeneratedTableModelDeclaration>?)generatedTableModelsMethod.Invoke(null, null);
-        if (declarations is null)
-        {
-            throw new InvalidOperationException(
-                $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedTableModelsMethodName}' returned null.");
-        }
-
-        return new GeneratedDatabaseModelDeclaration(declarations.ToArray());
+        throw new InvalidOperationException(
+            $"Database model '{databaseType.FullName}' is missing the generated DataLinq metadata hook '{GeneratedDatabaseModelMethodName}'. " +
+            "Run the DataLinq source generator and ensure the database model is declared as a partial class.");
     }
 
     private static ModelDefinition ParseModel(

@@ -10,7 +10,7 @@ namespace DataLinq.Tests.Unit.Core;
 public class GeneratorFileFactoryTests
 {
     [Test]
-    public async Task CreateModelFiles_DatabaseModel_EmitsGeneratedMetadataBootstrapHook()
+    public async Task CreateModelFiles_DatabaseModel_EmitsOnlyGeneratedDatabaseMetadataBootstrapHook()
     {
         var database = CreateDatabaseWithDefaultValue(
             propertyName: "Name",
@@ -32,7 +32,7 @@ public class GeneratorFileFactoryTests
             .IsTrue();
         await Assert.That(generatedFile.contents.Contains(
             "public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>"))
-            .IsTrue();
+            .IsFalse();
     }
 
     [Test]
