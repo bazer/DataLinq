@@ -242,6 +242,7 @@ Key related plans:
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
+- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
@@ -274,6 +275,7 @@ Why before cache/memory work:
 Key related plans:
 
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
+- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
 - `metadata-and-generation/Generated Metadata Contract and Runtime Fallback Removal.md`
 - `metadata-and-generation/Immutable Metadata Definitions and Factory Plan.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`

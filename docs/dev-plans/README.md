@@ -69,6 +69,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
+- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
 
 ### Providers and features
 

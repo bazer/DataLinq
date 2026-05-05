@@ -48,10 +48,12 @@ Out of scope:
 
 This execution slice is intentionally split across focused design documents:
 
+- [Implementation Plan](Implementation%20Plan.md)
 - [Practical AOT and Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
 - [Generated Metadata Contract and Runtime Fallback Removal](../../metadata-and-generation/Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md)
 - [Immutable Metadata Definitions and Factory Plan](../../metadata-and-generation/Immutable%20Metadata%20Definitions%20and%20Factory%20Plan.md)
 - [Remotion.Linq Replacement Plan](../../query-and-runtime/Remotion.Linq%20Replacement%20Plan.md)
+- [Warning Cleanup Plan](../../tooling/Warning%20Cleanup%20Plan.md)
 - [Phase 8 Compatibility Results](../phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md)
 - [AOT and WebAssembly Strategy](../../platform-compatibility/AOT%20and%20WebAssembly%20Strategy.md)
 
