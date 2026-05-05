@@ -21,7 +21,9 @@ The blunt distinction is this:
 
 > Phase 8 proved the direction. Phase 8B earns the right to document the direction as practical support.
 
-## Current Baseline
+## Phase-Start Baseline
+
+The bullets in this section capture the audit state at the start of Phase 8B. Completed workstream sections below record the current implementation state as this phase progresses.
 
 The planning baseline comes from:
 
@@ -141,6 +143,8 @@ Exit criteria:
 
 ## Workstream B: Generated Declaration Validation
 
+**Status:** Complete as of 2026-05-05.
+
 Goals:
 
 - move generated contract enforcement to provider initialization
@@ -149,26 +153,34 @@ Goals:
 
 Tasks:
 
-1. Tighten `GeneratedDatabaseModelDeclaration` and `GeneratedTableModelDeclaration` so complete generated output is the normal construction shape.
-2. Remove, obsolete, or internalize constructors that omit immutable type, mutable type, or immutable factory.
-3. Add declaration validation before reflected metadata parsing begins.
-4. Require `ImmutableType` for every generated table and view model.
-5. Require `MutableType` for `TableType.Table`.
-6. Treat `MutableType` for views consistently, either absent or ignored by design.
-7. Require exact immutable factory shape:
+1. [x] Tighten `GeneratedDatabaseModelDeclaration` and `GeneratedTableModelDeclaration` so complete generated output is the normal construction shape.
+2. [x] Remove, obsolete, or internalize constructors that omit immutable type, mutable type, or immutable factory.
+3. [x] Add declaration validation before reflected metadata parsing begins.
+4. [x] Require `ImmutableType` for every generated table and view model.
+5. [x] Require `MutableType` for `TableType.Table`.
+6. [x] Treat `MutableType` for views consistently, either absent or ignored by design.
+7. [x] Require exact immutable factory shape:
 
 ```csharp
 Func<IRowData, IDataSourceAccess, IImmutableInstance>
 ```
 
-8. Make validation errors include the database type, model type, table/view classification, and missing or malformed member.
-9. Keep last-resort guards in `InstanceFactory.NewImmutableRow(...)`, but stop relying on them as primary contract enforcement.
+8. [x] Make validation errors include the database type, model type, table/view classification, and missing or malformed member.
+9. [x] Keep last-resort guards in `InstanceFactory.NewImmutableRow(...)`, but stop relying on them as primary contract enforcement.
+
+Implementation notes:
+
+- `GeneratedDatabaseModelDeclaration.Validate(...)` and `GeneratedTableModelDeclaration.Validate(...)` now run before reflected metadata parsing in `MetadataFromTypeFactory`.
+- `GeneratedTableModelDeclaration` no longer exposes the older construction shortcuts that omitted generated immutable type, mutable type, or immutable factory data.
+- Validation requires an immutable type and exact immutable factory delegate shape for tables and views, and it requires a mutable type for `TableType.Table`.
+- View declarations may keep `MutableType` absent; the validation treats that absence as the expected view shape.
+- `InstanceFactory.NewImmutableRow(...)` still keeps the materialization-time immutable-factory guard as a defensive backstop.
 
 Exit criteria:
 
-- malformed generated declarations fail during provider initialization
-- tests cover missing immutable type, missing mutable table type, missing immutable factory, and wrong factory delegate shape
-- materialization-time failures become defensive backstops, not the first visible contract check
+- [x] malformed generated declarations fail during provider initialization
+- [x] tests cover missing immutable type, missing mutable table type, missing immutable factory, and wrong factory delegate shape
+- [x] materialization-time failures become defensive backstops, not the first visible contract check
 
 ## Workstream C: Immutable Metadata Builder And Factory Foundation
 

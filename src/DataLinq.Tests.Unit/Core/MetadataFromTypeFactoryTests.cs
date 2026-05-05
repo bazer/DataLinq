@@ -149,6 +149,43 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(result.Failure.ToString()!).Contains("missing the generated DataLinq metadata hook");
     }
 
+    [Test]
+    public Task ParseDatabase_GeneratedDeclarationMissingImmutableType_FailsBeforeMetadataReflection() =>
+        AssertGeneratedDeclarationFailure(
+            typeof(MissingImmutableTypeDb),
+            typeof(MissingImmutableTypeDb).FullName!,
+            typeof(GeneratedDeclarationValidationRow).FullName!,
+            "View model",
+            "ImmutableType");
+
+    [Test]
+    public Task ParseDatabase_GeneratedTableDeclarationMissingMutableType_FailsBeforeMetadataReflection() =>
+        AssertGeneratedDeclarationFailure(
+            typeof(MissingMutableTableTypeDb),
+            typeof(MissingMutableTableTypeDb).FullName!,
+            typeof(GeneratedDeclarationValidationRow).FullName!,
+            "Table model",
+            "MutableType");
+
+    [Test]
+    public Task ParseDatabase_GeneratedDeclarationMissingImmutableFactory_FailsBeforeMetadataReflection() =>
+        AssertGeneratedDeclarationFailure(
+            typeof(MissingImmutableFactoryDb),
+            typeof(MissingImmutableFactoryDb).FullName!,
+            typeof(GeneratedDeclarationValidationRow).FullName!,
+            "View model",
+            "ImmutableFactory");
+
+    [Test]
+    public Task ParseDatabase_GeneratedDeclarationWrongImmutableFactoryShape_FailsBeforeMetadataReflection() =>
+        AssertGeneratedDeclarationFailure(
+            typeof(WrongImmutableFactoryShapeDb),
+            typeof(WrongImmutableFactoryShapeDb).FullName!,
+            typeof(GeneratedDeclarationValidationRow).FullName!,
+            "View model",
+            "malformed member 'ImmutableFactory'",
+            "System.Func<DataLinq.Instances.IRowData");
+
     private static async Task AssertValueProperty(ModelDefinition model, string propertyName, string expectedTypeName, bool? expectedNullable = null)
     {
         await Assert.That(model.ValueProperties.ContainsKey(propertyName)).IsTrue();
@@ -171,6 +208,17 @@ public class MetadataFromTypeFactoryTests
         var matchesExpectedType = property.CsType.Name == expectedTypeName || property.CsType.Name.Contains($"<{expectedTypeName}>", StringComparison.Ordinal);
 
         await Assert.That(matchesExpectedType).IsTrue();
+    }
+
+    private static async Task AssertGeneratedDeclarationFailure(Type databaseType, params string[] expectedMessageFragments)
+    {
+        var result = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(databaseType);
+
+        await Assert.That(result.HasValue).IsFalse();
+
+        var failureMessage = result.Failure.ToString()!;
+        foreach (var fragment in expectedMessageFragments)
+            await Assert.That(failureMessage).Contains(fragment);
     }
 }
 
@@ -203,6 +251,78 @@ public sealed class OldBootstrapHookOnlyDb : IDatabaseModel
             new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableOldBootstrapHookOnlyRow.NewDataLinqImmutableInstance),
             TableType.View)
     ];
+}
+
+public sealed class MissingImmutableTypeDb : IDatabaseModel
+{
+    public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
+        new(
+        [
+            new(
+                "Rows",
+                typeof(GeneratedDeclarationValidationRow),
+                null!,
+                null,
+                new Func<IRowData, IDataSourceAccess, IImmutableInstance>((_, _) => null!),
+                TableType.View)
+        ]);
+}
+
+public sealed class MissingMutableTableTypeDb : IDatabaseModel
+{
+    public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
+        new(
+        [
+            new(
+                "Rows",
+                typeof(GeneratedDeclarationValidationRow),
+                typeof(ImmutableGeneratedDeclarationValidationRow),
+                null,
+                new Func<IRowData, IDataSourceAccess, IImmutableInstance>((_, _) => null!),
+                TableType.Table)
+        ]);
+}
+
+public sealed class MissingImmutableFactoryDb : IDatabaseModel
+{
+    public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
+        new(
+        [
+            new(
+                "Rows",
+                typeof(GeneratedDeclarationValidationRow),
+                typeof(ImmutableGeneratedDeclarationValidationRow),
+                null,
+                null!,
+                TableType.View)
+        ]);
+}
+
+public sealed class WrongImmutableFactoryShapeDb : IDatabaseModel
+{
+    public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
+        new(
+        [
+            new(
+                "Rows",
+                typeof(GeneratedDeclarationValidationRow),
+                typeof(ImmutableGeneratedDeclarationValidationRow),
+                null,
+                new Func<IRowData, IImmutableInstance>(_ => null!),
+                TableType.View)
+        ]);
+}
+
+public sealed class GeneratedDeclarationValidationRow
+{
+}
+
+public sealed class ImmutableGeneratedDeclarationValidationRow
+{
+}
+
+public sealed class MutableGeneratedDeclarationValidationRow
+{
 }
 
 [View("bootstrap_rows")]

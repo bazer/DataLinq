@@ -42,6 +42,8 @@ public static class MetadataFromTypeFactory
         Type type,
         GeneratedDatabaseModelDeclaration generatedModel)
     {
+        generatedModel.Validate(type);
+
         var database = new DatabaseDefinition(type.Name, csType: new CsTypeDeclaration(type));
         database.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
         database.ParseAttributes();
