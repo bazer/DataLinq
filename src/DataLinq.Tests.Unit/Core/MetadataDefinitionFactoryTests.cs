@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
 
@@ -61,6 +62,36 @@ public class MetadataDefinitionFactoryTests
         var failureMessage = result.Failure.ToString()!;
         await Assert.That(failureMessage).Contains("missing a primary key");
         await Assert.That(failureMessage).Contains("items");
+    }
+
+    [Test]
+    public async Task Build_DuplicateRelationPropertiesForSameForeignKey_ReturnsInvalidModelFailure()
+    {
+        var database = CreateRelationDraft();
+        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+
+        orderModel.AddProperty(new RelationProperty(
+            "Customer",
+            userModel.CsType,
+            orderModel,
+            [new RelationAttribute("users", "user_id", "FK_Order_User")]));
+        orderModel.AddProperty(new RelationProperty(
+            "Buyer",
+            userModel.CsType,
+            orderModel,
+            [new RelationAttribute("users", "user_id", "FK_Order_User")]));
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        var failureMessage = failure.ToString()!;
+        await Assert.That(failureMessage).Contains("Multiple relation properties");
+        await Assert.That(failureMessage).Contains("FK_Order_User");
+        await Assert.That(failureMessage).Contains("Customer");
+        await Assert.That(failureMessage).Contains("Buyer");
     }
 
     private static DatabaseDefinition CreateRelationDraft()

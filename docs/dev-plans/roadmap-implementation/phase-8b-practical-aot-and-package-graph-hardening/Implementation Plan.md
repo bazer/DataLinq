@@ -210,6 +210,7 @@ Foundation slice notes:
 - The factory now owns duplicate table validation, duplicate column validation, index parsing, relation resolution, and column ordinal assignment for the paths wired so far.
 - `MetadataFromTypeFactory` and source-generator `MetadataFromModelsFactory` now call the factory instead of open-coding those finalization steps.
 - New unit coverage proves the factory assigns ordinals, creates primary/foreign-key indices, resolves bidirectional relation parts, and returns failures for duplicate columns and missing primary keys.
+- Duplicate source relation properties that match the same database relation now return an `InvalidModel` option failure instead of escaping as a `SingleOrDefault` exception during relation resolution.
 - `DatabaseProvider` no longer appends default cache limits, cache cleanup intervals, or index-cache policies into `DatabaseDefinition` during startup.
 - Added runtime `DatabaseCachePolicy` so the cache layer computes effective defaults without changing metadata: cache-enabled databases still get the prior 256 MiB, 30 minute, 10 minute cleanup, and 1,000,000-row index-cache defaults; cache-disabled databases keep the legacy 5 minute cleanup worker fallback without inheriting cache limits or index-cache behavior.
 - New unit coverage proves provider startup leaves the mutable metadata lists empty while runtime cache defaults remain effective.

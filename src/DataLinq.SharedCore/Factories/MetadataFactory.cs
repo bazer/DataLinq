@@ -386,7 +386,17 @@ public static class MetadataFactory
             relation.CandidateKey = oneSidePart;
 
             // --- Link or Create Many-to-One Property ---
-            var manyToOneProp = GetRelationProperty(manySideModel, oneSideModel.Table.DbName, candidateColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
+            if (!TryGetRelationProperty(
+                manySideModel,
+                oneSideModel.Table.DbName,
+                candidateColumns.Select(x => x.DbName).ToArray(),
+                firstAttribute.Name,
+                out var manyToOneProp,
+                out var manyToOnePropertyFailure))
+            {
+                return manyToOnePropertyFailure;
+            }
+
             if (manyToOneProp != null)
             {
                 manyToOneProp.SetRelationPart(manySidePart);
@@ -402,7 +412,17 @@ public static class MetadataFactory
             }
 
             // --- Link or Create One-to-Many Property ---
-            var oneToManyProp = GetRelationProperty(oneSideModel, manySideModel.Table.DbName, foreignKeyColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
+            if (!TryGetRelationProperty(
+                oneSideModel,
+                manySideModel.Table.DbName,
+                foreignKeyColumns.Select(x => x.DbName).ToArray(),
+                firstAttribute.Name,
+                out var oneToManyProp,
+                out var oneToManyPropertyFailure))
+            {
+                return oneToManyPropertyFailure;
+            }
+
             if (oneToManyProp != null)
             {
                 oneToManyProp.SetRelationPart(oneSidePart);
@@ -527,16 +547,66 @@ public static class MetadataFactory
         }
     }
 
-    private static RelationProperty? GetRelationProperty(ModelDefinition model, string referencedTableName, string[] referencedColumnNames, string constraintName)
+    private static bool TryGetRelationProperty(
+        ModelDefinition model,
+        string referencedTableName,
+        string[] referencedColumnNames,
+        string constraintName,
+        out RelationProperty? property,
+        out IDLOptionFailure failure)
     {
         // Find a property in the model that has a [Relation] attribute matching the target table, columns, and constraint name.
-        return model.RelationProperties.Values.SingleOrDefault(p =>
-            p.Attributes.OfType<RelationAttribute>().Any(a =>
-                a.Table == referencedTableName &&
-                a.Columns.SequenceEqual(referencedColumnNames) &&
-                (a.Name == null || a.Name == constraintName)
-            )
-        );
+        var matches = model.RelationProperties.Values
+            .Where(p => p.Attributes.OfType<RelationAttribute>().Any(a =>
+                RelationAttributeMatches(a, referencedTableName, referencedColumnNames, constraintName)))
+            .ToArray();
+
+        if (matches.Length <= 1)
+        {
+            property = matches.FirstOrDefault();
+            failure = null!;
+            return true;
+        }
+
+        property = null;
+
+        var target = $"{referencedTableName}.({referencedColumnNames.ToJoinedString(", ")})";
+        var propertyNames = matches.Select(x => x.PropertyName).ToJoinedString(", ");
+        var message = $"Multiple relation properties on model '{model.CsType.Name}' match relation target '{target}' for constraint '{constraintName}': {propertyNames}. Relation attributes must identify at most one property for a database relation.";
+        var duplicateAttribute = matches[1]
+            .Attributes
+            .OfType<RelationAttribute>()
+            .FirstOrDefault(attribute => RelationAttributeMatches(attribute, referencedTableName, referencedColumnNames, constraintName));
+
+        failure = CreateRelationPropertyFailure(matches[1], duplicateAttribute, message);
+        return false;
+    }
+
+    private static bool RelationAttributeMatches(
+        RelationAttribute attribute,
+        string referencedTableName,
+        string[] referencedColumnNames,
+        string constraintName) =>
+        attribute.Table == referencedTableName &&
+        attribute.Columns.SequenceEqual(referencedColumnNames) &&
+        (attribute.Name == null || attribute.Name == constraintName);
+
+    private static IDLOptionFailure CreateRelationPropertyFailure(
+        RelationProperty relation,
+        RelationAttribute? attribute,
+        string message)
+    {
+        if (attribute != null)
+        {
+            var attributeLocation = relation.GetAttributeSourceLocation(attribute);
+            if (attributeLocation.HasValue)
+                return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+        }
+
+        if (relation.SourceInfo.HasValue && relation.CsFile.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, relation.SourceInfo.Value.GetPropertyLocation(relation.CsFile.Value));
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, relation);
     }
 
     private static string GetForeignKeyRelationPropertyName(ModelDefinition manySideModel, ModelDefinition oneSideModel, IReadOnlyList<ColumnDefinition> foreignKeyColumns, ForeignKeyAttribute attribute)
