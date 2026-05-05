@@ -29,6 +29,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Tooling
 
 - `tooling/Build Environment and Output Control.md`
+- `tooling/Warning Cleanup Plan.md`
 
 ### Metadata and generation
 
