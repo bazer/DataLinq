@@ -211,10 +211,10 @@ public static class MetadataFromTypeFactory
             ? new RelationProperty(propertyInfo.Name, new CsTypeDeclaration(type), model, attributes)
             : new ValueProperty(propertyInfo.Name, new CsTypeDeclaration(type), model, attributes);
 
+        property.SetCsNullable(IsNullable(propertyInfo));
+
         if (property is ValueProperty valueProp)
         {
-            valueProp.SetCsNullable(propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>));
-
             if (property.CsType.Type?.IsEnum == true)
             {
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
@@ -239,5 +239,18 @@ public static class MetadataFromTypeFactory
         }
 
         return property;
+    }
+
+    private static bool IsNullable(PropertyInfo propertyInfo)
+    {
+        if (Nullable.GetUnderlyingType(propertyInfo.PropertyType) != null)
+            return true;
+
+        if (propertyInfo.PropertyType.IsValueType)
+            return false;
+
+        return new NullabilityInfoContext()
+            .Create(propertyInfo)
+            .ReadState == NullabilityState.Nullable;
     }
 }

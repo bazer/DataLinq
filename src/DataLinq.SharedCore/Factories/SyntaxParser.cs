@@ -18,13 +18,15 @@ public class SyntaxParser
 {
     private static readonly string[] modelInterfaceNames = ["IDatabaseModel", "ITableModel", "IViewModel", "IModelInstance"];
     private readonly ImmutableArray<TypeDeclarationSyntax> modelSyntaxes;
+    private readonly ImmutableArray<EnumDeclarationSyntax> enumSyntaxes;
 
     public static bool IsModelInterface(string interfaceName) =>
         modelInterfaceNames.Any(interfaceName.StartsWith);
     
-    public SyntaxParser(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes)
+    public SyntaxParser(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, ImmutableArray<EnumDeclarationSyntax> enumSyntaxes = default)
     {
         this.modelSyntaxes = modelSyntaxes;
+        this.enumSyntaxes = enumSyntaxes.IsDefault ? [] : enumSyntaxes;
     }
 
     public Option<TableModel, IDLOptionFailure> ParseTableModel(DatabaseDefinition database, TypeDeclarationSyntax typeSyntax, string csPropertyName)
@@ -641,22 +643,22 @@ public class SyntaxParser
 
         if (property is ValueProperty valueProp)
         {
-            if (parsedAttributes.Any(attribute => attribute is EnumAttribute))
+            var enumAttribute = parsedAttributes.OfType<EnumAttribute>().SingleOrDefault();
+            var propertyTypeName = valueProp.CsType.Name;
+            var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
+            var enumDeclaration = FindEnumDeclaration(propertyTypeName);
+
+            if (enumAttribute != null || enumDeclaration != null)
             {
                 valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
 
-                var enumValueList = parsedAttributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1));
-
-                var propertyTypeName = valueProp.CsType.Name;
-                var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
+                var enumValueList = enumAttribute?.Values.Select((x, i) => (x, i + 1)) ?? [];
 
                 var declaredInClass = parentClassSyntax?.Members
                     .OfType<EnumDeclarationSyntax>()
                     .Any(enumDecl => enumDecl.Identifier.ValueText == propertyTypeName) ?? false;
 
                 var csEnumValues = new List<(string name, int value)>();
-                var allEnums = modelSyntaxes.SelectMany(x => x.DescendantNodesAndSelf().OfType<EnumDeclarationSyntax>());
-                var enumDeclaration = allEnums.FirstOrDefault(e => e.Identifier.ValueText == propertyTypeName);
 
                 if (enumDeclaration != null)
                 {
@@ -687,6 +689,15 @@ public class SyntaxParser
         }
 
         return property;
+    }
+
+    private EnumDeclarationSyntax? FindEnumDeclaration(string enumName)
+    {
+        var allEnums = modelSyntaxes
+            .SelectMany(x => x.DescendantNodesAndSelf().OfType<EnumDeclarationSyntax>())
+            .Concat(enumSyntaxes);
+
+        return allEnums.FirstOrDefault(e => e.Identifier.ValueText == enumName);
     }
 
     private static SourceTextSpan? GetDefaultValueExpressionSourceSpan(PropertyDeclarationSyntax propSyntax)

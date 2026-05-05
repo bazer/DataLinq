@@ -102,6 +102,10 @@ public class MetadataFromFileFactory
                     .Where(cls => cls.BaseList?.Types.Any(baseType =>
                         SyntaxParser.IsModelInterface(baseType.ToString())) == true))
             .ToImmutableArray();
+        var enumSyntaxes = trees
+            .Where(x => x.HasCompilationUnitRoot)
+            .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<EnumDeclarationSyntax>())
+            .ToImmutableArray();
 
         var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions
         {
@@ -111,7 +115,7 @@ public class MetadataFromFileFactory
         }, Log);
 
         if (!factory
-            .ReadSyntaxTrees(modelSyntaxes)
+            .ReadSyntaxTrees(modelSyntaxes, enumSyntaxes)
             .Transpose()
             .TryUnwrap(out var models, out var modelFailures))
             return DLOptionFailure.AggregateFail(modelFailures);

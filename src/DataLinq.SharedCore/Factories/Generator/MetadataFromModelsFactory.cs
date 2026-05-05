@@ -39,9 +39,11 @@ public class MetadataFromModelsFactory
         Log = log;
     }
 
-    public List<Option<DatabaseDefinition, IDLOptionFailure>> ReadSyntaxTrees(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes) => DLOptionFailure.CatchAll(() =>
+    public List<Option<DatabaseDefinition, IDLOptionFailure>> ReadSyntaxTrees(
+        ImmutableArray<TypeDeclarationSyntax> modelSyntaxes,
+        ImmutableArray<EnumDeclarationSyntax> enumSyntaxes = default) => DLOptionFailure.CatchAll(() =>
     {
-        var syntaxParser = new SyntaxParser(modelSyntaxes);
+        var syntaxParser = new SyntaxParser(modelSyntaxes, enumSyntaxes);
 
         // Identify classes implementing the interfaces of interest
         var dbModelClasses = modelSyntaxes

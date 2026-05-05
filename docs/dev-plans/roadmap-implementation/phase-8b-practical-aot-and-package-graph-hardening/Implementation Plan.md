@@ -198,7 +198,7 @@ Tasks:
 2. Represent source-model metadata, generated declarations, SQLite metadata, MySQL metadata, and MariaDB metadata in builder form.
 3. [in progress] Introduce a `MetadataDefinitionFactory` or equivalent factory that owns validation, normalization, relation resolution, column ordinal assignment, cache metadata interpretation, and freeze/finalization.
 4. [in progress] Make expected invalid-model failures return `Option<DatabaseDefinition, IDLOptionFailure>` rather than arbitrary exceptions.
-5. Add equivalence tests comparing builder-built metadata against current metadata for generated `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model.
+5. [in progress] Add equivalence tests comparing builder-built metadata against current metadata for generated `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model. Source-parsed versus generated-runtime coverage now exists for the representative models; extend it to true builder-built inputs once those inputs are wired.
 6. Add provider metadata equivalence tests for SQLite and the supported MySQL/MariaDB subset.
 7. [x] Move runtime cache defaults out of metadata mutation. Provider initialization should compute effective cache policy rather than appending defaults into `DatabaseDefinition`.
 8. [in progress] Replace in-place metadata transform behavior with a builder/snapshot merge path.
@@ -219,6 +219,8 @@ Foundation slice notes:
 - Added an internal `MetadataDefinitionSnapshot` copier and `MetadataTransformer.TransformDatabaseSnapshot(...)` so source/database metadata merges can return a new graph instead of rewriting the database-derived graph in place.
 - `ModelGenerator` now uses the snapshot-transform path when merging source model files into provider-derived metadata.
 - Direct transformer tests now exercise `TransformDatabaseSnapshot(...)`; the old `TransformDatabase(...)` and `TransformTable(...)` mutating methods remain callable but are marked obsolete.
+- Added source-parsed versus generated-runtime metadata equivalence coverage for `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model. The digest covers database identity, cache metadata, table shape, column shape, index shape, relation shape, database types, enum shape, and C# nullability.
+- The equivalence pass fixed source/generated drift: reflected `[Database]` metadata now normalizes `DatabaseDefinition.Name`, file-based source parsing now includes top-level enum declarations and enum-typed properties, and reflected runtime metadata now preserves nullable reference annotations on properties.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable; the next C slices need real builder/draft inputs, provider parity, cache-policy separation, and API sealing before the workstream can be marked complete.
 
 Design stance:

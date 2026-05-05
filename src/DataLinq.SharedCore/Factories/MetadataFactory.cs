@@ -817,7 +817,10 @@ public static class MetadataFactory
         foreach (var attribute in database.Attributes)
         {
             if (attribute is DatabaseAttribute databaseAttribute)
+            {
+                database.SetName(databaseAttribute.Name);
                 database.SetDbName(databaseAttribute.Name);
+            }
 
             if (attribute is UseCacheAttribute useCache)
                 database.SetCache(useCache.UseCache);

@@ -6,6 +6,7 @@ using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
+using DataLinq.Tests.Models.Allround;
 using DataLinq.Tests.Models.Employees;
 using ThrowAway.Extensions;
 
@@ -136,6 +137,16 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(tableModel.CsPropertyName).IsEqualTo("Rows");
         await Assert.That(tableModel.Model.CsType.Type).IsEqualTo(typeof(BootstrapHookRow));
         await Assert.That(tableModel.Table.DbName).IsEqualTo("bootstrap_rows");
+    }
+
+    [Test]
+    public async Task ParseModel_NullableReferenceRelation_PreservesNullableAnnotation()
+    {
+        var databaseDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(AllroundBenchmark)).ValueOrException();
+        var userProfileModel = databaseDefinition.TableModels.Single(tm => tm.Model.CsType.Type == typeof(Userprofile)).Model;
+
+        await Assert.That(userProfileModel.RelationProperties["users"].CsNullable).IsTrue();
+        await Assert.That(userProfileModel.RelationProperties["usercontacts"].CsNullable).IsFalse();
     }
 
     [Test]
