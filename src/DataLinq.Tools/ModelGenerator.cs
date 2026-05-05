@@ -157,7 +157,7 @@ public class ModelGenerator : Generator
                     overwritePropertyTypes: this.options.OverwritePropertyTypes
                 );
                 var transformer = new MetadataTransformer(transformerOptions);
-                transformer.TransformDatabase(srcMetadata, dbMetadata);
+                dbMetadata = transformer.TransformDatabaseSnapshot(srcMetadata, dbMetadata);
             }
         }
 

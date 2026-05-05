@@ -201,7 +201,7 @@ Tasks:
 5. Add equivalence tests comparing builder-built metadata against current metadata for generated `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model.
 6. Add provider metadata equivalence tests for SQLite and the supported MySQL/MariaDB subset.
 7. [x] Move runtime cache defaults out of metadata mutation. Provider initialization should compute effective cache policy rather than appending defaults into `DatabaseDefinition`.
-8. Replace in-place metadata transform behavior with a builder/snapshot merge path.
+8. [in progress] Replace in-place metadata transform behavior with a builder/snapshot merge path.
 9. After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections.
 
 Foundation slice notes:
@@ -213,6 +213,9 @@ Foundation slice notes:
 - `DatabaseProvider` no longer appends default cache limits, cache cleanup intervals, or index-cache policies into `DatabaseDefinition` during startup.
 - Added runtime `DatabaseCachePolicy` so the cache layer computes effective defaults without changing metadata: cache-enabled databases still get the prior 256 MiB, 30 minute, 10 minute cleanup, and 1,000,000-row index-cache defaults; cache-disabled databases keep the legacy 5 minute cleanup worker fallback without inheriting cache limits or index-cache behavior.
 - New unit coverage proves provider startup leaves the mutable metadata lists empty while runtime cache defaults remain effective.
+- Added an internal `MetadataDefinitionSnapshot` copier and `MetadataTransformer.TransformDatabaseSnapshot(...)` so source/database metadata merges can return a new graph instead of rewriting the database-derived graph in place.
+- `ModelGenerator` now uses the snapshot-transform path when merging source model files into provider-derived metadata.
+- The old `MetadataTransformer.TransformDatabase(...)` mutating method remains as a compatibility wrapper while the remaining direct transformer tests are migrated.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable; the next C slices need real builder/draft inputs, provider parity, cache-policy separation, and API sealing before the workstream can be marked complete.
 
 Design stance:

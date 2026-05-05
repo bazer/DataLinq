@@ -176,6 +176,33 @@ public class MetadataTransformerTests
     }
 
     [Test]
+    public async Task TransformDatabaseSnapshot_AppliesNamesWithoutMutatingDestination()
+    {
+        var sourceDatabase = CreateSourceDatabase(modelName: "SourceModel");
+        var destinationDatabase = CreateDestinationDatabase();
+        var transformer = new MetadataTransformer(new MetadataTransformerOptions());
+
+        var transformedDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
+
+        await Assert.That(ReferenceEquals(transformedDatabase, destinationDatabase)).IsFalse();
+        await Assert.That(destinationDatabase.CsType.Namespace).IsEqualTo("RawNamespace");
+        await Assert.That(destinationDatabase.TableModels[0].Model.CsType.Name).IsEqualTo("raw_table");
+        await Assert.That(destinationDatabase.TableModels[0].Model.ValueProperties.ContainsKey("col1_db")).IsTrue();
+        await Assert.That(destinationDatabase.TableModels[0].Model.ValueProperties.ContainsKey("Id")).IsFalse();
+        await Assert.That(destinationDatabase.TableModels[0].Model.RelationProperties.ContainsKey("rel_prop_db")).IsTrue();
+        await Assert.That(destinationDatabase.TableModels[0].Model.RelationProperties.ContainsKey("RelatedItems")).IsFalse();
+
+        var transformedTableModel = transformedDatabase.TableModels.First(tm => tm.Table.DbName == "my_table");
+        await Assert.That(ReferenceEquals(transformedTableModel, destinationDatabase.TableModels[0])).IsFalse();
+        await Assert.That(transformedDatabase.CsType.Namespace).IsEqualTo("SourceNamespace");
+        await Assert.That(transformedTableModel.Model.CsType.Name).IsEqualTo("SourceModel");
+        await Assert.That(transformedTableModel.Model.ValueProperties.ContainsKey("Id")).IsTrue();
+        await Assert.That(transformedTableModel.Model.ValueProperties["Id"].Column.Table).IsSameReferenceAs(transformedTableModel.Table);
+        await Assert.That(transformedTableModel.Model.RelationProperties.ContainsKey("RelatedItems")).IsTrue();
+        await Assert.That(transformedTableModel.Model.RelationProperties["RelatedItems"].RelationPart).IsNotNull();
+    }
+
+    [Test]
     public async Task TransformDatabase_RemoveInterfacePrefix_Enabled()
     {
         var sourceDatabase = CreateSourceDatabase(modelName: "SrcModel", interfaceName: "ISrcModel");

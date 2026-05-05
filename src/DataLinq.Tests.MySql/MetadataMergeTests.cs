@@ -48,12 +48,12 @@ public class MetadataMergeTests
             .Single();
 
         var transformer = new MetadataTransformer(new MetadataTransformerOptions());
-        transformer.TransformDatabase(fileMetadata, sqlMetadata);
+        var mergedMetadata = transformer.TransformDatabaseSnapshot(fileMetadata, sqlMetadata);
 
-        var employees = sqlMetadata.TableModels.Single(x => x.Table.DbName == "employees").Table;
-        var departments = sqlMetadata.TableModels.Single(x => x.Table.DbName == "departments").Table;
+        var employees = mergedMetadata.TableModels.Single(x => x.Table.DbName == "employees").Table;
+        var departments = mergedMetadata.TableModels.Single(x => x.Table.DbName == "departments").Table;
 
-        await Assert.That(sqlMetadata.CsType.Name).IsEqualTo("EmployeesDb");
+        await Assert.That(mergedMetadata.CsType.Name).IsEqualTo("EmployeesDb");
         await Assert.That(employees.Model.CsType.Name).IsEqualTo("Employee");
         await Assert.That(employees.Model.ModelInstanceInterface.HasValue).IsTrue();
         await Assert.That(employees.Model.ModelInstanceInterface!.Value.Name).IsEqualTo("IEmployee");

@@ -49,7 +49,20 @@ public class MetadataTransformer
         return destCsType;
     }
 
+    public DatabaseDefinition TransformDatabaseSnapshot(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
+    {
+        var transformedMetadata = MetadataDefinitionSnapshot.Copy(destMetadata);
+        TransformDatabaseInPlace(srcMetadata, transformedMetadata);
+
+        return transformedMetadata;
+    }
+
     public void TransformDatabase(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
+    {
+        TransformDatabaseInPlace(srcMetadata, destMetadata);
+    }
+
+    private void TransformDatabaseInPlace(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
         destMetadata.SetAttributes(srcMetadata.Attributes);
         destMetadata.SetCache(srcMetadata.UseCache);
