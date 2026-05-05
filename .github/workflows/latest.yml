@@ -29,6 +29,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Restore .NET workloads
+        run: >
+          dotnet run --project src/DataLinq.Dev.CLI --
+          exec --profile ci --
+          workload restore src/DataLinq.sln --skip-manifest-update
+
       - name: Install Podman
         run: |
           sudo apt-get update
