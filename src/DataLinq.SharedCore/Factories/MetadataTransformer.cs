@@ -57,6 +57,7 @@ public class MetadataTransformer
         return transformedMetadata;
     }
 
+    [Obsolete("Use TransformDatabaseSnapshot to return a merged metadata graph without mutating the provider-derived destination metadata.")]
     public void TransformDatabase(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
         TransformDatabaseInPlace(srcMetadata, destMetadata);
@@ -85,12 +86,18 @@ public class MetadataTransformer
                 continue;
             }
 
-            TransformTable(srcTable, destTable);
+            TransformTableInPlace(srcTable, destTable);
             destTable.SetCsPropertyName(srcTable.CsPropertyName);
         }
     }
 
+    [Obsolete("Use TransformDatabaseSnapshot to merge metadata without direct table graph mutation.")]
     public void TransformTable(TableModel srcTable, TableModel destTable)
+    {
+        TransformTableInPlace(srcTable, destTable);
+    }
+
+    private void TransformTableInPlace(TableModel srcTable, TableModel destTable)
     {
         destTable.Model.SetCsType(TransformCsType(srcTable.Model.CsType, destTable.Model.CsType));
         if (srcTable.Model.CsFile != null)

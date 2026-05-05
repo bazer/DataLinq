@@ -137,13 +137,13 @@ public class MetadataTransformerTests
     }
 
     [Test]
-    public async Task TransformDatabase_AppliesNamesAndAttributes()
+    public async Task TransformDatabaseSnapshot_AppliesNamesAndAttributes()
     {
         var sourceDatabase = CreateSourceDatabase(modelName: "SourceModel");
         var destinationDatabase = CreateDestinationDatabase();
         var transformer = new MetadataTransformer(new MetadataTransformerOptions());
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         await Assert.That(destinationDatabase.DbName).IsEqualTo("MyDatabase");
         await Assert.That(destinationDatabase.CsType.Name).IsEqualTo("MyDatabaseCsType");
@@ -209,7 +209,7 @@ public class MetadataTransformerTests
         var destinationDatabase = CreateDestinationDatabase(modelName: "dest_model");
         var transformer = new MetadataTransformer(new MetadataTransformerOptions(removeInterfacePrefix: true));
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         await Assert.That(destinationDatabase.TableModels[0].Model.CsType.Name).IsEqualTo("SrcModel");
     }
@@ -221,7 +221,7 @@ public class MetadataTransformerTests
         var destinationDatabase = CreateDestinationDatabase(modelName: "dest_model");
         var transformer = new MetadataTransformer(new MetadataTransformerOptions(removeInterfacePrefix: false));
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         await Assert.That(destinationDatabase.TableModels[0].Model.CsType.Name).IsEqualTo("ISrcModelAsClass");
     }
@@ -233,7 +233,7 @@ public class MetadataTransformerTests
         var destinationDatabase = CreateDestinationDatabase();
         var transformer = new MetadataTransformer(new MetadataTransformerOptions { OverwritePropertyTypes = false });
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         var transformedProperty = destinationDatabase.TableModels[0].Model.ValueProperties["Name"];
 
@@ -250,7 +250,7 @@ public class MetadataTransformerTests
         var destinationDatabase = CreateDestinationDatabase();
         var transformer = new MetadataTransformer(new MetadataTransformerOptions { OverwritePropertyTypes = true });
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         var transformedProperty = destinationDatabase.TableModels[0].Model.ValueProperties["Name"];
 
@@ -267,7 +267,7 @@ public class MetadataTransformerTests
         var destinationDatabase = CreateDestinationDatabase();
         var transformer = new MetadataTransformer(new MetadataTransformerOptions { OverwritePropertyTypes = true });
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         var transformedProperty = destinationDatabase.TableModels[0].Model.ValueProperties["Status"];
 
@@ -284,7 +284,7 @@ public class MetadataTransformerTests
         var destinationDatabase = CreateDestinationDatabase(includeStatusDefault: true);
         var transformer = new MetadataTransformer(new MetadataTransformerOptions { OverwritePropertyTypes = true });
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
             .CreateModelFiles(destinationDatabase)
@@ -301,7 +301,7 @@ public class MetadataTransformerTests
         var destinationDatabase = CreateDestinationDatabase();
         var transformer = new MetadataTransformer(new MetadataTransformerOptions { UpdateConstraintNames = true });
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         var relationProperty = destinationDatabase.TableModels[0].Model.RelationProperties["RelatedItems"];
 
@@ -317,7 +317,7 @@ public class MetadataTransformerTests
         var destinationDatabase = CreateDestinationDatabase();
         var transformer = new MetadataTransformer(new MetadataTransformerOptions { UpdateConstraintNames = false });
 
-        transformer.TransformDatabase(sourceDatabase, destinationDatabase);
+        destinationDatabase = transformer.TransformDatabaseSnapshot(sourceDatabase, destinationDatabase);
 
         var relationProperty = destinationDatabase.TableModels[0].Model.RelationProperties["RelatedItems"];
 

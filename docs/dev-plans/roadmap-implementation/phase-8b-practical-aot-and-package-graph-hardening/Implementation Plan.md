@@ -215,7 +215,7 @@ Foundation slice notes:
 - New unit coverage proves provider startup leaves the mutable metadata lists empty while runtime cache defaults remain effective.
 - Added an internal `MetadataDefinitionSnapshot` copier and `MetadataTransformer.TransformDatabaseSnapshot(...)` so source/database metadata merges can return a new graph instead of rewriting the database-derived graph in place.
 - `ModelGenerator` now uses the snapshot-transform path when merging source model files into provider-derived metadata.
-- The old `MetadataTransformer.TransformDatabase(...)` mutating method remains as a compatibility wrapper while the remaining direct transformer tests are migrated.
+- Direct transformer tests now exercise `TransformDatabaseSnapshot(...)`; the old `TransformDatabase(...)` and `TransformTable(...)` mutating methods remain callable but are marked obsolete.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable; the next C slices need real builder/draft inputs, provider parity, cache-policy separation, and API sealing before the workstream can be marked complete.
 
 Design stance:
