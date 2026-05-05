@@ -364,7 +364,20 @@ public static class MetadataFactory
                 ColumnsMatch(x.Columns, foreignKeyColumns));
             if (foreignKeyIndex == null)
             {
-                foreignKeyIndex = new ColumnIndex(firstAttribute.Name, IndexCharacteristic.ForeignKey, IndexType.BTREE, foreignKeyColumns);
+                if (!TryCreateColumnIndex(
+                    firstAttribute.Name,
+                    IndexCharacteristic.ForeignKey,
+                    IndexType.BTREE,
+                    foreignKeyColumns,
+                    out foreignKeyIndex,
+                    out var foreignKeyIndexFailure))
+                {
+                    return CreateForeignKeyFailure(
+                        firstForeignKey.Column,
+                        firstAttribute,
+                        $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' could not create its index: {foreignKeyIndexFailure}");
+                }
+
                 foreignKeyTable.ColumnIndices.Add(foreignKeyIndex);
             }
 
@@ -527,6 +540,34 @@ public static class MetadataFactory
         }
 
         return true;
+    }
+
+    private static bool TryCreateColumnIndex(
+        string name,
+        IndexCharacteristic characteristic,
+        IndexType type,
+        List<ColumnDefinition> columns,
+        out ColumnIndex index,
+        out string failure)
+    {
+        try
+        {
+            index = new ColumnIndex(name, characteristic, type, columns);
+            failure = null!;
+            return true;
+        }
+        catch (InvalidOperationException exception)
+        {
+            index = null!;
+            failure = exception.Message;
+            return false;
+        }
+        catch (ArgumentException exception)
+        {
+            index = null!;
+            failure = exception.Message;
+            return false;
+        }
     }
 
     private sealed class ForeignKeyColumn

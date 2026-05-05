@@ -94,10 +94,24 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failureMessage).Contains("Buyer");
     }
 
-    private static DatabaseDefinition CreateRelationDraft()
+    [Test]
+    public async Task Build_ForeignKeyWithEmptyConstraintName_ReturnsInvalidModelFailure()
     {
-        const string foreignKeyName = "FK_Order_User";
+        var database = CreateRelationDraft(foreignKeyName: "");
 
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        var failureMessage = failure.ToString()!;
+        await Assert.That(failureMessage).Contains("could not create its index");
+        await Assert.That(failureMessage).Contains("Index name cannot be empty");
+        await Assert.That(failureMessage).Contains("orders.customer_id");
+    }
+
+    private static DatabaseDefinition CreateRelationDraft(string foreignKeyName = "FK_Order_User")
+    {
         var database = new DatabaseDefinition(
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
