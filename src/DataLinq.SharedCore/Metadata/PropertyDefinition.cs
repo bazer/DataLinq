@@ -16,19 +16,21 @@ public enum PropertyType
 
 public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : IDefinition
 {
-    public Attribute[] Attributes { get; private set; } = attributes.ToArray();
+    private Attribute[] attributeArray = attributes.ToArray();
+
+    public Attribute[] Attributes => attributeArray.ToArray();
     public bool IsFrozen { get; private set; }
 
     public void SetAttributes(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
-        Attributes = attributes.ToArray();
+        attributeArray = attributes.ToArray();
     }
 
     public void AddAttribute(Attribute attribute)
     {
         ThrowIfFrozen();
-        Attributes = [.. Attributes, attribute];
+        attributeArray = [.. attributeArray, attribute];
     }
 
     public string PropertyName { get; private set; } = propertyName;

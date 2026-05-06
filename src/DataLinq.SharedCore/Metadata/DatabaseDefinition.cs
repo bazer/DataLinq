@@ -10,6 +10,8 @@ namespace DataLinq.Metadata;
 public class DatabaseDefinition : IDefinition
 {
     public static ConcurrentDictionary<Type, DatabaseDefinition> LoadedDatabases { get; } = new();
+    private Attribute[] attributes = [];
+    private TableModel[] tableModels = [];
 
     public DatabaseDefinition(string name, CsTypeDeclaration csType, string? dbName = null)
     {
@@ -59,12 +61,12 @@ public class DatabaseDefinition : IDefinition
         UseCache = useCache;
     }
 
-    public Attribute[] Attributes { get; private set; } = [];
+    public Attribute[] Attributes => attributes.ToArray();
 
     public void SetAttributes(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
-        Attributes = attributes.ToArray();
+        this.attributes = attributes.ToArray();
     }
 
     public SourceTextSpan? SourceSpan { get; private set; }
@@ -99,12 +101,12 @@ public class DatabaseDefinition : IDefinition
         return new SourceLocation(CsFile.Value, sourceSpan);
     }
 
-    public TableModel[] TableModels { get; private set; } = [];
+    public TableModel[] TableModels => tableModels.ToArray();
 
     public void SetTableModels(IEnumerable<TableModel> tableModels)
     {
         ThrowIfFrozen();
-        TableModels = tableModels.ToArray();
+        this.tableModels = tableModels.ToArray();
     }
 
     public List<(CacheLimitType limitType, long amount)> CacheLimits { get; private set; } = [];
@@ -118,10 +120,10 @@ public class DatabaseDefinition : IDefinition
 
         IsFrozen = true;
 
-        foreach (var tableModel in TableModels)
+        foreach (var tableModel in tableModels)
             tableModel.Freeze();
 
-        foreach (var relation in TableModels
+        foreach (var relation in tableModels
             .SelectMany(tableModel => tableModel.Table.ColumnIndices)
             .SelectMany(index => index.RelationParts ?? Enumerable.Empty<RelationPart>())
             .Select(part => part.Relation)

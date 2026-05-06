@@ -66,6 +66,8 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
 
 public class ColumnDefinition(string dbName, TableDefinition table) : IDefinition
 {
+    private DatabaseColumnType[] dbTypes = [];
+
     public TableDefinition Table { get; } = table;
     public string DbName { get; private set; } = dbName;
     public bool IsFrozen { get; private set; }
@@ -76,7 +78,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
         DbName = value;
     }
 
-    public DatabaseColumnType[] DbTypes { get; private set; } = [];
+    public DatabaseColumnType[] DbTypes => dbTypes.ToArray();
     public int Index { get; private set; }
 
     public void SetIndex(int index)
@@ -137,7 +139,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     public void AddDbType(DatabaseColumnType columnType)
     {
         ThrowIfFrozen();
-        DbTypes = DbTypes.AsEnumerable().Append(columnType).ToArray();
+        dbTypes = dbTypes.AsEnumerable().Append(columnType).ToArray();
     }
 
     private readonly ConcurrentDictionary<DatabaseType, DatabaseColumnType?> cachedDbTypes = new();
@@ -146,10 +148,10 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
         if (cachedDbTypes.TryGetValue(databaseType, out DatabaseColumnType? result))
             return result;
         else
-            return cachedDbTypes.GetOrAdd(databaseType, type => DbTypes.FirstOrDefault(x => x.DatabaseType == type) ?? DbTypes.FirstOrDefault());
+            return cachedDbTypes.GetOrAdd(databaseType, type => dbTypes.FirstOrDefault(x => x.DatabaseType == type) ?? dbTypes.FirstOrDefault());
     }
 
-    public override string ToString() => $"{Table.DbName}.{DbName} ({DbTypes.ToJoinedString(", ")})";
+    public override string ToString() => $"{Table.DbName}.{DbName} ({dbTypes.ToJoinedString(", ")})";
 
     internal void Freeze()
     {
@@ -158,7 +160,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
         IsFrozen = true;
 
-        foreach (var dbType in DbTypes)
+        foreach (var dbType in dbTypes)
             dbType.Freeze();
     }
 

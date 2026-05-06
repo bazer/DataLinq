@@ -184,7 +184,7 @@ Exit criteria:
 
 ## Workstream C: Immutable Metadata Builder And Factory Foundation
 
-**Status:** In progress. The primary metadata producers now feed typed drafts into the factory, and factory-built runtime graphs are frozen against setter-style mutation plus the main structural collection mutation paths; public array and cache-policy collection sealing remain unfinished.
+**Status:** In progress. The primary metadata producers now feed typed drafts into the factory, and factory-built runtime graphs are frozen against setter-style mutation plus the main structural collection mutation paths. Public array surfaces now return defensive copies; cache-policy collection sealing remains unfinished.
 
 Goals:
 
@@ -202,7 +202,7 @@ Tasks:
 6. [x] Add provider metadata equivalence tests for SQLite and the supported MySQL/MariaDB subset.
 7. [x] Move runtime cache defaults out of metadata mutation. Provider initialization should compute effective cache policy rather than appending defaults into `DatabaseDefinition`.
 8. [x] Replace in-place metadata transform behavior with a builder/snapshot merge path.
-9. [in progress] After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections. Structural list/dictionary mutation is now blocked after freeze; public arrays, cache-policy lists, and mutator obsoletion remain.
+9. [in progress] After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections. Structural list/dictionary mutation is now blocked after freeze, public arrays no longer expose live storage, and cache-policy lists plus mutator obsoletion remain.
 
 Foundation slice notes:
 
@@ -233,6 +233,7 @@ Foundation slice notes:
 - `MetadataDefinitionFactory` now snapshots the draft before finalization, so interface assignment, index creation, relation resolution, and column ordinal assignment happen on the returned runtime graph without mutating the draft graph. Stub table models are preserved across the snapshot boundary.
 - `MetadataDefinitionFactory` now freezes successful metadata snapshots after validation, relation finalization, and column ordinal assignment. Database, table-model, table/view, model, property, column, index, relation, and provider type setter-style mutators reject post-finalization changes; public collection sealing remains the next compatibility cleanup.
 - Table index collections, model value/relation property dictionaries, and index column/relation-part collections now use freeze-aware runtime collection types, closing the main direct structural collection mutation bypasses after factory finalization. Enum metadata now exposes read-only value lists.
+- Array-shaped metadata properties now preserve their existing public API shape while returning defensive copies instead of live backing arrays. This closes element-assignment bypasses for database attributes/table models, table columns/primary keys, model interfaces/usings/attributes, property attributes, and column database types without forcing broad `Length`/indexer call-site churn.
 - Generated runtime metadata bootstrap failures now return `InvalidModel` option failures for missing hooks, wrong hook return types, default declarations, and malformed table declarations instead of surfacing as arbitrary catch-all exceptions.
 - Provider metadata import now returns `InvalidModel` option failures for unsupported SQLite, MySQL, and MariaDB column types with table/column context, while still skipping intentionally unsupported generated columns.
 - MySQL and MariaDB provider metadata import now returns `InvalidModel` option failures for unsupported index types and malformed index rows, keeping provider index parsing in the expected-failure path instead of throwing from information_schema classification.
@@ -260,7 +261,7 @@ Foundation slice notes:
 - Relational attribute metadata is now preflighted before draft snapshot copying and during finalization, so malformed `Index`, `ForeignKey`, and `Relation` attribute shapes such as unsupported enum values or empty index/relation targets return `InvalidModel` before index and relation parsing can fail late.
 - C# symbol metadata used by generated code is now preflighted before draft snapshot copying and rechecked after relation generation, so unsupported or role-incompatible C# type-kind values plus invalid database/model type names, table property names, model using namespaces, declared model interface references, generated model type references, value/relation property C# type references, value property names, and generated relation property names return `InvalidModel` before generated source can become malformed. Declared model interface entries are now also required to use interface-shaped C# metadata instead of any valid type syntax, and the source parser tags base-list model interfaces accordingly.
 - Model-file generation now formats metadata string arguments through Roslyn string literals, so database names, table/view names, definitions, index and column names, database type names, enum names, and relation attribute values containing quotes or escapes produce valid generated attributes.
-- This slice deliberately does not claim fully immutable runtime definitions yet. The current graph is frozen against ordinary mutators and the main structural collection mutators after factory finalization, but public arrays and cache-policy list properties still need read-only or immutable replacement; typed drafts still lower through the mutable graph internally.
+- This slice deliberately does not claim fully immutable runtime definitions yet. The current graph is frozen against ordinary mutators and the main structural collection mutators after factory finalization, and array-shaped properties no longer expose live storage; cache-policy list properties still need read-only or immutable replacement, and typed drafts still lower through the mutable graph internally.
 
 Design stance:
 

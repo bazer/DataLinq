@@ -7,6 +7,10 @@ namespace DataLinq.Metadata;
 
 public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 {
+    private CsTypeDeclaration[] originalInterfaces = [];
+    private ModelUsing[] usings = [];
+    private Attribute[] attributes = [];
+
     public CsTypeDeclaration CsType { get; private set; } = csType;
     public bool IsFrozen { get; private set; }
 
@@ -66,36 +70,36 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         ModelInstanceInterface = interfaceType;
     }
 
-    public CsTypeDeclaration[] OriginalInterfaces { get; private set; } = [];
+    public CsTypeDeclaration[] OriginalInterfaces => originalInterfaces.ToArray();
 
     public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces)
     {
         ThrowIfFrozen();
-        OriginalInterfaces = interfaces.ToArray();
+        originalInterfaces = interfaces.ToArray();
     }
 
-    public ModelUsing[] Usings { get; private set; } = [];
+    public ModelUsing[] Usings => usings.ToArray();
 
     public void SetUsings(IEnumerable<ModelUsing> usings)
     {
         ThrowIfFrozen();
-        Usings = usings.ToArray();
+        this.usings = usings.ToArray();
     }
 
     public MetadataDictionary<string, RelationProperty> RelationProperties { get; } = new();
     public MetadataDictionary<string, ValueProperty> ValueProperties { get; } = new();
-    public Attribute[] Attributes { get; private set; } = [];
+    public Attribute[] Attributes => attributes.ToArray();
 
     public void SetAttributes(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
-        Attributes = attributes.ToArray();
+        this.attributes = attributes.ToArray();
     }
 
     public void AddAttribute(Attribute attribute)
     {
         ThrowIfFrozen();
-        Attributes = [.. Attributes, attribute];
+        attributes = [.. attributes, attribute];
     }
 
     public SourceTextSpan? SourceSpan { get; private set; }

@@ -15,6 +15,9 @@ public enum TableType
 
 public class TableDefinition(string dbName) : IDefinition
 {
+    private ColumnDefinition[] columns = [];
+    private ColumnDefinition[] primaryKeyColumns = [];
+
     public string DbName { get; private set; } = dbName;
     public bool IsFrozen { get; private set; }
 
@@ -34,15 +37,15 @@ public class TableDefinition(string dbName) : IDefinition
 
     public DatabaseDefinition Database => TableModel.Database;
     public ModelDefinition Model => TableModel.Model;
-    public ColumnDefinition[] Columns { get; private set; } = [];
+    public ColumnDefinition[] Columns => columns.ToArray();
 
     public void SetColumns(IEnumerable<ColumnDefinition> columns)
     {
         ThrowIfFrozen();
-        Columns = columns.ToArray();
+        this.columns = columns.ToArray();
     }
 
-    public ColumnDefinition[] PrimaryKeyColumns { get; private set; } = [];
+    public ColumnDefinition[] PrimaryKeyColumns => primaryKeyColumns.ToArray();
     public MetadataList<ColumnIndex> ColumnIndices { get; } = new();
 
     public TableType Type { get; protected set; } = TableType.Table;
@@ -66,22 +69,22 @@ public class TableDefinition(string dbName) : IDefinition
     {
         ThrowIfFrozen();
 
-        if (PrimaryKeyColumns == null)
-            PrimaryKeyColumns = [column];
-        else if (PrimaryKeyColumns.Contains(column))
+        if (primaryKeyColumns == null)
+            primaryKeyColumns = [column];
+        else if (primaryKeyColumns.Contains(column))
             throw DLOptionFailure.Exception(DLFailureType.InvalidArgument, $"Column {column} already in primary key");
         else
-            PrimaryKeyColumns = PrimaryKeyColumns.Concat(new[] { column }).ToArray();
+            primaryKeyColumns = primaryKeyColumns.Concat(new[] { column }).ToArray();
     }
 
     public void RemovePrimaryKeyColumn(ColumnDefinition column)
     {
         ThrowIfFrozen();
 
-        if (PrimaryKeyColumns == null)
+        if (primaryKeyColumns == null)
             return;
 
-        PrimaryKeyColumns = PrimaryKeyColumns.Where(x => x != column).ToArray();
+        primaryKeyColumns = primaryKeyColumns.Where(x => x != column).ToArray();
     }
 
 
@@ -102,7 +105,7 @@ public class TableDefinition(string dbName) : IDefinition
 
         IsFrozen = true;
 
-        foreach (var column in Columns)
+        foreach (var column in columns)
             column.Freeze();
 
         foreach (var index in ColumnIndices)

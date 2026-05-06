@@ -40,9 +40,12 @@ public class MetadataDefinitionFactoryTests
     public async Task Build_RelationDraft_ReturnsFrozenMetadataSnapshot()
     {
         var database = CreateRelationDraft();
-        database.TableModels
-            .Single(tm => tm.Table.DbName == "orders")
-            .Table
+        database.SetAttributes([new DatabaseAttribute("TestDb")]);
+
+        var draftOrderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        draftOrderModel.SetUsings([new ModelUsing("System")]);
+        draftOrderModel.SetAttributes([new TableAttribute("orders")]);
+        draftOrderModel.Table
             .Columns
             .Single(column => column.DbName == "order_id")
             .AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int"));
@@ -80,6 +83,16 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(foreignKeyIndex.Columns.IsReadOnly).IsTrue();
         await Assert.That(foreignKeyIndex.RelationParts.IsFrozen).IsTrue();
         await Assert.That(foreignKeyIndex.RelationParts.IsReadOnly).IsTrue();
+
+        await AssertArrayElementAssignmentDoesNotMutate(() => built.TableModels, orderTableModel);
+        await AssertArrayElementAssignmentDoesNotMutate(() => built.Attributes, new DatabaseAttribute("ChangedDb"));
+        await AssertArrayElementAssignmentDoesNotMutate(() => orderTable.Columns, amount);
+        await AssertArrayElementAssignmentDoesNotMutate(() => orderTable.PrimaryKeyColumns, amount);
+        await AssertArrayElementAssignmentDoesNotMutate(() => orderModel.OriginalInterfaces, new CsTypeDeclaration("IOther", "TestNamespace", ModelCsType.Interface));
+        await AssertArrayElementAssignmentDoesNotMutate(() => orderModel.Usings, new ModelUsing("Other.Namespace"));
+        await AssertArrayElementAssignmentDoesNotMutate(() => orderModel.Attributes, new TableAttribute("changed"));
+        await AssertArrayElementAssignmentDoesNotMutate(() => orderId.DbTypes, new DatabaseColumnType(DatabaseType.MySQL, "bigint"));
+        await AssertArrayElementAssignmentDoesNotMutate(() => orderIdProperty.Attributes, new ColumnAttribute("changed"));
 
         await AssertFrozenMutation(() => built.SetDbName("changed"));
         await AssertFrozenMutation(() => orderTableModel.SetCsPropertyName("Changed"));
@@ -2469,6 +2482,16 @@ public class MetadataDefinitionFactoryTests
 
         await Assert.That(exception).IsNotNull();
         await Assert.That(exception!.Message).Contains("is frozen");
+    }
+
+    private static async Task AssertArrayElementAssignmentDoesNotMutate<T>(Func<T[]> getArray, T replacement)
+    {
+        var returnedArray = getArray();
+        var originalFirstItem = returnedArray[0];
+
+        returnedArray[0] = replacement;
+
+        await Assert.That(getArray()[0]).IsEqualTo(originalFirstItem);
     }
 
     private sealed class MutableTableDefinition(string dbName) : TableDefinition(dbName)
