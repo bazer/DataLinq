@@ -237,15 +237,15 @@ public record struct EnumProperty
 {
     public EnumProperty(IEnumerable<(string name, int value)>? enumValues = null, IEnumerable<(string name, int value)>? csEnumValues = null, bool declaredInClass = true)
     {
-        DbEnumValues = enumValues?.ToList() ?? [];
-        CsEnumValues = csEnumValues?.ToList() ?? [];
+        DbEnumValues = enumValues?.ToArray() ?? [];
+        CsEnumValues = csEnumValues?.ToArray() ?? [];
         DeclaredInClass = declaredInClass;
     }
 
-    public List<(string name, int value)> DbEnumValues { get; }
-    public List<(string name, int value)> CsEnumValues { get; }
-    public List<(string name, int value)> CsValuesOrDbValues => CsEnumValues.Count != 0 ? CsEnumValues : DbEnumValues;
-    public List<(string name, int value)> DbValuesOrCsValues => DbEnumValues.Count != 0 ? DbEnumValues : CsEnumValues;
+    public IReadOnlyList<(string name, int value)> DbEnumValues { get; }
+    public IReadOnlyList<(string name, int value)> CsEnumValues { get; }
+    public IReadOnlyList<(string name, int value)> CsValuesOrDbValues => CsEnumValues.Count != 0 ? CsEnumValues : DbEnumValues;
+    public IReadOnlyList<(string name, int value)> DbValuesOrCsValues => DbEnumValues.Count != 0 ? DbEnumValues : CsEnumValues;
     public bool DeclaredInClass { get; }
 }
 

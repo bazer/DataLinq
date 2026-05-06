@@ -70,6 +70,16 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(foreignKeyIndex.IsFrozen).IsTrue();
         await Assert.That(relation.IsFrozen).IsTrue();
         await Assert.That(dbType.IsFrozen).IsTrue();
+        await Assert.That(orderTable.ColumnIndices.IsFrozen).IsTrue();
+        await Assert.That(orderTable.ColumnIndices.IsReadOnly).IsTrue();
+        await Assert.That(orderModel.ValueProperties.IsFrozen).IsTrue();
+        await Assert.That(orderModel.ValueProperties.IsReadOnly).IsTrue();
+        await Assert.That(orderModel.RelationProperties.IsFrozen).IsTrue();
+        await Assert.That(orderModel.RelationProperties.IsReadOnly).IsTrue();
+        await Assert.That(foreignKeyIndex.Columns.IsFrozen).IsTrue();
+        await Assert.That(foreignKeyIndex.Columns.IsReadOnly).IsTrue();
+        await Assert.That(foreignKeyIndex.RelationParts.IsFrozen).IsTrue();
+        await Assert.That(foreignKeyIndex.RelationParts.IsReadOnly).IsTrue();
 
         await AssertFrozenMutation(() => built.SetDbName("changed"));
         await AssertFrozenMutation(() => orderTableModel.SetCsPropertyName("Changed"));
@@ -82,6 +92,11 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => foreignKeyIndex.AddColumn(amount));
         await AssertFrozenMutation(() => relation.ConstraintName = "Changed");
         await AssertFrozenMutation(() => dbType.SetName("bigint"));
+        await AssertFrozenMutation(() => orderTable.ColumnIndices.Add(new ColumnIndex("idx_amount", IndexCharacteristic.Simple, IndexType.BTREE, [amount])));
+        await AssertFrozenMutation(() => orderModel.ValueProperties.Clear());
+        await AssertFrozenMutation(() => orderModel.RelationProperties.Clear());
+        await AssertFrozenMutation(() => foreignKeyIndex.Columns.Add(amount));
+        await AssertFrozenMutation(() => foreignKeyIndex.RelationParts.Clear());
     }
 
     [Test]

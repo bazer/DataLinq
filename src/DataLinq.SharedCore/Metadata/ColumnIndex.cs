@@ -12,7 +12,7 @@ namespace DataLinq.Metadata;
 public class ColumnIndex : IDefinition
 {
     private TableDefinition table = null!;
-    private List<RelationPart> relationParts = new();
+    private MetadataList<RelationPart> relationParts = new();
 
     /// <summary>
     /// Table that the index belongs to.
@@ -33,9 +33,9 @@ public class ColumnIndex : IDefinition
     /// Gets or sets the list of columns associated with the index. 
     /// Each entry includes the column in the order of the index.
     /// </summary>
-    public List<ColumnDefinition> Columns { get; }
+    public MetadataList<ColumnDefinition> Columns { get; }
 
-    public List<RelationPart> RelationParts
+    public MetadataList<RelationPart> RelationParts
     {
         get => relationParts;
         set
@@ -74,7 +74,7 @@ public class ColumnIndex : IDefinition
         Name = name;
         Characteristic = characteristic;
         Type = type;
-        this.Columns = columns ?? [];
+        Columns = new MetadataList<ColumnDefinition>(columns ?? []);
         if (!this.Columns.Any())
             throw new InvalidOperationException("An index should have at least one column.");
 
@@ -164,6 +164,9 @@ public class ColumnIndex : IDefinition
         {
             relation.Freeze();
         }
+
+        Columns.Freeze();
+        RelationParts?.Freeze();
     }
 
     private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);

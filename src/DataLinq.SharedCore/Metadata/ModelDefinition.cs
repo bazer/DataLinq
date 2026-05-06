@@ -82,8 +82,8 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         Usings = usings.ToArray();
     }
 
-    public Dictionary<string, RelationProperty> RelationProperties { get; } = new();
-    public Dictionary<string, ValueProperty> ValueProperties { get; } = new();
+    public MetadataDictionary<string, RelationProperty> RelationProperties { get; } = new();
+    public MetadataDictionary<string, ValueProperty> ValueProperties { get; } = new();
     public Attribute[] Attributes { get; private set; } = [];
 
     public void SetAttributes(IEnumerable<Attribute> attributes)
@@ -193,6 +193,9 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
         foreach (var property in RelationProperties.Values)
             property.Freeze();
+
+        ValueProperties.Freeze();
+        RelationProperties.Freeze();
     }
 
     private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);

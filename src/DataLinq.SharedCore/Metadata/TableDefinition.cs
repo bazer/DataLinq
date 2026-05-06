@@ -43,7 +43,7 @@ public class TableDefinition(string dbName) : IDefinition
     }
 
     public ColumnDefinition[] PrimaryKeyColumns { get; private set; } = [];
-    public List<ColumnIndex> ColumnIndices { get; private set; } = [];
+    public MetadataList<ColumnIndex> ColumnIndices { get; } = new();
 
     public TableType Type { get; protected set; } = TableType.Table;
     public List<(CacheLimitType limitType, long amount)> CacheLimits { get; } = [];
@@ -107,6 +107,8 @@ public class TableDefinition(string dbName) : IDefinition
 
         foreach (var index in ColumnIndices)
             index.Freeze();
+
+        ColumnIndices.Freeze();
     }
 
     protected void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);

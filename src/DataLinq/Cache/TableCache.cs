@@ -152,7 +152,7 @@ public class TableCache
     protected ConcurrentDictionary<Transaction, RowCache> TransactionRows = new();
 
     protected int primaryKeyColumnsCount;
-    protected List<ColumnIndex> indices;
+    protected IReadOnlyList<ColumnIndex> indices;
     protected (IndexCacheType type, int? amount) indexCachePolicy;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
     private readonly DataLinqTelemetryContext telemetryContext;
