@@ -184,7 +184,7 @@ Exit criteria:
 
 ## Workstream C: Immutable Metadata Builder And Factory Foundation
 
-**Status:** In progress. First foundation slice landed on 2026-05-05.
+**Status:** In progress. The primary metadata producers now feed typed drafts into the factory; immutable runtime definitions remain the major unfinished part.
 
 Goals:
 
@@ -198,10 +198,10 @@ Tasks:
 2. [x] Represent source-model metadata, generated declarations, SQLite metadata, MySQL metadata, and MariaDB metadata in builder form. Source-model, generated runtime, SQLite, MySQL, and MariaDB metadata now build typed drafts before factory finalization.
 3. [in progress] Introduce a `MetadataDefinitionFactory` or equivalent factory that owns validation, normalization, relation resolution, column ordinal assignment, cache metadata interpretation, and freeze/finalization.
 4. [in progress] Make expected invalid-model failures return `Option<DatabaseDefinition, IDLOptionFailure>` rather than arbitrary exceptions.
-5. [in progress] Add equivalence tests comparing builder-built metadata against current metadata for generated `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model. Source-parsed versus generated-runtime coverage now exists for the representative models; extend it to true builder-built inputs once those inputs are wired.
+5. [x] Add equivalence tests comparing builder-built metadata against current metadata for generated `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model. Source-parsed and generated-runtime metadata now both enter through typed drafts, and the representative equivalence coverage stays green across those paths.
 6. [x] Add provider metadata equivalence tests for SQLite and the supported MySQL/MariaDB subset.
 7. [x] Move runtime cache defaults out of metadata mutation. Provider initialization should compute effective cache policy rather than appending defaults into `DatabaseDefinition`.
-8. [in progress] Replace in-place metadata transform behavior with a builder/snapshot merge path.
+8. [x] Replace in-place metadata transform behavior with a builder/snapshot merge path.
 9. After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections.
 
 Foundation slice notes:
@@ -258,7 +258,7 @@ Foundation slice notes:
 - Relational attribute metadata is now preflighted before draft snapshot copying and during finalization, so malformed `Index`, `ForeignKey`, and `Relation` attribute shapes such as unsupported enum values or empty index/relation targets return `InvalidModel` before index and relation parsing can fail late.
 - C# symbol metadata used by generated code is now preflighted before draft snapshot copying and rechecked after relation generation, so unsupported or role-incompatible C# type-kind values plus invalid database/model type names, table property names, model using namespaces, declared model interface references, generated model type references, value/relation property C# type references, value property names, and generated relation property names return `InvalidModel` before generated source can become malformed. Declared model interface entries are now also required to use interface-shaped C# metadata instead of any valid type syntax, and the source parser tags base-list model interfaces accordingly.
 - Model-file generation now formats metadata string arguments through Roslyn string literals, so database names, table/view names, definitions, index and column names, database type names, enum names, and relation attribute values containing quotes or escapes produce valid generated attributes.
-- This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
+- This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and typed drafts still lower through that graph internally; the remaining C work is API sealing/freeze behavior and any compatibility cleanup needed around the mutable factory and transformer shims.
 
 Design stance:
 

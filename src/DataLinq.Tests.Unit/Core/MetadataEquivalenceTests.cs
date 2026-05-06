@@ -15,7 +15,7 @@ namespace DataLinq.Tests.Unit.Core;
 public class MetadataEquivalenceTests
 {
     [Test]
-    public async Task SourceParsedAndGeneratedRuntimeMetadata_AreEquivalentForRepresentativeModels()
+    public async Task TypedSourceDraftAndTypedGeneratedRuntimeMetadata_AreEquivalentForRepresentativeModels()
     {
         var repositoryRoot = RepositoryLayout.FindRepositoryRoot();
 
