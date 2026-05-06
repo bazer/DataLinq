@@ -48,14 +48,16 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
         if (database.TableModels.Length == 0)
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No tables or views found in database '{dbName}'. Please check the connection string and database name.");
 
-        ParseIndices(database, informationSchemaDb);
+        if (!ParseIndices(database, informationSchemaDb).TryUnwrap(out _, out var indexFailure))
+            return indexFailure;
+
         ParseRelations(database, informationSchemaDb);
         ParseCheckConstraints(database, informationSchemaDb.Provider.DatabaseAccess);
         return new MetadataDefinitionFactory()
             .BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database));
     });
 
-    protected void ParseIndices(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
+    protected Option<bool, IDLOptionFailure> ParseIndices(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
     {
         // Fetch table-column pairs that are part of a foreign key relationship
         var foreignKeyColumns = informationSchemaDb.Query().KEY_COLUMN_USAGE
@@ -82,17 +84,16 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
                 continue;
             }
 
-            // Determine the type and characteristic of the index.
-            var indexType = dbIndexGroup.First().INDEX_TYPE.ToUpper() switch
-            {
-                "BTREE" => IndexType.BTREE,
-                "FULLTEXT" => IndexType.FULLTEXT,
-                "HASH" => IndexType.HASH,
-                "RTREE" => IndexType.RTREE,
-                _ => throw new NotImplementedException($"Unknown index type '{dbIndexGroup.First().INDEX_TYPE.ToUpper()}'"),
-            };
+            var dbIndex = dbIndexGroup.First();
+            if (string.IsNullOrWhiteSpace(dbIndex.TABLE_NAME) || string.IsNullOrWhiteSpace(dbIndex.INDEX_NAME))
+                return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"MariaDB index metadata is missing a table or index name in database '{database.DbName}'.");
 
-            var indexCharacteristic = dbIndexGroup.First().NON_UNIQUE == 0
+            var tableName = dbIndex.TABLE_NAME;
+            var indexName = dbIndex.INDEX_NAME;
+            if (!ParseIndexType(dbIndex.INDEX_TYPE, tableName, indexName).TryUnwrap(out var indexType, out var indexTypeFailure))
+                return indexTypeFailure;
+
+            var indexCharacteristic = dbIndex.NON_UNIQUE == 0
                 ? IndexCharacteristic.Unique
                 : IndexCharacteristic.Simple;
 
@@ -119,8 +120,10 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
 
             var columnNames = columns.Select(x => x.DbName).ToArray();
             foreach (var column in columns)
-                column.ValueProperty.AddAttribute(new IndexAttribute(dbIndexGroup.First().INDEX_NAME, indexCharacteristic, indexType, columnNames));
+                column.ValueProperty.AddAttribute(new IndexAttribute(indexName, indexCharacteristic, indexType, columnNames));
         }
+
+        return true;
     }
 
     private static string? GetUnsupportedIndexReason(IReadOnlyList<STATISTICS> indexedColumns)

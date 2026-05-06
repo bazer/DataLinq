@@ -220,6 +220,20 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         };
     }
 
+    protected Option<IndexType, IDLOptionFailure> ParseIndexType(string indexType, string tableName, string indexName)
+    {
+        return indexType.Trim().ToUpperInvariant() switch
+        {
+            "BTREE" => IndexType.BTREE,
+            "FULLTEXT" => IndexType.FULLTEXT,
+            "HASH" => IndexType.HASH,
+            "RTREE" => IndexType.RTREE,
+            _ => DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Unsupported {databaseType} index type '{indexType}' for index '{tableName}.{indexName}'."),
+        };
+    }
+
     private static string NormalizeCheckClause(string checkClause) =>
         checkClause.Replace(@"\'", "'");
 
