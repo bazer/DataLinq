@@ -65,6 +65,21 @@ public class ProviderMetadataFailureTests
         await Assert.That(failure.ToString()!).Contains("items.ix_items_shape");
     }
 
+    [Test]
+    [Arguments(DatabaseType.MySQL, "MySQL")]
+    [Arguments(DatabaseType.MariaDB, "MariaDB")]
+    public async Task ParseForeignKeyReference_MalformedSqlRelationRow_ReturnsInvalidModelFailure(DatabaseType databaseType, string providerName)
+    {
+        var result = new ExposedMetadataFromSqlFactory(databaseType)
+            .TryParseForeignKeyReferenceForTest(constraintName: null);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.ToString()!).Contains($"Malformed {providerName} foreign-key metadata row");
+        await Assert.That(failure.ToString()!).Contains("constraint name");
+    }
+
     private static TableDefinition CreateTable()
     {
         var database = new DatabaseDefinition(
@@ -95,6 +110,25 @@ public class ProviderMetadataFailureTests
         public Option<bool, IDLOptionFailure> TryParseIndexTypeForTest(string indexType)
         {
             if (!ParseIndexType(indexType, "items", "ix_items_shape").TryUnwrap(out _, out var failure))
+                return failure;
+
+            return true;
+        }
+
+        public Option<bool, IDLOptionFailure> TryParseForeignKeyReferenceForTest(
+            string? tableName = "items",
+            string? columnName = "category_id",
+            string? referencedTableName = "categories",
+            string? referencedColumnName = "id",
+            string? constraintName = "fk_items_categories")
+        {
+            if (!ParseForeignKeyReference(
+                "testdb",
+                tableName,
+                columnName,
+                referencedTableName,
+                referencedColumnName,
+                constraintName).TryUnwrap(out _, out var failure))
                 return failure;
 
             return true;

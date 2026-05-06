@@ -22,6 +22,12 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
     private readonly DatabaseType databaseType;
 
     protected readonly record struct ProviderColumnImport(ColumnDefinition? Column);
+    protected readonly record struct ProviderForeignKeyReference(
+        string TableName,
+        string ColumnName,
+        string ReferencedTableName,
+        string ReferencedColumnName,
+        string ConstraintName);
 
     public static MetadataFromSqlFactory GetSqlFactory(MetadataFromDatabaseFactoryOptions options, DatabaseType databaseType)
     {
@@ -232,6 +238,28 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
                 DLFailureType.InvalidModel,
                 $"Unsupported {databaseType} index type '{indexType}' for index '{tableName}.{indexName}'."),
         };
+    }
+
+    protected Option<ProviderForeignKeyReference, IDLOptionFailure> ParseForeignKeyReference(
+        string databaseName,
+        string? tableName,
+        string? columnName,
+        string? referencedTableName,
+        string? referencedColumnName,
+        string? constraintName)
+    {
+        if (string.IsNullOrWhiteSpace(tableName) ||
+            string.IsNullOrWhiteSpace(columnName) ||
+            string.IsNullOrWhiteSpace(referencedTableName) ||
+            string.IsNullOrWhiteSpace(referencedColumnName) ||
+            string.IsNullOrWhiteSpace(constraintName))
+        {
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Malformed {databaseType} foreign-key metadata row in database '{databaseName}': table, column, referenced table, referenced column, and constraint name are required.");
+        }
+
+        return new ProviderForeignKeyReference(tableName, columnName, referencedTableName, referencedColumnName, constraintName);
     }
 
     private static string NormalizeCheckClause(string checkClause) =>

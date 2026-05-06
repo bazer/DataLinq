@@ -51,7 +51,9 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
         if (!ParseIndices(database, informationSchemaDb).TryUnwrap(out _, out var indexFailure))
             return indexFailure;
 
-        ParseRelations(database, informationSchemaDb);
+        if (!ParseRelations(database, informationSchemaDb).TryUnwrap(out _, out var relationFailure))
+            return relationFailure;
+
         ParseCheckConstraints(database, informationSchemaDb.Provider.DatabaseAccess);
         return new MetadataDefinitionFactory()
             .BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -140,42 +142,53 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
         return null;
     }
 
-    protected void ParseRelations(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
+    protected Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
     {
         var referentialActions = ParseReferentialActions(database, informationSchemaDb.Provider.DatabaseAccess);
 
         foreach (var key in informationSchemaDb.Query()
             .KEY_COLUMN_USAGE.Where(x => x.TABLE_SCHEMA == database.DbName && x.REFERENCED_COLUMN_NAME != null))
         {
-            var foreignKeyColumn = database
-                .TableModels.SingleOrDefault(x => x.Table.DbName == key.TABLE_NAME)?
-                .Table.Columns.SingleOrDefault(x => x.DbName == key.COLUMN_NAME);
+            if (!ParseForeignKeyReference(
+                database.DbName,
+                key.TABLE_NAME,
+                key.COLUMN_NAME,
+                key.REFERENCED_TABLE_NAME,
+                key.REFERENCED_COLUMN_NAME,
+                key.CONSTRAINT_NAME).TryUnwrap(out var foreignKey, out var foreignKeyFailure))
+                return foreignKeyFailure;
 
-            if (foreignKeyColumn == null || key.REFERENCED_TABLE_NAME == null || key.REFERENCED_COLUMN_NAME == null)
+            var foreignKeyColumn = database
+                .TableModels.SingleOrDefault(x => x.Table.DbName == foreignKey.TableName)?
+                .Table.Columns.SingleOrDefault(x => x.DbName == foreignKey.ColumnName);
+
+            if (foreignKeyColumn == null)
                 continue;
 
             var candidateColumn = database
-                .TableModels.SingleOrDefault(x => x.Table.DbName == key.REFERENCED_TABLE_NAME)?
-                .Table.Columns.SingleOrDefault(x => x.DbName == key.REFERENCED_COLUMN_NAME);
+                .TableModels.SingleOrDefault(x => x.Table.DbName == foreignKey.ReferencedTableName)?
+                .Table.Columns.SingleOrDefault(x => x.DbName == foreignKey.ReferencedColumnName);
 
             if (candidateColumn == null)
             {
-                options.Log?.Invoke($"Warning: Skipping foreign key '{key.CONSTRAINT_NAME}' on table '{key.TABLE_NAME}' because referenced column '{key.REFERENCED_TABLE_NAME}.{key.REFERENCED_COLUMN_NAME}' was not imported.");
+                options.Log?.Invoke($"Warning: Skipping foreign key '{foreignKey.ConstraintName}' on table '{foreignKey.TableName}' because referenced column '{foreignKey.ReferencedTableName}.{foreignKey.ReferencedColumnName}' was not imported.");
                 continue;
             }
 
-            referentialActions.TryGetValue((key.TABLE_NAME, key.CONSTRAINT_NAME), out var actions);
+            referentialActions.TryGetValue((foreignKey.TableName, foreignKey.ConstraintName), out var actions);
 
             // The only job of this method is to mark the column and add the attribute.
             foreignKeyColumn.SetForeignKey();
             foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(
-                key.REFERENCED_TABLE_NAME,
-                key.REFERENCED_COLUMN_NAME,
-                key.CONSTRAINT_NAME,
+                foreignKey.ReferencedTableName,
+                foreignKey.ReferencedColumnName,
+                foreignKey.ConstraintName,
                 (int)key.ORDINAL_POSITION,
                 actions.OnUpdate,
                 actions.OnDelete));
         }
+
+        return true;
     }
 
     protected Option<TableModel, IDLOptionFailure> ParseTable(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb, TABLES dbTables)
