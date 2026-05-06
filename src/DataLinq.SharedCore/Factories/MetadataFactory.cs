@@ -591,6 +591,77 @@ public static class MetadataFactory
         return null;
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateProviderScopedAttributeDatabaseTypes(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var model = tableModel.Model;
+
+            foreach (var comment in model.Attributes.OfType<CommentAttribute>())
+            {
+                if (!Enum.IsDefined(typeof(DatabaseType), comment.DatabaseType))
+                    return CreateModelAttributeFailure(
+                        model,
+                        comment,
+                        $"Comment attribute on model '{model.CsType.Name}' uses unsupported database type '{comment.DatabaseType}'.");
+            }
+
+            foreach (var check in model.Attributes.OfType<CheckAttribute>())
+            {
+                if (!Enum.IsDefined(typeof(DatabaseType), check.DatabaseType))
+                    return CreateModelAttributeFailure(
+                        model,
+                        check,
+                        $"Check attribute on model '{model.CsType.Name}' uses unsupported database type '{check.DatabaseType}'.");
+            }
+
+            foreach (var property in model.ValueProperties.Values)
+            {
+                foreach (var comment in property.Attributes.OfType<CommentAttribute>())
+                {
+                    if (!Enum.IsDefined(typeof(DatabaseType), comment.DatabaseType))
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            comment,
+                            $"Comment attribute on value property '{GetValuePropertyDisplayName(property)}' uses unsupported database type '{comment.DatabaseType}'.");
+                }
+
+                foreach (var defaultSql in property.Attributes.OfType<DefaultSqlAttribute>())
+                {
+                    if (!Enum.IsDefined(typeof(DatabaseType), defaultSql.DatabaseType))
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            defaultSql,
+                            $"Default SQL attribute on value property '{GetValuePropertyDisplayName(property)}' uses unsupported database type '{defaultSql.DatabaseType}'.");
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure CreateModelAttributeFailure(ModelDefinition model, Attribute attribute, string message)
+    {
+        var attributeLocation = model.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        var modelLocation = model.GetSourceLocation();
+        if (modelLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, modelLocation.Value);
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, model);
+    }
+
+    private static IDLOptionFailure CreateValuePropertyAttributeFailure(ValueProperty property, Attribute attribute, string message)
+    {
+        var attributeLocation = property.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        return CreateValuePropertyFailure(property, message);
+    }
+
     private static SourceLocation? GetTableNameSourceLocation(ModelDefinition model)
     {
         var tableAttribute = model.Attributes

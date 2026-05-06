@@ -40,6 +40,10 @@ public sealed class MetadataDefinitionDraft
         if (!cacheMetadataValidation.HasValue)
             return cacheMetadataValidation.Failure;
 
+        var attributeDatabaseTypeValidation = MetadataFactory.ValidateProviderScopedAttributeDatabaseTypes(metadata);
+        if (!attributeDatabaseTypeValidation.HasValue)
+            return attributeDatabaseTypeValidation.Failure;
+
         var tableNameValidation = MetadataFactory.ValidateUniqueTableNames(metadata);
         if (!tableNameValidation.HasValue)
             return tableNameValidation.Failure;

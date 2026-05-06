@@ -238,6 +238,60 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_CheckAttributeWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var model = database.TableModels.Single().Model;
+        model.AddAttribute(new CheckAttribute((DatabaseType)999, "CK_items_id", "id > 0"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Check attribute on model 'Item'");
+        await Assert.That(failure.Message).Contains("unsupported database type '999'");
+    }
+
+    [Test]
+    public async Task Build_CommentAttributeWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.AddAttribute(new CommentAttribute((DatabaseType)999, "id comment"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Comment attribute on value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("unsupported database type '999'");
+    }
+
+    [Test]
+    public async Task Build_DefaultSqlAttributeWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.AddAttribute(new DefaultSqlAttribute((DatabaseType)999, "0"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Default SQL attribute on value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("unsupported database type '999'");
+    }
+
+    [Test]
     public async Task Build_DatabaseTypeWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
