@@ -982,6 +982,16 @@ public static class MetadataFactory
                     tableModel.Table,
                     $"Table '{tableModel.Table.DbName}' on model '{tableModel.Model.CsType.Name}' uses unsupported table type '{tableModel.Table.Type}'.");
 
+            if (tableModel.Table.Type == TableType.View && tableModel.Table is not ViewDefinition)
+                return CreateTableFailure(
+                    tableModel.Table,
+                    $"Table '{tableModel.Table.DbName}' on model '{tableModel.Model.CsType.Name}' is marked as a view, but its metadata is not a view definition.");
+
+            if (tableModel.Table.Type == TableType.Table && tableModel.Table is ViewDefinition)
+                return CreateTableFailure(
+                    tableModel.Table,
+                    $"View '{tableModel.Table.DbName}' on model '{tableModel.Model.CsType.Name}' is marked as a table, but view metadata must use table type '{TableType.View}'.");
+
             if (!ReferenceEquals(tableModel.Table.TableModel, tableModel))
                 return CreateTableFailure(
                     tableModel.Table,

@@ -194,6 +194,61 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TableDefinitionMarkedAsView_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class));
+        model.SetInterfaces([new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        var table = new MutableTableDefinition("items");
+        table.SetType(TableType.View);
+        var tableModel = new TableModel("Items", database, model, table);
+        AddValueProperties(
+            model,
+            ("Id", typeof(int), [new ColumnAttribute("id")]));
+        database.SetTableModels([tableModel]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table 'items' on model 'Item'");
+        await Assert.That(failure.Message).Contains("marked as a view");
+        await Assert.That(failure.Message).Contains("not a view definition");
+    }
+
+    [Test]
+    public async Task Build_ViewDefinitionMarkedAsTable_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("ActiveItem", "TestNamespace", ModelCsType.Class));
+        model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        var view = new MutableViewDefinition("active_items");
+        view.SetDefinition("select 1");
+        view.SetType(TableType.Table);
+        var tableModel = new TableModel("ActiveItems", database, model, view);
+        AddValueProperties(
+            model,
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.SetTableModels([tableModel]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("View 'active_items' on model 'ActiveItem'");
+        await Assert.That(failure.Message).Contains("marked as a table");
+        await Assert.That(failure.Message).Contains("must use table type 'View'");
+    }
+
+    [Test]
     public async Task Build_DatabaseWithNullAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -1774,6 +1829,11 @@ public class MetadataDefinitionFactoryTests
     }
 
     private sealed class MutableTableDefinition(string dbName) : TableDefinition(dbName)
+    {
+        public void SetType(TableType type) => Type = type;
+    }
+
+    private sealed class MutableViewDefinition(string dbName) : ViewDefinition(dbName)
     {
         public void SetType(TableType type) => Type = type;
     }
