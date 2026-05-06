@@ -255,6 +255,93 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_MultipleDefaultAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("Name", typeof(string), [new ColumnAttribute("name"), new DefaultAttribute("first"), new DefaultAttribute("second")]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Name'");
+        await Assert.That(failure.Message).Contains("multiple default attributes");
+    }
+
+    [Test]
+    public async Task Build_DefaultNewUuidOnNonGuidProperty_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("Token", typeof(string), [new ColumnAttribute("token"), new DefaultNewUUIDAttribute()]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("DefaultNewUUIDAttribute can only be used with Guid properties");
+        await Assert.That(failure.Message).Contains("Item.Token");
+        await Assert.That(failure.Message).Contains("string");
+    }
+
+    [Test]
+    public async Task Build_DefaultCurrentTimestampOnNonTemporalProperty_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("IsReady", typeof(bool), [new ColumnAttribute("is_ready"), new DefaultCurrentTimestampAttribute()]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("DefaultCurrentTimestampAttribute can only be used");
+        await Assert.That(failure.Message).Contains("Item.IsReady");
+        await Assert.That(failure.Message).Contains("bool");
+    }
+
+    [Test]
+    public async Task Build_DefaultValueIncompatibleWithPropertyType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("Count", typeof(int), [new ColumnAttribute("count"), new DefaultAttribute("not-a-number")]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Default value for value property 'Item.Count'");
+        await Assert.That(failure.Message).Contains("not compatible with C# type 'int'");
+    }
+
+    [Test]
+    public async Task Build_DefaultNewUuidWithUnsupportedVersion_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("PublicId", typeof(Guid), [new ColumnAttribute("public_id"), new DefaultNewUUIDAttribute((UUIDVersion)999)]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("DefaultNewUUIDAttribute on value property 'Item.PublicId'");
+        await Assert.That(failure.Message).Contains("unsupported UUID version");
+    }
+
+    [Test]
     public async Task Build_ColumnWithoutValueProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(

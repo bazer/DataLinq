@@ -40,6 +40,10 @@ public sealed class MetadataDefinitionDraft
         if (!columnPropertyValidation.HasValue)
             return columnPropertyValidation.Failure;
 
+        var defaultValueValidation = MetadataFactory.ValidateValuePropertyDefaults(metadata);
+        if (!defaultValueValidation.HasValue)
+            return defaultValueValidation.Failure;
+
         var relationPropertyValidation = MetadataFactory.ValidateExistingRelationPropertyBindings(metadata);
         if (!relationPropertyValidation.HasValue)
             return relationPropertyValidation.Failure;

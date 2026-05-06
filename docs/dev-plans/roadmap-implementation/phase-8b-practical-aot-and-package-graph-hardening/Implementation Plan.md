@@ -238,6 +238,7 @@ Foundation slice notes:
 - Existing table-model ownership and primary-key registration are now preflighted before draft snapshot copying and checked again during finalization, so cross-database table-model reuse and asymmetric primary-key lists return `InvalidModel` instead of leaking snapshot map failures.
 - Table-model database property names are now finalized centrally: duplicate property names return `InvalidModel`, and database type/property-name collisions are normalized on the built snapshot instead of only in the source parser.
 - Existing relation-property bindings are now preflighted before draft snapshot copying and rechecked after relation finalization, so wrong dictionary keys, wrong owning models, value/relation property name collisions, and relation properties pointing at another table's relation part return `InvalidModel` instead of being silently normalized by snapshot copying.
+- Value-property defaults are now validated before draft snapshot copying, so duplicate defaults, dynamic defaults on incompatible C# types, unsupported UUID versions, and ordinary defaults that cannot be formatted for the property type return `InvalidModel` instead of failing later during generated code or SQL emission.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
 
 Design stance:

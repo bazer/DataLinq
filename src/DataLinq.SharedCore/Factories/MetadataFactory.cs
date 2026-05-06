@@ -566,6 +566,80 @@ public static class MetadataFactory
         return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property);
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateValuePropertyDefaults(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            foreach (var property in tableModel.Model.ValueProperties.Values)
+            {
+                var defaultAttributes = property.Attributes
+                    .OfType<DefaultAttribute>()
+                    .ToArray();
+
+                if (defaultAttributes.Length == 0)
+                    continue;
+
+                if (defaultAttributes.Length > 1)
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' has multiple default attributes. A value property can define only one default value.");
+
+                var defaultAttribute = defaultAttributes[0];
+
+                if (defaultAttribute is DefaultSqlAttribute defaultSql &&
+                    !Enum.IsDefined(typeof(DatabaseType), defaultSql.DatabaseType))
+                {
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Default SQL attribute on value property '{GetValuePropertyDisplayName(property)}' uses unsupported database type '{defaultSql.DatabaseType}'.");
+                }
+
+                if (defaultAttribute is DefaultCurrentTimestampAttribute &&
+                    !CanUseCurrentTimestampDefault(property.CsType.Name))
+                {
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"DefaultCurrentTimestampAttribute can only be used with DateOnly, TimeOnly, DateTime, or DateTimeOffset properties, but value property '{GetValuePropertyDisplayName(property)}' has C# type '{property.CsType.Name}'.");
+                }
+
+                if (defaultAttribute is DefaultNewUUIDAttribute defaultNewUuid)
+                {
+                    if (!IsGuidType(property.CsType.Name))
+                        return CreateValuePropertyFailure(
+                            property,
+                            $"DefaultNewUUIDAttribute can only be used with Guid properties, but value property '{GetValuePropertyDisplayName(property)}' has C# type '{property.CsType.Name}'.");
+
+                    if (!Enum.IsDefined(typeof(UUIDVersion), defaultNewUuid.Version))
+                        return CreateValuePropertyFailure(
+                            property,
+                            $"DefaultNewUUIDAttribute on value property '{GetValuePropertyDisplayName(property)}' uses unsupported UUID version '{defaultNewUuid.Version}'.");
+                }
+
+                if (defaultAttribute is not DefaultSqlAttribute)
+                {
+                    try
+                    {
+                        property.GetDefaultValueCode();
+                    }
+                    catch (Exception exception)
+                    {
+                        return CreateValuePropertyFailure(
+                            property,
+                            $"Default value for value property '{GetValuePropertyDisplayName(property)}' is not compatible with C# type '{property.CsType.Name}': {exception.Message}");
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static bool CanUseCurrentTimestampDefault(string csTypeName) =>
+        csTypeName is "DateOnly" or "TimeOnly" or "DateTime" or "DateTimeOffset";
+
+    private static bool IsGuidType(string csTypeName) =>
+        csTypeName is "Guid" or "System.Guid";
+
     public static Option<bool, IDLOptionFailure> ValidateExistingRelationPropertyBindings(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
