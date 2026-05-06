@@ -407,6 +407,62 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ColumnWithNullDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var column = database.TableModels.Single().Table.Columns.Single();
+        column.AddDbType(null!);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'items.id'");
+        await Assert.That(failure.Message).Contains("null database type");
+    }
+
+    [Test]
+    public async Task Build_ColumnWithEmptyDatabaseTypeName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var column = database.TableModels.Single().Table.Columns.Single();
+        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, ""));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'items.id'");
+        await Assert.That(failure.Message).Contains("empty database type name");
+        await Assert.That(failure.Message).Contains("MySQL");
+    }
+
+    [Test]
+    public async Task Build_ColumnWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var column = database.TableModels.Single().Table.Columns.Single();
+        column.AddDbType(new DatabaseColumnType((DatabaseType)999, "int"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'items.id'");
+        await Assert.That(failure.Message).Contains("unsupported database type");
+        await Assert.That(failure.Message).Contains("999");
+    }
+
+    [Test]
     public async Task Build_ColumnWithoutValueProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(

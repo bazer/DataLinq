@@ -241,6 +241,7 @@ Foundation slice notes:
 - Value-property defaults are now validated before draft snapshot copying, so duplicate defaults, dynamic defaults on incompatible C# types, unsupported UUID versions, and ordinary defaults that cannot be formatted for the property type return `InvalidModel` instead of failing later during generated code or SQL emission.
 - Missing view SQL definitions are now validated before draft snapshot copying, so view models without a definition return `InvalidModel` from the factory instead of failing later during SQL or model generation. Explicit empty definitions remain allowed for generated provider/system-view placeholders until those models get a richer external-view marker.
 - Duplicate table-property names, table names, and column names are now preflighted before draft snapshot copying, so duplicate object registrations return the same `InvalidModel` diagnostics as ordinary duplicate metadata instead of leaking snapshot dictionary exceptions.
+- Existing column database-type metadata is now preflighted before draft snapshot copying and during finalization, so null type entries, empty type names, and undefined provider enum values return `InvalidModel` instead of leaking snapshot or SQL-generation failures.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
 
 Design stance:

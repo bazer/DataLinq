@@ -564,6 +564,37 @@ public static class MetadataFactory
         return true;
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateExistingColumnTypes(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var table = tableModel.Table;
+
+            foreach (var column in table.Columns)
+            {
+                foreach (var dbType in column.DbTypes)
+                {
+                    if (dbType is null)
+                        return CreateColumnPropertyFailure(
+                            column,
+                            $"Column '{table.DbName}.{column.DbName}' contains a null database type.");
+
+                    if (!Enum.IsDefined(typeof(DatabaseType), dbType.DatabaseType))
+                        return CreateColumnPropertyFailure(
+                            column,
+                            $"Column '{table.DbName}.{column.DbName}' has database type '{dbType.Name}' with unsupported database type '{dbType.DatabaseType}'.");
+
+                    if (string.IsNullOrWhiteSpace(dbType.Name))
+                        return CreateColumnPropertyFailure(
+                            column,
+                            $"Column '{table.DbName}.{column.DbName}' has an empty database type name for database type '{dbType.DatabaseType}'.");
+                }
+            }
+        }
+
+        return true;
+    }
+
     private static string GetValuePropertyDisplayName(ValueProperty property) =>
         $"{property.Model.CsType.Name}.{property.PropertyName}";
 

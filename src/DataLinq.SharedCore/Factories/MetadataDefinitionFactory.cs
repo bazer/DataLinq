@@ -72,6 +72,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingColumnPropertyBindings(draft).TryUnwrap(out _, out var columnPropertyFailure))
             return columnPropertyFailure;
 
+        if (!MetadataFactory.ValidateExistingColumnTypes(draft).TryUnwrap(out _, out var columnTypeFailure))
+            return columnTypeFailure;
+
         if (!MetadataFactory.ValidateValuePropertyDefaults(draft).TryUnwrap(out _, out var defaultValueFailure))
             return defaultValueFailure;
 
