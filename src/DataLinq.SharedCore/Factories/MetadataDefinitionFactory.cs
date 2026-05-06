@@ -69,6 +69,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingColumnPropertyBindings(draft).TryUnwrap(out _, out var columnPropertyFailure))
             return columnPropertyFailure;
 
+        if (!MetadataFactory.ValidateExistingRelationPropertyBindings(draft).TryUnwrap(out _, out var relationPropertyFailure))
+            return relationPropertyFailure;
+
         if (!MetadataFactory.ValidateExistingPrimaryKeyColumns(draft).TryUnwrap(out _, out var primaryKeyFailure))
             return primaryKeyFailure;
 
@@ -86,6 +89,9 @@ public sealed class MetadataDefinitionFactory
 
         if (!MetadataFactory.ParseRelations(draft).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
+
+        if (!MetadataFactory.ValidateExistingRelationPropertyBindings(draft).TryUnwrap(out _, out var finalizedRelationPropertyFailure))
+            return finalizedRelationPropertyFailure;
 
         if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var finalizedRelationPartFailure))
             return finalizedRelationPartFailure;

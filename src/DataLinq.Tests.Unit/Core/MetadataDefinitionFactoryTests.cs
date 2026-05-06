@@ -166,6 +166,95 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_RelationPropertyRegisteredUnderWrongKey_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        var relationProperty = new RelationProperty(
+            "Customer",
+            userModel.CsType,
+            orderModel,
+            [new RelationAttribute("users", "user_id", "FK_Order_User")]);
+        orderModel.AddProperty(relationProperty);
+        relationProperty.SetPropertyName("Buyer");
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.Buyer'");
+        await Assert.That(failure.Message).Contains("registered under key 'Customer'");
+    }
+
+    [Test]
+    public async Task Build_RelationPropertyRegisteredOnWrongModel_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        orderModel.AddProperty(new RelationProperty(
+            "Customer",
+            userModel.CsType,
+            userModel,
+            [new RelationAttribute("users", "user_id", "FK_Order_User")]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'User.Customer'");
+        await Assert.That(failure.Message).Contains("registered on model 'Order'");
+        await Assert.That(failure.Message).Contains("belongs to model 'User'");
+    }
+
+    [Test]
+    public async Task Build_ValueAndRelationPropertiesWithSameName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        orderModel.AddProperty(new RelationProperty(
+            "OrderId",
+            userModel.CsType,
+            orderModel,
+            [new RelationAttribute("users", "user_id", "FK_Order_User")]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("contains both a value property and a relation property named 'OrderId'");
+        await Assert.That(failure.Message).Contains("Order");
+    }
+
+    [Test]
+    public async Task Build_RelationPropertyPointingAtOtherTableRelationPart_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var built = new MetadataDefinitionFactory().Build(CreateRelationDraft()).ValueOrException();
+        var orderModel = built.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var userModel = built.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        var wrongSidePart = userModel.RelationProperties["Order"].RelationPart;
+        orderModel.RelationProperties["Customer"].SetRelationPart(wrongSidePart);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(built));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("relation part on table 'users'");
+        await Assert.That(failure.Message).Contains("own table 'orders'");
+    }
+
+    [Test]
     public async Task Build_ColumnWithoutValueProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(

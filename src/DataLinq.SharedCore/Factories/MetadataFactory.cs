@@ -566,6 +566,58 @@ public static class MetadataFactory
         return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property);
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateExistingRelationPropertyBindings(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var table = tableModel.Table;
+            var model = tableModel.Model;
+
+            foreach (var entry in model.RelationProperties)
+            {
+                var propertyName = entry.Key;
+                var property = entry.Value;
+
+                if (property is null)
+                    return CreateTableFailure(
+                        table,
+                        $"Model '{model.CsType.Name}' contains a null relation property for key '{propertyName}'.");
+
+                if (!string.Equals(propertyName, property.PropertyName, StringComparison.Ordinal))
+                    return CreateRelationPropertyFailure(
+                        property,
+                        null,
+                        $"Relation property '{GetRelationPropertyDisplayName(property)}' is registered under key '{propertyName}' instead of its own property name.");
+
+                if (!ReferenceEquals(property.Model, model))
+                    return CreateRelationPropertyFailure(
+                        property,
+                        null,
+                        $"Relation property '{GetRelationPropertyDisplayName(property)}' is registered on model '{model.CsType.Name}', but belongs to model '{property.Model.CsType.Name}'.");
+
+                if (model.ValueProperties.ContainsKey(property.PropertyName))
+                    return CreateRelationPropertyFailure(
+                        property,
+                        null,
+                        $"Model '{model.CsType.Name}' contains both a value property and a relation property named '{property.PropertyName}'. Property names must be unique within a model.");
+
+                if (property.RelationPart?.ColumnIndex is { } relationIndex &&
+                    !ReferenceEquals(relationIndex.Table, table))
+                {
+                    return CreateRelationPropertyFailure(
+                        property,
+                        null,
+                        $"Relation property '{model.CsType.Name}.{property.PropertyName}' is linked to relation part on table '{relationIndex.Table.DbName}', but relation properties must point at a relation part on their own table '{table.DbName}'.");
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static string GetRelationPropertyDisplayName(RelationProperty property) =>
+        $"{property.Model.CsType.Name}.{property.PropertyName}";
+
     public static Option<bool, IDLOptionFailure> ValidateExistingRelationParts(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
