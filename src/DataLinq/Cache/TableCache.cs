@@ -282,19 +282,7 @@ public class TableCache
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
     {
-        if (!Table.IndexCache.Any())
-            return DatabaseCache.GetIndexCachePolicy();
-
-        if (Table.IndexCache.Any(x => x.indexCacheType == IndexCacheType.None))
-            return (IndexCacheType.None, 0);
-
-        if (Table.IndexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
-            return (IndexCacheType.MaxAmountRows, Table.IndexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
-
-        if (Table.IndexCache.Any(x => x.indexCacheType == IndexCacheType.All))
-            return (IndexCacheType.All, null);
-
-        throw new NotImplementedException();
+        return DatabaseCache.GetIndexCachePolicy(Table);
     }
 
     public void ClearCache()

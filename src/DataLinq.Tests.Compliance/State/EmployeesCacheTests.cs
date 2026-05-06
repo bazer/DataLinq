@@ -164,9 +164,6 @@ public class EmployeesCacheTests
     }
 
     [Test]
-    // DatabaseProvider caches DatabaseDefinition instances per model type, and this
-    // test temporarily mutates cache-limit metadata on that shared definition.
-    [NotInParallel]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_RemoveRowsBySettings_OnlyAppliesTableSpecificLimitsToThatTable(TestProviderDescriptor provider)
     {
@@ -178,24 +175,17 @@ public class EmployeesCacheTests
         var employeesDatabase = databaseScope.Database;
         employeesDatabase.Provider.State.ClearCache();
 
-        var metadata = employeesDatabase.Provider.Metadata;
-        var databaseLimits = metadata.CacheLimits.ToList();
         var departmentsTable = employeesDatabase.Provider.Metadata.TableModels
             .Single(x => x.Table.DbName == "departments")
             .Table;
         var deptEmployeeTable = employeesDatabase.Provider.Metadata.TableModels
             .Single(x => x.Table.DbName == "dept-emp")
             .Table;
-        var departmentTableLimits = departmentsTable.CacheLimits.ToList();
-        var deptEmployeeTableLimits = deptEmployeeTable.CacheLimits.ToList();
 
+        using var cacheLimitOverride = employeesDatabase.Provider.State.Cache
+            .OverrideTableCacheLimitsForTesting(deptEmployeeTable, [(CacheLimitType.Rows, 1)]);
         try
         {
-            metadata.CacheLimits.Clear();
-            departmentsTable.CacheLimits.Clear();
-            deptEmployeeTable.CacheLimits.Clear();
-            deptEmployeeTable.CacheLimits.Add((CacheLimitType.Rows, 1));
-
             var departmentsCache = employeesDatabase.Provider.GetTableCache(departmentsTable);
             var deptEmployeeCache = employeesDatabase.Provider.GetTableCache(deptEmployeeTable);
 
@@ -221,15 +211,6 @@ public class EmployeesCacheTests
         }
         finally
         {
-            metadata.CacheLimits.Clear();
-            metadata.CacheLimits.AddRange(databaseLimits);
-
-            departmentsTable.CacheLimits.Clear();
-            departmentsTable.CacheLimits.AddRange(departmentTableLimits);
-
-            deptEmployeeTable.CacheLimits.Clear();
-            deptEmployeeTable.CacheLimits.AddRange(deptEmployeeTableLimits);
-
             employeesDatabase.Provider.State.ClearCache();
         }
     }

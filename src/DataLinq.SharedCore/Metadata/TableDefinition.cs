@@ -49,8 +49,8 @@ public class TableDefinition(string dbName) : IDefinition
     public MetadataList<ColumnIndex> ColumnIndices { get; } = new();
 
     public TableType Type { get; protected set; } = TableType.Table;
-    public List<(CacheLimitType limitType, long amount)> CacheLimits { get; } = [];
-    public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; } = [];
+    public MetadataList<(CacheLimitType limitType, long amount)> CacheLimits { get; } = new();
+    public MetadataList<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; } = new();
     public CsFileDeclaration? CsFile => Model?.CsFile;
 
     internal bool? explicitUseCache;
@@ -112,6 +112,8 @@ public class TableDefinition(string dbName) : IDefinition
             index.Freeze();
 
         ColumnIndices.Freeze();
+        CacheLimits.Freeze();
+        IndexCache.Freeze();
     }
 
     protected void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);

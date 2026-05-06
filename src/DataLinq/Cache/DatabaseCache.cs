@@ -79,19 +79,30 @@ public class DatabaseCache : IDisposable
     }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
+        => GetIndexCachePolicy(Policy.IndexCache);
+
+    internal (IndexCacheType, int? amount) GetIndexCachePolicy(TableDefinition table)
+        => GetIndexCachePolicy(Policy.GetTableIndexCache(table));
+
+    private static (IndexCacheType, int? amount) GetIndexCachePolicy(
+        IReadOnlyList<(IndexCacheType indexCacheType, int? amount)> indexCache)
     {
-        if (!Policy.IndexCache.Any() || Policy.IndexCache.Any(x => x.indexCacheType == IndexCacheType.None))
+        if (!indexCache.Any() || indexCache.Any(x => x.indexCacheType == IndexCacheType.None))
             return (IndexCacheType.None, 0);
 
-        if (Policy.IndexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
-            return (IndexCacheType.MaxAmountRows, Policy.IndexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
+        if (indexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
+            return (IndexCacheType.MaxAmountRows, indexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
 
-        if (Policy.IndexCache.Any(x => x.indexCacheType == IndexCacheType.All))
+        if (indexCache.Any(x => x.indexCacheType == IndexCacheType.All))
             return (IndexCacheType.All, null);
 
         throw new NotImplementedException();
     }
 
+    internal IDisposable OverrideTableCacheLimitsForTesting(
+        TableDefinition table,
+        IReadOnlyList<(CacheLimitType limitType, long amount)> cacheLimits) =>
+        Policy.OverrideTableCacheLimitsForTesting(table, cacheLimits);
 
     public void ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
     {
@@ -122,7 +133,7 @@ public class DatabaseCache : IDisposable
     {
         foreach (var table in TableCaches.Values)
         {
-            foreach (var (limitType, amount) in table.Table.CacheLimits)
+            foreach (var (limitType, amount) in Policy.GetTableCacheLimits(table.Table))
             {
                 var numRows = table.RemoveRowsByLimit(limitType, amount);
 

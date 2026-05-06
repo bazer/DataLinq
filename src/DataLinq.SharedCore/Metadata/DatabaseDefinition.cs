@@ -109,9 +109,9 @@ public class DatabaseDefinition : IDefinition
         this.tableModels = tableModels.ToArray();
     }
 
-    public List<(CacheLimitType limitType, long amount)> CacheLimits { get; private set; } = [];
-    public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; private set; } = [];
-    public List<(CacheCleanupType cleanupType, long amount)> CacheCleanup { get; private set; } = [];
+    public MetadataList<(CacheLimitType limitType, long amount)> CacheLimits { get; } = new();
+    public MetadataList<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; } = new();
+    public MetadataList<(CacheCleanupType cleanupType, long amount)> CacheCleanup { get; } = new();
 
     internal void Freeze()
     {
@@ -122,6 +122,10 @@ public class DatabaseDefinition : IDefinition
 
         foreach (var tableModel in tableModels)
             tableModel.Freeze();
+
+        CacheLimits.Freeze();
+        IndexCache.Freeze();
+        CacheCleanup.Freeze();
 
         foreach (var relation in tableModels
             .SelectMany(tableModel => tableModel.Table.ColumnIndices)

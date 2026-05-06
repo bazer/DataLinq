@@ -41,10 +41,15 @@ public class MetadataDefinitionFactoryTests
     {
         var database = CreateRelationDraft();
         database.SetAttributes([new DatabaseAttribute("TestDb")]);
+        database.CacheLimits.Add((CacheLimitType.Megabytes, 128));
+        database.CacheCleanup.Add((CacheCleanupType.Minutes, 2));
+        database.IndexCache.Add((IndexCacheType.All, null));
 
         var draftOrderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
         draftOrderModel.SetUsings([new ModelUsing("System")]);
         draftOrderModel.SetAttributes([new TableAttribute("orders")]);
+        draftOrderModel.Table.CacheLimits.Add((CacheLimitType.Rows, 10));
+        draftOrderModel.Table.IndexCache.Add((IndexCacheType.None, null));
         draftOrderModel.Table
             .Columns
             .Single(column => column.DbName == "order_id")
@@ -83,6 +88,16 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(foreignKeyIndex.Columns.IsReadOnly).IsTrue();
         await Assert.That(foreignKeyIndex.RelationParts.IsFrozen).IsTrue();
         await Assert.That(foreignKeyIndex.RelationParts.IsReadOnly).IsTrue();
+        await Assert.That(built.CacheLimits.IsFrozen).IsTrue();
+        await Assert.That(built.CacheLimits.IsReadOnly).IsTrue();
+        await Assert.That(built.CacheCleanup.IsFrozen).IsTrue();
+        await Assert.That(built.CacheCleanup.IsReadOnly).IsTrue();
+        await Assert.That(built.IndexCache.IsFrozen).IsTrue();
+        await Assert.That(built.IndexCache.IsReadOnly).IsTrue();
+        await Assert.That(orderTable.CacheLimits.IsFrozen).IsTrue();
+        await Assert.That(orderTable.CacheLimits.IsReadOnly).IsTrue();
+        await Assert.That(orderTable.IndexCache.IsFrozen).IsTrue();
+        await Assert.That(orderTable.IndexCache.IsReadOnly).IsTrue();
 
         await AssertArrayElementAssignmentDoesNotMutate(() => built.TableModels, orderTableModel);
         await AssertArrayElementAssignmentDoesNotMutate(() => built.Attributes, new DatabaseAttribute("ChangedDb"));
@@ -110,6 +125,11 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => orderModel.RelationProperties.Clear());
         await AssertFrozenMutation(() => foreignKeyIndex.Columns.Add(amount));
         await AssertFrozenMutation(() => foreignKeyIndex.RelationParts.Clear());
+        await AssertFrozenMutation(() => built.CacheLimits.Clear());
+        await AssertFrozenMutation(() => built.CacheCleanup.Clear());
+        await AssertFrozenMutation(() => built.IndexCache.Clear());
+        await AssertFrozenMutation(() => orderTable.CacheLimits.Clear());
+        await AssertFrozenMutation(() => orderTable.IndexCache.Clear());
     }
 
     [Test]
