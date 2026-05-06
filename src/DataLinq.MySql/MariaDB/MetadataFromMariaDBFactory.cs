@@ -29,7 +29,10 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
     {
         var informationSchemaDb = new MariaDBDatabase<MariaDBInformationSchema>(connectionString, "information_schema");
 
-        var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
+        var database = new ProviderDatabaseDraft(
+            name,
+            new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class),
+            dbName);
 
         if (!informationSchemaDb.Query()
             .TABLES.Where(x => x.TABLE_SCHEMA == dbName)
@@ -39,13 +42,13 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
             .TryUnwrap(out var tableModels, out var tableFailure))
             return SingleOrAggregate(tableFailure);
 
-        database.SetTableModels(tableModels.Where(IsTableOrViewInOptionsList));
+        database.TableModels.AddRange(tableModels.Where(IsTableOrViewInOptionsList));
 
         var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
         if (missingTables.Count != 0)
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}");
 
-        if (database.TableModels.Length == 0)
+        if (database.TableModels.Count == 0)
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No tables or views found in database '{dbName}'. Please check the connection string and database name.");
 
         if (!ParseIndices(database, informationSchemaDb).TryUnwrap(out _, out var indexFailure))
@@ -56,10 +59,10 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
 
         ParseCheckConstraints(database, informationSchemaDb.Provider.DatabaseAccess);
         return new MetadataDefinitionFactory()
-            .BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .BuildProviderMetadata(database.ToMetadataDraft());
     });
 
-    protected Option<bool, IDLOptionFailure> ParseIndices(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
+    protected Option<bool, IDLOptionFailure> ParseIndices(ProviderDatabaseDraft database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
     {
         // Fetch table-column pairs that are part of a foreign key relationship
         var foreignKeyColumns = informationSchemaDb.Query().KEY_COLUMN_USAGE
@@ -99,13 +102,13 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
                 ? IndexCharacteristic.Unique
                 : IndexCharacteristic.Simple;
 
-            var columns = new List<ColumnDefinition>();
+            var columns = new List<ProviderValuePropertyDraft>();
             var skipIndex = false;
             foreach (var indexColumn in indexedColumns)
             {
                 var column = database
                     .TableModels.SingleOrDefault(x => x.Table.DbName == indexColumn.TABLE_NAME)?
-                    .Table.Columns.SingleOrDefault(x => x.DbName == indexColumn.COLUMN_NAME);
+                    .Table.Columns.SingleOrDefault(x => x.Column.DbName == indexColumn.COLUMN_NAME);
 
                 if (column == null)
                 {
@@ -120,9 +123,9 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
             if (skipIndex || columns.Count == 0)
                 continue;
 
-            var columnNames = columns.Select(x => x.DbName).ToArray();
+            var columnNames = columns.Select(x => x.Column.DbName).ToArray();
             foreach (var column in columns)
-                column.ValueProperty.AddAttribute(new IndexAttribute(indexName, indexCharacteristic, indexType, columnNames));
+                column.Attributes.Add(new IndexAttribute(indexName, indexCharacteristic, indexType, columnNames));
         }
 
         return true;
@@ -142,7 +145,7 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
         return null;
     }
 
-    protected Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
+    protected Option<bool, IDLOptionFailure> ParseRelations(ProviderDatabaseDraft database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb)
     {
         var referentialActions = ParseReferentialActions(database, informationSchemaDb.Provider.DatabaseAccess);
 
@@ -160,14 +163,14 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
 
             var foreignKeyColumn = database
                 .TableModels.SingleOrDefault(x => x.Table.DbName == foreignKey.TableName)?
-                .Table.Columns.SingleOrDefault(x => x.DbName == foreignKey.ColumnName);
+                .Table.Columns.SingleOrDefault(x => x.Column.DbName == foreignKey.ColumnName);
 
             if (foreignKeyColumn == null)
                 continue;
 
             var candidateColumn = database
                 .TableModels.SingleOrDefault(x => x.Table.DbName == foreignKey.ReferencedTableName)?
-                .Table.Columns.SingleOrDefault(x => x.DbName == foreignKey.ReferencedColumnName);
+                .Table.Columns.SingleOrDefault(x => x.Column.DbName == foreignKey.ReferencedColumnName);
 
             if (candidateColumn == null)
             {
@@ -178,8 +181,8 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
             referentialActions.TryGetValue((foreignKey.TableName, foreignKey.ConstraintName), out var actions);
 
             // The only job of this method is to mark the column and add the attribute.
-            foreignKeyColumn.SetForeignKey();
-            foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(
+            foreignKeyColumn.Column.ForeignKey = true;
+            foreignKeyColumn.Attributes.Add(new ForeignKeyAttribute(
                 foreignKey.ReferencedTableName,
                 foreignKey.ReferencedColumnName,
                 foreignKey.ConstraintName,
@@ -191,25 +194,26 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
         return true;
     }
 
-    protected Option<TableModel, IDLOptionFailure> ParseTable(DatabaseDefinition database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb, TABLES dbTables)
+    protected Option<ProviderTableModelDraft, IDLOptionFailure> ParseTable(ProviderDatabaseDraft database, MariaDBDatabase<MariaDBInformationSchema> informationSchemaDb, TABLES dbTables)
     {
         var type = dbTables.TABLE_TYPE == TABLE_TYPE.BASE_TABLE ? TableType.Table : TableType.View;
 
         if (dbTables.TABLE_NAME == null)
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"MariaDB table metadata is missing a table name in database '{database.DbName}'.");
 
-        var table = type == TableType.Table
-             ? new TableDefinition(dbTables.TABLE_NAME)
-             : new ViewDefinition(dbTables.TABLE_NAME);
+        var table = new ProviderTableDraft(dbTables.TABLE_NAME, type);
 
         var csName = table.DbName.ToCSharpIdentifier(options.CapitaliseNames);
 
-        var tableModel = new TableModel(csName, database, table, csName);
+        var tableModel = new ProviderTableModelDraft(
+            csName,
+            new CsTypeDeclaration(csName, database.CsType.Namespace, ModelCsType.Class),
+            table);
         if (!string.IsNullOrWhiteSpace(dbTables.TABLE_COMMENT))
-            tableModel.Model.AddAttribute(new CommentAttribute(dbTables.TABLE_COMMENT));
+            tableModel.ModelAttributes.Add(new CommentAttribute(dbTables.TABLE_COMMENT));
 
-        if (table is ViewDefinition view)
-            view.SetDefinition(GetViewDefinition(informationSchemaDb, database.DbName, view.DbName));
+        if (type == TableType.View)
+            table.Definition = GetViewDefinition(informationSchemaDb, database.DbName, table.DbName);
 
         if (!informationSchemaDb.Query()
             .COLUMNS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == table.DbName)
@@ -220,7 +224,7 @@ public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions optio
             .TryUnwrap(out var columnImports, out var columnFailure))
             return SingleOrAggregate(columnFailure);
 
-        table.SetColumns(columnImports.Select(x => x.Column).OfType<ColumnDefinition>());
+        table.Columns.AddRange(columnImports.Select(x => x.Property).OfType<ProviderValuePropertyDraft>());
 
         return tableModel;
     }

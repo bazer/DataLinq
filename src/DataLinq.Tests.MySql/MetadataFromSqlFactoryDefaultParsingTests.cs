@@ -20,8 +20,22 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     private sealed class TestMetadataFromSqlFactory(MetadataFromDatabaseFactoryOptions options)
         : MetadataFromSqlFactory(options, DataLinq.DatabaseType.MariaDB)
     {
-        public DefaultAttribute? ParseDefaultForTest(TableDefinition table, ICOLUMNS column, ValueProperty property) =>
-            ParseDefaultValue(table, column, property);
+        public DefaultAttribute? ParseDefaultForTest(TableDefinition table, ICOLUMNS column, ValueProperty property)
+        {
+            var draftColumn = new ProviderColumnDraft(column.COLUMN_NAME);
+            var draftProperty = new ProviderValuePropertyDraft(
+                property.PropertyName,
+                property.CsType,
+                draftColumn,
+                property.Attributes.ToList())
+            {
+                CsNullable = property.CsNullable,
+                CsSize = property.CsSize,
+                EnumProperty = property.EnumProperty
+            };
+
+            return ParseDefaultValue(new ProviderTableDraft(table.DbName, table.Type), column, draftProperty);
+        }
 
         public override ThrowAway.Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) =>
             throw new NotImplementedException();

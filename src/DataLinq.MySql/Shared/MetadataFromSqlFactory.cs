@@ -21,7 +21,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
     private readonly MetadataFromDatabaseFactoryOptions options;
     private readonly DatabaseType databaseType;
 
-    protected readonly record struct ProviderColumnImport(ColumnDefinition? Column);
+    protected readonly record struct ProviderColumnImport(ProviderValuePropertyDraft? Property);
     protected readonly record struct ProviderForeignKeyReference(
         string TableName,
         string ColumnName,
@@ -47,7 +47,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
     public abstract Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString);
 
-    protected IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)
+    protected IEnumerable<string> FindMissingTablesOrViewInOptionsList(IReadOnlyList<ProviderTableModelDraft> tableModels)
     {
         foreach (var tableName in options.Include ?? [])
         {
@@ -55,7 +55,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
                 yield return tableName;
         }
     }
-    protected bool IsTableOrViewInOptionsList(TableModel tableModel)
+    protected bool IsTableOrViewInOptionsList(ProviderTableModelDraft tableModel)
     {
         // If the Include list is null or empty, always include the item.
         if (options.Include == null || !options.Include.Any())
@@ -65,7 +65,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
     }
 
-    protected Option<ProviderColumnImport, IDLOptionFailure> ParseColumn(TableDefinition table, ICOLUMNS dbColumns)
+    protected Option<ProviderColumnImport, IDLOptionFailure> ParseColumn(ProviderTableDraft table, ICOLUMNS dbColumns)
     {
         if (IsGeneratedColumn(dbColumns))
         {
@@ -94,38 +94,47 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             dbType.SetLength(dbColumns.CHARACTER_MAXIMUM_LENGTH);
         }
 
-        var column = new ColumnDefinition(dbColumns.COLUMN_NAME, table);
-
-
-        column.SetNullable(dbColumns.IS_NULLABLE == "YES");
-        column.SetPrimaryKey(dbColumns.COLUMN_KEY == COLUMN_KEY.PRI);
-        column.SetAutoIncrement(dbColumns.EXTRA.Contains("auto_increment"));
-        column.AddDbType(dbType);
+        var column = new ProviderColumnDraft(dbColumns.COLUMN_NAME)
+        {
+            Nullable = dbColumns.IS_NULLABLE == "YES",
+            PrimaryKey = dbColumns.COLUMN_KEY == COLUMN_KEY.PRI,
+            AutoIncrement = dbColumns.EXTRA.Contains("auto_increment")
+        };
+        column.DbTypes.Add(dbType);
 
         if (!ParseCsType(dbType, table.DbName, dbColumns.COLUMN_NAME).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
-        if (!MetadataFactory.TryAttachValueProperty(column, csType, options.CapitaliseNames).TryUnwrap(out var valueProp, out var valuePropertyFailure))
+        if (!ParseCsTypeDeclaration(csType, table.DbName, dbColumns.COLUMN_NAME).TryUnwrap(out var csTypeDeclaration, out var valuePropertyFailure))
             return valuePropertyFailure;
+
+        var valueProp = new ProviderValuePropertyDraft(
+            dbColumns.COLUMN_NAME.ToCSharpIdentifier(options.CapitaliseNames),
+            csTypeDeclaration,
+            column,
+            CreateColumnAttributes(column).ToList())
+        {
+            CsSize = MetadataTypeConverter.CsTypeSize(csType),
+            CsNullable = column.Nullable || column.AutoIncrement
+        };
 
         if (csType == "enum")
         {
             var (dbValues, csValues) = ParseEnumType(dbColumns.COLUMN_TYPE);
-            valueProp.SetEnumProperty(new EnumProperty(dbValues, csValues, true));
+            valueProp.EnumProperty = new EnumProperty(dbValues, csValues, true);
 
             if (valueProp.CsType.Name == "enum")
-                valueProp.SetCsType(valueProp.CsType.MutateName(valueProp.PropertyName + "Value"));
-            //valueProp.CsTypeName = valueProp.CsTypeName == "enum" ? valueProp.PropertyName + "Value" : valueProp.CsTypeName;
+                valueProp.CsType = valueProp.CsType.MutateName(valueProp.PropertyName + "Value");
         }
 
         var defaultAttr = ParseDefaultValue(table, dbColumns, valueProp);
         if (defaultAttr != null)
-            valueProp.AddAttribute(defaultAttr);
+            valueProp.Attributes.Add(defaultAttr);
 
         if (!string.IsNullOrWhiteSpace(dbColumns.COLUMN_COMMENT))
-            valueProp.AddAttribute(new CommentAttribute(dbColumns.COLUMN_COMMENT));
+            valueProp.Attributes.Add(new CommentAttribute(dbColumns.COLUMN_COMMENT));
 
-        return new ProviderColumnImport(column);
+        return new ProviderColumnImport(valueProp);
     }
 
     private static bool IsGeneratedColumn(ICOLUMNS dbColumns)
@@ -146,7 +155,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             !string.Equals(isGeneratedValue, "NO", StringComparison.OrdinalIgnoreCase);
     }
 
-    protected void ParseCheckConstraints(DatabaseDefinition database, DatabaseAccess informationSchemaAccess)
+    protected void ParseCheckConstraints(ProviderDatabaseDraft database, DatabaseAccess informationSchemaAccess)
     {
         using var command = new MySqlCommand(
             """
@@ -176,12 +185,12 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             var checkClause = NormalizeCheckClause(reader.GetString(checkClauseOrdinal));
             var tableModel = database.TableModels.SingleOrDefault(x => x.Table.DbName == tableName);
 
-            tableModel?.Model.AddAttribute(new CheckAttribute(databaseType, constraintName, checkClause));
+            tableModel?.ModelAttributes.Add(new CheckAttribute(databaseType, constraintName, checkClause));
         }
     }
 
     protected Dictionary<(string TableName, string ConstraintName), (ReferentialAction OnUpdate, ReferentialAction OnDelete)> ParseReferentialActions(
-        DatabaseDefinition database,
+        ProviderDatabaseDraft database,
         DatabaseAccess informationSchemaAccess)
     {
         using var command = new MySqlCommand(
@@ -263,10 +272,41 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         return new ProviderForeignKeyReference(tableName, columnName, referencedTableName, referencedColumnName, constraintName);
     }
 
+    private Option<CsTypeDeclaration, IDLOptionFailure> ParseCsTypeDeclaration(string csTypeName, string tableName, string columnName)
+    {
+        if (csTypeName == "enum")
+            return new CsTypeDeclaration(csTypeName, string.Empty, ModelCsType.Enum);
+
+        var type = MetadataTypeConverter.GetType(csTypeName);
+        if (type == null)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Unsupported C# type '{csTypeName}' for column '{tableName}.{columnName}'.");
+
+        return new CsTypeDeclaration(type);
+    }
+
+    private static IEnumerable<Attribute> CreateColumnAttributes(ProviderColumnDraft column)
+    {
+        if (column.PrimaryKey)
+            yield return new PrimaryKeyAttribute();
+
+        if (column.AutoIncrement)
+            yield return new AutoIncrementAttribute();
+
+        if (column.Nullable)
+            yield return new NullableAttribute();
+
+        yield return new ColumnAttribute(column.DbName);
+
+        foreach (var dbType in column.DbTypes)
+            yield return new TypeAttribute(dbType);
+    }
+
     private static string NormalizeCheckClause(string checkClause) =>
         checkClause.Replace(@"\'", "'");
 
-    protected DefaultAttribute? ParseDefaultValue(TableDefinition table, ICOLUMNS dbColumns, ValueProperty property)
+    protected DefaultAttribute? ParseDefaultValue(ProviderTableDraft table, ICOLUMNS dbColumns, ProviderValuePropertyDraft property)
     {
         if (dbColumns.COLUMN_DEFAULT == null || string.Equals(dbColumns.COLUMN_DEFAULT, "NULL", StringComparison.CurrentCultureIgnoreCase))
             return null;
@@ -304,7 +344,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
     }
 
-    private static bool IsTypedSqlLiteralDefault(string defaultValue, ValueProperty property)
+    private static bool IsTypedSqlLiteralDefault(string defaultValue, ProviderValuePropertyDraft property)
     {
         if (IsSqlStringLiteral(defaultValue))
             return true;
@@ -381,7 +421,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         defaultValue.StartsWith("CURTIME(", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(defaultValue, "CURTIME()", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsUnsupportedZeroDateDefault(string defaultValue, ValueProperty property)
+    private static bool IsUnsupportedZeroDateDefault(string defaultValue, ProviderValuePropertyDraft property)
     {
         if (!defaultValue.StartsWith("0000-00-00", StringComparison.Ordinal))
             return false;
@@ -391,7 +431,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
                property.CsType.Type == typeof(DateTimeOffset);
     }
 
-    private static object ConvertDefaultValue(string defaultValue, ValueProperty property)
+    private static object ConvertDefaultValue(string defaultValue, ProviderValuePropertyDraft property)
     {
         if (property.EnumProperty != null)
         {
@@ -516,6 +556,99 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             csValues.Add((csName, i + 1));
         }
         return (dbValues, csValues);
+    }
+
+    protected sealed class ProviderDatabaseDraft(string name, CsTypeDeclaration csType, string dbName)
+    {
+        public string Name { get; } = name;
+        public CsTypeDeclaration CsType { get; } = csType;
+        public string DbName { get; } = dbName;
+        public List<ProviderTableModelDraft> TableModels { get; } = [];
+
+        public MetadataDatabaseDraft ToMetadataDraft() => new(Name, CsType)
+        {
+            DbName = DbName,
+            TableModels = TableModels.Select(x => x.ToMetadataDraft()).ToArray()
+        };
+    }
+
+    protected sealed class ProviderTableModelDraft(
+        string csPropertyName,
+        CsTypeDeclaration modelType,
+        ProviderTableDraft table)
+    {
+        public string CsPropertyName { get; } = csPropertyName;
+        public CsTypeDeclaration ModelType { get; } = modelType;
+        public ProviderTableDraft Table { get; } = table;
+        public List<Attribute> ModelAttributes { get; } = [];
+
+        public MetadataTableModelDraft ToMetadataDraft() => new(
+            CsPropertyName,
+            new MetadataModelDraft(ModelType)
+            {
+                Attributes = ModelAttributes,
+                ValueProperties = Table.Columns.Select(x => x.ToMetadataDraft()).ToArray()
+            },
+            Table.ToMetadataDraft());
+    }
+
+    protected sealed class ProviderTableDraft(string dbName, TableType type)
+    {
+        public string DbName { get; } = dbName;
+        public TableType Type { get; } = type;
+        public string? Definition { get; set; }
+        public List<ProviderValuePropertyDraft> Columns { get; } = [];
+
+        public MetadataTableDraft ToMetadataDraft() => new(DbName)
+        {
+            Type = Type,
+            Definition = Definition
+        };
+    }
+
+    protected sealed class ProviderValuePropertyDraft(
+        string propertyName,
+        CsTypeDeclaration csType,
+        ProviderColumnDraft column,
+        List<Attribute> attributes)
+    {
+        public string PropertyName { get; } = propertyName;
+        public CsTypeDeclaration CsType { get; set; } = csType;
+        public ProviderColumnDraft Column { get; } = column;
+        public List<Attribute> Attributes { get; } = attributes;
+        public bool CsNullable { get; init; }
+        public int? CsSize { get; init; }
+        public EnumProperty? EnumProperty { get; set; }
+
+        public MetadataValuePropertyDraft ToMetadataDraft() => new(
+            PropertyName,
+            CsType,
+            Column.ToMetadataDraft())
+        {
+            Attributes = Attributes,
+            CsNullable = CsNullable,
+            CsSize = CsSize,
+            EnumProperty = EnumProperty
+        };
+    }
+
+    protected sealed class ProviderColumnDraft(string dbName)
+    {
+        public string DbName { get; } = dbName;
+        public List<DatabaseColumnType> DbTypes { get; } = [];
+        public bool PrimaryKey { get; init; }
+        public bool ForeignKey { get; set; }
+        public bool AutoIncrement { get; init; }
+        public bool Nullable { get; init; }
+
+        public MetadataColumnDraft ToMetadataDraft() => new(DbName)
+        {
+            DbTypes = DbTypes,
+            PrimaryKey = PrimaryKey,
+            ForeignKey = ForeignKey,
+            AutoIncrement = AutoIncrement,
+            Nullable = Nullable
+        };
     }
 
     protected virtual Option<string, IDLOptionFailure> ParseCsType(DatabaseColumnType dbType, string tableName, string columnName)

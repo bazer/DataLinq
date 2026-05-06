@@ -121,10 +121,10 @@ public class ProviderMetadataFailureTests
 
         public Option<bool, IDLOptionFailure> TryImportColumnForTest(TableDefinition table, ICOLUMNS columns)
         {
-            if (!ParseColumn(table, columns).TryUnwrap(out var columnImport, out var failure))
+            if (!ParseColumn(new ProviderTableDraft(table.DbName, table.Type), columns).TryUnwrap(out var columnImport, out var failure))
                 return failure;
 
-            return columnImport.Column is not null;
+            return columnImport.Property is not null;
         }
 
         public Option<bool, IDLOptionFailure> TryParseIndexTypeForTest(string indexType)
