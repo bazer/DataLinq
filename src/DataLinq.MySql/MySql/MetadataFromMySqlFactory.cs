@@ -9,6 +9,7 @@ using DataLinq.Metadata;
 using DataLinq.MySql.information_schema;
 using DataLinq.MySql.Shared;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.MySql;
 
@@ -29,11 +30,15 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
 
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
 
-        database.SetTableModels(informationSchemaDb.Query()
+        if (!informationSchemaDb.Query()
             .TABLES.Where(x => x.TABLE_SCHEMA == dbName)
             .AsEnumerable()
             .Select(x => ParseTable(database, informationSchemaDb, x))
-            .Where(IsTableOrViewInOptionsList));
+            .Transpose()
+            .TryUnwrap(out var tableModels, out var tableFailure))
+            return SingleOrAggregate(tableFailure);
+
+        database.SetTableModels(tableModels.Where(IsTableOrViewInOptionsList));
 
         var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
         if (missingTables.Count != 0)
@@ -173,12 +178,12 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
         }
     }
 
-    protected TableModel ParseTable(DatabaseDefinition database, MySqlDatabase<MySQLInformationSchema> informationSchemaDb, TABLES dbTables)
+    protected Option<TableModel, IDLOptionFailure> ParseTable(DatabaseDefinition database, MySqlDatabase<MySQLInformationSchema> informationSchemaDb, TABLES dbTables)
     {
         var type = dbTables.TABLE_TYPE == TABLE_TYPE.BASE_TABLE ? TableType.Table : TableType.View;
 
         if (dbTables.TABLE_NAME == null)
-            throw new Exception("Table name is null");
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"MySQL table metadata is missing a table name in database '{database.DbName}'.");
 
         var table = type == TableType.Table
              ? new TableDefinition(dbTables.TABLE_NAME)
@@ -193,15 +198,24 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
         if (table is ViewDefinition view)
             view.SetDefinition(GetViewDefinition(informationSchemaDb, database.DbName, view.DbName));
 
-        table.SetColumns(informationSchemaDb.Query()
+        if (!informationSchemaDb.Query()
             .COLUMNS.Where(x => x.TABLE_SCHEMA == database.DbName && x.TABLE_NAME == table.DbName)
             .AsEnumerable()
             .OrderBy(x => x.ORDINAL_POSITION)
             .Select(x => ParseColumn(table, (ICOLUMNS)x))
-            .OfType<ColumnDefinition>());
+            .Transpose()
+            .TryUnwrap(out var columnImports, out var columnFailure))
+            return SingleOrAggregate(columnFailure);
+
+        table.SetColumns(columnImports.Select(x => x.Column).OfType<ColumnDefinition>());
 
         return tableModel;
     }
+
+    private static IDLOptionFailure SingleOrAggregate(IReadOnlyCollection<IDLOptionFailure> failures) =>
+        failures.Count == 1
+            ? failures.Single()
+            : DLOptionFailure.AggregateFail(failures);
 
     private static string GetViewDefinition(MySqlDatabase<MySQLInformationSchema> informationSchemaDb, string databaseName, string viewName)
     {
@@ -286,7 +300,7 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
             .Trim();
     }
 
-    protected override string ParseCsType(DatabaseColumnType dbType)
+    protected override Option<string, IDLOptionFailure> ParseCsType(DatabaseColumnType dbType, string tableName, string columnName)
     {
         if (dbType.Name.ToLower() == "json")
             return "string";
@@ -294,6 +308,6 @@ public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options
         if (dbType.Name.ToLower() == "set")
             return "string";
 
-        return base.ParseCsType(dbType);
+        return base.ParseCsType(dbType, tableName, columnName);
     }
 }

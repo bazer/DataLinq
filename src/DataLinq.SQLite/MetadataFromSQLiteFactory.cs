@@ -10,6 +10,7 @@ using DataLinq.Extensions.Helpers;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.SQLite;
 
@@ -37,10 +38,14 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         var dbAccess = new SQLiteDbAccess(normalizedConnectionString, DataLinqLoggingConfiguration.NullConfiguration);
 
         var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
-        database.SetTableModels(dbAccess
+        if (!dbAccess
             .ReadReader("SELECT *\r\nFROM sqlite_master m\r\nWHERE\r\nm.type <> 'index' AND\r\nm.tbl_name <> 'sqlite_sequence'")
             .Select(x => ParseTable(database, x, dbAccess))
-            .Where(IsTableOrViewInOptionsList));
+            .Transpose()
+            .TryUnwrap(out var tableModels, out var tableFailure))
+            return SingleOrAggregate(tableFailure);
+
+        database.SetTableModels(tableModels.Where(IsTableOrViewInOptionsList));
 
         var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
         if (missingTables.Count != 0)
@@ -209,7 +214,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         };
     }
 
-    private TableModel ParseTable(DatabaseDefinition database, IDataLinqDataReader reader, DatabaseAccess dbAccess)
+    private Option<TableModel, IDLOptionFailure> ParseTable(DatabaseDefinition database, IDataLinqDataReader reader, DatabaseAccess dbAccess)
     {
         var type = reader.GetString(0) == "table" ? TableType.Table : TableType.View;
         var table = type == TableType.Table
@@ -223,12 +228,22 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         if (table is ViewDefinition view)
             view.SetDefinition(ParseViewDefinition(reader.GetString(4)));
 
-        table.SetColumns(dbAccess
+        if (!dbAccess
             .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
-            .Select(x => ParseColumn(table, x, dbAccess)));
+            .Select(x => ParseColumn(table, x, dbAccess))
+            .Transpose()
+            .TryUnwrap(out var columns, out var columnFailure))
+            return SingleOrAggregate(columnFailure);
+
+        table.SetColumns(columns);
 
         return tableModel;
     }
+
+    private static IDLOptionFailure SingleOrAggregate(IReadOnlyCollection<IDLOptionFailure> failures) =>
+        failures.Count == 1
+            ? failures.Single()
+            : DLOptionFailure.AggregateFail(failures);
 
     private static string ParseViewDefinition(string definition)
     {
@@ -244,7 +259,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return definition;
     }
 
-    private ColumnDefinition ParseColumn(TableDefinition table, IDataLinqDataReader reader, DatabaseAccess dbAccess)
+    private Option<ColumnDefinition, IDLOptionFailure> ParseColumn(TableDefinition table, IDataLinqDataReader reader, DatabaseAccess dbAccess)
     {
         var dbType = new DatabaseColumnType(DatabaseType.SQLite, reader.GetString(2).ToLower());
 
@@ -270,7 +285,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         column.SetPrimaryKey(primaryKey);
         column.AddDbType(dbType);
 
-        var csType = ParseCsType(dbType, dbName);
+        if (!ParseCsType(dbType, table.DbName, dbName).TryUnwrap(out var csType, out var csTypeFailure))
+            return csTypeFailure;
+
         var valueProperty = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
         var defaultValue = ParseDefaultValue(table, column, reader, valueProperty);
         if (defaultValue != null)
@@ -313,7 +330,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return new DefaultAttribute(value);
     }
 
-    private string ParseCsType(DatabaseColumnType dbType, string columnName)
+    private static Option<string, IDLOptionFailure> ParseCsType(DatabaseColumnType dbType, string tableName, string columnName)
     {
         var lowerColumnName = columnName.ToLowerInvariant();
 
@@ -341,7 +358,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             "real" => "double",
             "text" => "string",
             "blob" => "byte[]",
-            _ => throw new NotImplementedException($"Unknown type '{dbType.Name}' for column '{columnName}'"),
+            _ => DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Unsupported SQLite column type '{dbType.Name}' for column '{tableName}.{columnName}'."),
         };
     }
 

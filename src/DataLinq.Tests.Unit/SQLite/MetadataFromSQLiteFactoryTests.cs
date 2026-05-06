@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
+using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using DataLinq.SQLite;
 using Microsoft.Data.Sqlite;
@@ -256,6 +257,26 @@ public class MetadataFromSQLiteFactoryTests
     }
 
     [Test]
+    public async Task ParseColumns_UnsupportedSQLiteType_ReturnsInvalidModelFailure()
+    {
+        using var fixture = SqliteMetadataFixture.Create(
+            """
+            CREATE TABLE unsupported_types (
+                id INTEGER PRIMARY KEY,
+                payload NUMERIC NOT NULL
+            );
+            """);
+
+        var result = fixture.ParseDatabaseOption("TempSqliteDb", "TempSqliteDb", "DataLinq.Tests");
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.ToString()!).Contains("Unsupported SQLite column type 'numeric'");
+        await Assert.That(failure.ToString()!).Contains("unsupported_types.payload");
+    }
+
+    [Test]
     public async Task CreateTables_EmitsParsedDefaults()
     {
         using var fixture = SqliteMetadataFixture.Create(
@@ -357,14 +378,23 @@ public class MetadataFromSQLiteFactoryTests
             string csNamespace = "DataLinq.Tests.Models.Employees",
             MetadataFromDatabaseFactoryOptions? options = null)
         {
+            return ParseDatabaseOption(databaseName, csTypeName, csNamespace, options)
+                .ValueOrException();
+        }
+
+        public ThrowAway.Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseOption(
+            string databaseName = "employees",
+            string csTypeName = "EmployeesDb",
+            string csNamespace = "DataLinq.Tests.Models.Employees",
+            MetadataFromDatabaseFactoryOptions? options = null)
+        {
             return new MetadataFromSQLiteFactory(options ?? new MetadataFromDatabaseFactoryOptions())
                 .ParseDatabase(
                     databaseName,
                     csTypeName,
                     csNamespace,
                     DatabasePath,
-                    $"Data Source={DatabasePath}")
-                .ValueOrException();
+                    $"Data Source={DatabasePath}");
         }
 
         public void Dispose()

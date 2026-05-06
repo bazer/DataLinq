@@ -12,6 +12,7 @@ using DataLinq.Metadata;
 using DataLinq.MySql.Shared;
 using MySqlConnector;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.MySql;
 
@@ -19,6 +20,8 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 {
     private readonly MetadataFromDatabaseFactoryOptions options;
     private readonly DatabaseType databaseType;
+
+    protected readonly record struct ProviderColumnImport(ColumnDefinition? Column);
 
     public static MetadataFromSqlFactory GetSqlFactory(MetadataFromDatabaseFactoryOptions options, DatabaseType databaseType)
     {
@@ -56,12 +59,12 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
     }
 
-    protected ColumnDefinition? ParseColumn(TableDefinition table, ICOLUMNS dbColumns)
+    protected Option<ProviderColumnImport, IDLOptionFailure> ParseColumn(TableDefinition table, ICOLUMNS dbColumns)
     {
         if (IsGeneratedColumn(dbColumns))
         {
             options.Log?.Invoke($"Warning: Skipping unsupported {databaseType} generated column '{table.DbName}.{dbColumns.COLUMN_NAME}'.");
-            return null;
+            return new ProviderColumnImport(null);
         }
 
         var dbType = new DatabaseColumnType(databaseType, dbColumns.DATA_TYPE);
@@ -93,7 +96,9 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         column.SetAutoIncrement(dbColumns.EXTRA.Contains("auto_increment"));
         column.AddDbType(dbType);
 
-        var csType = ParseCsType(dbType);
+        if (!ParseCsType(dbType, table.DbName, dbColumns.COLUMN_NAME).TryUnwrap(out var csType, out var csTypeFailure))
+            return csTypeFailure;
+
         var valueProp = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
 
         if (csType == "enum")
@@ -113,7 +118,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         if (!string.IsNullOrWhiteSpace(dbColumns.COLUMN_COMMENT))
             valueProp.AddAttribute(new CommentAttribute(dbColumns.COLUMN_COMMENT));
 
-        return column;
+        return new ProviderColumnImport(column);
     }
 
     private static bool IsGeneratedColumn(ICOLUMNS dbColumns)
@@ -470,7 +475,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         return (dbValues, csValues);
     }
 
-    protected virtual string ParseCsType(DatabaseColumnType dbType)
+    protected virtual Option<string, IDLOptionFailure> ParseCsType(DatabaseColumnType dbType, string tableName, string columnName)
     {
         var dbTypeName = dbType.Name.ToLower();
 
@@ -530,7 +535,9 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
                 return "byte[]";
 
             default:
-                throw new NotImplementedException($"Unknown type '{dbType.Name}'");
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Unsupported {databaseType} column type '{dbType.Name}' for column '{tableName}.{columnName}'.");
         }
         ;
     }
