@@ -58,6 +58,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingTableModels(draft).TryUnwrap(out _, out var tableModelFailure))
             return tableModelFailure;
 
+        if (!MetadataFactory.ValidateMetadataCollections(draft).TryUnwrap(out _, out var collectionFailure))
+            return collectionFailure;
+
         if (!MetadataFactory.ValidateCSharpSymbolNames(draft).TryUnwrap(out _, out var csharpSymbolFailure))
             return csharpSymbolFailure;
 

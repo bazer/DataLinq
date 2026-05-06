@@ -28,6 +28,10 @@ public sealed class MetadataDefinitionDraft
         if (!tableModelValidation.HasValue)
             return tableModelValidation.Failure;
 
+        var collectionValidation = MetadataFactory.ValidateMetadataCollections(metadata);
+        if (!collectionValidation.HasValue)
+            return collectionValidation.Failure;
+
         var csharpSymbolValidation = MetadataFactory.ValidateCSharpSymbolNames(metadata);
         if (!csharpSymbolValidation.HasValue)
             return csharpSymbolValidation.Failure;

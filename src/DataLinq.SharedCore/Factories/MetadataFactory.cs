@@ -970,6 +970,76 @@ public static class MetadataFactory
         return true;
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateMetadataCollections(DatabaseDefinition database)
+    {
+        foreach (var attribute in database.Attributes)
+        {
+            if (attribute is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Database '{database.DbName}' contains a null attribute.",
+                    database);
+        }
+
+        foreach (var tableModel in database.TableModels)
+        {
+            if (tableModel?.Model is not { } model)
+                continue;
+
+            foreach (var attribute in model.Attributes)
+            {
+                if (attribute is null)
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Model '{model.CsType.Name}' contains a null attribute.",
+                        model);
+            }
+
+            foreach (var entry in model.ValueProperties)
+            {
+                var propertyName = entry.Key;
+                var property = entry.Value;
+
+                if (property is null)
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Model '{model.CsType.Name}' contains a null value property for key '{propertyName}'.",
+                        model);
+
+                foreach (var attribute in property.Attributes)
+                {
+                    if (attribute is null)
+                        return CreateValuePropertyFailure(
+                            property,
+                            $"Value property '{GetValuePropertyDisplayName(property)}' contains a null attribute.");
+                }
+            }
+
+            foreach (var entry in model.RelationProperties)
+            {
+                var propertyName = entry.Key;
+                var property = entry.Value;
+
+                if (property is null)
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Model '{model.CsType.Name}' contains a null relation property for key '{propertyName}'.",
+                        model);
+
+                foreach (var attribute in property.Attributes)
+                {
+                    if (attribute is null)
+                        return CreateRelationPropertyFailure(
+                            property,
+                            null,
+                            $"Relation property '{GetRelationPropertyDisplayName(property)}' contains a null attribute.");
+                }
+            }
+        }
+
+        return true;
+    }
+
     public static Option<bool, IDLOptionFailure> ValidateUniqueColumnNames(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
