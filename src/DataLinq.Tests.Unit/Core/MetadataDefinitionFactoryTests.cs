@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
@@ -80,6 +81,32 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Table model 'Items' is registered on database 'TargetDb'");
         await Assert.That(failure.Message).Contains("belongs to database 'OwnerDb'");
+    }
+
+    [Test]
+    public async Task Build_TableModelWithNullOwningDatabase_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class));
+        model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        var table = MetadataFactory.ParseTable(model).ValueOrException();
+        table.SetDbName("items");
+        var tableModel = new TableModel("Items", null!, model, table);
+        AddValueProperties(
+            model,
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.SetTableModels([tableModel]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table model 'Items'");
+        await Assert.That(failure.Message).Contains("has no owning database");
     }
 
     [Test]
@@ -317,6 +344,24 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ValuePropertyWithUnsupportedPropertyType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        SetPropertyType(property, (PropertyType)999);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("unsupported property type '999'");
+    }
+
+    [Test]
     public async Task Build_RelationPropertyWithNullAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();
@@ -353,6 +398,31 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Model 'Order'");
         await Assert.That(failure.Message).Contains("null relation property for key 'Customer'");
+    }
+
+    [Test]
+    public async Task Build_RelationPropertyWithWrongPropertyType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var relationProperty = new RelationProperty(
+            "Customer",
+            userModel.CsType,
+            orderModel,
+            [new RelationAttribute("users", "user_id", "FK_Order_User")]);
+        SetPropertyType(relationProperty, PropertyType.Value);
+        orderModel.AddProperty(relationProperty);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("stored as a relation property");
+        await Assert.That(failure.Message).Contains("marked as 'Value'");
     }
 
     [Test]
@@ -736,6 +806,23 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DatabaseTypeWithNonClassKind_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.SetCsType(new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Interface));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("database types must be classes");
+    }
+
+    [Test]
     public async Task Build_TableModelPropertyWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -770,6 +857,23 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ModelTypeWithInvalidDeclarationKind_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetCsType(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Enum));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("model types must be classes, records, or interfaces");
+    }
+
+    [Test]
     public async Task Build_ModelInstanceInterfaceWithUnsupportedCSharpTypeKind_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -784,6 +888,40 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Model 'Item' model-instance interface");
         await Assert.That(failure.Message).Contains("unsupported C# type kind '999'");
+    }
+
+    [Test]
+    public async Task Build_ModelInstanceInterfaceWithNonInterfaceKind_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetModelInstanceInterface(new CsTypeDeclaration("IItem", "TestNamespace", ModelCsType.Class));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item' model-instance interface");
+        await Assert.That(failure.Message).Contains("must be an interface");
+    }
+
+    [Test]
+    public async Task Build_ImmutableTypeWithNonConcreteKind_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetImmutableType(new CsTypeDeclaration("IImmutableItem", "TestNamespace", ModelCsType.Interface));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item' immutable type");
+        await Assert.That(failure.Message).Contains("must be a class or record");
     }
 
     [Test]
@@ -818,6 +956,23 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Model 'Item'");
         await Assert.That(failure.Message).Contains("contains a null using namespace");
+    }
+
+    [Test]
+    public async Task Build_ModelUsingWithEmptyNamespace_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetUsings([new ModelUsing("")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("empty using namespace");
     }
 
     [Test]
@@ -1249,6 +1404,44 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ColumnWithDatabaseTypeDecimalsWithoutLength_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var column = database.TableModels.Single().Table.Columns.Single();
+        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "decimal", null, 2));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'items.id'");
+        await Assert.That(failure.Message).Contains("decimals");
+        await Assert.That(failure.Message).Contains("no length");
+    }
+
+    [Test]
+    public async Task Build_ColumnWithDuplicateDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var column = database.TableModels.Single().Table.Columns.Single();
+        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int"));
+        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "integer"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'items.id'");
+        await Assert.That(failure.Message).Contains("multiple database types for 'MySQL'");
+    }
+
+    [Test]
     public async Task Build_EnumClrTypeWithoutEnumMetadata_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -1509,6 +1702,26 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TableWithDuplicateExistingIndexNames_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var idColumn = table.Columns.Single();
+        table.ColumnIndices.Add(new ColumnIndex("idx_duplicate", IndexCharacteristic.Simple, IndexType.BTREE, [idColumn]));
+        table.ColumnIndices.Add(new ColumnIndex("idx_duplicate", IndexCharacteristic.Unique, IndexType.BTREE, [idColumn]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table 'items'");
+        await Assert.That(failure.Message).Contains("duplicate column index name 'idx_duplicate'");
+    }
+
+    [Test]
     public async Task Build_ExistingRelationMissingCandidateKey_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();
@@ -1695,6 +1908,30 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_RelationPropertyWithEmptyStoredRelationName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var relationProperty = new RelationProperty(
+            "Customer",
+            userModel.CsType,
+            orderModel,
+            [new RelationAttribute("users", "user_id", "FK_Order_User")]);
+        relationProperty.SetRelationName("");
+        orderModel.AddProperty(relationProperty);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("empty relation name");
+    }
+
+    [Test]
     public async Task Build_ForeignKeyWithEmptyConstraintName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft(foreignKeyName: "");
@@ -1878,6 +2115,14 @@ public class MetadataDefinitionFactoryTests
             .ToArray();
 
         model.Table.SetColumns(columns);
+    }
+
+    private static void SetPropertyType(PropertyDefinition property, PropertyType type)
+    {
+        var backingField = typeof(PropertyDefinition).GetField(
+            "<Type>k__BackingField",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        backingField!.SetValue(property, type);
     }
 
     private sealed class MutableTableDefinition(string dbName) : TableDefinition(dbName)

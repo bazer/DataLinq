@@ -343,6 +343,12 @@ public static class MetadataFactory
         if (databaseTypeFailure is not null)
             return databaseTypeFailure;
 
+        if (database.CsType.ModelCsType != ModelCsType.Class)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Database '{database.DbName}' uses C# type kind '{database.CsType.ModelCsType}', but database types must be classes.",
+                database);
+
         foreach (var tableModel in database.TableModels)
         {
             if (!IsValidCSharpIdentifier(tableModel.CsPropertyName))
@@ -358,6 +364,12 @@ public static class MetadataFactory
                 model);
             if (modelTypeFailure is not null)
                 return modelTypeFailure;
+
+            if (!IsValidModelDeclarationKind(model.CsType.ModelCsType))
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Model '{model.CsType.Name}' uses C# type kind '{model.CsType.ModelCsType}', but model types must be classes, records, or interfaces.",
+                    model);
 
             foreach (var originalInterface in model.OriginalInterfaces)
             {
@@ -376,12 +388,30 @@ public static class MetadataFactory
             if (modelInstanceInterfaceFailure is not null)
                 return modelInstanceInterfaceFailure;
 
+            var modelInstanceInterfaceKindFailure = ValidateOptionalCSharpTypeRole(
+                model.ModelInstanceInterface,
+                $"Model '{model.CsType.Name}' model-instance interface",
+                model,
+                kind => kind == ModelCsType.Interface,
+                "an interface");
+            if (modelInstanceInterfaceKindFailure is not null)
+                return modelInstanceInterfaceKindFailure;
+
             var immutableTypeFailure = ValidateOptionalCSharpTypeReference(
                 model.ImmutableType,
                 $"Model '{model.CsType.Name}' immutable type",
                 model);
             if (immutableTypeFailure is not null)
                 return immutableTypeFailure;
+
+            var immutableTypeKindFailure = ValidateOptionalCSharpTypeRole(
+                model.ImmutableType,
+                $"Model '{model.CsType.Name}' immutable type",
+                model,
+                IsConcreteGeneratedModelKind,
+                "a class or record");
+            if (immutableTypeKindFailure is not null)
+                return immutableTypeKindFailure;
 
             var mutableTypeFailure = ValidateOptionalCSharpTypeReference(
                 model.MutableType,
@@ -390,12 +420,27 @@ public static class MetadataFactory
             if (mutableTypeFailure is not null)
                 return mutableTypeFailure;
 
+            var mutableTypeKindFailure = ValidateOptionalCSharpTypeRole(
+                model.MutableType,
+                $"Model '{model.CsType.Name}' mutable type",
+                model,
+                IsConcreteGeneratedModelKind,
+                "a class or record");
+            if (mutableTypeKindFailure is not null)
+                return mutableTypeKindFailure;
+
             foreach (var modelUsing in model.Usings)
             {
                 if (modelUsing is null)
                     return DLOptionFailure.Fail(
                         DLFailureType.InvalidModel,
                         $"Model '{model.CsType.Name}' contains a null using namespace.",
+                        model);
+
+                if (string.IsNullOrWhiteSpace(modelUsing.FullNamespaceName))
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Model '{model.CsType.Name}' contains an empty using namespace.",
                         model);
 
                 if (!IsValidCSharpNamespace(modelUsing.FullNamespaceName))
@@ -548,6 +593,28 @@ public static class MetadataFactory
             $"{scope} uses unsupported C# type kind '{type.ModelCsType}'.",
             context);
     }
+
+    private static IDLOptionFailure? ValidateOptionalCSharpTypeRole(
+        CsTypeDeclaration? type,
+        string scope,
+        IDefinition context,
+        Func<ModelCsType, bool> isValid,
+        string expectedRole)
+    {
+        if (!type.HasValue || isValid(type.Value.ModelCsType))
+            return null;
+
+        return DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
+            $"{scope} uses C# type kind '{type.Value.ModelCsType}', but it must be {expectedRole}.",
+            context);
+    }
+
+    private static bool IsValidModelDeclarationKind(ModelCsType kind) =>
+        kind is ModelCsType.Class or ModelCsType.Record or ModelCsType.Interface;
+
+    private static bool IsConcreteGeneratedModelKind(ModelCsType kind) =>
+        kind is ModelCsType.Class or ModelCsType.Record;
 
     private static bool IsValidCSharpNamespace(string? value)
     {
@@ -985,6 +1052,12 @@ public static class MetadataFactory
                     $"Database '{database.DbName}' contains a null table model.",
                     database);
 
+            if (tableModel.Database is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Table model '{tableModel.CsPropertyName}' is registered on database '{database.DbName}', but has no owning database.",
+                    database);
+
             if (!ReferenceEquals(tableModel.Database, database))
                 return DLOptionFailure.Fail(
                     DLFailureType.InvalidModel,
@@ -1075,6 +1148,14 @@ public static class MetadataFactory
                         $"Model '{model.CsType.Name}' contains a null value property for key '{propertyName}'.",
                         model);
 
+                var propertyMetadataFailure = ValidatePropertyTypeMetadata(
+                    property,
+                    PropertyType.Value,
+                    $"Value property '{GetValuePropertyDisplayName(property)}'",
+                    message => CreateValuePropertyFailure(property, message));
+                if (propertyMetadataFailure is not null)
+                    return propertyMetadataFailure;
+
                 foreach (var attribute in property.Attributes)
                 {
                     if (attribute is null)
@@ -1095,6 +1176,14 @@ public static class MetadataFactory
                         $"Model '{model.CsType.Name}' contains a null relation property for key '{propertyName}'.",
                         model);
 
+                var propertyMetadataFailure = ValidatePropertyTypeMetadata(
+                    property,
+                    PropertyType.Relation,
+                    $"Relation property '{GetRelationPropertyDisplayName(property)}'",
+                    message => CreateRelationPropertyFailure(property, null, message));
+                if (propertyMetadataFailure is not null)
+                    return propertyMetadataFailure;
+
                 foreach (var attribute in property.Attributes)
                 {
                     if (attribute is null)
@@ -1107,6 +1196,21 @@ public static class MetadataFactory
         }
 
         return true;
+    }
+
+    private static IDLOptionFailure? ValidatePropertyTypeMetadata(
+        PropertyDefinition property,
+        PropertyType expectedType,
+        string scope,
+        Func<string, IDLOptionFailure> createFailure)
+    {
+        if (!Enum.IsDefined(typeof(PropertyType), property.Type))
+            return createFailure($"{scope} uses unsupported property type '{property.Type}'.");
+
+        if (property.Type != expectedType)
+            return createFailure($"{scope} is stored as a {expectedType.ToString().ToLowerInvariant()} property, but is marked as '{property.Type}'.");
+
+        return null;
     }
 
     public static Option<bool, IDLOptionFailure> ValidateUniqueColumnNames(DatabaseDefinition database)
@@ -1150,7 +1254,7 @@ public static class MetadataFactory
                 if (!ReferenceEquals(primaryKeyColumn.Table, table))
                     return CreateTableFailure(
                         table,
-                        $"Table '{table.DbName}' has primary-key column '{primaryKeyColumn.Table.DbName}.{primaryKeyColumn.DbName}', but primary-key columns must belong to the table.");
+                        $"Table '{table.DbName}' has primary-key column '{primaryKeyColumn.Table?.DbName ?? "<unknown>"}.{primaryKeyColumn.DbName}', but primary-key columns must belong to the table.");
 
                 if (!table.Columns.Contains(primaryKeyColumn))
                     return CreateColumnPropertyFailure(
@@ -1229,7 +1333,7 @@ public static class MetadataFactory
                     if (!ReferenceEquals(column.Table, table))
                         return CreateColumnIndexFailure(
                             table,
-                            $"Index '{index.Name}' on table '{table.DbName}' references column '{column.Table.DbName}.{column.DbName}', but index columns must belong to the table that stores the index.");
+                            $"Index '{index.Name}' on table '{table.DbName}' references column '{column.Table?.DbName ?? "<unknown>"}.{column.DbName}', but index columns must belong to the table that stores the index.");
 
                     if (!table.Columns.Contains(column))
                         return CreateColumnIndexFailure(
@@ -1237,6 +1341,16 @@ public static class MetadataFactory
                             $"Index '{index.Name}' on table '{table.DbName}' references column '{column.DbName}', but that column is not registered on the table.");
                 }
             }
+
+            var duplicateIndexGroup = table.ColumnIndices
+                .Where(index => index is not null)
+                .GroupBy(index => index.Name, StringComparer.Ordinal)
+                .FirstOrDefault(group => group.Count() > 1);
+
+            if (duplicateIndexGroup != null)
+                return CreateColumnIndexFailure(
+                    table,
+                    $"Table '{table.DbName}' contains duplicate column index name '{duplicateIndexGroup.Key}'. Index names must be unique within a table.");
         }
 
         return true;
@@ -1260,7 +1374,7 @@ public static class MetadataFactory
                 if (!ReferenceEquals(column.Table, table))
                     return CreateTableFailure(
                         table,
-                        $"Column '{column.DbName}' is registered on table '{table.DbName}', but the column belongs to table '{column.Table.DbName}'.");
+                        $"Column '{column.DbName}' is registered on table '{table.DbName}', but the column belongs to table '{column.Table?.DbName ?? "<unknown>"}'.");
 
                 if (column.ValueProperty is not { } valueProperty)
                     return CreateColumnPropertyFailure(
@@ -1359,6 +1473,8 @@ public static class MetadataFactory
 
             foreach (var column in table.Columns)
             {
+                var databaseTypes = new HashSet<DatabaseType>();
+
                 foreach (var dbType in column.DbTypes)
                 {
                     if (dbType is null)
@@ -1375,6 +1491,16 @@ public static class MetadataFactory
                         return CreateColumnPropertyFailure(
                             column,
                             $"Column '{table.DbName}.{column.DbName}' has an empty database type name for database type '{dbType.DatabaseType}'.");
+
+                    if (dbType.Decimals.HasValue && !dbType.Length.HasValue)
+                        return CreateColumnPropertyFailure(
+                            column,
+                            $"Column '{table.DbName}.{column.DbName}' has database type '{dbType.Name}' with decimals, but no length. Database type decimals require a length.");
+
+                    if (!databaseTypes.Add(dbType.DatabaseType))
+                        return CreateColumnPropertyFailure(
+                            column,
+                            $"Column '{table.DbName}.{column.DbName}' defines multiple database types for '{dbType.DatabaseType}'. A column can have only one database type per provider.");
                 }
             }
         }
@@ -1617,6 +1743,12 @@ public static class MetadataFactory
                         property,
                         null,
                         $"Model '{model.CsType.Name}' contains both a value property and a relation property named '{property.PropertyName}'. Property names must be unique within a model.");
+
+                if (property.RelationName != null && string.IsNullOrWhiteSpace(property.RelationName))
+                    return CreateRelationPropertyFailure(
+                        property,
+                        null,
+                        $"Relation property '{GetRelationPropertyDisplayName(property)}' has an empty relation name.");
 
                 if (property.RelationPart?.ColumnIndex is { } relationIndex &&
                     !ReferenceEquals(relationIndex.Table, table))
