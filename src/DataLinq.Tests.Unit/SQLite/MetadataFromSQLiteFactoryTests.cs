@@ -110,6 +110,60 @@ public class MetadataFromSQLiteFactoryTests
     }
 
     [Test]
+    public async Task ParseRelations_ImplicitReferencedPrimaryKey_ResolvesPrimaryKeyColumn()
+    {
+        using var fixture = SqliteMetadataFixture.Create(
+            """
+            CREATE TABLE parent (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE child (
+                id INTEGER PRIMARY KEY,
+                parent_id INTEGER NOT NULL REFERENCES parent
+            );
+            """);
+
+        var database = fixture.ParseDatabase("TempSqliteDb", "TempSqliteDb", "DataLinq.Tests");
+        var child = database.TableModels.Single(tm => tm.Table.DbName == "child").Table;
+        var parentId = child.Columns.Single(c => c.DbName == "parent_id");
+        var foreignKey = parentId.ValueProperty.Attributes.OfType<ForeignKeyAttribute>().Single();
+
+        await Assert.That(parentId.ForeignKey).IsTrue();
+        await Assert.That(foreignKey.Table).IsEqualTo("parent");
+        await Assert.That(foreignKey.Column).IsEqualTo("id");
+    }
+
+    [Test]
+    public async Task ParseRelations_AmbiguousImplicitReferencedPrimaryKey_ReturnsInvalidModelFailure()
+    {
+        using var fixture = SqliteMetadataFixture.Create(
+            """
+            CREATE TABLE parent (
+                tenant_id INTEGER NOT NULL,
+                id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                PRIMARY KEY (tenant_id, id)
+            );
+            """,
+            """
+            CREATE TABLE child (
+                id INTEGER PRIMARY KEY,
+                parent_id INTEGER NOT NULL REFERENCES parent
+            );
+            """);
+
+        var result = fixture.ParseDatabaseOption("TempSqliteDb", "TempSqliteDb", "DataLinq.Tests");
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.ToString()!).Contains("omits the referenced column");
+        await Assert.That(failure.ToString()!).Contains("parent");
+    }
+
+    [Test]
     public async Task ParseIndices_MapsUniqueIndexToColumnIndex()
     {
         using var fixture = SqliteMetadataFixture.CreateEmployeesSchema();

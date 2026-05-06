@@ -55,7 +55,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No tables or views found in database '{dbName}'. Please check the connection string and database name.");
 
         ParseIndices(database, dbAccess);
-        ParseRelations(database, dbAccess);
+        if (!ParseRelations(database, dbAccess).TryUnwrap(out _, out var relationFailure))
+            return relationFailure;
+
         return new MetadataDefinitionFactory()
             .BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database));
     });
@@ -164,19 +166,24 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private static string QuoteSqlLiteral(string value) => $"'{value.Replace("'", "''")}'";
 
-    private void ParseRelations(DatabaseDefinition database, DatabaseAccess dbAccess)
+    private Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database, DatabaseAccess dbAccess)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
-            foreach (var reader in dbAccess.ReadReader($"SELECT id, seq, \"table\", \"from\", \"to\", on_update, on_delete FROM pragma_foreign_key_list('{tableModel.Table.DbName}')"))
+            foreach (var reader in dbAccess.ReadReader($"SELECT id, seq, \"table\", \"from\", \"to\", on_update, on_delete FROM pragma_foreign_key_list({QuoteSqlLiteral(tableModel.Table.DbName)})"))
             {
                 var keyName = reader.GetString(0);
                 var ordinal = reader.GetInt32(1);
-                var tableName = reader.GetString(2);
-                var fromColumnName = reader.GetString(3);
-                var toColumnName = reader.GetString(4);
+                var tableName = reader.IsDbNull(2) ? null : reader.GetString(2);
+                var fromColumnName = reader.IsDbNull(3) ? null : reader.GetString(3);
+                var toColumnName = reader.IsDbNull(4) ? null : reader.GetString(4);
                 var onUpdate = ParseReferentialAction(reader.GetString(5));
                 var onDelete = ParseReferentialAction(reader.GetString(6));
+
+                if (string.IsNullOrWhiteSpace(tableName) || string.IsNullOrWhiteSpace(fromColumnName))
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Malformed SQLite foreign-key metadata row in table '{tableModel.Table.DbName}': referenced table and source column are required.");
 
                 var foreignKeyColumn = tableModel
                     .Table.Columns.SingleOrDefault(x => x.DbName == fromColumnName);
@@ -184,10 +191,30 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                 if (foreignKeyColumn == null)
                     continue;
 
-                var candidateColumn = database
+                var candidateTable = database
                     .TableModels.SingleOrDefault(x => x.Table.DbName == tableName)?
-                    .Table.Columns.SingleOrDefault(x => x.DbName == toColumnName);
+                    .Table;
 
+                if (candidateTable == null)
+                {
+                    options.Log?.Invoke($"Warning: Skipping foreign key '{keyName}' on table '{tableModel.Table.DbName}' because referenced table '{tableName}' was not imported.");
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(toColumnName))
+                {
+                    var primaryKeyColumns = candidateTable.Columns.Where(x => x.PrimaryKey).ToArray();
+                    if (primaryKeyColumns.Length != 1)
+                    {
+                        return DLOptionFailure.Fail(
+                            DLFailureType.InvalidModel,
+                            $"SQLite foreign key '{keyName}' on table '{tableModel.Table.DbName}' omits the referenced column, but referenced table '{tableName}' does not have exactly one imported primary-key column.");
+                    }
+
+                    toColumnName = primaryKeyColumns[0].DbName;
+                }
+
+                var candidateColumn = candidateTable.Columns.SingleOrDefault(x => x.DbName == toColumnName);
                 if (candidateColumn == null)
                 {
                     options.Log?.Invoke($"Warning: Skipping foreign key '{keyName}' on table '{tableModel.Table.DbName}' because referenced column '{tableName}.{toColumnName}' was not imported.");
@@ -199,6 +226,8 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                 foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumnName, keyName, ordinal, onUpdate, onDelete));
             }
         }
+
+        return true;
     }
 
     private static ReferentialAction ParseReferentialAction(string? value)
