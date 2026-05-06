@@ -456,6 +456,10 @@ public static class MetadataFactory
         string scope,
         IDefinition context)
     {
+        var typeKindFailure = ValidateCSharpTypeKind(type, scope, context);
+        if (typeKindFailure is not null)
+            return typeKindFailure;
+
         if (!IsValidCSharpIdentifier(type.Name))
             return DLOptionFailure.Fail(
                 DLFailureType.InvalidModel,
@@ -476,6 +480,10 @@ public static class MetadataFactory
         string scope,
         IDefinition context)
     {
+        var typeKindFailure = ValidateCSharpTypeKind(type, scope, context);
+        if (typeKindFailure is not null)
+            return typeKindFailure;
+
         if (!IsValidCSharpIdentifier(type.Name))
             return DLOptionFailure.Fail(
                 DLFailureType.InvalidModel,
@@ -496,6 +504,10 @@ public static class MetadataFactory
         string scope,
         IDefinition context)
     {
+        var typeKindFailure = ValidateCSharpTypeKind(type, scope, context);
+        if (typeKindFailure is not null)
+            return typeKindFailure;
+
         if (!IsValidCSharpTypeReferenceName(type.Name))
             return DLOptionFailure.Fail(
                 DLFailureType.InvalidModel,
@@ -521,6 +533,20 @@ public static class MetadataFactory
                 context);
 
         return null;
+    }
+
+    private static IDLOptionFailure? ValidateCSharpTypeKind(
+        CsTypeDeclaration type,
+        string scope,
+        IDefinition context)
+    {
+        if (Enum.IsDefined(typeof(ModelCsType), type.ModelCsType))
+            return null;
+
+        return DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
+            $"{scope} uses unsupported C# type kind '{type.ModelCsType}'.",
+            context);
     }
 
     private static bool IsValidCSharpNamespace(string? value)

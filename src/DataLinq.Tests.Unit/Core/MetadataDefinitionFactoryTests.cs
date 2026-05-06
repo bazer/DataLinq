@@ -719,6 +719,23 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DatabaseTypeWithUnsupportedCSharpTypeKind_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.SetCsType(new CsTypeDeclaration("TestDb", "TestNamespace", (ModelCsType)999));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("unsupported C# type kind '999'");
+    }
+
+    [Test]
     public async Task Build_TableModelPropertyWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -750,6 +767,23 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Model 'Bad Model'");
         await Assert.That(failure.Message).Contains("C# type name 'Bad Model'");
+    }
+
+    [Test]
+    public async Task Build_ModelInstanceInterfaceWithUnsupportedCSharpTypeKind_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetModelInstanceInterface(new CsTypeDeclaration("IItem", "TestNamespace", (ModelCsType)999));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item' model-instance interface");
+        await Assert.That(failure.Message).Contains("unsupported C# type kind '999'");
     }
 
     [Test]
@@ -861,6 +895,24 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Value property 'Item.Id'");
         await Assert.That(failure.Message).Contains("C# type name 'Bad Type'");
+    }
+
+    [Test]
+    public async Task Build_ValuePropertyWithUnsupportedCSharpTypeKind_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.SetCsType(new CsTypeDeclaration("int", "", (ModelCsType)999));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("unsupported C# type kind '999'");
     }
 
     [Test]
