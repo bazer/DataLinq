@@ -1,10 +1,11 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using DataLinq.Validation;
-
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -84,16 +85,20 @@ public class SchemaComparerTests
     [Test]
     public async Task Compare_ColumnShape_ReturnsAmbiguousMismatches()
     {
-        var model = CreateDatabase(("account", ["id", "display_name"]));
-        var database = CreateDatabase(("account", ["id", "display_name"]));
-        var modelColumn = FindColumn(model, "account", "display_name");
-        var databaseColumn = FindColumn(database, "account", "display_name");
-
-        modelColumn.SetNullable();
-        modelColumn.ValueProperty.SetAttributes([new DefaultAttribute("anonymous")]);
-        databaseColumn.GetDbTypeFor(DatabaseType.SQLite)!.SetName("text");
-        databaseColumn.SetAutoIncrement();
-        databaseColumn.ValueProperty.SetAttributes([new DefaultAttribute("legacy")]);
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("display_name", typeof(int), nullable: true, defaultValue: 1)
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("display_name", typeof(int), nullable: false, autoIncrement: true, defaultValue: 2, sqliteTypeName: "text")
+                ]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
 
@@ -110,13 +115,28 @@ public class SchemaComparerTests
     [Test]
     public async Task Compare_DefaultCodeExpressionDifference_DoesNotCreateSchemaDrift()
     {
-        var model = CreateDatabase(("account", ["id", "display_name"]));
-        var database = CreateDatabase(("account", ["id", "display_name"]));
-        var modelColumn = FindColumn(model, "account", "display_name");
-        var databaseColumn = FindColumn(database, "account", "display_name");
-
-        modelColumn.ValueProperty.SetAttributes([new DefaultAttribute("anonymous").SetCodeExpression("\"anonymous\"")]);
-        databaseColumn.ValueProperty.SetAttributes([new DefaultAttribute("anonymous")]);
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn(
+                        "display_name",
+                        typeof(string),
+                        nullable: false,
+                        attributes: [new DefaultAttribute("anonymous").SetCodeExpression("\"anonymous\"")])
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn(
+                        "display_name",
+                        typeof(string),
+                        nullable: false,
+                        attributes: [new DefaultAttribute("anonymous")])
+                ]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
 
@@ -126,13 +146,28 @@ public class SchemaComparerTests
     [Test]
     public async Task Compare_RawProviderDefaults_CompareProviderExpression()
     {
-        var model = CreateDatabase(("account", ["id", "payload"]));
-        var database = CreateDatabase(("account", ["id", "payload"]));
-        var modelColumn = FindColumn(model, "account", "payload");
-        var databaseColumn = FindColumn(database, "account", "payload");
-
-        modelColumn.ValueProperty.SetAttributes([new DefaultSqlAttribute(DatabaseType.MySQL, "(json_object())")]);
-        databaseColumn.ValueProperty.SetAttributes([new DefaultSqlAttribute(DatabaseType.MySQL, "(json_array())")]);
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn(
+                        "payload",
+                        typeof(string),
+                        nullable: false,
+                        attributes: [new DefaultSqlAttribute(DatabaseType.MySQL, "(json_object())")])
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn(
+                        "payload",
+                        typeof(string),
+                        nullable: false,
+                        attributes: [new DefaultSqlAttribute(DatabaseType.MySQL, "(json_array())")])
+                ]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.MySQL);
 
@@ -143,21 +178,24 @@ public class SchemaComparerTests
     [Test]
     public async Task Compare_Indexes_ReturnsAdditiveAndDestructiveDifferences()
     {
-        var model = CreateDatabase(("account", ["id", "accounting_year", "account_number"]));
-        var database = CreateDatabase(("account", ["id", "accounting_year", "account_number"]));
-        var modelTable = FindTable(model, "account");
-        var databaseTable = FindTable(database, "account");
-
-        modelTable.ColumnIndices.Add(new ColumnIndex(
-            "ux_account_year_number",
-            IndexCharacteristic.Unique,
-            IndexType.BTREE,
-            [FindColumn(model, "account", "accounting_year"), FindColumn(model, "account", "account_number")]));
-        databaseTable.ColumnIndices.Add(new ColumnIndex(
-            "idx_account_year",
-            IndexCharacteristic.Simple,
-            IndexType.BTREE,
-            [FindColumn(database, "account", "accounting_year")]));
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("accounting_year", typeof(int), nullable: false),
+                    CreateColumn("account_number", typeof(int), nullable: false)
+                ],
+                [new IndexAttribute("ux_account_year_number", IndexCharacteristic.Unique, IndexType.BTREE, "accounting_year", "account_number")]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("accounting_year", typeof(int), nullable: false),
+                    CreateColumn("account_number", typeof(int), nullable: false)
+                ],
+                [new IndexAttribute("idx_account_year", IndexCharacteristic.Simple, IndexType.BTREE, "accounting_year")]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
 
@@ -172,16 +210,42 @@ public class SchemaComparerTests
     [Test]
     public async Task Compare_ForeignKeys_ReturnsOrderedRelationDifferences()
     {
-        var model = CreateDatabase(("order_header", ["tenant_id", "order_no"]), ("order_line", ["tenant_id", "order_no"]));
-        var database = CreateDatabase(("order_header", ["tenant_id", "order_no"]), ("order_line", ["tenant_id", "order_no"]));
-
-        AddForeignKey(
-            model,
-            "FK_order_line_header",
-            "order_line",
-            ["tenant_id", "order_no"],
-            "order_header",
-            ["tenant_id", "order_no"]);
+        var model = CreateDatabase(
+            CreateTable(
+                "order_header",
+                [
+                    CreateColumn("tenant_id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("order_no", typeof(int), nullable: false, primaryKey: true)
+                ]),
+            CreateTable(
+                "order_line",
+                [
+                    CreateColumn(
+                        "tenant_id",
+                        typeof(int),
+                        nullable: false,
+                        primaryKey: true,
+                        attributes: [new ForeignKeyAttribute("order_header", "tenant_id", "FK_order_line_header", 0)]),
+                    CreateColumn(
+                        "order_no",
+                        typeof(int),
+                        nullable: false,
+                        primaryKey: true,
+                        attributes: [new ForeignKeyAttribute("order_header", "order_no", "FK_order_line_header", 1)])
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "order_header",
+                [
+                    CreateColumn("tenant_id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("order_no", typeof(int), nullable: false, primaryKey: true)
+                ]),
+            CreateTable(
+                "order_line",
+                [
+                    CreateColumn("tenant_id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("order_no", typeof(int), nullable: false, primaryKey: true)
+                ]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
 
@@ -194,27 +258,34 @@ public class SchemaComparerTests
     [Test]
     public async Task Compare_ForeignKeyActions_ArePartOfRelationSignature()
     {
-        var model = CreateDatabase(("account", ["id"]), ("invoice", ["account_id"]));
-        var database = CreateDatabase(("account", ["id"]), ("invoice", ["account_id"]));
-
-        AddForeignKey(
-            model,
-            "FK_invoice_account",
-            "invoice",
-            ["account_id"],
-            "account",
-            ["id"],
-            ReferentialAction.Cascade,
-            ReferentialAction.SetNull);
-        AddForeignKey(
-            database,
-            "FK_invoice_account",
-            "invoice",
-            ["account_id"],
-            "account",
-            ["id"],
-            ReferentialAction.NoAction,
-            ReferentialAction.NoAction);
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]),
+            CreateTable(
+                "invoice",
+                [
+                    CreateColumn(
+                        "account_id",
+                        typeof(int),
+                        nullable: true,
+                        primaryKey: true,
+                        attributes: [new ForeignKeyAttribute("account", "id", "FK_invoice_account", ReferentialAction.Cascade, ReferentialAction.SetNull)])
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]),
+            CreateTable(
+                "invoice",
+                [
+                    CreateColumn(
+                        "account_id",
+                        typeof(int),
+                        nullable: true,
+                        primaryKey: true,
+                        attributes: [new ForeignKeyAttribute("account", "id", "FK_invoice_account", ReferentialAction.NoAction, ReferentialAction.NoAction)])
+                ]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
 
@@ -225,15 +296,21 @@ public class SchemaComparerTests
     [Test]
     public async Task Compare_Views_ComparePresenceTypeAndColumns()
     {
-        var model = CreateDatabaseWithObjects(
-            ("account", TableType.Table, ["id"]),
-            ("current_account", TableType.View, ["id", "display_name"]),
-            ("account_lookup", TableType.View, ["id"]));
-        var database = CreateDatabaseWithObjects(
-            ("account", TableType.Table, ["id"]),
-            ("current_account", TableType.View, ["id"]),
-            ("account_lookup", TableType.Table, ["id"]),
-            ("legacy_account", TableType.View, ["id"]));
+        var model = CreateDatabase(
+            CreateTable("account", [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]),
+            CreateTable(
+                "current_account",
+                TableType.View,
+                [
+                    CreateColumn("id", typeof(int), nullable: false),
+                    CreateColumn("display_name", typeof(string), nullable: false)
+                ]),
+            CreateTable("account_lookup", TableType.View, [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]));
+        var database = CreateDatabase(
+            CreateTable("account", [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]),
+            CreateTable("current_account", TableType.View, [CreateColumn("id", typeof(int), nullable: false)]),
+            CreateTable("account_lookup", [CreateColumn("id", typeof(int), nullable: false, primaryKey: true)]),
+            CreateTable("legacy_account", TableType.View, [CreateColumn("id", typeof(int), nullable: false)]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
 
@@ -252,23 +329,36 @@ public class SchemaComparerTests
     [Test]
     public async Task Compare_MariaDbChecksAndComments_UsesProviderSpecificMetadata()
     {
-        var model = CreateDatabase(("account", ["id"]));
-        var database = CreateDatabase(("account", ["id"]));
-        var modelTable = FindTable(model, "account");
-        var databaseTable = FindTable(database, "account");
-        var modelColumn = FindColumn(model, "account", "id");
-        var databaseColumn = FindColumn(database, "account", "id");
-
-        modelTable.Model.SetAttributes([
-            new CheckAttribute(DatabaseType.MariaDB, "CK_account_id", "`id` > 0"),
-            new CommentAttribute(DatabaseType.MariaDB, "model table comment")
-        ]);
-        databaseTable.Model.SetAttributes([
-            new CheckAttribute(DatabaseType.MariaDB, "CK_account_legacy", "`id` >= 0"),
-            new CommentAttribute(DatabaseType.MariaDB, "database table comment")
-        ]);
-        modelColumn.ValueProperty.SetAttributes([new CommentAttribute(DatabaseType.MariaDB, "model column comment")]);
-        databaseColumn.ValueProperty.SetAttributes([new CommentAttribute(DatabaseType.MariaDB, "database column comment")]);
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn(
+                        "id",
+                        typeof(int),
+                        nullable: false,
+                        primaryKey: true,
+                        attributes: [new CommentAttribute(DatabaseType.MariaDB, "model column comment")])
+                ],
+                [
+                    new CheckAttribute(DatabaseType.MariaDB, "CK_account_id", "`id` > 0"),
+                    new CommentAttribute(DatabaseType.MariaDB, "model table comment")
+                ]));
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn(
+                        "id",
+                        typeof(int),
+                        nullable: false,
+                        primaryKey: true,
+                        attributes: [new CommentAttribute(DatabaseType.MariaDB, "database column comment")])
+                ],
+                [
+                    new CheckAttribute(DatabaseType.MariaDB, "CK_account_legacy", "`id` >= 0"),
+                    new CommentAttribute(DatabaseType.MariaDB, "database table comment")
+                ]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.MariaDB);
 
@@ -287,88 +377,109 @@ public class SchemaComparerTests
 
     private static DatabaseDefinition CreateDatabase(params (string tableName, string[] columns)[] tables)
     {
-        return CreateDatabaseWithObjects(tables.Select(table => (table.tableName, TableType.Table, table.columns)).ToArray());
+        return CreateDatabase(tables
+            .Select(table => CreateTable(
+                table.tableName,
+                table.columns
+                    .Select((column, index) => CreateColumn(column, typeof(int), nullable: false, primaryKey: index == 0))
+                    .ToArray()))
+            .ToArray());
     }
 
-    private static DatabaseDefinition CreateDatabaseWithObjects(params (string objectName, TableType type, string[] columns)[] objects)
+    private static DatabaseDefinition CreateDatabase(params MetadataTableModelDraft[] tableModels)
     {
-        var database = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "DataLinq.Tests", ModelCsType.Class));
-        var tableModels = objects.Select(table =>
+        var draft = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "DataLinq.Tests", ModelCsType.Class))
         {
-            var model = new ModelDefinition(new CsTypeDeclaration(ToCsName(table.objectName), "DataLinq.Tests", ModelCsType.Class));
-            var tableDefinition = table.type == TableType.View
-                ? new ViewDefinition(table.objectName)
-                : new TableDefinition(table.objectName);
-            var tableModel = new TableModel(ToCsName(table.objectName), database, model, tableDefinition);
-            var columns = table.columns.Select((columnName, index) =>
-            {
-                var property = new ValueProperty(ToCsName(columnName), new CsTypeDeclaration(typeof(int)), model, []);
-                var column = new ColumnDefinition(columnName, tableDefinition);
-                column.SetIndex(index);
-                column.AddDbType(new DatabaseColumnType(DatabaseType.SQLite, "integer"));
-                column.AddDbType(new DatabaseColumnType(DatabaseType.MariaDB, "int", signed: true));
-                column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int", signed: true));
-                column.SetValueProperty(property);
-                model.AddProperty(property);
-                return column;
-            });
-
-            tableDefinition.SetColumns(columns);
-            return tableModel;
-        });
-
-        database.SetTableModels(tableModels);
-        return database;
-    }
-
-    private static TableDefinition FindTable(DatabaseDefinition database, string tableName) =>
-        database.TableModels.Single(x => x.Table.DbName == tableName).Table;
-
-    private static ColumnDefinition FindColumn(DatabaseDefinition database, string tableName, string columnName) =>
-        FindTable(database, tableName).Columns.Single(x => x.DbName == columnName);
-
-    private static void AddForeignKey(
-        DatabaseDefinition database,
-        string constraintName,
-        string foreignKeyTableName,
-        string[] foreignKeyColumns,
-        string candidateKeyTableName,
-        string[] candidateKeyColumns,
-        ReferentialAction onUpdate = ReferentialAction.Unspecified,
-        ReferentialAction onDelete = ReferentialAction.Unspecified)
-    {
-        var foreignKeyTable = FindTable(database, foreignKeyTableName);
-        var candidateKeyTable = FindTable(database, candidateKeyTableName);
-        var foreignKeyIndex = new ColumnIndex(
-            constraintName,
-            IndexCharacteristic.ForeignKey,
-            IndexType.BTREE,
-            foreignKeyColumns.Select(column => FindColumn(database, foreignKeyTableName, column)).ToList());
-        var candidateKeyIndex = new ColumnIndex(
-            $"{constraintName}_candidate",
-            IndexCharacteristic.PrimaryKey,
-            IndexType.BTREE,
-            candidateKeyColumns.Select(column => FindColumn(database, candidateKeyTableName, column)).ToList());
-        var relation = new RelationDefinition(constraintName, RelationType.OneToMany)
-        {
-            OnUpdate = onUpdate,
-            OnDelete = onDelete
+            TableModels = tableModels
         };
-        var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, candidateKeyTable.Model.CsType.Name);
-        var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, foreignKeyTable.Model.CsType.Name);
 
-        relation.ForeignKey = foreignKeyPart;
-        relation.CandidateKey = candidateKeyPart;
-        foreignKeyIndex.RelationParts.Add(foreignKeyPart);
-        candidateKeyIndex.RelationParts.Add(candidateKeyPart);
-        foreignKeyTable.ColumnIndices.Add(foreignKeyIndex);
-        candidateKeyTable.ColumnIndices.Add(candidateKeyIndex);
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static MetadataTableModelDraft CreateTable(
+        string tableName,
+        MetadataValuePropertyDraft[] columns,
+        Attribute[]? attributes = null)
+    {
+        return CreateTable(tableName, TableType.Table, columns, attributes);
+    }
+
+    private static MetadataTableModelDraft CreateTable(
+        string tableName,
+        TableType type,
+        MetadataValuePropertyDraft[] columns,
+        Attribute[]? attributes = null)
+    {
+        return new MetadataTableModelDraft(
+            ToCsName(tableName),
+            new MetadataModelDraft(new CsTypeDeclaration(ToCsName(tableName), "DataLinq.Tests", ModelCsType.Class))
+            {
+                Attributes = attributes ?? [],
+                ValueProperties = columns
+            },
+            new MetadataTableDraft(tableName)
+            {
+                Type = type,
+                Definition = type == TableType.View ? $"select * from {tableName}" : null
+            });
+    }
+
+    private static MetadataValuePropertyDraft CreateColumn(
+        string columnName,
+        Type csType,
+        bool nullable,
+        bool primaryKey = false,
+        bool autoIncrement = false,
+        object? defaultValue = null,
+        Attribute[]? attributes = null,
+        string? sqliteTypeName = null)
+    {
+        var propertyAttributes = defaultValue == null
+            ? attributes ?? []
+            : [new DefaultAttribute(defaultValue), .. (attributes ?? [])];
+
+        return new MetadataValuePropertyDraft(
+            ToCsName(columnName),
+            new CsTypeDeclaration(csType),
+            new MetadataColumnDraft(columnName)
+            {
+                PrimaryKey = primaryKey,
+                AutoIncrement = autoIncrement,
+                Nullable = nullable,
+                ForeignKey = propertyAttributes.Any(static x => x is ForeignKeyAttribute),
+                DbTypes =
+                [
+                    GetColumnType(DatabaseType.SQLite, csType, sqliteTypeName),
+                    GetColumnType(DatabaseType.MySQL, csType),
+                    GetColumnType(DatabaseType.MariaDB, csType)
+                ]
+            })
+        {
+            Attributes = propertyAttributes,
+            CsNullable = nullable || autoIncrement
+        };
+    }
+
+    private static DatabaseColumnType GetColumnType(DatabaseType databaseType, Type csType, string? sqliteTypeName = null)
+    {
+        if (databaseType == DatabaseType.SQLite)
+        {
+            return csType == typeof(string)
+                ? new DatabaseColumnType(databaseType, sqliteTypeName ?? "text")
+                : new DatabaseColumnType(databaseType, sqliteTypeName ?? "integer");
+        }
+
+        return csType == typeof(string)
+            ? new DatabaseColumnType(databaseType, "varchar", 40)
+            : new DatabaseColumnType(databaseType, "int", signed: true);
     }
 
     private static string ToCsName(string value)
     {
         return string.Join(
             "",
-            value.Split('_').Where(x => x.Length > 0).Select(x => char.ToUpperInvariant(x[0]) + x.Substring(1)));
+            value.Split('_').Where(x => x.Length > 0).Select(x => char.ToUpperInvariant(x[0]) + x[1..]));
     }
 }
