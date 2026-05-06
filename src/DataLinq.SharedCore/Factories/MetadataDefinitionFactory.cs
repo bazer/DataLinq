@@ -55,11 +55,17 @@ public sealed class MetadataDefinitionFactory
 
     private static Option<DatabaseDefinition, IDLOptionFailure> BuildCore(DatabaseDefinition draft)
     {
+        if (!MetadataFactory.ValidateExistingTableModels(draft).TryUnwrap(out _, out var tableModelFailure))
+            return tableModelFailure;
+
         if (!MetadataFactory.ValidateUniqueTableNames(draft).TryUnwrap(out _, out var duplicateTableFailure))
             return duplicateTableFailure;
 
         if (!MetadataFactory.ValidateExistingColumnPropertyBindings(draft).TryUnwrap(out _, out var columnPropertyFailure))
             return columnPropertyFailure;
+
+        if (!MetadataFactory.ValidateExistingPrimaryKeyColumns(draft).TryUnwrap(out _, out var primaryKeyFailure))
+            return primaryKeyFailure;
 
         if (!MetadataFactory.ValidateUniqueColumnNames(draft).TryUnwrap(out _, out var duplicateColumnFailure))
             return duplicateColumnFailure;

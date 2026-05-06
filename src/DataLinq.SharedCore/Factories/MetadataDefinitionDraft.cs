@@ -24,6 +24,14 @@ public sealed class MetadataDefinitionDraft
 
     internal Option<DatabaseDefinition, IDLOptionFailure> TryCreateMutableSnapshot()
     {
+        var tableModelValidation = MetadataFactory.ValidateExistingTableModels(metadata);
+        if (!tableModelValidation.HasValue)
+            return tableModelValidation.Failure;
+
+        var primaryKeyValidation = MetadataFactory.ValidateExistingPrimaryKeyColumns(metadata);
+        if (!primaryKeyValidation.HasValue)
+            return primaryKeyValidation.Failure;
+
         var indexValidation = MetadataFactory.ValidateExistingColumnIndices(metadata);
         if (!indexValidation.HasValue)
             return indexValidation.Failure;

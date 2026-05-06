@@ -257,6 +257,55 @@ public static class MetadataFactory
         return model.GetSourceLocation();
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateExistingTableModels(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels)
+        {
+            if (tableModel is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Database '{database.DbName}' contains a null table model.",
+                    database);
+
+            if (!ReferenceEquals(tableModel.Database, database))
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Table model '{tableModel.CsPropertyName}' is registered on database '{database.DbName}', but belongs to database '{tableModel.Database.DbName}'.",
+                    database);
+
+            if (tableModel.Table is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Table model '{tableModel.CsPropertyName}' on database '{database.DbName}' has no table definition.",
+                    database);
+
+            if (tableModel.Model is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Table model '{tableModel.CsPropertyName}' on database '{database.DbName}' has no model definition.",
+                    database);
+
+            if (!ReferenceEquals(tableModel.Table.TableModel, tableModel))
+                return CreateTableFailure(
+                    tableModel.Table,
+                    $"Table '{tableModel.Table.DbName}' is registered through table model '{tableModel.CsPropertyName}', but the table points at a different table model.");
+
+            if (!ReferenceEquals(tableModel.Model.TableModel, tableModel))
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Model '{tableModel.Model.CsType.Name}' is registered through table model '{tableModel.CsPropertyName}', but the model points at a different table model.",
+                    tableModel.Model);
+
+            if (string.IsNullOrWhiteSpace(tableModel.CsPropertyName))
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Table '{tableModel.Table.DbName}' has an empty database property name.",
+                    tableModel.Table);
+        }
+
+        return true;
+    }
+
     public static Option<bool, IDLOptionFailure> ValidateUniqueColumnNames(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
@@ -277,6 +326,50 @@ public static class MetadataFactory
             return sourceLocation.HasValue
                 ? DLOptionFailure.Fail(DLFailureType.InvalidModel, message, sourceLocation.Value)
                 : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate);
+        }
+
+        return true;
+    }
+
+    public static Option<bool, IDLOptionFailure> ValidateExistingPrimaryKeyColumns(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var table = tableModel.Table;
+
+            foreach (var primaryKeyColumn in table.PrimaryKeyColumns)
+            {
+                if (primaryKeyColumn is null)
+                    return CreateTableFailure(
+                        table,
+                        $"Table '{table.DbName}' contains a null primary-key column.");
+
+                if (!ReferenceEquals(primaryKeyColumn.Table, table))
+                    return CreateTableFailure(
+                        table,
+                        $"Table '{table.DbName}' has primary-key column '{primaryKeyColumn.Table.DbName}.{primaryKeyColumn.DbName}', but primary-key columns must belong to the table.");
+
+                if (!table.Columns.Contains(primaryKeyColumn))
+                    return CreateColumnPropertyFailure(
+                        primaryKeyColumn,
+                        $"Table '{table.DbName}' has primary-key column '{primaryKeyColumn.DbName}', but that column is not registered on the table.");
+
+                if (!primaryKeyColumn.PrimaryKey)
+                    return CreateColumnPropertyFailure(
+                        primaryKeyColumn,
+                        $"Table '{table.DbName}' has primary-key column '{primaryKeyColumn.DbName}', but the column is not marked as a primary key.");
+            }
+
+            foreach (var column in table.Columns)
+            {
+                if (column is null)
+                    continue;
+
+                if (column.PrimaryKey && !table.PrimaryKeyColumns.Contains(column))
+                    return CreateColumnPropertyFailure(
+                        column,
+                        $"Column '{table.DbName}.{column.DbName}' is marked as a primary key, but it is not registered in the table primary-key columns.");
+            }
         }
 
         return true;

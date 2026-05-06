@@ -57,6 +57,70 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TableModelRegisteredOnWrongDatabase_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var ownerDatabase = new DatabaseDefinition(
+            "OwnerDb",
+            new CsTypeDeclaration("OwnerDb", "TestNamespace", ModelCsType.Class));
+        var tableModel = CreateTableModel(ownerDatabase, "Items", "Item", "items");
+        AddValueProperties(
+            tableModel.Model,
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+
+        var targetDatabase = new DatabaseDefinition(
+            "TargetDb",
+            new CsTypeDeclaration("TargetDb", "TestNamespace", ModelCsType.Class));
+        targetDatabase.SetTableModels([tableModel]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(targetDatabase));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table model 'Items' is registered on database 'TargetDb'");
+        await Assert.That(failure.Message).Contains("belongs to database 'OwnerDb'");
+    }
+
+    [Test]
+    public async Task Build_PrimaryKeyColumnNotRegisteredOnTable_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var ghostPrimaryKey = new ColumnDefinition("ghost_pk", table);
+        ghostPrimaryKey.SetPrimaryKey();
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("primary-key column 'ghost_pk'");
+        await Assert.That(failure.Message).Contains("not registered on the table");
+    }
+
+    [Test]
+    public async Task Build_PrimaryKeyFlagMissingTableRegistration_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var idColumn = table.Columns.Single(column => column.DbName == "id");
+        table.RemovePrimaryKeyColumn(idColumn);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'items.id' is marked as a primary key");
+        await Assert.That(failure.Message).Contains("not registered in the table primary-key columns");
+    }
+
+    [Test]
     public async Task Build_ColumnWithoutValueProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
