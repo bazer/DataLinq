@@ -977,6 +977,11 @@ public static class MetadataFactory
                     $"Table model '{tableModel.CsPropertyName}' on database '{database.DbName}' has no model definition.",
                     database);
 
+            if (!Enum.IsDefined(typeof(TableType), tableModel.Table.Type))
+                return CreateTableFailure(
+                    tableModel.Table,
+                    $"Table '{tableModel.Table.DbName}' on model '{tableModel.Model.CsType.Name}' uses unsupported table type '{tableModel.Table.Type}'.");
+
             if (!ReferenceEquals(tableModel.Table.TableModel, tableModel))
                 return CreateTableFailure(
                     tableModel.Table,

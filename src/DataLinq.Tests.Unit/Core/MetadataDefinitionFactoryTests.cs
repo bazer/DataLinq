@@ -168,6 +168,32 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TableWithUnsupportedTableType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class));
+        model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        var table = new MutableTableDefinition("items");
+        table.SetType((TableType)999);
+        var tableModel = new TableModel("Items", database, model, table);
+        AddValueProperties(
+            model,
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.SetTableModels([tableModel]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table 'items' on model 'Item'");
+        await Assert.That(failure.Message).Contains("unsupported table type '999'");
+    }
+
+    [Test]
     public async Task Build_DatabaseWithNullAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -1745,6 +1771,11 @@ public class MetadataDefinitionFactoryTests
             .ToArray();
 
         model.Table.SetColumns(columns);
+    }
+
+    private sealed class MutableTableDefinition(string dbName) : TableDefinition(dbName)
+    {
+        public void SetType(TableType type) => Type = type;
     }
 
     private enum RuntimeStatus
