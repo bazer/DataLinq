@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.ErrorHandling;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -155,10 +156,28 @@ public class MetadataFromTypeFactoryTests
         var result = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(OldBootstrapHookOnlyDb));
 
         await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(result.Failure.ToString()!).Contains(typeof(OldBootstrapHookOnlyDb).FullName!);
         await Assert.That(result.Failure.ToString()!).Contains("GetDataLinqGeneratedModel");
         await Assert.That(result.Failure.ToString()!).Contains("missing the generated DataLinq metadata hook");
     }
+
+    [Test]
+    public Task ParseDatabase_GeneratedModelHookWrongReturnType_ReturnsInvalidModelFailure() =>
+        AssertGeneratedDeclarationFailure(
+            typeof(WrongGeneratedModelHookReturnTypeDb),
+            typeof(WrongGeneratedModelHookReturnTypeDb).FullName!,
+            "GetDataLinqGeneratedModel",
+            "must return",
+            typeof(GeneratedDatabaseModelDeclaration).FullName!);
+
+    [Test]
+    public Task ParseDatabase_DefaultGeneratedDeclaration_ReturnsInvalidModelFailure() =>
+        AssertGeneratedDeclarationFailure(
+            typeof(DefaultGeneratedDeclarationDb),
+            typeof(DefaultGeneratedDeclarationDb).FullName!,
+            "TableModels");
 
     [Test]
     public Task ParseDatabase_GeneratedDeclarationMissingImmutableType_FailsBeforeMetadataReflection() =>
@@ -226,6 +245,8 @@ public class MetadataFromTypeFactoryTests
         var result = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(databaseType);
 
         await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
 
         var failureMessage = result.Failure.ToString()!;
         foreach (var fragment in expectedMessageFragments)
@@ -262,6 +283,16 @@ public sealed class OldBootstrapHookOnlyDb : IDatabaseModel
             new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableOldBootstrapHookOnlyRow.NewDataLinqImmutableInstance),
             TableType.View)
     ];
+}
+
+public sealed class WrongGeneratedModelHookReturnTypeDb : IDatabaseModel
+{
+    public static GeneratedTableModelDeclaration[] GetDataLinqGeneratedModel() => [];
+}
+
+public sealed class DefaultGeneratedDeclarationDb : IDatabaseModel
+{
+    public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() => default;
 }
 
 public sealed class MissingImmutableTypeDb : IDatabaseModel

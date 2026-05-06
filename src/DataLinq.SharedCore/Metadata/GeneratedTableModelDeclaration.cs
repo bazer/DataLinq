@@ -1,5 +1,8 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using DataLinq.ErrorHandling;
+using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Metadata;
 
@@ -12,20 +15,34 @@ public readonly struct GeneratedDatabaseModelDeclaration
 
     public GeneratedTableModelDeclaration[] TableModels { get; }
 
-    public void Validate(Type databaseType)
+    public Option<bool, IDLOptionFailure> TryValidate(Type databaseType)
     {
         if (databaseType is null)
-            throw new ArgumentNullException(nameof(databaseType));
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Database type cannot be null.");
 
         if (TableModels is null)
-        {
-            throw new InvalidOperationException(
-                $"Generated DataLinq metadata declaration for database '{databaseType.FullName}' is missing required member '{nameof(TableModels)}'.");
-        }
+            return MissingMember(GetDiagnosticDescription(databaseType), nameof(TableModels));
 
         foreach (var tableModel in TableModels)
-            tableModel.Validate(databaseType);
+        {
+            if (!tableModel.TryValidate(databaseType).TryUnwrap(out _, out var failure))
+                return failure;
+        }
+
+        return true;
     }
+
+    public void Validate(Type databaseType)
+    {
+        if (!TryValidate(databaseType).TryUnwrap(out _, out var failure))
+            throw new InvalidOperationException(failure.ToString());
+    }
+
+    private static string GetDiagnosticDescription(Type databaseType) =>
+        $"Generated DataLinq metadata declaration for database '{databaseType.FullName}'";
+
+    private static IDLOptionFailure MissingMember(string description, string memberName) =>
+        DLOptionFailure.Fail(DLFailureType.InvalidModel, $"{description} is missing required member '{memberName}'.");
 }
 
 public readonly struct GeneratedTableModelDeclaration
@@ -59,31 +76,41 @@ public readonly struct GeneratedTableModelDeclaration
     public Delegate? ImmutableFactory { get; }
     public TableType TableType { get; }
 
-    public void Validate(Type databaseType)
+    public Option<bool, IDLOptionFailure> TryValidate(Type databaseType)
     {
+        if (databaseType is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Database type cannot be null.");
+
         var description = GetDiagnosticDescription(databaseType);
 
         if (string.IsNullOrWhiteSpace(CsPropertyName))
-            throw MissingMember(description, nameof(CsPropertyName));
+            return MissingMember(description, nameof(CsPropertyName));
 
         if (ModelType is null)
-            throw MissingMember(description, nameof(ModelType));
+            return MissingMember(description, nameof(ModelType));
 
         if (ImmutableType is null)
-            throw MissingMember(description, nameof(ImmutableType));
+            return MissingMember(description, nameof(ImmutableType));
 
         if (TableType == TableType.Table && MutableType is null)
-            throw MissingMember(description, nameof(MutableType));
+            return MissingMember(description, nameof(MutableType));
 
         if (ImmutableFactory is null)
-            throw MissingMember(description, nameof(ImmutableFactory));
+            return MissingMember(description, nameof(ImmutableFactory));
+
+        if (!Enum.IsDefined(typeof(TableType), TableType))
+            return MalformedMember(description, nameof(TableType), $"Defined {nameof(TableType)} value", TableType.ToString());
 
         if (!HasExpectedImmutableFactoryShape(ImmutableFactory))
-        {
-            throw new InvalidOperationException(
-                $"{description} has malformed member '{nameof(ImmutableFactory)}'. " +
-                $"Expected '{ExpectedImmutableFactoryTypeName}'; actual '{ImmutableFactory.GetType().FullName}'.");
-        }
+            return MalformedMember(description, nameof(ImmutableFactory), ExpectedImmutableFactoryTypeName, ImmutableFactory.GetType().FullName);
+
+        return true;
+    }
+
+    public void Validate(Type databaseType)
+    {
+        if (!TryValidate(databaseType).TryUnwrap(out _, out var failure))
+            throw new InvalidOperationException(failure.ToString());
     }
 
     private static string ExpectedImmutableFactoryTypeName =>
@@ -111,6 +138,11 @@ public readonly struct GeneratedTableModelDeclaration
         return $"Generated DataLinq metadata declaration for database '{databaseTypeName}', {TableType} model '{modelTypeName}' (database property '{propertyName}')";
     }
 
-    private static InvalidOperationException MissingMember(string description, string memberName) =>
-        new($"{description} is missing required member '{memberName}'.");
+    private static IDLOptionFailure MissingMember(string description, string memberName) =>
+        DLOptionFailure.Fail(DLFailureType.InvalidModel, $"{description} is missing required member '{memberName}'.");
+
+    private static IDLOptionFailure MalformedMember(string description, string memberName, string expected, string? actual) =>
+        DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
+            $"{description} has malformed member '{memberName}'. Expected '{expected}'; actual '{actual}'.");
 }

@@ -10,6 +10,7 @@ using DataLinq.ErrorHandling;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Metadata;
 
@@ -32,7 +33,8 @@ public static class MetadataFromTypeFactory
             DynamicallyAccessedMemberTypes.NonPublicMethods |
             DynamicallyAccessedMemberTypes.NonPublicProperties)]
         Type type) => DLOptionFailure.CatchAll(() =>
-        ParseDatabaseFromGeneratedModel(type, GetGeneratedDatabaseModel(type)));
+        GetGeneratedDatabaseModel(type)
+            .FlatMap(generatedModel => ParseDatabaseFromGeneratedModel(type, generatedModel)));
 
     private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromGeneratedModel(
         [DynamicallyAccessedMembers(
@@ -42,7 +44,8 @@ public static class MetadataFromTypeFactory
         Type type,
         GeneratedDatabaseModelDeclaration generatedModel)
     {
-        generatedModel.Validate(type);
+        if (!generatedModel.TryValidate(type).TryUnwrap(out _, out var validationFailure))
+            return validationFailure;
 
         var database = new DatabaseDefinition(type.Name, csType: new CsTypeDeclaration(type));
         database.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
@@ -95,12 +98,15 @@ public static class MetadataFromTypeFactory
         return table;
     }
 
-    private static GeneratedDatabaseModelDeclaration GetGeneratedDatabaseModel(
+    private static Option<GeneratedDatabaseModelDeclaration, IDLOptionFailure> GetGeneratedDatabaseModel(
         [DynamicallyAccessedMembers(
             DynamicallyAccessedMemberTypes.PublicMethods |
             DynamicallyAccessedMemberTypes.NonPublicMethods)]
         Type databaseType)
     {
+        if (databaseType is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Database type cannot be null.");
+
         var generatedModelMethod = databaseType.GetMethod(
             GeneratedDatabaseModelMethodName,
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
@@ -111,15 +117,15 @@ public static class MetadataFromTypeFactory
         if (generatedModelMethod is not null)
         {
             if (generatedModelMethod.ReturnType != typeof(GeneratedDatabaseModelDeclaration))
-            {
-                throw new InvalidOperationException(
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
                     $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedDatabaseModelMethodName}' must return '{typeof(GeneratedDatabaseModelDeclaration).FullName}'.");
-            }
 
             return (GeneratedDatabaseModelDeclaration)generatedModelMethod.Invoke(null, null)!;
         }
 
-        throw new InvalidOperationException(
+        return DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
             $"Database model '{databaseType.FullName}' is missing the generated DataLinq metadata hook '{GeneratedDatabaseModelMethodName}'. " +
             "Run the DataLinq source generator and ensure the database model is declared as a partial class.");
     }
@@ -169,20 +175,8 @@ public static class MetadataFromTypeFactory
             .ThenBy(x => x.name)
             .Select(x => new ModelUsing(x.name)));
 
-        if (generatedDeclaration.ImmutableType is null)
-        {
-            throw new InvalidOperationException(
-                $"Generated table declaration for '{type.FullName}' is missing the immutable model type.");
-        }
-
-        if (generatedDeclaration.ImmutableFactory is null)
-        {
-            throw new InvalidOperationException(
-                $"Generated table declaration for '{type.FullName}' is missing the immutable factory hook.");
-        }
-
-        model.SetImmutableType(new CsTypeDeclaration(generatedDeclaration.ImmutableType));
-        model.SetImmutableFactory(generatedDeclaration.ImmutableFactory);
+        model.SetImmutableType(new CsTypeDeclaration(generatedDeclaration.ImmutableType!));
+        model.SetImmutableFactory(generatedDeclaration.ImmutableFactory!);
 
         if (generatedDeclaration.MutableType is not null)
             model.SetMutableType(new CsTypeDeclaration(generatedDeclaration.MutableType));

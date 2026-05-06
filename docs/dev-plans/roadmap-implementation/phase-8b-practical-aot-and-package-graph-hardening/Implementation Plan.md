@@ -225,6 +225,7 @@ Foundation slice notes:
 - The provider equivalence pass fixed generated model column ordering, provider auto-increment C# nullability, and provider-created nullable foreign-key relation metadata so generated source preserves the provider metadata shape.
 - Added `MetadataDefinitionDraft` as the first explicit factory draft boundary. Generated runtime metadata, source-parsed metadata, SQLite metadata, MySQL metadata, and MariaDB metadata now hand drafts to `MetadataDefinitionFactory` instead of asking the factory to finalize the parser/provider graph directly.
 - `MetadataDefinitionFactory` now snapshots the draft before finalization, so interface assignment, index creation, relation resolution, and column ordinal assignment happen on the returned runtime graph without mutating the draft graph. Stub table models are preserved across the snapshot boundary.
+- Generated runtime metadata bootstrap failures now return `InvalidModel` option failures for missing hooks, wrong hook return types, default declarations, and malformed table declarations instead of surfacing as arbitrary catch-all exceptions.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
 
 Design stance:
