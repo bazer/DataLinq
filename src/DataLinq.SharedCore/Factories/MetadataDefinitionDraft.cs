@@ -1,5 +1,7 @@
 using System;
+using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
+using ThrowAway;
 
 namespace DataLinq.Core.Factories;
 
@@ -20,6 +22,12 @@ public sealed class MetadataDefinitionDraft
         return new MetadataDefinitionDraft(metadata);
     }
 
-    internal DatabaseDefinition CreateMutableSnapshot() =>
-        MetadataDefinitionSnapshot.Copy(metadata);
+    internal Option<DatabaseDefinition, IDLOptionFailure> TryCreateMutableSnapshot()
+    {
+        var indexValidation = MetadataFactory.ValidateExistingColumnIndices(metadata);
+        if (!indexValidation.HasValue)
+            return indexValidation.Failure;
+
+        return DLOptionFailure.CatchAll(() => MetadataDefinitionSnapshot.Copy(metadata));
+    }
 }

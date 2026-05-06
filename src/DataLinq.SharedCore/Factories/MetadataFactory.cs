@@ -282,6 +282,58 @@ public static class MetadataFactory
         return true;
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateExistingColumnIndices(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var table = tableModel.Table;
+
+            foreach (var index in table.ColumnIndices)
+            {
+                if (index is null)
+                    return CreateColumnIndexFailure(
+                        table,
+                        $"Table '{table.DbName}' contains a null column index.");
+
+                if (index.Columns.Count == 0)
+                    return CreateColumnIndexFailure(
+                        table,
+                        $"Index '{index.Name}' on table '{table.DbName}' must include at least one column.");
+
+                if (!ReferenceEquals(index.Table, table))
+                {
+                    var indexTableName = index.Table?.DbName ?? "<unknown>";
+                    return CreateColumnIndexFailure(
+                        table,
+                        $"Index '{index.Name}' is attached to table '{table.DbName}', but the index belongs to table '{indexTableName}'. Column indices must be stored on the table that owns their columns.");
+                }
+
+                foreach (var column in index.Columns)
+                {
+                    if (column is null)
+                        return CreateColumnIndexFailure(
+                            table,
+                            $"Index '{index.Name}' on table '{table.DbName}' contains a null column reference.");
+
+                    if (!ReferenceEquals(column.Table, table))
+                        return CreateColumnIndexFailure(
+                            table,
+                            $"Index '{index.Name}' on table '{table.DbName}' references column '{column.Table.DbName}.{column.DbName}', but index columns must belong to the table that stores the index.");
+
+                    if (!table.Columns.Contains(column))
+                        return CreateColumnIndexFailure(
+                            table,
+                            $"Index '{index.Name}' on table '{table.DbName}' references column '{column.DbName}', but that column is not registered on the table.");
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure CreateColumnIndexFailure(TableDefinition table, string message) =>
+        DLOptionFailure.Fail(DLFailureType.InvalidModel, message, table);
+
     private static SourceLocation? GetColumnNameSourceLocation(ValueProperty property)
     {
         var columnAttribute = property.Attributes

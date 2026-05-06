@@ -57,6 +57,44 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_IndexAttachedToWrongTable_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var users = database.TableModels.Single(tm => tm.Table.DbName == "users").Table;
+        var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders").Table;
+        var userId = users.Columns.Single(column => column.DbName == "user_id");
+        orders.ColumnIndices.Add(new ColumnIndex("idx_wrong_table", IndexCharacteristic.Simple, IndexType.BTREE, [userId]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index 'idx_wrong_table' is attached to table 'orders'");
+        await Assert.That(failure.Message).Contains("belongs to table 'users'");
+    }
+
+    [Test]
+    public async Task Build_IndexReferencingUnregisteredColumn_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var unregisteredColumn = new ColumnDefinition("ghost", table);
+        table.ColumnIndices.Add(new ColumnIndex("idx_ghost", IndexCharacteristic.Simple, IndexType.BTREE, [unregisteredColumn]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index 'idx_ghost' on table 'items'");
+        await Assert.That(failure.Message).Contains("not registered on the table");
+    }
+
+    [Test]
     public async Task Build_DuplicateColumnDraft_ReturnsInvalidModelFailure()
     {
         var database = CreateSingleTableDraft(

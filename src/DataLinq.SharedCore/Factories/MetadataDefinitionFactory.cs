@@ -21,7 +21,10 @@ public sealed class MetadataDefinitionFactory
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
 
-        return DLOptionFailure.CatchAll(() => BuildCore(draft.CreateMutableSnapshot()));
+        if (!draft.TryCreateMutableSnapshot().TryUnwrap(out var snapshot, out var snapshotFailure))
+            return snapshotFailure;
+
+        return DLOptionFailure.CatchAll(() => BuildCore(snapshot));
     }
 
     public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(DatabaseDefinition draft)
@@ -37,7 +40,10 @@ public sealed class MetadataDefinitionFactory
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
 
-        return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(draft.CreateMutableSnapshot()));
+        if (!draft.TryCreateMutableSnapshot().TryUnwrap(out var snapshot, out var snapshotFailure))
+            return snapshotFailure;
+
+        return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(snapshot));
     }
 
     private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
@@ -57,6 +63,9 @@ public sealed class MetadataDefinitionFactory
 
         if (!MetadataFactory.ParseIndices(draft).TryUnwrap(out _, out var indexFailure))
             return indexFailure;
+
+        if (!MetadataFactory.ValidateExistingColumnIndices(draft).TryUnwrap(out _, out var indexOwnershipFailure))
+            return indexOwnershipFailure;
 
         if (!MetadataFactory.ParseRelations(draft).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
