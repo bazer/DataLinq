@@ -58,6 +58,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingTableModels(draft).TryUnwrap(out _, out var tableModelFailure))
             return tableModelFailure;
 
+        if (!MetadataFactory.ValidateCSharpSymbolNames(draft).TryUnwrap(out _, out var csharpSymbolFailure))
+            return csharpSymbolFailure;
+
         if (!MetadataFactory.ValidateUniqueTableModelPropertyNames(draft).TryUnwrap(out _, out var duplicateTableModelPropertyFailure))
             return duplicateTableModelPropertyFailure;
 
@@ -104,6 +107,9 @@ public sealed class MetadataDefinitionFactory
 
         if (!MetadataFactory.ParseRelations(draft).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
+
+        if (!MetadataFactory.ValidateCSharpSymbolNames(draft).TryUnwrap(out _, out var finalizedCsharpSymbolFailure))
+            return finalizedCsharpSymbolFailure;
 
         if (!MetadataFactory.ValidateExistingRelationPropertyBindings(draft).TryUnwrap(out _, out var finalizedRelationPropertyFailure))
             return finalizedRelationPropertyFailure;

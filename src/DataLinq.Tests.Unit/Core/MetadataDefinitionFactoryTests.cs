@@ -238,6 +238,95 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DatabaseTypeWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.SetCsType(new CsTypeDeclaration("Bad Db", "TestNamespace", ModelCsType.Class));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("C# type name 'Bad Db'");
+    }
+
+    [Test]
+    public async Task Build_TableModelPropertyWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().SetCsPropertyName("Bad Name");
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table 'items'");
+        await Assert.That(failure.Message).Contains("C# database property name 'Bad Name'");
+    }
+
+    [Test]
+    public async Task Build_ModelTypeWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetCsType(new CsTypeDeclaration("Bad Model", "TestNamespace", ModelCsType.Class));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Bad Model'");
+        await Assert.That(failure.Message).Contains("C# type name 'Bad Model'");
+    }
+
+    [Test]
+    public async Task Build_ValuePropertyWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var model = database.TableModels.Single().Model;
+        var property = model.ValueProperties["Id"];
+        model.ValueProperties.Remove("Id");
+        property.SetPropertyName("Bad Name");
+        model.ValueProperties.Add(property.PropertyName, property);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Bad Name'");
+        await Assert.That(failure.Message).Contains("C# property name 'Bad Name'");
+    }
+
+    [Test]
+    public async Task Build_GeneratedRelationPropertyWithInvalidCSharpName_ReturnsInvalidModelFailure()
+    {
+        var database = CreateRelationDraft();
+        var orderTable = database.TableModels.Single(x => x.Table.DbName == "orders").Table;
+        orderTable.Columns.Single(x => x.DbName == "customer_id").SetDbName("id");
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.'");
+        await Assert.That(failure.Message).Contains("C# property name ''");
+    }
+
+    [Test]
     public async Task Build_TableModelPropertyMatchingDatabaseType_RenamesBuiltDatabaseTypeWithoutMutatingDraft()
     {
         var database = CreateSingleTableDraft(

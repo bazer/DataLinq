@@ -28,6 +28,10 @@ public sealed class MetadataDefinitionDraft
         if (!tableModelValidation.HasValue)
             return tableModelValidation.Failure;
 
+        var csharpSymbolValidation = MetadataFactory.ValidateCSharpSymbolNames(metadata);
+        if (!csharpSymbolValidation.HasValue)
+            return csharpSymbolValidation.Failure;
+
         var tableModelPropertyValidation = MetadataFactory.ValidateUniqueTableModelPropertyNames(metadata);
         if (!tableModelPropertyValidation.HasValue)
             return tableModelPropertyValidation.Failure;

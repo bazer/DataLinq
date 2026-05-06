@@ -290,6 +290,136 @@ public static class MetadataFactory
             database.SetCsType(database.CsType.MutateName(csTypeName));
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateCSharpSymbolNames(DatabaseDefinition database)
+    {
+        var databaseTypeFailure = ValidateCSharpTypeDeclaration(
+            database.CsType,
+            $"Database '{database.DbName}'",
+            database);
+        if (databaseTypeFailure is not null)
+            return databaseTypeFailure;
+
+        foreach (var tableModel in database.TableModels)
+        {
+            if (!IsValidCSharpIdentifier(tableModel.CsPropertyName))
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Table '{tableModel.Table.DbName}' uses C# database property name '{tableModel.CsPropertyName}', which is not a valid unescaped C# identifier.",
+                    tableModel.Table);
+
+            var model = tableModel.Model;
+            var modelTypeFailure = ValidateCSharpTypeDeclaration(
+                model.CsType,
+                $"Model '{model.CsType.Name}'",
+                model);
+            if (modelTypeFailure is not null)
+                return modelTypeFailure;
+
+            var modelInstanceInterfaceFailure = ValidateOptionalCSharpTypeReference(
+                model.ModelInstanceInterface,
+                $"Model '{model.CsType.Name}' model-instance interface",
+                model);
+            if (modelInstanceInterfaceFailure is not null)
+                return modelInstanceInterfaceFailure;
+
+            var immutableTypeFailure = ValidateOptionalCSharpTypeReference(
+                model.ImmutableType,
+                $"Model '{model.CsType.Name}' immutable type",
+                model);
+            if (immutableTypeFailure is not null)
+                return immutableTypeFailure;
+
+            var mutableTypeFailure = ValidateOptionalCSharpTypeReference(
+                model.MutableType,
+                $"Model '{model.CsType.Name}' mutable type",
+                model);
+            if (mutableTypeFailure is not null)
+                return mutableTypeFailure;
+
+            foreach (var property in model.ValueProperties.Values)
+            {
+                if (!IsValidCSharpIdentifier(property.PropertyName))
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' uses C# property name '{property.PropertyName}', which is not a valid unescaped C# identifier.");
+            }
+
+            foreach (var property in model.RelationProperties.Values)
+            {
+                if (!IsValidCSharpIdentifier(property.PropertyName))
+                    return CreateRelationPropertyFailure(
+                        property,
+                        null,
+                        $"Relation property '{GetRelationPropertyDisplayName(property)}' uses C# property name '{property.PropertyName}', which is not a valid unescaped C# identifier.");
+            }
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure? ValidateOptionalCSharpTypeReference(
+        CsTypeDeclaration? type,
+        string scope,
+        IDefinition context)
+    {
+        if (!type.HasValue)
+            return null;
+
+        return ValidateCSharpTypeReference(type.Value, scope, context);
+    }
+
+    private static IDLOptionFailure? ValidateCSharpTypeDeclaration(
+        CsTypeDeclaration type,
+        string scope,
+        IDefinition context)
+    {
+        if (!IsValidCSharpIdentifier(type.Name))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} uses C# type name '{type.Name}', which is not a valid unescaped C# identifier.",
+                context);
+
+        if (!IsValidCSharpNamespace(type.Namespace))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} uses C# namespace '{type.Namespace}', which is not a valid unescaped C# namespace.",
+                context);
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateCSharpTypeReference(
+        CsTypeDeclaration type,
+        string scope,
+        IDefinition context)
+    {
+        if (!IsValidCSharpIdentifier(type.Name))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} uses C# type name '{type.Name}', which is not a valid unescaped C# identifier.",
+                context);
+
+        if (!IsValidCSharpNamespace(type.Namespace))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} uses C# namespace '{type.Namespace}', which is not a valid unescaped C# namespace.",
+                context);
+
+        return null;
+    }
+
+    private static bool IsValidCSharpNamespace(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return true;
+
+        var namespaceName = value!;
+
+        return namespaceName
+            .Split('.')
+            .All(IsValidCSharpIdentifier);
+    }
+
     public static Option<bool, IDLOptionFailure> ValidateCacheMetadata(DatabaseDefinition database)
     {
         foreach (var (limitType, amount) in database.CacheLimits)
