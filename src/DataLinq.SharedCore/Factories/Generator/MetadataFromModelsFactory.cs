@@ -164,21 +164,11 @@ public class MetadataFromModelsFactory
             return DLOptionFailure.AggregateFail(attrFailures);
 
         // Step 2: Find the [Database] attribute to determine the logical name.
-        var dbAttribute = parsedAttributes.OfType<DatabaseAttribute>().FirstOrDefault();
-        // Use the attribute name if present, otherwise fall back to the C# class name.
-        var logicalName = dbAttribute?.Name ?? MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
-
-        // Step 3: Create the DatabaseDefinition with the correct logical name.
-        var database = new DatabaseDefinition(logicalName, new CsTypeDeclaration(dbType));
-        database.SetSourceSpan(new SourceTextSpan(dbType.SpanStart, dbType.Span.Length));
-        database.SetAttributes(parsedAttributes);
-        foreach (var (attribute, sourceSpan) in attributeSourceSpans)
-            database.SetAttributeSourceSpan(attribute, sourceSpan);
-
-        database.ParseAttributes(); // This will set the DbName, which might be the same as the logical name.
-
-        if (!string.IsNullOrEmpty(dbType.SyntaxTree.FilePath))
-            database.SetCsFile(new CsFileDeclaration(dbType.SyntaxTree.FilePath));
+        var logicalName = parsedAttributes
+            .OfType<DatabaseAttribute>()
+            .LastOrDefault()?
+            .Name ?? MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
+        var databaseCsType = new CsTypeDeclaration(dbType);
 
         var modelClasses = modelSyntaxes
             .Where(x =>
@@ -191,15 +181,40 @@ public class MetadataFromModelsFactory
             .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
             .Select(prop => syntaxParser.GetTableType(prop, modelClasses, allowMissingTableModels || modelClasses.Count == 0))
             .Transpose()
-            .Map(x => x.Select(t => syntaxParser.ParseTableModel(database, t.classSyntax, t.csPropertyName)))
+            .Map(x => x.Select(t => syntaxParser.ParseTableModelDraft(databaseCsType, t.classSyntax, t.csPropertyName)))
             .FlatMap(x => x.Transpose())
-            .TryUnwrap(out var models, out var modelFailures))
+            .TryUnwrap(out var tableModels, out var modelFailures))
             return DLOptionFailure.AggregateFail(modelFailures);
 
-        database.SetTableModels(models);
+        var database = new MetadataDatabaseDraft(logicalName, databaseCsType)
+        {
+            DbName = logicalName,
+            CsFile = !string.IsNullOrEmpty(dbType.SyntaxTree.FilePath)
+                ? new CsFileDeclaration(dbType.SyntaxTree.FilePath)
+                : null,
+            SourceSpan = new SourceTextSpan(dbType.SpanStart, dbType.Span.Length),
+            Attributes = parsedAttributes,
+            AttributeSourceSpans = attributeSourceSpans,
+            UseCache = parsedAttributes
+                .OfType<UseCacheAttribute>()
+                .LastOrDefault()?
+                .UseCache ?? false,
+            CacheLimits = parsedAttributes
+                .OfType<CacheLimitAttribute>()
+                .Select(x => (x.LimitType, x.Amount))
+                .ToArray(),
+            CacheCleanup = parsedAttributes
+                .OfType<CacheCleanupAttribute>()
+                .Select(x => (x.LimitType, x.Amount))
+                .ToArray(),
+            IndexCache = parsedAttributes
+                .OfType<IndexCacheAttribute>()
+                .Select(x => (x.Type, x.Amount))
+                .ToArray(),
+            TableModels = tableModels
+        };
 
-        var draft = MetadataDefinitionDraft.FromMutableMetadata(database);
-        if (!new MetadataDefinitionFactory().Build(draft).TryUnwrap(out var builtDatabase, out var buildFailure))
+        if (!new MetadataDefinitionFactory().Build(database).TryUnwrap(out var builtDatabase, out var buildFailure))
             return buildFailure;
 
         return builtDatabase;

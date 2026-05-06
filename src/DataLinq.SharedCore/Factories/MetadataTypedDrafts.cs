@@ -11,7 +11,10 @@ namespace DataLinq.Core.Factories;
 public sealed record MetadataDatabaseDraft(string Name, CsTypeDeclaration CsType)
 {
     public string? DbName { get; init; }
+    public CsFileDeclaration? CsFile { get; init; }
+    public SourceTextSpan? SourceSpan { get; init; }
     public IReadOnlyList<Attribute> Attributes { get; init; } = [];
+    public IReadOnlyList<(Attribute Attribute, SourceTextSpan Span)> AttributeSourceSpans { get; init; } = [];
     public bool UseCache { get; init; }
     public IReadOnlyList<(CacheLimitType limitType, long amount)> CacheLimits { get; init; } = [];
     public IReadOnlyList<(CacheCleanupType cleanupType, long amount)> CacheCleanup { get; init; } = [];
@@ -29,6 +32,8 @@ public sealed record MetadataTableModelDraft(
 
 public sealed record MetadataModelDraft(CsTypeDeclaration CsType)
 {
+    public CsFileDeclaration? CsFile { get; init; }
+    public SourceTextSpan? SourceSpan { get; init; }
     public CsTypeDeclaration? ImmutableType { get; init; }
     public Delegate? ImmutableFactory { get; init; }
     public CsTypeDeclaration? MutableType { get; init; }
@@ -36,6 +41,7 @@ public sealed record MetadataModelDraft(CsTypeDeclaration CsType)
     public IReadOnlyList<CsTypeDeclaration> OriginalInterfaces { get; init; } = [];
     public IReadOnlyList<ModelUsing> Usings { get; init; } = [];
     public IReadOnlyList<Attribute> Attributes { get; init; } = [];
+    public IReadOnlyList<(Attribute Attribute, SourceTextSpan Span)> AttributeSourceSpans { get; init; } = [];
     public IReadOnlyList<MetadataValuePropertyDraft> ValueProperties { get; init; } = [];
     public IReadOnlyList<MetadataRelationPropertyDraft> RelationProperties { get; init; } = [];
 }
@@ -64,6 +70,8 @@ public sealed record MetadataValuePropertyDraft(
     MetadataColumnDraft Column)
 {
     public IReadOnlyList<Attribute> Attributes { get; init; } = [];
+    public IReadOnlyList<(Attribute Attribute, SourceTextSpan Span)> AttributeSourceSpans { get; init; } = [];
+    public PropertySourceInfo? SourceInfo { get; init; }
     public bool CsNullable { get; init; }
     public int? CsSize { get; init; }
     public EnumProperty? EnumProperty { get; init; }
@@ -74,6 +82,8 @@ public sealed record MetadataRelationPropertyDraft(
     CsTypeDeclaration CsType)
 {
     public IReadOnlyList<Attribute> Attributes { get; init; } = [];
+    public IReadOnlyList<(Attribute Attribute, SourceTextSpan Span)> AttributeSourceSpans { get; init; } = [];
+    public PropertySourceInfo? SourceInfo { get; init; }
     public bool CsNullable { get; init; }
     public string? RelationName { get; init; }
 }
@@ -86,7 +96,14 @@ internal static class MetadataTypedDraftConverter
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Typed metadata draft cannot be null.");
 
         var database = new DatabaseDefinition(draft.Name, draft.CsType, draft.DbName);
+        if (draft.CsFile.HasValue)
+            database.SetCsFile(draft.CsFile.Value);
+
+        if (draft.SourceSpan.HasValue)
+            database.SetSourceSpan(draft.SourceSpan.Value);
+
         database.SetAttributes(draft.Attributes ?? []);
+        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, database.SetAttributeSourceSpan);
         database.SetCache(draft.UseCache);
         database.CacheLimits.AddRange(draft.CacheLimits ?? []);
         database.CacheCleanup.AddRange(draft.CacheCleanup ?? []);
@@ -142,6 +159,8 @@ internal static class MetadataTypedDraftConverter
     private static ModelDefinition CreateModel(MetadataModelDraft draft)
     {
         var model = new ModelDefinition(draft.CsType);
+        if (draft.CsFile.HasValue)
+            model.SetCsFile(draft.CsFile.Value);
 
         if (draft.ImmutableType.HasValue)
             model.SetImmutableType(draft.ImmutableType.Value);
@@ -156,6 +175,10 @@ internal static class MetadataTypedDraftConverter
         model.SetInterfaces(draft.OriginalInterfaces ?? []);
         model.SetUsings(draft.Usings ?? []);
         model.SetAttributes(draft.Attributes ?? []);
+        if (draft.SourceSpan.HasValue)
+            model.SetSourceSpan(draft.SourceSpan.Value);
+
+        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, model.SetAttributeSourceSpan);
 
         return model;
     }
@@ -219,9 +242,13 @@ internal static class MetadataTypedDraftConverter
                 propertyDraft.Attributes ?? []);
 
             property.SetCsNullable(propertyDraft.CsNullable);
+            if (propertyDraft.SourceInfo.HasValue)
+                property.SetSourceInfo(propertyDraft.SourceInfo.Value);
+
             if (propertyDraft.RelationName is not null)
                 property.SetRelationName(propertyDraft.RelationName);
 
+            ApplyAttributeSourceSpans(propertyDraft.AttributeSourceSpans, property.SetAttributeSourceSpan);
             model.AddProperty(property);
         }
     }
@@ -236,10 +263,13 @@ internal static class MetadataTypedDraftConverter
 
         property.SetCsNullable(draft.CsNullable);
         property.SetCsSize(draft.CsSize);
+        if (draft.SourceInfo.HasValue)
+            property.SetSourceInfo(draft.SourceInfo.Value);
 
         if (draft.EnumProperty.HasValue)
             property.SetEnumProperty(draft.EnumProperty.Value);
 
+        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, property.SetAttributeSourceSpan);
         return property;
     }
 
@@ -261,5 +291,16 @@ internal static class MetadataTypedDraftConverter
 
         if (draft.PrimaryKey)
             column.SetPrimaryKey();
+    }
+
+    private static void ApplyAttributeSourceSpans(
+        IEnumerable<(Attribute Attribute, SourceTextSpan Span)>? sourceSpans,
+        Action<Attribute, SourceTextSpan> setSourceSpan)
+    {
+        if (sourceSpans is null)
+            return;
+
+        foreach (var (attribute, sourceSpan) in sourceSpans)
+            setSourceSpan(attribute, sourceSpan);
     }
 }

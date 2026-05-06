@@ -46,6 +46,34 @@ public class SyntaxParser
         return new TableModel(csPropertyName, database, model, typeSyntax == null);
     }
 
+    public Option<MetadataTableModelDraft, IDLOptionFailure> ParseTableModelDraft(
+        CsTypeDeclaration databaseCsType,
+        TypeDeclarationSyntax? typeSyntax,
+        string csPropertyName)
+    {
+        MetadataModelDraft model;
+        if (typeSyntax == null)
+        {
+            model = new MetadataModelDraft(new CsTypeDeclaration(csPropertyName, databaseCsType.Namespace, ModelCsType.Interface))
+            {
+                OriginalInterfaces = [new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]
+            };
+        }
+        else
+        {
+            if (!ParseModelDraft(typeSyntax).TryUnwrap(out model, out var failure))
+                return failure;
+        }
+
+        if (!ParseTableDraft(model).TryUnwrap(out var table, out var tableFailure))
+            return tableFailure;
+
+        return new MetadataTableModelDraft(csPropertyName, model, table)
+        {
+            IsStub = typeSyntax == null
+        };
+    }
+
     private Option<ModelDefinition, IDLOptionFailure> ParseModel(TypeDeclarationSyntax typeSyntax)
     {
         var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
@@ -130,6 +158,139 @@ public class SyntaxParser
             .Select(ns => new ModelUsing(ns!)));
 
         return model;
+    }
+
+    private Option<MetadataModelDraft, IDLOptionFailure> ParseModelDraft(TypeDeclarationSyntax typeSyntax)
+    {
+        var csType = new CsTypeDeclaration(typeSyntax);
+        var csFile = !string.IsNullOrEmpty(typeSyntax.SyntaxTree.FilePath)
+            ? new CsFileDeclaration(typeSyntax.SyntaxTree.FilePath)
+            : (CsFileDeclaration?)null;
+        var sourceSpan = new SourceTextSpan(typeSyntax.SpanStart, typeSyntax.Span.Length);
+
+        var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
+        var parsedAttributes = new List<Attribute>();
+        var failures = new List<IDLOptionFailure>();
+
+        foreach (var attributeSyntax in typeSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes))
+        {
+            if (ParseAttribute(attributeSyntax).TryUnwrap(out var attribute, out var failure))
+            {
+                parsedAttributes.Add(attribute);
+                attributeSourceSpans.Add((attribute, new SourceTextSpan(attributeSyntax.SpanStart, attributeSyntax.Span.Length)));
+            }
+            else
+            {
+                failures.Add(failure);
+            }
+        }
+
+        if (failures.Any())
+            return DLOptionFailure.Fail($"Parsing attributes for {typeSyntax.Identifier.Text}", failures);
+
+        var modelInstanceInterfaces = parsedAttributes
+            .Where(x => x is InterfaceAttribute interfaceAttribute && interfaceAttribute.GenerateInterface)
+            .Select(x => x as InterfaceAttribute)
+            .Select(x => new CsTypeDeclaration(x?.Name ?? $"I{csType.Name}", csType.Namespace, ModelCsType.Interface))
+            .ToList();
+
+        if (modelInstanceInterfaces.Count > 1)
+            return FailType(
+                typeSyntax,
+                DLFailureType.InvalidArgument,
+                $"Multiple model instance interfaces ({modelInstanceInterfaces.Select(x => x.Name).ToJoinedString(", ")}) found in model");
+
+        var interfaces = typeSyntax.BaseList != null
+            ? typeSyntax.BaseList.Types
+                .Select(ParseDeclaredInterface)
+                .Where(x => !x.Name.StartsWith("Immutable<"))
+                .ToArray()
+            : [];
+
+        if (csType.ModelCsType == ModelCsType.Interface)
+            csType = csType.MutateName(MetadataTypeConverter.RemoveInterfacePrefix(csType.Name));
+
+        if (!typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
+            .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
+                .Any(attr => attr.Name.ToString() == "Column" || attr.Name.ToString() == "Relation"))
+            .Select(ParsePropertyDraft)
+            .Transpose()
+            .TryUnwrap(out var properties, out var propFailures))
+            return DLOptionFailure.Fail($"Parsing properties for {typeSyntax.Identifier.Text}", propFailures);
+
+        var valueProperties = properties
+            .OfType<MetadataValuePropertyDraft>()
+            .ToArray();
+        var relationProperties = properties
+            .OfType<MetadataRelationPropertyDraft>()
+            .ToArray();
+        var usings = typeSyntax.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<UsingDirectiveSyntax>()
+            .Select(uds => uds?.Name?.ToString())
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Distinct()
+            .OrderBy(ns => ns!.StartsWith("System"))
+            .ThenBy(ns => ns)
+            .Select(ns => new ModelUsing(ns!))
+            .ToArray();
+
+        return new MetadataModelDraft(csType)
+        {
+            CsFile = csFile,
+            SourceSpan = sourceSpan,
+            Attributes = parsedAttributes,
+            AttributeSourceSpans = attributeSourceSpans,
+            ModelInstanceInterface = modelInstanceInterfaces.Count == 1
+                ? modelInstanceInterfaces[0]
+                : null,
+            OriginalInterfaces = interfaces,
+            Usings = usings,
+            ValueProperties = valueProperties,
+            RelationProperties = relationProperties
+        };
+    }
+
+    private static Option<MetadataTableDraft, IDLOptionFailure> ParseTableDraft(MetadataModelDraft model)
+    {
+        TableType tableType;
+        if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel")))
+            tableType = TableType.Table;
+        else if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("IViewModel")))
+            tableType = TableType.View;
+        else
+            return FailModelDraft(model, DLFailureType.InvalidModel, $"Model '{model.CsType.Name}' does not inherit from 'ITableModel' or 'IViewModel'.");
+
+        var dbName = model.CsType.Name;
+        foreach (var attribute in model.Attributes)
+        {
+            if (attribute is TableAttribute tableAttribute)
+                dbName = tableAttribute.Name;
+
+            if (attribute is ViewAttribute viewAttribute)
+                dbName = viewAttribute.Name;
+        }
+
+        return new MetadataTableDraft(dbName)
+        {
+            Type = tableType,
+            Definition = model.Attributes
+                .OfType<DefinitionAttribute>()
+                .LastOrDefault()?
+                .Sql,
+            UseCache = model.Attributes
+                .OfType<UseCacheAttribute>()
+                .LastOrDefault()?
+                .UseCache,
+            CacheLimits = model.Attributes
+                .OfType<CacheLimitAttribute>()
+                .Select(x => (x.LimitType, x.Amount))
+                .ToArray(),
+            IndexCache = model.Attributes
+                .OfType<IndexCacheAttribute>()
+                .Select(x => (x.Type, x.Amount))
+                .ToArray()
+        };
     }
 
     private static CsTypeDeclaration ParseDeclaredInterface(BaseTypeSyntax baseType)
@@ -697,6 +858,128 @@ public class SyntaxParser
         return property;
     }
 
+    private Option<object, IDLOptionFailure> ParsePropertyDraft(PropertyDeclarationSyntax propSyntax)
+    {
+        var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
+        var parsedAttributes = new List<Attribute>();
+        var failures = new List<IDLOptionFailure>();
+
+        foreach (var attributeSyntax in propSyntax.AttributeLists.SelectMany(attrList => attrList.Attributes))
+        {
+            if (ParseAttribute(attributeSyntax).TryUnwrap(out var attribute, out var failure))
+            {
+                parsedAttributes.Add(attribute);
+                attributeSourceSpans.Add((attribute, new SourceTextSpan(attributeSyntax.SpanStart, attributeSyntax.Span.Length)));
+            }
+            else
+            {
+                failures.Add(failure);
+            }
+        }
+
+        if (failures.Any())
+            return DLOptionFailure.Fail($"Parsing attributes for {propSyntax.Identifier.Text}", failures);
+
+        var csType = new CsTypeDeclaration(propSyntax);
+        var sourceInfo = new PropertySourceInfo(
+            new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
+            GetDefaultValueExpressionSourceSpan(propSyntax));
+
+        if (parsedAttributes.Any(attribute => attribute is RelationAttribute))
+        {
+            return new MetadataRelationPropertyDraft(propSyntax.Identifier.Text, csType)
+            {
+                Attributes = parsedAttributes,
+                AttributeSourceSpans = attributeSourceSpans,
+                SourceInfo = sourceInfo,
+                CsNullable = propSyntax.Type is NullableTypeSyntax,
+                RelationName = parsedAttributes
+                    .OfType<RelationAttribute>()
+                    .FirstOrDefault()?
+                    .Name
+            };
+        }
+
+        int? csSize;
+        EnumProperty? enumProperty = null;
+        var enumAttribute = parsedAttributes.OfType<EnumAttribute>().SingleOrDefault();
+        var propertyTypeName = csType.Name;
+        var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
+        var enumDeclaration = FindEnumDeclaration(propertyTypeName);
+
+        if (enumAttribute != null || enumDeclaration != null)
+        {
+            csSize = MetadataTypeConverter.CsTypeSize("enum");
+
+            var enumValueList = enumAttribute?.Values.Select((x, i) => (x, i + 1)) ?? [];
+            var declaredInClass = parentClassSyntax?.Members
+                .OfType<EnumDeclarationSyntax>()
+                .Any(enumDecl => enumDecl.Identifier.ValueText == propertyTypeName) ?? false;
+            var csEnumValues = new List<(string name, int value)>();
+
+            if (enumDeclaration != null)
+            {
+                int lastValue = -1;
+                foreach (var member in enumDeclaration.Members)
+                {
+                    if (member.EqualsValue != null)
+                    {
+                        var explicitValue = member.EqualsValue.Value.ToString();
+                        if (!TryParseInt(explicitValue, out lastValue))
+                            return FailProperty(member.EqualsValue.Value, DLFailureType.InvalidArgument, $"Invalid enum value '{explicitValue}' for enum member '{member.Identifier.ValueText}'. DataLinq enum metadata currently supports explicit integer values only.");
+                    }
+                    else
+                    {
+                        lastValue++;
+                    }
+
+                    csEnumValues.Add((member.Identifier.ValueText, lastValue));
+                }
+            }
+
+            enumProperty = new EnumProperty(enumValueList, csEnumValues, declaredInClass);
+        }
+        else
+        {
+            csSize = MetadataTypeConverter.CsTypeSize(csType.Name);
+        }
+
+        return new MetadataValuePropertyDraft(
+            propSyntax.Identifier.Text,
+            csType,
+            ParseColumnDraft(propSyntax.Identifier.Text, parsedAttributes))
+        {
+            Attributes = parsedAttributes,
+            AttributeSourceSpans = attributeSourceSpans,
+            SourceInfo = sourceInfo,
+            CsNullable = propSyntax.Type is NullableTypeSyntax,
+            CsSize = csSize,
+            EnumProperty = enumProperty
+        };
+    }
+
+    private static MetadataColumnDraft ParseColumnDraft(string propertyName, IEnumerable<Attribute> attributes)
+    {
+        var columnName = propertyName;
+        foreach (var attribute in attributes)
+        {
+            if (attribute is ColumnAttribute columnAttribute)
+                columnName = columnAttribute.Name;
+        }
+
+        return new MetadataColumnDraft(columnName)
+        {
+            Nullable = attributes.Any(x => x is NullableAttribute),
+            AutoIncrement = attributes.Any(x => x is AutoIncrementAttribute),
+            PrimaryKey = attributes.Any(x => x is PrimaryKeyAttribute),
+            ForeignKey = attributes.Any(x => x is ForeignKeyAttribute),
+            DbTypes = attributes
+                .OfType<TypeAttribute>()
+                .Select(x => new DatabaseColumnType(x.DatabaseType, x.Name, x.Length, x.Decimals, x.Signed))
+                .ToArray()
+        };
+    }
+
     private EnumDeclarationSyntax? FindEnumDeclaration(string enumName)
     {
         var allEnums = modelSyntaxes
@@ -755,6 +1038,19 @@ public class SyntaxParser
         => TryGetSourceLocation(syntaxNode, out var sourceLocation)
             ? DLOptionFailure.Fail(type, message, sourceLocation)
             : DLOptionFailure.Fail(type, message);
+
+    private static IDLOptionFailure FailType(SyntaxNode syntaxNode, DLFailureType type, string message) =>
+        TryGetSourceLocation(syntaxNode, out var sourceLocation)
+            ? DLOptionFailure.Fail(type, message, sourceLocation)
+            : DLOptionFailure.Fail(type, message);
+
+    private static IDLOptionFailure FailModelDraft(MetadataModelDraft model, DLFailureType type, string message)
+    {
+        if (model.CsFile.HasValue)
+            return DLOptionFailure.Fail(type, message, new SourceLocation(model.CsFile.Value, model.SourceSpan));
+
+        return DLOptionFailure.Fail(type, message);
+    }
 
     private bool InheritsFrom(CsTypeDeclaration decl, string typeName)
     {

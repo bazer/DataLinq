@@ -1,10 +1,12 @@
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
+using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -99,6 +101,57 @@ public abstract partial class OrderModel(IRowData rowData, IDataSourceAccess dat
         await Assert.That(ReferenceEquals(
             userTableModel.Model.RelationProperties["Orders"].RelationPart.Relation,
             orderTableModel.Model.RelationProperties["User"].RelationPart.Relation)).IsTrue();
+    }
+
+    [Test]
+    public async Task ReadSyntaxTrees_SourceDraftPreservesSourceLocations()
+    {
+        const string code = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial interface ITestDb : IDatabaseModel { }
+
+[Database("source_db")]
+public partial class TestDb : ITestDb
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UserModel> Users { get; }
+}
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, ITestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+    [Column("score"), Default(56)] public abstract int Score { get; }
+}
+""";
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(code, path: "/DataLinq/tests/SourceDraftModels.cs");
+        var root = syntaxTree.GetCompilationUnitRoot();
+        var declarations = root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+        var databaseDefinition = factory.ReadSyntaxTrees(declarations).Single().Value;
+
+        await Assert.That(databaseDefinition.CsFile.HasValue).IsTrue();
+        await Assert.That(databaseDefinition.GetAttributeSourceLocation(databaseDefinition.Attributes.OfType<DatabaseAttribute>().Single()).HasValue).IsTrue();
+
+        var userModel = databaseDefinition.TableModels.Single().Model;
+        await Assert.That(userModel.CsFile.HasValue).IsTrue();
+        await Assert.That(userModel.GetAttributeSourceLocation(userModel.Attributes.OfType<TableAttribute>().Single()).HasValue).IsTrue();
+
+        var scoreProperty = userModel.ValueProperties["Score"];
+        await Assert.That(scoreProperty.SourceInfo.HasValue).IsTrue();
+        await Assert.That(scoreProperty.SourceInfo!.Value.DefaultValueExpressionSpan.HasValue).IsTrue();
+        await Assert.That(scoreProperty.GetAttributeSourceLocation(scoreProperty.Attributes.OfType<DefaultAttribute>().Single()).HasValue).IsTrue();
+
+        var defaultSpanInfo = scoreProperty.SourceInfo.Value.DefaultValueExpressionSpan!.Value;
+        var defaultSpan = new TextSpan(defaultSpanInfo.Start, defaultSpanInfo.Length);
+        await Assert.That(syntaxTree.GetText().ToString(defaultSpan)).IsEqualTo("56");
     }
 
     private static ImmutableArray<TypeDeclarationSyntax> GetSyntaxDeclarations(string code)
