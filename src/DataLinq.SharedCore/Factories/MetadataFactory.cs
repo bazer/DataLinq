@@ -359,6 +359,16 @@ public static class MetadataFactory
             if (modelTypeFailure is not null)
                 return modelTypeFailure;
 
+            foreach (var originalInterface in model.OriginalInterfaces)
+            {
+                var originalInterfaceFailure = ValidateCSharpTypeUsageWithNamespace(
+                    originalInterface,
+                    $"Model '{model.CsType.Name}' declared interface",
+                    model);
+                if (originalInterfaceFailure is not null)
+                    return originalInterfaceFailure;
+            }
+
             var modelInstanceInterfaceFailure = ValidateOptionalCSharpTypeReference(
                 model.ModelInstanceInterface,
                 $"Model '{model.CsType.Name}' model-instance interface",
@@ -490,6 +500,24 @@ public static class MetadataFactory
             return DLOptionFailure.Fail(
                 DLFailureType.InvalidModel,
                 $"{scope} uses C# type name '{type.Name}', which is not valid C# type syntax.",
+                context);
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateCSharpTypeUsageWithNamespace(
+        CsTypeDeclaration type,
+        string scope,
+        IDefinition context)
+    {
+        var nameFailure = ValidateCSharpTypeUsage(type, scope, context);
+        if (nameFailure is not null)
+            return nameFailure;
+
+        if (!IsValidCSharpNamespace(type.Namespace))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} uses C# namespace '{type.Namespace}', which is not a valid unescaped C# namespace.",
                 context);
 
         return null;

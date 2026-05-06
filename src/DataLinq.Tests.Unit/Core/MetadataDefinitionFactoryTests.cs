@@ -706,6 +706,44 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ModelDeclaredInterfaceWithInvalidCSharpType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetInterfaces([
+            new CsTypeDeclaration("ITableModel<", "DataLinq.Interfaces", ModelCsType.Interface)
+        ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item' declared interface");
+        await Assert.That(failure.Message).Contains("C# type name 'ITableModel<'");
+    }
+
+    [Test]
+    public async Task Build_ModelDeclaredInterfaceWithInvalidNamespace_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetInterfaces([
+            new CsTypeDeclaration("ITableModel<TestDb>", "Bad Namespace", ModelCsType.Interface)
+        ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item' declared interface");
+        await Assert.That(failure.Message).Contains("uses C# namespace 'Bad Namespace'");
+    }
+
+    [Test]
     public async Task Build_ValuePropertyWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
