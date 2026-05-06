@@ -8,8 +8,7 @@ using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.MySql.Shared;
-
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.MySql;
 
@@ -109,8 +108,11 @@ public class MetadataFromSqlFactoryDefaultParsingTests
 
         await Assert.That(defaultAttr).IsTypeOf<DefaultCurrentTimestampAttribute>();
 
-        property.AddAttribute((DefaultCurrentTimestampAttribute)defaultAttr!);
-        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
+        var (_, columnWithDefault, _) = CreateValueProperty(
+            "test_col",
+            testCase.CsTypeName,
+            [(DefaultCurrentTimestampAttribute)defaultAttr!]);
+        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(columnWithDefault);
 
         await Assert.That(sqlDefault).IsEqualTo(testCase.ExpectedSqlDefault);
     }
@@ -176,10 +178,14 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         await Assert.That(((DefaultAttribute)defaultAttr!).Value).IsTypeOf<int>();
         await Assert.That((int)((DefaultAttribute)defaultAttr).Value).IsEqualTo(2);
 
-        property.AddAttribute((DefaultAttribute)defaultAttr);
-        await Assert.That(property.GetDefaultValueCode()).IsEqualTo("TierValue.Premium");
+        var (_, columnWithDefault, propertyWithDefault) = CreateEnumProperty(
+            "tier",
+            "TierValue",
+            enumProperty,
+            [(DefaultAttribute)defaultAttr]);
+        await Assert.That(propertyWithDefault.GetDefaultValueCode()).IsEqualTo("TierValue.Premium");
 
-        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
+        var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(columnWithDefault);
         await Assert.That(sqlDefault).IsEqualTo("'premium'");
     }
 
@@ -187,8 +193,10 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     [MethodDataSource(nameof(SqlLiteralFormattingCases))]
     public async Task GetDefaultValue_FormatsTypedSqlLiterals(SqlLiteralFormattingCase testCase)
     {
-        var (_, column, property) = CreateProperty("test_col", testCase.CsType);
-        property.AddAttribute(new DefaultAttribute(testCase.DefaultValue));
+        var (_, column, _) = CreateProperty(
+            "test_col",
+            testCase.CsType,
+            [new DefaultAttribute(testCase.DefaultValue)]);
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
 
@@ -199,8 +207,10 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     public async Task GetDefaultValue_GuidMariaDbDefault_FormatsAsUuidStringLiteral()
     {
         var guid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
-        var (_, column, property) = CreateProperty("test_col", new CsTypeDeclaration(typeof(Guid)));
-        property.AddAttribute(new DefaultAttribute(guid));
+        var (_, column, _) = CreateProperty(
+            "test_col",
+            new CsTypeDeclaration(typeof(Guid)),
+            [new DefaultAttribute(guid)]);
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
 
@@ -211,9 +221,11 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     public async Task GetDefaultValue_GuidMySqlBinaryDefault_FormatsAsHexLiteral()
     {
         var guid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
-        var (_, column, property) = CreateProperty("test_col", new CsTypeDeclaration(typeof(Guid)));
-        column.AddDbType(new DatabaseColumnType(DataLinq.DatabaseType.MySQL, "binary", 16));
-        property.AddAttribute(new DefaultAttribute(guid));
+        var (_, column, _) = CreateProperty(
+            "test_col",
+            new CsTypeDeclaration(typeof(Guid)),
+            [new DefaultAttribute(guid)],
+            dbTypes: [new DatabaseColumnType(DataLinq.DatabaseType.MySQL, "binary", 16)]);
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MySQL).GetDefaultValue(column);
 
@@ -223,8 +235,10 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     [Test]
     public async Task GetDefaultValue_DefaultNewUuid_RoundTripsToUuidFunction()
     {
-        var (_, column, property) = CreateProperty("test_col", new CsTypeDeclaration(typeof(Guid)));
-        property.AddAttribute(new DefaultNewUUIDAttribute());
+        var (_, column, _) = CreateProperty(
+            "test_col",
+            new CsTypeDeclaration(typeof(Guid)),
+            [new DefaultNewUUIDAttribute()]);
 
         var sqlDefault = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetDefaultValue(column);
 
@@ -234,40 +248,33 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     [Test]
     public async Task GetCreateTables_EmitsFormattedMariaDbDefaults()
     {
-        var database = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("TestModel", "TestNamespace", ModelCsType.Class));
-        var table = new TableDefinition("test_table");
-        var tableModel = new TableModel("TestModels", database, model, table);
-        database.SetTableModels([tableModel]);
-
-        var idProperty = new ValueProperty("Id", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("id")]);
-        var idColumn = new ColumnDefinition("id", table);
-        idColumn.SetValueProperty(idProperty);
-        idColumn.SetPrimaryKey();
-        idColumn.SetAutoIncrement();
-
-        var nameProperty = new ValueProperty("DisplayName", new CsTypeDeclaration(typeof(string)), model, [new ColumnAttribute("display_name"), new DefaultAttribute("O'Reilly")]);
-        var nameColumn = new ColumnDefinition("display_name", table);
-        nameColumn.SetValueProperty(nameProperty);
-
-        var enabledProperty = new ValueProperty("IsEnabled", new CsTypeDeclaration(typeof(bool)), model, [new ColumnAttribute("is_enabled"), new DefaultAttribute(true)]);
-        var enabledColumn = new ColumnDefinition("is_enabled", table);
-        enabledColumn.SetValueProperty(enabledProperty);
-
-        var createdProperty = new ValueProperty("CreatedOn", new CsTypeDeclaration(typeof(DateOnly)), model, [new ColumnAttribute("created_on"), new DefaultAttribute(new DateOnly(2024, 1, 2))]);
-        var createdColumn = new ColumnDefinition("created_on", table);
-        createdColumn.SetValueProperty(createdProperty);
-
-        var guidProperty = new ValueProperty("PublicId", new CsTypeDeclaration(typeof(Guid)), model, [new ColumnAttribute("public_id"), new DefaultNewUUIDAttribute()]);
-        var guidColumn = new ColumnDefinition("public_id", table);
-        guidColumn.SetValueProperty(guidProperty);
-
-        table.SetColumns([idColumn, nameColumn, enabledColumn, createdColumn, guidColumn]);
-        model.AddProperty(idProperty);
-        model.AddProperty(nameProperty);
-        model.AddProperty(enabledProperty);
-        model.AddProperty(createdProperty);
-        model.AddProperty(guidProperty);
+        var database = CreateDatabase(
+            CreateColumn(
+                "Id",
+                typeof(int),
+                "id",
+                primaryKey: true,
+                autoIncrement: true),
+            CreateColumn(
+                "DisplayName",
+                typeof(string),
+                "display_name",
+                attributes: [new DefaultAttribute("O'Reilly")]),
+            CreateColumn(
+                "IsEnabled",
+                typeof(bool),
+                "is_enabled",
+                attributes: [new DefaultAttribute(true)]),
+            CreateColumn(
+                "CreatedOn",
+                typeof(DateOnly),
+                "created_on",
+                attributes: [new DefaultAttribute(new DateOnly(2024, 1, 2))]),
+            CreateColumn(
+                "PublicId",
+                typeof(Guid),
+                "public_id",
+                attributes: [new DefaultNewUUIDAttribute()]));
 
         var sqlResult = SqlFromMetadataFactory.GetFactoryFromDatabaseType(DataLinq.DatabaseType.MariaDB).GetCreateTables(database, foreignKeyRestrict: false);
 
@@ -280,7 +287,10 @@ public class MetadataFromSqlFactoryDefaultParsingTests
         await Assert.That(sql.Contains("DEFAULT UUID()", StringComparison.Ordinal)).IsTrue();
     }
 
-    private static (TableDefinition table, ColumnDefinition column, ValueProperty property) CreateValueProperty(string columnName, string csTypeName)
+    private static (TableDefinition table, ColumnDefinition column, ValueProperty property) CreateValueProperty(
+        string columnName,
+        string csTypeName,
+        Attribute[]? attributes = null)
     {
         var csType = csTypeName switch
         {
@@ -300,31 +310,107 @@ public class MetadataFromSqlFactoryDefaultParsingTests
             _ => throw new NotImplementedException($"Unsupported test type {csTypeName}")
         };
 
-        return CreateProperty(columnName, csType);
+        return CreateProperty(columnName, csType, attributes);
     }
 
-    private static (TableDefinition table, ColumnDefinition column, ValueProperty property) CreateEnumProperty(string columnName, string enumTypeName, EnumProperty enumProperty)
+    private static (TableDefinition table, ColumnDefinition column, ValueProperty property) CreateEnumProperty(
+        string columnName,
+        string enumTypeName,
+        EnumProperty enumProperty,
+        Attribute[]? attributes = null)
     {
         var csType = new CsTypeDeclaration(enumTypeName, "TestNamespace", ModelCsType.Enum);
-        var result = CreateProperty(columnName, csType);
-        result.property.SetEnumProperty(enumProperty);
-        return result;
+        return CreateProperty(columnName, csType, attributes, enumProperty);
     }
 
-    private static (TableDefinition table, ColumnDefinition column, ValueProperty property) CreateProperty(string columnName, CsTypeDeclaration csType)
+    private static (TableDefinition table, ColumnDefinition column, ValueProperty property) CreateProperty(
+        string columnName,
+        CsTypeDeclaration csType,
+        Attribute[]? attributes = null,
+        EnumProperty? enumProperty = null,
+        DatabaseColumnType[]? dbTypes = null)
     {
-        var database = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("TestModel", "TestNamespace", ModelCsType.Class));
-        var table = new TableDefinition("test_table");
-        var tableModel = new TableModel("TestModels", database, model, table);
-        database.SetTableModels([tableModel]);
-
-        var property = new ValueProperty("TestProperty", csType, model, [new ColumnAttribute(columnName)]);
-        var column = new ColumnDefinition(columnName, table);
-        column.SetValueProperty(property);
-        table.SetColumns([column]);
-        model.AddProperty(property);
+        var database = CreateDatabase(
+            CreateColumn(
+                "Id",
+                typeof(int),
+                "id",
+                primaryKey: true),
+            CreateColumn(
+                "TestProperty",
+                csType,
+                columnName,
+                attributes,
+                enumProperty: enumProperty,
+                dbTypes: dbTypes));
+        var table = database.TableModels.Single().Table;
+        var column = table.Columns.Single(x => x.DbName == columnName);
+        var property = column.ValueProperty;
 
         return (table, column, property);
+    }
+
+    private static DatabaseDefinition CreateDatabase(params MetadataValuePropertyDraft[] columns)
+    {
+        var draft = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "TestModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("TestModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties = columns
+                    },
+                    new MetadataTableDraft("test_table"))
+            ]
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static MetadataValuePropertyDraft CreateColumn(
+        string propertyName,
+        Type csType,
+        string columnName,
+        bool primaryKey = false,
+        bool autoIncrement = false,
+        Attribute[]? attributes = null)
+    {
+        return CreateColumn(
+            propertyName,
+            new CsTypeDeclaration(csType),
+            columnName,
+            attributes,
+            primaryKey,
+            autoIncrement);
+    }
+
+    private static MetadataValuePropertyDraft CreateColumn(
+        string propertyName,
+        CsTypeDeclaration csType,
+        string columnName,
+        Attribute[]? attributes = null,
+        bool primaryKey = false,
+        bool autoIncrement = false,
+        EnumProperty? enumProperty = null,
+        DatabaseColumnType[]? dbTypes = null)
+    {
+        return new MetadataValuePropertyDraft(
+            propertyName,
+            csType,
+            new MetadataColumnDraft(columnName)
+            {
+                DbTypes = dbTypes ?? [],
+                PrimaryKey = primaryKey,
+                AutoIncrement = autoIncrement
+            })
+        {
+            Attributes = [new ColumnAttribute(columnName), .. (attributes ?? [])],
+            CsNullable = autoIncrement,
+            EnumProperty = enumProperty
+        };
     }
 }
