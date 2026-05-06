@@ -10,12 +10,21 @@ using DataLinq.Metadata;
 using ThrowAway.Extensions;
 using Attribute = System.Attribute;
 
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
-
 namespace DataLinq.Tests.Unit.Core;
 
 public class MetadataFactoryTests
 {
+#pragma warning disable CS0618 // These tests intentionally exercise legacy MetadataFactory inputs while Workstream C keeps compatibility mutators.
+    private static void SetModelInterfaces(ModelDefinition model, IEnumerable<CsTypeDeclaration> interfaces) => model.SetInterfaces(interfaces);
+    private static void SetModelAttributes(ModelDefinition model, IEnumerable<Attribute> attributes) => model.SetAttributes(attributes);
+    private static void SetDatabaseAttributes(DatabaseDefinition database, IEnumerable<Attribute> attributes) => database.SetAttributes(attributes);
+    private static void SetTableName(TableDefinition table, string dbName) => table.SetDbName(dbName);
+    private static void SetTableColumns(TableDefinition table, IEnumerable<ColumnDefinition> columns) => table.SetColumns(columns);
+    private static void SetDatabaseTableModels(DatabaseDefinition database, IEnumerable<TableModel> tableModels) => database.SetTableModels(tableModels);
+    private static void AddModelProperty(ModelDefinition model, PropertyDefinition property) => model.AddProperty(property);
+    private static void SetEnumMetadata(ValueProperty property, EnumProperty enumProperty) => property.SetEnumProperty(enumProperty);
+#pragma warning restore CS0618
+
     private (DatabaseDefinition db, TableModel tableModel, ModelDefinition model, TableDefinition table) CreateTestHierarchy(
         string dbName = "TestDb",
         string tableName = "TestTable",
@@ -29,12 +38,12 @@ public class MetadataFactoryTests
 
         var db = new DatabaseDefinition(dbName, dbCsType);
         var model = new ModelDefinition(modelCsType);
-        model.SetInterfaces(isView ? [iViewModel] : [iTableModel]);
+        SetModelInterfaces(model, isView ? [iViewModel] : [iTableModel]);
 
         var table = MetadataFactory.ParseTable(model).ValueOrException();
-        table.SetDbName(tableName);
+        SetTableName(table, tableName);
         var tableModel = new TableModel(modelName + "s", db, model, table);
-        db.SetTableModels([tableModel]);
+        SetDatabaseTableModels(db, [tableModel]);
 
         return (db, tableModel, model, table);
     }
@@ -43,7 +52,7 @@ public class MetadataFactoryTests
     {
         var csTypeDecl = new CsTypeDeclaration(csType);
         var valueProperty = new ValueProperty(propertyName, csTypeDecl, model, attributes);
-        model.AddProperty(valueProperty);
+        AddModelProperty(model, valueProperty);
         return valueProperty;
     }
 
@@ -59,20 +68,20 @@ public class MetadataFactoryTests
         var db = new DatabaseDefinition("TestDb", dbCsType);
 
         var userModel = new ModelDefinition(userCsType);
-        userModel.SetInterfaces([iTableModel]);
+        SetModelInterfaces(userModel, [iTableModel]);
         var userTable = MetadataFactory.ParseTable(userModel).ValueOrException();
-        userTable.SetDbName("users");
+        SetTableName(userTable, "users");
         var userTableModel = new TableModel("Users", db, userModel, userTable);
         var userIdProperty = CreateTestValueProperty(userModel, "UserId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("user_id")]);
         var userNameProperty = CreateTestValueProperty(userModel, "UserName", typeof(string), [new ColumnAttribute("user_name")]);
         var userIdColumn = MetadataFactory.ParseColumn(userTable, userIdProperty);
         var userNameColumn = MetadataFactory.ParseColumn(userTable, userNameProperty);
-        userTable.SetColumns([userIdColumn, userNameColumn]);
+        SetTableColumns(userTable, [userIdColumn, userNameColumn]);
 
         var orderModel = new ModelDefinition(orderCsType);
-        orderModel.SetInterfaces([iTableModel]);
+        SetModelInterfaces(orderModel, [iTableModel]);
         var orderTable = MetadataFactory.ParseTable(orderModel).ValueOrException();
-        orderTable.SetDbName("orders");
+        SetTableName(orderTable, "orders");
         var orderTableModel = new TableModel("Orders", db, orderModel, orderTable);
         var orderIdProperty = CreateTestValueProperty(orderModel, "OrderId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("order_id")]);
         var orderUserIdProperty = CreateTestValueProperty(orderModel, "CustomerId", typeof(int), [new ForeignKeyAttribute("users", "user_id", foreignKeyName), new ColumnAttribute("customer_id")]);
@@ -80,9 +89,9 @@ public class MetadataFactoryTests
         var orderIdColumn = MetadataFactory.ParseColumn(orderTable, orderIdProperty);
         var orderUserIdColumn = MetadataFactory.ParseColumn(orderTable, orderUserIdProperty);
         var orderAmountColumn = MetadataFactory.ParseColumn(orderTable, orderAmountProperty);
-        orderTable.SetColumns([orderIdColumn, orderUserIdColumn, orderAmountColumn]);
+        SetTableColumns(orderTable, [orderIdColumn, orderUserIdColumn, orderAmountColumn]);
 
-        db.SetTableModels([userTableModel, orderTableModel]);
+        SetDatabaseTableModels(db, [userTableModel, orderTableModel]);
 
         MetadataFactory.ParseIndices(db);
         MetadataFactory.ParseRelations(db);
@@ -100,18 +109,18 @@ public class MetadataFactoryTests
         var db = new DatabaseDefinition("TestDb", dbCsType);
 
         var accountModel = new ModelDefinition(accountCsType);
-        accountModel.SetInterfaces([iTableModel]);
+        SetModelInterfaces(accountModel, [iTableModel]);
         var accountTable = MetadataFactory.ParseTable(accountModel).ValueOrException();
-        accountTable.SetDbName("account");
+        SetTableName(accountTable, "account");
         var accountTableModel = new TableModel("Accounts", db, accountModel, accountTable);
         var accountIdProperty = CreateTestValueProperty(accountModel, "AccountId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("account_id")]);
         var accountIdColumn = MetadataFactory.ParseColumn(accountTable, accountIdProperty);
-        accountTable.SetColumns([accountIdColumn]);
+        SetTableColumns(accountTable, [accountIdColumn]);
 
         var invoiceModel = new ModelDefinition(invoiceCsType);
-        invoiceModel.SetInterfaces([iTableModel]);
+        SetModelInterfaces(invoiceModel, [iTableModel]);
         var invoiceTable = MetadataFactory.ParseTable(invoiceModel).ValueOrException();
-        invoiceTable.SetDbName("invoice");
+        SetTableName(invoiceTable, "invoice");
         var invoiceTableModel = new TableModel("Invoices", db, invoiceModel, invoiceTable);
         var invoiceIdProperty = CreateTestValueProperty(invoiceModel, "InvoiceId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("invoice_id")]);
         var createdByProperty = CreateTestValueProperty(invoiceModel, "CreatedByAccountId", typeof(int), [new ForeignKeyAttribute("account", "account_id", "FK_invoice_created_by"), new ColumnAttribute("created_by_account_id")]);
@@ -119,9 +128,9 @@ public class MetadataFactoryTests
         var invoiceIdColumn = MetadataFactory.ParseColumn(invoiceTable, invoiceIdProperty);
         var createdByColumn = MetadataFactory.ParseColumn(invoiceTable, createdByProperty);
         var approvedByColumn = MetadataFactory.ParseColumn(invoiceTable, approvedByProperty);
-        invoiceTable.SetColumns([invoiceIdColumn, createdByColumn, approvedByColumn]);
+        SetTableColumns(invoiceTable, [invoiceIdColumn, createdByColumn, approvedByColumn]);
 
-        db.SetTableModels([accountTableModel, invoiceTableModel]);
+        SetDatabaseTableModels(db, [accountTableModel, invoiceTableModel]);
 
         MetadataFactory.ParseIndices(db).ValueOrException();
         MetadataFactory.ParseRelations(db).ValueOrException();
@@ -133,7 +142,7 @@ public class MetadataFactoryTests
     public async Task ParseTableAttribute_SetsDbNameAndType()
     {
         var (_, _, model, _) = CreateTestHierarchy();
-        model.SetAttributes([new TableAttribute("my_table")]);
+        SetModelAttributes(model, [new TableAttribute("my_table")]);
 
         var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
 
@@ -145,7 +154,7 @@ public class MetadataFactoryTests
     public async Task ParseViewAttribute_SetsViewNameAndType()
     {
         var (_, _, model, _) = CreateTestHierarchy(isView: true);
-        model.SetAttributes([new ViewAttribute("my_view")]);
+        SetModelAttributes(model, [new ViewAttribute("my_view")]);
 
         var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
 
@@ -159,7 +168,7 @@ public class MetadataFactoryTests
     {
         var (_, _, model, _) = CreateTestHierarchy(isView: true);
         const string definitionSql = "SELECT Id FROM OtherTable";
-        model.SetAttributes([new ViewAttribute("my_view"), new DefinitionAttribute(definitionSql)]);
+        SetModelAttributes(model, [new ViewAttribute("my_view"), new DefinitionAttribute(definitionSql)]);
 
         var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
         var viewDefinition = (ViewDefinition)tableDefinition;
@@ -187,7 +196,7 @@ public class MetadataFactoryTests
         var valueProperty = CreateTestValueProperty(model, "Id", typeof(int), [new PrimaryKeyAttribute()]);
 
         var columnDefinition = table.ParseColumn(valueProperty);
-        table.SetColumns([columnDefinition]);
+        SetTableColumns(table, [columnDefinition]);
 
         await Assert.That(columnDefinition.PrimaryKey).IsTrue();
         await Assert.That(table.PrimaryKeyColumns.Length).IsEqualTo(1);
@@ -282,8 +291,8 @@ public class MetadataFactoryTests
         var enumType = new CsTypeDeclaration("MyEnum", "TestNamespace", ModelCsType.Enum);
         var attributes = new List<Attribute> { new EnumAttribute("Value1", "Value2") };
         var valueProperty = new ValueProperty("Status", enumType, model, attributes);
-        valueProperty.SetEnumProperty(new EnumProperty(enumValues: attributes.OfType<EnumAttribute>().Single().Values.Select((name, index) => (name, index + 1))));
-        model.AddProperty(valueProperty);
+        SetEnumMetadata(valueProperty, new EnumProperty(enumValues: attributes.OfType<EnumAttribute>().Single().Values.Select((name, index) => (name, index + 1))));
+        AddModelProperty(model, valueProperty);
         table.ParseColumn(valueProperty);
 
         await Assert.That(valueProperty.EnumProperty).IsNotNull();
@@ -415,7 +424,7 @@ public class MetadataFactoryTests
         var valueProperty = CreateTestValueProperty(model, "Name", typeof(string), [new IndexAttribute("idx_name", IndexCharacteristic.Simple, IndexType.BTREE)]);
 
         var columnDefinition = table.ParseColumn(valueProperty);
-        table.SetColumns([columnDefinition]);
+        SetTableColumns(table, [columnDefinition]);
         MetadataFactory.ParseIndices(model.Database);
 
         var indexAttribute = valueProperty.Attributes.OfType<IndexAttribute>().Single();
@@ -440,7 +449,7 @@ public class MetadataFactoryTests
         var valueProperty = CreateTestValueProperty(model, "Email", typeof(string), [new IndexAttribute("uq_email", IndexCharacteristic.Unique)]);
 
         var columnDefinition = table.ParseColumn(valueProperty);
-        table.SetColumns([columnDefinition]);
+        SetTableColumns(table, [columnDefinition]);
         MetadataFactory.ParseIndices(model.Database);
 
         var indexAttribute = valueProperty.Attributes.OfType<IndexAttribute>().Single();
@@ -462,7 +471,7 @@ public class MetadataFactoryTests
             new CsTypeDeclaration(typeof(IEnumerable<>)),
             model,
             [new RelationAttribute("OtherTable", "OtherId", "FK_RelationName")]);
-        model.AddProperty(relationProperty);
+        AddModelProperty(model, relationProperty);
 
         var relationAttribute = relationProperty.Attributes.OfType<RelationAttribute>().Single();
 
@@ -476,7 +485,7 @@ public class MetadataFactoryTests
     public async Task ParseUseCacheAttribute_OnTable_SetsExplicitUseCache()
     {
         var (_, _, model, _) = CreateTestHierarchy();
-        model.SetAttributes([new TableAttribute("my_table"), new UseCacheAttribute(true)]);
+        SetModelAttributes(model, [new TableAttribute("my_table"), new UseCacheAttribute(true)]);
 
         var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
 
@@ -488,7 +497,7 @@ public class MetadataFactoryTests
     public async Task ParseUseCacheAttribute_OnDatabase_SetsDatabaseCacheFlag()
     {
         var (db, _, _, _) = CreateTestHierarchy();
-        db.SetAttributes([new UseCacheAttribute(true)]);
+        SetDatabaseAttributes(db, [new UseCacheAttribute(true)]);
 
         db.ParseAttributes();
 
@@ -499,7 +508,7 @@ public class MetadataFactoryTests
     public async Task ParseCacheLimitAttribute_OnTable_SetsLimit()
     {
         var (_, _, model, _) = CreateTestHierarchy();
-        model.SetAttributes([new TableAttribute("my_table"), new CacheLimitAttribute(CacheLimitType.Rows, 1000)]);
+        SetModelAttributes(model, [new TableAttribute("my_table"), new CacheLimitAttribute(CacheLimitType.Rows, 1000)]);
 
         var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
 
@@ -512,7 +521,7 @@ public class MetadataFactoryTests
     public async Task ParseCacheLimitAttribute_OnDatabase_SetsLimit()
     {
         var (db, _, _, _) = CreateTestHierarchy();
-        db.SetAttributes([new CacheLimitAttribute(CacheLimitType.Megabytes, 512)]);
+        SetDatabaseAttributes(db, [new CacheLimitAttribute(CacheLimitType.Megabytes, 512)]);
 
         db.ParseAttributes();
 
@@ -525,7 +534,7 @@ public class MetadataFactoryTests
     public async Task ParseIndexCacheAttribute_OnTable_SetsPolicy()
     {
         var (_, _, model, _) = CreateTestHierarchy();
-        model.SetAttributes([new TableAttribute("my_table"), new IndexCacheAttribute(IndexCacheType.MaxAmountRows, 5000)]);
+        SetModelAttributes(model, [new TableAttribute("my_table"), new IndexCacheAttribute(IndexCacheType.MaxAmountRows, 5000)]);
 
         var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
 
@@ -538,7 +547,7 @@ public class MetadataFactoryTests
     public async Task ParseIndexCacheAttribute_OnDatabase_SetsPolicy()
     {
         var (db, _, _, _) = CreateTestHierarchy();
-        db.SetAttributes([new IndexCacheAttribute(IndexCacheType.All)]);
+        SetDatabaseAttributes(db, [new IndexCacheAttribute(IndexCacheType.All)]);
 
         db.ParseAttributes();
 
@@ -551,7 +560,7 @@ public class MetadataFactoryTests
     public async Task ParseCacheCleanupAttribute_OnDatabase_SetsPolicy()
     {
         var (db, _, _, _) = CreateTestHierarchy();
-        db.SetAttributes([new CacheCleanupAttribute(CacheCleanupType.Hours, 1)]);
+        SetDatabaseAttributes(db, [new CacheCleanupAttribute(CacheCleanupType.Hours, 1)]);
 
         db.ParseAttributes();
 
@@ -564,7 +573,7 @@ public class MetadataFactoryTests
     public async Task ParseInterfaceAttribute_DefaultInterface_PreservesIntent()
     {
         var (_, _, model, _) = CreateTestHierarchy();
-        model.SetAttributes([new InterfaceAttribute()]);
+        SetModelAttributes(model, [new InterfaceAttribute()]);
 
         var interfaceAttribute = model.Attributes.OfType<InterfaceAttribute>().Single();
 
@@ -576,7 +585,7 @@ public class MetadataFactoryTests
     public async Task ParseInterfaceAttribute_NamedInterface_PreservesName()
     {
         var (_, _, model, _) = CreateTestHierarchy();
-        model.SetAttributes([new InterfaceAttribute("IMyCustomInterface")]);
+        SetModelAttributes(model, [new InterfaceAttribute("IMyCustomInterface")]);
 
         var interfaceAttribute = model.Attributes.OfType<InterfaceAttribute>().Single();
 
@@ -588,7 +597,7 @@ public class MetadataFactoryTests
     public async Task ParseInterfaceAttribute_GenericInterface_PreservesTypeName()
     {
         var (_, _, model, _) = CreateTestHierarchy();
-        model.SetAttributes([new InterfaceAttribute<IDisposable>()]);
+        SetModelAttributes(model, [new InterfaceAttribute<IDisposable>()]);
 
         var interfaceAttribute = model.Attributes.OfType<InterfaceAttribute<IDisposable>>().Single();
 
@@ -600,7 +609,7 @@ public class MetadataFactoryTests
     public async Task ParseInterfaceAttribute_NoGenerate_PreservesFlag()
     {
         var (_, _, model, _) = CreateTestHierarchy();
-        model.SetAttributes([new InterfaceAttribute(generateInterface: false)]);
+        SetModelAttributes(model, [new InterfaceAttribute(generateInterface: false)]);
 
         var interfaceAttribute = model.Attributes.OfType<InterfaceAttribute>().Single();
 
@@ -617,7 +626,7 @@ public class MetadataFactoryTests
 
         var property1Column = MetadataFactory.ParseColumn(table, property1);
         var property2Column = MetadataFactory.ParseColumn(table, property2);
-        table.SetColumns([property1Column, property2Column]);
+        SetTableColumns(table, [property1Column, property2Column]);
 
         MetadataFactory.ParseIndices(model.Database);
         var index = table.ColumnIndices.Single();
@@ -634,13 +643,13 @@ public class MetadataFactoryTests
     public async Task ParseIndices_ClassLevelMultiColumn_BuildsSingleIndex()
     {
         var (_, _, model, table) = CreateTestHierarchy(tableName: "MultiIndexTable");
-        model.SetAttributes([new IndexAttribute("idx_multi", IndexCharacteristic.Unique, IndexType.BTREE, "col1", "col2")]);
+        SetModelAttributes(model, [new IndexAttribute("idx_multi", IndexCharacteristic.Unique, IndexType.BTREE, "col1", "col2")]);
         var property1 = CreateTestValueProperty(model, "Prop1", typeof(string), [new ColumnAttribute("col1")]);
         var property2 = CreateTestValueProperty(model, "Prop2", typeof(int), [new ColumnAttribute("col2")]);
 
         var property1Column = MetadataFactory.ParseColumn(table, property1);
         var property2Column = MetadataFactory.ParseColumn(table, property2);
-        table.SetColumns([property1Column, property2Column]);
+        SetTableColumns(table, [property1Column, property2Column]);
 
         MetadataFactory.ParseIndices(model.Database).ValueOrException();
         var index = table.ColumnIndices.Single();
@@ -654,13 +663,13 @@ public class MetadataFactoryTests
     public async Task ParseIndices_MissingColumnDiagnostic_NamesDatabaseColumnContract()
     {
         var (_, _, model, table) = CreateTestHierarchy(tableName: "MultiIndexTable");
-        model.SetAttributes([new IndexAttribute("idx_multi", IndexCharacteristic.Unique, IndexType.BTREE, "Prop1", "col2")]);
+        SetModelAttributes(model, [new IndexAttribute("idx_multi", IndexCharacteristic.Unique, IndexType.BTREE, "Prop1", "col2")]);
         var property1 = CreateTestValueProperty(model, "Prop1", typeof(string), [new ColumnAttribute("col1")]);
         var property2 = CreateTestValueProperty(model, "Prop2", typeof(int), [new ColumnAttribute("col2")]);
 
         var property1Column = MetadataFactory.ParseColumn(table, property1);
         var property2Column = MetadataFactory.ParseColumn(table, property2);
-        table.SetColumns([property1Column, property2Column]);
+        SetTableColumns(table, [property1Column, property2Column]);
 
         var result = MetadataFactory.ParseIndices(model.Database);
 
