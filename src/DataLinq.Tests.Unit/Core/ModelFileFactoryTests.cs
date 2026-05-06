@@ -1,12 +1,13 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -135,134 +136,184 @@ public class ModelFileFactoryTests
 
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(CsTypeDeclaration propertyType, object defaultValue)
     {
-        var database = new DatabaseDefinition("QuoteDb", new CsTypeDeclaration("QuoteDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("QuoteModel", "TestNamespace", ModelCsType.Class));
-        model.SetModelInstanceInterface(new CsTypeDeclaration("IQuoteModel", "TestNamespace", ModelCsType.Interface));
+        var draft = new MetadataDatabaseDraft(
+            "QuoteDb",
+            new CsTypeDeclaration("QuoteDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "QuoteModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("QuoteModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ModelInstanceInterface = new CsTypeDeclaration("IQuoteModel", "TestNamespace", ModelCsType.Interface),
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "QuoteText",
+                                propertyType,
+                                new MetadataColumnDraft("quote_text")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "varchar", 10)]
+                                })
+                            {
+                                Attributes = [new DefaultAttribute(defaultValue)]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("quote_table"))
+            ]
+        };
 
-        var table = new TableDefinition("quote_table");
-        var tableModel = new TableModel("QuoteModels", database, model, table);
-
-        var property = new ValueProperty(
-            "QuoteText",
-            propertyType,
-            model,
-            [new DefaultAttribute(defaultValue)]);
-
-        var column = new ColumnDefinition("quote_text", table);
-        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "varchar", 10));
-        column.SetValueProperty(property);
-        table.SetColumns([column]);
-        model.AddProperty(property);
-
-        database.SetTableModels([tableModel]);
-
-        return database;
+        return Build(draft);
     }
 
     private static DatabaseDefinition CreateDatabaseWithCompositeIndex()
     {
-        var database = new DatabaseDefinition("IndexDb", new CsTypeDeclaration("IndexDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("Account", "TestNamespace", ModelCsType.Class));
+        var draft = new MetadataDatabaseDraft(
+            "IndexDb",
+            new CsTypeDeclaration("IndexDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Accounts",
+                    new MetadataModelDraft(new CsTypeDeclaration("Account", "TestNamespace", ModelCsType.Class))
+                    {
+                        Attributes =
+                        [
+                            new IndexAttribute("idx_account_year_number", IndexCharacteristic.Unique, IndexType.BTREE, "accounting_year", "account_number")
+                        ],
+                        ValueProperties =
+                        [
+                            CreateValueProperty("AccountingYear", typeof(int), "accounting_year", "int", primaryKey: true),
+                            CreateValueProperty("AccountNumber", typeof(int), "account_number", "int"),
+                            CreateValueProperty("Name", typeof(string), "name", "varchar", length: 255)
+                        ]
+                    },
+                    new MetadataTableDraft("account"))
+            ]
+        };
 
-        var table = new TableDefinition("account");
-        var tableModel = new TableModel("Accounts", database, model, table);
-
-        var accountingYearProperty = new ValueProperty("AccountingYear", new CsTypeDeclaration(typeof(int)), model, []);
-        var accountNumberProperty = new ValueProperty("AccountNumber", new CsTypeDeclaration(typeof(int)), model, []);
-        var nameProperty = new ValueProperty("Name", new CsTypeDeclaration(typeof(string)), model, []);
-
-        var accountingYearColumn = new ColumnDefinition("accounting_year", table);
-        accountingYearColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int"));
-        accountingYearColumn.SetValueProperty(accountingYearProperty);
-
-        var accountNumberColumn = new ColumnDefinition("account_number", table);
-        accountNumberColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int"));
-        accountNumberColumn.SetValueProperty(accountNumberProperty);
-
-        var nameColumn = new ColumnDefinition("name", table);
-        nameColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "varchar", 255));
-        nameColumn.SetValueProperty(nameProperty);
-
-        table.SetColumns([accountingYearColumn, accountNumberColumn, nameColumn]);
-        table.ColumnIndices.Add(new ColumnIndex("idx_account_year_number", IndexCharacteristic.Unique, IndexType.BTREE, [accountingYearColumn, accountNumberColumn]));
-
-        model.AddProperty(accountingYearProperty);
-        model.AddProperty(accountNumberProperty);
-        model.AddProperty(nameProperty);
-        database.SetTableModels([tableModel]);
-
-        return database;
+        return Build(draft);
     }
 
     private static DatabaseDefinition CreateDatabaseWithComments()
     {
-        var database = new DatabaseDefinition("CommentDb", new CsTypeDeclaration("CommentDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("CommentModel", "TestNamespace", ModelCsType.Class));
-        model.AddAttribute(new CommentAttribute("Table comment with \"quotes\""));
-        model.AddAttribute(new CheckAttribute(DatabaseType.MySQL, "CK_comment_model_name", "`name` <> ''"));
+        var draft = new MetadataDatabaseDraft(
+            "CommentDb",
+            new CsTypeDeclaration("CommentDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "CommentModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("CommentModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        Attributes =
+                        [
+                            new CommentAttribute("Table comment with \"quotes\""),
+                            new CheckAttribute(DatabaseType.MySQL, "CK_comment_model_name", "`name` <> ''")
+                        ],
+                        ValueProperties =
+                        [
+                            CreateValueProperty(
+                                "Name",
+                                typeof(string),
+                                "name",
+                                "varchar",
+                                length: 255,
+                                primaryKey: true,
+                                attributes: [new CommentAttribute("Column comment with \"quotes\"")])
+                        ]
+                    },
+                    new MetadataTableDraft("comment_model"))
+            ]
+        };
 
-        var table = new TableDefinition("comment_model");
-        var tableModel = new TableModel("CommentModels", database, model, table);
-
-        var nameProperty = new ValueProperty("Name", new CsTypeDeclaration(typeof(string)), model, [new CommentAttribute("Column comment with \"quotes\"")]);
-        var nameColumn = new ColumnDefinition("name", table);
-        nameColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "varchar", 255));
-        nameColumn.SetValueProperty(nameProperty);
-
-        table.SetColumns([nameColumn]);
-        model.AddProperty(nameProperty);
-        database.SetTableModels([tableModel]);
-
-        return database;
+        return Build(draft);
     }
 
     private static DatabaseDefinition CreateDatabaseWithEscapedMetadataStrings()
     {
-        var database = new DatabaseDefinition("Escaped\"Db", new CsTypeDeclaration("EscapedDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("EscapedModel", "TestNamespace", ModelCsType.Class));
+        var draft = new MetadataDatabaseDraft(
+            "Escaped\"Db",
+            new CsTypeDeclaration("EscapedDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "EscapedModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("EscapedModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        Attributes =
+                        [
+                            new IndexAttribute("idx\"ship", IndexCharacteristic.Unique, IndexType.BTREE, "ship\"to", "2fa\\code")
+                        ],
+                        ValueProperties =
+                        [
+                            CreateValueProperty("ShipTo", typeof(string), "ship\"to", "var\"char", length: 255, primaryKey: true),
+                            CreateValueProperty("TwoFactorCode", typeof(string), "2fa\\code", "varchar", length: 32)
+                        ]
+                    },
+                    new MetadataTableDraft("order\"items"))
+            ]
+        };
 
-        var table = new TableDefinition("order\"items");
-        var tableModel = new TableModel("EscapedModels", database, model, table);
-
-        var shipProperty = new ValueProperty("ShipTo", new CsTypeDeclaration(typeof(string)), model, []);
-        var codeProperty = new ValueProperty("TwoFactorCode", new CsTypeDeclaration(typeof(string)), model, []);
-
-        var shipColumn = new ColumnDefinition("ship\"to", table);
-        shipColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "var\"char", 255));
-        shipColumn.SetValueProperty(shipProperty);
-
-        var codeColumn = new ColumnDefinition("2fa\\code", table);
-        codeColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "varchar", 32));
-        codeColumn.SetValueProperty(codeProperty);
-
-        table.SetColumns([shipColumn, codeColumn]);
-        table.ColumnIndices.Add(new ColumnIndex("idx\"ship", IndexCharacteristic.Unique, IndexType.BTREE, [shipColumn, codeColumn]));
-
-        model.AddProperty(shipProperty);
-        model.AddProperty(codeProperty);
-        database.SetTableModels([tableModel]);
-
-        return database;
+        return Build(draft);
     }
 
     private static DatabaseDefinition CreateDatabaseWithEscapedViewStrings()
     {
-        var database = new DatabaseDefinition("EscapedViewDb", new CsTypeDeclaration("EscapedViewDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("EscapedViewModel", "TestNamespace", ModelCsType.Class));
+        var draft = new MetadataDatabaseDraft(
+            "EscapedViewDb",
+            new CsTypeDeclaration("EscapedViewDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "EscapedViewModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("EscapedViewModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            CreateValueProperty("Status", typeof(string), "status", "varchar", length: 16)
+                        ]
+                    },
+                    new MetadataTableDraft("active\"items")
+                    {
+                        Type = TableType.View,
+                        Definition = "select \"active\" as status"
+                    })
+            ]
+        };
 
-        var view = new ViewDefinition("active\"items");
-        view.SetDefinition("select \"active\" as status");
-        var tableModel = new TableModel("EscapedViewModels", database, model, view);
-
-        var statusProperty = new ValueProperty("Status", new CsTypeDeclaration(typeof(string)), model, []);
-        var statusColumn = new ColumnDefinition("status", view);
-        statusColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "varchar", 16));
-        statusColumn.SetValueProperty(statusProperty);
-
-        view.SetColumns([statusColumn]);
-        model.AddProperty(statusProperty);
-        database.SetTableModels([tableModel]);
-
-        return database;
+        return Build(draft);
     }
+
+    private static MetadataValuePropertyDraft CreateValueProperty(
+        string propertyName,
+        Type propertyType,
+        string columnName,
+        string dbType,
+        int? length = null,
+        bool primaryKey = false,
+        Attribute[]? attributes = null)
+    {
+        return new MetadataValuePropertyDraft(
+            propertyName,
+            new CsTypeDeclaration(propertyType),
+            new MetadataColumnDraft(columnName)
+            {
+                PrimaryKey = primaryKey,
+                DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, dbType, length is null ? null : (ulong)length.Value)]
+            })
+        {
+            Attributes = attributes ?? []
+        };
+    }
+
+    private static DatabaseDefinition Build(MetadataDatabaseDraft draft)
+        => new MetadataDefinitionFactory().Build(draft).ValueOrException();
 }

@@ -4,8 +4,7 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Metadata;
-
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -114,30 +113,45 @@ public class GeneratorFileFactoryTests
         EnumProperty? enumProperty = null,
         bool includeComments = false)
     {
-        var database = new DatabaseDefinition("GeneratorDb", new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class));
-        if (includeComments)
-            model.AddAttribute(new CommentAttribute("Generated model & docs"));
-
-        var table = new TableDefinition("generator_table");
-        var tableModel = new TableModel("GeneratorModels", database, model, table);
-
         var propertyAttributes = new Attribute[] { new ColumnAttribute(propertyName.ToLowerInvariant()), new DefaultAttribute(defaultValue) };
         if (includeComments)
             propertyAttributes = [.. propertyAttributes, new CommentAttribute("Generated property <name>")];
 
-        var property = new ValueProperty(propertyName, propertyType, model, propertyAttributes);
+        var modelAttributes = includeComments
+            ? new Attribute[] { new CommentAttribute("Generated model & docs") }
+            : [];
 
-        if (enumProperty.HasValue)
-            property.SetEnumProperty(enumProperty.Value);
+        var draft = new MetadataDatabaseDraft(
+            "GeneratorDb",
+            new CsTypeDeclaration("GeneratorDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "GeneratorModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("GeneratorModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        Attributes = modelAttributes,
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                propertyName,
+                                propertyType,
+                                new MetadataColumnDraft(propertyName.ToLowerInvariant())
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [new DatabaseColumnType(DatabaseType.MySQL, "int")]
+                                })
+                            {
+                                Attributes = propertyAttributes,
+                                EnumProperty = enumProperty
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("generator_table"))
+            ]
+        };
 
-        var column = new ColumnDefinition(propertyName.ToLowerInvariant(), table);
-        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int"));
-        column.SetValueProperty(property);
-        table.SetColumns([column]);
-        model.AddProperty(property);
-
-        database.SetTableModels([tableModel]);
-        return database;
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 }

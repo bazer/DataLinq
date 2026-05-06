@@ -3,13 +3,13 @@ using System.Data;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Cache;
+using DataLinq.Core.Factories;
 using DataLinq.Interfaces;
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
-
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit;
 
@@ -43,8 +43,7 @@ public class DatabaseCacheTests
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
         DatabaseCache.IsBrowserRuntime = static () => true;
 
-        var metadata = CreateMetadata(includeExplicitCleanup: false);
-        metadata.SetCache(true);
+        var metadata = CreateMetadata(includeExplicitCleanup: false, useCache: true);
 
         try
         {
@@ -83,8 +82,7 @@ public class DatabaseCacheTests
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
         DatabaseCache.IsBrowserRuntime = static () => true;
 
-        var metadata = CreateMetadata(includeExplicitCleanup: false);
-        metadata.SetCache(true);
+        var metadata = CreateMetadata(includeExplicitCleanup: false, useCache: true);
 
         DatabaseDefinition.TryRemoveLoadedDatabase(typeof(CacheDefaultsDatabaseModel), out _);
 
@@ -132,16 +130,19 @@ public class DatabaseCacheTests
         }
     }
 
-    private static DatabaseDefinition CreateMetadata(bool includeExplicitCleanup = true)
+    private static DatabaseDefinition CreateMetadata(bool includeExplicitCleanup = true, bool useCache = false)
     {
-        var definition = new DatabaseDefinition(
+        var draft = new MetadataDatabaseDraft(
             "cachetest",
-            new CsTypeDeclaration("CacheTestDb", "DataLinq.Tests.Unit", ModelCsType.Class));
+            new CsTypeDeclaration("CacheTestDb", "DataLinq.Tests.Unit", ModelCsType.Class))
+        {
+            UseCache = useCache,
+            CacheCleanup = includeExplicitCleanup
+                ? [(CacheCleanupType.Minutes, 1)]
+                : []
+        };
 
-        if (includeExplicitCleanup)
-            definition.CacheCleanup.Add((CacheCleanupType.Minutes, 1));
-
-        return definition;
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 
     private sealed class CacheDefaultsDatabaseModel
