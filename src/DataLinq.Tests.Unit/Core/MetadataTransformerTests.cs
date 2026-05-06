@@ -7,85 +7,81 @@ using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
 
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
-
 namespace DataLinq.Tests.Unit.Core;
 
 public class MetadataTransformerTests
 {
-    private DatabaseDefinition CreateDestinationDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "raw_table", bool includeStatusDefault = false)
+    private static DatabaseDefinition CreateDestinationDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "raw_table", bool includeStatusDefault = false)
     {
         var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration(dbName, "RawNamespace", ModelCsType.Class);
         var modelCsType = new CsTypeDeclaration(modelName, "RawNamespace", ModelCsType.Class);
-
-        var db = new DatabaseDefinition(dbName, dbCsType);
-        var model = new ModelDefinition(modelCsType);
-        model.SetInterfaces([iTableModel]);
-
-        var table = new TableDefinition(tableDbName);
-        var tableModel = new TableModel(modelName + "s", db, model, table);
-
-        var col1Property = new ValueProperty("col1_db", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("col1_db"), new PrimaryKeyAttribute()]);
-        var col2Property = new ValueProperty("col2_db", new CsTypeDeclaration(typeof(int)), model, [new ColumnAttribute("col2_db")]);
+        var otherModelCsType = new CsTypeDeclaration("OtherRaw", "RawNamespace", ModelCsType.Class);
         var statusAttributes = includeStatusDefault
             ? new Attribute[] { new ColumnAttribute("status_db"), new DefaultAttribute(1) }
             : [new ColumnAttribute("status_db")];
-        var statusProperty = new ValueProperty("status_db", new CsTypeDeclaration(typeof(int)), model, statusAttributes);
-        model.AddProperty(col1Property);
-        model.AddProperty(col2Property);
-        model.AddProperty(statusProperty);
 
-        var col1 = table.ParseColumn(col1Property);
-        var col2 = table.ParseColumn(col2Property);
-        var col3 = table.ParseColumn(statusProperty);
-        table.SetColumns([col1, col2, col3]);
-
-        var otherModel = new ModelDefinition(new CsTypeDeclaration("OtherRaw", "RawNamespace", ModelCsType.Class));
-        var otherTable = new TableDefinition("other_table");
-        var otherTableModel = new TableModel("OtherRaws", db, otherModel, otherTable);
-        var otherIdProperty = new ValueProperty("other_id", new CsTypeDeclaration(typeof(int)), otherModel, [new ColumnAttribute("other_id"), new PrimaryKeyAttribute()]);
-        otherModel.AddProperty(otherIdProperty);
-        var otherIdColumn = otherTable.ParseColumn(otherIdProperty);
-        otherTable.SetColumns([otherIdColumn]);
-
-        var relation = new RelationDefinition("FK_DestConstraint", RelationType.OneToMany);
-        var foreignKeyIndex = new ColumnIndex("placeholder_fk_index", IndexCharacteristic.ForeignKey, IndexType.BTREE, [col1]);
-        var primaryKeyIndex = new ColumnIndex("placeholder_pk_index", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [otherIdColumn]);
-
-        relation.ForeignKey = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "rel_prop_db");
-        relation.CandidateKey = new RelationPart(primaryKeyIndex, relation, RelationPartType.CandidateKey, "OtherRaws");
-
-        var relationProperty = new RelationProperty("rel_prop_db", otherModel.CsType, model, []);
-        relationProperty.SetRelationPart(relation.ForeignKey);
-        model.AddProperty(relationProperty);
-
-        db.SetTableModels([tableModel, otherTableModel]);
-        return db;
+        return Build(new MetadataDatabaseDraft(dbName, dbCsType)
+        {
+            TableModels =
+            [
+                CreateTable(
+                    modelName + "s",
+                    modelCsType,
+                    tableDbName,
+                    [
+                        CreateValueProperty(
+                            "col1_db",
+                            typeof(int),
+                            "col1_db",
+                            primaryKey: true,
+                            attributes:
+                            [
+                                new ColumnAttribute("col1_db"),
+                                new PrimaryKeyAttribute(),
+                                new ForeignKeyAttribute("other_table", "other_id", "FK_DestConstraint")
+                            ]),
+                        CreateValueProperty(
+                            "col2_db",
+                            typeof(int),
+                            "col2_db",
+                            attributes: [new ColumnAttribute("col2_db")]),
+                        CreateValueProperty(
+                            "status_db",
+                            typeof(int),
+                            "status_db",
+                            attributes: statusAttributes)
+                    ],
+                    originalInterfaces: [iTableModel],
+                    relationProperties:
+                    [
+                        CreateRelationProperty(
+                            "rel_prop_db",
+                            otherModelCsType,
+                            [new RelationAttribute("other_table", "other_id", "FK_DestConstraint")])
+                    ]),
+                CreateTable(
+                    "OtherRaws",
+                    otherModelCsType,
+                    "other_table",
+                    [
+                        CreateValueProperty(
+                            "other_id",
+                            typeof(int),
+                            "other_id",
+                            primaryKey: true,
+                            attributes: [new ColumnAttribute("other_id"), new PrimaryKeyAttribute()])
+                    ])
+            ]
+        });
     }
 
-    private DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false)
+    private static DatabaseDefinition CreateSourceDatabase(string dbName = "MyDatabase", string tableDbName = "my_table", string modelName = "MyModel", string interfaceName = "IMyModel", bool includeEnumDefault = false)
     {
         var iTableModel = new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface);
         var dbCsType = new CsTypeDeclaration("MyDatabaseCsType", "SourceNamespace", ModelCsType.Class);
         var modelCsType = new CsTypeDeclaration(modelName, "SourceNamespace", ModelCsType.Class);
         var interfaceType = new CsTypeDeclaration(interfaceName, "SourceNamespace", ModelCsType.Interface);
-
-        var db = new DatabaseDefinition(dbName, dbCsType);
-        db.SetAttributes([new DatabaseAttribute(dbName)]);
-
-        var model = new ModelDefinition(modelCsType);
-        model.SetInterfaces([iTableModel]);
-        model.SetAttributes([new TableAttribute(tableDbName), new InterfaceAttribute(interfaceName)]);
-        model.SetModelInstanceInterface(interfaceType);
-
-        var table = MetadataFactory.ParseTable(model).Value;
-        var tableModel = new TableModel("MyModels", db, model, table);
-
-        var col1Property = CreateTestValueProperty(model, "Id", typeof(int), [new ColumnAttribute("col1_db"), new PrimaryKeyAttribute()]);
-        var col2Property = CreateTestValueProperty(model, "Name", typeof(string), [new ColumnAttribute("col2_db")]);
-        col2Property.SetCsNullable(true);
-
         var enumType = new CsTypeDeclaration("MyStatusEnum", "SourceNamespace", ModelCsType.Enum);
         var statusAttributes = includeEnumDefault
             ? new Attribute[]
@@ -95,47 +91,152 @@ public class MetadataTransformerTests
                 new DefaultAttribute("MyStatusEnum.Inactive").SetCodeExpression("MyStatusEnum.Inactive")
             }
             : [new ColumnAttribute("status_db"), new EnumAttribute("Active", "Inactive")];
-        var statusProperty = new ValueProperty("Status", enumType, model, statusAttributes);
-        statusProperty.SetEnumProperty(new EnumProperty(
+        var statusEnum = new EnumProperty(
             enumValues: [("Active", 1), ("Inactive", 2)],
             csEnumValues: [("Active", 1), ("Inactive", 2)],
-            declaredInClass: false));
+            declaredInClass: false);
+        var otherModelCsType = new CsTypeDeclaration("MyOtherModel", "SourceNamespace", ModelCsType.Class);
 
-        var col1 = table.ParseColumn(col1Property);
-        var col2 = table.ParseColumn(col2Property);
-        var statusColumn = table.ParseColumn(statusProperty);
-        table.SetColumns([col1, col2, statusColumn]);
-
-        var otherModel = new ModelDefinition(new CsTypeDeclaration("MyOtherModel", "SourceNamespace", ModelCsType.Class));
-        var otherTable = new TableDefinition("other_table");
-        var otherTableModel = new TableModel("MyOtherModels", db, otherModel, otherTable);
-        var otherIdProperty = new ValueProperty("OtherId", new CsTypeDeclaration(typeof(int)), otherModel, [new ColumnAttribute("other_id"), new PrimaryKeyAttribute()]);
-        otherModel.AddProperty(otherIdProperty);
-        var otherIdColumn = otherTable.ParseColumn(otherIdProperty);
-        otherTable.SetColumns([otherIdColumn]);
-
-        var relation = new RelationDefinition("FK_FROM_SOURCE", RelationType.OneToMany);
-        var foreignKeyIndex = new ColumnIndex("placeholder_fk_index", IndexCharacteristic.ForeignKey, IndexType.BTREE, [col1]);
-        var primaryKeyIndex = new ColumnIndex("placeholder_pk_index", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [otherIdColumn]);
-
-        relation.ForeignKey = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "RelatedItems");
-        relation.CandidateKey = new RelationPart(primaryKeyIndex, relation, RelationPartType.CandidateKey, "MyModel");
-
-        var relationProperty = new RelationProperty("RelatedItems", otherModel.CsType, model, [new RelationAttribute("other_table", "other_id", "FK_FROM_SOURCE")]);
-        relationProperty.SetRelationPart(relation.ForeignKey);
-
-        model.AddProperty(col1Property);
-        model.AddProperty(col2Property);
-        model.AddProperty(statusProperty);
-        model.AddProperty(relationProperty);
-
-        db.SetTableModels([tableModel, otherTableModel]);
-        return db;
+        return Build(new MetadataDatabaseDraft(dbName, dbCsType)
+        {
+            Attributes = [new DatabaseAttribute(dbName)],
+            TableModels =
+            [
+                CreateTable(
+                    "MyModels",
+                    modelCsType,
+                    tableDbName,
+                    [
+                        CreateValueProperty(
+                            "Id",
+                            typeof(int),
+                            "col1_db",
+                            primaryKey: true,
+                            attributes:
+                            [
+                                new ColumnAttribute("col1_db"),
+                                new PrimaryKeyAttribute(),
+                                new ForeignKeyAttribute("other_table", "other_id", "FK_FROM_SOURCE")
+                            ]),
+                        CreateValueProperty(
+                            "Name",
+                            typeof(string),
+                            "col2_db",
+                            csNullable: true,
+                            attributes: [new ColumnAttribute("col2_db")]),
+                        CreateValueProperty(
+                            "Status",
+                            enumType,
+                            "status_db",
+                            attributes: statusAttributes,
+                            enumProperty: statusEnum)
+                    ],
+                    attributes: [new TableAttribute(tableDbName), new InterfaceAttribute(interfaceName)],
+                    originalInterfaces: [iTableModel],
+                    modelInstanceInterface: interfaceType,
+                    relationProperties:
+                    [
+                        CreateRelationProperty(
+                            "RelatedItems",
+                            otherModelCsType,
+                            [new RelationAttribute("other_table", "other_id", "FK_FROM_SOURCE")])
+                    ]),
+                CreateTable(
+                    "MyOtherModels",
+                    otherModelCsType,
+                    "other_table",
+                    [
+                        CreateValueProperty(
+                            "OtherId",
+                            typeof(int),
+                            "other_id",
+                            primaryKey: true,
+                            attributes: [new ColumnAttribute("other_id"), new PrimaryKeyAttribute()])
+                    ])
+            ]
+        });
     }
 
-    private static ValueProperty CreateTestValueProperty(ModelDefinition model, string propertyName, Type csType, Attribute[] attributes)
+    private static MetadataTableModelDraft CreateTable(
+        string tablePropertyName,
+        CsTypeDeclaration modelCsType,
+        string tableName,
+        MetadataValuePropertyDraft[] valueProperties,
+        Attribute[]? attributes = null,
+        CsTypeDeclaration[]? originalInterfaces = null,
+        CsTypeDeclaration? modelInstanceInterface = null,
+        MetadataRelationPropertyDraft[]? relationProperties = null)
     {
-        return new ValueProperty(propertyName, new CsTypeDeclaration(csType), model, attributes);
+        return new MetadataTableModelDraft(
+            tablePropertyName,
+            new MetadataModelDraft(modelCsType)
+            {
+                Attributes = attributes ?? [],
+                OriginalInterfaces = originalInterfaces ?? [],
+                ModelInstanceInterface = modelInstanceInterface,
+                ValueProperties = valueProperties,
+                RelationProperties = relationProperties ?? []
+            },
+            new MetadataTableDraft(tableName));
+    }
+
+    private static MetadataValuePropertyDraft CreateValueProperty(
+        string propertyName,
+        Type csType,
+        string columnName,
+        bool primaryKey = false,
+        bool csNullable = false,
+        Attribute[]? attributes = null)
+    {
+        return CreateValueProperty(
+            propertyName,
+            new CsTypeDeclaration(csType),
+            columnName,
+            primaryKey,
+            csNullable,
+            attributes);
+    }
+
+    private static MetadataValuePropertyDraft CreateValueProperty(
+        string propertyName,
+        CsTypeDeclaration csType,
+        string columnName,
+        bool primaryKey = false,
+        bool csNullable = false,
+        Attribute[]? attributes = null,
+        EnumProperty? enumProperty = null)
+    {
+        var propertyAttributes = attributes ?? [];
+
+        return new MetadataValuePropertyDraft(
+            propertyName,
+            csType,
+            new MetadataColumnDraft(columnName)
+            {
+                PrimaryKey = primaryKey,
+                ForeignKey = propertyAttributes.Any(static x => x is ForeignKeyAttribute)
+            })
+        {
+            Attributes = propertyAttributes,
+            CsNullable = csNullable,
+            EnumProperty = enumProperty
+        };
+    }
+
+    private static MetadataRelationPropertyDraft CreateRelationProperty(
+        string propertyName,
+        CsTypeDeclaration csType,
+        Attribute[] attributes)
+    {
+        return new MetadataRelationPropertyDraft(propertyName, csType)
+        {
+            Attributes = attributes
+        };
+    }
+
+    private static DatabaseDefinition Build(MetadataDatabaseDraft draft)
+    {
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 
     [Test]
