@@ -243,6 +243,7 @@ Foundation slice notes:
 - Duplicate table-property names, table names, and column names are now preflighted before draft snapshot copying, so duplicate object registrations return the same `InvalidModel` diagnostics as ordinary duplicate metadata instead of leaking snapshot dictionary exceptions.
 - Existing column database-type metadata is now preflighted before draft snapshot copying and during finalization, so null type entries, empty type names, and undefined provider enum values return `InvalidModel` instead of leaking snapshot or SQL-generation failures.
 - Enum value-property metadata is now preflighted before draft snapshot copying and during finalization, so missing enum metadata, empty enum value sets, invalid generated C# member names, and ambiguous database enum values return `InvalidModel` before model generation or data-reader enum mapping can fail.
+- Database and table cache-policy metadata is now preflighted before draft snapshot copying and during finalization, so unsupported cache/index-cache enum values, nonpositive cache amounts, and missing `MaxAmountRows` index-cache amounts return `InvalidModel` before runtime cache policy evaluation can fail.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
 
 Design stance:

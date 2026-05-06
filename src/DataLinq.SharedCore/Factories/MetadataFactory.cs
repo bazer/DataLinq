@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using DataLinq.Attributes;
 using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
+using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -287,6 +288,133 @@ public static class MetadataFactory
 
         if (!string.Equals(database.CsType.Name, csTypeName, StringComparison.Ordinal))
             database.SetCsType(database.CsType.MutateName(csTypeName));
+    }
+
+    public static Option<bool, IDLOptionFailure> ValidateCacheMetadata(DatabaseDefinition database)
+    {
+        foreach (var (limitType, amount) in database.CacheLimits)
+        {
+            var failure = ValidateCacheLimit(
+                limitType,
+                amount,
+                $"Database '{database.DbName}'",
+                database);
+            if (failure is not null)
+                return failure;
+        }
+
+        foreach (var (cleanupType, amount) in database.CacheCleanup)
+        {
+            var failure = ValidateCacheCleanup(
+                cleanupType,
+                amount,
+                $"Database '{database.DbName}'",
+                database);
+            if (failure is not null)
+                return failure;
+        }
+
+        foreach (var (indexCacheType, amount) in database.IndexCache)
+        {
+            var failure = ValidateIndexCachePolicy(
+                indexCacheType,
+                amount,
+                $"Database '{database.DbName}'",
+                database);
+            if (failure is not null)
+                return failure;
+        }
+
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var table = tableModel.Table;
+            var scope = $"Table '{table.DbName}'";
+
+            foreach (var (limitType, amount) in table.CacheLimits)
+            {
+                var failure = ValidateCacheLimit(limitType, amount, scope, table);
+                if (failure is not null)
+                    return failure;
+            }
+
+            foreach (var (indexCacheType, amount) in table.IndexCache)
+            {
+                var failure = ValidateIndexCachePolicy(indexCacheType, amount, scope, table);
+                if (failure is not null)
+                    return failure;
+            }
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure? ValidateCacheLimit(
+        CacheLimitType limitType,
+        long amount,
+        string scope,
+        IDefinition context)
+    {
+        if (!Enum.IsDefined(typeof(CacheLimitType), limitType))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} has cache limit metadata with unsupported cache limit type '{limitType}'.",
+                context);
+
+        if (amount <= 0)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} has cache limit metadata for '{limitType}' with amount '{amount}'. Cache limit amounts must be greater than zero.",
+                context);
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateCacheCleanup(
+        CacheCleanupType cleanupType,
+        long amount,
+        string scope,
+        IDefinition context)
+    {
+        if (!Enum.IsDefined(typeof(CacheCleanupType), cleanupType))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} has cache cleanup metadata with unsupported cache cleanup type '{cleanupType}'.",
+                context);
+
+        if (amount <= 0)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} has cache cleanup metadata for '{cleanupType}' with amount '{amount}'. Cache cleanup amounts must be greater than zero.",
+                context);
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateIndexCachePolicy(
+        IndexCacheType indexCacheType,
+        int? amount,
+        string scope,
+        IDefinition context)
+    {
+        if (!Enum.IsDefined(typeof(IndexCacheType), indexCacheType))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} has index-cache metadata with unsupported index-cache type '{indexCacheType}'.",
+                context);
+
+        if (indexCacheType == IndexCacheType.MaxAmountRows && !amount.HasValue)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} has MaxAmountRows index-cache metadata without a row amount.",
+                context);
+
+        if (amount is <= 0)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} has index-cache metadata for '{indexCacheType}' with amount '{amount}'. Index-cache amounts must be greater than zero.",
+                context);
+
+        return null;
     }
 
     private static SourceLocation? GetTableNameSourceLocation(ModelDefinition model)

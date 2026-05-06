@@ -168,6 +168,76 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DatabaseCacheLimitWithUnsupportedType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.CacheLimits.Add(((CacheLimitType)999, 1));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("unsupported cache limit type '999'");
+    }
+
+    [Test]
+    public async Task Build_DatabaseCacheCleanupWithZeroAmount_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.CacheCleanup.Add((CacheCleanupType.Minutes, 0));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("Cache cleanup amounts must be greater than zero");
+    }
+
+    [Test]
+    public async Task Build_TableCacheLimitWithNegativeAmount_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        table.CacheLimits.Add((CacheLimitType.Rows, -1));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table 'items'");
+        await Assert.That(failure.Message).Contains("Cache limit amounts must be greater than zero");
+    }
+
+    [Test]
+    public async Task Build_TableIndexCacheMaxRowsWithoutAmount_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        table.IndexCache.Add((IndexCacheType.MaxAmountRows, null));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table 'items'");
+        await Assert.That(failure.Message).Contains("MaxAmountRows index-cache metadata without a row amount");
+    }
+
+    [Test]
     public async Task Build_TableModelPropertyMatchingDatabaseType_RenamesBuiltDatabaseTypeWithoutMutatingDraft()
     {
         var database = CreateSingleTableDraft(

@@ -61,6 +61,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateUniqueTableModelPropertyNames(draft).TryUnwrap(out _, out var duplicateTableModelPropertyFailure))
             return duplicateTableModelPropertyFailure;
 
+        if (!MetadataFactory.ValidateCacheMetadata(draft).TryUnwrap(out _, out var cacheMetadataFailure))
+            return cacheMetadataFailure;
+
         MetadataFactory.NormalizeDatabaseTypeName(draft);
 
         if (!MetadataFactory.ValidateUniqueTableNames(draft).TryUnwrap(out _, out var duplicateTableFailure))
