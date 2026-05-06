@@ -10,13 +10,13 @@ public class TableModel
     public ModelDefinition Model { get; }
     public bool IsStub { get; }
 
-    public TableModel(string csPropertyName, DatabaseDefinition database, ModelDefinition model, TableDefinition table)
+    public TableModel(string csPropertyName, DatabaseDefinition database, ModelDefinition model, TableDefinition table, bool isStub = false)
     {
         CsPropertyName = csPropertyName;
         Database = database;
         Model = model;
         Table = table;
-        IsStub = false;
+        IsStub = isStub;
         Table.SetTableModel(this);
         Model.SetTableModel(this);
     }

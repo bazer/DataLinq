@@ -50,7 +50,8 @@ public static class MetadataFromTypeFactory
         database.SetTableModels(generatedModel.TableModels
             .Select(database.ParseTableModel));
 
-        return new MetadataDefinitionFactory().Build(database);
+        return new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
     }
 
     private static TableModel ParseTableModel(this DatabaseDefinition database, GeneratedTableModelDeclaration declaration)

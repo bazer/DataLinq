@@ -194,8 +194,8 @@ Goals:
 
 Tasks:
 
-1. Add metadata builder/draft types side by side with the current metadata graph.
-2. Represent source-model metadata, generated declarations, SQLite metadata, MySQL metadata, and MariaDB metadata in builder form.
+1. [in progress] Add metadata builder/draft types side by side with the current metadata graph. The first `MetadataDefinitionDraft` boundary exists; deeper typed table/model/property draft records still need to replace direct mutable graph construction.
+2. [in progress] Represent source-model metadata, generated declarations, SQLite metadata, MySQL metadata, and MariaDB metadata in builder form. The wired paths now hand explicit drafts to the factory, but the drafts are still backed by the current mutable metadata graph.
 3. [in progress] Introduce a `MetadataDefinitionFactory` or equivalent factory that owns validation, normalization, relation resolution, column ordinal assignment, cache metadata interpretation, and freeze/finalization.
 4. [in progress] Make expected invalid-model failures return `Option<DatabaseDefinition, IDLOptionFailure>` rather than arbitrary exceptions.
 5. [in progress] Add equivalence tests comparing builder-built metadata against current metadata for generated `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model. Source-parsed versus generated-runtime coverage now exists for the representative models; extend it to true builder-built inputs once those inputs are wired.
@@ -223,7 +223,9 @@ Foundation slice notes:
 - The equivalence pass fixed source/generated drift: reflected `[Database]` metadata now normalizes `DatabaseDefinition.Name`, file-based source parsing now includes top-level enum declarations and enum-typed properties, and reflected runtime metadata now preserves nullable reference annotations on properties.
 - Added provider-generated-source metadata equivalence checks for SQLite, MySQL, and MariaDB first-slice schemas using a shared metadata digest and generated-source roundtrip helper.
 - The provider equivalence pass fixed generated model column ordering, provider auto-increment C# nullability, and provider-created nullable foreign-key relation metadata so generated source preserves the provider metadata shape.
-- This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable; the next C slices still need real builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
+- Added `MetadataDefinitionDraft` as the first explicit factory draft boundary. Generated runtime metadata, source-parsed metadata, SQLite metadata, MySQL metadata, and MariaDB metadata now hand drafts to `MetadataDefinitionFactory` instead of asking the factory to finalize the parser/provider graph directly.
+- `MetadataDefinitionFactory` now snapshots the draft before finalization, so interface assignment, index creation, relation resolution, and column ordinal assignment happen on the returned runtime graph without mutating the draft graph. Stub table models are preserved across the snapshot boundary.
+- This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
 
 Design stance:
 

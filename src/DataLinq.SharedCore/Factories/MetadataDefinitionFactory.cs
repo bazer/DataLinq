@@ -8,17 +8,40 @@ namespace DataLinq.Core.Factories;
 
 public sealed class MetadataDefinitionFactory
 {
-    public Option<DatabaseDefinition, IDLOptionFailure> Build(DatabaseDefinition draft) =>
-        DLOptionFailure.CatchAll(() => BuildCore(draft));
-
-    public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(DatabaseDefinition draft) =>
-        DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(draft));
-
-    private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
+    public Option<DatabaseDefinition, IDLOptionFailure> Build(DatabaseDefinition draft)
     {
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
 
+        return Build(MetadataDefinitionDraft.FromMutableMetadata(draft));
+    }
+
+    public Option<DatabaseDefinition, IDLOptionFailure> Build(MetadataDefinitionDraft draft)
+    {
+        if (draft is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
+
+        return DLOptionFailure.CatchAll(() => BuildCore(draft.CreateMutableSnapshot()));
+    }
+
+    public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(DatabaseDefinition draft)
+    {
+        if (draft is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
+
+        return BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(draft));
+    }
+
+    public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(MetadataDefinitionDraft draft)
+    {
+        if (draft is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
+
+        return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(draft.CreateMutableSnapshot()));
+    }
+
+    private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
+    {
         MetadataFactory.ParseInterfaces(draft);
 
         return BuildCore(draft);
@@ -26,9 +49,6 @@ public sealed class MetadataDefinitionFactory
 
     private static Option<DatabaseDefinition, IDLOptionFailure> BuildCore(DatabaseDefinition draft)
     {
-        if (draft is null)
-            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
-
         if (!MetadataFactory.ValidateUniqueTableNames(draft).TryUnwrap(out _, out var duplicateTableFailure))
             return duplicateTableFailure;
 

@@ -69,7 +69,7 @@ internal static class MetadataDefinitionSnapshot
     {
         var model = CopyModel(source.Model);
         var table = CopyTable(source.Table);
-        var tableModel = new TableModel(source.CsPropertyName, database, model, table);
+        var tableModel = new TableModel(source.CsPropertyName, database, model, table, source.IsStub);
 
         tableMap.Add(source.Table, table);
         modelMap.Add(source.Model, model);

@@ -35,6 +35,28 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_RelationDraft_FinalizesSnapshotWithoutMutatingDraft()
+    {
+        var database = CreateRelationDraft();
+        var orderDraft = database.TableModels.Single(tm => tm.Table.DbName == "orders");
+
+        var built = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .ValueOrException();
+
+        var builtOrderTable = built.TableModels.Single(tm => tm.Table.DbName == "orders").Table;
+
+        await Assert.That(ReferenceEquals(database, built)).IsFalse();
+        await Assert.That(builtOrderTable.Columns.Select(c => c.Index).ToArray()).IsEquivalentTo([0, 1, 2]);
+        await Assert.That(builtOrderTable.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.ForeignKey)).IsTrue();
+        await Assert.That(builtOrderTable.Model.RelationProperties).IsNotEmpty();
+
+        await Assert.That(orderDraft.Table.Columns.Select(c => c.Index).ToArray()).IsEquivalentTo([0, 0, 0]);
+        await Assert.That(orderDraft.Table.ColumnIndices.Count).IsEqualTo(0);
+        await Assert.That(orderDraft.Model.RelationProperties.Count).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task Build_DuplicateColumnDraft_ReturnsInvalidModelFailure()
     {
         var database = CreateSingleTableDraft(
@@ -123,6 +145,48 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(table.Model.ModelInstanceInterface!.Value.Name).IsEqualTo("IItem");
         await Assert.That(table.Columns.Select(c => c.Index).ToArray()).IsEquivalentTo([0, 1]);
         await Assert.That(table.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.PrimaryKey)).IsTrue();
+    }
+
+    [Test]
+    public async Task BuildProviderMetadata_ProviderStyleDraft_FinalizesSnapshotWithoutMutatingDraft()
+    {
+        var database = CreateProviderStyleDraft();
+        var draftTable = database.TableModels.Single().Table;
+        var draftModel = database.TableModels.Single().Model;
+
+        var built = new MetadataDefinitionFactory()
+            .BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .ValueOrException();
+
+        var builtTable = built.TableModels.Single().Table;
+
+        await Assert.That(ReferenceEquals(database, built)).IsFalse();
+        await Assert.That(builtTable.Model.ModelInstanceInterface.HasValue).IsTrue();
+        await Assert.That(builtTable.Columns.Select(c => c.Index).ToArray()).IsEquivalentTo([0, 1]);
+        await Assert.That(builtTable.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.PrimaryKey)).IsTrue();
+
+        await Assert.That(draftModel.ModelInstanceInterface.HasValue).IsFalse();
+        await Assert.That(draftTable.Columns.Select(c => c.Index).ToArray()).IsEquivalentTo([0, 0]);
+        await Assert.That(draftTable.ColumnIndices.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Build_StubTableDraft_PreservesStubFlagAndSkipsFinalization()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var stubModel = new ModelDefinition(new CsTypeDeclaration("MissingModel", "TestNamespace", ModelCsType.Interface));
+        stubModel.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        var stubTableModel = new TableModel("MissingModels", database, stubModel, isStub: true);
+        database.SetTableModels([stubTableModel]);
+
+        var built = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .ValueOrException();
+
+        await Assert.That(built.TableModels.Single().IsStub).IsTrue();
+        await Assert.That(stubTableModel.IsStub).IsTrue();
     }
 
     private static DatabaseDefinition CreateRelationDraft(string foreignKeyName = "FK_Order_User")
