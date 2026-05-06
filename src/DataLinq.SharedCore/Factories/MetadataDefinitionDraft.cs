@@ -56,6 +56,10 @@ public sealed class MetadataDefinitionDraft
         if (!columnTypeValidation.HasValue)
             return columnTypeValidation.Failure;
 
+        var enumValidation = MetadataFactory.ValidateValuePropertyEnums(metadata);
+        if (!enumValidation.HasValue)
+            return enumValidation.Failure;
+
         var columnNameValidation = MetadataFactory.ValidateUniqueColumnNames(metadata);
         if (!columnNameValidation.HasValue)
             return columnNameValidation.Failure;

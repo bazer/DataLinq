@@ -463,6 +463,123 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_EnumClrTypeWithoutEnumMetadata_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.SetCsType(new CsTypeDeclaration(typeof(RuntimeStatus)));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Item.Id");
+        await Assert.That(failure.Message).Contains("no enum metadata");
+    }
+
+    [Test]
+    public async Task Build_EnumPropertyWithoutValues_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.SetCsType(new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum));
+        property.SetEnumProperty(new EnumProperty());
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Enum value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("at least one enum value");
+    }
+
+    [Test]
+    public async Task Build_EnumPropertyWithInvalidMemberName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.SetCsType(new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum));
+        property.SetEnumProperty(new EnumProperty(csEnumValues: [("Not Valid", 1)]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Enum value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("invalid C# enum member name 'Not Valid'");
+    }
+
+    [Test]
+    public async Task Build_EnumPropertyWithDuplicateDatabaseValues_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.SetCsType(new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum));
+        property.SetEnumProperty(new EnumProperty(
+            enumValues: [("PRI", 1), ("pri", 2)],
+            csEnumValues: [("Primary", 1), ("AlternatePrimary", 2)]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Enum value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("duplicate database enum value 'PRI'");
+    }
+
+    [Test]
+    public async Task Build_EnumPropertyWithEmptyDatabaseValueAndValidCsName_Succeeds()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.SetCsType(new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum));
+        property.SetEnumProperty(new EnumProperty(
+            enumValues: [("", 1), ("PRI", 2)],
+            csEnumValues: [("Empty", 1), ("PRI", 2)]));
+
+        var built = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .ValueOrException();
+
+        var enumProperty = built.TableModels.Single().Model.ValueProperties["Id"].EnumProperty!.Value;
+        await Assert.That(enumProperty.DbEnumValues.Select(x => x.name).ToArray()).IsEquivalentTo(["", "PRI"]);
+        await Assert.That(enumProperty.CsEnumValues.Select(x => x.name).ToArray()).IsEquivalentTo(["Empty", "PRI"]);
+    }
+
+    [Test]
+    public async Task Build_ExternalEnumPropertyWithEmptyDatabaseValueWithoutCsNames_Succeeds()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.SetCsType(new CsTypeDeclaration("COLUMN_KEY", "TestNamespace", ModelCsType.Enum));
+        property.SetEnumProperty(new EnumProperty(
+            enumValues: [("", 1), ("PRI", 2)],
+            declaredInClass: false));
+
+        var built = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .ValueOrException();
+
+        var enumProperty = built.TableModels.Single().Model.ValueProperties["Id"].EnumProperty!.Value;
+        await Assert.That(enumProperty.DbEnumValues.Select(x => x.name).ToArray()).IsEquivalentTo(["", "PRI"]);
+        await Assert.That(enumProperty.CsEnumValues).IsEmpty();
+    }
+
+    [Test]
     public async Task Build_ColumnWithoutValueProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -875,5 +992,10 @@ public class MetadataDefinitionFactoryTests
             .ToArray();
 
         model.Table.SetColumns(columns);
+    }
+
+    private enum RuntimeStatus
+    {
+        Active = 1,
     }
 }

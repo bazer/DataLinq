@@ -25,6 +25,22 @@ public struct MetadataFromDatabaseFactoryOptions
 
 public static class MetadataFactory
 {
+    private static readonly HashSet<string> CSharpKeywords = new(StringComparer.Ordinal)
+    {
+        "abstract", "as", "base", "bool", "break", "byte", "case", "catch",
+        "char", "checked", "class", "const", "continue", "decimal", "default",
+        "delegate", "do", "double", "else", "enum", "event", "explicit",
+        "extern", "false", "finally", "fixed", "float", "for", "foreach",
+        "goto", "if", "implicit", "in", "int", "interface", "internal",
+        "is", "lock", "long", "namespace", "new", "null", "object",
+        "operator", "out", "override", "params", "private", "protected",
+        "public", "readonly", "ref", "return", "sbyte", "sealed", "short",
+        "sizeof", "stackalloc", "static", "string", "struct", "switch",
+        "this", "throw", "true", "try", "typeof", "uint", "ulong",
+        "unchecked", "unsafe", "ushort", "using", "virtual", "void",
+        "volatile", "while"
+    };
+
     public static void ParseInterfaces(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels)
@@ -594,6 +610,102 @@ public static class MetadataFactory
 
         return true;
     }
+
+    public static Option<bool, IDLOptionFailure> ValidateValuePropertyEnums(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            foreach (var property in tableModel.Model.ValueProperties.Values)
+            {
+                if (!property.EnumProperty.HasValue)
+                {
+                    if (property.CsType.Type?.IsEnum == true)
+                        return CreateValuePropertyFailure(
+                            property,
+                            $"Value property '{GetValuePropertyDisplayName(property)}' has enum C# type '{property.CsType.Name}', but no enum metadata is attached.");
+
+                    continue;
+                }
+
+                var enumProperty = property.EnumProperty.Value;
+                var csValues = enumProperty.CsEnumValues ?? [];
+                var explicitDbValues = enumProperty.DbEnumValues ?? [];
+                var dbValues = explicitDbValues.Count != 0 ? explicitDbValues : csValues;
+
+                if (!IsValidCSharpIdentifier(property.CsType.Name))
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Enum value property '{GetValuePropertyDisplayName(property)}' uses C# enum type name '{property.CsType.Name}', which is not a valid unescaped C# identifier.");
+
+                if (csValues.Count == 0 && explicitDbValues.Count == 0)
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Enum value property '{GetValuePropertyDisplayName(property)}' must define at least one enum value.");
+
+                foreach (var (name, _) in csValues)
+                {
+                    if (!IsValidCSharpIdentifier(name))
+                        return CreateValuePropertyFailure(
+                            property,
+                            $"Enum value property '{GetValuePropertyDisplayName(property)}' has invalid C# enum member name '{name}'. Enum member names must be valid unescaped C# identifiers.");
+                }
+
+                var duplicateCsValue = csValues
+                    .GroupBy(x => x.name, StringComparer.Ordinal)
+                    .FirstOrDefault(x => x.Count() > 1);
+                if (duplicateCsValue != null)
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Enum value property '{GetValuePropertyDisplayName(property)}' defines duplicate C# enum member name '{duplicateCsValue.Key}'.");
+
+                foreach (var (name, _) in dbValues)
+                {
+                    if (name is null)
+                        return CreateValuePropertyFailure(
+                            property,
+                            $"Enum value property '{GetValuePropertyDisplayName(property)}' has a null database enum value.");
+                }
+
+                var duplicateDbValue = dbValues
+                    .GroupBy(x => x.name, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault(x => x.Count() > 1);
+                if (duplicateDbValue != null)
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Enum value property '{GetValuePropertyDisplayName(property)}' defines duplicate database enum value '{duplicateDbValue.Key}'. Database enum values must be unique ignoring case for runtime value mapping.");
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsValidCSharpIdentifier(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var identifier = value!;
+
+        if (!IsCSharpIdentifierStart(identifier[0]))
+            return false;
+
+        if (CSharpKeywords.Contains(identifier))
+            return false;
+
+        for (var i = 1; i < identifier.Length; i++)
+        {
+            if (!IsCSharpIdentifierPart(identifier[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsCSharpIdentifierStart(char character) =>
+        character == '_' || char.IsLetter(character);
+
+    private static bool IsCSharpIdentifierPart(char character) =>
+        character == '_' || char.IsLetterOrDigit(character);
 
     private static string GetValuePropertyDisplayName(ValueProperty property) =>
         $"{property.Model.CsType.Name}.{property.PropertyName}";

@@ -75,6 +75,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingColumnTypes(draft).TryUnwrap(out _, out var columnTypeFailure))
             return columnTypeFailure;
 
+        if (!MetadataFactory.ValidateValuePropertyEnums(draft).TryUnwrap(out _, out var enumFailure))
+            return enumFailure;
+
         if (!MetadataFactory.ValidateValuePropertyDefaults(draft).TryUnwrap(out _, out var defaultValueFailure))
             return defaultValueFailure;
 
