@@ -14,6 +14,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     public CsTypeDeclaration CsType { get; private set; } = csType;
     public bool IsFrozen { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsType(CsTypeDeclaration csType)
     {
         ThrowIfFrozen();
@@ -22,6 +23,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public CsFileDeclaration? CsFile { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsFile(CsFileDeclaration csFile)
     {
         ThrowIfFrozen();
@@ -40,6 +42,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     public TableDefinition Table => TableModel.Table;
     public CsTypeDeclaration? ImmutableType { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetImmutableType(CsTypeDeclaration immutableType)
     {
         ThrowIfFrozen();
@@ -48,6 +51,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public Delegate? ImmutableFactory { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetImmutableFactory(Delegate immutableFactory)
     {
         ThrowIfFrozen();
@@ -56,6 +60,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public CsTypeDeclaration? MutableType { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetMutableType(CsTypeDeclaration mutableType)
     {
         ThrowIfFrozen();
@@ -64,6 +69,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public CsTypeDeclaration? ModelInstanceInterface { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetModelInstanceInterface(CsTypeDeclaration? interfaceType)
     {
         ThrowIfFrozen();
@@ -72,6 +78,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public CsTypeDeclaration[] OriginalInterfaces => originalInterfaces.ToArray();
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces)
     {
         ThrowIfFrozen();
@@ -80,6 +87,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public ModelUsing[] Usings => usings.ToArray();
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetUsings(IEnumerable<ModelUsing> usings)
     {
         ThrowIfFrozen();
@@ -90,12 +98,14 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     public MetadataDictionary<string, ValueProperty> ValueProperties { get; } = new();
     public Attribute[] Attributes => attributes.ToArray();
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
         this.attributes = attributes.ToArray();
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddAttribute(Attribute attribute)
     {
         ThrowIfFrozen();
@@ -104,6 +114,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public SourceTextSpan? SourceSpan { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetSourceSpan(SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
@@ -112,6 +123,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
@@ -134,6 +146,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         return new SourceLocation(CsFile.Value, sourceSpan);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddProperties(IEnumerable<PropertyDefinition> properties)
     {
         ThrowIfFrozen();
@@ -142,6 +155,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
             AddProperty(property);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddProperty(PropertyDefinition property)
     {
         ThrowIfFrozen();

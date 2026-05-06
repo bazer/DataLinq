@@ -9,6 +9,8 @@ using DataLinq.Metadata;
 using DataLinq.MySql;
 using DataLinq.MySql.Shared;
 
+#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+
 namespace DataLinq.Tests.MySql;
 
 public class MetadataFromSqlFactoryDefaultParsingTests

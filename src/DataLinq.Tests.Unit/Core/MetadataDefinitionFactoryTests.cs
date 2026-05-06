@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -8,6 +9,8 @@ using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using DataLinq.Testing;
 using ThrowAway.Extensions;
+
+#pragma warning disable CS0618 // These fixtures intentionally exercise the legacy mutable metadata surface until Workstream C removes it.
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -130,6 +133,47 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => built.IndexCache.Clear());
         await AssertFrozenMutation(() => orderTable.CacheLimits.Clear());
         await AssertFrozenMutation(() => orderTable.IndexCache.Clear());
+    }
+
+    [Test]
+    public async Task PublicMetadataDefinitionMutators_AreMarkedObsolete()
+    {
+        var missingMethods = new (Type Type, string[] MethodNames)[]
+            {
+                (typeof(DatabaseDefinition), new[] { nameof(DatabaseDefinition.SetName), nameof(DatabaseDefinition.SetDbName), nameof(DatabaseDefinition.SetCsType), nameof(DatabaseDefinition.SetCsFile), nameof(DatabaseDefinition.SetCache), nameof(DatabaseDefinition.SetAttributes), nameof(DatabaseDefinition.SetSourceSpan), nameof(DatabaseDefinition.SetAttributeSourceSpan), nameof(DatabaseDefinition.SetTableModels) }),
+                (typeof(TableModel), [nameof(TableModel.SetCsPropertyName)]),
+                (typeof(TableDefinition), [nameof(TableDefinition.SetDbName), nameof(TableDefinition.SetColumns), nameof(TableDefinition.AddPrimaryKeyColumn), nameof(TableDefinition.RemovePrimaryKeyColumn)]),
+                (typeof(ViewDefinition), [nameof(ViewDefinition.SetDefinition)]),
+                (typeof(ModelDefinition), [nameof(ModelDefinition.SetCsType), nameof(ModelDefinition.SetCsFile), nameof(ModelDefinition.SetImmutableType), nameof(ModelDefinition.SetImmutableFactory), nameof(ModelDefinition.SetMutableType), nameof(ModelDefinition.SetModelInstanceInterface), nameof(ModelDefinition.SetInterfaces), nameof(ModelDefinition.SetUsings), nameof(ModelDefinition.SetAttributes), nameof(ModelDefinition.AddAttribute), nameof(ModelDefinition.SetSourceSpan), nameof(ModelDefinition.SetAttributeSourceSpan), nameof(ModelDefinition.AddProperties), nameof(ModelDefinition.AddProperty)]),
+                (typeof(ColumnDefinition), [nameof(ColumnDefinition.SetDbName), nameof(ColumnDefinition.SetIndex), nameof(ColumnDefinition.SetForeignKey), nameof(ColumnDefinition.SetAutoIncrement), nameof(ColumnDefinition.SetNullable), nameof(ColumnDefinition.SetValueProperty), nameof(ColumnDefinition.SetPrimaryKey), nameof(ColumnDefinition.AddDbType)]),
+                (typeof(PropertyDefinition), [nameof(PropertyDefinition.SetAttributes), nameof(PropertyDefinition.AddAttribute), nameof(PropertyDefinition.SetPropertyName), nameof(PropertyDefinition.SetCsType), nameof(PropertyDefinition.SetCsNullable), nameof(PropertyDefinition.SetSourceInfo), nameof(PropertyDefinition.SetAttributeSourceSpan)]),
+                (typeof(ValueProperty), [nameof(ValueProperty.SetColumn), nameof(ValueProperty.SetCsSize), nameof(ValueProperty.SetEnumProperty)]),
+                (typeof(RelationProperty), [nameof(RelationProperty.SetRelationPart), nameof(RelationProperty.SetRelationName)]),
+                (typeof(ColumnIndex), [nameof(ColumnIndex.AddColumn)])
+            }
+            .SelectMany(item => FindMissingObsoleteMethods(item.Type, item.MethodNames))
+            .ToArray();
+
+        var missingSetters = new (Type Type, string PropertyName)[]
+            {
+                (typeof(TableDefinition), nameof(TableDefinition.UseCache)),
+                (typeof(ColumnIndex), nameof(ColumnIndex.Table)),
+                (typeof(ColumnIndex), nameof(ColumnIndex.RelationParts)),
+                (typeof(RelationDefinition), nameof(RelationDefinition.ForeignKey)),
+                (typeof(RelationDefinition), nameof(RelationDefinition.CandidateKey)),
+                (typeof(RelationDefinition), nameof(RelationDefinition.Type)),
+                (typeof(RelationDefinition), nameof(RelationDefinition.ConstraintName)),
+                (typeof(RelationDefinition), nameof(RelationDefinition.OnUpdate)),
+                (typeof(RelationDefinition), nameof(RelationDefinition.OnDelete))
+            }
+            .Where(item => item.Type.GetProperty(item.PropertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                ?.SetMethod
+                ?.GetCustomAttribute<ObsoleteAttribute>() is null)
+            .Select(item => $"{item.Type.Name}.{item.PropertyName}.set")
+            .ToArray();
+
+        await Assert.That(missingMethods).IsEmpty();
+        await Assert.That(missingSetters).IsEmpty();
     }
 
     [Test]
@@ -2478,6 +2522,26 @@ public class MetadataDefinitionFactoryTests
             .ToArray();
 
         model.Table.SetColumns(columns);
+    }
+
+    private static IEnumerable<string> FindMissingObsoleteMethods(Type type, IEnumerable<string> methodNames)
+    {
+        foreach (var methodName in methodNames)
+        {
+            var methods = type
+                .GetMember(methodName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .OfType<MethodInfo>()
+                .ToArray();
+
+            if (methods.Length == 0)
+            {
+                yield return $"{type.Name}.{methodName}";
+                continue;
+            }
+
+            foreach (var method in methods.Where(method => method.GetCustomAttribute<ObsoleteAttribute>() is null))
+                yield return $"{type.Name}.{method.Name}";
+        }
     }
 
     private static void SetPropertyType(PropertyDefinition property, PropertyType type)

@@ -7,6 +7,8 @@ using DataLinq.Core.Factories.Models;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
 
+#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+
 namespace DataLinq.Tests.Unit.Core;
 
 public class MetadataTransformerTests

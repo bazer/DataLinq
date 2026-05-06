@@ -6,6 +6,8 @@ using DataLinq.Metadata;
 using ThrowAway;
 using ThrowAway.Extensions;
 
+#pragma warning disable CS0618 // Phase 8B still lowers typed drafts through the legacy mutable graph internally.
+
 namespace DataLinq.Core.Factories;
 
 public sealed record MetadataDatabaseDraft(string Name, CsTypeDeclaration CsType)

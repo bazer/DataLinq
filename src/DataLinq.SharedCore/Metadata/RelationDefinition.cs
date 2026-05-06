@@ -1,3 +1,4 @@
+using System;
 using DataLinq.Attributes;
 
 namespace DataLinq.Metadata;
@@ -27,6 +28,7 @@ public class RelationDefinition
     public RelationPart ForeignKey
     {
         get => foreignKey;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();
@@ -37,6 +39,7 @@ public class RelationDefinition
     public RelationPart CandidateKey
     {
         get => candidateKey;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();
@@ -47,6 +50,7 @@ public class RelationDefinition
     public RelationType Type
     {
         get => type;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();
@@ -57,6 +61,7 @@ public class RelationDefinition
     public string ConstraintName
     {
         get => constraintName;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();
@@ -67,6 +72,7 @@ public class RelationDefinition
     public ReferentialAction OnUpdate
     {
         get => onUpdate;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();
@@ -77,6 +83,7 @@ public class RelationDefinition
     public ReferentialAction OnDelete
     {
         get => onDelete;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();

@@ -12,6 +12,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ThrowAway;
 using ThrowAway.Extensions;
 
+#pragma warning disable CS0618 // Phase 8B keeps the legacy parser path until typed drafts fully replace mutable definitions.
+
 namespace DataLinq.Core.Factories;
 
 public class SyntaxParser

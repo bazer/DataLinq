@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
+using System;
 
 namespace DataLinq.Metadata;
 
@@ -72,6 +73,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     public string DbName { get; private set; } = dbName;
     public bool IsFrozen { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDbName(string value)
     {
         ThrowIfFrozen();
@@ -81,6 +83,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     public DatabaseColumnType[] DbTypes => dbTypes.ToArray();
     public int Index { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetIndex(int index)
     {
         ThrowIfFrozen();
@@ -89,6 +92,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     public bool ForeignKey { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetForeignKey(bool value = true)
     {
         ThrowIfFrozen();
@@ -99,6 +103,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     public bool Unique => ColumnIndices.Any(x => x.Characteristic == Attributes.IndexCharacteristic.Unique);
     public bool AutoIncrement { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAutoIncrement(bool value = true)
     {
         ThrowIfFrozen();
@@ -107,6 +112,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     public bool Nullable { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetNullable(bool value = true)
     {
         ThrowIfFrozen();
@@ -118,24 +124,27 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     public CsFileDeclaration? CsFile => Table?.Model?.CsFile;
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetValueProperty(ValueProperty value)
     {
         ThrowIfFrozen();
         ValueProperty = value;
-        value.SetColumn(this);
+        value.SetColumnCore(this);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetPrimaryKey(bool value = true)
     {
         ThrowIfFrozen();
         PrimaryKey = value;
 
         if (value)
-            Table.AddPrimaryKeyColumn(this);
+            Table.AddPrimaryKeyColumnCore(this);
         else
-            Table.RemovePrimaryKeyColumn(this);
+            Table.RemovePrimaryKeyColumnCore(this);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddDbType(DatabaseColumnType columnType)
     {
         ThrowIfFrozen();

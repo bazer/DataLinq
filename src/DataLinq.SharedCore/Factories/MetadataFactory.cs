@@ -11,6 +11,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using ThrowAway;
 using ThrowAway.Extensions;
 
+#pragma warning disable CS0618 // Phase 8B still lowers legacy metadata graphs through public mutators internally.
+
 namespace DataLinq.Core.Factories;
 
 public struct MetadataFromDatabaseFactoryOptions

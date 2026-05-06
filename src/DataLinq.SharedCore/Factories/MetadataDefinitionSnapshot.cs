@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Metadata;
 
+#pragma warning disable CS0618 // Phase 8B snapshot copying still targets the legacy mutable graph internally.
+
 namespace DataLinq.Core.Factories;
 
 internal static class MetadataDefinitionSnapshot

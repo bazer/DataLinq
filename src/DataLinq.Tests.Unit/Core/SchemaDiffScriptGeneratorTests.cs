@@ -5,6 +5,8 @@ using DataLinq.Metadata;
 using DataLinq.Tools;
 using DataLinq.Validation;
 
+#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+
 namespace DataLinq.Tests.Unit.Core;
 
 public class SchemaDiffScriptGeneratorTests

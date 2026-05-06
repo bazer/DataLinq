@@ -20,6 +20,7 @@ public class ColumnIndex : IDefinition
     public TableDefinition Table
     {
         get => table;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();
@@ -38,6 +39,7 @@ public class ColumnIndex : IDefinition
     public MetadataList<RelationPart> RelationParts
     {
         get => relationParts;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();
@@ -78,10 +80,11 @@ public class ColumnIndex : IDefinition
         if (!this.Columns.Any())
             throw new InvalidOperationException("An index should have at least one column.");
 
-        this.Table = this.Columns.First().Table;
+        table = this.Columns.First().Table;
         Validate();
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddColumn(ColumnDefinition column)
     {
         ThrowIfFrozen();

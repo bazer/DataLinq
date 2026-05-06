@@ -21,6 +21,7 @@ public class TableDefinition(string dbName) : IDefinition
     public string DbName { get; private set; } = dbName;
     public bool IsFrozen { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDbName(string dbName)
     {
         ThrowIfFrozen();
@@ -39,6 +40,7 @@ public class TableDefinition(string dbName) : IDefinition
     public ModelDefinition Model => TableModel.Model;
     public ColumnDefinition[] Columns => columns.ToArray();
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetColumns(IEnumerable<ColumnDefinition> columns)
     {
         ThrowIfFrozen();
@@ -57,6 +59,7 @@ public class TableDefinition(string dbName) : IDefinition
     public bool UseCache
     {
         get => explicitUseCache ?? Database.UseCache;
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
             ThrowIfFrozen();
@@ -65,7 +68,13 @@ public class TableDefinition(string dbName) : IDefinition
     }
 
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddPrimaryKeyColumn(ColumnDefinition column)
+    {
+        AddPrimaryKeyColumnCore(column);
+    }
+
+    internal void AddPrimaryKeyColumnCore(ColumnDefinition column)
     {
         ThrowIfFrozen();
 
@@ -77,7 +86,13 @@ public class TableDefinition(string dbName) : IDefinition
             primaryKeyColumns = primaryKeyColumns.Concat(new[] { column }).ToArray();
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void RemovePrimaryKeyColumn(ColumnDefinition column)
+    {
+        RemovePrimaryKeyColumnCore(column);
+    }
+
+    internal void RemovePrimaryKeyColumnCore(ColumnDefinition column)
     {
         ThrowIfFrozen();
 
@@ -123,6 +138,7 @@ public class ViewDefinition : TableDefinition
 {
     public string? Definition { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDefinition(string definition)
     {
         ThrowIfFrozen();

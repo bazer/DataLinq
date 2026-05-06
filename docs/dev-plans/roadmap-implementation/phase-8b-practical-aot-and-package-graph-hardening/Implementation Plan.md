@@ -184,7 +184,7 @@ Exit criteria:
 
 ## Workstream C: Immutable Metadata Builder And Factory Foundation
 
-**Status:** In progress. The primary metadata producers now feed typed drafts into the factory, and factory-built runtime graphs are frozen against setter-style mutation plus the main structural collection mutation paths. Public array surfaces, including generated declaration table-model arrays, now return defensive copies, and cache-policy collection surfaces are freeze-aware after finalization.
+**Status:** In progress. The primary metadata producers now feed typed drafts into the factory, and factory-built runtime graphs are frozen against setter-style mutation plus the main structural collection mutation paths. Public array surfaces, including generated declaration table-model arrays, now return defensive copies, cache-policy collection surfaces are freeze-aware after finalization, and the public definition mutator surface is now obsolete compatibility API.
 
 Goals:
 
@@ -202,7 +202,7 @@ Tasks:
 6. [x] Add provider metadata equivalence tests for SQLite and the supported MySQL/MariaDB subset.
 7. [x] Move runtime cache defaults out of metadata mutation. Provider initialization should compute effective cache policy rather than appending defaults into `DatabaseDefinition`.
 8. [x] Replace in-place metadata transform behavior with a builder/snapshot merge path.
-9. [in progress] After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections. Structural list/dictionary mutation is now blocked after freeze, public arrays and generated declaration arrays no longer expose live storage, cache-policy lists now reject post-finalization mutation, and direct global metadata registry mutation is obsolete; definition mutator obsoletion and replacing the internal mutable lowering graph remain.
+9. [in progress] After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections. Structural list/dictionary mutation is now blocked after freeze, public arrays and generated declaration arrays no longer expose live storage, cache-policy lists now reject post-finalization mutation, direct global metadata registry mutation is obsolete, and public definition mutators are obsolete; replacing the internal mutable lowering graph remains.
 
 Foundation slice notes:
 
@@ -238,6 +238,7 @@ Foundation slice notes:
 - Database and table cache-policy metadata lists now use the same freeze-aware runtime collection type, so finalized metadata no longer allows cache limit, cache cleanup, or index-cache policy edits through list mutation.
 - `DatabaseCachePolicy` now snapshots table-specific cache limits and index-cache policies at cache construction. `RemoveRowsBySettings()` and table index-cache setup read the policy snapshot rather than live table metadata, and the compliance cache-setting test uses a scoped internal runtime override instead of mutating shared provider metadata.
 - Runtime code no longer reads or writes the raw `DatabaseDefinition.LoadedDatabases` dictionary directly. The old public global registry remains for compatibility but is marked obsolete, while provider startup and metadata lookup now go through internal registry helpers.
+- Public mutators on database, table-model, table/view, model, property, column, index, and relation metadata are now marked obsolete with a shared message pointing callers to typed drafts and `MetadataDefinitionFactory`. Reflection coverage locks the obsoletion surface, and the remaining legacy parser/factory/snapshot/test-fixture code locally suppresses the warnings until the internal mutable graph is replaced.
 - Generated runtime metadata bootstrap failures now return `InvalidModel` option failures for missing hooks, wrong hook return types, default declarations, and malformed table declarations instead of surfacing as arbitrary catch-all exceptions.
 - Provider metadata import now returns `InvalidModel` option failures for unsupported SQLite, MySQL, and MariaDB column types with table/column context, while still skipping intentionally unsupported generated columns.
 - MySQL and MariaDB provider metadata import now returns `InvalidModel` option failures for unsupported index types and malformed index rows, keeping provider index parsing in the expected-failure path instead of throwing from information_schema classification.
@@ -265,7 +266,7 @@ Foundation slice notes:
 - Relational attribute metadata is now preflighted before draft snapshot copying and during finalization, so malformed `Index`, `ForeignKey`, and `Relation` attribute shapes such as unsupported enum values or empty index/relation targets return `InvalidModel` before index and relation parsing can fail late.
 - C# symbol metadata used by generated code is now preflighted before draft snapshot copying and rechecked after relation generation, so unsupported or role-incompatible C# type-kind values plus invalid database/model type names, table property names, model using namespaces, declared model interface references, generated model type references, value/relation property C# type references, value property names, and generated relation property names return `InvalidModel` before generated source can become malformed. Declared model interface entries are now also required to use interface-shaped C# metadata instead of any valid type syntax, and the source parser tags base-list model interfaces accordingly.
 - Model-file generation now formats metadata string arguments through Roslyn string literals, so database names, table/view names, definitions, index and column names, database type names, enum names, and relation attribute values containing quotes or escapes produce valid generated attributes.
-- This slice deliberately does not claim fully immutable runtime definitions yet. The current graph is frozen against ordinary mutators and the main structural collection mutators after factory finalization, array-shaped properties and generated declaration arrays no longer expose live storage, cache-policy lists are sealed after freeze, and the raw global metadata registry is obsolete; typed drafts still lower through the mutable graph internally and the remaining definition mutator surface still needs compatibility cleanup.
+- This slice deliberately does not claim fully immutable runtime definitions yet. The current graph is frozen against ordinary mutators and the main structural collection mutators after factory finalization, array-shaped properties and generated declaration arrays no longer expose live storage, cache-policy lists are sealed after freeze, the raw global metadata registry is obsolete, and public definition mutators are obsolete; typed drafts still lower through the mutable graph internally.
 
 Design stance:
 

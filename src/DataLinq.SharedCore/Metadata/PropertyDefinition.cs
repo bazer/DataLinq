@@ -21,12 +21,14 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     public Attribute[] Attributes => attributeArray.ToArray();
     public bool IsFrozen { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
         attributeArray = attributes.ToArray();
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddAttribute(Attribute attribute)
     {
         ThrowIfFrozen();
@@ -35,6 +37,7 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
     public string PropertyName { get; private set; } = propertyName;
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetPropertyName(string propertyName)
     {
         ThrowIfFrozen();
@@ -43,6 +46,7 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
     public CsTypeDeclaration CsType { get; private set; } = csType;
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsType(CsTypeDeclaration csType)
     {
         ThrowIfFrozen();
@@ -51,6 +55,7 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
     public bool CsNullable { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsNullable(bool csNullable = true)
     {
         ThrowIfFrozen();
@@ -61,6 +66,7 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     public PropertyType Type { get; protected private set; }
     public PropertySourceInfo? SourceInfo { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetSourceInfo(PropertySourceInfo sourceInfo)
     {
         ThrowIfFrozen();
@@ -69,6 +75,7 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
     private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
@@ -103,7 +110,13 @@ public class ValueProperty : PropertyDefinition
 {
     public ColumnDefinition Column { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetColumn(ColumnDefinition column)
+    {
+        SetColumnCore(column);
+    }
+
+    internal void SetColumnCore(ColumnDefinition column)
     {
         ThrowIfFrozen();
         Column = column;
@@ -111,6 +124,7 @@ public class ValueProperty : PropertyDefinition
 
     public int? CsSize { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsSize(int? csSize)
     {
         ThrowIfFrozen();
@@ -119,6 +133,7 @@ public class ValueProperty : PropertyDefinition
 
     public EnumProperty? EnumProperty { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetEnumProperty(EnumProperty enumProperty)
     {
         ThrowIfFrozen();
@@ -255,6 +270,7 @@ public class RelationProperty : PropertyDefinition
 {
     public RelationPart RelationPart { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetRelationPart(RelationPart relationPart)
     {
         ThrowIfFrozen();
@@ -263,6 +279,7 @@ public class RelationProperty : PropertyDefinition
 
     public string? RelationName { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetRelationName(string? relationName)
     {
         ThrowIfFrozen();

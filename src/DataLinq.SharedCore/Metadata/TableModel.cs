@@ -1,4 +1,5 @@
 ﻿using DataLinq.Core.Factories;
+using System;
 
 namespace DataLinq.Metadata;
 
@@ -46,6 +47,7 @@ public class TableModel
         Model.SetTableModel(this);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsPropertyName(string csPropertyName)
     {
         ThrowIfFrozen();

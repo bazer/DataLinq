@@ -57,6 +57,7 @@ public class DatabaseDefinition : IDefinition
     public string Name { get; private set; }
     public bool IsFrozen { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetName(string name)
     {
         ThrowIfFrozen();
@@ -65,6 +66,7 @@ public class DatabaseDefinition : IDefinition
 
     public string DbName { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDbName(string dbName)
     {
         ThrowIfFrozen();
@@ -73,6 +75,7 @@ public class DatabaseDefinition : IDefinition
 
     public CsTypeDeclaration CsType { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsType(CsTypeDeclaration csType)
     {
         ThrowIfFrozen();
@@ -81,6 +84,7 @@ public class DatabaseDefinition : IDefinition
 
     public CsFileDeclaration? CsFile { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsFile(CsFileDeclaration csFile)
     {
         ThrowIfFrozen();
@@ -89,6 +93,7 @@ public class DatabaseDefinition : IDefinition
 
     public bool UseCache { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCache(bool useCache)
     {
         ThrowIfFrozen();
@@ -97,6 +102,7 @@ public class DatabaseDefinition : IDefinition
 
     public Attribute[] Attributes => attributes.ToArray();
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
@@ -105,6 +111,7 @@ public class DatabaseDefinition : IDefinition
 
     public SourceTextSpan? SourceSpan { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetSourceSpan(SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
@@ -113,6 +120,7 @@ public class DatabaseDefinition : IDefinition
 
     private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
@@ -137,6 +145,7 @@ public class DatabaseDefinition : IDefinition
 
     public TableModel[] TableModels => tableModels.ToArray();
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetTableModels(IEnumerable<TableModel> tableModels)
     {
         ThrowIfFrozen();

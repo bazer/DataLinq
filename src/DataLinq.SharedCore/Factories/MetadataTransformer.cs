@@ -4,6 +4,8 @@ using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
 
+#pragma warning disable CS0618 // Phase 8B transform compatibility still mutates legacy metadata snapshots internally.
+
 namespace DataLinq.Core.Factories;
 
 public struct MetadataTransformerOptions
