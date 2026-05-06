@@ -28,6 +28,14 @@ public sealed class MetadataDefinitionDraft
         if (!tableModelValidation.HasValue)
             return tableModelValidation.Failure;
 
+        var tableModelPropertyValidation = MetadataFactory.ValidateUniqueTableModelPropertyNames(metadata);
+        if (!tableModelPropertyValidation.HasValue)
+            return tableModelPropertyValidation.Failure;
+
+        var tableNameValidation = MetadataFactory.ValidateUniqueTableNames(metadata);
+        if (!tableNameValidation.HasValue)
+            return tableNameValidation.Failure;
+
         var viewDefinitionValidation = MetadataFactory.ValidateViewDefinitions(metadata);
         if (!viewDefinitionValidation.HasValue)
             return viewDefinitionValidation.Failure;
@@ -43,6 +51,10 @@ public sealed class MetadataDefinitionDraft
         var columnPropertyValidation = MetadataFactory.ValidateExistingColumnPropertyBindings(metadata);
         if (!columnPropertyValidation.HasValue)
             return columnPropertyValidation.Failure;
+
+        var columnNameValidation = MetadataFactory.ValidateUniqueColumnNames(metadata);
+        if (!columnNameValidation.HasValue)
+            return columnNameValidation.Failure;
 
         var defaultValueValidation = MetadataFactory.ValidateValuePropertyDefaults(metadata);
         if (!defaultValueValidation.HasValue)

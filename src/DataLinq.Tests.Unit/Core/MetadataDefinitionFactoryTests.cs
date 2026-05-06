@@ -149,6 +149,25 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DuplicateTableModelReference_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var tableModel = database.TableModels.Single();
+        database.SetTableModels([tableModel, tableModel]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Duplicate table model property 'Items'");
+        await Assert.That(failure.Message).Contains("items");
+        await Assert.That(failure.Message).Contains("Item");
+    }
+
+    [Test]
     public async Task Build_TableModelPropertyMatchingDatabaseType_RenamesBuiltDatabaseTypeWithoutMutatingDraft()
     {
         var database = CreateSingleTableDraft(
@@ -550,6 +569,25 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failureMessage).Contains("Duplicate column definition for 'id'");
         await Assert.That(failureMessage).Contains("FirstId");
         await Assert.That(failureMessage).Contains("SecondId");
+    }
+
+    [Test]
+    public async Task Build_DuplicateColumnReference_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var idColumn = table.Columns.Single();
+        table.SetColumns([idColumn, idColumn]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Duplicate column definition for 'id'");
+        await Assert.That(failure.Message).Contains("Id");
     }
 
     [Test]
