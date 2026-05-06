@@ -234,6 +234,7 @@ Foundation slice notes:
 - Column index construction now enforces the empty-column invariant before reading the first column, preserving the intended "An index should have at least one column." diagnostic for factory callers instead of leaking a sequence error.
 - The draft snapshot boundary now preflights existing column-index ownership before copying, so an index attached to the wrong table returns `InvalidModel` instead of leaking snapshot exceptions or preserving an inconsistent graph.
 - Existing relation parts are now preflighted before draft snapshot copying and rechecked after relation finalization, so half-wired relation definitions or missing index back-references return `InvalidModel` instead of leaking snapshot/null-reference behavior.
+- Existing table column and value-property bindings are now preflighted before draft snapshot copying and before duplicate-column/index parsing, so missing or asymmetric column/property links return `InvalidModel` instead of leaking null-reference behavior.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
 
 Design stance:

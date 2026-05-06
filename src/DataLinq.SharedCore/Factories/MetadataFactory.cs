@@ -334,6 +334,114 @@ public static class MetadataFactory
     private static IDLOptionFailure CreateColumnIndexFailure(TableDefinition table, string message) =>
         DLOptionFailure.Fail(DLFailureType.InvalidModel, message, table);
 
+    public static Option<bool, IDLOptionFailure> ValidateExistingColumnPropertyBindings(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var table = tableModel.Table;
+            var model = tableModel.Model;
+
+            foreach (var column in table.Columns)
+            {
+                if (column is null)
+                    return CreateTableFailure(table, $"Table '{table.DbName}' contains a null column.");
+
+                if (!ReferenceEquals(column.Table, table))
+                    return CreateTableFailure(
+                        table,
+                        $"Column '{column.DbName}' is registered on table '{table.DbName}', but the column belongs to table '{column.Table.DbName}'.");
+
+                if (column.ValueProperty is not { } valueProperty)
+                    return CreateColumnPropertyFailure(
+                        column,
+                        $"Column '{table.DbName}.{column.DbName}' has no value property.");
+
+                if (!ReferenceEquals(valueProperty.Model, model))
+                    return CreateColumnPropertyFailure(
+                        column,
+                        $"Column '{table.DbName}.{column.DbName}' is linked to value property '{GetValuePropertyDisplayName(valueProperty)}', but that property belongs to model '{valueProperty.Model.CsType.Name}' instead of '{model.CsType.Name}'.");
+
+                if (!ReferenceEquals(valueProperty.Column, column))
+                {
+                    var propertyColumnName = valueProperty.Column is null
+                        ? "<none>"
+                        : $"{valueProperty.Column.Table.DbName}.{valueProperty.Column.DbName}";
+                    return CreateColumnPropertyFailure(
+                        column,
+                        $"Column '{table.DbName}.{column.DbName}' is linked to value property '{GetValuePropertyDisplayName(valueProperty)}', but that property points at column '{propertyColumnName}'.");
+                }
+
+                if (!model.ValueProperties.TryGetValue(valueProperty.PropertyName, out var registeredProperty) ||
+                    !ReferenceEquals(registeredProperty, valueProperty))
+                {
+                    return CreateColumnPropertyFailure(
+                        column,
+                        $"Column '{table.DbName}.{column.DbName}' is linked to value property '{GetValuePropertyDisplayName(valueProperty)}', but that property is not registered on model '{model.CsType.Name}'.");
+                }
+            }
+
+            foreach (var entry in model.ValueProperties)
+            {
+                var propertyName = entry.Key;
+                var property = entry.Value;
+
+                if (property is null)
+                    return CreateTableFailure(
+                        table,
+                        $"Model '{model.CsType.Name}' contains a null value property for key '{propertyName}'.");
+
+                if (!string.Equals(propertyName, property.PropertyName, StringComparison.Ordinal))
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' is registered under key '{propertyName}' instead of its own property name.");
+
+                if (!ReferenceEquals(property.Model, model))
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' is registered on model '{model.CsType.Name}', but belongs to model '{property.Model.CsType.Name}'.");
+
+                if (property.Column is not { } column)
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' has no column.");
+
+                if (!ReferenceEquals(column.Table, table))
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' references column '{column.Table.DbName}.{column.DbName}', but the property belongs to table '{table.DbName}'.");
+
+                if (!table.Columns.Contains(column))
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' references column '{table.DbName}.{column.DbName}', but that column is not registered on the table.");
+
+                if (!ReferenceEquals(column.ValueProperty, property))
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' references column '{table.DbName}.{column.DbName}', but that column points at a different value property.");
+            }
+        }
+
+        return true;
+    }
+
+    private static string GetValuePropertyDisplayName(ValueProperty property) =>
+        $"{property.Model.CsType.Name}.{property.PropertyName}";
+
+    private static IDLOptionFailure CreateTableFailure(TableDefinition table, string message) =>
+        DLOptionFailure.Fail(DLFailureType.InvalidModel, message, table);
+
+    private static IDLOptionFailure CreateColumnPropertyFailure(ColumnDefinition column, string message) =>
+        DLOptionFailure.Fail(DLFailureType.InvalidModel, message, column);
+
+    private static IDLOptionFailure CreateValuePropertyFailure(ValueProperty property, string message)
+    {
+        if (property.SourceInfo.HasValue && property.CsFile.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property.SourceInfo.Value.GetPropertyLocation(property.CsFile.Value));
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, property);
+    }
+
     public static Option<bool, IDLOptionFailure> ValidateExistingRelationParts(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))

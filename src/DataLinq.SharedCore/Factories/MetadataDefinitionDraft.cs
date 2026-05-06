@@ -28,6 +28,10 @@ public sealed class MetadataDefinitionDraft
         if (!indexValidation.HasValue)
             return indexValidation.Failure;
 
+        var columnPropertyValidation = MetadataFactory.ValidateExistingColumnPropertyBindings(metadata);
+        if (!columnPropertyValidation.HasValue)
+            return columnPropertyValidation.Failure;
+
         var relationValidation = MetadataFactory.ValidateExistingRelationParts(metadata);
         if (!relationValidation.HasValue)
             return relationValidation.Failure;

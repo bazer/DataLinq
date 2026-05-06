@@ -57,6 +57,50 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ColumnWithoutValueProperty_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var orphanColumn = new ColumnDefinition("ghost", table);
+        table.SetColumns(table.Columns.Concat([orphanColumn]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'items.ghost'");
+        await Assert.That(failure.Message).Contains("has no value property");
+    }
+
+    [Test]
+    public async Task Build_ValuePropertyReferencingUnregisteredColumn_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var tableModel = database.TableModels.Single();
+        var ghostProperty = new ValueProperty(
+            "Ghost",
+            new CsTypeDeclaration(typeof(string)),
+            tableModel.Model,
+            [new ColumnAttribute("ghost")]);
+        var ghostColumn = new ColumnDefinition("ghost", tableModel.Table);
+        ghostColumn.SetValueProperty(ghostProperty);
+        tableModel.Model.AddProperty(ghostProperty);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Ghost'");
+        await Assert.That(failure.Message).Contains("not registered on the table");
+    }
+
+    [Test]
     public async Task Build_IndexAttachedToWrongTable_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();
