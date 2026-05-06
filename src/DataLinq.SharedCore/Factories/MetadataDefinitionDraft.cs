@@ -52,6 +52,10 @@ public sealed class MetadataDefinitionDraft
         if (!attributeDatabaseTypeValidation.HasValue)
             return attributeDatabaseTypeValidation.Failure;
 
+        var schemaAnnotationValidation = MetadataFactory.ValidateSchemaAnnotationMetadata(metadata);
+        if (!schemaAnnotationValidation.HasValue)
+            return schemaAnnotationValidation.Failure;
+
         var tableNameValidation = MetadataFactory.ValidateUniqueTableNames(metadata);
         if (!tableNameValidation.HasValue)
             return tableNameValidation.Failure;

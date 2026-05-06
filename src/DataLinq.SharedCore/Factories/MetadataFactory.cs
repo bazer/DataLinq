@@ -683,6 +683,75 @@ public static class MetadataFactory
         return true;
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateSchemaAnnotationMetadata(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var model = tableModel.Model;
+
+            foreach (var comment in model.Attributes.OfType<CommentAttribute>())
+            {
+                if (comment.Text is null)
+                    return CreateModelAttributeFailure(
+                        model,
+                        comment,
+                        $"Comment attribute on model '{model.CsType.Name}' has a null comment text.");
+            }
+
+            foreach (var check in model.Attributes.OfType<CheckAttribute>())
+            {
+                var failure = ValidateCheckAttribute(model, check);
+                if (failure is not null)
+                    return failure;
+            }
+
+            var duplicateCheckGroup = model.Attributes
+                .OfType<CheckAttribute>()
+                .Where(x => Enum.IsDefined(typeof(DatabaseType), x.DatabaseType) && !string.IsNullOrWhiteSpace(x.Name))
+                .GroupBy(x => new { x.DatabaseType, x.Name })
+                .FirstOrDefault(x => x.Count() > 1);
+            if (duplicateCheckGroup is not null)
+            {
+                var duplicate = duplicateCheckGroup.Skip(1).First();
+                return CreateModelAttributeFailure(
+                    model,
+                    duplicate,
+                    $"Model '{model.CsType.Name}' defines duplicate check constraint '{duplicateCheckGroup.Key.Name}' for database type '{duplicateCheckGroup.Key.DatabaseType}'.");
+            }
+
+            foreach (var property in model.ValueProperties.Values)
+            {
+                foreach (var comment in property.Attributes.OfType<CommentAttribute>())
+                {
+                    if (comment.Text is null)
+                        return CreateValuePropertyAttributeFailure(
+                            property,
+                            comment,
+                            $"Comment attribute on value property '{GetValuePropertyDisplayName(property)}' has a null comment text.");
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure? ValidateCheckAttribute(ModelDefinition model, CheckAttribute attribute)
+    {
+        if (string.IsNullOrWhiteSpace(attribute.Name))
+            return CreateModelAttributeFailure(
+                model,
+                attribute,
+                $"Check attribute on model '{model.CsType.Name}' has an empty check constraint name.");
+
+        if (string.IsNullOrWhiteSpace(attribute.Expression))
+            return CreateModelAttributeFailure(
+                model,
+                attribute,
+                $"Check attribute on model '{model.CsType.Name}' has an empty check expression.");
+
+        return null;
+    }
+
     public static Option<bool, IDLOptionFailure> ValidateRelationalAttributeMetadata(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))

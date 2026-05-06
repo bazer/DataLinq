@@ -440,6 +440,80 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_CheckAttributeWithEmptyName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var model = database.TableModels.Single().Model;
+        model.AddAttribute(new CheckAttribute(DatabaseType.MariaDB, "", "id > 0"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Check attribute on model 'Item'");
+        await Assert.That(failure.Message).Contains("empty check constraint name");
+    }
+
+    [Test]
+    public async Task Build_CheckAttributeWithEmptyExpression_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var model = database.TableModels.Single().Model;
+        model.AddAttribute(new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", " "));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Check attribute on model 'Item'");
+        await Assert.That(failure.Message).Contains("empty check expression");
+    }
+
+    [Test]
+    public async Task Build_DuplicateProviderCheckAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var model = database.TableModels.Single().Model;
+        model.AddAttribute(new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", "id > 0"));
+        model.AddAttribute(new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", "id >= 0"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("duplicate check constraint 'CK_items_id'");
+        await Assert.That(failure.Message).Contains("database type 'MariaDB'");
+    }
+
+    [Test]
+    public async Task Build_CommentAttributeWithNullText_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.AddAttribute(new CommentAttribute(DatabaseType.MySQL, null!));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Comment attribute on value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("null comment text");
+    }
+
+    [Test]
     public async Task Build_DatabaseTypeWithInvalidCSharpName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(

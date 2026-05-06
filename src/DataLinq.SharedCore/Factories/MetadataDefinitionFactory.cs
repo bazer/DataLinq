@@ -76,6 +76,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateProviderScopedAttributeDatabaseTypes(draft).TryUnwrap(out _, out var attributeDatabaseTypeFailure))
             return attributeDatabaseTypeFailure;
 
+        if (!MetadataFactory.ValidateSchemaAnnotationMetadata(draft).TryUnwrap(out _, out var schemaAnnotationFailure))
+            return schemaAnnotationFailure;
+
         MetadataFactory.NormalizeDatabaseTypeName(draft);
 
         if (!MetadataFactory.ValidateUniqueTableNames(draft).TryUnwrap(out _, out var duplicateTableFailure))
