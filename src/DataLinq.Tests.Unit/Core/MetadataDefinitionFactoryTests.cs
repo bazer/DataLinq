@@ -761,12 +761,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DatabaseCacheLimitWithUnsupportedType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.CacheLimits.Add(((CacheLimitType)999, 1));
+        var database = CreateSingleTableTypedDraft(
+            databaseCacheLimits: [((CacheLimitType)999, 1)]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -778,12 +776,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DatabaseCacheCleanupWithZeroAmount_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.CacheCleanup.Add((CacheCleanupType.Minutes, 0));
+        var database = CreateSingleTableTypedDraft(
+            databaseCacheCleanup: [(CacheCleanupType.Minutes, 0)]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -795,13 +791,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_TableCacheLimitWithNegativeAmount_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var table = database.TableModels.Single().Table;
-        table.CacheLimits.Add((CacheLimitType.Rows, -1));
+        var database = CreateSingleTableTypedDraft(
+            tableCacheLimits: [(CacheLimitType.Rows, -1)]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -813,13 +806,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_TableIndexCacheMaxRowsWithoutAmount_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var table = database.TableModels.Single().Table;
-        table.IndexCache.Add((IndexCacheType.MaxAmountRows, null));
+        var database = CreateSingleTableTypedDraft(
+            tableIndexCache: [(IndexCacheType.MaxAmountRows, null)]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -831,13 +821,14 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DatabaseCacheLimitWithDuplicateType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.CacheLimits.Add((CacheLimitType.Megabytes, 128));
-        database.CacheLimits.Add((CacheLimitType.Megabytes, 256));
+        var database = CreateSingleTableTypedDraft(
+            databaseCacheLimits:
+            [
+                (CacheLimitType.Megabytes, 128),
+                (CacheLimitType.Megabytes, 256)
+            ]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -849,13 +840,14 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DatabaseCacheCleanupWithDuplicateType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.CacheCleanup.Add((CacheCleanupType.Minutes, 5));
-        database.CacheCleanup.Add((CacheCleanupType.Minutes, 10));
+        var database = CreateSingleTableTypedDraft(
+            databaseCacheCleanup:
+            [
+                (CacheCleanupType.Minutes, 5),
+                (CacheCleanupType.Minutes, 10)
+            ]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -867,13 +859,14 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DatabaseIndexCacheWithConflictingPolicies_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.IndexCache.Add((IndexCacheType.All, null));
-        database.IndexCache.Add((IndexCacheType.MaxAmountRows, 100));
+        var database = CreateSingleTableTypedDraft(
+            databaseIndexCache:
+            [
+                (IndexCacheType.All, null),
+                (IndexCacheType.MaxAmountRows, 100)
+            ]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -885,13 +878,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_TableIndexCacheAllWithAmount_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var table = database.TableModels.Single().Table;
-        table.IndexCache.Add((IndexCacheType.All, 100));
+        var database = CreateSingleTableTypedDraft(
+            tableIndexCache: [(IndexCacheType.All, 100)]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -903,13 +893,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_CheckAttributeWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var model = database.TableModels.Single().Model;
-        model.AddAttribute(new CheckAttribute((DatabaseType)999, "CK_items_id", "id > 0"));
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new CheckAttribute((DatabaseType)999, "CK_items_id", "id > 0")]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -921,13 +908,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_CommentAttributeWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.AddAttribute(new CommentAttribute((DatabaseType)999, "id comment"));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [new CommentAttribute((DatabaseType)999, "id comment")]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -939,13 +923,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_CommentAttributeWithUnknownDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.AddAttribute(new CommentAttribute(DatabaseType.Unknown, "id comment"));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [new CommentAttribute(DatabaseType.Unknown, "id comment")]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -957,13 +938,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DefaultSqlAttributeWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.AddAttribute(new DefaultSqlAttribute((DatabaseType)999, "0"));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [new DefaultSqlAttribute((DatabaseType)999, "0")]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -975,13 +953,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_CheckAttributeWithEmptyName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var model = database.TableModels.Single().Model;
-        model.AddAttribute(new CheckAttribute(DatabaseType.MariaDB, "", "id > 0"));
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new CheckAttribute(DatabaseType.MariaDB, "", "id > 0")]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -993,13 +968,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_CheckAttributeWithEmptyExpression_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var model = database.TableModels.Single().Model;
-        model.AddAttribute(new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", " "));
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", " ")]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1011,14 +983,14 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DuplicateProviderCheckAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var model = database.TableModels.Single().Model;
-        model.AddAttribute(new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", "id > 0"));
-        model.AddAttribute(new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", "id >= 0"));
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes:
+            [
+                new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", "id > 0"),
+                new CheckAttribute(DatabaseType.MariaDB, "CK_items_id", "id >= 0")
+            ]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1031,13 +1003,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_CommentAttributeWithNullText_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.AddAttribute(new CommentAttribute(DatabaseType.MySQL, null!));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [new CommentAttribute(DatabaseType.MySQL, null!)]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = new MetadataDefinitionFactory().Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2535,6 +2504,58 @@ public class MetadataDefinitionFactoryTests
 
         database.SetTableModels([model.TableModel]);
         return database;
+    }
+
+    private static MetadataDatabaseDraft CreateSingleTableTypedDraft(
+        IReadOnlyList<Attribute>? modelAttributes = null,
+        IReadOnlyList<Attribute>? valuePropertyAttributes = null,
+        IReadOnlyList<(CacheLimitType limitType, long amount)>? databaseCacheLimits = null,
+        IReadOnlyList<(CacheCleanupType cleanupType, long amount)>? databaseCacheCleanup = null,
+        IReadOnlyList<(IndexCacheType indexCacheType, int? amount)>? databaseIndexCache = null,
+        IReadOnlyList<(CacheLimitType limitType, long amount)>? tableCacheLimits = null,
+        IReadOnlyList<(IndexCacheType indexCacheType, int? amount)>? tableIndexCache = null)
+    {
+        return new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            CacheLimits = databaseCacheLimits ?? [],
+            CacheCleanup = databaseCacheCleanup ?? [],
+            IndexCache = databaseIndexCache ?? [],
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Items",
+                    new MetadataModelDraft(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        Attributes = modelAttributes ?? [],
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id") { PrimaryKey = true })
+                            {
+                                Attributes =
+                                [
+                                    new PrimaryKeyAttribute(),
+                                    new ColumnAttribute("id"),
+                                    .. (valuePropertyAttributes ?? [])
+                                ]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("items")
+                    {
+                        CacheLimits = tableCacheLimits ?? [],
+                        IndexCache = tableIndexCache ?? []
+                    })
+            ]
+        };
     }
 
     private static DatabaseDefinition CreateViewDraft(string? definition)
