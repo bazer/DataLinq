@@ -194,7 +194,7 @@ Goals:
 
 Tasks:
 
-1. [in progress] Add metadata builder/draft types side by side with the current metadata graph. The first `MetadataDefinitionDraft` boundary exists; deeper typed table/model/property draft records still need to replace direct mutable graph construction.
+1. [in progress] Add metadata builder/draft types side by side with the current metadata graph. The first typed database/table/model/property/column draft records now exist and can enter the factory; producer wiring still needs to replace direct mutable graph construction.
 2. [in progress] Represent source-model metadata, generated declarations, SQLite metadata, MySQL metadata, and MariaDB metadata in builder form. The wired paths now hand explicit drafts to the factory, but the drafts are still backed by the current mutable metadata graph.
 3. [in progress] Introduce a `MetadataDefinitionFactory` or equivalent factory that owns validation, normalization, relation resolution, column ordinal assignment, cache metadata interpretation, and freeze/finalization.
 4. [in progress] Make expected invalid-model failures return `Option<DatabaseDefinition, IDLOptionFailure>` rather than arbitrary exceptions.
@@ -224,6 +224,8 @@ Foundation slice notes:
 - Added provider-generated-source metadata equivalence checks for SQLite, MySQL, and MariaDB first-slice schemas using a shared metadata digest and generated-source roundtrip helper.
 - The provider equivalence pass fixed generated model column ordering, provider auto-increment C# nullability, and provider-created nullable foreign-key relation metadata so generated source preserves the provider metadata shape.
 - Added `MetadataDefinitionDraft` as the first explicit factory draft boundary. Generated runtime metadata, source-parsed metadata, SQLite metadata, MySQL metadata, and MariaDB metadata now hand drafts to `MetadataDefinitionFactory` instead of asking the factory to finalize the parser/provider graph directly.
+- Added first typed metadata draft records for databases, table models, models, tables/views, value properties, relation properties, and columns. `MetadataDefinitionFactory` can now build from typed drafts by lowering them through the existing mutable graph internally, giving Workstream C a real non-parser/non-provider draft input to migrate toward without changing every metadata producer in one slice.
+- Added first typed-draft equivalence coverage by building the relation-focused factory draft through the typed draft records and comparing its finalized digest against the mutable draft path.
 - `MetadataDefinitionFactory` now snapshots the draft before finalization, so interface assignment, index creation, relation resolution, and column ordinal assignment happen on the returned runtime graph without mutating the draft graph. Stub table models are preserved across the snapshot boundary.
 - Generated runtime metadata bootstrap failures now return `InvalidModel` option failures for missing hooks, wrong hook return types, default declarations, and malformed table declarations instead of surfacing as arbitrary catch-all exceptions.
 - Provider metadata import now returns `InvalidModel` option failures for unsupported SQLite, MySQL, and MariaDB column types with table/column context, while still skipping intentionally unsupported generated columns.

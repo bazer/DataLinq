@@ -6,6 +6,7 @@ using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
+using DataLinq.Testing;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -33,6 +34,64 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(orderToUser.RelationPart.Type).IsEqualTo(RelationPartType.ForeignKey);
         await Assert.That(userToOrders.RelationPart.Type).IsEqualTo(RelationPartType.CandidateKey);
         await Assert.That(ReferenceEquals(orderToUser.RelationPart.Relation, userToOrders.RelationPart.Relation)).IsTrue();
+    }
+
+    [Test]
+    public async Task Build_TypedRelationDraft_MatchesMutableRelationDraft()
+    {
+        var factory = new MetadataDefinitionFactory();
+        var mutableBuilt = factory.Build(CreateRelationDraft()).ValueOrException();
+        var typedBuilt = factory.Build(CreateRelationTypedDraft()).ValueOrException();
+
+        await Assert.That(MetadataEquivalenceDigest.CreateText(typedBuilt))
+            .IsEqualTo(MetadataEquivalenceDigest.CreateText(mutableBuilt));
+    }
+
+    [Test]
+    public async Task Build_TypedDraftWithDuplicateColumnNames_ReturnsInvalidModelFailure()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Items",
+                    new MetadataModelDraft(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id") { PrimaryKey = true })
+                            {
+                                Attributes = [new PrimaryKeyAttribute(), new ColumnAttribute("id")]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "OtherId",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id"))
+                            {
+                                Attributes = [new ColumnAttribute("id")]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("items"))
+            ]
+        };
+
+        var result = new MetadataDefinitionFactory().Build(draft);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Duplicate column definition for 'id'");
     }
 
     [Test]
@@ -2156,6 +2215,83 @@ public class MetadataDefinitionFactoryTests
         ]);
 
         return database;
+    }
+
+    private static MetadataDatabaseDraft CreateRelationTypedDraft(string foreignKeyName = "FK_Order_User")
+    {
+        return new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Users",
+                    new MetadataModelDraft(new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "UserId",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("user_id") { PrimaryKey = true })
+                            {
+                                Attributes = [new PrimaryKeyAttribute(), new ColumnAttribute("user_id")]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "UserName",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("user_name"))
+                            {
+                                Attributes = [new ColumnAttribute("user_name")]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("users")),
+                new MetadataTableModelDraft(
+                    "Orders",
+                    new MetadataModelDraft(new CsTypeDeclaration("Order", "TestNamespace", ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "OrderId",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("order_id") { PrimaryKey = true })
+                            {
+                                Attributes = [new PrimaryKeyAttribute(), new ColumnAttribute("order_id")]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "CustomerId",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("customer_id") { ForeignKey = true })
+                            {
+                                Attributes =
+                                [
+                                    new ForeignKeyAttribute("users", "user_id", foreignKeyName),
+                                    new ColumnAttribute("customer_id")
+                                ]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Amount",
+                                new CsTypeDeclaration(typeof(decimal)),
+                                new MetadataColumnDraft("amount"))
+                            {
+                                Attributes = [new ColumnAttribute("amount")]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("orders"))
+            ]
+        };
     }
 
     private static DatabaseDefinition CreateProviderStyleDraft()

@@ -2,16 +2,17 @@ using System;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Core.Factories;
 
 public sealed class MetadataDefinitionDraft
 {
-    private readonly DatabaseDefinition metadata;
+    private readonly Func<Option<DatabaseDefinition, IDLOptionFailure>> createMutableMetadata;
 
-    private MetadataDefinitionDraft(DatabaseDefinition metadata)
+    private MetadataDefinitionDraft(Func<Option<DatabaseDefinition, IDLOptionFailure>> createMutableMetadata)
     {
-        this.metadata = metadata;
+        this.createMutableMetadata = createMutableMetadata;
     }
 
     public static MetadataDefinitionDraft FromMutableMetadata(DatabaseDefinition metadata)
@@ -19,11 +20,23 @@ public sealed class MetadataDefinitionDraft
         if (metadata is null)
             throw new ArgumentNullException(nameof(metadata));
 
-        return new MetadataDefinitionDraft(metadata);
+        return new MetadataDefinitionDraft(() => metadata);
+    }
+
+    public static MetadataDefinitionDraft FromTypedMetadata(MetadataDatabaseDraft metadata)
+    {
+        if (metadata is null)
+            throw new ArgumentNullException(nameof(metadata));
+
+        return new MetadataDefinitionDraft(() => MetadataTypedDraftConverter.ToMutableMetadata(metadata));
     }
 
     internal Option<DatabaseDefinition, IDLOptionFailure> TryCreateMutableSnapshot()
     {
+        var mutableMetadata = createMutableMetadata();
+        if (!mutableMetadata.TryUnwrap(out var metadata, out var typedDraftFailure))
+            return typedDraftFailure;
+
         var tableModelValidation = MetadataFactory.ValidateExistingTableModels(metadata);
         if (!tableModelValidation.HasValue)
             return tableModelValidation.Failure;

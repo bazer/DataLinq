@@ -27,6 +27,14 @@ public sealed class MetadataDefinitionFactory
         return DLOptionFailure.CatchAll(() => BuildCore(snapshot));
     }
 
+    public Option<DatabaseDefinition, IDLOptionFailure> Build(MetadataDatabaseDraft draft)
+    {
+        if (draft is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
+
+        return Build(MetadataDefinitionDraft.FromTypedMetadata(draft));
+    }
+
     public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(DatabaseDefinition draft)
     {
         if (draft is null)
@@ -44,6 +52,14 @@ public sealed class MetadataDefinitionFactory
             return snapshotFailure;
 
         return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(snapshot));
+    }
+
+    public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(MetadataDatabaseDraft draft)
+    {
+        if (draft is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
+
+        return BuildProviderMetadata(MetadataDefinitionDraft.FromTypedMetadata(draft));
     }
 
     private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
