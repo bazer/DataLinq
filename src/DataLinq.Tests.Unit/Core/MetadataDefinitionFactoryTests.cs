@@ -1315,6 +1315,67 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ExistingIndexWithUnsupportedCharacteristic_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var idColumn = table.Columns.Single();
+        table.ColumnIndices.Add(new ColumnIndex("idx_bad_characteristic", (IndexCharacteristic)999, IndexType.BTREE, [idColumn]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index 'idx_bad_characteristic'");
+        await Assert.That(failure.Message).Contains("unsupported index characteristic '999'");
+    }
+
+    [Test]
+    public async Task Build_ExistingIndexWithUnsupportedType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var idColumn = table.Columns.Single();
+        table.ColumnIndices.Add(new ColumnIndex("idx_bad_type", IndexCharacteristic.Simple, (IndexType)999, [idColumn]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index 'idx_bad_type'");
+        await Assert.That(failure.Message).Contains("unsupported index type '999'");
+    }
+
+    [Test]
+    public async Task Build_ExistingIndexWithNullRelationParts_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        var idColumn = table.Columns.Single();
+        var index = new ColumnIndex("idx_null_parts", IndexCharacteristic.Simple, IndexType.BTREE, [idColumn])
+        {
+            RelationParts = null!
+        };
+        table.ColumnIndices.Add(index);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index 'idx_null_parts'");
+        await Assert.That(failure.Message).Contains("null relation-part collection");
+    }
+
+    [Test]
     public async Task Build_ExistingRelationMissingCandidateKey_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();
@@ -1379,6 +1440,46 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Existing relation 'FK_Broken'");
         await Assert.That(failure.Message).Contains("foreign-key part is not registered");
+    }
+
+    [Test]
+    public async Task Build_ExistingRelationWithUnsupportedReferentialAction_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var users = database.TableModels.Single(tm => tm.Table.DbName == "users");
+        var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
+        var userId = users.Table.Columns.Single(column => column.DbName == "user_id");
+        var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
+        var candidateKeyIndex = new ColumnIndex("users_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [userId]);
+        var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
+        users.Table.ColumnIndices.Add(candidateKeyIndex);
+        orders.Table.ColumnIndices.Add(foreignKeyIndex);
+        var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany)
+        {
+            OnDelete = (ReferentialAction)999
+        };
+        var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
+        var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "Orders");
+        relation.ForeignKey = foreignKeyPart;
+        relation.CandidateKey = candidateKeyPart;
+        foreignKeyIndex.RelationParts.Add(foreignKeyPart);
+        candidateKeyIndex.RelationParts.Add(candidateKeyPart);
+        var relationProperty = new RelationProperty(
+            "Customer",
+            users.Model.CsType,
+            orders.Model,
+            [new RelationAttribute("users", "user_id", "FK_Broken")]);
+        relationProperty.SetRelationPart(foreignKeyPart);
+        orders.Model.AddProperty(relationProperty);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_Broken'");
+        await Assert.That(failure.Message).Contains("unsupported on-delete action '999'");
     }
 
     [Test]

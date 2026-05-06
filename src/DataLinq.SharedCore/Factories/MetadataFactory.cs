@@ -1150,6 +1150,16 @@ public static class MetadataFactory
                         table,
                         $"Table '{table.DbName}' contains a null column index.");
 
+                if (!Enum.IsDefined(typeof(IndexCharacteristic), index.Characteristic))
+                    return CreateColumnIndexFailure(
+                        table,
+                        $"Index '{index.Name}' on table '{table.DbName}' uses unsupported index characteristic '{index.Characteristic}'.");
+
+                if (!Enum.IsDefined(typeof(IndexType), index.Type))
+                    return CreateColumnIndexFailure(
+                        table,
+                        $"Index '{index.Name}' on table '{table.DbName}' uses unsupported index type '{index.Type}'.");
+
                 if (index.Columns.Count == 0)
                     return CreateColumnIndexFailure(
                         table,
@@ -1162,6 +1172,11 @@ public static class MetadataFactory
                         table,
                         $"Index '{index.Name}' is attached to table '{table.DbName}', but the index belongs to table '{indexTableName}'. Column indices must be stored on the table that owns their columns.");
                 }
+
+                if (index.RelationParts is null)
+                    return CreateColumnIndexFailure(
+                        table,
+                        $"Index '{index.Name}' on table '{table.DbName}' has a null relation-part collection.");
 
                 foreach (var column in index.Columns)
                 {
@@ -1644,6 +1659,18 @@ public static class MetadataFactory
         var relationName = string.IsNullOrWhiteSpace(relation.ConstraintName)
             ? "<unnamed>"
             : relation.ConstraintName;
+
+        if (!Enum.IsDefined(typeof(RelationPartType), relationPart.Type))
+            return createFailure($"Existing relation part referenced by {ownerDescription} has unsupported relation-part type '{relationPart.Type}'.");
+
+        if (!Enum.IsDefined(typeof(RelationType), relation.Type))
+            return createFailure($"Existing relation '{relationName}' referenced by {ownerDescription} uses unsupported relation type '{relation.Type}'.");
+
+        if (!Enum.IsDefined(typeof(ReferentialAction), relation.OnUpdate))
+            return createFailure($"Existing relation '{relationName}' referenced by {ownerDescription} uses unsupported on-update action '{relation.OnUpdate}'.");
+
+        if (!Enum.IsDefined(typeof(ReferentialAction), relation.OnDelete))
+            return createFailure($"Existing relation '{relationName}' referenced by {ownerDescription} uses unsupported on-delete action '{relation.OnDelete}'.");
 
         if (relation.ForeignKey is null)
             return createFailure($"Existing relation '{relationName}' referenced by {ownerDescription} is missing a foreign-key part.");
