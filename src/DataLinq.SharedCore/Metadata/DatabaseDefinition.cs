@@ -9,9 +9,43 @@ namespace DataLinq.Metadata;
 
 public class DatabaseDefinition : IDefinition
 {
-    public static ConcurrentDictionary<Type, DatabaseDefinition> LoadedDatabases { get; } = new();
+    private static readonly ConcurrentDictionary<Type, DatabaseDefinition> loadedDatabases = new();
     private Attribute[] attributes = [];
     private TableModel[] tableModels = [];
+
+    [Obsolete("Direct mutation of the global metadata registry is obsolete. Runtime code should use provider-owned metadata or internal registry helpers.")]
+    public static ConcurrentDictionary<Type, DatabaseDefinition> LoadedDatabases => loadedDatabases;
+
+    internal static IEnumerable<DatabaseDefinition> LoadedDatabaseValues => loadedDatabases.Values;
+
+    internal static bool TryGetLoadedDatabase(Type databaseModelType, out DatabaseDefinition metadata)
+    {
+        if (databaseModelType is null)
+            throw new ArgumentNullException(nameof(databaseModelType));
+
+        var found = loadedDatabases.TryGetValue(databaseModelType, out var foundMetadata);
+        metadata = foundMetadata!;
+        return found;
+    }
+
+    internal static bool TryAddLoadedDatabase(Type databaseModelType, DatabaseDefinition metadata)
+    {
+        if (databaseModelType is null)
+            throw new ArgumentNullException(nameof(databaseModelType));
+
+        if (metadata is null)
+            throw new ArgumentNullException(nameof(metadata));
+
+        return loadedDatabases.TryAdd(databaseModelType, metadata);
+    }
+
+    internal static bool TryRemoveLoadedDatabase(Type databaseModelType, out DatabaseDefinition? metadata)
+    {
+        if (databaseModelType is null)
+            throw new ArgumentNullException(nameof(databaseModelType));
+
+        return loadedDatabases.TryRemove(databaseModelType, out metadata);
+    }
 
     public DatabaseDefinition(string name, CsTypeDeclaration csType, string? dbName = null)
     {

@@ -161,16 +161,14 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public static ModelDefinition? Find(IModel model) =>
         DatabaseDefinition
-        .LoadedDatabases
-        .Values
+        .LoadedDatabaseValues
         .Select(x => Array.Find(x.TableModels, y => y.Model.IsOfType(model.GetType())))
         .FirstOrDefault(x => x != null)
         ?.Model;
 
     public static ModelDefinition? Find<T>() where T : IModel =>
         DatabaseDefinition
-        .LoadedDatabases
-        .Values
+        .LoadedDatabaseValues
         .Select(x => Array.Find(x.TableModels, y => y.Model.IsOfType(typeof(T))))
         .FirstOrDefault(x => x != null)
         ?.Model;

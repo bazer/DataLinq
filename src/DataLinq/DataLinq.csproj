@@ -18,6 +18,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="DataLinq.Benchmark" />
 		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
 		<InternalsVisibleTo Include="DataLinq.Tests.Compliance" />
 	</ItemGroup>

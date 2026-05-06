@@ -84,7 +84,7 @@ public class DatabaseCacheTests
         var metadata = CreateMetadata(includeExplicitCleanup: false);
         metadata.SetCache(true);
 
-        DatabaseDefinition.LoadedDatabases.TryRemove(typeof(CacheDefaultsDatabaseModel), out _);
+        DatabaseDefinition.TryRemoveLoadedDatabase(typeof(CacheDefaultsDatabaseModel), out _);
 
         try
         {
@@ -98,7 +98,7 @@ public class DatabaseCacheTests
         }
         finally
         {
-            DatabaseDefinition.LoadedDatabases.TryRemove(typeof(CacheDefaultsDatabaseModel), out _);
+            DatabaseDefinition.TryRemoveLoadedDatabase(typeof(CacheDefaultsDatabaseModel), out _);
             DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
         }
     }

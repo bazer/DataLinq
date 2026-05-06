@@ -213,7 +213,7 @@ internal sealed class BenchmarkContext : IDisposable
 
     public int InitializeProviderAndMetadataOnFreshScope()
     {
-        DatabaseDefinition.LoadedDatabases.TryRemove(typeof(EmployeesDb), out _);
+        DatabaseDefinition.TryRemoveLoadedDatabase(typeof(EmployeesDb), out _);
 
         using var startupScope = EmployeesTestDatabase.OpenSharedSeeded(
             provider,

@@ -106,21 +106,23 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         string? databaseName = null,
         Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory = null)
     {
+        DatabaseDefinition resolvedMetadata;
         lock (lockObject)
         {
-            if (DatabaseDefinition.LoadedDatabases.TryGetValue(type, out var metadata))
+            if (DatabaseDefinition.TryGetLoadedDatabase(type, out var metadata))
             {
-                Metadata = metadata;
+                resolvedMetadata = metadata;
             }
             else
             {
-                Metadata = metadataFactory is null
+                resolvedMetadata = metadataFactory is null
                     ? MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(type)
                     : metadataFactory();
-                DatabaseDefinition.LoadedDatabases.TryAdd(type, Metadata);
+                DatabaseDefinition.TryAddLoadedDatabase(type, resolvedMetadata);
             }
         }
 
+        Metadata = resolvedMetadata;
         CsModelType = type;
         DatabaseType = databaseType;
         LoggingConfiguration = loggingConfiguration;

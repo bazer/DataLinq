@@ -13,7 +13,7 @@ public class MutableInstanceEqualityTests
     static MutableInstanceEqualityTests()
     {
         var employeesMetadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
-        DatabaseDefinition.LoadedDatabases.TryAdd(typeof(EmployeesDb), employeesMetadata);
+        DatabaseDefinition.TryAddLoadedDatabase(typeof(EmployeesDb), employeesMetadata);
     }
 
     [Test]
