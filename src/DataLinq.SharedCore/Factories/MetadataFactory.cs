@@ -291,6 +291,49 @@ public static class MetadataFactory
             database.SetCsType(database.CsType.MutateName(csTypeName));
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateDatabaseObjectNames(DatabaseDefinition database)
+    {
+        if (string.IsNullOrWhiteSpace(database.Name))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Database '{database.CsType.Name}' has an empty database name.",
+                database);
+
+        if (string.IsNullOrWhiteSpace(database.DbName))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Database '{database.CsType.Name}' has an empty physical database name.",
+                database);
+
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var table = tableModel.Table;
+            if (string.IsNullOrWhiteSpace(table.DbName))
+                return CreateTableFailure(
+                    table,
+                    $"Model '{tableModel.Model.CsType.Name}' has an empty table or view name.");
+
+            foreach (var column in table.Columns)
+            {
+                if (column is null)
+                    continue;
+
+                if (string.IsNullOrWhiteSpace(column.DbName))
+                {
+                    var owner = column.ValueProperty is null
+                        ? $"Column on table '{table.DbName}'"
+                        : $"Value property '{GetValuePropertyDisplayName(column.ValueProperty)}' on table '{table.DbName}'";
+
+                    return CreateColumnPropertyFailure(
+                        column,
+                        $"{owner} has an empty column name.");
+                }
+            }
+        }
+
+        return true;
+    }
+
     public static Option<bool, IDLOptionFailure> ValidateCSharpSymbolNames(DatabaseDefinition database)
     {
         var databaseTypeFailure = ValidateCSharpTypeDeclaration(

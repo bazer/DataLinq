@@ -36,6 +36,10 @@ public sealed class MetadataDefinitionDraft
         if (!tableModelPropertyValidation.HasValue)
             return tableModelPropertyValidation.Failure;
 
+        var objectNameValidation = MetadataFactory.ValidateDatabaseObjectNames(metadata);
+        if (!objectNameValidation.HasValue)
+            return objectNameValidation.Failure;
+
         var cacheMetadataValidation = MetadataFactory.ValidateCacheMetadata(metadata);
         if (!cacheMetadataValidation.HasValue)
             return cacheMetadataValidation.Failure;
