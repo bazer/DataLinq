@@ -138,6 +138,7 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(tableModel.CsPropertyName).IsEqualTo("Rows");
         await Assert.That(tableModel.Model.CsType.Type).IsEqualTo(typeof(BootstrapHookRow));
         await Assert.That(tableModel.Table.DbName).IsEqualTo("bootstrap_rows");
+        await Assert.That(((ViewDefinition)tableModel.Table).Definition).IsEqualTo("select id from bootstrap_rows");
     }
 
     [Test]
@@ -367,6 +368,7 @@ public sealed class MutableGeneratedDeclarationValidationRow
 {
 }
 
+[Definition("select id from bootstrap_rows")]
 [View("bootstrap_rows")]
 public abstract partial class BootstrapHookRow(IRowData rowData, IDataSourceAccess dataSource)
     : Immutable<BootstrapHookRow, BootstrapHookDb>(rowData, dataSource), IViewModel<BootstrapHookDb>

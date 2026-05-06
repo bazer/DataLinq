@@ -66,6 +66,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateUniqueTableNames(draft).TryUnwrap(out _, out var duplicateTableFailure))
             return duplicateTableFailure;
 
+        if (!MetadataFactory.ValidateViewDefinitions(draft).TryUnwrap(out _, out var viewDefinitionFailure))
+            return viewDefinitionFailure;
+
         if (!MetadataFactory.ValidateExistingColumnPropertyBindings(draft).TryUnwrap(out _, out var columnPropertyFailure))
             return columnPropertyFailure;
 

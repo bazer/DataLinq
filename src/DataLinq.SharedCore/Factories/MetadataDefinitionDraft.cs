@@ -28,6 +28,10 @@ public sealed class MetadataDefinitionDraft
         if (!tableModelValidation.HasValue)
             return tableModelValidation.Failure;
 
+        var viewDefinitionValidation = MetadataFactory.ValidateViewDefinitions(metadata);
+        if (!viewDefinitionValidation.HasValue)
+            return viewDefinitionValidation.Failure;
+
         var primaryKeyValidation = MetadataFactory.ValidateExistingPrimaryKeyColumns(metadata);
         if (!primaryKeyValidation.HasValue)
             return primaryKeyValidation.Failure;

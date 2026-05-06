@@ -342,6 +342,52 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ViewWithoutDefinition_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateViewDraft(definition: null);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("View 'active_items'");
+        await Assert.That(failure.Message).Contains("ActiveItem");
+        await Assert.That(failure.Message).Contains("missing a SQL definition");
+    }
+
+    [Test]
+    public async Task Build_ViewWithDefinition_SucceedsWithoutPrimaryKey()
+    {
+        const string definition = "select name from active_items";
+        var database = CreateViewDraft(definition);
+
+        var built = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .ValueOrException();
+
+        var view = (ViewDefinition)built.TableModels.Single().Table;
+        await Assert.That(view.Definition).IsEqualTo(definition);
+        await Assert.That(view.PrimaryKeyColumns).IsEmpty();
+        await Assert.That(view.Columns.Select(x => x.Index).ToArray()).IsEquivalentTo([0]);
+    }
+
+    [Test]
+    public async Task Build_ViewWithExplicitEmptyDefinition_SucceedsForProviderPlaceholder()
+    {
+        var database = CreateViewDraft("");
+
+        var built = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .ValueOrException();
+
+        var view = (ViewDefinition)built.TableModels.Single().Table;
+        await Assert.That(view.Definition).IsEqualTo("");
+        await Assert.That(view.Columns.Select(x => x.Index).ToArray()).IsEquivalentTo([0]);
+    }
+
+    [Test]
     public async Task Build_ColumnWithoutValueProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -677,6 +723,28 @@ public class MetadataDefinitionFactoryTests
         AddValueProperties(model, properties);
 
         database.SetTableModels([model.TableModel]);
+        return database;
+    }
+
+    private static DatabaseDefinition CreateViewDraft(string? definition)
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("ActiveItem", "TestNamespace", ModelCsType.Class));
+        model.SetInterfaces([new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+
+        var table = (ViewDefinition)MetadataFactory.ParseTable(model).ValueOrException();
+        table.SetDbName("active_items");
+        if (definition != null)
+            table.SetDefinition(definition);
+
+        var tableModel = new TableModel("ActiveItems", database, model, table);
+        AddValueProperties(
+            model,
+            ("Name", typeof(string), [new ColumnAttribute("name")]));
+
+        database.SetTableModels([tableModel]);
         return database;
     }
 

@@ -549,6 +549,21 @@ public static class MetadataFactory
         return true;
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateViewDefinitions(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            if (tableModel.Table is not ViewDefinition { Definition: null } view)
+                continue;
+
+            return CreateTableFailure(
+                view,
+                $"View '{view.DbName}' on model '{tableModel.Model.CsType.Name}' is missing a SQL definition. Add a DefinitionAttribute to the view model or set the provider view definition before building metadata.");
+        }
+
+        return true;
+    }
+
     private static string GetValuePropertyDisplayName(ValueProperty property) =>
         $"{property.Model.CsType.Name}.{property.PropertyName}";
 
