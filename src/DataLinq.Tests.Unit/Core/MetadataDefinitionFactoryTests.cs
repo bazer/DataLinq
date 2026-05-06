@@ -344,6 +344,45 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ValuePropertyWithInvalidCSharpType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.SetCsType(new CsTypeDeclaration("Bad Type", "TestNamespace", ModelCsType.Class));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("C# type name 'Bad Type'");
+    }
+
+    [Test]
+    public async Task Build_RelationPropertyWithInvalidCSharpType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var orderModel = database.TableModels.Single(x => x.Table.DbName == "orders").Model;
+        orderModel.AddProperty(new RelationProperty(
+            "Customer",
+            new CsTypeDeclaration("Bad Type", "TestNamespace", ModelCsType.Class),
+            orderModel,
+            [new RelationAttribute("users", "user_id", "FK_Order_User")]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("C# type name 'Bad Type'");
+    }
+
+    [Test]
     public async Task Build_GeneratedRelationPropertyWithInvalidCSharpName_ReturnsInvalidModelFailure()
     {
         var database = CreateRelationDraft();

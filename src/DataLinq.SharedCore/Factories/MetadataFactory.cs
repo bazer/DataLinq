@@ -7,6 +7,7 @@ using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
+using Microsoft.CodeAnalysis.CSharp;
 using ThrowAway;
 using ThrowAway.Extensions;
 
@@ -353,6 +354,13 @@ public static class MetadataFactory
 
             foreach (var property in model.ValueProperties.Values)
             {
+                var propertyTypeFailure = ValidateCSharpTypeUsage(
+                    property.CsType,
+                    $"Value property '{GetValuePropertyDisplayName(property)}'",
+                    property);
+                if (propertyTypeFailure is not null)
+                    return propertyTypeFailure;
+
                 if (!IsValidCSharpIdentifier(property.PropertyName))
                     return CreateValuePropertyFailure(
                         property,
@@ -361,6 +369,13 @@ public static class MetadataFactory
 
             foreach (var property in model.RelationProperties.Values)
             {
+                var propertyTypeFailure = ValidateCSharpTypeUsage(
+                    property.CsType,
+                    $"Relation property '{GetRelationPropertyDisplayName(property)}'",
+                    property);
+                if (propertyTypeFailure is not null)
+                    return propertyTypeFailure;
+
                 if (!IsValidCSharpIdentifier(property.PropertyName))
                     return CreateRelationPropertyFailure(
                         property,
@@ -418,6 +433,20 @@ public static class MetadataFactory
             return DLOptionFailure.Fail(
                 DLFailureType.InvalidModel,
                 $"{scope} uses C# namespace '{type.Namespace}', which is not a valid unescaped C# namespace.",
+                context);
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateCSharpTypeUsage(
+        CsTypeDeclaration type,
+        string scope,
+        IDefinition context)
+    {
+        if (!IsValidCSharpTypeReferenceName(type.Name))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} uses C# type name '{type.Name}', which is not valid C# type syntax.",
                 context);
 
         return null;
@@ -972,6 +1001,20 @@ public static class MetadataFactory
         }
 
         return true;
+    }
+
+    private static bool IsValidCSharpTypeReferenceName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var typeName = value!;
+        if (!string.Equals(typeName, typeName.Trim(), StringComparison.Ordinal))
+            return false;
+
+        var typeSyntax = SyntaxFactory.ParseTypeName(typeName);
+        return typeSyntax.FullSpan.Length == typeName.Length &&
+            !typeSyntax.GetDiagnostics().Any();
     }
 
     private static bool IsCSharpIdentifierStart(char character) =>
