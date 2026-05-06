@@ -47,55 +47,80 @@ public static class MetadataFromTypeFactory
         if (!generatedModel.TryValidate(type).TryUnwrap(out _, out var validationFailure))
             return validationFailure;
 
-        var database = new DatabaseDefinition(type.Name, csType: new CsTypeDeclaration(type));
-        database.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
-        database.ParseAttributes();
-        database.SetTableModels(generatedModel.TableModels
-            .Select(database.ParseTableModel));
+        var attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray();
+        var databaseName = attributes
+            .OfType<DatabaseAttribute>()
+            .LastOrDefault()?
+            .Name ?? type.Name;
 
-        return new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
-    }
-
-    private static TableModel ParseTableModel(this DatabaseDefinition database, GeneratedTableModelDeclaration declaration)
-    {
-        var model = declaration.ModelType.ParseModel(declaration);
-        var table = ParseTable(model, declaration.TableType);
-        return new TableModel(declaration.CsPropertyName, database, model, table);
-    }
-
-    private static TableDefinition ParseTable(ModelDefinition model, TableType tableType)
-    {
-        TableDefinition table = tableType switch
+        var database = new MetadataDatabaseDraft(databaseName, new CsTypeDeclaration(type))
         {
-            TableType.Table => new TableDefinition(model.CsType.Name),
-            TableType.View => new ViewDefinition(model.CsType.Name),
-            _ => throw new NotSupportedException($"Generated table type '{tableType}' is not supported for model '{model.CsType.Name}'.")
+            DbName = databaseName,
+            Attributes = attributes,
+            UseCache = attributes
+                .OfType<UseCacheAttribute>()
+                .LastOrDefault()?
+                .UseCache ?? false,
+            CacheLimits = attributes
+                .OfType<CacheLimitAttribute>()
+                .Select(x => (x.LimitType, x.Amount))
+                .ToArray(),
+            CacheCleanup = attributes
+                .OfType<CacheCleanupAttribute>()
+                .Select(x => (x.LimitType, x.Amount))
+                .ToArray(),
+            IndexCache = attributes
+                .OfType<IndexCacheAttribute>()
+                .Select(x => (x.Type, x.Amount))
+                .ToArray(),
+            TableModels = generatedModel.TableModels
+                .Select(ParseTableModelDraft)
+                .ToArray()
         };
 
+        return new MetadataDefinitionFactory()
+            .Build(database);
+    }
+
+    private static MetadataTableModelDraft ParseTableModelDraft(GeneratedTableModelDeclaration declaration)
+    {
+        var model = declaration.ModelType.ParseModelDraft(declaration);
+        var table = ParseTableDraft(model, declaration.TableType);
+        return new MetadataTableModelDraft(declaration.CsPropertyName, model, table);
+    }
+
+    private static MetadataTableDraft ParseTableDraft(MetadataModelDraft model, TableType tableType)
+    {
+        var dbName = model.CsType.Name;
         foreach (var attribute in model.Attributes)
         {
             if (attribute is TableAttribute tableAttribute)
-                table.SetDbName(tableAttribute.Name);
+                dbName = tableAttribute.Name;
 
             if (attribute is ViewAttribute viewAttribute)
-                table.SetDbName(viewAttribute.Name);
-
-            if (attribute is UseCacheAttribute useCache)
-                table.UseCache = useCache.UseCache;
-
-            if (attribute is CacheLimitAttribute cacheLimit)
-                table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
-
-            if (attribute is IndexCacheAttribute indexCache)
-                table.IndexCache.Add((indexCache.Type, indexCache.Amount));
-
-            if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
-                view.SetDefinition(definitionAttribute.Sql);
+                dbName = viewAttribute.Name;
         }
 
-        table.SetColumns(model.ValueProperties.Values.Select(table.ParseColumn));
-        return table;
+        return new MetadataTableDraft(dbName)
+        {
+            Type = tableType,
+            Definition = model.Attributes
+                .OfType<DefinitionAttribute>()
+                .LastOrDefault()?
+                .Sql,
+            UseCache = model.Attributes
+                .OfType<UseCacheAttribute>()
+                .LastOrDefault()?
+                .UseCache,
+            CacheLimits = model.Attributes
+                .OfType<CacheLimitAttribute>()
+                .Select(x => (x.LimitType, x.Amount))
+                .ToArray(),
+            IndexCache = model.Attributes
+                .OfType<IndexCacheAttribute>()
+                .Select(x => (x.Type, x.Amount))
+                .ToArray()
+        };
     }
 
     private static Option<GeneratedDatabaseModelDeclaration, IDLOptionFailure> GetGeneratedDatabaseModel(
@@ -130,7 +155,7 @@ public static class MetadataFromTypeFactory
             "Run the DataLinq source generator and ensure the database model is declared as a partial class.");
     }
 
-    private static ModelDefinition ParseModel(
+    private static MetadataModelDraft ParseModelDraft(
         [DynamicallyAccessedMembers(
             DynamicallyAccessedMemberTypes.PublicProperties |
             DynamicallyAccessedMemberTypes.NonPublicProperties |
@@ -138,50 +163,54 @@ public static class MetadataFromTypeFactory
         this Type type,
         GeneratedTableModelDeclaration generatedDeclaration)
     {
-        var model = new ModelDefinition(new CsTypeDeclaration(type));
-
-        model.SetAttributes(type.GetCustomAttributes(false).Cast<Attribute>());
+        var attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray();
 
         var interfaces = type.GetInterfaces();
         var modelInstanceInterfaceType = interfaces.Any(IsModelInstanceContract)
             ? interfaces.FirstOrDefault(IsApplicationInterface)
             : null;
 
-        model.SetInterfaces(interfaces
-            .Where(x => x != modelInstanceInterfaceType)
-            .Select(x => new CsTypeDeclaration(x)));
-        model.SetModelInstanceInterface(
-            modelInstanceInterfaceType is not null
-                ? new CsTypeDeclaration(modelInstanceInterfaceType)
-                : null);
-
-        if (type.Namespace != null)
-            model.SetUsings([new(type.Namespace)]);
-
-        type
+        var propertyDrafts = type
             .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            .Select(x => ParseProperty(x, model))
-            .Where(x => x.Attributes.Any(x => x is ColumnAttribute || x is RelationAttribute))
-            .Where(x => x.PropertyName != "EqualityContract")
-            .ToList()
-            .ForEach(model.AddProperty);
+            .Select(ParsePropertyDraft)
+            .OfType<object>()
+            .ToList();
 
-        model.SetUsings(model.ValueProperties.Values
+        var valueProperties = propertyDrafts
+            .OfType<MetadataValuePropertyDraft>()
+            .ToArray();
+        var relationProperties = propertyDrafts
+            .OfType<MetadataRelationPropertyDraft>()
+            .ToArray();
+        var usings = valueProperties
             .Select(x => x.CsType.Namespace)
             .Distinct()
             .Where(x => x != null)
             .Select(name => (name!.StartsWith("System"), name))
             .OrderByDescending(x => x.Item1)
             .ThenBy(x => x.name)
-            .Select(x => new ModelUsing(x.name)));
+            .Select(x => new ModelUsing(x.name))
+            .ToArray();
 
-        model.SetImmutableType(new CsTypeDeclaration(generatedDeclaration.ImmutableType!));
-        model.SetImmutableFactory(generatedDeclaration.ImmutableFactory!);
-
-        if (generatedDeclaration.MutableType is not null)
-            model.SetMutableType(new CsTypeDeclaration(generatedDeclaration.MutableType));
-
-        return model;
+        return new MetadataModelDraft(new CsTypeDeclaration(type))
+        {
+            Attributes = attributes,
+            OriginalInterfaces = interfaces
+                .Where(x => x != modelInstanceInterfaceType)
+                .Select(x => new CsTypeDeclaration(x))
+                .ToArray(),
+            ModelInstanceInterface = modelInstanceInterfaceType is not null
+                ? new CsTypeDeclaration(modelInstanceInterfaceType)
+                : null,
+            Usings = usings,
+            ValueProperties = valueProperties,
+            RelationProperties = relationProperties,
+            ImmutableType = new CsTypeDeclaration(generatedDeclaration.ImmutableType!),
+            ImmutableFactory = generatedDeclaration.ImmutableFactory,
+            MutableType = generatedDeclaration.MutableType is not null
+                ? new CsTypeDeclaration(generatedDeclaration.MutableType)
+                : null
+        };
     }
 
     private static bool IsApplicationInterface(Type type)
@@ -194,46 +223,106 @@ public static class MetadataFromTypeFactory
     private static bool IsModelInstanceContract(Type type) =>
         type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IModelInstance<>);
 
-    private static PropertyDefinition ParseProperty(this PropertyInfo propertyInfo, ModelDefinition model)
+    private static MetadataRelationPropertyDraft ParseRelationPropertyDraft(
+        PropertyInfo propertyInfo,
+        CsTypeDeclaration csType,
+        IReadOnlyList<Attribute> attributes) => new(
+            propertyInfo.Name,
+            csType)
+        {
+            Attributes = attributes,
+            CsNullable = IsNullable(propertyInfo),
+            RelationName = attributes
+                .OfType<RelationAttribute>()
+                .FirstOrDefault()?
+                .Name
+        };
+
+    private static MetadataValuePropertyDraft ParseValuePropertyDraft(
+        PropertyInfo propertyInfo,
+        CsTypeDeclaration csType,
+        IReadOnlyList<Attribute> attributes)
+    {
+        int? csSize;
+        EnumProperty? enumProperty = null;
+
+        if (csType.Type?.IsEnum == true)
+        {
+            csSize = MetadataTypeConverter.CsTypeSize("enum");
+
+            var enumValueList = attributes.Any(attribute => attribute is EnumAttribute)
+                ? attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1)).ToList()
+                : new List<(string name, int value)>();
+
+            var enumType = csType.Type;
+            var declaredInClass = enumType.DeclaringType == propertyInfo.DeclaringType;
+
+            var enumValues = Enum.GetValuesAsUnderlyingType(enumType)
+                .Cast<object>()
+                .Select(Convert.ToInt32)
+                .ToList();
+            var csEnumValues = Enum.GetNames(enumType).Select((x, i) => (x, enumValues[i])).ToList();
+
+            enumProperty = new EnumProperty(enumValueList, csEnumValues, declaredInClass);
+        }
+        else
+        {
+            csSize = MetadataTypeConverter.CsTypeSize(csType.Name);
+        }
+
+        return new MetadataValuePropertyDraft(
+            propertyInfo.Name,
+            csType,
+            ParseColumnDraft(propertyInfo.Name, attributes))
+        {
+            Attributes = attributes,
+            CsNullable = IsNullable(propertyInfo),
+            CsSize = csSize,
+            EnumProperty = enumProperty
+        };
+    }
+
+    private static MetadataColumnDraft ParseColumnDraft(string propertyName, IEnumerable<Attribute> attributes)
+    {
+        var columnName = propertyName;
+        foreach (var attribute in attributes)
+        {
+            if (attribute is ColumnAttribute columnAttribute)
+                columnName = columnAttribute.Name;
+        }
+
+        return new MetadataColumnDraft(columnName)
+        {
+            Nullable = attributes.Any(x => x is NullableAttribute),
+            AutoIncrement = attributes.Any(x => x is AutoIncrementAttribute),
+            PrimaryKey = attributes.Any(x => x is PrimaryKeyAttribute),
+            ForeignKey = attributes.Any(x => x is ForeignKeyAttribute),
+            DbTypes = attributes
+                .OfType<TypeAttribute>()
+                .Select(x => new DatabaseColumnType(x.DatabaseType, x.Name, x.Length, x.Decimals, x.Signed))
+                .ToArray()
+        };
+    }
+
+    private static object? ParsePropertyDraft(this PropertyInfo propertyInfo)
     {
         var attributes = propertyInfo
                 .GetCustomAttributes(false)
                 .OfType<Attribute>()
-                .ToList();
+                .ToArray();
 
-        var type = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
-        PropertyDefinition property = attributes.Any(attribute => attribute is RelationAttribute)
-            ? new RelationProperty(propertyInfo.Name, new CsTypeDeclaration(type), model, attributes)
-            : new ValueProperty(propertyInfo.Name, new CsTypeDeclaration(type), model, attributes);
-
-        property.SetCsNullable(IsNullable(propertyInfo));
-
-        if (property is ValueProperty valueProp)
+        if (propertyInfo.Name == "EqualityContract" ||
+            !attributes.Any(x => x is ColumnAttribute || x is RelationAttribute))
         {
-            if (property.CsType.Type?.IsEnum == true)
-            {
-                valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
-
-                var enumValueList = attributes.Any(attribute => attribute is EnumAttribute)
-                    ? attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1)).ToList()
-                    : new List<(string name, int value)>();
-
-                var enumType = property.CsType.Type;
-                var declaredInClass = enumType.DeclaringType == model.CsType.Type;
-
-                var enumValues = Enum.GetValuesAsUnderlyingType(enumType)
-                    .Cast<object>()
-                    .Select(Convert.ToInt32)
-                    .ToList();
-                var csEnumValues = Enum.GetNames(enumType).Select((x, i) => (x, enumValues[i])).ToList();
-
-                valueProp.SetEnumProperty(new EnumProperty(enumValueList, csEnumValues, declaredInClass));
-            }
-            else
-                valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize(property.CsType.Name));
+            return null;
         }
 
-        return property;
+        var type = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
+        var csType = new CsTypeDeclaration(type);
+
+        return attributes.Any(attribute => attribute is RelationAttribute)
+            ? ParseRelationPropertyDraft(propertyInfo, csType, attributes)
+            : ParseValuePropertyDraft(propertyInfo, csType, attributes);
     }
 
     private static bool IsNullable(PropertyInfo propertyInfo)
