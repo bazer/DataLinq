@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using ThrowAway.Extensions;
@@ -289,6 +290,20 @@ public class MetadataFactoryTests
         await Assert.That(valueProperty.EnumProperty.Value.CsValuesOrDbValues[0].value).IsEqualTo(1);
         await Assert.That(valueProperty.EnumProperty.Value.CsValuesOrDbValues[1].name).IsEqualTo("Value2");
         await Assert.That(valueProperty.EnumProperty.Value.CsValuesOrDbValues[1].value).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task TryAttachValueProperty_UnknownCsType_ReturnsInvalidModelFailure()
+    {
+        var (_, _, _, table) = CreateTestHierarchy();
+        var column = new ColumnDefinition("unknown_type", table);
+
+        var result = MetadataFactory.TryAttachValueProperty(column, "MissingClrType", capitaliseNames: true);
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.ToString()!).Contains("Unsupported C# type 'MissingClrType'");
+        await Assert.That(failure.ToString()!).Contains("TestTable.unknown_type");
     }
 
     [Test]

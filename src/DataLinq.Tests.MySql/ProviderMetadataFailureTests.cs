@@ -25,7 +25,6 @@ public class ProviderMetadataFailureTests
                 COLUMN_NAME = "shape"
             });
 
-        await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.ToString()!).Contains($"Unsupported {providerName} column type 'geometry'");
@@ -58,7 +57,6 @@ public class ProviderMetadataFailureTests
         var result = new ExposedMetadataFromSqlFactory(databaseType)
             .TryParseIndexTypeForTest("SPATIAL");
 
-        await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.ToString()!).Contains($"Unsupported {providerName} index type 'SPATIAL'");
@@ -73,11 +71,30 @@ public class ProviderMetadataFailureTests
         var result = new ExposedMetadataFromSqlFactory(databaseType)
             .TryParseForeignKeyReferenceForTest(constraintName: null);
 
-        await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.ToString()!).Contains($"Malformed {providerName} foreign-key metadata row");
         await Assert.That(failure.ToString()!).Contains("constraint name");
+    }
+
+    [Test]
+    [Arguments(DatabaseType.MySQL)]
+    [Arguments(DatabaseType.MariaDB)]
+    public async Task ParseColumn_UnknownCsType_ReturnsInvalidModelFailure(DatabaseType databaseType)
+    {
+        var table = CreateTable();
+        var result = new ExposedMetadataFromSqlFactory(databaseType, csTypeOverride: "MissingClrType")
+            .TryImportColumnForTest(table, new TestColumns
+            {
+                DATA_TYPE = "int",
+                COLUMN_TYPE = "int",
+                COLUMN_NAME = "shape"
+            });
+
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.ToString()!).Contains("Unsupported C# type 'MissingClrType'");
+        await Assert.That(failure.ToString()!).Contains("items.shape");
     }
 
     private static TableDefinition CreateTable()
@@ -91,11 +108,14 @@ public class ProviderMetadataFailureTests
         return table;
     }
 
-    private sealed class ExposedMetadataFromSqlFactory(MetadataFromDatabaseFactoryOptions options, DatabaseType databaseType)
+    private sealed class ExposedMetadataFromSqlFactory(
+        MetadataFromDatabaseFactoryOptions options,
+        DatabaseType databaseType,
+        string? csTypeOverride = null)
         : MetadataFromSqlFactory(options, databaseType)
     {
-        public ExposedMetadataFromSqlFactory(DatabaseType databaseType)
-            : this(new MetadataFromDatabaseFactoryOptions(), databaseType)
+        public ExposedMetadataFromSqlFactory(DatabaseType databaseType, string? csTypeOverride = null)
+            : this(new MetadataFromDatabaseFactoryOptions(), databaseType, csTypeOverride)
         {
         }
 
@@ -132,6 +152,14 @@ public class ProviderMetadataFailureTests
                 return failure;
 
             return true;
+        }
+
+        protected override Option<string, IDLOptionFailure> ParseCsType(DatabaseColumnType dbType, string tableName, string columnName)
+        {
+            if (csTypeOverride != null)
+                return csTypeOverride;
+
+            return base.ParseCsType(dbType, tableName, columnName);
         }
 
         public override Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(

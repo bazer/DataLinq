@@ -7,6 +7,7 @@ using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
 using ThrowAway;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Core.Factories;
 
@@ -760,6 +761,14 @@ public static class MetadataFactory
 
     public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {
+        if (!TryAttachValueProperty(column, csTypeName, capitaliseNames).TryUnwrap(out var property, out var failure))
+            throw new InvalidOperationException(failure.ToString());
+
+        return property;
+    }
+
+    public static Option<ValueProperty, IDLOptionFailure> TryAttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
+    {
         var name = column.DbName.ToCSharpIdentifier(capitaliseNames);
 
         var type = MetadataTypeConverter.GetType(csTypeName);
@@ -771,7 +780,10 @@ public static class MetadataFactory
             if (csTypeName == "enum")
                 csType = new CsTypeDeclaration(csTypeName, "", ModelCsType.Enum);
             else
-                throw new Exception($"Type {csTypeName} not found.");
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Unsupported C# type '{csTypeName}' for column '{column.Table.DbName}.{column.DbName}'.",
+                    column);
         }
         else
         {

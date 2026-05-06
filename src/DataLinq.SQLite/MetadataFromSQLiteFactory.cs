@@ -288,7 +288,9 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         if (!ParseCsType(dbType, table.DbName, dbName).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
-        var valueProperty = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
+        if (!MetadataFactory.TryAttachValueProperty(column, csType, options.CapitaliseNames).TryUnwrap(out var valueProperty, out var valuePropertyFailure))
+            return valuePropertyFailure;
+
         var defaultValue = ParseDefaultValue(table, column, reader, valueProperty);
         if (defaultValue != null)
             valueProperty.AddAttribute(defaultValue);

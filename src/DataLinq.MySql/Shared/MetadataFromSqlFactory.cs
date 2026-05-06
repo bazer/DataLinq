@@ -105,7 +105,8 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         if (!ParseCsType(dbType, table.DbName, dbColumns.COLUMN_NAME).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
-        var valueProp = MetadataFactory.AttachValueProperty(column, csType, options.CapitaliseNames);
+        if (!MetadataFactory.TryAttachValueProperty(column, csType, options.CapitaliseNames).TryUnwrap(out var valueProp, out var valuePropertyFailure))
+            return valuePropertyFailure;
 
         if (csType == "enum")
         {
