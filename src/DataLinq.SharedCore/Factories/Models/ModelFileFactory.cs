@@ -112,7 +112,7 @@ public class ModelFileFactory
         foreach (var cleanup in database.CacheCleanup)
             yield return $"{namespaceTab}[CacheCleanup(CacheCleanupType.{cleanup.cleanupType}, {cleanup.amount})]";
 
-        yield return $"{namespaceTab}[Database(\"{database.Name}\")]";
+        yield return $"{namespaceTab}[Database({FormatStringLiteral(database.Name)})]";
         yield return $"{namespaceTab}public partial class {dbName}(DataSourceAccess dataSource) : IDatabaseModel";
         //yield return $"{namespaceTab}public interface {dbName} : IDatabaseModel";
         yield return namespaceTab + "{";
@@ -177,12 +177,12 @@ public class ModelFileFactory
 
         if (table is ViewDefinition view)
         {
-            yield return $"{namespaceTab}[Definition(\"{view.Definition}\")]";
-            yield return $"{namespaceTab}[View(\"{table.DbName}\")]";
+            yield return $"{namespaceTab}[Definition({FormatStringLiteral(view.Definition ?? string.Empty)})]";
+            yield return $"{namespaceTab}[View({FormatStringLiteral(table.DbName)})]";
         }
         else
         {
-            yield return $"{namespaceTab}[Table(\"{table.DbName}\")]";
+            yield return $"{namespaceTab}[Table({FormatStringLiteral(table.DbName)})]";
         }
 
         foreach (var index in table.ColumnIndices
@@ -192,8 +192,8 @@ public class ModelFileFactory
                         x.Columns.Count > 1)
             .OrderBy(x => x.Name, StringComparer.Ordinal))
         {
-            var columns = index.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ");
-            yield return $"{namespaceTab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}, {columns})]";
+            var columns = index.Columns.Select(x => FormatStringLiteral(x.DbName)).ToJoinedString(", ");
+            yield return $"{namespaceTab}[Index({FormatStringLiteral(index.Name)}, IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type}, {columns})]";
         }
 
         if (model.ModelInstanceInterface != null)
@@ -229,7 +229,7 @@ public class ModelFileFactory
 
             foreach (var index in c.ColumnIndices.Where(x => x.Characteristic != IndexCharacteristic.PrimaryKey && x.Characteristic != IndexCharacteristic.ForeignKey && x.Characteristic != IndexCharacteristic.VirtualDataLinq && x.Columns.Count == 1))
             {
-                yield return $"{namespaceTab}{tab}[Index(\"{index.Name}\", IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type})]";
+                yield return $"{namespaceTab}{tab}[Index({FormatStringLiteral(index.Name)}, IndexCharacteristic.{index.Characteristic}, IndexType.{index.Type})]";
             }
 
             foreach (var index in c.ColumnIndices)
@@ -268,17 +268,17 @@ public class ModelFileFactory
             foreach (var dbType in c.DbTypes.OrderBy(x => x.DatabaseType))
             {
                 if (dbType.Signed.HasValue && dbType.Decimals.HasValue && dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals}, {(dbType.Signed.Value ? "true" : "false")})]";
                 else if (dbType.Signed.HasValue && dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {(dbType.Signed.Value ? "true" : "false")})]";
                 else if (dbType.Signed.HasValue && !dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {(dbType.Signed.Value ? "true" : "false")})]";
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {(dbType.Signed.Value ? "true" : "false")})]";
                 else if (dbType.Length.HasValue && dbType.Decimals.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length}, {dbType.Decimals})]";
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length}, {dbType.Decimals})]";
                 else if (dbType.Length.HasValue)
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\", {dbType.Length})]";
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {dbType.Length})]";
                 else
-                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, \"{dbType.Name}\")]";
+                    yield return $"{namespaceTab}{tab}[Type(DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)})]";
             }
 
             if (valueProperty.HasDefaultValue())
@@ -295,9 +295,9 @@ public class ModelFileFactory
             }
 
             if (valueProperty.EnumProperty != null)
-                yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => $"\"{x.name}\""))})]";
+                yield return $"{namespaceTab}{tab}[Enum({string.Join(", ", valueProperty.EnumProperty.Value.CsValuesOrDbValues.Select(x => FormatStringLiteral(x.name)))})]";
 
-            yield return $"{namespaceTab}{tab}[Column(\"{c.DbName}\")]";
+            yield return $"{namespaceTab}{tab}[Column({FormatStringLiteral(c.DbName)})]";
             yield return $"{namespaceTab}{tab}public abstract {c.ValueProperty.CsType.Name}{GetPropertyNullable(c)} {c.ValueProperty.PropertyName} {{ get; }}";
             yield return $"";
         }
@@ -306,15 +306,15 @@ public class ModelFileFactory
         {
             var otherPart = relationProperty.RelationPart.GetOtherSide();
 
-            List<string> relationParameters = [$"\"{otherPart.ColumnIndex.Table.DbName}\""];
+            List<string> relationParameters = [FormatStringLiteral(otherPart.ColumnIndex.Table.DbName)];
 
             if (otherPart.ColumnIndex.Columns.Count == 1)
-                relationParameters.Add($"\"{otherPart.ColumnIndex.Columns[0].DbName}\"");
+                relationParameters.Add(FormatStringLiteral(otherPart.ColumnIndex.Columns[0].DbName));
             else
-                relationParameters.Add($"new string[] {{ {otherPart.ColumnIndex.Columns.Select(x => $"\"{x.DbName}\"").ToJoinedString(", ")} }}");
+                relationParameters.Add($"new string[] {{ {otherPart.ColumnIndex.Columns.Select(x => FormatStringLiteral(x.DbName)).ToJoinedString(", ")} }}");
 
             if (relationProperty.RelationName != null)
-                relationParameters.Add($"\"{relationProperty.RelationName}\"");
+                relationParameters.Add(FormatStringLiteral(relationProperty.RelationName));
 
             yield return $"{namespaceTab}{tab}[Relation({relationParameters.ToJoinedString(", ")})]";
 
@@ -351,6 +351,9 @@ public class ModelFileFactory
             ? $"[Check({name}, {expression})]"
             : $"[Check(DatabaseType.{check.DatabaseType}, {name}, {expression})]";
     }
+
+    private static string FormatStringLiteral(string value) =>
+        SymbolDisplay.FormatLiteral(value, quote: true);
 
     private static string? GetDocumentationComment(IEnumerable<Attribute> attributes)
     {

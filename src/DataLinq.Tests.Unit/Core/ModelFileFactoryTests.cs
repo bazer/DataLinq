@@ -85,6 +85,52 @@ public class ModelFileFactoryTests
         await Assert.That(syntaxErrors).IsEmpty();
     }
 
+    [Test]
+    public async Task CreateModelFiles_MetadataStringArguments_EscapeLiterals()
+    {
+        var database = CreateDatabaseWithEscapedMetadataStrings();
+        var generatedFiles = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .ToList();
+
+        var databaseFile = generatedFiles.Single(file => file.path == "EscapedDb.cs");
+        await Assert.That(databaseFile.contents).Contains("[Database(\"Escaped\\\"Db\")]");
+
+        var modelFile = generatedFiles.Single(file => file.path == "EscapedModel.cs");
+
+        await Assert.That(modelFile.contents).Contains("[Table(\"order\\\"items\")]");
+        await Assert.That(modelFile.contents).Contains("[Index(\"idx\\\"ship\", IndexCharacteristic.Unique, IndexType.BTREE, \"ship\\\"to\", \"2fa\\\\code\")]");
+        await Assert.That(modelFile.contents).Contains("[Type(DatabaseType.MySQL, \"var\\\"char\", 255)]");
+        await Assert.That(modelFile.contents).Contains("[Column(\"ship\\\"to\")]");
+        await Assert.That(modelFile.contents).Contains("[Column(\"2fa\\\\code\")]");
+
+        var databaseSyntaxTree = CSharpSyntaxTree.ParseText(databaseFile.contents);
+        var databaseSyntaxErrors = databaseSyntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+        await Assert.That(databaseSyntaxErrors).IsEmpty();
+
+        var modelSyntaxTree = CSharpSyntaxTree.ParseText(modelFile.contents);
+        var modelSyntaxErrors = modelSyntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+        await Assert.That(modelSyntaxErrors).IsEmpty();
+    }
+
+    [Test]
+    public async Task CreateModelFiles_ViewStringArguments_EscapeLiterals()
+    {
+        var database = CreateDatabaseWithEscapedViewStrings();
+
+        var generatedFile = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "EscapedViewModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains("[Definition(\"select \\\"active\\\" as status\")]");
+        await Assert.That(generatedFile.contents).Contains("[View(\"active\\\"items\")]");
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(generatedFile.contents);
+        var syntaxErrors = syntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+
+        await Assert.That(syntaxErrors).IsEmpty();
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(CsTypeDeclaration propertyType, object defaultValue)
     {
         var database = new DatabaseDefinition("QuoteDb", new CsTypeDeclaration("QuoteDb", "TestNamespace", ModelCsType.Class));
@@ -163,6 +209,56 @@ public class ModelFileFactoryTests
 
         table.SetColumns([nameColumn]);
         model.AddProperty(nameProperty);
+        database.SetTableModels([tableModel]);
+
+        return database;
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithEscapedMetadataStrings()
+    {
+        var database = new DatabaseDefinition("Escaped\"Db", new CsTypeDeclaration("EscapedDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("EscapedModel", "TestNamespace", ModelCsType.Class));
+
+        var table = new TableDefinition("order\"items");
+        var tableModel = new TableModel("EscapedModels", database, model, table);
+
+        var shipProperty = new ValueProperty("ShipTo", new CsTypeDeclaration(typeof(string)), model, []);
+        var codeProperty = new ValueProperty("TwoFactorCode", new CsTypeDeclaration(typeof(string)), model, []);
+
+        var shipColumn = new ColumnDefinition("ship\"to", table);
+        shipColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "var\"char", 255));
+        shipColumn.SetValueProperty(shipProperty);
+
+        var codeColumn = new ColumnDefinition("2fa\\code", table);
+        codeColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "varchar", 32));
+        codeColumn.SetValueProperty(codeProperty);
+
+        table.SetColumns([shipColumn, codeColumn]);
+        table.ColumnIndices.Add(new ColumnIndex("idx\"ship", IndexCharacteristic.Unique, IndexType.BTREE, [shipColumn, codeColumn]));
+
+        model.AddProperty(shipProperty);
+        model.AddProperty(codeProperty);
+        database.SetTableModels([tableModel]);
+
+        return database;
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithEscapedViewStrings()
+    {
+        var database = new DatabaseDefinition("EscapedViewDb", new CsTypeDeclaration("EscapedViewDb", "TestNamespace", ModelCsType.Class));
+        var model = new ModelDefinition(new CsTypeDeclaration("EscapedViewModel", "TestNamespace", ModelCsType.Class));
+
+        var view = new ViewDefinition("active\"items");
+        view.SetDefinition("select \"active\" as status");
+        var tableModel = new TableModel("EscapedViewModels", database, model, view);
+
+        var statusProperty = new ValueProperty("Status", new CsTypeDeclaration(typeof(string)), model, []);
+        var statusColumn = new ColumnDefinition("status", view);
+        statusColumn.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "varchar", 16));
+        statusColumn.SetValueProperty(statusProperty);
+
+        view.SetColumns([statusColumn]);
+        model.AddProperty(statusProperty);
         database.SetTableModels([tableModel]);
 
         return database;
