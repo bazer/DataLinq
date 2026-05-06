@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using DataLinq.ErrorHandling;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -8,22 +9,24 @@ namespace DataLinq.Metadata;
 
 public readonly struct GeneratedDatabaseModelDeclaration
 {
+    private readonly GeneratedTableModelDeclaration[]? tableModels;
+
     public GeneratedDatabaseModelDeclaration(params GeneratedTableModelDeclaration[] tableModels)
     {
-        TableModels = tableModels ?? throw new ArgumentNullException(nameof(tableModels));
+        this.tableModels = tableModels?.ToArray() ?? throw new ArgumentNullException(nameof(tableModels));
     }
 
-    public GeneratedTableModelDeclaration[] TableModels { get; }
+    public GeneratedTableModelDeclaration[] TableModels => tableModels?.ToArray() ?? [];
 
     public Option<bool, IDLOptionFailure> TryValidate(Type databaseType)
     {
         if (databaseType is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Database type cannot be null.");
 
-        if (TableModels is null)
+        if (tableModels is null)
             return MissingMember(GetDiagnosticDescription(databaseType), nameof(TableModels));
 
-        foreach (var tableModel in TableModels)
+        foreach (var tableModel in tableModels)
         {
             if (!tableModel.TryValidate(databaseType).TryUnwrap(out _, out var failure))
                 return failure;

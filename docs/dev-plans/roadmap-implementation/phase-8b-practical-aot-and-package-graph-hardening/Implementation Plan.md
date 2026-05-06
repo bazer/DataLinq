@@ -184,7 +184,7 @@ Exit criteria:
 
 ## Workstream C: Immutable Metadata Builder And Factory Foundation
 
-**Status:** In progress. The primary metadata producers now feed typed drafts into the factory, and factory-built runtime graphs are frozen against setter-style mutation plus the main structural collection mutation paths. Public array surfaces now return defensive copies, and cache-policy collection surfaces are freeze-aware after finalization.
+**Status:** In progress. The primary metadata producers now feed typed drafts into the factory, and factory-built runtime graphs are frozen against setter-style mutation plus the main structural collection mutation paths. Public array surfaces, including generated declaration table-model arrays, now return defensive copies, and cache-policy collection surfaces are freeze-aware after finalization.
 
 Goals:
 
@@ -202,7 +202,7 @@ Tasks:
 6. [x] Add provider metadata equivalence tests for SQLite and the supported MySQL/MariaDB subset.
 7. [x] Move runtime cache defaults out of metadata mutation. Provider initialization should compute effective cache policy rather than appending defaults into `DatabaseDefinition`.
 8. [x] Replace in-place metadata transform behavior with a builder/snapshot merge path.
-9. [in progress] After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections. Structural list/dictionary mutation is now blocked after freeze, public arrays no longer expose live storage, and cache-policy lists now reject post-finalization mutation; mutator obsoletion and replacing the internal mutable lowering graph remain.
+9. [in progress] After parity is proven, remove or obsolete public mutators and expose immutable or read-only collections. Structural list/dictionary mutation is now blocked after freeze, public arrays and generated declaration arrays no longer expose live storage, and cache-policy lists now reject post-finalization mutation; mutator obsoletion and replacing the internal mutable lowering graph remain.
 
 Foundation slice notes:
 
@@ -234,6 +234,7 @@ Foundation slice notes:
 - `MetadataDefinitionFactory` now freezes successful metadata snapshots after validation, relation finalization, and column ordinal assignment. Database, table-model, table/view, model, property, column, index, relation, and provider type setter-style mutators reject post-finalization changes; public collection sealing remains the next compatibility cleanup.
 - Table index collections, model value/relation property dictionaries, and index column/relation-part collections now use freeze-aware runtime collection types, closing the main direct structural collection mutation bypasses after factory finalization. Enum metadata now exposes read-only value lists.
 - Array-shaped metadata properties now preserve their existing public API shape while returning defensive copies instead of live backing arrays. This closes element-assignment bypasses for database attributes/table models, table columns/primary keys, model interfaces/usings/attributes, property attributes, and column database types without forcing broad `Length`/indexer call-site churn.
+- `GeneratedDatabaseModelDeclaration.TableModels` now follows the same defensive-copy pattern, so generated metadata declarations cannot be changed by mutating the constructor input array or a returned table-model array.
 - Database and table cache-policy metadata lists now use the same freeze-aware runtime collection type, so finalized metadata no longer allows cache limit, cache cleanup, or index-cache policy edits through list mutation.
 - `DatabaseCachePolicy` now snapshots table-specific cache limits and index-cache policies at cache construction. `RemoveRowsBySettings()` and table index-cache setup read the policy snapshot rather than live table metadata, and the compliance cache-setting test uses a scoped internal runtime override instead of mutating shared provider metadata.
 - Generated runtime metadata bootstrap failures now return `InvalidModel` option failures for missing hooks, wrong hook return types, default declarations, and malformed table declarations instead of surfacing as arbitrary catch-all exceptions.
@@ -263,7 +264,7 @@ Foundation slice notes:
 - Relational attribute metadata is now preflighted before draft snapshot copying and during finalization, so malformed `Index`, `ForeignKey`, and `Relation` attribute shapes such as unsupported enum values or empty index/relation targets return `InvalidModel` before index and relation parsing can fail late.
 - C# symbol metadata used by generated code is now preflighted before draft snapshot copying and rechecked after relation generation, so unsupported or role-incompatible C# type-kind values plus invalid database/model type names, table property names, model using namespaces, declared model interface references, generated model type references, value/relation property C# type references, value property names, and generated relation property names return `InvalidModel` before generated source can become malformed. Declared model interface entries are now also required to use interface-shaped C# metadata instead of any valid type syntax, and the source parser tags base-list model interfaces accordingly.
 - Model-file generation now formats metadata string arguments through Roslyn string literals, so database names, table/view names, definitions, index and column names, database type names, enum names, and relation attribute values containing quotes or escapes produce valid generated attributes.
-- This slice deliberately does not claim fully immutable runtime definitions yet. The current graph is frozen against ordinary mutators and the main structural collection mutators after factory finalization, array-shaped properties no longer expose live storage, and cache-policy lists are sealed after freeze; typed drafts still lower through the mutable graph internally and the old public mutator surface still needs compatibility cleanup.
+- This slice deliberately does not claim fully immutable runtime definitions yet. The current graph is frozen against ordinary mutators and the main structural collection mutators after factory finalization, array-shaped properties and generated declaration arrays no longer expose live storage, and cache-policy lists are sealed after freeze; typed drafts still lower through the mutable graph internally and the old public mutator surface still needs compatibility cleanup.
 
 Design stance:
 

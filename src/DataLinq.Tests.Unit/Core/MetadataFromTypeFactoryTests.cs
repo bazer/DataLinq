@@ -217,6 +217,28 @@ public class MetadataFromTypeFactoryTests
             "malformed member 'ImmutableFactory'",
             "System.Func<DataLinq.Instances.IRowData");
 
+    [Test]
+    public async Task GeneratedDatabaseModelDeclaration_TableModels_ReturnsDefensiveCopy()
+    {
+        var tableModel = new GeneratedTableModelDeclaration(
+            "Rows",
+            typeof(GeneratedDeclarationValidationRow),
+            typeof(ImmutableGeneratedDeclarationValidationRow),
+            null,
+            new Func<IRowData, IDataSourceAccess, IImmutableInstance>((_, _) => null!),
+            TableType.View);
+        var source = new[] { tableModel };
+
+        var declaration = new GeneratedDatabaseModelDeclaration(source);
+        source[0] = default;
+
+        var returned = declaration.TableModels;
+        returned[0] = default;
+
+        await Assert.That(declaration.TableModels.Single().CsPropertyName).IsEqualTo("Rows");
+        await Assert.That(declaration.TryValidate(typeof(BootstrapHookDb)).HasValue).IsTrue();
+    }
+
     private static async Task AssertValueProperty(ModelDefinition model, string propertyName, string expectedTypeName, bool? expectedNullable = null)
     {
         await Assert.That(model.ValueProperties.ContainsKey(propertyName)).IsTrue();
