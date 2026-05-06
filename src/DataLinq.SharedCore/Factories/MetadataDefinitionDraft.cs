@@ -40,6 +40,10 @@ public sealed class MetadataDefinitionDraft
         if (!objectNameValidation.HasValue)
             return objectNameValidation.Failure;
 
+        var relationalAttributeValidation = MetadataFactory.ValidateRelationalAttributeMetadata(metadata);
+        if (!relationalAttributeValidation.HasValue)
+            return relationalAttributeValidation.Failure;
+
         var cacheMetadataValidation = MetadataFactory.ValidateCacheMetadata(metadata);
         if (!cacheMetadataValidation.HasValue)
             return cacheMetadataValidation.Failure;

@@ -683,6 +683,138 @@ public static class MetadataFactory
         return true;
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateRelationalAttributeMetadata(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            var model = tableModel.Model;
+
+            foreach (var index in model.Attributes.OfType<IndexAttribute>())
+            {
+                var failure = ValidateIndexAttribute(
+                    index,
+                    $"Class-level index attribute on model '{model.CsType.Name}'",
+                    requiresColumns: true,
+                    message => CreateModelAttributeFailure(model, index, message));
+                if (failure is not null)
+                    return failure;
+            }
+
+            foreach (var property in model.ValueProperties.Values)
+            {
+                foreach (var index in property.Attributes.OfType<IndexAttribute>())
+                {
+                    var failure = ValidateIndexAttribute(
+                        index,
+                        $"Index attribute on value property '{GetValuePropertyDisplayName(property)}'",
+                        requiresColumns: false,
+                        message => CreateValuePropertyAttributeFailure(property, index, message));
+                    if (failure is not null)
+                        return failure;
+                }
+
+                foreach (var foreignKey in property.Attributes.OfType<ForeignKeyAttribute>())
+                {
+                    var failure = ValidateForeignKeyAttribute(property, foreignKey);
+                    if (failure is not null)
+                        return failure;
+                }
+            }
+
+            foreach (var property in model.RelationProperties.Values)
+            {
+                foreach (var relation in property.Attributes.OfType<RelationAttribute>())
+                {
+                    var failure = ValidateRelationAttribute(property, relation);
+                    if (failure is not null)
+                        return failure;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure? ValidateIndexAttribute(
+        IndexAttribute attribute,
+        string scope,
+        bool requiresColumns,
+        Func<string, IDLOptionFailure> createFailure)
+    {
+        if (string.IsNullOrWhiteSpace(attribute.Name))
+            return createFailure($"{scope} has an empty index name.");
+
+        if (!Enum.IsDefined(typeof(IndexCharacteristic), attribute.Characteristic))
+            return createFailure($"{scope} uses unsupported index characteristic '{attribute.Characteristic}'.");
+
+        if (!Enum.IsDefined(typeof(IndexType), attribute.Type))
+            return createFailure($"{scope} uses unsupported index type '{attribute.Type}'.");
+
+        var columns = attribute.Columns;
+        if (columns is null)
+            return createFailure($"{scope} has a null index column collection.");
+
+        if (requiresColumns && columns.Length == 0)
+            return createFailure($"{scope} must specify its columns. IndexAttribute.Columns expects database column names.");
+
+        foreach (var column in columns)
+        {
+            if (string.IsNullOrWhiteSpace(column))
+                return createFailure($"{scope} contains an empty index column name. IndexAttribute.Columns expects database column names.");
+        }
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateForeignKeyAttribute(
+        ValueProperty property,
+        ForeignKeyAttribute attribute)
+    {
+        var scope = $"Foreign key attribute on value property '{GetValuePropertyDisplayName(property)}'";
+
+        if (string.IsNullOrWhiteSpace(attribute.Table))
+            return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} has an empty referenced table name.");
+
+        if (string.IsNullOrWhiteSpace(attribute.Column))
+            return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} has an empty referenced column name.");
+
+        if (string.IsNullOrWhiteSpace(attribute.Name))
+            return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} has an empty constraint name.");
+
+        if (!Enum.IsDefined(typeof(ReferentialAction), attribute.OnUpdate))
+            return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} uses unsupported on-update action '{attribute.OnUpdate}'.");
+
+        if (!Enum.IsDefined(typeof(ReferentialAction), attribute.OnDelete))
+            return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} uses unsupported on-delete action '{attribute.OnDelete}'.");
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateRelationAttribute(
+        RelationProperty property,
+        RelationAttribute attribute)
+    {
+        var scope = $"Relation attribute on relation property '{GetRelationPropertyDisplayName(property)}'";
+
+        if (string.IsNullOrWhiteSpace(attribute.Table))
+            return CreateRelationPropertyFailure(property, attribute, $"{scope} has an empty referenced table name.");
+
+        var columns = attribute.Columns;
+        if (columns is null || columns.Length == 0)
+            return CreateRelationPropertyFailure(property, attribute, $"{scope} must specify at least one referenced column.");
+
+        foreach (var column in columns)
+        {
+            if (string.IsNullOrWhiteSpace(column))
+                return CreateRelationPropertyFailure(property, attribute, $"{scope} contains an empty referenced column name.");
+        }
+
+        if (attribute.Name != null && string.IsNullOrWhiteSpace(attribute.Name))
+            return CreateRelationPropertyFailure(property, attribute, $"{scope} has an empty constraint name.");
+
+        return null;
+    }
+
     private static IDLOptionFailure CreateModelAttributeFailure(ModelDefinition model, Attribute attribute, string message)
     {
         var attributeLocation = model.GetAttributeSourceLocation(attribute);

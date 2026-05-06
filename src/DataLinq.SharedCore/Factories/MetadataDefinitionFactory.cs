@@ -67,6 +67,9 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateDatabaseObjectNames(draft).TryUnwrap(out _, out var objectNameFailure))
             return objectNameFailure;
 
+        if (!MetadataFactory.ValidateRelationalAttributeMetadata(draft).TryUnwrap(out _, out var relationalAttributeFailure))
+            return relationalAttributeFailure;
+
         if (!MetadataFactory.ValidateCacheMetadata(draft).TryUnwrap(out _, out var cacheMetadataFailure))
             return cacheMetadataFailure;
 

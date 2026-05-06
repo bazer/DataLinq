@@ -236,6 +236,86 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ClassIndexWithUnsupportedType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var model = database.TableModels.Single().Model;
+        model.AddAttribute(new IndexAttribute("IX_items_id", IndexCharacteristic.Simple, (IndexType)999, "id"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Class-level index attribute on model 'Item'");
+        await Assert.That(failure.Message).Contains("unsupported index type '999'");
+    }
+
+    [Test]
+    public async Task Build_PropertyIndexWithEmptyColumnName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.AddAttribute(new IndexAttribute("IX_items_id", IndexCharacteristic.Simple, ""));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index attribute on value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("empty index column name");
+    }
+
+    [Test]
+    public async Task Build_ForeignKeyWithUnsupportedReferentialAction_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var property = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model.ValueProperties["CustomerId"];
+        property.AddAttribute(new ForeignKeyAttribute(
+            "users",
+            "user_id",
+            "FK_Order_User_Invalid",
+            (ReferentialAction)999,
+            ReferentialAction.Cascade));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Foreign key attribute on value property 'Order.CustomerId'");
+        await Assert.That(failure.Message).Contains("unsupported on-update action '999'");
+    }
+
+    [Test]
+    public async Task Build_RelationAttributeWithEmptyReferencedColumn_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var users = database.TableModels.Single(tm => tm.Table.DbName == "users");
+        var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
+        orders.Model.AddProperty(new RelationProperty(
+            "BrokenCustomer",
+            users.Model.CsType,
+            orders.Model,
+            [new RelationAttribute("users", "", "FK_Order_User")]));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation attribute on relation property 'Order.BrokenCustomer'");
+        await Assert.That(failure.Message).Contains("empty referenced column name");
+    }
+
+    [Test]
     public async Task Build_DatabaseCacheLimitWithUnsupportedType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -1162,19 +1242,18 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
-    public async Task Build_ForeignKeyWithEmptyConstraintName_ReturnsInvalidModelFailure()
+    public async Task Build_ForeignKeyWithEmptyConstraintName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft(foreignKeyName: "");
 
-        var result = new MetadataDefinitionFactory().Build(database);
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
-        var failureMessage = failure.ToString()!;
-        await Assert.That(failureMessage).Contains("could not create its index");
-        await Assert.That(failureMessage).Contains("Index name cannot be empty");
-        await Assert.That(failureMessage).Contains("orders.customer_id");
+        await Assert.That(failure.Message).Contains("Foreign key attribute on value property 'Order.CustomerId'");
+        await Assert.That(failure.Message).Contains("empty constraint name");
     }
 
     [Test]
