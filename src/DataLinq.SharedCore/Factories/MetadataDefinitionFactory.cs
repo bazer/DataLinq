@@ -67,8 +67,14 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingColumnIndices(draft).TryUnwrap(out _, out var indexOwnershipFailure))
             return indexOwnershipFailure;
 
+        if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var relationPartFailure))
+            return relationPartFailure;
+
         if (!MetadataFactory.ParseRelations(draft).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
+
+        if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var finalizedRelationPartFailure))
+            return finalizedRelationPartFailure;
 
         MetadataFactory.IndexColumns(draft);
 

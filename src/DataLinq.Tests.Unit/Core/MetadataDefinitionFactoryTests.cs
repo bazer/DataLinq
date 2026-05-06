@@ -95,6 +95,73 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ExistingRelationMissingCandidateKey_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var users = database.TableModels.Single(tm => tm.Table.DbName == "users");
+        var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
+        var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
+        var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
+        orders.Table.ColumnIndices.Add(foreignKeyIndex);
+        var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany);
+        var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
+        relation.ForeignKey = foreignKeyPart;
+        foreignKeyIndex.RelationParts.Add(foreignKeyPart);
+        var relationProperty = new RelationProperty(
+            "Customer",
+            users.Model.CsType,
+            orders.Model,
+            [new RelationAttribute("users", "user_id", "FK_Broken")]);
+        relationProperty.SetRelationPart(foreignKeyPart);
+        orders.Model.AddProperty(relationProperty);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_Broken'");
+        await Assert.That(failure.Message).Contains("missing a candidate-key part");
+    }
+
+    [Test]
+    public async Task Build_ExistingRelationPartMissingIndexBackReference_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var users = database.TableModels.Single(tm => tm.Table.DbName == "users");
+        var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
+        var userId = users.Table.Columns.Single(column => column.DbName == "user_id");
+        var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
+        var candidateKeyIndex = new ColumnIndex("users_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [userId]);
+        var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
+        users.Table.ColumnIndices.Add(candidateKeyIndex);
+        orders.Table.ColumnIndices.Add(foreignKeyIndex);
+        var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany);
+        var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
+        var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "Orders");
+        relation.ForeignKey = foreignKeyPart;
+        relation.CandidateKey = candidateKeyPart;
+        candidateKeyIndex.RelationParts.Add(candidateKeyPart);
+        var relationProperty = new RelationProperty(
+            "Customer",
+            users.Model.CsType,
+            orders.Model,
+            [new RelationAttribute("users", "user_id", "FK_Broken")]);
+        relationProperty.SetRelationPart(foreignKeyPart);
+        orders.Model.AddProperty(relationProperty);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_Broken'");
+        await Assert.That(failure.Message).Contains("foreign-key part is not registered");
+    }
+
+    [Test]
     public async Task Build_DuplicateColumnDraft_ReturnsInvalidModelFailure()
     {
         var database = CreateSingleTableDraft(

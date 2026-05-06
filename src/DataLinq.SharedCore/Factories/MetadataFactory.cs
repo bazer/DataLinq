@@ -334,6 +334,117 @@ public static class MetadataFactory
     private static IDLOptionFailure CreateColumnIndexFailure(TableDefinition table, string message) =>
         DLOptionFailure.Fail(DLFailureType.InvalidModel, message, table);
 
+    public static Option<bool, IDLOptionFailure> ValidateExistingRelationParts(DatabaseDefinition database)
+    {
+        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        {
+            foreach (var relationProperty in tableModel.Model.RelationProperties.Values)
+            {
+                if (relationProperty.RelationPart is not { } relationPart)
+                    continue;
+
+                var failure = ValidateExistingRelationPart(
+                    relationPart,
+                    $"relation property '{tableModel.Model.CsType.Name}.{relationProperty.PropertyName}'",
+                    message => CreateRelationPropertyFailure(relationProperty, null, message));
+                if (failure != null)
+                    return failure;
+            }
+
+            foreach (var index in tableModel.Table.ColumnIndices)
+            {
+                if (index is null)
+                    continue;
+
+                foreach (var relationPart in index.RelationParts)
+                {
+                    if (relationPart is null)
+                        return CreateColumnIndexFailure(
+                            tableModel.Table,
+                            $"Index '{index.Name}' on table '{tableModel.Table.DbName}' contains a null relation part.");
+
+                    if (!ReferenceEquals(relationPart.ColumnIndex, index))
+                    {
+                        var relationPartIndexName = relationPart.ColumnIndex?.Name ?? "<unknown>";
+                        return CreateColumnIndexFailure(
+                            tableModel.Table,
+                            $"Index '{index.Name}' on table '{tableModel.Table.DbName}' contains relation part for index '{relationPartIndexName}'. Relation parts must be registered on their own column index.");
+                    }
+
+                    var failure = ValidateExistingRelationPart(
+                        relationPart,
+                        $"index '{index.Name}' on table '{tableModel.Table.DbName}'",
+                        message => CreateColumnIndexFailure(tableModel.Table, message));
+                    if (failure != null)
+                        return failure;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure? ValidateExistingRelationPart(
+        RelationPart relationPart,
+        string ownerDescription,
+        Func<string, IDLOptionFailure> createFailure)
+    {
+        if (relationPart.ColumnIndex is null)
+            return createFailure($"Existing relation part referenced by {ownerDescription} has no column index.");
+
+        if (relationPart.Relation is null)
+            return createFailure($"Existing relation part referenced by {ownerDescription} has no relation definition.");
+
+        var relation = relationPart.Relation;
+        var relationName = string.IsNullOrWhiteSpace(relation.ConstraintName)
+            ? "<unnamed>"
+            : relation.ConstraintName;
+
+        if (relation.ForeignKey is null)
+            return createFailure($"Existing relation '{relationName}' referenced by {ownerDescription} is missing a foreign-key part.");
+
+        if (relation.CandidateKey is null)
+            return createFailure($"Existing relation '{relationName}' referenced by {ownerDescription} is missing a candidate-key part.");
+
+        if (!ReferenceEquals(relation.ForeignKey.Relation, relation))
+            return createFailure($"Existing relation '{relationName}' has a foreign-key part that points at a different relation definition.");
+
+        if (!ReferenceEquals(relation.CandidateKey.Relation, relation))
+            return createFailure($"Existing relation '{relationName}' has a candidate-key part that points at a different relation definition.");
+
+        if (!ReferenceEquals(relationPart, relation.ForeignKey) &&
+            !ReferenceEquals(relationPart, relation.CandidateKey))
+        {
+            return createFailure($"Existing relation part referenced by {ownerDescription} is not one of relation '{relationName}'s registered sides.");
+        }
+
+        if (relation.ForeignKey.Type != RelationPartType.ForeignKey)
+            return createFailure($"Existing relation '{relationName}' has a foreign-key part marked as '{relation.ForeignKey.Type}'.");
+
+        if (relation.CandidateKey.Type != RelationPartType.CandidateKey)
+            return createFailure($"Existing relation '{relationName}' has a candidate-key part marked as '{relation.CandidateKey.Type}'.");
+
+        if (relation.ForeignKey.ColumnIndex is null)
+            return createFailure($"Existing relation '{relationName}' has a foreign-key part without a column index.");
+
+        if (relation.CandidateKey.ColumnIndex is null)
+            return createFailure($"Existing relation '{relationName}' has a candidate-key part without a column index.");
+
+        if (!relation.ForeignKey.ColumnIndex.RelationParts.Contains(relation.ForeignKey))
+            return createFailure($"Existing relation '{relationName}' foreign-key part is not registered on index '{relation.ForeignKey.ColumnIndex.Name}'.");
+
+        if (!relation.CandidateKey.ColumnIndex.RelationParts.Contains(relation.CandidateKey))
+            return createFailure($"Existing relation '{relationName}' candidate-key part is not registered on index '{relation.CandidateKey.ColumnIndex.Name}'.");
+
+        if (relation.ForeignKey.ColumnIndex.Columns.Count != relation.CandidateKey.ColumnIndex.Columns.Count)
+        {
+            return createFailure(
+                $"Existing relation '{relationName}' has mismatched column counts between foreign-key index '{relation.ForeignKey.ColumnIndex.Name}' and candidate-key index '{relation.CandidateKey.ColumnIndex.Name}'.");
+        }
+
+        return null;
+    }
+
     private static SourceLocation? GetColumnNameSourceLocation(ValueProperty property)
     {
         var columnAttribute = property.Attributes
