@@ -668,6 +668,23 @@ public class MetadataFactoryTests
     }
 
     [Test]
+    public async Task ColumnIndex_EmptyColumns_ThrowsDomainValidationMessage()
+    {
+        InvalidOperationException? exception = null;
+        try
+        {
+            _ = new ColumnIndex("idx_empty", IndexCharacteristic.Simple, IndexType.BTREE, []);
+        }
+        catch (InvalidOperationException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).IsEqualTo("An index should have at least one column.");
+    }
+
+    [Test]
     public async Task ParseRelations_OneToManyAndBackReference_LinksBothSides()
     {
         var db = CreateMultiTableDatabaseForRelationTests();

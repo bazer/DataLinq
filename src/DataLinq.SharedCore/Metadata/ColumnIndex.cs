@@ -54,6 +54,9 @@ public class ColumnIndex : IDefinition
         Characteristic = characteristic;
         Type = type;
         this.Columns = columns ?? [];
+        if (!this.Columns.Any())
+            throw new InvalidOperationException("An index should have at least one column.");
+
         this.Table = this.Columns.First().Table;
         Validate();
     }

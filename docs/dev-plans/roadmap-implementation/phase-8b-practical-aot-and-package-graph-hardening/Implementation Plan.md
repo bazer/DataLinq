@@ -231,6 +231,7 @@ Foundation slice notes:
 - MySQL and MariaDB foreign-key metadata import now validates required relation fields before attaching attributes, so malformed relation rows return `InvalidModel` option failures while excluded or unimported related tables continue to be skipped deliberately.
 - SQLite, MySQL, and MariaDB metadata import now attach provider-created value properties through an option-returning factory path, so an unresolved provider C# type mapping returns `InvalidModel` with table/column context instead of throwing from `AttachValueProperty`.
 - SQLite foreign-key metadata import now handles shorthand references to a parent table by resolving the single imported primary-key column, and returns `InvalidModel` when the shorthand is ambiguous instead of failing through a null pragma column read.
+- Column index construction now enforces the empty-column invariant before reading the first column, preserving the intended "An index should have at least one column." diagnostic for factory callers instead of leaking a sequence error.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
 
 Design stance:
