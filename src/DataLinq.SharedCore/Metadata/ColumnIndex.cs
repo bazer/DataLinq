@@ -23,9 +23,14 @@ public class ColumnIndex : IDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            table = value;
+            SetTableCore(value);
         }
+    }
+
+    internal void SetTableCore(TableDefinition table)
+    {
+        ThrowIfFrozen();
+        this.table = table;
     }
 
     public bool IsFrozen { get; private set; }
@@ -42,9 +47,14 @@ public class ColumnIndex : IDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            relationParts = value;
+            SetRelationPartsCore(value);
         }
+    }
+
+    internal void SetRelationPartsCore(MetadataList<RelationPart> relationParts)
+    {
+        ThrowIfFrozen();
+        this.relationParts = relationParts;
     }
 
     /// <summary>
@@ -86,6 +96,11 @@ public class ColumnIndex : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddColumn(ColumnDefinition column)
+    {
+        AddColumnCore(column);
+    }
+
+    internal void AddColumnCore(ColumnDefinition column)
     {
         ThrowIfFrozen();
 

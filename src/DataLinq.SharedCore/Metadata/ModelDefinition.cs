@@ -17,6 +17,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsType(CsTypeDeclaration csType)
     {
+        SetCsTypeCore(csType);
+    }
+
+    internal void SetCsTypeCore(CsTypeDeclaration csType)
+    {
         ThrowIfFrozen();
         CsType = csType;
     }
@@ -25,6 +30,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsFile(CsFileDeclaration csFile)
+    {
+        SetCsFileCore(csFile);
+    }
+
+    internal void SetCsFileCore(CsFileDeclaration csFile)
     {
         ThrowIfFrozen();
         CsFile = csFile;
@@ -45,6 +55,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetImmutableType(CsTypeDeclaration immutableType)
     {
+        SetImmutableTypeCore(immutableType);
+    }
+
+    internal void SetImmutableTypeCore(CsTypeDeclaration immutableType)
+    {
         ThrowIfFrozen();
         ImmutableType = immutableType;
     }
@@ -53,6 +68,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetImmutableFactory(Delegate immutableFactory)
+    {
+        SetImmutableFactoryCore(immutableFactory);
+    }
+
+    internal void SetImmutableFactoryCore(Delegate immutableFactory)
     {
         ThrowIfFrozen();
         ImmutableFactory = immutableFactory;
@@ -63,6 +83,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetMutableType(CsTypeDeclaration mutableType)
     {
+        SetMutableTypeCore(mutableType);
+    }
+
+    internal void SetMutableTypeCore(CsTypeDeclaration mutableType)
+    {
         ThrowIfFrozen();
         MutableType = mutableType;
     }
@@ -71,6 +96,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetModelInstanceInterface(CsTypeDeclaration? interfaceType)
+    {
+        SetModelInstanceInterfaceCore(interfaceType);
+    }
+
+    internal void SetModelInstanceInterfaceCore(CsTypeDeclaration? interfaceType)
     {
         ThrowIfFrozen();
         ModelInstanceInterface = interfaceType;
@@ -81,6 +111,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces)
     {
+        SetInterfacesCore(interfaces);
+    }
+
+    internal void SetInterfacesCore(IEnumerable<CsTypeDeclaration> interfaces)
+    {
         ThrowIfFrozen();
         originalInterfaces = interfaces.ToArray();
     }
@@ -89,6 +124,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetUsings(IEnumerable<ModelUsing> usings)
+    {
+        SetUsingsCore(usings);
+    }
+
+    internal void SetUsingsCore(IEnumerable<ModelUsing> usings)
     {
         ThrowIfFrozen();
         this.usings = usings.ToArray();
@@ -101,12 +141,22 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)
     {
+        SetAttributesCore(attributes);
+    }
+
+    internal void SetAttributesCore(IEnumerable<Attribute> attributes)
+    {
         ThrowIfFrozen();
         this.attributes = attributes.ToArray();
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddAttribute(Attribute attribute)
+    {
+        AddAttributeCore(attribute);
+    }
+
+    internal void AddAttributeCore(Attribute attribute)
     {
         ThrowIfFrozen();
         attributes = [.. attributes, attribute];
@@ -117,6 +167,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetSourceSpan(SourceTextSpan sourceSpan)
     {
+        SetSourceSpanCore(sourceSpan);
+    }
+
+    internal void SetSourceSpanCore(SourceTextSpan sourceSpan)
+    {
         ThrowIfFrozen();
         SourceSpan = sourceSpan;
     }
@@ -125,6 +180,11 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
+    {
+        SetAttributeSourceSpanCore(attribute, sourceSpan);
+    }
+
+    internal void SetAttributeSourceSpanCore(Attribute attribute, SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
         attributeSourceSpans[attribute] = sourceSpan;
@@ -149,14 +209,24 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddProperties(IEnumerable<PropertyDefinition> properties)
     {
+        AddPropertiesCore(properties);
+    }
+
+    internal void AddPropertiesCore(IEnumerable<PropertyDefinition> properties)
+    {
         ThrowIfFrozen();
 
         foreach (var property in properties)
-            AddProperty(property);
+            AddPropertyCore(property);
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddProperty(PropertyDefinition property)
+    {
+        AddPropertyCore(property);
+    }
+
+    internal void AddPropertyCore(PropertyDefinition property)
     {
         ThrowIfFrozen();
 

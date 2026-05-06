@@ -6,8 +6,6 @@ using DataLinq.Metadata;
 using ThrowAway;
 using ThrowAway.Extensions;
 
-#pragma warning disable CS0618 // Phase 8B still lowers typed drafts through the legacy mutable graph internally.
-
 namespace DataLinq.Core.Factories;
 
 public sealed record MetadataDatabaseDraft(string Name, CsTypeDeclaration CsType)
@@ -99,14 +97,14 @@ internal static class MetadataTypedDraftConverter
 
         var database = new DatabaseDefinition(draft.Name, draft.CsType, draft.DbName);
         if (draft.CsFile.HasValue)
-            database.SetCsFile(draft.CsFile.Value);
+            database.SetCsFileCore(draft.CsFile.Value);
 
         if (draft.SourceSpan.HasValue)
-            database.SetSourceSpan(draft.SourceSpan.Value);
+            database.SetSourceSpanCore(draft.SourceSpan.Value);
 
-        database.SetAttributes(draft.Attributes ?? []);
-        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, database.SetAttributeSourceSpan);
-        database.SetCache(draft.UseCache);
+        database.SetAttributesCore(draft.Attributes ?? []);
+        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, database.SetAttributeSourceSpanCore);
+        database.SetCacheCore(draft.UseCache);
         database.CacheLimits.AddRange(draft.CacheLimits ?? []);
         database.CacheCleanup.AddRange(draft.CacheCleanup ?? []);
         database.IndexCache.AddRange(draft.IndexCache ?? []);
@@ -124,7 +122,7 @@ internal static class MetadataTypedDraftConverter
             tableModels.Add(tableModel);
         }
 
-        database.SetTableModels(tableModels);
+        database.SetTableModelsCore(tableModels);
         return database;
     }
 
@@ -162,25 +160,25 @@ internal static class MetadataTypedDraftConverter
     {
         var model = new ModelDefinition(draft.CsType);
         if (draft.CsFile.HasValue)
-            model.SetCsFile(draft.CsFile.Value);
+            model.SetCsFileCore(draft.CsFile.Value);
 
         if (draft.ImmutableType.HasValue)
-            model.SetImmutableType(draft.ImmutableType.Value);
+            model.SetImmutableTypeCore(draft.ImmutableType.Value);
 
         if (draft.ImmutableFactory is not null)
-            model.SetImmutableFactory(draft.ImmutableFactory);
+            model.SetImmutableFactoryCore(draft.ImmutableFactory);
 
         if (draft.MutableType.HasValue)
-            model.SetMutableType(draft.MutableType.Value);
+            model.SetMutableTypeCore(draft.MutableType.Value);
 
-        model.SetModelInstanceInterface(draft.ModelInstanceInterface);
-        model.SetInterfaces(draft.OriginalInterfaces ?? []);
-        model.SetUsings(draft.Usings ?? []);
-        model.SetAttributes(draft.Attributes ?? []);
+        model.SetModelInstanceInterfaceCore(draft.ModelInstanceInterface);
+        model.SetInterfacesCore(draft.OriginalInterfaces ?? []);
+        model.SetUsingsCore(draft.Usings ?? []);
+        model.SetAttributesCore(draft.Attributes ?? []);
         if (draft.SourceSpan.HasValue)
-            model.SetSourceSpan(draft.SourceSpan.Value);
+            model.SetSourceSpanCore(draft.SourceSpan.Value);
 
-        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, model.SetAttributeSourceSpan);
+        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, model.SetAttributeSourceSpanCore);
 
         return model;
     }
@@ -196,7 +194,7 @@ internal static class MetadataTypedDraftConverter
         {
             var view = new ViewDefinition(draft.DbName);
             if (draft.Definition is not null)
-                view.SetDefinition(draft.Definition);
+                view.SetDefinitionCore(draft.Definition);
 
             table = view;
         }
@@ -208,7 +206,7 @@ internal static class MetadataTypedDraftConverter
         }
 
         if (draft.UseCache.HasValue)
-            table.UseCache = draft.UseCache.Value;
+            table.SetUseCacheCore(draft.UseCache.Value);
 
         table.CacheLimits.AddRange(draft.CacheLimits ?? []);
         table.IndexCache.AddRange(draft.IndexCache ?? []);
@@ -225,15 +223,15 @@ internal static class MetadataTypedDraftConverter
         foreach (var propertyDraft in draft.ValueProperties ?? [])
         {
             var property = CreateValueProperty(model, propertyDraft);
-            model.AddProperty(property);
+            model.AddPropertyCore(property);
 
             var column = CreateColumn(table, propertyDraft.Column);
-            column.SetValueProperty(property);
+            column.SetValuePropertyCore(property);
             ApplyColumnFlags(column, propertyDraft.Column);
             columns.Add(column);
         }
 
-        table.SetColumns(columns);
+        table.SetColumnsCore(columns);
 
         foreach (var propertyDraft in draft.RelationProperties ?? [])
         {
@@ -243,15 +241,15 @@ internal static class MetadataTypedDraftConverter
                 model,
                 propertyDraft.Attributes ?? []);
 
-            property.SetCsNullable(propertyDraft.CsNullable);
+            property.SetCsNullableCore(propertyDraft.CsNullable);
             if (propertyDraft.SourceInfo.HasValue)
-                property.SetSourceInfo(propertyDraft.SourceInfo.Value);
+                property.SetSourceInfoCore(propertyDraft.SourceInfo.Value);
 
             if (propertyDraft.RelationName is not null)
-                property.SetRelationName(propertyDraft.RelationName);
+                property.SetRelationNameCore(propertyDraft.RelationName);
 
-            ApplyAttributeSourceSpans(propertyDraft.AttributeSourceSpans, property.SetAttributeSourceSpan);
-            model.AddProperty(property);
+            ApplyAttributeSourceSpans(propertyDraft.AttributeSourceSpans, property.SetAttributeSourceSpanCore);
+            model.AddPropertyCore(property);
         }
     }
 
@@ -263,15 +261,15 @@ internal static class MetadataTypedDraftConverter
             model,
             draft.Attributes ?? []);
 
-        property.SetCsNullable(draft.CsNullable);
-        property.SetCsSize(draft.CsSize);
+        property.SetCsNullableCore(draft.CsNullable);
+        property.SetCsSizeCore(draft.CsSize);
         if (draft.SourceInfo.HasValue)
-            property.SetSourceInfo(draft.SourceInfo.Value);
+            property.SetSourceInfoCore(draft.SourceInfo.Value);
 
         if (draft.EnumProperty.HasValue)
-            property.SetEnumProperty(draft.EnumProperty.Value);
+            property.SetEnumPropertyCore(draft.EnumProperty.Value);
 
-        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, property.SetAttributeSourceSpan);
+        ApplyAttributeSourceSpans(draft.AttributeSourceSpans, property.SetAttributeSourceSpanCore);
         return property;
     }
 
@@ -280,19 +278,19 @@ internal static class MetadataTypedDraftConverter
         var column = new ColumnDefinition(draft.DbName, table);
 
         foreach (var dbType in draft.DbTypes ?? [])
-            column.AddDbType(dbType.Clone());
+            column.AddDbTypeCore(dbType.Clone());
 
         return column;
     }
 
     private static void ApplyColumnFlags(ColumnDefinition column, MetadataColumnDraft draft)
     {
-        column.SetForeignKey(draft.ForeignKey);
-        column.SetAutoIncrement(draft.AutoIncrement);
-        column.SetNullable(draft.Nullable);
+        column.SetForeignKeyCore(draft.ForeignKey);
+        column.SetAutoIncrementCore(draft.AutoIncrement);
+        column.SetNullableCore(draft.Nullable);
 
         if (draft.PrimaryKey)
-            column.SetPrimaryKey();
+            column.SetPrimaryKeyCore();
     }
 
     private static void ApplyAttributeSourceSpans(

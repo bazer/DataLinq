@@ -31,9 +31,14 @@ public class RelationDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            foreignKey = value;
+            SetForeignKeyCore(value);
         }
+    }
+
+    internal void SetForeignKeyCore(RelationPart foreignKey)
+    {
+        ThrowIfFrozen();
+        this.foreignKey = foreignKey;
     }
 
     public RelationPart CandidateKey
@@ -42,9 +47,14 @@ public class RelationDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            candidateKey = value;
+            SetCandidateKeyCore(value);
         }
+    }
+
+    internal void SetCandidateKeyCore(RelationPart candidateKey)
+    {
+        ThrowIfFrozen();
+        this.candidateKey = candidateKey;
     }
 
     public RelationType Type
@@ -53,9 +63,14 @@ public class RelationDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            type = value;
+            SetTypeCore(value);
         }
+    }
+
+    internal void SetTypeCore(RelationType type)
+    {
+        ThrowIfFrozen();
+        this.type = type;
     }
 
     public string ConstraintName
@@ -64,9 +79,14 @@ public class RelationDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            constraintName = value;
+            SetConstraintNameCore(value);
         }
+    }
+
+    internal void SetConstraintNameCore(string constraintName)
+    {
+        ThrowIfFrozen();
+        this.constraintName = constraintName;
     }
 
     public ReferentialAction OnUpdate
@@ -75,9 +95,14 @@ public class RelationDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            onUpdate = value;
+            SetOnUpdateCore(value);
         }
+    }
+
+    internal void SetOnUpdateCore(ReferentialAction onUpdate)
+    {
+        ThrowIfFrozen();
+        this.onUpdate = onUpdate;
     }
 
     public ReferentialAction OnDelete
@@ -86,9 +111,14 @@ public class RelationDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            onDelete = value;
+            SetOnDeleteCore(value);
         }
+    }
+
+    internal void SetOnDeleteCore(ReferentialAction onDelete)
+    {
+        ThrowIfFrozen();
+        this.onDelete = onDelete;
     }
 
     public override string ToString()

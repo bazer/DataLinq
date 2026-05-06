@@ -24,12 +24,22 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)
     {
+        SetAttributesCore(attributes);
+    }
+
+    internal void SetAttributesCore(IEnumerable<Attribute> attributes)
+    {
         ThrowIfFrozen();
         attributeArray = attributes.ToArray();
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddAttribute(Attribute attribute)
+    {
+        AddAttributeCore(attribute);
+    }
+
+    internal void AddAttributeCore(Attribute attribute)
     {
         ThrowIfFrozen();
         attributeArray = [.. attributeArray, attribute];
@@ -40,6 +50,11 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetPropertyName(string propertyName)
     {
+        SetPropertyNameCore(propertyName);
+    }
+
+    internal void SetPropertyNameCore(string propertyName)
+    {
         ThrowIfFrozen();
         PropertyName = propertyName;
     }
@@ -49,6 +64,11 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsType(CsTypeDeclaration csType)
     {
+        SetCsTypeCore(csType);
+    }
+
+    internal void SetCsTypeCore(CsTypeDeclaration csType)
+    {
         ThrowIfFrozen();
         CsType = csType;
     }
@@ -57,6 +77,11 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsNullable(bool csNullable = true)
+    {
+        SetCsNullableCore(csNullable);
+    }
+
+    internal void SetCsNullableCore(bool csNullable = true)
     {
         ThrowIfFrozen();
         CsNullable = csNullable;
@@ -69,6 +94,11 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetSourceInfo(PropertySourceInfo sourceInfo)
     {
+        SetSourceInfoCore(sourceInfo);
+    }
+
+    internal void SetSourceInfoCore(PropertySourceInfo sourceInfo)
+    {
         ThrowIfFrozen();
         SourceInfo = sourceInfo;
     }
@@ -77,6 +107,11 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
+    {
+        SetAttributeSourceSpanCore(attribute, sourceSpan);
+    }
+
+    internal void SetAttributeSourceSpanCore(Attribute attribute, SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
         attributeSourceSpans[attribute] = sourceSpan;
@@ -127,6 +162,11 @@ public class ValueProperty : PropertyDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsSize(int? csSize)
     {
+        SetCsSizeCore(csSize);
+    }
+
+    internal void SetCsSizeCore(int? csSize)
+    {
         ThrowIfFrozen();
         CsSize = csSize;
     }
@@ -135,6 +175,11 @@ public class ValueProperty : PropertyDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetEnumProperty(EnumProperty enumProperty)
+    {
+        SetEnumPropertyCore(enumProperty);
+    }
+
+    internal void SetEnumPropertyCore(EnumProperty enumProperty)
     {
         ThrowIfFrozen();
         EnumProperty = enumProperty;
@@ -273,6 +318,11 @@ public class RelationProperty : PropertyDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetRelationPart(RelationPart relationPart)
     {
+        SetRelationPartCore(relationPart);
+    }
+
+    internal void SetRelationPartCore(RelationPart relationPart)
+    {
         ThrowIfFrozen();
         RelationPart = relationPart;
     }
@@ -281,6 +331,11 @@ public class RelationProperty : PropertyDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetRelationName(string? relationName)
+    {
+        SetRelationNameCore(relationName);
+    }
+
+    internal void SetRelationNameCore(string? relationName)
     {
         ThrowIfFrozen();
         RelationName = relationName;

@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Metadata;
 
-#pragma warning disable CS0618 // Phase 8B snapshot copying still targets the legacy mutable graph internally.
-
 namespace DataLinq.Core.Factories;
 
 internal static class MetadataDefinitionSnapshot
@@ -27,7 +25,7 @@ internal static class MetadataDefinitionSnapshot
         var tableModels = source.TableModels
             .Select(tableModel => CopyTableModel(tableModel, copy, tableMap, modelMap))
             .ToArray();
-        copy.SetTableModels(tableModels);
+        copy.SetTableModelsCore(tableModels);
 
         foreach (var tableModel in source.TableModels)
             CopyValuePropertiesAndColumns(tableModel, tableMap, modelMap, columnMap);
@@ -49,15 +47,15 @@ internal static class MetadataDefinitionSnapshot
     private static void CopyDatabaseState(DatabaseDefinition source, DatabaseDefinition destination)
     {
         if (source.CsFile.HasValue)
-            destination.SetCsFile(source.CsFile.Value);
+            destination.SetCsFileCore(source.CsFile.Value);
 
         if (source.SourceSpan.HasValue)
-            destination.SetSourceSpan(source.SourceSpan.Value);
+            destination.SetSourceSpanCore(source.SourceSpan.Value);
 
-        destination.SetAttributes(source.Attributes);
-        CopyAttributeSpans(source.Attributes, source.GetAttributeSourceLocation, destination.SetAttributeSourceSpan);
+        destination.SetAttributesCore(source.Attributes);
+        CopyAttributeSpans(source.Attributes, source.GetAttributeSourceLocation, destination.SetAttributeSourceSpanCore);
 
-        destination.SetCache(source.UseCache);
+        destination.SetCacheCore(source.UseCache);
         destination.CacheLimits.AddRange(source.CacheLimits);
         destination.CacheCleanup.AddRange(source.CacheCleanup);
         destination.IndexCache.AddRange(source.IndexCache);
@@ -84,26 +82,26 @@ internal static class MetadataDefinitionSnapshot
         var model = new ModelDefinition(source.CsType);
 
         if (source.CsFile.HasValue)
-            model.SetCsFile(source.CsFile.Value);
+            model.SetCsFileCore(source.CsFile.Value);
 
         if (source.ImmutableType.HasValue)
-            model.SetImmutableType(source.ImmutableType.Value);
+            model.SetImmutableTypeCore(source.ImmutableType.Value);
 
         if (source.ImmutableFactory is not null)
-            model.SetImmutableFactory(source.ImmutableFactory);
+            model.SetImmutableFactoryCore(source.ImmutableFactory);
 
         if (source.MutableType.HasValue)
-            model.SetMutableType(source.MutableType.Value);
+            model.SetMutableTypeCore(source.MutableType.Value);
 
-        model.SetModelInstanceInterface(source.ModelInstanceInterface);
-        model.SetInterfaces(source.OriginalInterfaces);
-        model.SetUsings(source.Usings);
-        model.SetAttributes(source.Attributes);
+        model.SetModelInstanceInterfaceCore(source.ModelInstanceInterface);
+        model.SetInterfacesCore(source.OriginalInterfaces);
+        model.SetUsingsCore(source.Usings);
+        model.SetAttributesCore(source.Attributes);
 
         if (source.SourceSpan.HasValue)
-            model.SetSourceSpan(source.SourceSpan.Value);
+            model.SetSourceSpanCore(source.SourceSpan.Value);
 
-        CopyAttributeSpans(source.Attributes, source.GetAttributeSourceLocation, model.SetAttributeSourceSpan);
+        CopyAttributeSpans(source.Attributes, source.GetAttributeSourceLocation, model.SetAttributeSourceSpanCore);
 
         return model;
     }
@@ -115,10 +113,10 @@ internal static class MetadataDefinitionSnapshot
             : new TableDefinition(source.DbName);
 
         if (table is ViewDefinition destinationView && source is ViewDefinition { Definition: not null } view)
-            destinationView.SetDefinition(view.Definition);
+            destinationView.SetDefinitionCore(view.Definition);
 
         if (source.explicitUseCache.HasValue)
-            table.UseCache = source.explicitUseCache.Value;
+            table.SetUseCacheCore(source.explicitUseCache.Value);
 
         table.CacheLimits.AddRange(source.CacheLimits);
         table.IndexCache.AddRange(source.IndexCache);
@@ -140,7 +138,7 @@ internal static class MetadataDefinitionSnapshot
         {
             var destinationProperty = CopyValueProperty(sourceProperty, destinationModel);
             valuePropertyMap.Add(sourceProperty, destinationProperty);
-            destinationModel.AddProperty(destinationProperty);
+            destinationModel.AddPropertyCore(destinationProperty);
         }
 
         var destinationColumns = new List<ColumnDefinition>();
@@ -153,40 +151,40 @@ internal static class MetadataDefinitionSnapshot
             if (sourceColumn.ValueProperty is not null &&
                 valuePropertyMap.TryGetValue(sourceColumn.ValueProperty, out var destinationProperty))
             {
-                destinationColumn.SetValueProperty(destinationProperty);
+                destinationColumn.SetValuePropertyCore(destinationProperty);
             }
         }
 
-        destinationTable.SetColumns(destinationColumns);
+        destinationTable.SetColumnsCore(destinationColumns);
 
         foreach (var sourceColumn in source.Table.Columns)
         {
             var destinationColumn = columnMap[sourceColumn];
 
-            destinationColumn.SetIndex(sourceColumn.Index);
-            destinationColumn.SetForeignKey(sourceColumn.ForeignKey);
-            destinationColumn.SetAutoIncrement(sourceColumn.AutoIncrement);
-            destinationColumn.SetNullable(sourceColumn.Nullable);
+            destinationColumn.SetIndexCore(sourceColumn.Index);
+            destinationColumn.SetForeignKeyCore(sourceColumn.ForeignKey);
+            destinationColumn.SetAutoIncrementCore(sourceColumn.AutoIncrement);
+            destinationColumn.SetNullableCore(sourceColumn.Nullable);
         }
 
         foreach (var sourcePrimaryKey in source.Table.PrimaryKeyColumns)
-            columnMap[sourcePrimaryKey].SetPrimaryKey();
+            columnMap[sourcePrimaryKey].SetPrimaryKeyCore();
     }
 
     private static ValueProperty CopyValueProperty(ValueProperty source, ModelDefinition destinationModel)
     {
         var property = new ValueProperty(source.PropertyName, source.CsType, destinationModel, source.Attributes);
 
-        property.SetCsNullable(source.CsNullable);
-        property.SetCsSize(source.CsSize);
+        property.SetCsNullableCore(source.CsNullable);
+        property.SetCsSizeCore(source.CsSize);
 
         if (source.SourceInfo.HasValue)
-            property.SetSourceInfo(source.SourceInfo.Value);
+            property.SetSourceInfoCore(source.SourceInfo.Value);
 
         if (source.EnumProperty.HasValue)
-            property.SetEnumProperty(source.EnumProperty.Value);
+            property.SetEnumPropertyCore(source.EnumProperty.Value);
 
-        CopyAttributeSpans(source.Attributes, source.GetAttributeSourceLocation, property.SetAttributeSourceSpan);
+        CopyAttributeSpans(source.Attributes, source.GetAttributeSourceLocation, property.SetAttributeSourceSpanCore);
 
         return property;
     }
@@ -196,7 +194,7 @@ internal static class MetadataDefinitionSnapshot
         var column = new ColumnDefinition(source.DbName, destinationTable);
 
         foreach (var dbType in source.DbTypes)
-            column.AddDbType(dbType.Clone());
+            column.AddDbTypeCore(dbType.Clone());
 
         return column;
     }
@@ -232,18 +230,17 @@ internal static class MetadataDefinitionSnapshot
     {
         foreach (var sourceRelation in EnumerateRelations(source))
         {
-            relationMap[sourceRelation] = new RelationDefinition(sourceRelation.ConstraintName, sourceRelation.Type)
-            {
-                OnUpdate = sourceRelation.OnUpdate,
-                OnDelete = sourceRelation.OnDelete,
-            };
+            var destinationRelation = new RelationDefinition(sourceRelation.ConstraintName, sourceRelation.Type);
+            destinationRelation.SetOnUpdateCore(sourceRelation.OnUpdate);
+            destinationRelation.SetOnDeleteCore(sourceRelation.OnDelete);
+            relationMap[sourceRelation] = destinationRelation;
         }
 
         foreach (var sourceRelation in relationMap.Keys.ToArray())
         {
             var destinationRelation = relationMap[sourceRelation];
-            destinationRelation.ForeignKey = CopyRelationPart(sourceRelation.ForeignKey, tableMap, columnMap, indexMap, relationMap, relationPartMap);
-            destinationRelation.CandidateKey = CopyRelationPart(sourceRelation.CandidateKey, tableMap, columnMap, indexMap, relationMap, relationPartMap);
+            destinationRelation.SetForeignKeyCore(CopyRelationPart(sourceRelation.ForeignKey, tableMap, columnMap, indexMap, relationMap, relationPartMap));
+            destinationRelation.SetCandidateKeyCore(CopyRelationPart(sourceRelation.CandidateKey, tableMap, columnMap, indexMap, relationMap, relationPartMap));
         }
     }
 
@@ -325,22 +322,22 @@ internal static class MetadataDefinitionSnapshot
                 destinationModel,
                 sourceProperty.Attributes);
 
-            destinationProperty.SetCsNullable(sourceProperty.CsNullable);
+            destinationProperty.SetCsNullableCore(sourceProperty.CsNullable);
 
             if (sourceProperty.SourceInfo.HasValue)
-                destinationProperty.SetSourceInfo(sourceProperty.SourceInfo.Value);
+                destinationProperty.SetSourceInfoCore(sourceProperty.SourceInfo.Value);
 
             if (sourceProperty.RelationName is not null)
-                destinationProperty.SetRelationName(sourceProperty.RelationName);
+                destinationProperty.SetRelationNameCore(sourceProperty.RelationName);
 
             if (sourceProperty.RelationPart is not null &&
                 relationPartMap.TryGetValue(sourceProperty.RelationPart, out var destinationPart))
             {
-                destinationProperty.SetRelationPart(destinationPart);
+                destinationProperty.SetRelationPartCore(destinationPart);
             }
 
-            CopyAttributeSpans(sourceProperty.Attributes, sourceProperty.GetAttributeSourceLocation, destinationProperty.SetAttributeSourceSpan);
-            destinationModel.AddProperty(destinationProperty);
+            CopyAttributeSpans(sourceProperty.Attributes, sourceProperty.GetAttributeSourceLocation, destinationProperty.SetAttributeSourceSpanCore);
+            destinationModel.AddPropertyCore(destinationProperty);
         }
     }
 

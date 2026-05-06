@@ -1,10 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
-
-#pragma warning disable CS0618 // Phase 8B transform compatibility still mutates legacy metadata snapshots internally.
 
 namespace DataLinq.Core.Factories;
 
@@ -67,8 +65,8 @@ public class MetadataTransformer
 
     private void TransformDatabaseInPlace(DatabaseDefinition srcMetadata, DatabaseDefinition destMetadata)
     {
-        destMetadata.SetAttributes(srcMetadata.Attributes);
-        destMetadata.SetCache(srcMetadata.UseCache);
+        destMetadata.SetAttributesCore(srcMetadata.Attributes);
+        destMetadata.SetCacheCore(srcMetadata.UseCache);
         destMetadata.CacheLimits.Clear();
         destMetadata.CacheLimits.AddRange(srcMetadata.CacheLimits);
         destMetadata.IndexCache.Clear();
@@ -76,7 +74,7 @@ public class MetadataTransformer
         destMetadata.CacheCleanup.Clear();
         destMetadata.CacheCleanup.AddRange(srcMetadata.CacheCleanup);
 
-        destMetadata.SetCsType(TransformCsType(srcMetadata.CsType, destMetadata.CsType));
+        destMetadata.SetCsTypeCore(TransformCsType(srcMetadata.CsType, destMetadata.CsType));
 
         foreach (var srcTable in srcMetadata.TableModels)
         {
@@ -89,7 +87,7 @@ public class MetadataTransformer
             }
 
             TransformTableInPlace(srcTable, destTable);
-            destTable.SetCsPropertyName(srcTable.CsPropertyName);
+            destTable.SetCsPropertyNameCore(srcTable.CsPropertyName);
         }
     }
 
@@ -101,21 +99,21 @@ public class MetadataTransformer
 
     private void TransformTableInPlace(TableModel srcTable, TableModel destTable)
     {
-        destTable.Model.SetCsType(TransformCsType(srcTable.Model.CsType, destTable.Model.CsType));
+        destTable.Model.SetCsTypeCore(TransformCsType(srcTable.Model.CsType, destTable.Model.CsType));
         if (srcTable.Model.CsFile != null)
-            destTable.Model.SetCsFile(srcTable.Model.CsFile.Value);
+            destTable.Model.SetCsFileCore(srcTable.Model.CsFile.Value);
 
         if (srcTable.Model.ModelInstanceInterface != null)
-            destTable.Model.SetModelInstanceInterface(srcTable.Model.ModelInstanceInterface);
+            destTable.Model.SetModelInstanceInterfaceCore(srcTable.Model.ModelInstanceInterface);
         else
         {
             var interfaceName = $"I{destTable.Model.CsType.Name}";
-            destTable.Model.SetModelInstanceInterface(new CsTypeDeclaration(interfaceName, destTable.Model.CsType.Namespace, ModelCsType.Interface));
+            destTable.Model.SetModelInstanceInterfaceCore(new CsTypeDeclaration(interfaceName, destTable.Model.CsType.Namespace, ModelCsType.Interface));
         }
 
 
-        //destTable.Model.SetInterfaces([srcTable.Model.CsType]); //TODO: Investigate if this is needed
-        destTable.Model.SetUsings(srcTable.Model.Usings);
+        //destTable.Model.SetInterfacesCore([srcTable.Model.CsType]); //TODO: Investigate if this is needed
+        destTable.Model.SetUsingsCore(srcTable.Model.Usings);
 
         foreach (var srcProperty in srcTable.Model.ValueProperties.Values)
         {
@@ -136,12 +134,12 @@ public class MetadataTransformer
                 destTable.Model.ValueProperties.Add(srcProperty.PropertyName, destProperty);
             }
 
-            destProperty.SetPropertyName(srcProperty.PropertyName);
+            destProperty.SetPropertyNameCore(srcProperty.PropertyName);
             if (srcProperty.SourceInfo != null)
-                destProperty.SetSourceInfo(srcProperty.SourceInfo.Value);
+                destProperty.SetSourceInfoCore(srcProperty.SourceInfo.Value);
 
             if (srcProperty.EnumProperty != null)
-                destProperty.SetEnumProperty(srcProperty.EnumProperty.Value);
+                destProperty.SetEnumPropertyCore(srcProperty.EnumProperty.Value);
 
             // Only apply the type information from the source file IF:
             // 1. The overwrite option is OFF, OR
@@ -151,16 +149,16 @@ public class MetadataTransformer
                 srcProperty.EnumProperty != null ||
                 !MetadataTypeConverter.IsKnownCsType(srcProperty.CsType.Name))
             {
-                destProperty.SetCsType(srcProperty.CsType);
-                destProperty.SetCsNullable(srcProperty.CsNullable);
-                destProperty.SetCsSize(srcProperty.CsSize);
+                destProperty.SetCsTypeCore(srcProperty.CsType);
+                destProperty.SetCsNullableCore(srcProperty.CsNullable);
+                destProperty.SetCsSizeCore(srcProperty.CsSize);
             }
 
             if (srcProperty.HasDefaultValue() &&
                 (srcProperty.EnumProperty != null || !MetadataTypeConverter.IsKnownCsType(srcProperty.CsType.Name)))
             {
                 var sourceDefault = srcProperty.GetDefaultAttribute();
-                destProperty.SetAttributes(
+                destProperty.SetAttributesCore(
                     destProperty.Attributes
                         .Where(x => x is not DefaultAttribute)
                         .Concat(sourceDefault != null ? [sourceDefault] : []));
@@ -169,14 +167,14 @@ public class MetadataTransformer
             foreach (var srcAttribute in srcProperty.Attributes.OfType<TypeAttribute>())
             {
                 if (!destProperty.Attributes.OfType<TypeAttribute>().Any(x => x.DatabaseType == srcAttribute.DatabaseType))
-                    destProperty.AddAttribute(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Decimals, srcAttribute.Signed));
+                    destProperty.AddAttributeCore(new TypeAttribute(srcAttribute.DatabaseType, srcAttribute.Name, srcAttribute.Length, srcAttribute.Decimals, srcAttribute.Signed));
             }
 
             foreach (var srcDbType in srcProperty.Column.DbTypes)
             {
                 if (!destProperty.Column.DbTypes.Any(x => x.DatabaseType == srcDbType.DatabaseType))
                 {
-                    destProperty.Column.AddDbType(srcDbType.Clone());
+                    destProperty.Column.AddDbTypeCore(srcDbType.Clone());
                 }
             }
         }
@@ -216,13 +214,11 @@ public class MetadataTransformer
                     : destRelation.RelationPart.Relation.ConstraintName;
 
                 // Create a new, merged RelationDefinition
-                var mergedRelationDefinition = new RelationDefinition(constraintName, destRelation.RelationPart.Relation.Type)
-                {
-                    ForeignKey = destRelation.RelationPart.Relation.ForeignKey,
-                    CandidateKey = destRelation.RelationPart.Relation.CandidateKey,
-                    OnUpdate = destRelation.RelationPart.Relation.OnUpdate,
-                    OnDelete = destRelation.RelationPart.Relation.OnDelete
-                };
+                var mergedRelationDefinition = new RelationDefinition(constraintName, destRelation.RelationPart.Relation.Type);
+                mergedRelationDefinition.SetForeignKeyCore(destRelation.RelationPart.Relation.ForeignKey);
+                mergedRelationDefinition.SetCandidateKeyCore(destRelation.RelationPart.Relation.CandidateKey);
+                mergedRelationDefinition.SetOnUpdateCore(destRelation.RelationPart.Relation.OnUpdate);
+                mergedRelationDefinition.SetOnDeleteCore(destRelation.RelationPart.Relation.OnDelete);
 
                 // Create the final RelationProperty using the C# name from the source
                 var finalRelationProperty = new RelationProperty(
@@ -240,7 +236,7 @@ public class MetadataTransformer
                     srcRelation.PropertyName
                 );
 
-                finalRelationProperty.SetRelationPart(finalRelationPart);
+                finalRelationProperty.SetRelationPartCore(finalRelationPart);
                 finalRelations.Add(finalRelationProperty);
             }
             else
@@ -253,6 +249,6 @@ public class MetadataTransformer
 
         // Replace the old relation properties with the new, correctly merged list.
         destTable.Model.RelationProperties.Clear();
-        destTable.Model.AddProperties(finalRelations);
+        destTable.Model.AddPropertiesCore(finalRelations);
     }
 }

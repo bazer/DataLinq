@@ -11,8 +11,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using ThrowAway;
 using ThrowAway.Extensions;
 
-#pragma warning disable CS0618 // Phase 8B still lowers legacy metadata graphs through public mutators internally.
-
 namespace DataLinq.Core.Factories;
 
 public struct MetadataFromDatabaseFactoryOptions
@@ -54,7 +52,7 @@ public static class MetadataFactory
             if (model.ModelInstanceInterface == null)
             {
                 var interfaceName = $"I{model.CsType.Name}";
-                model.SetModelInstanceInterface(new CsTypeDeclaration(interfaceName, model.CsType.Namespace, ModelCsType.Interface));
+                model.SetModelInstanceInterfaceCore(new CsTypeDeclaration(interfaceName, model.CsType.Namespace, ModelCsType.Interface));
             }
         }
     }
@@ -76,13 +74,13 @@ public static class MetadataFactory
         foreach (var attribute in model.Attributes)
         {
             if (attribute is TableAttribute tableAttribute)
-                table.SetDbName(tableAttribute.Name);
+                table.SetDbNameCore(tableAttribute.Name);
 
             if (attribute is ViewAttribute viewAttribute)
-                table.SetDbName(viewAttribute.Name);
+                table.SetDbNameCore(viewAttribute.Name);
 
             if (attribute is UseCacheAttribute useCache)
-                table.UseCache = useCache.UseCache;
+                table.SetUseCacheCore(useCache.UseCache);
 
             if (attribute is CacheLimitAttribute cacheLimit)
                 table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
@@ -91,10 +89,10 @@ public static class MetadataFactory
                 table.IndexCache.Add((indexCache.Type, indexCache.Amount));
 
             if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
-                view.SetDefinition(definitionAttribute.Sql);
+                view.SetDefinitionCore(definitionAttribute.Sql);
         }
 
-        table.SetColumns(model.ValueProperties.Values.Select(table.ParseColumn));
+        table.SetColumnsCore(model.ValueProperties.Values.Select(table.ParseColumn));
 
         return table;
     }
@@ -103,7 +101,7 @@ public static class MetadataFactory
     {
         foreach (var table in database.TableModels.Select(x => x.Table))
             for (var i = 0; i < table.Columns.Length; i++)
-                table.Columns[i].SetIndex(i);
+                table.Columns[i].SetIndexCore(i);
     }
 
     public static Option<bool, IDLOptionFailure> ParseIndices(DatabaseDefinition database)
@@ -154,7 +152,7 @@ public static class MetadataFactory
                 if (existingIndex != null)
                 {
                     if (!existingIndex.Columns.Contains(column))
-                        existingIndex.AddColumn(column);
+                        existingIndex.AddColumnCore(column);
                 }
                 else
                 {
@@ -290,7 +288,7 @@ public static class MetadataFactory
             csTypeName = $"{csTypeName}Db";
 
         if (!string.Equals(database.CsType.Name, csTypeName, StringComparison.Ordinal))
-            database.SetCsType(database.CsType.MutateName(csTypeName));
+            database.SetCsTypeCore(database.CsType.MutateName(csTypeName));
     }
 
     public static Option<bool, IDLOptionFailure> ValidateDatabaseObjectNames(DatabaseDefinition database)
@@ -2133,15 +2131,13 @@ public static class MetadataFactory
                     firstAttribute,
                     $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' references columns '{candidateColumns.Select(x => x.DbName).ToJoinedString(", ")}' on table '{candidateTableModel.Table.DbName}', but no matching primary or unique key exists.");
 
-            var relation = new RelationDefinition(firstAttribute.Name, RelationType.OneToMany)
-            {
-                OnUpdate = firstAttribute.OnUpdate,
-                OnDelete = firstAttribute.OnDelete
-            };
+            var relation = new RelationDefinition(firstAttribute.Name, RelationType.OneToMany);
+            relation.SetOnUpdateCore(firstAttribute.OnUpdate);
+            relation.SetOnDeleteCore(firstAttribute.OnDelete);
             var manySidePart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "");
             var oneSidePart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "");
-            relation.ForeignKey = manySidePart;
-            relation.CandidateKey = oneSidePart;
+            relation.SetForeignKeyCore(manySidePart);
+            relation.SetCandidateKeyCore(oneSidePart);
 
             // --- Link or Create Many-to-One Property ---
             if (!TryGetRelationProperty(
@@ -2157,7 +2153,7 @@ public static class MetadataFactory
 
             if (manyToOneProp != null)
             {
-                manyToOneProp.SetRelationPart(manySidePart);
+                manyToOneProp.SetRelationPartCore(manySidePart);
                 if (!manySidePart.ColumnIndex.RelationParts.Contains(manySidePart))
                     manySidePart.ColumnIndex.RelationParts.Add(manySidePart);
             }
@@ -2183,7 +2179,7 @@ public static class MetadataFactory
 
             if (oneToManyProp != null)
             {
-                oneToManyProp.SetRelationPart(oneSidePart);
+                oneToManyProp.SetRelationPartCore(oneSidePart);
                 if (!oneSidePart.ColumnIndex.RelationParts.Contains(oneSidePart))
                     oneSidePart.ColumnIndex.RelationParts.Add(oneSidePart);
             }
@@ -2489,12 +2485,12 @@ public static class MetadataFactory
         }
 
         var relationProperty = new RelationProperty(propertyName, propertyType, model, [relationAttribute]);
-        relationProperty.SetRelationName(relationAttribute.Name);
-        relationProperty.SetRelationPart(relationPart); // Directly link the part
+        relationProperty.SetRelationNameCore(relationAttribute.Name);
+        relationProperty.SetRelationPartCore(relationPart); // Directly link the part
         if (relationPart.Type == RelationPartType.ForeignKey && relationPart.ColumnIndex.Columns.Any(x => x.Nullable))
-            relationProperty.SetCsNullable();
+            relationProperty.SetCsNullableCore();
 
-        model.AddProperty(relationProperty);
+        model.AddPropertyCore(relationProperty);
 
         // Also ensure the back-reference on the index is set
         if (!relationPart.ColumnIndex.RelationParts.Contains(relationPart))
@@ -2536,20 +2532,20 @@ public static class MetadataFactory
 
 
         var property = new ValueProperty(name, csType, column.Table.Model, GetAttributes(column));
-        property.SetCsSize(MetadataTypeConverter.CsTypeSize(csTypeName));
-        property.SetCsNullable(column.Nullable || column.AutoIncrement);
-        //property.SetAttributes(GetAttributes(property));
-        property.SetColumn(column);
+        property.SetCsSizeCore(MetadataTypeConverter.CsTypeSize(csTypeName));
+        property.SetCsNullableCore(column.Nullable || column.AutoIncrement);
+        //property.SetAttributesCore(GetAttributes(property));
+        property.SetColumnCore(column);
 
-        column.SetValueProperty(property);
-        column.Table.Model.AddProperty(column.ValueProperty);
+        column.SetValuePropertyCore(property);
+        column.Table.Model.AddPropertyCore(column.ValueProperty);
 
         return property;
     }
 
     //public static void AttachEnumProperty(ValueProperty property, IEnumerable<(string name, int value)> enumValues, bool declaredInClass)
     //{
-    //    property.SetEnumProperty(new EnumProperty(enumValues, enumValues, declaredInClass));
+    //    property.SetEnumPropertyCore(new EnumProperty(enumValues, enumValues, declaredInClass));
     //}
 
     public static IEnumerable<Attribute> GetAttributes(ColumnDefinition column)
@@ -2577,12 +2573,12 @@ public static class MetadataFactory
         {
             if (attribute is DatabaseAttribute databaseAttribute)
             {
-                database.SetName(databaseAttribute.Name);
-                database.SetDbName(databaseAttribute.Name);
+                database.SetNameCore(databaseAttribute.Name);
+                database.SetDbNameCore(databaseAttribute.Name);
             }
 
             if (attribute is UseCacheAttribute useCache)
-                database.SetCache(useCache.UseCache);
+                database.SetCacheCore(useCache.UseCache);
 
             if (attribute is CacheLimitAttribute cacheLimit)
                 database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
@@ -2598,30 +2594,30 @@ public static class MetadataFactory
     public static ColumnDefinition ParseColumn(this TableDefinition table, ValueProperty property)
     {
         var column = new ColumnDefinition(property.PropertyName, table);
-        column.SetValueProperty(property);
+        column.SetValuePropertyCore(property);
 
         foreach (var attribute in property.Attributes)
         {
             if (attribute is ColumnAttribute columnAttribute)
-                column.SetDbName(columnAttribute.Name);
+                column.SetDbNameCore(columnAttribute.Name);
 
             if (attribute is NullableAttribute)
-                column.SetNullable();
+                column.SetNullableCore();
 
             //if (attribute is DefaultAttribute defaultAttribute)
             //    column.AddDefaultValue(defaultAttribute.Value);
 
             if (attribute is AutoIncrementAttribute)
-                column.SetAutoIncrement();
+                column.SetAutoIncrementCore();
 
             if (attribute is PrimaryKeyAttribute)
-                column.SetPrimaryKey();
+                column.SetPrimaryKeyCore();
 
             if (attribute is ForeignKeyAttribute)
-                column.SetForeignKey();
+                column.SetForeignKeyCore();
 
             if (attribute is TypeAttribute t)
-                column.AddDbType(new DatabaseColumnType(t.DatabaseType, t.Name, t.Length, t.Decimals, t.Signed));
+                column.AddDbTypeCore(new DatabaseColumnType(t.DatabaseType, t.Name, t.Length, t.Decimals, t.Signed));
         }
 
         return column;

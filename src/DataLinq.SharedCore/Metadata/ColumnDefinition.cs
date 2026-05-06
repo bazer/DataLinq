@@ -76,6 +76,11 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDbName(string value)
     {
+        SetDbNameCore(value);
+    }
+
+    internal void SetDbNameCore(string value)
+    {
         ThrowIfFrozen();
         DbName = value;
     }
@@ -86,6 +91,11 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetIndex(int index)
     {
+        SetIndexCore(index);
+    }
+
+    internal void SetIndexCore(int index)
+    {
         ThrowIfFrozen();
         Index = index;
     }
@@ -94,6 +104,11 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetForeignKey(bool value = true)
+    {
+        SetForeignKeyCore(value);
+    }
+
+    internal void SetForeignKeyCore(bool value = true)
     {
         ThrowIfFrozen();
         ForeignKey = value;
@@ -106,6 +121,11 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAutoIncrement(bool value = true)
     {
+        SetAutoIncrementCore(value);
+    }
+
+    internal void SetAutoIncrementCore(bool value = true)
+    {
         ThrowIfFrozen();
         AutoIncrement = value;
     }
@@ -114,6 +134,11 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetNullable(bool value = true)
+    {
+        SetNullableCore(value);
+    }
+
+    internal void SetNullableCore(bool value = true)
     {
         ThrowIfFrozen();
         Nullable = value;
@@ -127,6 +152,11 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetValueProperty(ValueProperty value)
     {
+        SetValuePropertyCore(value);
+    }
+
+    internal void SetValuePropertyCore(ValueProperty value)
+    {
         ThrowIfFrozen();
         ValueProperty = value;
         value.SetColumnCore(this);
@@ -134,6 +164,11 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetPrimaryKey(bool value = true)
+    {
+        SetPrimaryKeyCore(value);
+    }
+
+    internal void SetPrimaryKeyCore(bool value = true)
     {
         ThrowIfFrozen();
         PrimaryKey = value;
@@ -146,6 +181,11 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddDbType(DatabaseColumnType columnType)
+    {
+        AddDbTypeCore(columnType);
+    }
+
+    internal void AddDbTypeCore(DatabaseColumnType columnType)
     {
         ThrowIfFrozen();
         dbTypes = dbTypes.AsEnumerable().Append(columnType).ToArray();

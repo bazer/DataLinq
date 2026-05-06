@@ -12,8 +12,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ThrowAway;
 using ThrowAway.Extensions;
 
-#pragma warning disable CS0618 // Phase 8B keeps the legacy parser path until typed drafts fully replace mutable definitions.
-
 namespace DataLinq.Core.Factories;
 
 public class SyntaxParser
@@ -37,7 +35,7 @@ public class SyntaxParser
         if (typeSyntax == null)
         {
             model = new ModelDefinition(new CsTypeDeclaration(csPropertyName, database.CsType.Namespace, ModelCsType.Interface));
-            model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+            model.SetInterfacesCore([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
         }
         else
         {
@@ -79,10 +77,10 @@ public class SyntaxParser
     private Option<ModelDefinition, IDLOptionFailure> ParseModel(TypeDeclarationSyntax typeSyntax)
     {
         var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
-        model.SetSourceSpan(new SourceTextSpan(typeSyntax.SpanStart, typeSyntax.Span.Length));
+        model.SetSourceSpanCore(new SourceTextSpan(typeSyntax.SpanStart, typeSyntax.Span.Length));
 
         if (!string.IsNullOrEmpty(typeSyntax.SyntaxTree.FilePath))
-            model.SetCsFile(new CsFileDeclaration(typeSyntax.SyntaxTree.FilePath));
+            model.SetCsFileCore(new CsFileDeclaration(typeSyntax.SyntaxTree.FilePath));
 
         var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
         var parsedAttributes = new List<Attribute>();
@@ -104,9 +102,9 @@ public class SyntaxParser
         if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes", model, failures);
 
-        model.SetAttributes(parsedAttributes);
+        model.SetAttributesCore(parsedAttributes);
         foreach (var (attribute, sourceSpan) in attributeSourceSpans)
-            model.SetAttributeSourceSpan(attribute, sourceSpan);
+            model.SetAttributeSourceSpanCore(attribute, sourceSpan);
 
         var modelInstanceInterfaces = model.Attributes
             .Where(x => x is InterfaceAttribute interfaceAttribute && interfaceAttribute.GenerateInterface)
@@ -123,7 +121,7 @@ public class SyntaxParser
         //        $"Duplicate interface names {modelInstanceInterfaces.GroupBy(x => x.Name).Where(x => x.Count() > 1).ToJoinedString()} in model '{model.CsType.Name}'");
 
         if (modelInstanceInterfaces.Any())
-            model.SetModelInstanceInterface(modelInstanceInterfaces.First());
+            model.SetModelInstanceInterfaceCore(modelInstanceInterfaces.First());
 
         if (typeSyntax.BaseList != null)
         {
@@ -133,11 +131,11 @@ public class SyntaxParser
                 .Where(x => !x.Name.StartsWith("Immutable<"))
                 .ToList();
 
-            model.SetInterfaces(interfaces);
+            model.SetInterfacesCore(interfaces);
         }
 
         if (model.CsType.ModelCsType == ModelCsType.Interface)
-            model.SetCsType(model.CsType.MutateName(MetadataTypeConverter.RemoveInterfacePrefix(model.CsType.Name)));
+            model.SetCsTypeCore(model.CsType.MutateName(MetadataTypeConverter.RemoveInterfacePrefix(model.CsType.Name)));
 
         if (!typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
@@ -147,9 +145,9 @@ public class SyntaxParser
             .TryUnwrap(out var properties, out var propFailures))
             return DLOptionFailure.Fail($"Parsing properties", model, propFailures);
 
-        model.AddProperties(properties);
+        model.AddPropertiesCore(properties);
 
-        model.SetUsings(typeSyntax.SyntaxTree.GetRoot()
+        model.SetUsingsCore(typeSyntax.SyntaxTree.GetRoot()
             .DescendantNodes()
             .OfType<UsingDirectiveSyntax>()
             .Select(uds => uds?.Name?.ToString())
@@ -803,12 +801,12 @@ public class SyntaxParser
             ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, parsedAttributes)
             : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, parsedAttributes);
 
-        property.SetCsNullable(propSyntax.Type is NullableTypeSyntax);
-        property.SetSourceInfo(new PropertySourceInfo(
+        property.SetCsNullableCore(propSyntax.Type is NullableTypeSyntax);
+        property.SetSourceInfoCore(new PropertySourceInfo(
             new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
             GetDefaultValueExpressionSourceSpan(propSyntax)));
         foreach (var (attribute, sourceSpan) in attributeSourceSpans)
-            property.SetAttributeSourceSpan(attribute, sourceSpan);
+            property.SetAttributeSourceSpanCore(attribute, sourceSpan);
 
         if (property is ValueProperty valueProp)
         {
@@ -819,7 +817,7 @@ public class SyntaxParser
 
             if (enumAttribute != null || enumDeclaration != null)
             {
-                valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize("enum"));
+                valueProp.SetCsSizeCore(MetadataTypeConverter.CsTypeSize("enum"));
 
                 var enumValueList = enumAttribute?.Values.Select((x, i) => (x, i + 1)) ?? [];
 
@@ -849,11 +847,11 @@ public class SyntaxParser
                     }
                 }
 
-                valueProp.SetEnumProperty(new EnumProperty(enumValueList, csEnumValues, declaredInClass));
+                valueProp.SetEnumPropertyCore(new EnumProperty(enumValueList, csEnumValues, declaredInClass));
             }
             else
             {
-                valueProp.SetCsSize(MetadataTypeConverter.CsTypeSize(property.CsType.Name));
+                valueProp.SetCsSizeCore(MetadataTypeConverter.CsTypeSize(property.CsType.Name));
             }
         }
 

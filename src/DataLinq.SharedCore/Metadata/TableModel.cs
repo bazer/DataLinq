@@ -50,6 +50,11 @@ public class TableModel
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsPropertyName(string csPropertyName)
     {
+        SetCsPropertyNameCore(csPropertyName);
+    }
+
+    internal void SetCsPropertyNameCore(string csPropertyName)
+    {
         ThrowIfFrozen();
         CsPropertyName = csPropertyName;
     }

@@ -24,6 +24,11 @@ public class TableDefinition(string dbName) : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDbName(string dbName)
     {
+        SetDbNameCore(dbName);
+    }
+
+    internal void SetDbNameCore(string dbName)
+    {
         ThrowIfFrozen();
         DbName = dbName;
     }
@@ -42,6 +47,11 @@ public class TableDefinition(string dbName) : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetColumns(IEnumerable<ColumnDefinition> columns)
+    {
+        SetColumnsCore(columns);
+    }
+
+    internal void SetColumnsCore(IEnumerable<ColumnDefinition> columns)
     {
         ThrowIfFrozen();
         this.columns = columns.ToArray();
@@ -62,11 +72,15 @@ public class TableDefinition(string dbName) : IDefinition
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            explicitUseCache = value;
+            SetUseCacheCore(value);
         }
     }
 
+    internal void SetUseCacheCore(bool useCache)
+    {
+        ThrowIfFrozen();
+        explicitUseCache = useCache;
+    }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddPrimaryKeyColumn(ColumnDefinition column)
@@ -140,6 +154,11 @@ public class ViewDefinition : TableDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDefinition(string definition)
+    {
+        SetDefinitionCore(definition);
+    }
+
+    internal void SetDefinitionCore(string definition)
     {
         ThrowIfFrozen();
         Definition = definition;

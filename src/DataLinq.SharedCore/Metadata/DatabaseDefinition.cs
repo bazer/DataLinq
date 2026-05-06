@@ -60,6 +60,11 @@ public class DatabaseDefinition : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetName(string name)
     {
+        SetNameCore(name);
+    }
+
+    internal void SetNameCore(string name)
+    {
         ThrowIfFrozen();
         Name = name;
     }
@@ -68,6 +73,11 @@ public class DatabaseDefinition : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDbName(string dbName)
+    {
+        SetDbNameCore(dbName);
+    }
+
+    internal void SetDbNameCore(string dbName)
     {
         ThrowIfFrozen();
         DbName = dbName;
@@ -78,6 +88,11 @@ public class DatabaseDefinition : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsType(CsTypeDeclaration csType)
     {
+        SetCsTypeCore(csType);
+    }
+
+    internal void SetCsTypeCore(CsTypeDeclaration csType)
+    {
         ThrowIfFrozen();
         CsType = csType;
     }
@@ -86,6 +101,11 @@ public class DatabaseDefinition : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCsFile(CsFileDeclaration csFile)
+    {
+        SetCsFileCore(csFile);
+    }
+
+    internal void SetCsFileCore(CsFileDeclaration csFile)
     {
         ThrowIfFrozen();
         CsFile = csFile;
@@ -96,6 +116,11 @@ public class DatabaseDefinition : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetCache(bool useCache)
     {
+        SetCacheCore(useCache);
+    }
+
+    internal void SetCacheCore(bool useCache)
+    {
         ThrowIfFrozen();
         UseCache = useCache;
     }
@@ -104,6 +129,11 @@ public class DatabaseDefinition : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)
+    {
+        SetAttributesCore(attributes);
+    }
+
+    internal void SetAttributesCore(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
         this.attributes = attributes.ToArray();
@@ -114,6 +144,11 @@ public class DatabaseDefinition : IDefinition
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetSourceSpan(SourceTextSpan sourceSpan)
     {
+        SetSourceSpanCore(sourceSpan);
+    }
+
+    internal void SetSourceSpanCore(SourceTextSpan sourceSpan)
+    {
         ThrowIfFrozen();
         SourceSpan = sourceSpan;
     }
@@ -122,6 +157,11 @@ public class DatabaseDefinition : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
+    {
+        SetAttributeSourceSpanCore(attribute, sourceSpan);
+    }
+
+    internal void SetAttributeSourceSpanCore(Attribute attribute, SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
         attributeSourceSpans[attribute] = sourceSpan;
@@ -147,6 +187,11 @@ public class DatabaseDefinition : IDefinition
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetTableModels(IEnumerable<TableModel> tableModels)
+    {
+        SetTableModelsCore(tableModels);
+    }
+
+    internal void SetTableModelsCore(IEnumerable<TableModel> tableModels)
     {
         ThrowIfFrozen();
         this.tableModels = tableModels.ToArray();
