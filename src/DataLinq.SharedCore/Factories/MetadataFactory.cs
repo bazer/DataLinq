@@ -379,6 +379,15 @@ public static class MetadataFactory
                     model);
                 if (originalInterfaceFailure is not null)
                     return originalInterfaceFailure;
+
+                var originalInterfaceKindFailure = ValidateCSharpTypeRole(
+                    originalInterface,
+                    $"Model '{model.CsType.Name}' declared interface",
+                    model,
+                    kind => kind == ModelCsType.Interface,
+                    "an interface");
+                if (originalInterfaceKindFailure is not null)
+                    return originalInterfaceKindFailure;
             }
 
             var modelInstanceInterfaceFailure = ValidateOptionalCSharpTypeReference(
@@ -610,6 +619,22 @@ public static class MetadataFactory
             context);
     }
 
+    private static IDLOptionFailure? ValidateCSharpTypeRole(
+        CsTypeDeclaration type,
+        string scope,
+        IDefinition context,
+        Func<ModelCsType, bool> isValid,
+        string expectedRole)
+    {
+        if (isValid(type.ModelCsType))
+            return null;
+
+        return DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
+            $"{scope} uses C# type kind '{type.ModelCsType}', but it must be {expectedRole}.",
+            context);
+    }
+
     private static bool IsValidModelDeclarationKind(ModelCsType kind) =>
         kind is ModelCsType.Class or ModelCsType.Record or ModelCsType.Interface;
 
@@ -641,6 +666,13 @@ public static class MetadataFactory
                 return failure;
         }
 
+        var duplicateDatabaseLimitFailure = ValidateDuplicateCacheLimitTypes(
+            database.CacheLimits,
+            $"Database '{database.DbName}'",
+            database);
+        if (duplicateDatabaseLimitFailure is not null)
+            return duplicateDatabaseLimitFailure;
+
         foreach (var (cleanupType, amount) in database.CacheCleanup)
         {
             var failure = ValidateCacheCleanup(
@@ -652,6 +684,13 @@ public static class MetadataFactory
                 return failure;
         }
 
+        var duplicateDatabaseCleanupFailure = ValidateDuplicateCacheCleanupTypes(
+            database.CacheCleanup,
+            $"Database '{database.DbName}'",
+            database);
+        if (duplicateDatabaseCleanupFailure is not null)
+            return duplicateDatabaseCleanupFailure;
+
         foreach (var (indexCacheType, amount) in database.IndexCache)
         {
             var failure = ValidateIndexCachePolicy(
@@ -662,6 +701,13 @@ public static class MetadataFactory
             if (failure is not null)
                 return failure;
         }
+
+        var databaseIndexCacheFailure = ValidateIndexCachePolicySet(
+            database.IndexCache,
+            $"Database '{database.DbName}'",
+            database);
+        if (databaseIndexCacheFailure is not null)
+            return databaseIndexCacheFailure;
 
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
         {
@@ -675,12 +721,23 @@ public static class MetadataFactory
                     return failure;
             }
 
+            var duplicateTableLimitFailure = ValidateDuplicateCacheLimitTypes(
+                table.CacheLimits,
+                scope,
+                table);
+            if (duplicateTableLimitFailure is not null)
+                return duplicateTableLimitFailure;
+
             foreach (var (indexCacheType, amount) in table.IndexCache)
             {
                 var failure = ValidateIndexCachePolicy(indexCacheType, amount, scope, table);
                 if (failure is not null)
                     return failure;
             }
+
+            var tableIndexCacheFailure = ValidateIndexCachePolicySet(table.IndexCache, scope, table);
+            if (tableIndexCacheFailure is not null)
+                return tableIndexCacheFailure;
         }
 
         return true;
@@ -752,7 +809,80 @@ public static class MetadataFactory
                 $"{scope} has index-cache metadata for '{indexCacheType}' with amount '{amount}'. Index-cache amounts must be greater than zero.",
                 context);
 
+        if (indexCacheType != IndexCacheType.MaxAmountRows && amount.HasValue)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} has index-cache metadata for '{indexCacheType}' with amount '{amount}', but only MaxAmountRows can specify an amount.",
+                context);
+
         return null;
+    }
+
+    private static IDLOptionFailure? ValidateDuplicateCacheLimitTypes(
+        IReadOnlyList<(CacheLimitType limitType, long amount)> limits,
+        string scope,
+        IDefinition context)
+    {
+        var duplicateGroup = limits
+            .GroupBy(x => x.limitType)
+            .FirstOrDefault(x => x.Count() > 1);
+
+        if (duplicateGroup is null)
+            return null;
+
+        return DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
+            $"{scope} defines multiple cache limit entries for '{duplicateGroup.Key}'. Cache limits can include multiple limit types, but each type can be configured only once.",
+            context);
+    }
+
+    private static IDLOptionFailure? ValidateDuplicateCacheCleanupTypes(
+        IReadOnlyList<(CacheCleanupType cleanupType, long amount)> cleanup,
+        string scope,
+        IDefinition context)
+    {
+        var duplicateGroup = cleanup
+            .GroupBy(x => x.cleanupType)
+            .FirstOrDefault(x => x.Count() > 1);
+
+        if (duplicateGroup is null)
+            return null;
+
+        return DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
+            $"{scope} defines multiple cache cleanup entries for '{duplicateGroup.Key}'. Cache cleanup can configure each cleanup type only once.",
+            context);
+    }
+
+    private static IDLOptionFailure? ValidateIndexCachePolicySet(
+        IReadOnlyList<(IndexCacheType indexCacheType, int? amount)> policies,
+        string scope,
+        IDefinition context)
+    {
+        var duplicateGroup = policies
+            .GroupBy(x => x.indexCacheType)
+            .FirstOrDefault(x => x.Count() > 1);
+
+        if (duplicateGroup is not null)
+        {
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} defines multiple index-cache entries for '{duplicateGroup.Key}'. A cache scope can configure each index-cache policy type only once.",
+                context);
+        }
+
+        var policyTypes = policies
+            .Select(x => x.indexCacheType)
+            .Distinct()
+            .ToArray();
+
+        if (policyTypes.Length <= 1)
+            return null;
+
+        return DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
+            $"{scope} defines conflicting index-cache policies '{policyTypes.ToJoinedString(", ")}'. A cache scope can use only one index-cache policy.",
+            context);
     }
 
     public static Option<bool, IDLOptionFailure> ValidateProviderScopedAttributeDatabaseTypes(DatabaseDefinition database)
@@ -763,7 +893,7 @@ public static class MetadataFactory
 
             foreach (var comment in model.Attributes.OfType<CommentAttribute>())
             {
-                if (!Enum.IsDefined(typeof(DatabaseType), comment.DatabaseType))
+                if (!IsValidProviderScopedDatabaseType(comment.DatabaseType))
                     return CreateModelAttributeFailure(
                         model,
                         comment,
@@ -772,7 +902,7 @@ public static class MetadataFactory
 
             foreach (var check in model.Attributes.OfType<CheckAttribute>())
             {
-                if (!Enum.IsDefined(typeof(DatabaseType), check.DatabaseType))
+                if (!IsValidProviderScopedDatabaseType(check.DatabaseType))
                     return CreateModelAttributeFailure(
                         model,
                         check,
@@ -783,7 +913,7 @@ public static class MetadataFactory
             {
                 foreach (var comment in property.Attributes.OfType<CommentAttribute>())
                 {
-                    if (!Enum.IsDefined(typeof(DatabaseType), comment.DatabaseType))
+                    if (!IsValidProviderScopedDatabaseType(comment.DatabaseType))
                         return CreateValuePropertyAttributeFailure(
                             property,
                             comment,
@@ -792,7 +922,7 @@ public static class MetadataFactory
 
                 foreach (var defaultSql in property.Attributes.OfType<DefaultSqlAttribute>())
                 {
-                    if (!Enum.IsDefined(typeof(DatabaseType), defaultSql.DatabaseType))
+                    if (!IsValidProviderScopedDatabaseType(defaultSql.DatabaseType))
                         return CreateValuePropertyAttributeFailure(
                             property,
                             defaultSql,
@@ -803,6 +933,10 @@ public static class MetadataFactory
 
         return true;
     }
+
+    private static bool IsValidProviderScopedDatabaseType(DatabaseType databaseType) =>
+        databaseType != DatabaseType.Unknown &&
+        Enum.IsDefined(typeof(DatabaseType), databaseType);
 
     public static Option<bool, IDLOptionFailure> ValidateSchemaAnnotationMetadata(DatabaseDefinition database)
     {
@@ -1482,7 +1616,7 @@ public static class MetadataFactory
                             column,
                             $"Column '{table.DbName}.{column.DbName}' contains a null database type.");
 
-                    if (!Enum.IsDefined(typeof(DatabaseType), dbType.DatabaseType))
+                    if (!IsValidProviderScopedDatabaseType(dbType.DatabaseType))
                         return CreateColumnPropertyFailure(
                             column,
                             $"Column '{table.DbName}.{column.DbName}' has database type '{dbType.Name}' with unsupported database type '{dbType.DatabaseType}'.");
@@ -1656,7 +1790,7 @@ public static class MetadataFactory
                 var defaultAttribute = defaultAttributes[0];
 
                 if (defaultAttribute is DefaultSqlAttribute defaultSql &&
-                    !Enum.IsDefined(typeof(DatabaseType), defaultSql.DatabaseType))
+                    !IsValidProviderScopedDatabaseType(defaultSql.DatabaseType))
                 {
                     return CreateValuePropertyFailure(
                         property,

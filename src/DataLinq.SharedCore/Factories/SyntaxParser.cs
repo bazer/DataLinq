@@ -99,7 +99,7 @@ public class SyntaxParser
         {
             // Build all interfaces from the BaseList.
             var interfaces = typeSyntax.BaseList.Types
-                .Select(baseType => new CsTypeDeclaration(baseType))
+                .Select(ParseDeclaredInterface)
                 .Where(x => !x.Name.StartsWith("Immutable<"))
                 .ToList();
 
@@ -130,6 +130,12 @@ public class SyntaxParser
             .Select(ns => new ModelUsing(ns!)));
 
         return model;
+    }
+
+    private static CsTypeDeclaration ParseDeclaredInterface(BaseTypeSyntax baseType)
+    {
+        var declaration = new CsTypeDeclaration(baseType);
+        return new CsTypeDeclaration(declaration.Name, declaration.Namespace, ModelCsType.Interface);
     }
 
     public Option<Attribute, IDLOptionFailure> ParseAttribute(AttributeSyntax attributeSyntax)

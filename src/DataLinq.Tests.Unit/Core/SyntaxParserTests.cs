@@ -412,6 +412,7 @@ public abstract partial class MyModel : ITableModel<TestDb>
         await Assert.That(model.ValueProperties.ContainsKey("Name")).IsTrue();
         await Assert.That(model.RelationProperties).IsEmpty();
         await Assert.That(model.Usings.Any(u => u.FullNamespaceName == "DataLinq.Attributes")).IsTrue();
+        await Assert.That(model.OriginalInterfaces.Single(i => i.Name == "ITableModel<TestDb>").ModelCsType).IsEqualTo(ModelCsType.Interface);
         await Assert.That(tableModel.Table).IsNotNull();
         await Assert.That(tableModel.Table.DbName).IsEqualTo("my_models");
     }

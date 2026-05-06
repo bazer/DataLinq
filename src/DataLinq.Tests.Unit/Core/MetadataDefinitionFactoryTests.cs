@@ -644,6 +644,78 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DatabaseCacheLimitWithDuplicateType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.CacheLimits.Add((CacheLimitType.Megabytes, 128));
+        database.CacheLimits.Add((CacheLimitType.Megabytes, 256));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("multiple cache limit entries for 'Megabytes'");
+    }
+
+    [Test]
+    public async Task Build_DatabaseCacheCleanupWithDuplicateType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.CacheCleanup.Add((CacheCleanupType.Minutes, 5));
+        database.CacheCleanup.Add((CacheCleanupType.Minutes, 10));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("multiple cache cleanup entries for 'Minutes'");
+    }
+
+    [Test]
+    public async Task Build_DatabaseIndexCacheWithConflictingPolicies_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.IndexCache.Add((IndexCacheType.All, null));
+        database.IndexCache.Add((IndexCacheType.MaxAmountRows, 100));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("conflicting index-cache policies");
+    }
+
+    [Test]
+    public async Task Build_TableIndexCacheAllWithAmount_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var table = database.TableModels.Single().Table;
+        table.IndexCache.Add((IndexCacheType.All, 100));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Table 'items'");
+        await Assert.That(failure.Message).Contains("only MaxAmountRows can specify an amount");
+    }
+
+    [Test]
     public async Task Build_CheckAttributeWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
@@ -677,6 +749,24 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Comment attribute on value property 'Item.Id'");
         await Assert.That(failure.Message).Contains("unsupported database type '999'");
+    }
+
+    [Test]
+    public async Task Build_CommentAttributeWithUnknownDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var property = database.TableModels.Single().Model.ValueProperties["Id"];
+        property.AddAttribute(new CommentAttribute(DatabaseType.Unknown, "id comment"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Comment attribute on value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("unsupported database type 'Unknown'");
     }
 
     [Test]
@@ -1011,6 +1101,25 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Model 'Item' declared interface");
         await Assert.That(failure.Message).Contains("uses C# namespace 'Bad Namespace'");
+    }
+
+    [Test]
+    public async Task Build_ModelDeclaredInterfaceWithNonInterfaceKind_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().Model.SetInterfaces([
+            new CsTypeDeclaration("ITableModel<TestDb>", "DataLinq.Interfaces", ModelCsType.Class)
+        ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item' declared interface");
+        await Assert.That(failure.Message).Contains("must be an interface");
     }
 
     [Test]
@@ -1401,6 +1510,25 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.Message).Contains("Column 'items.id'");
         await Assert.That(failure.Message).Contains("unsupported database type");
         await Assert.That(failure.Message).Contains("999");
+    }
+
+    [Test]
+    public async Task Build_ColumnWithUnknownDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        var column = database.TableModels.Single().Table.Columns.Single();
+        column.AddDbType(new DatabaseColumnType(DatabaseType.Unknown, "int"));
+
+        var result = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'items.id'");
+        await Assert.That(failure.Message).Contains("unsupported database type");
+        await Assert.That(failure.Message).Contains("Unknown");
     }
 
     [Test]
