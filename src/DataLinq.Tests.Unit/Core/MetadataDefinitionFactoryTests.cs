@@ -121,6 +121,51 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DuplicateTableModelPropertyNames_ReturnsInvalidModelFailure()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+        var itemModel = CreateTableModel(database, "Items", "Item", "items");
+        var archiveModel = CreateTableModel(database, "Items", "ArchiveItem", "archive_items");
+        AddValueProperties(
+            itemModel.Model,
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        AddValueProperties(
+            archiveModel.Model,
+            ("ArchiveId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("archive_id")]));
+        database.SetTableModels([itemModel, archiveModel]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Duplicate table model property 'Items'");
+        await Assert.That(failure.Message).Contains("items");
+        await Assert.That(failure.Message).Contains("archive_items");
+        await Assert.That(failure.Message).Contains("Item");
+        await Assert.That(failure.Message).Contains("ArchiveItem");
+    }
+
+    [Test]
+    public async Task Build_TableModelPropertyMatchingDatabaseType_RenamesBuiltDatabaseTypeWithoutMutatingDraft()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
+        database.TableModels.Single().SetCsPropertyName("TestDb");
+
+        var built = new MetadataDefinitionFactory()
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .ValueOrException();
+
+        await Assert.That(ReferenceEquals(database, built)).IsFalse();
+        await Assert.That(database.CsType.Name).IsEqualTo("TestDb");
+        await Assert.That(built.CsType.Name).IsEqualTo("TestDbDb");
+        await Assert.That(built.TableModels.Single().CsPropertyName).IsEqualTo("TestDb");
+    }
+
+    [Test]
     public async Task Build_ColumnWithoutValueProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(

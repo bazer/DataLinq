@@ -242,6 +242,37 @@ public static class MetadataFactory
             : DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate.Model);
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateUniqueTableModelPropertyNames(DatabaseDefinition database)
+    {
+        var duplicateGroup = database.TableModels
+            .GroupBy(x => x.CsPropertyName, StringComparer.Ordinal)
+            .FirstOrDefault(x => x.Count() > 1);
+
+        if (duplicateGroup == null)
+            return true;
+
+        var duplicates = duplicateGroup.ToArray();
+        var first = duplicates[0];
+        var duplicate = duplicates[1];
+        var message = $"Duplicate table model property '{duplicateGroup.Key}' in database '{database.DbName}'. Tables '{first.Table.DbName}' and '{duplicate.Table.DbName}' (models '{first.Model.CsType.Name}' and '{duplicate.Model.CsType.Name}') would generate the same database property.";
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate.Model);
+    }
+
+    public static void NormalizeDatabaseTypeName(DatabaseDefinition database)
+    {
+        var tablePropertyNames = new HashSet<string>(
+            database.TableModels.Select(x => x.CsPropertyName),
+            StringComparer.Ordinal);
+        var csTypeName = database.CsType.Name;
+
+        while (tablePropertyNames.Contains(csTypeName))
+            csTypeName = $"{csTypeName}Db";
+
+        if (!string.Equals(database.CsType.Name, csTypeName, StringComparison.Ordinal))
+            database.SetCsType(database.CsType.MutateName(csTypeName));
+    }
+
     private static SourceLocation? GetTableNameSourceLocation(ModelDefinition model)
     {
         var tableAttribute = model.Attributes

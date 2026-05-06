@@ -202,9 +202,6 @@ public class MetadataFromModelsFactory
         if (!new MetadataDefinitionFactory().Build(draft).TryUnwrap(out var builtDatabase, out var buildFailure))
             return buildFailure;
 
-        if (builtDatabase.TableModels.Any(x => x.CsPropertyName == builtDatabase.CsType.Name))
-            builtDatabase.SetCsType(builtDatabase.CsType.MutateName($"{builtDatabase.CsType.Name}Db"));
-
         return builtDatabase;
     }
 }

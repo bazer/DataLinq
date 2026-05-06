@@ -236,6 +236,7 @@ Foundation slice notes:
 - Existing relation parts are now preflighted before draft snapshot copying and rechecked after relation finalization, so half-wired relation definitions or missing index back-references return `InvalidModel` instead of leaking snapshot/null-reference behavior.
 - Existing table column and value-property bindings are now preflighted before draft snapshot copying and before duplicate-column/index parsing, so missing or asymmetric column/property links return `InvalidModel` instead of leaking null-reference behavior.
 - Existing table-model ownership and primary-key registration are now preflighted before draft snapshot copying and checked again during finalization, so cross-database table-model reuse and asymmetric primary-key lists return `InvalidModel` instead of leaking snapshot map failures.
+- Table-model database property names are now finalized centrally: duplicate property names return `InvalidModel`, and database type/property-name collisions are normalized on the built snapshot instead of only in the source parser.
 - This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and the draft is still backed by that graph; the next C slices still need typed builder/draft inputs, broader provider parity, and API sealing before the workstream can be marked complete.
 
 Design stance:
