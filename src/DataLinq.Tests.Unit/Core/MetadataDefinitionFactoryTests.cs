@@ -17,9 +17,9 @@ namespace DataLinq.Tests.Unit.Core;
 public class MetadataDefinitionFactoryTests
 {
     [Test]
-    public async Task Build_RelationDraft_AssignsOrdinalsAndResolvesRelations()
+    public async Task Build_TypedRelationDraft_AssignsOrdinalsAndResolvesRelations()
     {
-        var database = CreateRelationDraft();
+        var database = CreateRelationTypedDraft();
 
         var built = new MetadataDefinitionFactory().Build(database).ValueOrException();
 
@@ -40,23 +40,9 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
-    public async Task Build_RelationDraft_ReturnsFrozenMetadataSnapshot()
+    public async Task Build_TypedRelationDraft_ReturnsFrozenMetadataSnapshot()
     {
-        var database = CreateRelationDraft();
-        database.SetAttributes([new DatabaseAttribute("TestDb")]);
-        database.CacheLimits.Add((CacheLimitType.Megabytes, 128));
-        database.CacheCleanup.Add((CacheCleanupType.Minutes, 2));
-        database.IndexCache.Add((IndexCacheType.All, null));
-
-        var draftOrderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
-        draftOrderModel.SetUsings([new ModelUsing("System")]);
-        draftOrderModel.SetAttributes([new TableAttribute("orders")]);
-        draftOrderModel.Table.CacheLimits.Add((CacheLimitType.Rows, 10));
-        draftOrderModel.Table.IndexCache.Add((IndexCacheType.None, null));
-        draftOrderModel.Table
-            .Columns
-            .Single(column => column.DbName == "order_id")
-            .AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int"));
+        var database = CreateRelationTypedDraft(includeFreezeCoverageMetadata: true);
 
         var built = new MetadataDefinitionFactory().Build(database).ValueOrException();
 
@@ -2279,7 +2265,7 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task BuildProviderMetadata_ProviderStyleDraft_AssignsInterfacesOrdinalsAndPrimaryKeyIndex()
     {
-        var database = CreateProviderStyleDraft();
+        var database = CreateProviderStyleTypedDraft();
 
         var built = new MetadataDefinitionFactory().BuildProviderMetadata(database).ValueOrException();
 
@@ -2317,20 +2303,33 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_StubTableDraft_PreservesStubFlagAndSkipsFinalization()
     {
-        var database = new DatabaseDefinition(
+        var database = new MetadataDatabaseDraft(
             "TestDb",
-            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
-        var stubModel = new ModelDefinition(new CsTypeDeclaration("MissingModel", "TestNamespace", ModelCsType.Interface));
-        stubModel.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
-        var stubTableModel = new TableModel("MissingModels", database, stubModel, isStub: true);
-        database.SetTableModels([stubTableModel]);
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "MissingModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("MissingModel", "TestNamespace", ModelCsType.Interface))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ]
+                    },
+                    new MetadataTableDraft("missing_models"))
+                {
+                    IsStub = true
+                }
+            ]
+        };
 
         var built = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .Build(database)
             .ValueOrException();
 
         await Assert.That(built.TableModels.Single().IsStub).IsTrue();
-        await Assert.That(stubTableModel.IsStub).IsTrue();
     }
 
     private static DatabaseDefinition CreateRelationDraft(string foreignKeyName = "FK_Order_User")
@@ -2360,12 +2359,34 @@ public class MetadataDefinitionFactoryTests
         return database;
     }
 
-    private static MetadataDatabaseDraft CreateRelationTypedDraft(string foreignKeyName = "FK_Order_User")
+    private static MetadataDatabaseDraft CreateRelationTypedDraft(
+        string foreignKeyName = "FK_Order_User",
+        bool includeFreezeCoverageMetadata = false)
     {
+        var orderIdColumn = new MetadataColumnDraft("order_id")
+        {
+            PrimaryKey = true,
+            DbTypes = includeFreezeCoverageMetadata
+                ? [new DatabaseColumnType(DatabaseType.MySQL, "int")]
+                : []
+        };
+
         return new MetadataDatabaseDraft(
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
         {
+            Attributes = includeFreezeCoverageMetadata
+                ? [new DatabaseAttribute("TestDb")]
+                : [],
+            CacheLimits = includeFreezeCoverageMetadata
+                ? [(CacheLimitType.Megabytes, 128)]
+                : [],
+            CacheCleanup = includeFreezeCoverageMetadata
+                ? [(CacheCleanupType.Minutes, 2)]
+                : [],
+            IndexCache = includeFreezeCoverageMetadata
+                ? [(IndexCacheType.All, null)]
+                : [],
             TableModels =
             [
                 new MetadataTableModelDraft(
@@ -2403,12 +2424,18 @@ public class MetadataDefinitionFactoryTests
                         [
                             new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
                         ],
+                        Usings = includeFreezeCoverageMetadata
+                            ? [new ModelUsing("System")]
+                            : [],
+                        Attributes = includeFreezeCoverageMetadata
+                            ? [new TableAttribute("orders")]
+                            : [],
                         ValueProperties =
                         [
                             new MetadataValuePropertyDraft(
                                 "OrderId",
                                 new CsTypeDeclaration(typeof(int)),
-                                new MetadataColumnDraft("order_id") { PrimaryKey = true })
+                                orderIdColumn)
                             {
                                 Attributes = [new PrimaryKeyAttribute(), new ColumnAttribute("order_id")]
                             },
@@ -2432,7 +2459,50 @@ public class MetadataDefinitionFactoryTests
                             }
                         ]
                     },
-                    new MetadataTableDraft("orders"))
+                    new MetadataTableDraft("orders")
+                    {
+                        CacheLimits = includeFreezeCoverageMetadata
+                            ? [(CacheLimitType.Rows, 10)]
+                            : [],
+                        IndexCache = includeFreezeCoverageMetadata
+                            ? [(IndexCacheType.None, null)]
+                            : []
+                    })
+            ]
+        };
+    }
+
+    private static MetadataDatabaseDraft CreateProviderStyleTypedDraft()
+    {
+        return new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Items",
+                    new MetadataModelDraft(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "ItemId",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("item_id") { PrimaryKey = true })
+                            {
+                                Attributes = [new PrimaryKeyAttribute(), new ColumnAttribute("item_id")]
+                            },
+                            new MetadataValuePropertyDraft(
+                                "Name",
+                                new CsTypeDeclaration(typeof(string)),
+                                new MetadataColumnDraft("name"))
+                            {
+                                Attributes = [new ColumnAttribute("name")]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("items"))
             ]
         };
     }
