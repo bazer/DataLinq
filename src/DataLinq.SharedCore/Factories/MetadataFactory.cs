@@ -336,6 +336,21 @@ public static class MetadataFactory
             if (mutableTypeFailure is not null)
                 return mutableTypeFailure;
 
+            foreach (var modelUsing in model.Usings)
+            {
+                if (modelUsing is null)
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Model '{model.CsType.Name}' contains a null using namespace.",
+                        model);
+
+                if (!IsValidCSharpNamespace(modelUsing.FullNamespaceName))
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Model '{model.CsType.Name}' uses C# using namespace '{modelUsing.FullNamespaceName}', which is not a valid unescaped C# namespace.",
+                        model);
+            }
+
             foreach (var property in model.ValueProperties.Values)
             {
                 if (!IsValidCSharpIdentifier(property.PropertyName))
