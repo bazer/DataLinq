@@ -19,21 +19,69 @@ public class DatabaseDefinition : IDefinition
     }
 
     public string Name { get; private set; }
-    public void SetName(string name) => Name = name;
+    public bool IsFrozen { get; private set; }
+
+    public void SetName(string name)
+    {
+        ThrowIfFrozen();
+        Name = name;
+    }
+
     public string DbName { get; private set; }
-    public void SetDbName(string dbName) => DbName = dbName;
+
+    public void SetDbName(string dbName)
+    {
+        ThrowIfFrozen();
+        DbName = dbName;
+    }
+
     public CsTypeDeclaration CsType { get; private set; }
-    public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
+
+    public void SetCsType(CsTypeDeclaration csType)
+    {
+        ThrowIfFrozen();
+        CsType = csType;
+    }
+
     public CsFileDeclaration? CsFile { get; private set; }
-    public void SetCsFile(CsFileDeclaration csFile) => CsFile = csFile;
+
+    public void SetCsFile(CsFileDeclaration csFile)
+    {
+        ThrowIfFrozen();
+        CsFile = csFile;
+    }
+
     public bool UseCache { get; private set; }
-    public void SetCache(bool useCache) => UseCache = useCache;
+
+    public void SetCache(bool useCache)
+    {
+        ThrowIfFrozen();
+        UseCache = useCache;
+    }
+
     public Attribute[] Attributes { get; private set; } = [];
-    public void SetAttributes(IEnumerable<Attribute> attributes) => Attributes = attributes.ToArray();
+
+    public void SetAttributes(IEnumerable<Attribute> attributes)
+    {
+        ThrowIfFrozen();
+        Attributes = attributes.ToArray();
+    }
+
     public SourceTextSpan? SourceSpan { get; private set; }
-    public void SetSourceSpan(SourceTextSpan sourceSpan) => SourceSpan = sourceSpan;
+
+    public void SetSourceSpan(SourceTextSpan sourceSpan)
+    {
+        ThrowIfFrozen();
+        SourceSpan = sourceSpan;
+    }
+
     private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
-    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan) => attributeSourceSpans[attribute] = sourceSpan;
+
+    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
+    {
+        ThrowIfFrozen();
+        attributeSourceSpans[attribute] = sourceSpan;
+    }
 
     public SourceLocation? GetSourceLocation()
     {
@@ -52,8 +100,37 @@ public class DatabaseDefinition : IDefinition
     }
 
     public TableModel[] TableModels { get; private set; } = [];
-    public void SetTableModels(IEnumerable<TableModel> tableModels) => TableModels = tableModels.ToArray();
+
+    public void SetTableModels(IEnumerable<TableModel> tableModels)
+    {
+        ThrowIfFrozen();
+        TableModels = tableModels.ToArray();
+    }
+
     public List<(CacheLimitType limitType, long amount)> CacheLimits { get; private set; } = [];
     public List<(IndexCacheType indexCacheType, int? amount)> IndexCache { get; private set; } = [];
     public List<(CacheCleanupType cleanupType, long amount)> CacheCleanup { get; private set; } = [];
+
+    internal void Freeze()
+    {
+        if (IsFrozen)
+            return;
+
+        IsFrozen = true;
+
+        foreach (var tableModel in TableModels)
+            tableModel.Freeze();
+
+        foreach (var relation in TableModels
+            .SelectMany(tableModel => tableModel.Table.ColumnIndices)
+            .SelectMany(index => index.RelationParts ?? Enumerable.Empty<RelationPart>())
+            .Select(part => part.Relation)
+            .Where(relation => relation is not null)
+            .Distinct())
+        {
+            relation.Freeze();
+        }
+    }
+
+    private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
 }

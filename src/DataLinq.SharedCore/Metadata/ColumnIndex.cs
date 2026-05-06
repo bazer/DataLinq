@@ -11,10 +11,23 @@ namespace DataLinq.Metadata;
 /// </summary>
 public class ColumnIndex : IDefinition
 {
+    private TableDefinition table = null!;
+    private List<RelationPart> relationParts = new();
+
     /// <summary>
     /// Table that the index belongs to.
     /// </summary>
-    public TableDefinition Table { get; set; }
+    public TableDefinition Table
+    {
+        get => table;
+        set
+        {
+            ThrowIfFrozen();
+            table = value;
+        }
+    }
+
+    public bool IsFrozen { get; private set; }
 
     /// <summary>
     /// Gets or sets the list of columns associated with the index. 
@@ -22,7 +35,15 @@ public class ColumnIndex : IDefinition
     /// </summary>
     public List<ColumnDefinition> Columns { get; }
 
-    public List<RelationPart> RelationParts { get; set; } = new List<RelationPart>();
+    public List<RelationPart> RelationParts
+    {
+        get => relationParts;
+        set
+        {
+            ThrowIfFrozen();
+            relationParts = value;
+        }
+    }
 
     /// <summary>
     /// Gets or sets the characteristic of the index, such as whether it's a primary key or unique.
@@ -63,9 +84,11 @@ public class ColumnIndex : IDefinition
 
     public void AddColumn(ColumnDefinition column)
     {
+        ThrowIfFrozen();
+
         if (Columns.Contains(column))
             throw new ArgumentException($"Columns already contains column '{column}'");
-        
+
         Columns.Add(column);
     }
 
@@ -126,4 +149,22 @@ public class ColumnIndex : IDefinition
 
         // Additional validations can be added here as needed.
     }
+
+    internal void Freeze()
+    {
+        if (IsFrozen)
+            return;
+
+        IsFrozen = true;
+
+        foreach (var relation in (RelationParts ?? [])
+            .Select(part => part.Relation)
+            .Where(relation => relation is not null)
+            .Distinct())
+        {
+            relation.Freeze();
+        }
+    }
+
+    private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
 }

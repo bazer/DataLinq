@@ -16,13 +16,31 @@ public enum TableType
 public class TableDefinition(string dbName) : IDefinition
 {
     public string DbName { get; private set; } = dbName;
-    public void SetDbName(string dbName) => DbName = dbName;
+    public bool IsFrozen { get; private set; }
+
+    public void SetDbName(string dbName)
+    {
+        ThrowIfFrozen();
+        DbName = dbName;
+    }
+
     public TableModel TableModel { get; private set; }
-    internal void SetTableModel(TableModel tableModel) => TableModel = tableModel;
+
+    internal void SetTableModel(TableModel tableModel)
+    {
+        ThrowIfFrozen();
+        TableModel = tableModel;
+    }
+
     public DatabaseDefinition Database => TableModel.Database;
     public ModelDefinition Model => TableModel.Model;
     public ColumnDefinition[] Columns { get; private set; } = [];
-    public void SetColumns(IEnumerable<ColumnDefinition> columns) => Columns = columns.ToArray();
+
+    public void SetColumns(IEnumerable<ColumnDefinition> columns)
+    {
+        ThrowIfFrozen();
+        Columns = columns.ToArray();
+    }
 
     public ColumnDefinition[] PrimaryKeyColumns { get; private set; } = [];
     public List<ColumnIndex> ColumnIndices { get; private set; } = [];
@@ -36,12 +54,18 @@ public class TableDefinition(string dbName) : IDefinition
     public bool UseCache
     {
         get => explicitUseCache ?? Database.UseCache;
-        set => explicitUseCache = value;
+        set
+        {
+            ThrowIfFrozen();
+            explicitUseCache = value;
+        }
     }
 
 
     public void AddPrimaryKeyColumn(ColumnDefinition column)
     {
+        ThrowIfFrozen();
+
         if (PrimaryKeyColumns == null)
             PrimaryKeyColumns = [column];
         else if (PrimaryKeyColumns.Contains(column))
@@ -52,6 +76,8 @@ public class TableDefinition(string dbName) : IDefinition
 
     public void RemovePrimaryKeyColumn(ColumnDefinition column)
     {
+        ThrowIfFrozen();
+
         if (PrimaryKeyColumns == null)
             return;
 
@@ -68,12 +94,33 @@ public class TableDefinition(string dbName) : IDefinition
 
         return desc;
     }
+
+    internal void Freeze()
+    {
+        if (IsFrozen)
+            return;
+
+        IsFrozen = true;
+
+        foreach (var column in Columns)
+            column.Freeze();
+
+        foreach (var index in ColumnIndices)
+            index.Freeze();
+    }
+
+    protected void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
 }
 
 public class ViewDefinition : TableDefinition
 {
     public string? Definition { get; private set; }
-    public void SetDefinition(string definition) => Definition = definition;
+
+    public void SetDefinition(string definition)
+    {
+        ThrowIfFrozen();
+        Definition = definition;
+    }
 
     public ViewDefinition(string dbName) : base(dbName)
     {

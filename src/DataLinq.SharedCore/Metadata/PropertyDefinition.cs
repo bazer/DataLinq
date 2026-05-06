@@ -17,20 +17,61 @@ public enum PropertyType
 public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : IDefinition
 {
     public Attribute[] Attributes { get; private set; } = attributes.ToArray();
-    public void SetAttributes(IEnumerable<Attribute> attributes) => Attributes = attributes.ToArray();
-    public void AddAttribute(Attribute attribute) => Attributes = [.. Attributes, attribute];
+    public bool IsFrozen { get; private set; }
+
+    public void SetAttributes(IEnumerable<Attribute> attributes)
+    {
+        ThrowIfFrozen();
+        Attributes = attributes.ToArray();
+    }
+
+    public void AddAttribute(Attribute attribute)
+    {
+        ThrowIfFrozen();
+        Attributes = [.. Attributes, attribute];
+    }
+
     public string PropertyName { get; private set; } = propertyName;
-    public void SetPropertyName(string propertyName) => PropertyName = propertyName;
+
+    public void SetPropertyName(string propertyName)
+    {
+        ThrowIfFrozen();
+        PropertyName = propertyName;
+    }
+
     public CsTypeDeclaration CsType { get; private set; } = csType;
-    public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
+
+    public void SetCsType(CsTypeDeclaration csType)
+    {
+        ThrowIfFrozen();
+        CsType = csType;
+    }
+
     public bool CsNullable { get; private set; }
-    public void SetCsNullable(bool csNullable = true) => CsNullable = csNullable;
+
+    public void SetCsNullable(bool csNullable = true)
+    {
+        ThrowIfFrozen();
+        CsNullable = csNullable;
+    }
+
     public ModelDefinition Model { get; private set; } = model;
     public PropertyType Type { get; protected private set; }
     public PropertySourceInfo? SourceInfo { get; private set; }
-    public void SetSourceInfo(PropertySourceInfo sourceInfo) => SourceInfo = sourceInfo;
+
+    public void SetSourceInfo(PropertySourceInfo sourceInfo)
+    {
+        ThrowIfFrozen();
+        SourceInfo = sourceInfo;
+    }
+
     private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
-    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan) => attributeSourceSpans[attribute] = sourceSpan;
+
+    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
+    {
+        ThrowIfFrozen();
+        attributeSourceSpans[attribute] = sourceSpan;
+    }
 
     public SourceLocation? GetAttributeSourceLocation(Attribute attribute)
     {
@@ -44,16 +85,43 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
     public override string ToString() => $"Property: {CsType.Name} {PropertyName}";
 
+    internal void Freeze()
+    {
+        if (IsFrozen)
+            return;
+
+        IsFrozen = true;
+    }
+
+    protected void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
+
 }
 
 public class ValueProperty : PropertyDefinition
 {
     public ColumnDefinition Column { get; private set; }
-    public void SetColumn(ColumnDefinition column) => Column = column;
+
+    public void SetColumn(ColumnDefinition column)
+    {
+        ThrowIfFrozen();
+        Column = column;
+    }
+
     public int? CsSize { get; private set; }
-    public void SetCsSize(int? csSize) => CsSize = csSize;
+
+    public void SetCsSize(int? csSize)
+    {
+        ThrowIfFrozen();
+        CsSize = csSize;
+    }
+
     public EnumProperty? EnumProperty { get; private set; }
-    public void SetEnumProperty(EnumProperty enumProperty) => EnumProperty = enumProperty;
+
+    public void SetEnumProperty(EnumProperty enumProperty)
+    {
+        ThrowIfFrozen();
+        EnumProperty = enumProperty;
+    }
 
     public ValueProperty(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : base(propertyName, csType, model, attributes)
     {
@@ -184,9 +252,20 @@ public record struct EnumProperty
 public class RelationProperty : PropertyDefinition
 {
     public RelationPart RelationPart { get; private set; }
-    public void SetRelationPart(RelationPart relationPart) => RelationPart = relationPart;
+
+    public void SetRelationPart(RelationPart relationPart)
+    {
+        ThrowIfFrozen();
+        RelationPart = relationPart;
+    }
+
     public string? RelationName { get; private set; }
-    public void SetRelationName(string? relationName) => RelationName = relationName;
+
+    public void SetRelationName(string? relationName)
+    {
+        ThrowIfFrozen();
+        RelationName = relationName;
+    }
 
     public RelationProperty(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : base(propertyName, csType, model, attributes)
     {

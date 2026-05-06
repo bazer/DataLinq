@@ -149,6 +149,7 @@ public sealed class MetadataDefinitionFactory
             return finalizedRelationPartFailure;
 
         MetadataFactory.IndexColumns(draft);
+        draft.Freeze();
 
         return draft;
     }

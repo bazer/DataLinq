@@ -8,34 +8,111 @@ namespace DataLinq.Metadata;
 public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 {
     public CsTypeDeclaration CsType { get; private set; } = csType;
-    public void SetCsType(CsTypeDeclaration csType) => CsType = csType;
+    public bool IsFrozen { get; private set; }
+
+    public void SetCsType(CsTypeDeclaration csType)
+    {
+        ThrowIfFrozen();
+        CsType = csType;
+    }
+
     public CsFileDeclaration? CsFile { get; private set; }
-    public void SetCsFile(CsFileDeclaration csFile) => CsFile = csFile;
+
+    public void SetCsFile(CsFileDeclaration csFile)
+    {
+        ThrowIfFrozen();
+        CsFile = csFile;
+    }
+
     public TableModel TableModel { get; private set; }
-    internal void SetTableModel(TableModel tableModel) => TableModel = tableModel;
+
+    internal void SetTableModel(TableModel tableModel)
+    {
+        ThrowIfFrozen();
+        TableModel = tableModel;
+    }
+
     public DatabaseDefinition Database => TableModel.Database;
     public TableDefinition Table => TableModel.Table;
     public CsTypeDeclaration? ImmutableType { get; private set; }
-    public void SetImmutableType(CsTypeDeclaration immutableType) => ImmutableType = immutableType;
+
+    public void SetImmutableType(CsTypeDeclaration immutableType)
+    {
+        ThrowIfFrozen();
+        ImmutableType = immutableType;
+    }
+
     public Delegate? ImmutableFactory { get; private set; }
-    public void SetImmutableFactory(Delegate immutableFactory) => ImmutableFactory = immutableFactory;
+
+    public void SetImmutableFactory(Delegate immutableFactory)
+    {
+        ThrowIfFrozen();
+        ImmutableFactory = immutableFactory;
+    }
+
     public CsTypeDeclaration? MutableType { get; private set; }
-    public void SetMutableType(CsTypeDeclaration mutableType) => MutableType = mutableType;
+
+    public void SetMutableType(CsTypeDeclaration mutableType)
+    {
+        ThrowIfFrozen();
+        MutableType = mutableType;
+    }
+
     public CsTypeDeclaration? ModelInstanceInterface { get; private set; }
-    public void SetModelInstanceInterface(CsTypeDeclaration? interfaceType) => ModelInstanceInterface = interfaceType;
+
+    public void SetModelInstanceInterface(CsTypeDeclaration? interfaceType)
+    {
+        ThrowIfFrozen();
+        ModelInstanceInterface = interfaceType;
+    }
+
     public CsTypeDeclaration[] OriginalInterfaces { get; private set; } = [];
-    public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces) => OriginalInterfaces = interfaces.ToArray();
+
+    public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces)
+    {
+        ThrowIfFrozen();
+        OriginalInterfaces = interfaces.ToArray();
+    }
+
     public ModelUsing[] Usings { get; private set; } = [];
-    public void SetUsings(IEnumerable<ModelUsing> usings) => Usings = usings.ToArray();
+
+    public void SetUsings(IEnumerable<ModelUsing> usings)
+    {
+        ThrowIfFrozen();
+        Usings = usings.ToArray();
+    }
+
     public Dictionary<string, RelationProperty> RelationProperties { get; } = new();
     public Dictionary<string, ValueProperty> ValueProperties { get; } = new();
     public Attribute[] Attributes { get; private set; } = [];
-    public void SetAttributes(IEnumerable<Attribute> attributes) => Attributes = attributes.ToArray();
-    public void AddAttribute(Attribute attribute) => Attributes = [.. Attributes, attribute];
+
+    public void SetAttributes(IEnumerable<Attribute> attributes)
+    {
+        ThrowIfFrozen();
+        Attributes = attributes.ToArray();
+    }
+
+    public void AddAttribute(Attribute attribute)
+    {
+        ThrowIfFrozen();
+        Attributes = [.. Attributes, attribute];
+    }
+
     public SourceTextSpan? SourceSpan { get; private set; }
-    public void SetSourceSpan(SourceTextSpan sourceSpan) => SourceSpan = sourceSpan;
+
+    public void SetSourceSpan(SourceTextSpan sourceSpan)
+    {
+        ThrowIfFrozen();
+        SourceSpan = sourceSpan;
+    }
+
     private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
-    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan) => attributeSourceSpans[attribute] = sourceSpan;
+
+    public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
+    {
+        ThrowIfFrozen();
+        attributeSourceSpans[attribute] = sourceSpan;
+    }
 
     public SourceLocation? GetSourceLocation()
     {
@@ -55,12 +132,16 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public void AddProperties(IEnumerable<PropertyDefinition> properties)
     {
+        ThrowIfFrozen();
+
         foreach (var property in properties)
             AddProperty(property);
     }
 
     public void AddProperty(PropertyDefinition property)
     {
+        ThrowIfFrozen();
+
         if (property is RelationProperty relationProperty)
             // This will add or overwrite the entry for the given property name.
             RelationProperties[relationProperty.PropertyName] = relationProperty;
@@ -99,4 +180,20 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         else
             return $"{CsType.Name} ({Database?.DbName}.{Table?.DbName})";
     }
+
+    internal void Freeze()
+    {
+        if (IsFrozen)
+            return;
+
+        IsFrozen = true;
+
+        foreach (var property in ValueProperties.Values)
+            property.Freeze();
+
+        foreach (var property in RelationProperties.Values)
+            property.Freeze();
+    }
+
+    private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
 }

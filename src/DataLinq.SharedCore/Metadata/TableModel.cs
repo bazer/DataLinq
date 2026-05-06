@@ -5,6 +5,7 @@ namespace DataLinq.Metadata;
 public class TableModel
 {
     public string CsPropertyName { get; private set; }
+    public bool IsFrozen { get; private set; }
     public DatabaseDefinition Database { get; }
     public TableDefinition Table { get; }
     public ModelDefinition Model { get; }
@@ -45,10 +46,26 @@ public class TableModel
         Model.SetTableModel(this);
     }
 
-    public void SetCsPropertyName(string csPropertyName) => CsPropertyName = csPropertyName;
+    public void SetCsPropertyName(string csPropertyName)
+    {
+        ThrowIfFrozen();
+        CsPropertyName = csPropertyName;
+    }
 
     public override string ToString()
     {
         return $"{Table}, {Model}";
     }
+
+    internal void Freeze()
+    {
+        if (IsFrozen)
+            return;
+
+        IsFrozen = true;
+        Table.Freeze();
+        Model.Freeze();
+    }
+
+    private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
 }

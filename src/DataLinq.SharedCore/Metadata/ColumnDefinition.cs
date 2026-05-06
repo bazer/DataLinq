@@ -10,37 +10,106 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
 {
     public DatabaseType DatabaseType { get; } = databaseType;
     public string Name { get; private set; } = name;
-    public void SetName(string name) => Name = name;
+    public bool IsFrozen { get; private set; }
+
+    public void SetName(string name)
+    {
+        ThrowIfFrozen();
+        Name = name;
+    }
+
     public ulong? Length { get; private set; } = length;
-    public void SetLength(ulong? length) => Length = length == 0 ? null : length;
+
+    public void SetLength(ulong? length)
+    {
+        ThrowIfFrozen();
+        Length = length == 0 ? null : length;
+    }
+
     public uint? Decimals { get; private set; } = decimals;
-    public void SetDecimals(uint? decimals) => Decimals = decimals;
-    public void SetDecimals(ulong? decimals) => Decimals = (uint?)decimals;
+
+    public void SetDecimals(uint? decimals)
+    {
+        ThrowIfFrozen();
+        Decimals = decimals;
+    }
+
+    public void SetDecimals(ulong? decimals)
+    {
+        ThrowIfFrozen();
+        Decimals = (uint?)decimals;
+    }
+
     public bool? Signed { get; private set; } = signed;
-    public void SetSigned(bool signed) => Signed = signed;
+
+    public void SetSigned(bool signed)
+    {
+        ThrowIfFrozen();
+        Signed = signed;
+    }
 
     public override string ToString() => $"{Name} ({Length}) [{DatabaseType}]";
 
     public DatabaseColumnType Clone() => new(DatabaseType, Name, Length, Decimals, Signed);
     public DatabaseColumnType Mutate(DatabaseType databaseType) => new(databaseType, Name, Length, Decimals, Signed);
+
+    internal void Freeze()
+    {
+        if (IsFrozen)
+            return;
+
+        IsFrozen = true;
+    }
+
+    private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
 }
 
 public class ColumnDefinition(string dbName, TableDefinition table) : IDefinition
 {
     public TableDefinition Table { get; } = table;
     public string DbName { get; private set; } = dbName;
-    public void SetDbName(string value) => DbName = value;
+    public bool IsFrozen { get; private set; }
+
+    public void SetDbName(string value)
+    {
+        ThrowIfFrozen();
+        DbName = value;
+    }
+
     public DatabaseColumnType[] DbTypes { get; private set; } = [];
     public int Index { get; private set; }
-    public void SetIndex(int index) => Index = index;
+
+    public void SetIndex(int index)
+    {
+        ThrowIfFrozen();
+        Index = index;
+    }
+
     public bool ForeignKey { get; private set; }
-    public void SetForeignKey(bool value = true) => ForeignKey = value;
+
+    public void SetForeignKey(bool value = true)
+    {
+        ThrowIfFrozen();
+        ForeignKey = value;
+    }
+
     public bool PrimaryKey { get; private set; }
     public bool Unique => ColumnIndices.Any(x => x.Characteristic == Attributes.IndexCharacteristic.Unique);
     public bool AutoIncrement { get; private set; }
-    public void SetAutoIncrement(bool value = true) => AutoIncrement = value;
+
+    public void SetAutoIncrement(bool value = true)
+    {
+        ThrowIfFrozen();
+        AutoIncrement = value;
+    }
+
     public bool Nullable { get; private set; }
-    public void SetNullable(bool value = true) => Nullable = value;
+
+    public void SetNullable(bool value = true)
+    {
+        ThrowIfFrozen();
+        Nullable = value;
+    }
 
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
     public ValueProperty ValueProperty { get; private set; }
@@ -49,12 +118,14 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     public void SetValueProperty(ValueProperty value)
     {
+        ThrowIfFrozen();
         ValueProperty = value;
         value.SetColumn(this);
     }
 
     public void SetPrimaryKey(bool value = true)
     {
+        ThrowIfFrozen();
         PrimaryKey = value;
 
         if (value)
@@ -65,6 +136,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
 
     public void AddDbType(DatabaseColumnType columnType)
     {
+        ThrowIfFrozen();
         DbTypes = DbTypes.AsEnumerable().Append(columnType).ToArray();
     }
 
@@ -78,4 +150,17 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     }
 
     public override string ToString() => $"{Table.DbName}.{DbName} ({DbTypes.ToJoinedString(", ")})";
+
+    internal void Freeze()
+    {
+        if (IsFrozen)
+            return;
+
+        IsFrozen = true;
+
+        foreach (var dbType in DbTypes)
+            dbType.Freeze();
+    }
+
+    private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
 }

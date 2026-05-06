@@ -93,9 +93,6 @@ public abstract partial class OrderModel(IRowData rowData, IDataSourceAccess dat
         await Assert.That(orderTableModel.Model.ModelInstanceInterface.HasValue).IsTrue();
         await Assert.That(orderTableModel.Model.ModelInstanceInterface!.Value.Name).IsEqualTo("IOrderModel");
 
-        MetadataFactory.ParseIndices(databaseDefinition);
-        MetadataFactory.ParseRelations(databaseDefinition);
-
         await Assert.That(userTableModel.Model.RelationProperties["Orders"].RelationPart).IsNotNull();
         await Assert.That(orderTableModel.Model.RelationProperties["User"].RelationPart).IsNotNull();
         await Assert.That(ReferenceEquals(

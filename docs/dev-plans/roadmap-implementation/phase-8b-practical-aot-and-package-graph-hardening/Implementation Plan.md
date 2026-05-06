@@ -184,7 +184,7 @@ Exit criteria:
 
 ## Workstream C: Immutable Metadata Builder And Factory Foundation
 
-**Status:** In progress. The primary metadata producers now feed typed drafts into the factory; immutable runtime definitions remain the major unfinished part.
+**Status:** In progress. The primary metadata producers now feed typed drafts into the factory, and factory-built runtime graphs are frozen against setter-style mutation; public collection sealing remains the major unfinished part.
 
 Goals:
 
@@ -194,9 +194,9 @@ Goals:
 
 Tasks:
 
-1. [in progress] Add metadata builder/draft types side by side with the current metadata graph. The typed database/table/model/property/column draft records now exist, carry source diagnostics, and are used by the primary metadata producers; the mutable graph remains the internal lowering/finalization target until runtime definitions are frozen.
+1. [in progress] Add metadata builder/draft types side by side with the current metadata graph. The typed database/table/model/property/column draft records now exist, carry source diagnostics, and are used by the primary metadata producers; the mutable graph remains the internal lowering/finalization target, but factory-built snapshots are now frozen against ordinary setter-style mutation.
 2. [x] Represent source-model metadata, generated declarations, SQLite metadata, MySQL metadata, and MariaDB metadata in builder form. Source-model, generated runtime, SQLite, MySQL, and MariaDB metadata now build typed drafts before factory finalization.
-3. [in progress] Introduce a `MetadataDefinitionFactory` or equivalent factory that owns validation, normalization, relation resolution, column ordinal assignment, cache metadata interpretation, and freeze/finalization.
+3. [in progress] Introduce a `MetadataDefinitionFactory` or equivalent factory that owns validation, normalization, relation resolution, column ordinal assignment, cache metadata interpretation, and freeze/finalization. The factory now freezes successful snapshots after finalization; collection-level sealing is still pending.
 4. [in progress] Make expected invalid-model failures return `Option<DatabaseDefinition, IDLOptionFailure>` rather than arbitrary exceptions.
 5. [x] Add equivalence tests comparing builder-built metadata against current metadata for generated `EmployeesDb`, `AllroundBenchmark`, and the platform smoke model. Source-parsed and generated-runtime metadata now both enter through typed drafts, and the representative equivalence coverage stays green across those paths.
 6. [x] Add provider metadata equivalence tests for SQLite and the supported MySQL/MariaDB subset.
@@ -231,6 +231,7 @@ Foundation slice notes:
 - Generated runtime metadata import now builds typed drafts from `GeneratedDatabaseModelDeclaration`, `GeneratedTableModelDeclaration`, and reflected model/property attributes before calling `MetadataDefinitionFactory.Build(MetadataDatabaseDraft)`.
 - Source-model metadata import now builds typed drafts from Roslyn database/model/property syntax before calling `MetadataDefinitionFactory.Build(MetadataDatabaseDraft)`. Typed drafts now carry C# file declarations, syntax spans, property source info, and attribute source spans so source diagnostics survive the draft-to-runtime conversion.
 - `MetadataDefinitionFactory` now snapshots the draft before finalization, so interface assignment, index creation, relation resolution, and column ordinal assignment happen on the returned runtime graph without mutating the draft graph. Stub table models are preserved across the snapshot boundary.
+- `MetadataDefinitionFactory` now freezes successful metadata snapshots after validation, relation finalization, and column ordinal assignment. Database, table-model, table/view, model, property, column, index, relation, and provider type setter-style mutators reject post-finalization changes; public collection sealing remains the next compatibility cleanup.
 - Generated runtime metadata bootstrap failures now return `InvalidModel` option failures for missing hooks, wrong hook return types, default declarations, and malformed table declarations instead of surfacing as arbitrary catch-all exceptions.
 - Provider metadata import now returns `InvalidModel` option failures for unsupported SQLite, MySQL, and MariaDB column types with table/column context, while still skipping intentionally unsupported generated columns.
 - MySQL and MariaDB provider metadata import now returns `InvalidModel` option failures for unsupported index types and malformed index rows, keeping provider index parsing in the expected-failure path instead of throwing from information_schema classification.
@@ -258,7 +259,7 @@ Foundation slice notes:
 - Relational attribute metadata is now preflighted before draft snapshot copying and during finalization, so malformed `Index`, `ForeignKey`, and `Relation` attribute shapes such as unsupported enum values or empty index/relation targets return `InvalidModel` before index and relation parsing can fail late.
 - C# symbol metadata used by generated code is now preflighted before draft snapshot copying and rechecked after relation generation, so unsupported or role-incompatible C# type-kind values plus invalid database/model type names, table property names, model using namespaces, declared model interface references, generated model type references, value/relation property C# type references, value property names, and generated relation property names return `InvalidModel` before generated source can become malformed. Declared model interface entries are now also required to use interface-shaped C# metadata instead of any valid type syntax, and the source parser tags base-list model interfaces accordingly.
 - Model-file generation now formats metadata string arguments through Roslyn string literals, so database names, table/view names, definitions, index and column names, database type names, enum names, and relation attribute values containing quotes or escapes produce valid generated attributes.
-- This slice deliberately does not claim immutable runtime definitions yet. The current graph is still mutable, and typed drafts still lower through that graph internally; the remaining C work is API sealing/freeze behavior and any compatibility cleanup needed around the mutable factory and transformer shims.
+- This slice deliberately does not claim fully immutable runtime definitions yet. The current graph is frozen against ordinary mutators after factory finalization, but public collection properties still need read-only or immutable replacement; typed drafts still lower through the mutable graph internally.
 
 Design stance:
 

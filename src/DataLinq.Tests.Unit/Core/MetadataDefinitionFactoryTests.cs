@@ -37,6 +37,54 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_RelationDraft_ReturnsFrozenMetadataSnapshot()
+    {
+        var database = CreateRelationDraft();
+        database.TableModels
+            .Single(tm => tm.Table.DbName == "orders")
+            .Table
+            .Columns
+            .Single(column => column.DbName == "order_id")
+            .AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int"));
+
+        var built = new MetadataDefinitionFactory().Build(database).ValueOrException();
+
+        var orderTableModel = built.TableModels.Single(tm => tm.Table.DbName == "orders");
+        var orderTable = orderTableModel.Table;
+        var orderModel = orderTableModel.Model;
+        var orderId = orderTable.Columns.Single(column => column.DbName == "order_id");
+        var amount = orderTable.Columns.Single(column => column.DbName == "amount");
+        var orderIdProperty = orderModel.ValueProperties["OrderId"];
+        var customerProperty = orderModel.RelationProperties["Customer"];
+        var foreignKeyIndex = orderTable.ColumnIndices.Single(index => index.Name == "FK_Order_User");
+        var relation = customerProperty.RelationPart.Relation;
+        var dbType = orderId.DbTypes.Single();
+
+        await Assert.That(built.IsFrozen).IsTrue();
+        await Assert.That(orderTableModel.IsFrozen).IsTrue();
+        await Assert.That(orderTable.IsFrozen).IsTrue();
+        await Assert.That(orderModel.IsFrozen).IsTrue();
+        await Assert.That(orderId.IsFrozen).IsTrue();
+        await Assert.That(orderIdProperty.IsFrozen).IsTrue();
+        await Assert.That(customerProperty.IsFrozen).IsTrue();
+        await Assert.That(foreignKeyIndex.IsFrozen).IsTrue();
+        await Assert.That(relation.IsFrozen).IsTrue();
+        await Assert.That(dbType.IsFrozen).IsTrue();
+
+        await AssertFrozenMutation(() => built.SetDbName("changed"));
+        await AssertFrozenMutation(() => orderTableModel.SetCsPropertyName("Changed"));
+        await AssertFrozenMutation(() => orderTable.SetDbName("changed"));
+        await AssertFrozenMutation(() => orderTable.UseCache = true);
+        await AssertFrozenMutation(() => orderModel.SetCsType(new CsTypeDeclaration("Changed", "TestNamespace", ModelCsType.Class)));
+        await AssertFrozenMutation(() => orderId.SetIndex(42));
+        await AssertFrozenMutation(() => orderIdProperty.SetPropertyName("Changed"));
+        await AssertFrozenMutation(() => customerProperty.SetRelationName("Changed"));
+        await AssertFrozenMutation(() => foreignKeyIndex.AddColumn(amount));
+        await AssertFrozenMutation(() => relation.ConstraintName = "Changed");
+        await AssertFrozenMutation(() => dbType.SetName("bigint"));
+    }
+
+    [Test]
     public async Task Build_TypedRelationDraft_MatchesMutableRelationDraft()
     {
         var factory = new MetadataDefinitionFactory();
@@ -1365,14 +1413,17 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_RelationPropertyPointingAtOtherTableRelationPart_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var built = new MetadataDefinitionFactory().Build(CreateRelationDraft()).ValueOrException();
-        var orderModel = built.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
-        var userModel = built.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        var database = CreateRelationDraft();
+        MetadataFactory.ParseIndices(database).ValueOrException();
+        MetadataFactory.ParseRelations(database).ValueOrException();
+
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
         var wrongSidePart = userModel.RelationProperties["Order"].RelationPart;
         orderModel.RelationProperties["Customer"].SetRelationPart(wrongSidePart);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(built));
+            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2387,6 +2438,22 @@ public class MetadataDefinitionFactoryTests
             "<Type>k__BackingField",
             BindingFlags.Instance | BindingFlags.NonPublic);
         backingField!.SetValue(property, type);
+    }
+
+    private static async Task AssertFrozenMutation(Action action)
+    {
+        InvalidOperationException? exception = null;
+        try
+        {
+            action();
+        }
+        catch (InvalidOperationException caught)
+        {
+            exception = caught;
+        }
+
+        await Assert.That(exception).IsNotNull();
+        await Assert.That(exception!.Message).Contains("is frozen");
     }
 
     private sealed class MutableTableDefinition(string dbName) : TableDefinition(dbName)
