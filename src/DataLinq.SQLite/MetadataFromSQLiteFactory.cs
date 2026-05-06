@@ -37,7 +37,10 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         using var keepAliveLease = SQLiteConnectionStringFactory.AcquireKeepAliveConnectionIfInMemory(normalizedConnectionString);
         var dbAccess = new SQLiteDbAccess(normalizedConnectionString, DataLinqLoggingConfiguration.NullConfiguration);
 
-        var database = new DatabaseDefinition(name, new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class), dbName);
+        var database = new SQLiteProviderDatabaseDraft(
+            name,
+            new CsTypeDeclaration(csTypeName, csNamespace, ModelCsType.Class),
+            dbName);
         if (!dbAccess
             .ReadReader("SELECT *\r\nFROM sqlite_master m\r\nWHERE\r\nm.type <> 'index' AND\r\nm.tbl_name <> 'sqlite_sequence'")
             .Select(x => ParseTable(database, x, dbAccess))
@@ -45,13 +48,13 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             .TryUnwrap(out var tableModels, out var tableFailure))
             return SingleOrAggregate(tableFailure);
 
-        database.SetTableModels(tableModels.Where(IsTableOrViewInOptionsList));
+        database.TableModels.AddRange(tableModels.Where(IsTableOrViewInOptionsList));
 
         var missingTables = FindMissingTablesOrViewInOptionsList(database.TableModels).ToList();
         if (missingTables.Count != 0)
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Could not find the specified tables or views: {missingTables.ToJoinedString(", ")}");
 
-        if (database.TableModels.Length == 0)
+        if (database.TableModels.Count == 0)
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"No tables or views found in database '{dbName}'. Please check the connection string and database name.");
 
         ParseIndices(database, dbAccess);
@@ -59,10 +62,10 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             return relationFailure;
 
         return new MetadataDefinitionFactory()
-            .BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .BuildProviderMetadata(database.ToMetadataDraft());
     });
 
-    private IEnumerable<string> FindMissingTablesOrViewInOptionsList(TableModel[] tableModels)
+    private IEnumerable<string> FindMissingTablesOrViewInOptionsList(IReadOnlyList<SQLiteProviderTableModelDraft> tableModels)
     {
         foreach (var tableName in options.Include ?? [])
         {
@@ -70,7 +73,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                 yield return tableName;
         }
     }
-    private bool IsTableOrViewInOptionsList(TableModel tableModel)
+    private bool IsTableOrViewInOptionsList(SQLiteProviderTableModelDraft tableModel)
     {
         if (options.Include == null || !options.Include.Any())
             return true;
@@ -78,7 +81,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return options.Include.Any(x => x.Equals(tableModel.Table.DbName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void ParseIndices(DatabaseDefinition database, DatabaseAccess dbAccess)
+    private void ParseIndices(SQLiteProviderDatabaseDraft database, DatabaseAccess dbAccess)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
@@ -100,7 +103,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                     continue;
                 }
 
-                var indexColumns = new List<ColumnDefinition>();
+                var indexColumns = new List<SQLiteProviderValuePropertyDraft>();
                 var skipIndex = false;
 
                 foreach (var columnReader in dbAccess.ReadReader($"SELECT seqno, cid, name, \"desc\", \"key\" FROM pragma_index_xinfo({QuoteSqlLiteral(rawIndexName)}) WHERE \"key\" = 1 ORDER BY seqno"))
@@ -124,7 +127,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
                     var columnName = columnReader.GetString(2);
                     var column = tableModel
-                        .Table.Columns.SingleOrDefault(x => x.DbName == columnName);
+                        .Table.Columns.SingleOrDefault(x => x.Column.DbName == columnName);
 
                     if (column == null)
                     {
@@ -143,30 +146,30 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                     ? GetAutoIndexName(tableModel.Table, indexColumns, indexCharacteristic)
                     : rawIndexName;
 
-                var columnNames = indexColumns.Select(x => x.DbName).ToArray();
+                var columnNames = indexColumns.Select(x => x.Column.DbName).ToArray();
                 foreach (var column in indexColumns)
                 {
-                    column.ValueProperty.AddAttribute(new IndexAttribute(name, indexCharacteristic, IndexType.BTREE, columnNames));
+                    column.Attributes.Add(new IndexAttribute(name, indexCharacteristic, IndexType.BTREE, columnNames));
                 }
             }
         }
     }
 
-    private static string GetAutoIndexName(TableDefinition table, IReadOnlyList<ColumnDefinition> columns, IndexCharacteristic characteristic)
+    private static string GetAutoIndexName(SQLiteProviderTableDraft table, IReadOnlyList<SQLiteProviderValuePropertyDraft> columns, IndexCharacteristic characteristic)
     {
         if (columns.Count == 1)
-            return columns[0].DbName;
+            return columns[0].Column.DbName;
 
         var suffix = characteristic == IndexCharacteristic.Unique
             ? "unique"
             : characteristic.ToString().ToLowerInvariant();
 
-        return $"{table.DbName}_{string.Join("_", columns.Select(x => x.DbName))}_{suffix}";
+        return $"{table.DbName}_{string.Join("_", columns.Select(x => x.Column.DbName))}_{suffix}";
     }
 
     private static string QuoteSqlLiteral(string value) => $"'{value.Replace("'", "''")}'";
 
-    private Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database, DatabaseAccess dbAccess)
+    private Option<bool, IDLOptionFailure> ParseRelations(SQLiteProviderDatabaseDraft database, DatabaseAccess dbAccess)
     {
         foreach (var tableModel in database.TableModels.Where(x => x.Table.Type == TableType.Table))
         {
@@ -186,7 +189,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                         $"Malformed SQLite foreign-key metadata row in table '{tableModel.Table.DbName}': referenced table and source column are required.");
 
                 var foreignKeyColumn = tableModel
-                    .Table.Columns.SingleOrDefault(x => x.DbName == fromColumnName);
+                    .Table.Columns.SingleOrDefault(x => x.Column.DbName == fromColumnName);
 
                 if (foreignKeyColumn == null)
                     continue;
@@ -203,7 +206,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
                 if (string.IsNullOrWhiteSpace(toColumnName))
                 {
-                    var primaryKeyColumns = candidateTable.Columns.Where(x => x.PrimaryKey).ToArray();
+                    var primaryKeyColumns = candidateTable.Columns.Where(x => x.Column.PrimaryKey).ToArray();
                     if (primaryKeyColumns.Length != 1)
                     {
                         return DLOptionFailure.Fail(
@@ -211,10 +214,10 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                             $"SQLite foreign key '{keyName}' on table '{tableModel.Table.DbName}' omits the referenced column, but referenced table '{tableName}' does not have exactly one imported primary-key column.");
                     }
 
-                    toColumnName = primaryKeyColumns[0].DbName;
+                    toColumnName = primaryKeyColumns[0].Column.DbName;
                 }
 
-                var candidateColumn = candidateTable.Columns.SingleOrDefault(x => x.DbName == toColumnName);
+                var candidateColumn = candidateTable.Columns.SingleOrDefault(x => x.Column.DbName == toColumnName);
                 if (candidateColumn == null)
                 {
                     options.Log?.Invoke($"Warning: Skipping foreign key '{keyName}' on table '{tableModel.Table.DbName}' because referenced column '{tableName}.{toColumnName}' was not imported.");
@@ -222,8 +225,8 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
                 }
 
                 // The only job of this method is to mark the column and add the attribute.
-                foreignKeyColumn.SetForeignKey();
-                foreignKeyColumn.ValueProperty.AddAttribute(new ForeignKeyAttribute(tableName, toColumnName, keyName, ordinal, onUpdate, onDelete));
+                foreignKeyColumn.Column.ForeignKey = true;
+                foreignKeyColumn.Attributes.Add(new ForeignKeyAttribute(tableName, toColumnName, keyName, ordinal, onUpdate, onDelete));
             }
         }
 
@@ -243,19 +246,15 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         };
     }
 
-    private Option<TableModel, IDLOptionFailure> ParseTable(DatabaseDefinition database, IDataLinqDataReader reader, DatabaseAccess dbAccess)
+    private Option<SQLiteProviderTableModelDraft, IDLOptionFailure> ParseTable(SQLiteProviderDatabaseDraft database, IDataLinqDataReader reader, DatabaseAccess dbAccess)
     {
         var type = reader.GetString(0) == "table" ? TableType.Table : TableType.View;
-        var table = type == TableType.Table
-             ? new TableDefinition(reader.GetString(2))
-             : new ViewDefinition(reader.GetString(2));
+        var table = new SQLiteProviderTableDraft(reader.GetString(2), type);
 
         var csName = table.DbName.ToCSharpIdentifier(options.CapitaliseNames);
 
-        var tableModel = new TableModel(csName, database, table, csName);
-
-        if (table is ViewDefinition view)
-            view.SetDefinition(ParseViewDefinition(reader.GetString(4)));
+        if (type == TableType.View)
+            table.Definition = ParseViewDefinition(reader.GetString(4));
 
         if (!dbAccess
             .ReadReader($"SELECT * FROM pragma_table_info(\"{table.DbName}\")")
@@ -264,9 +263,12 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             .TryUnwrap(out var columns, out var columnFailure))
             return SingleOrAggregate(columnFailure);
 
-        table.SetColumns(columns);
+        table.Columns.AddRange(columns);
 
-        return tableModel;
+        return new SQLiteProviderTableModelDraft(
+            csName,
+            new CsTypeDeclaration(csName, database.CsType.Namespace, ModelCsType.Class),
+            table);
     }
 
     private static IDLOptionFailure SingleOrAggregate(IReadOnlyCollection<IDLOptionFailure> failures) =>
@@ -288,7 +290,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         return definition;
     }
 
-    private Option<ColumnDefinition, IDLOptionFailure> ParseColumn(TableDefinition table, IDataLinqDataReader reader, DatabaseAccess dbAccess)
+    private Option<SQLiteProviderValuePropertyDraft, IDLOptionFailure> ParseColumn(SQLiteProviderTableDraft table, IDataLinqDataReader reader, DatabaseAccess dbAccess)
     {
         var dbType = new DatabaseColumnType(DatabaseType.SQLite, reader.GetString(2).ToLower());
 
@@ -307,27 +309,39 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             hasAutoIncrement = regex.IsMatch(createStatement);
         }
 
-        var column = new ColumnDefinition(dbName, table);
         var primaryKey = reader.GetBoolean(5);
-        column.SetNullable(!primaryKey && reader.GetBoolean(3) == false);
-        column.SetAutoIncrement(hasAutoIncrement);
-        column.SetPrimaryKey(primaryKey);
-        column.AddDbType(dbType);
+        var column = new SQLiteProviderColumnDraft(dbName)
+        {
+            AutoIncrement = hasAutoIncrement,
+            Nullable = !primaryKey && reader.GetBoolean(3) == false,
+            PrimaryKey = primaryKey
+        };
+        column.DbTypes.Add(dbType);
 
         if (!ParseCsType(dbType, table.DbName, dbName).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
-        if (!MetadataFactory.TryAttachValueProperty(column, csType, options.CapitaliseNames).TryUnwrap(out var valueProperty, out var valuePropertyFailure))
+        if (!ParseCsTypeDeclaration(csType, table.DbName, dbName).TryUnwrap(out var csTypeDeclaration, out var valuePropertyFailure))
             return valuePropertyFailure;
 
-        var defaultValue = ParseDefaultValue(table, column, reader, valueProperty);
-        if (defaultValue != null)
-            valueProperty.AddAttribute(defaultValue);
+        var valueProperty = new SQLiteProviderValuePropertyDraft(
+            dbName.ToCSharpIdentifier(options.CapitaliseNames),
+            csTypeDeclaration,
+            column,
+            CreateColumnAttributes(column).ToList())
+        {
+            CsNullable = column.Nullable || column.AutoIncrement,
+            CsSize = MetadataTypeConverter.CsTypeSize(csType)
+        };
 
-        return column;
+        var defaultValue = ParseDefaultValue(table.DbName, column.DbName, reader, valueProperty.CsType, valueProperty.EnumProperty);
+        if (defaultValue != null)
+            valueProperty.Attributes.Add(defaultValue);
+
+        return valueProperty;
     }
 
-    private DefaultAttribute? ParseDefaultValue(TableDefinition table, ColumnDefinition column, IDataLinqDataReader reader, ValueProperty property)
+    private DefaultAttribute? ParseDefaultValue(string tableName, string columnName, IDataLinqDataReader reader, CsTypeDeclaration csType, EnumProperty? enumProperty)
     {
         var defaultOrdinal = reader.GetOrdinal("dflt_value");
         if (reader.IsDbNull(defaultOrdinal))
@@ -342,19 +356,19 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             return null;
 
         if (IsCurrentTimestampDefault(normalizedExpression) ||
-            (property.CsType.Type == typeof(DateOnly) && IsCurrentDateDefault(normalizedExpression)) ||
-            (property.CsType.Type == typeof(TimeOnly) && IsCurrentTimeDefault(normalizedExpression)))
+            (csType.Type == typeof(DateOnly) && IsCurrentDateDefault(normalizedExpression)) ||
+            (csType.Type == typeof(TimeOnly) && IsCurrentTimeDefault(normalizedExpression)))
             return new DefaultCurrentTimestampAttribute();
 
         if (IsBlobLiteral(normalizedExpression))
         {
-            options.Log?.Invoke($"Warning: Skipping unsupported SQLite blob default '{rawDefault}' for {table.DbName}.{column.DbName}.");
+            options.Log?.Invoke($"Warning: Skipping unsupported SQLite blob default '{rawDefault}' for {tableName}.{columnName}.");
             return null;
         }
 
-        if (!TryConvertDefaultValue(normalizedExpression, property, out var value))
+        if (!TryConvertDefaultValue(normalizedExpression, csType, enumProperty, out var value))
         {
-            options.Log?.Invoke($"Warning: Skipping unsupported SQLite default '{rawDefault}' for {table.DbName}.{column.DbName}.");
+            options.Log?.Invoke($"Warning: Skipping unsupported SQLite default '{rawDefault}' for {tableName}.{columnName}.");
             return null;
         }
 
@@ -395,11 +409,39 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         };
     }
 
-    private static bool TryConvertDefaultValue(string defaultValue, ValueProperty property, out object value)
+    private static Option<CsTypeDeclaration, IDLOptionFailure> ParseCsTypeDeclaration(string csTypeName, string tableName, string columnName)
+    {
+        var type = MetadataTypeConverter.GetType(csTypeName);
+        if (type == null)
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Unsupported C# type '{csTypeName}' for column '{tableName}.{columnName}'.");
+
+        return new CsTypeDeclaration(type);
+    }
+
+    private static IEnumerable<Attribute> CreateColumnAttributes(SQLiteProviderColumnDraft column)
+    {
+        if (column.PrimaryKey)
+            yield return new PrimaryKeyAttribute();
+
+        if (column.AutoIncrement)
+            yield return new AutoIncrementAttribute();
+
+        if (column.Nullable)
+            yield return new NullableAttribute();
+
+        yield return new ColumnAttribute(column.DbName);
+
+        foreach (var dbType in column.DbTypes)
+            yield return new TypeAttribute(dbType);
+    }
+
+    private static bool TryConvertDefaultValue(string defaultValue, CsTypeDeclaration csType, EnumProperty? enumProperty, out object value)
     {
         value = null!;
 
-        if (property.EnumProperty != null)
+        if (enumProperty != null)
         {
             if (TryParseIntegerLiteral(defaultValue, out var enumValue))
             {
@@ -411,34 +453,34 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
         }
 
         if (TryParseSqlStringLiteral(defaultValue, out var stringValue))
-            return TryConvertLiteralValue(stringValue, property, out value);
+            return TryConvertLiteralValue(stringValue, csType, out value);
 
         if (TryParseIntegerLiteral(defaultValue, out var integerValue))
-            return TryConvertLiteralValue(integerValue.ToString(CultureInfo.InvariantCulture), property, out value);
+            return TryConvertLiteralValue(integerValue.ToString(CultureInfo.InvariantCulture), csType, out value);
 
         if (TryParseRealLiteral(defaultValue, out var realValue))
-            return TryConvertLiteralValue(realValue.ToString(CultureInfo.InvariantCulture), property, out value);
+            return TryConvertLiteralValue(realValue.ToString(CultureInfo.InvariantCulture), csType, out value);
 
         if (string.Equals(defaultValue, "TRUE", StringComparison.OrdinalIgnoreCase))
-            return TryConvertLiteralValue("1", property, out value);
+            return TryConvertLiteralValue("1", csType, out value);
 
         if (string.Equals(defaultValue, "FALSE", StringComparison.OrdinalIgnoreCase))
-            return TryConvertLiteralValue("0", property, out value);
+            return TryConvertLiteralValue("0", csType, out value);
 
         return false;
     }
 
-    private static bool TryConvertLiteralValue(string literalValue, ValueProperty property, out object value)
+    private static bool TryConvertLiteralValue(string literalValue, CsTypeDeclaration csType, out object value)
     {
         value = null!;
 
-        if (property.CsType.Type == typeof(string))
+        if (csType.Type == typeof(string))
         {
             value = literalValue;
             return true;
         }
 
-        if (property.CsType.Type == typeof(char))
+        if (csType.Type == typeof(char))
         {
             if (literalValue.Length != 1)
                 return false;
@@ -447,7 +489,7 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             return true;
         }
 
-        if (property.CsType.Type == typeof(bool))
+        if (csType.Type == typeof(bool))
         {
             if (literalValue == "0")
             {
@@ -464,48 +506,48 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
             return false;
         }
 
-        if (property.CsType.Type == typeof(DateOnly) && DateOnly.TryParse(literalValue, CultureInfo.InvariantCulture, out var dateOnlyValue))
+        if (csType.Type == typeof(DateOnly) && DateOnly.TryParse(literalValue, CultureInfo.InvariantCulture, out var dateOnlyValue))
         {
             value = dateOnlyValue;
             return true;
         }
 
-        if (property.CsType.Type == typeof(TimeOnly) && TimeOnly.TryParse(literalValue, CultureInfo.InvariantCulture, out var timeOnlyValue))
+        if (csType.Type == typeof(TimeOnly) && TimeOnly.TryParse(literalValue, CultureInfo.InvariantCulture, out var timeOnlyValue))
         {
             value = timeOnlyValue;
             return true;
         }
 
-        if (property.CsType.Type == typeof(DateTime) && DateTime.TryParse(literalValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateTimeValue))
+        if (csType.Type == typeof(DateTime) && DateTime.TryParse(literalValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateTimeValue))
         {
             value = dateTimeValue;
             return true;
         }
 
-        if (property.CsType.Type == typeof(DateTimeOffset) && DateTimeOffset.TryParse(literalValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateTimeOffsetValue))
+        if (csType.Type == typeof(DateTimeOffset) && DateTimeOffset.TryParse(literalValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateTimeOffsetValue))
         {
             value = dateTimeOffsetValue;
             return true;
         }
 
-        if (property.CsType.Type == typeof(TimeSpan) && TimeSpan.TryParse(literalValue, CultureInfo.InvariantCulture, out var timeSpanValue))
+        if (csType.Type == typeof(TimeSpan) && TimeSpan.TryParse(literalValue, CultureInfo.InvariantCulture, out var timeSpanValue))
         {
             value = timeSpanValue;
             return true;
         }
 
-        if (property.CsType.Type == typeof(Guid) && Guid.TryParse(literalValue, out var guidValue))
+        if (csType.Type == typeof(Guid) && Guid.TryParse(literalValue, out var guidValue))
         {
             value = guidValue;
             return true;
         }
 
-        if (property.CsType.Type == null || property.CsType.Type == typeof(byte[]))
+        if (csType.Type == null || csType.Type == typeof(byte[]))
             return false;
 
         try
         {
-            value = Convert.ChangeType(literalValue, property.CsType.Type, CultureInfo.InvariantCulture);
+            value = Convert.ChangeType(literalValue, csType.Type, CultureInfo.InvariantCulture);
             return true;
         }
         catch
@@ -570,4 +612,95 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private static bool IsCurrentTimeDefault(string defaultValue) =>
         string.Equals(defaultValue, "CURRENT_TIME", StringComparison.OrdinalIgnoreCase);
+
+    private sealed class SQLiteProviderDatabaseDraft(string name, CsTypeDeclaration csType, string dbName)
+    {
+        public string Name { get; } = name;
+        public CsTypeDeclaration CsType { get; } = csType;
+        public string DbName { get; } = dbName;
+        public List<SQLiteProviderTableModelDraft> TableModels { get; } = [];
+
+        public MetadataDatabaseDraft ToMetadataDraft() => new(Name, CsType)
+        {
+            DbName = DbName,
+            TableModels = TableModels.Select(x => x.ToMetadataDraft()).ToArray()
+        };
+    }
+
+    private sealed class SQLiteProviderTableModelDraft(
+        string csPropertyName,
+        CsTypeDeclaration modelType,
+        SQLiteProviderTableDraft table)
+    {
+        public string CsPropertyName { get; } = csPropertyName;
+        public CsTypeDeclaration ModelType { get; } = modelType;
+        public SQLiteProviderTableDraft Table { get; } = table;
+
+        public MetadataTableModelDraft ToMetadataDraft() => new(
+            CsPropertyName,
+            new MetadataModelDraft(ModelType)
+            {
+                ValueProperties = Table.Columns.Select(x => x.ToMetadataDraft()).ToArray()
+            },
+            Table.ToMetadataDraft());
+    }
+
+    private sealed class SQLiteProviderTableDraft(string dbName, TableType type)
+    {
+        public string DbName { get; } = dbName;
+        public TableType Type { get; } = type;
+        public string? Definition { get; set; }
+        public List<SQLiteProviderValuePropertyDraft> Columns { get; } = [];
+
+        public MetadataTableDraft ToMetadataDraft() => new(DbName)
+        {
+            Type = Type,
+            Definition = Definition
+        };
+    }
+
+    private sealed class SQLiteProviderValuePropertyDraft(
+        string propertyName,
+        CsTypeDeclaration csType,
+        SQLiteProviderColumnDraft column,
+        List<Attribute> attributes)
+    {
+        public string PropertyName { get; } = propertyName;
+        public CsTypeDeclaration CsType { get; } = csType;
+        public SQLiteProviderColumnDraft Column { get; } = column;
+        public List<Attribute> Attributes { get; } = attributes;
+        public bool CsNullable { get; init; }
+        public int? CsSize { get; init; }
+        public EnumProperty? EnumProperty { get; init; }
+
+        public MetadataValuePropertyDraft ToMetadataDraft() => new(
+            PropertyName,
+            CsType,
+            Column.ToMetadataDraft())
+        {
+            Attributes = Attributes,
+            CsNullable = CsNullable,
+            CsSize = CsSize,
+            EnumProperty = EnumProperty
+        };
+    }
+
+    private sealed class SQLiteProviderColumnDraft(string dbName)
+    {
+        public string DbName { get; } = dbName;
+        public List<DatabaseColumnType> DbTypes { get; } = [];
+        public bool PrimaryKey { get; init; }
+        public bool ForeignKey { get; set; }
+        public bool AutoIncrement { get; init; }
+        public bool Nullable { get; init; }
+
+        public MetadataColumnDraft ToMetadataDraft() => new(DbName)
+        {
+            DbTypes = DbTypes,
+            PrimaryKey = PrimaryKey,
+            ForeignKey = ForeignKey,
+            AutoIncrement = AutoIncrement,
+            Nullable = Nullable
+        };
+    }
 }
