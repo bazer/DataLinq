@@ -2,10 +2,10 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using DataLinq.Tools;
-
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -14,24 +14,28 @@ public class SchemaMigrationSnapshotTests
     [Test]
     public async Task FromDatabase_CapturesProviderSpecificShapeInDeterministicOrder()
     {
-        var database = CreateDatabase();
-        var invoice = AddTable(database, "invoice");
-        AddColumn(invoice, "invoice_id", typeof(int), nullable: false, primaryKey: true);
-        AddColumn(invoice, "account_id", typeof(int), nullable: false);
-
-        var account = AddTable(database, "account");
-        AddColumn(account, "id", typeof(int), nullable: false, primaryKey: true, autoIncrement: true);
-        AddColumn(account, "display_name", typeof(string), nullable: false, defaultValue: "anonymous");
-        AddForeignKey(database, "FK_invoice_account", "invoice", ["account_id"], "account", ["id"]);
-        account.ColumnIndices.Add(new ColumnIndex(
-            "idx_account_display_name",
-            IndexCharacteristic.Simple,
-            IndexType.BTREE,
-            [FindColumn(account, "display_name")]));
-        account.Model.SetAttributes([
-            new CheckAttribute(DatabaseType.MariaDB, "CK_account_id", "`id` > 0"),
-            new CommentAttribute(DatabaseType.MariaDB, "Account table")
-        ]);
+        var database = CreateDatabase(
+            CreateTable(
+                "invoice",
+                [
+                    CreateColumn("invoice_id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn(
+                        "account_id",
+                        typeof(int),
+                        nullable: false,
+                        attributes: [new ForeignKeyAttribute("account", "id", "FK_invoice_account")])
+                ]),
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true, autoIncrement: true),
+                    CreateColumn("display_name", typeof(string), nullable: false, defaultValue: "anonymous")
+                ],
+                [
+                    new IndexAttribute("idx_account_display_name", IndexCharacteristic.Simple, IndexType.BTREE, "display_name"),
+                    new CheckAttribute(DatabaseType.MariaDB, "CK_account_id", "`id` > 0"),
+                    new CommentAttribute(DatabaseType.MariaDB, "Account table")
+                ]));
 
         var snapshot = SchemaMigrationSnapshot.FromDatabase(
             database,
@@ -59,9 +63,12 @@ public class SchemaMigrationSnapshotTests
     [Test]
     public async Task ToJson_RoundTripsWithoutSourceLocationsOrRuntimeMetadata()
     {
-        var database = CreateDatabase();
-        var account = AddTable(database, "account");
-        AddColumn(account, "id", typeof(int), nullable: false, primaryKey: true);
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true)
+                ]));
 
         var snapshot = SchemaMigrationSnapshot.FromDatabase(
             database,
@@ -83,47 +90,65 @@ public class SchemaMigrationSnapshotTests
         await Assert.That(roundTripped.Tables.Single().Columns.Single().DbType?.Name).IsEqualTo("integer");
     }
 
-    private static DatabaseDefinition CreateDatabase() =>
-        new("TestDb", new CsTypeDeclaration("TestDb", "DataLinq.Tests", ModelCsType.Class));
-
-    private static TableDefinition AddTable(DatabaseDefinition database, string tableName)
+    private static DatabaseDefinition CreateDatabase(params MetadataTableModelDraft[] tableModels)
     {
-        var model = new ModelDefinition(new CsTypeDeclaration(ToCsName(tableName), "DataLinq.Tests", ModelCsType.Class));
-        var table = new TableDefinition(tableName);
-        var tableModel = new TableModel(ToCsName(tableName), database, model, table);
-        database.SetTableModels([.. database.TableModels, tableModel]);
-        return table;
+        var draft = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "DataLinq.Tests", ModelCsType.Class))
+        {
+            TableModels = tableModels
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 
-    private static ColumnDefinition AddColumn(
-        TableDefinition table,
+    private static MetadataTableModelDraft CreateTable(
+        string tableName,
+        MetadataValuePropertyDraft[] columns,
+        Attribute[]? attributes = null)
+    {
+        return new MetadataTableModelDraft(
+            ToCsName(tableName),
+            new MetadataModelDraft(new CsTypeDeclaration(ToCsName(tableName), "DataLinq.Tests", ModelCsType.Class))
+            {
+                Attributes = attributes ?? [],
+                ValueProperties = columns
+            },
+            new MetadataTableDraft(tableName));
+    }
+
+    private static MetadataValuePropertyDraft CreateColumn(
         string columnName,
         Type csType,
         bool nullable,
         bool primaryKey = false,
         bool autoIncrement = false,
-        object? defaultValue = null)
+        object? defaultValue = null,
+        Attribute[]? attributes = null)
     {
-        System.Attribute[] propertyAttributes = defaultValue == null
-            ? []
-            : [new DefaultAttribute(defaultValue)];
-        var property = new ValueProperty(ToCsName(columnName), new CsTypeDeclaration(csType), table.Model, propertyAttributes);
-        var column = new ColumnDefinition(columnName, table);
+        var propertyAttributes = defaultValue == null
+            ? attributes ?? []
+            : [new DefaultAttribute(defaultValue), .. (attributes ?? [])];
 
-        column.SetIndex(table.Columns.Length);
-        column.SetValueProperty(property);
-        column.SetNullable(nullable);
-        column.SetAutoIncrement(autoIncrement);
-        column.AddDbType(GetColumnType(DatabaseType.SQLite, csType));
-        column.AddDbType(GetColumnType(DatabaseType.MySQL, csType));
-        column.AddDbType(GetColumnType(DatabaseType.MariaDB, csType));
-        table.Model.AddProperty(property);
-        table.SetColumns([.. table.Columns, column]);
-
-        if (primaryKey)
-            column.SetPrimaryKey();
-
-        return column;
+        return new MetadataValuePropertyDraft(
+            ToCsName(columnName),
+            new CsTypeDeclaration(csType),
+            new MetadataColumnDraft(columnName)
+            {
+                PrimaryKey = primaryKey,
+                AutoIncrement = autoIncrement,
+                Nullable = nullable,
+                ForeignKey = propertyAttributes.Any(static x => x is ForeignKeyAttribute),
+                DbTypes =
+                [
+                    GetColumnType(DatabaseType.SQLite, csType),
+                    GetColumnType(DatabaseType.MySQL, csType),
+                    GetColumnType(DatabaseType.MariaDB, csType)
+                ]
+            })
+        {
+            Attributes = propertyAttributes
+        };
     }
 
     private static DatabaseColumnType GetColumnType(DatabaseType databaseType, Type csType)
@@ -138,44 +163,6 @@ public class SchemaMigrationSnapshotTests
         return csType == typeof(string)
             ? new DatabaseColumnType(databaseType, "varchar", 40)
             : new DatabaseColumnType(databaseType, "int", signed: true);
-    }
-
-    private static ColumnDefinition FindColumn(TableDefinition table, string columnName) =>
-        table.Columns.Single(x => x.DbName == columnName);
-
-    private static TableDefinition FindTable(DatabaseDefinition database, string tableName) =>
-        database.TableModels.Single(x => x.Table.DbName == tableName).Table;
-
-    private static void AddForeignKey(
-        DatabaseDefinition database,
-        string constraintName,
-        string foreignKeyTableName,
-        string[] foreignKeyColumns,
-        string candidateKeyTableName,
-        string[] candidateKeyColumns)
-    {
-        var foreignKeyTable = FindTable(database, foreignKeyTableName);
-        var candidateKeyTable = FindTable(database, candidateKeyTableName);
-        var foreignKeyIndex = new ColumnIndex(
-            constraintName,
-            IndexCharacteristic.ForeignKey,
-            IndexType.BTREE,
-            foreignKeyColumns.Select(column => FindColumn(foreignKeyTable, column)).ToList());
-        var candidateKeyIndex = new ColumnIndex(
-            $"{constraintName}_candidate",
-            IndexCharacteristic.PrimaryKey,
-            IndexType.BTREE,
-            candidateKeyColumns.Select(column => FindColumn(candidateKeyTable, column)).ToList());
-        var relation = new RelationDefinition(constraintName, RelationType.OneToMany);
-        var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, candidateKeyTable.Model.CsType.Name);
-        var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, foreignKeyTable.Model.CsType.Name);
-
-        relation.ForeignKey = foreignKeyPart;
-        relation.CandidateKey = candidateKeyPart;
-        foreignKeyIndex.RelationParts.Add(foreignKeyPart);
-        candidateKeyIndex.RelationParts.Add(candidateKeyPart);
-        foreignKeyTable.ColumnIndices.Add(foreignKeyIndex);
-        candidateKeyTable.ColumnIndices.Add(candidateKeyIndex);
     }
 
     private static string ToCsName(string value) =>

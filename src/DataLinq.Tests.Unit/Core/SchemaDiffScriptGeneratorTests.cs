@@ -1,11 +1,12 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using DataLinq.Tools;
 using DataLinq.Validation;
-
-#pragma warning disable CS0618 // These tests intentionally build legacy metadata fixtures while Workstream C keeps compatibility mutators.
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -14,12 +15,16 @@ public class SchemaDiffScriptGeneratorTests
     [Test]
     public async Task Generate_SQLiteMissingTable_CreatesTableAndIndexes()
     {
-        var model = CreateDatabase();
-        var table = AddTable(model, "account");
-        var id = AddColumn(table, "id", typeof(int), nullable: false, primaryKey: true, autoIncrement: true);
-        AddColumn(table, "display_name", typeof(string), nullable: false, defaultValue: "anonymous");
-        table.ColumnIndices.Add(new ColumnIndex("idx_account_display_name", IndexCharacteristic.Simple, IndexType.BTREE, [FindColumn(table, "display_name")]));
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true, autoIncrement: true),
+                    CreateColumn("display_name", typeof(string), nullable: false, defaultValue: "anonymous")
+                ],
+                [new IndexAttribute("idx_account_display_name", IndexCharacteristic.Simple, IndexType.BTREE, "display_name")]));
         var database = CreateDatabase();
+        var id = model.TableModels.Single().Table.Columns.Single(x => x.DbName == "id");
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.SQLite);
 
@@ -35,15 +40,21 @@ public class SchemaDiffScriptGeneratorTests
     [Test]
     public async Task Generate_MySqlMissingColumn_UsesAlterTableAndCommentsUnsafeDrift()
     {
-        var model = CreateDatabase();
-        var modelTable = AddTable(model, "account");
-        AddColumn(modelTable, "id", typeof(int), nullable: false);
-        AddColumn(modelTable, "nickname", typeof(string), nullable: true, defaultValue: "new");
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("nickname", typeof(string), nullable: true, defaultValue: "new")
+                ]));
 
-        var database = CreateDatabase();
-        var databaseTable = AddTable(database, "account");
-        AddColumn(databaseTable, "id", typeof(int), nullable: false);
-        AddColumn(databaseTable, "legacy_name", typeof(string), nullable: true);
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("legacy_name", typeof(string), nullable: true)
+                ]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.MySQL);
 
@@ -57,20 +68,22 @@ public class SchemaDiffScriptGeneratorTests
     [Test]
     public async Task Generate_MariaDbMissingUniqueIndex_CreatesProviderSpecificIndex()
     {
-        var model = CreateDatabase();
-        var modelTable = AddTable(model, "account");
-        AddColumn(modelTable, "tenant_id", typeof(int), nullable: false);
-        AddColumn(modelTable, "account_no", typeof(int), nullable: false);
-        modelTable.ColumnIndices.Add(new ColumnIndex(
-            "ux_account_tenant_account",
-            IndexCharacteristic.Unique,
-            IndexType.BTREE,
-            [FindColumn(modelTable, "tenant_id"), FindColumn(modelTable, "account_no")]));
+        var model = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("tenant_id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("account_no", typeof(int), nullable: false)
+                ],
+                [new IndexAttribute("ux_account_tenant_account", IndexCharacteristic.Unique, IndexType.BTREE, "tenant_id", "account_no")]));
 
-        var database = CreateDatabase();
-        var databaseTable = AddTable(database, "account");
-        AddColumn(databaseTable, "tenant_id", typeof(int), nullable: false);
-        AddColumn(databaseTable, "account_no", typeof(int), nullable: false);
+        var database = CreateDatabase(
+            CreateTable(
+                "account",
+                [
+                    CreateColumn("tenant_id", typeof(int), nullable: false, primaryKey: true),
+                    CreateColumn("account_no", typeof(int), nullable: false)
+                ]));
 
         var differences = SchemaComparer.Compare(model, database, DatabaseType.MariaDB);
 
@@ -79,50 +92,68 @@ public class SchemaDiffScriptGeneratorTests
         await Assert.That(script).Contains("CREATE UNIQUE INDEX `ux_account_tenant_account` USING BTREE ON `account` (`tenant_id`, `account_no`);");
     }
 
-    private static DatabaseDefinition CreateDatabase() =>
-        new("TestDb", new CsTypeDeclaration("TestDb", "DataLinq.Tests", ModelCsType.Class));
-
-    private static TableDefinition AddTable(DatabaseDefinition database, string tableName)
+    private static DatabaseDefinition CreateDatabase(params MetadataTableModelDraft[] tableModels)
     {
-        var model = new ModelDefinition(new CsTypeDeclaration(ToCsName(tableName), "DataLinq.Tests", ModelCsType.Class));
-        var table = new TableDefinition(tableName);
-        var tableModel = new TableModel(ToCsName(tableName), database, model, table);
-        database.SetTableModels([.. database.TableModels, tableModel]);
-        return table;
+        var draft = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "DataLinq.Tests", ModelCsType.Class))
+        {
+            TableModels = tableModels
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
     }
 
-    private static ColumnDefinition AddColumn(
-        TableDefinition table,
+    private static MetadataTableModelDraft CreateTable(
+        string tableName,
+        MetadataValuePropertyDraft[] columns,
+        Attribute[]? attributes = null)
+    {
+        return new MetadataTableModelDraft(
+            ToCsName(tableName),
+            new MetadataModelDraft(new CsTypeDeclaration(ToCsName(tableName), "DataLinq.Tests", ModelCsType.Class))
+            {
+                Attributes = attributes ?? [],
+                ValueProperties = columns
+            },
+            new MetadataTableDraft(tableName));
+    }
+
+    private static MetadataValuePropertyDraft CreateColumn(
         string columnName,
-        System.Type csType,
+        Type csType,
         bool nullable,
         bool primaryKey = false,
         bool autoIncrement = false,
-        object? defaultValue = null)
+        object? defaultValue = null,
+        Attribute[]? attributes = null)
     {
-        System.Attribute[] propertyAttributes = defaultValue == null
-            ? []
-            : [new DefaultAttribute(defaultValue)];
-        var property = new ValueProperty(ToCsName(columnName), new CsTypeDeclaration(csType), table.Model, propertyAttributes);
-        var column = new ColumnDefinition(columnName, table);
+        var propertyAttributes = defaultValue == null
+            ? attributes ?? []
+            : [new DefaultAttribute(defaultValue), .. (attributes ?? [])];
 
-        column.SetIndex(table.Columns.Length);
-        column.SetValueProperty(property);
-        column.SetNullable(nullable);
-        column.SetAutoIncrement(autoIncrement);
-        column.AddDbType(GetColumnType(DatabaseType.SQLite, csType));
-        column.AddDbType(GetColumnType(DatabaseType.MySQL, csType));
-        column.AddDbType(GetColumnType(DatabaseType.MariaDB, csType));
-        table.Model.AddProperty(property);
-        table.SetColumns([.. table.Columns, column]);
-
-        if (primaryKey)
-            column.SetPrimaryKey();
-
-        return column;
+        return new MetadataValuePropertyDraft(
+            ToCsName(columnName),
+            new CsTypeDeclaration(csType),
+            new MetadataColumnDraft(columnName)
+            {
+                PrimaryKey = primaryKey,
+                AutoIncrement = autoIncrement,
+                Nullable = nullable,
+                ForeignKey = propertyAttributes.Any(static x => x is ForeignKeyAttribute),
+                DbTypes =
+                [
+                    GetColumnType(DatabaseType.SQLite, csType),
+                    GetColumnType(DatabaseType.MySQL, csType),
+                    GetColumnType(DatabaseType.MariaDB, csType)
+                ]
+            })
+        {
+            Attributes = propertyAttributes
+        };
     }
 
-    private static DatabaseColumnType GetColumnType(DatabaseType databaseType, System.Type csType)
+    private static DatabaseColumnType GetColumnType(DatabaseType databaseType, Type csType)
     {
         if (databaseType == DatabaseType.SQLite)
         {
@@ -135,9 +166,6 @@ public class SchemaDiffScriptGeneratorTests
             ? new DatabaseColumnType(databaseType, "varchar", 40)
             : new DatabaseColumnType(databaseType, "int", signed: true);
     }
-
-    private static ColumnDefinition FindColumn(TableDefinition table, string columnName) =>
-        table.Columns.Single(x => x.DbName == columnName);
 
     private static string ToCsName(string value) =>
         string.Join(
