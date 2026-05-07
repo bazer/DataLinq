@@ -1471,9 +1471,85 @@ public static class MetadataFactory
                     DLFailureType.InvalidModel,
                     $"Table '{tableModel.Table.DbName}' has an empty database property name.",
                     tableModel.Table);
+
+            var tableAttributeValidation = ValidateModelTableAttributes(tableModel);
+            if (tableAttributeValidation is not null)
+                return tableAttributeValidation;
         }
 
         return true;
+    }
+
+    private static IDLOptionFailure? ValidateModelTableAttributes(TableModel tableModel)
+    {
+        var model = tableModel.Model;
+        var table = tableModel.Table;
+        var identityAttributes = model.Attributes
+            .Where(attribute => attribute is TableAttribute or ViewAttribute)
+            .ToArray();
+
+        if (identityAttributes.Length > 1)
+            return CreateModelAttributeFailure(
+                model,
+                identityAttributes[1],
+                $"Model '{model.CsType.Name}' has multiple table identity attributes. Use at most one [Table] or [View] attribute because the linked table metadata has a single table/view shape.");
+
+        if (identityAttributes.SingleOrDefault() is TableAttribute tableAttribute)
+        {
+            if (table is ViewDefinition)
+                return CreateModelAttributeFailure(
+                    model,
+                    tableAttribute,
+                    $"Model '{model.CsType.Name}' has [Table] metadata, but linked object '{table.DbName}' is a view. Model table identity attributes must match the linked table metadata.");
+
+            if (!string.Equals(tableAttribute.Name, table.DbName, StringComparison.Ordinal))
+                return CreateModelAttributeFailure(
+                    model,
+                    tableAttribute,
+                    $"Model '{model.CsType.Name}' has [Table] name '{tableAttribute.Name}', but linked table is '{table.DbName}'.");
+        }
+
+        if (identityAttributes.SingleOrDefault() is ViewAttribute viewAttribute)
+        {
+            if (table is not ViewDefinition)
+                return CreateModelAttributeFailure(
+                    model,
+                    viewAttribute,
+                    $"Model '{model.CsType.Name}' has [View] metadata, but linked object '{table.DbName}' is a table. Model table identity attributes must match the linked table metadata.");
+
+            if (!string.Equals(viewAttribute.Name, table.DbName, StringComparison.Ordinal))
+                return CreateModelAttributeFailure(
+                    model,
+                    viewAttribute,
+                    $"Model '{model.CsType.Name}' has [View] name '{viewAttribute.Name}', but linked view is '{table.DbName}'.");
+        }
+
+        var definitionAttributes = model.Attributes
+            .OfType<DefinitionAttribute>()
+            .ToArray();
+
+        if (definitionAttributes.Length > 1)
+            return CreateModelAttributeFailure(
+                model,
+                definitionAttributes[1],
+                $"Model '{model.CsType.Name}' has multiple [Definition] attributes. Use a single view definition because the linked view metadata has one SQL definition.");
+
+        if (definitionAttributes.SingleOrDefault() is not { } definitionAttribute)
+            return null;
+
+        if (table is not ViewDefinition view)
+            return CreateModelAttributeFailure(
+                model,
+                definitionAttribute,
+                $"Model '{model.CsType.Name}' has [Definition] metadata, but linked object '{table.DbName}' is a table. Definitions are valid only for views.");
+
+        if (!string.Equals(definitionAttribute.Sql, view.Definition, StringComparison.Ordinal))
+            return CreateModelAttributeFailure(
+                model,
+                definitionAttribute,
+                $"View model '{model.CsType.Name}' has [Definition] SQL '{definitionAttribute.Sql}', but linked view '{view.DbName}' defines '{view.Definition}'.");
+
+        return null;
     }
 
     public static Option<bool, IDLOptionFailure> ValidateMetadataCollections(DatabaseDefinition database)

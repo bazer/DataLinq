@@ -2415,6 +2415,113 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ModelWithMultipleTableIdentityAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new TableAttribute("items"), new ViewAttribute("items")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("multiple table identity attributes");
+    }
+
+    [Test]
+    public async Task Build_TableModelWithMismatchedTableAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new TableAttribute("legacy_items")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[Table] name 'legacy_items'");
+        await Assert.That(failure.Message).Contains("linked table is 'items'");
+    }
+
+    [Test]
+    public async Task Build_TableModelWithViewAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new ViewAttribute("items")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[View] metadata");
+        await Assert.That(failure.Message).Contains("linked object 'items' is a table");
+    }
+
+    [Test]
+    public async Task Build_TableModelWithDefinitionAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new TableAttribute("items"), new DefinitionAttribute("select id from items")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[Definition] metadata");
+        await Assert.That(failure.Message).Contains("linked object 'items' is a table");
+    }
+
+    [Test]
+    public async Task Build_ViewModelWithTableAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateViewTypedDraft(
+            "select name from active_items",
+            modelAttributes: [new TableAttribute("active_items")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'ActiveItem'");
+        await Assert.That(failure.Message).Contains("[Table] metadata");
+        await Assert.That(failure.Message).Contains("linked object 'active_items' is a view");
+    }
+
+    [Test]
+    public async Task Build_ViewModelWithMismatchedDefinitionAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateViewTypedDraft(
+            "select name from active_items",
+            modelAttributes:
+            [
+                new ViewAttribute("active_items"),
+                new DefinitionAttribute("select id from active_items")
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("View model 'ActiveItem'");
+        await Assert.That(failure.Message).Contains("[Definition] SQL 'select id from active_items'");
+        await Assert.That(failure.Message).Contains("linked view 'active_items' defines 'select name from active_items'");
+    }
+
+    [Test]
     public async Task Build_ColumnWithNullDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(
@@ -3848,7 +3955,9 @@ public class MetadataDefinitionFactoryTests
         };
     }
 
-    private static MetadataDatabaseDraft CreateViewTypedDraft(string? definition)
+    private static MetadataDatabaseDraft CreateViewTypedDraft(
+        string? definition,
+        IReadOnlyList<Attribute>? modelAttributes = null)
     {
         return new MetadataDatabaseDraft(
             "TestDb",
@@ -3864,6 +3973,7 @@ public class MetadataDefinitionFactoryTests
                         [
                             new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface)
                         ],
+                        Attributes = modelAttributes ?? [],
                         ValueProperties =
                         [
                             CreateTypedValueProperty(
