@@ -1505,6 +1505,17 @@ public static class MetadataFactory
                             $"Index '{index.Name}' on table '{table.DbName}' references column '{column.DbName}', but that column is not registered on the table.");
                 }
 
+                var duplicateColumnGroup = index.Columns
+                    .GroupBy(column => column)
+                    .FirstOrDefault(group => group.Count() > 1);
+
+                if (duplicateColumnGroup != null)
+                {
+                    return CreateColumnIndexFailure(
+                        table,
+                        $"Index '{index.Name}' on table '{table.DbName}' contains duplicate column reference '{duplicateColumnGroup.Key.DbName}'. Index columns must be unique within an index.");
+                }
+
                 if (index.Characteristic == IndexCharacteristic.PrimaryKey &&
                     !ColumnsMatch(index.Columns, table.PrimaryKeyColumns))
                 {

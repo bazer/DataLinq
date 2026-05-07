@@ -2158,6 +2158,25 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_IndexWithDuplicateColumnReference_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("Code", typeof(string), [new ColumnAttribute("code")]));
+        var table = database.TableModels.Single().Table;
+        var codeColumn = table.Columns.Single(column => column.DbName == "code");
+        AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_duplicate_column", IndexCharacteristic.Simple, IndexType.BTREE, [codeColumn, codeColumn]));
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index 'idx_duplicate_column' on table 'items'");
+        await Assert.That(failure.Message).Contains("duplicate column reference 'code'");
+    }
+
+    [Test]
     public async Task Build_ExistingIndexWithUnsupportedCharacteristic_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
