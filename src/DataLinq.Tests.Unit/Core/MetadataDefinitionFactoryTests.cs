@@ -54,6 +54,7 @@ public class MetadataDefinitionFactoryTests
         var foreignKeyIndex = orderTable.ColumnIndices.Single(index => index.Name == "FK_Order_User");
         var relation = customerProperty.RelationPart.Relation;
         var dbType = orderId.DbTypes.Single();
+        ColumnIndex NewAmountIndex(string name) => new(name, IndexCharacteristic.Simple, IndexType.BTREE, [amount]);
 
         await Assert.That(built.IsFrozen).IsTrue();
         await Assert.That(orderTableModel.IsFrozen).IsTrue();
@@ -110,7 +111,17 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => SetDatabaseColumnTypeLength(dbType, 12));
         await AssertFrozenMutation(() => SetDatabaseColumnTypeDecimals(dbType, 2U));
         await AssertFrozenMutation(() => SetDatabaseColumnTypeSigned(dbType, false));
-        await AssertFrozenMutation(() => orderTable.ColumnIndices.Add(new ColumnIndex("idx_amount", IndexCharacteristic.Simple, IndexType.BTREE, [amount])));
+        await AssertFrozenMutation(() => orderTable.ColumnIndices.Add(NewAmountIndex("idx_amount")));
+        await AssertFrozenMutation(() => orderTable.ColumnIndices.AddRange([NewAmountIndex("idx_amount_range")]));
+        await AssertFrozenMutation(() => orderTable.ColumnIndices.Insert(0, NewAmountIndex("idx_amount_insert")));
+        await AssertFrozenMutation(() => orderTable.ColumnIndices[0] = NewAmountIndex("idx_amount_replace"));
+        await AssertFrozenMutation(() => orderTable.ColumnIndices.Remove(foreignKeyIndex));
+        await AssertFrozenMutation(() => orderTable.ColumnIndices.RemoveAt(0));
+        await AssertFrozenMutation(() => orderModel.ValueProperties.Add("OrderIdCopy", orderIdProperty));
+        await AssertFrozenMutation(() => orderModel.ValueProperties.Add(new KeyValuePair<string, ValueProperty>("OrderIdCopy", orderIdProperty)));
+        await AssertFrozenMutation(() => orderModel.ValueProperties["OrderId"] = orderIdProperty);
+        await AssertFrozenMutation(() => orderModel.ValueProperties.Remove("OrderId"));
+        await AssertFrozenMutation(() => orderModel.ValueProperties.Remove(new KeyValuePair<string, ValueProperty>("OrderId", orderIdProperty)));
         await AssertFrozenMutation(() => orderModel.ValueProperties.Clear());
         await AssertFrozenMutation(() => orderModel.RelationProperties.Clear());
         await AssertFrozenMutation(() => foreignKeyIndex.Columns.Add(amount));
