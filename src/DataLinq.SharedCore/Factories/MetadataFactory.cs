@@ -63,7 +63,13 @@ public static class MetadataFactory
         }
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static Option<TableDefinition, IDLOptionFailure> ParseTable(ModelDefinition model)
+    {
+        return ParseTableCore(model);
+    }
+
+    internal static Option<TableDefinition, IDLOptionFailure> ParseTableCore(ModelDefinition model)
     {
         if (model == null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Model cannot be null");
@@ -98,7 +104,7 @@ public static class MetadataFactory
                 view.SetDefinitionCore(definitionAttribute.Sql);
         }
 
-        table.SetColumnsCore(model.ValueProperties.Values.Select(table.ParseColumn));
+        table.SetColumnsCore(model.ValueProperties.Values.Select(table.ParseColumnCore));
 
         return table;
     }
@@ -2529,15 +2535,27 @@ public static class MetadataFactory
         }
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static ValueProperty AttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {
-        if (!TryAttachValueProperty(column, csTypeName, capitaliseNames).TryUnwrap(out var property, out var failure))
+        return AttachValuePropertyCore(column, csTypeName, capitaliseNames);
+    }
+
+    internal static ValueProperty AttachValuePropertyCore(ColumnDefinition column, string csTypeName, bool capitaliseNames)
+    {
+        if (!TryAttachValuePropertyCore(column, csTypeName, capitaliseNames).TryUnwrap(out var property, out var failure))
             throw new InvalidOperationException(failure.ToString());
 
         return property;
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static Option<ValueProperty, IDLOptionFailure> TryAttachValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames)
+    {
+        return TryAttachValuePropertyCore(column, csTypeName, capitaliseNames);
+    }
+
+    internal static Option<ValueProperty, IDLOptionFailure> TryAttachValuePropertyCore(ColumnDefinition column, string csTypeName, bool capitaliseNames)
     {
         var name = column.DbName.ToCSharpIdentifier(capitaliseNames);
 
@@ -2597,7 +2615,13 @@ public static class MetadataFactory
         }
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static void ParseAttributes(this DatabaseDefinition database)
+    {
+        database.ParseAttributesCore();
+    }
+
+    internal static void ParseAttributesCore(this DatabaseDefinition database)
     {
         foreach (var attribute in database.Attributes)
         {
@@ -2621,7 +2645,13 @@ public static class MetadataFactory
         }
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static ColumnDefinition ParseColumn(this TableDefinition table, ValueProperty property)
+    {
+        return table.ParseColumnCore(property);
+    }
+
+    internal static ColumnDefinition ParseColumnCore(this TableDefinition table, ValueProperty property)
     {
         var column = new ColumnDefinition(property.PropertyName, table);
         column.SetValuePropertyCore(property);

@@ -24,6 +24,11 @@ public class MetadataFactoryTests
     private static void SetDatabaseTableModels(DatabaseDefinition database, IEnumerable<TableModel> tableModels) => database.SetTableModels(tableModels);
     private static void AddModelProperty(ModelDefinition model, PropertyDefinition property) => model.AddProperty(property);
     private static void SetEnumMetadata(ValueProperty property, EnumProperty enumProperty) => property.SetEnumProperty(enumProperty);
+    private static Option<TableDefinition, IDLOptionFailure> ParseMetadataTable(ModelDefinition model) => MetadataFactory.ParseTable(model);
+    private static ColumnDefinition ParseMetadataColumn(TableDefinition table, ValueProperty property) => table.ParseColumn(property);
+    private static void ParseMetadataAttributes(DatabaseDefinition database) => database.ParseAttributes();
+    private static Option<ValueProperty, IDLOptionFailure> TryAttachMetadataValueProperty(ColumnDefinition column, string csTypeName, bool capitaliseNames) =>
+        MetadataFactory.TryAttachValueProperty(column, csTypeName, capitaliseNames);
     private static Option<bool, IDLOptionFailure> ParseMetadataIndices(DatabaseDefinition database) => MetadataFactory.ParseIndices(database);
     private static Option<bool, IDLOptionFailure> ParseMetadataRelations(DatabaseDefinition database) => MetadataFactory.ParseRelations(database);
 #pragma warning restore CS0618
@@ -43,7 +48,7 @@ public class MetadataFactoryTests
         var model = new ModelDefinition(modelCsType);
         SetModelInterfaces(model, isView ? [iViewModel] : [iTableModel]);
 
-        var table = MetadataFactory.ParseTable(model).ValueOrException();
+        var table = ParseMetadataTable(model).ValueOrException();
         SetTableName(table, tableName);
         var tableModel = new TableModel(modelName + "s", db, model, table);
         SetDatabaseTableModels(db, [tableModel]);
@@ -72,26 +77,26 @@ public class MetadataFactoryTests
 
         var userModel = new ModelDefinition(userCsType);
         SetModelInterfaces(userModel, [iTableModel]);
-        var userTable = MetadataFactory.ParseTable(userModel).ValueOrException();
+        var userTable = ParseMetadataTable(userModel).ValueOrException();
         SetTableName(userTable, "users");
         var userTableModel = new TableModel("Users", db, userModel, userTable);
         var userIdProperty = CreateTestValueProperty(userModel, "UserId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("user_id")]);
         var userNameProperty = CreateTestValueProperty(userModel, "UserName", typeof(string), [new ColumnAttribute("user_name")]);
-        var userIdColumn = MetadataFactory.ParseColumn(userTable, userIdProperty);
-        var userNameColumn = MetadataFactory.ParseColumn(userTable, userNameProperty);
+        var userIdColumn = ParseMetadataColumn(userTable, userIdProperty);
+        var userNameColumn = ParseMetadataColumn(userTable, userNameProperty);
         SetTableColumns(userTable, [userIdColumn, userNameColumn]);
 
         var orderModel = new ModelDefinition(orderCsType);
         SetModelInterfaces(orderModel, [iTableModel]);
-        var orderTable = MetadataFactory.ParseTable(orderModel).ValueOrException();
+        var orderTable = ParseMetadataTable(orderModel).ValueOrException();
         SetTableName(orderTable, "orders");
         var orderTableModel = new TableModel("Orders", db, orderModel, orderTable);
         var orderIdProperty = CreateTestValueProperty(orderModel, "OrderId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("order_id")]);
         var orderUserIdProperty = CreateTestValueProperty(orderModel, "CustomerId", typeof(int), [new ForeignKeyAttribute("users", "user_id", foreignKeyName), new ColumnAttribute("customer_id")]);
         var orderAmountProperty = CreateTestValueProperty(orderModel, "Amount", typeof(decimal), [new ColumnAttribute("amount")]);
-        var orderIdColumn = MetadataFactory.ParseColumn(orderTable, orderIdProperty);
-        var orderUserIdColumn = MetadataFactory.ParseColumn(orderTable, orderUserIdProperty);
-        var orderAmountColumn = MetadataFactory.ParseColumn(orderTable, orderAmountProperty);
+        var orderIdColumn = ParseMetadataColumn(orderTable, orderIdProperty);
+        var orderUserIdColumn = ParseMetadataColumn(orderTable, orderUserIdProperty);
+        var orderAmountColumn = ParseMetadataColumn(orderTable, orderAmountProperty);
         SetTableColumns(orderTable, [orderIdColumn, orderUserIdColumn, orderAmountColumn]);
 
         SetDatabaseTableModels(db, [userTableModel, orderTableModel]);
@@ -113,24 +118,24 @@ public class MetadataFactoryTests
 
         var accountModel = new ModelDefinition(accountCsType);
         SetModelInterfaces(accountModel, [iTableModel]);
-        var accountTable = MetadataFactory.ParseTable(accountModel).ValueOrException();
+        var accountTable = ParseMetadataTable(accountModel).ValueOrException();
         SetTableName(accountTable, "account");
         var accountTableModel = new TableModel("Accounts", db, accountModel, accountTable);
         var accountIdProperty = CreateTestValueProperty(accountModel, "AccountId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("account_id")]);
-        var accountIdColumn = MetadataFactory.ParseColumn(accountTable, accountIdProperty);
+        var accountIdColumn = ParseMetadataColumn(accountTable, accountIdProperty);
         SetTableColumns(accountTable, [accountIdColumn]);
 
         var invoiceModel = new ModelDefinition(invoiceCsType);
         SetModelInterfaces(invoiceModel, [iTableModel]);
-        var invoiceTable = MetadataFactory.ParseTable(invoiceModel).ValueOrException();
+        var invoiceTable = ParseMetadataTable(invoiceModel).ValueOrException();
         SetTableName(invoiceTable, "invoice");
         var invoiceTableModel = new TableModel("Invoices", db, invoiceModel, invoiceTable);
         var invoiceIdProperty = CreateTestValueProperty(invoiceModel, "InvoiceId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("invoice_id")]);
         var createdByProperty = CreateTestValueProperty(invoiceModel, "CreatedByAccountId", typeof(int), [new ForeignKeyAttribute("account", "account_id", "FK_invoice_created_by"), new ColumnAttribute("created_by_account_id")]);
         var approvedByProperty = CreateTestValueProperty(invoiceModel, "ApprovedByAccountId", typeof(int), [new ForeignKeyAttribute("account", "account_id", "FK_invoice_approved_by"), new ColumnAttribute("approved_by_account_id")]);
-        var invoiceIdColumn = MetadataFactory.ParseColumn(invoiceTable, invoiceIdProperty);
-        var createdByColumn = MetadataFactory.ParseColumn(invoiceTable, createdByProperty);
-        var approvedByColumn = MetadataFactory.ParseColumn(invoiceTable, approvedByProperty);
+        var invoiceIdColumn = ParseMetadataColumn(invoiceTable, invoiceIdProperty);
+        var createdByColumn = ParseMetadataColumn(invoiceTable, createdByProperty);
+        var approvedByColumn = ParseMetadataColumn(invoiceTable, approvedByProperty);
         SetTableColumns(invoiceTable, [invoiceIdColumn, createdByColumn, approvedByColumn]);
 
         SetDatabaseTableModels(db, [accountTableModel, invoiceTableModel]);
@@ -147,7 +152,7 @@ public class MetadataFactoryTests
         var (_, _, model, _) = CreateTestHierarchy();
         SetModelAttributes(model, [new TableAttribute("my_table")]);
 
-        var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
+        var tableDefinition = ParseMetadataTable(model).ValueOrException();
 
         await Assert.That(tableDefinition.DbName).IsEqualTo("my_table");
         await Assert.That(tableDefinition.Type).IsEqualTo(TableType.Table);
@@ -159,7 +164,7 @@ public class MetadataFactoryTests
         var (_, _, model, _) = CreateTestHierarchy(isView: true);
         SetModelAttributes(model, [new ViewAttribute("my_view")]);
 
-        var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
+        var tableDefinition = ParseMetadataTable(model).ValueOrException();
 
         await Assert.That(tableDefinition.DbName).IsEqualTo("my_view");
         await Assert.That(tableDefinition).IsTypeOf<ViewDefinition>();
@@ -173,7 +178,7 @@ public class MetadataFactoryTests
         const string definitionSql = "SELECT Id FROM OtherTable";
         SetModelAttributes(model, [new ViewAttribute("my_view"), new DefinitionAttribute(definitionSql)]);
 
-        var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
+        var tableDefinition = ParseMetadataTable(model).ValueOrException();
         var viewDefinition = (ViewDefinition)tableDefinition;
 
         await Assert.That(viewDefinition.Definition).IsEqualTo(definitionSql);
@@ -185,7 +190,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "CsPropName", typeof(string), [new ColumnAttribute("db_col_name")]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
 
         await Assert.That(columnDefinition.DbName).IsEqualTo("db_col_name");
         await Assert.That(ReferenceEquals(valueProperty, columnDefinition.ValueProperty)).IsTrue();
@@ -198,7 +203,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Id", typeof(int), [new PrimaryKeyAttribute()]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
         SetTableColumns(table, [columnDefinition]);
 
         await Assert.That(columnDefinition.PrimaryKey).IsTrue();
@@ -212,7 +217,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Id", typeof(int), [new AutoIncrementAttribute()]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
 
         await Assert.That(columnDefinition.AutoIncrement).IsTrue();
     }
@@ -223,7 +228,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Name", typeof(string), [new NullableAttribute()]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
 
         await Assert.That(columnDefinition.Nullable).IsTrue();
     }
@@ -234,7 +239,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Name", typeof(string), [new TypeAttribute(DatabaseType.MySQL, "VARCHAR", 255)]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
         var dbType = columnDefinition.DbTypes.Single();
 
         await Assert.That(dbType.DatabaseType).IsEqualTo(DatabaseType.MySQL);
@@ -250,7 +255,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Description", typeof(string), [new TypeAttribute("TEXT")]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
         var dbType = columnDefinition.DbTypes.Single();
 
         await Assert.That(dbType.DatabaseType).IsEqualTo(DatabaseType.Default);
@@ -264,7 +269,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Price", typeof(decimal), [new TypeAttribute(DatabaseType.MySQL, "DECIMAL", 10, 2)]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
         var dbType = columnDefinition.DbTypes.Single();
 
         await Assert.That(dbType.DatabaseType).IsEqualTo(DatabaseType.MySQL);
@@ -279,7 +284,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Counter", typeof(uint), [new TypeAttribute(DatabaseType.MySQL, "INT", false)]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
         var dbType = columnDefinition.DbTypes.Single();
 
         await Assert.That(dbType.DatabaseType).IsEqualTo(DatabaseType.MySQL);
@@ -296,7 +301,7 @@ public class MetadataFactoryTests
         var valueProperty = new ValueProperty("Status", enumType, model, attributes);
         SetEnumMetadata(valueProperty, new EnumProperty(enumValues: attributes.OfType<EnumAttribute>().Single().Values.Select((name, index) => (name, index + 1))));
         AddModelProperty(model, valueProperty);
-        table.ParseColumn(valueProperty);
+        ParseMetadataColumn(table, valueProperty);
 
         await Assert.That(valueProperty.EnumProperty).IsNotNull();
         await Assert.That(valueProperty.EnumProperty!.Value.CsValuesOrDbValues.Count).IsEqualTo(2);
@@ -312,7 +317,7 @@ public class MetadataFactoryTests
         var (_, _, _, table) = CreateTestHierarchy();
         var column = new ColumnDefinition("unknown_type", table);
 
-        var result = MetadataFactory.TryAttachValueProperty(column, "MissingClrType", capitaliseNames: true);
+        var result = TryAttachMetadataValueProperty(column, "MissingClrType", capitaliseNames: true);
 
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
@@ -326,7 +331,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Name", typeof(string), [new DefaultAttribute("DefaultName")]);
 
-        table.ParseColumn(valueProperty);
+        ParseMetadataColumn(table, valueProperty);
         var defaultAttribute = valueProperty.GetDefaultAttribute();
 
         await Assert.That(valueProperty.HasDefaultValue()).IsTrue();
@@ -340,7 +345,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Count", typeof(int), [new DefaultAttribute(123)]);
 
-        table.ParseColumn(valueProperty);
+        ParseMetadataColumn(table, valueProperty);
         var defaultAttribute = valueProperty.GetDefaultAttribute();
 
         await Assert.That(valueProperty.HasDefaultValue()).IsTrue();
@@ -354,7 +359,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "CreatedAt", typeof(DateTime), [new DefaultCurrentTimestampAttribute()]);
 
-        table.ParseColumn(valueProperty);
+        ParseMetadataColumn(table, valueProperty);
         var defaultAttribute = valueProperty.GetDefaultAttribute();
 
         await Assert.That(defaultAttribute).IsTypeOf<DefaultCurrentTimestampAttribute>();
@@ -367,7 +372,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "ID", typeof(Guid), [new DefaultNewUUIDAttribute()]);
 
-        table.ParseColumn(valueProperty);
+        ParseMetadataColumn(table, valueProperty);
         var defaultAttribute = valueProperty.GetDefaultAttribute();
 
         await Assert.That(defaultAttribute).IsTypeOf<DefaultNewUUIDAttribute>();
@@ -380,7 +385,7 @@ public class MetadataFactoryTests
     {
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "CreatedAt", typeof(DateTime), [new DefaultCurrentTimestampAttribute()]);
-        table.ParseColumn(valueProperty);
+        ParseMetadataColumn(table, valueProperty);
 
         await Assert.That(valueProperty.GetDefaultValue()).IsEqualTo("DateTime.Now");
     }
@@ -390,7 +395,7 @@ public class MetadataFactoryTests
     {
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "ID", typeof(Guid), [new DefaultNewUUIDAttribute()]);
-        table.ParseColumn(valueProperty);
+        ParseMetadataColumn(table, valueProperty);
 
         await Assert.That(valueProperty.GetDefaultValue()).IsEqualTo("Guid.CreateVersion7()");
     }
@@ -400,7 +405,7 @@ public class MetadataFactoryTests
     {
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Name", typeof(string), [new DefaultAttribute("MyDefault")]);
-        table.ParseColumn(valueProperty);
+        ParseMetadataColumn(table, valueProperty);
 
         await Assert.That(valueProperty.GetDefaultValue()).IsEqualTo("MyDefault");
     }
@@ -411,7 +416,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "ReferenceId", typeof(int), [new ForeignKeyAttribute("ReferencedTable", "ReferencedColumn", "FK_ConstraintName")]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
         var foreignKeyAttribute = valueProperty.Attributes.OfType<ForeignKeyAttribute>().Single();
 
         await Assert.That(columnDefinition.ForeignKey).IsTrue();
@@ -426,7 +431,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Name", typeof(string), [new IndexAttribute("idx_name", IndexCharacteristic.Simple, IndexType.BTREE)]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
         SetTableColumns(table, [columnDefinition]);
         ParseMetadataIndices(model.Database);
 
@@ -451,7 +456,7 @@ public class MetadataFactoryTests
         var (_, _, model, table) = CreateTestHierarchy();
         var valueProperty = CreateTestValueProperty(model, "Email", typeof(string), [new IndexAttribute("uq_email", IndexCharacteristic.Unique)]);
 
-        var columnDefinition = table.ParseColumn(valueProperty);
+        var columnDefinition = ParseMetadataColumn(table, valueProperty);
         SetTableColumns(table, [columnDefinition]);
         ParseMetadataIndices(model.Database);
 
@@ -490,7 +495,7 @@ public class MetadataFactoryTests
         var (_, _, model, _) = CreateTestHierarchy();
         SetModelAttributes(model, [new TableAttribute("my_table"), new UseCacheAttribute(true)]);
 
-        var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
+        var tableDefinition = ParseMetadataTable(model).ValueOrException();
 
         await Assert.That(tableDefinition.explicitUseCache.HasValue).IsTrue();
         await Assert.That(tableDefinition.explicitUseCache!.Value).IsTrue();
@@ -502,7 +507,7 @@ public class MetadataFactoryTests
         var (db, _, _, _) = CreateTestHierarchy();
         SetDatabaseAttributes(db, [new UseCacheAttribute(true)]);
 
-        db.ParseAttributes();
+        ParseMetadataAttributes(db);
 
         await Assert.That(db.UseCache).IsTrue();
     }
@@ -513,7 +518,7 @@ public class MetadataFactoryTests
         var (_, _, model, _) = CreateTestHierarchy();
         SetModelAttributes(model, [new TableAttribute("my_table"), new CacheLimitAttribute(CacheLimitType.Rows, 1000)]);
 
-        var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
+        var tableDefinition = ParseMetadataTable(model).ValueOrException();
 
         await Assert.That(tableDefinition.CacheLimits.Count).IsEqualTo(1);
         await Assert.That(tableDefinition.CacheLimits[0].limitType).IsEqualTo(CacheLimitType.Rows);
@@ -526,7 +531,7 @@ public class MetadataFactoryTests
         var (db, _, _, _) = CreateTestHierarchy();
         SetDatabaseAttributes(db, [new CacheLimitAttribute(CacheLimitType.Megabytes, 512)]);
 
-        db.ParseAttributes();
+        ParseMetadataAttributes(db);
 
         await Assert.That(db.CacheLimits.Count).IsEqualTo(1);
         await Assert.That(db.CacheLimits[0].limitType).IsEqualTo(CacheLimitType.Megabytes);
@@ -539,7 +544,7 @@ public class MetadataFactoryTests
         var (_, _, model, _) = CreateTestHierarchy();
         SetModelAttributes(model, [new TableAttribute("my_table"), new IndexCacheAttribute(IndexCacheType.MaxAmountRows, 5000)]);
 
-        var tableDefinition = MetadataFactory.ParseTable(model).ValueOrException();
+        var tableDefinition = ParseMetadataTable(model).ValueOrException();
 
         await Assert.That(tableDefinition.IndexCache.Count).IsEqualTo(1);
         await Assert.That(tableDefinition.IndexCache[0].indexCacheType).IsEqualTo(IndexCacheType.MaxAmountRows);
@@ -552,7 +557,7 @@ public class MetadataFactoryTests
         var (db, _, _, _) = CreateTestHierarchy();
         SetDatabaseAttributes(db, [new IndexCacheAttribute(IndexCacheType.All)]);
 
-        db.ParseAttributes();
+        ParseMetadataAttributes(db);
 
         await Assert.That(db.IndexCache.Count).IsEqualTo(1);
         await Assert.That(db.IndexCache[0].indexCacheType).IsEqualTo(IndexCacheType.All);
@@ -565,7 +570,7 @@ public class MetadataFactoryTests
         var (db, _, _, _) = CreateTestHierarchy();
         SetDatabaseAttributes(db, [new CacheCleanupAttribute(CacheCleanupType.Hours, 1)]);
 
-        db.ParseAttributes();
+        ParseMetadataAttributes(db);
 
         await Assert.That(db.CacheCleanup.Count).IsEqualTo(1);
         await Assert.That(db.CacheCleanup[0].cleanupType).IsEqualTo(CacheCleanupType.Hours);
@@ -627,8 +632,8 @@ public class MetadataFactoryTests
         var property1 = CreateTestValueProperty(model, "Prop1", typeof(string), [new IndexAttribute("idx_multi", IndexCharacteristic.Simple, IndexType.BTREE, "col1", "col2"), new ColumnAttribute("col1")]);
         var property2 = CreateTestValueProperty(model, "Prop2", typeof(int), [new IndexAttribute("idx_multi", IndexCharacteristic.Simple, IndexType.BTREE, "col1", "col2"), new ColumnAttribute("col2")]);
 
-        var property1Column = MetadataFactory.ParseColumn(table, property1);
-        var property2Column = MetadataFactory.ParseColumn(table, property2);
+        var property1Column = ParseMetadataColumn(table, property1);
+        var property2Column = ParseMetadataColumn(table, property2);
         SetTableColumns(table, [property1Column, property2Column]);
 
         ParseMetadataIndices(model.Database);
@@ -650,8 +655,8 @@ public class MetadataFactoryTests
         var property1 = CreateTestValueProperty(model, "Prop1", typeof(string), [new ColumnAttribute("col1")]);
         var property2 = CreateTestValueProperty(model, "Prop2", typeof(int), [new ColumnAttribute("col2")]);
 
-        var property1Column = MetadataFactory.ParseColumn(table, property1);
-        var property2Column = MetadataFactory.ParseColumn(table, property2);
+        var property1Column = ParseMetadataColumn(table, property1);
+        var property2Column = ParseMetadataColumn(table, property2);
         SetTableColumns(table, [property1Column, property2Column]);
 
         ParseMetadataIndices(model.Database).ValueOrException();
@@ -670,8 +675,8 @@ public class MetadataFactoryTests
         var property1 = CreateTestValueProperty(model, "Prop1", typeof(string), [new ColumnAttribute("col1")]);
         var property2 = CreateTestValueProperty(model, "Prop2", typeof(int), [new ColumnAttribute("col2")]);
 
-        var property1Column = MetadataFactory.ParseColumn(table, property1);
-        var property2Column = MetadataFactory.ParseColumn(table, property2);
+        var property1Column = ParseMetadataColumn(table, property1);
+        var property2Column = ParseMetadataColumn(table, property2);
         SetTableColumns(table, [property1Column, property2Column]);
 
         var result = ParseMetadataIndices(model.Database);

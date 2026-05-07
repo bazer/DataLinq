@@ -261,7 +261,12 @@ public class MetadataDefinitionFactoryTests
                 (typeof(MetadataFactory), nameof(MetadataFactory.NormalizeDatabaseTypeName), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
                 (typeof(MetadataFactory), nameof(MetadataFactory.ParseIndices), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
                 (typeof(MetadataFactory), nameof(MetadataFactory.ParseRelations), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
-                (typeof(MetadataFactory), nameof(MetadataFactory.IndexColumns), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                (typeof(MetadataFactory), nameof(MetadataFactory.IndexColumns), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.ParseTable), [typeof(ModelDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.ParseColumn), [typeof(TableDefinition), typeof(ValueProperty)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.ParseAttributes), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.AttachValueProperty), [typeof(ColumnDefinition), typeof(string), typeof(bool)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.TryAttachValueProperty), [typeof(ColumnDefinition), typeof(string), typeof(bool)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly)
             }
             .Select(item => FindMissingObsoleteMethod(item.Type, item.MethodName, item.ParameterTypes, item.Flags))
             .OfType<string>()
@@ -409,7 +414,7 @@ public class MetadataDefinitionFactoryTests
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
         var model = new ModelDefinition(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class));
         SetModelInterfaces(model, [new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
-        var table = MetadataFactory.ParseTable(model).ValueOrException();
+        var table = ParseMetadataTable(model).ValueOrException();
         SetTableDbName(table, "items");
         var tableModel = new TableModel("Items", null!, model, table);
         AddValueProperties(
@@ -2917,7 +2922,7 @@ public class MetadataDefinitionFactoryTests
         var model = new ModelDefinition(new CsTypeDeclaration(modelName, "TestNamespace", ModelCsType.Class));
         SetModelInterfaces(model, [new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
 
-        var table = MetadataFactory.ParseTable(model).ValueOrException();
+        var table = ParseMetadataTable(model).ValueOrException();
         SetTableDbName(table, tableName);
 
         return new TableModel(csPropertyName, database, model, table);
@@ -2936,7 +2941,7 @@ public class MetadataDefinitionFactoryTests
                     model,
                     property.Attributes);
                 AddModelProperty(model, valueProperty);
-                return MetadataFactory.ParseColumn(model.Table, valueProperty);
+                return ParseMetadataColumn(model.Table, valueProperty);
             })
             .ToArray();
 
@@ -2997,6 +3002,12 @@ public class MetadataDefinitionFactoryTests
 
     private static Option<DatabaseDefinition, IDLOptionFailure> CreateMutableConstructionGraph(DatabaseDefinition database) =>
         MetadataDefinitionDraft.FromMutableMetadata(database).TryCreateConstructionGraph();
+
+    private static Option<TableDefinition, IDLOptionFailure> ParseMetadataTable(ModelDefinition model) =>
+        MetadataFactory.ParseTable(model);
+
+    private static ColumnDefinition ParseMetadataColumn(TableDefinition table, ValueProperty property) =>
+        table.ParseColumn(property);
 
     private static Option<bool, IDLOptionFailure> ParseMetadataIndices(DatabaseDefinition database) =>
         MetadataFactory.ParseIndices(database);

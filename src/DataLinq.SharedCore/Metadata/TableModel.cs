@@ -40,7 +40,7 @@ public class TableModel
         CsPropertyName = csPropertyName;
         Database = database;
         Model = model;
-        Table = MetadataFactory.ParseTable(model);
+        Table = MetadataFactory.ParseTableCore(model);
         IsStub = isStub;
 
         Table.SetTableModel(this);
