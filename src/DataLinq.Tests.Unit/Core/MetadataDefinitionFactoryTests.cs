@@ -335,18 +335,16 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DuplicateTableModelPropertyNames_ReturnsInvalidModelFailure()
     {
-        var database = new DatabaseDefinition(
+        var database = new MetadataDatabaseDraft(
             "TestDb",
-            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
-        var itemModel = CreateTableModel(database, "Items", "Item", "items");
-        var archiveModel = CreateTableModel(database, "Items", "ArchiveItem", "archive_items");
-        AddValueProperties(
-            itemModel.Model,
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        AddValueProperties(
-            archiveModel.Model,
-            ("ArchiveId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("archive_id")]));
-        database.SetTableModels([itemModel, archiveModel]);
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                CreateSingleTableModelTypedDraft("Items", "Item", "items", "Id", "id"),
+                CreateSingleTableModelTypedDraft("Items", "ArchiveItem", "archive_items", "ArchiveId", "archive_id")
+            ]
+        };
 
         var result = new MetadataDefinitionFactory().Build(database);
 
@@ -2109,9 +2107,21 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DuplicateColumnDraft_ReturnsInvalidModelFailure()
     {
-        var database = CreateSingleTableDraft(
-            ("FirstId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
-            ("SecondId", typeof(int), [new ColumnAttribute("id")]));
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedValueProperty(
+                    "FirstId",
+                    typeof(int),
+                    "id",
+                    primaryKey: true,
+                    attributes: [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+                CreateTypedValueProperty(
+                    "SecondId",
+                    typeof(int),
+                    "id",
+                    attributes: [new ColumnAttribute("id")])
+            ]);
 
         var result = new MetadataDefinitionFactory().Build(database);
 
@@ -2144,8 +2154,15 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_TableWithoutPrimaryKey_ReturnsInvalidModelFailure()
     {
-        var database = CreateSingleTableDraft(
-            ("Name", typeof(string), [new ColumnAttribute("name")]));
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedValueProperty(
+                    "Name",
+                    typeof(string),
+                    "name",
+                    attributes: [new ColumnAttribute("name")])
+            ]);
 
         var result = new MetadataDefinitionFactory().Build(database);
 
@@ -2614,6 +2631,34 @@ public class MetadataDefinitionFactoryTests
                     })
             ]
         };
+    }
+
+    private static MetadataTableModelDraft CreateSingleTableModelTypedDraft(
+        string tablePropertyName,
+        string modelName,
+        string tableName,
+        string primaryKeyPropertyName,
+        string primaryKeyColumnName)
+    {
+        return new MetadataTableModelDraft(
+            tablePropertyName,
+            new MetadataModelDraft(new CsTypeDeclaration(modelName, "TestNamespace", ModelCsType.Class))
+            {
+                OriginalInterfaces =
+                [
+                    new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                ],
+                ValueProperties =
+                [
+                    CreateTypedValueProperty(
+                        primaryKeyPropertyName,
+                        typeof(int),
+                        primaryKeyColumnName,
+                        primaryKey: true,
+                        attributes: [new PrimaryKeyAttribute(), new ColumnAttribute(primaryKeyColumnName)])
+                ]
+            },
+            new MetadataTableDraft(tableName));
     }
 
     private static MetadataValuePropertyDraft CreateTypedValueProperty(
