@@ -8,11 +8,15 @@ namespace DataLinq.Core.Factories;
 
 public sealed class MetadataDefinitionDraft
 {
-    private readonly Func<Option<DatabaseDefinition, IDLOptionFailure>> createMutableMetadata;
+    private readonly Func<Option<DatabaseDefinition, IDLOptionFailure>> createConstructionGraph;
+    private readonly bool ownsConstructionGraph;
 
-    private MetadataDefinitionDraft(Func<Option<DatabaseDefinition, IDLOptionFailure>> createMutableMetadata)
+    private MetadataDefinitionDraft(
+        Func<Option<DatabaseDefinition, IDLOptionFailure>> createConstructionGraph,
+        bool ownsConstructionGraph)
     {
-        this.createMutableMetadata = createMutableMetadata;
+        this.createConstructionGraph = createConstructionGraph;
+        this.ownsConstructionGraph = ownsConstructionGraph;
     }
 
     [Obsolete(MetadataMutationGuard.MutableFactoryInputObsoleteMessage)]
@@ -21,7 +25,9 @@ public sealed class MetadataDefinitionDraft
         if (metadata is null)
             throw new ArgumentNullException(nameof(metadata));
 
-        return new MetadataDefinitionDraft(() => metadata);
+        return new MetadataDefinitionDraft(
+            () => metadata,
+            ownsConstructionGraph: false);
     }
 
     public static MetadataDefinitionDraft FromTypedMetadata(MetadataDatabaseDraft metadata)
@@ -29,14 +35,16 @@ public sealed class MetadataDefinitionDraft
         if (metadata is null)
             throw new ArgumentNullException(nameof(metadata));
 
-        return new MetadataDefinitionDraft(() => MetadataTypedDraftConverter.ToMutableMetadata(metadata));
+        return new MetadataDefinitionDraft(
+            () => MetadataTypedDraftConverter.ToConstructionGraph(metadata),
+            ownsConstructionGraph: true);
     }
 
-    internal Option<DatabaseDefinition, IDLOptionFailure> TryCreateMutableSnapshot()
+    internal Option<DatabaseDefinition, IDLOptionFailure> TryCreateConstructionGraph()
     {
-        var mutableMetadata = createMutableMetadata();
-        if (!mutableMetadata.TryUnwrap(out var metadata, out var typedDraftFailure))
-            return typedDraftFailure;
+        var constructionGraph = createConstructionGraph();
+        if (!constructionGraph.TryUnwrap(out var metadata, out var constructionGraphFailure))
+            return constructionGraphFailure;
 
         var tableModelValidation = MetadataFactory.ValidateExistingTableModels(metadata);
         if (!tableModelValidation.HasValue)
@@ -118,6 +126,8 @@ public sealed class MetadataDefinitionDraft
         if (!relationValidation.HasValue)
             return relationValidation.Failure;
 
-        return DLOptionFailure.CatchAll(() => MetadataDefinitionSnapshot.Copy(metadata));
+        return DLOptionFailure.CatchAll(() => ownsConstructionGraph
+            ? metadata
+            : MetadataDefinitionSnapshot.Copy(metadata));
     }
 }

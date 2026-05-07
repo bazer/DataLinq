@@ -90,7 +90,7 @@ public sealed record MetadataRelationPropertyDraft(
 
 internal static class MetadataTypedDraftConverter
 {
-    public static Option<DatabaseDefinition, IDLOptionFailure> ToMutableMetadata(MetadataDatabaseDraft draft)
+    public static Option<DatabaseDefinition, IDLOptionFailure> ToConstructionGraph(MetadataDatabaseDraft draft)
     {
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Typed metadata draft cannot be null.");

@@ -345,6 +345,33 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task TypedDraftInput_CreatesFreshFactoryOwnedConstructionGraph()
+    {
+        var draft = MetadataDefinitionDraft.FromTypedMetadata(CreateRelationTypedDraft());
+
+        var firstGraph = draft.TryCreateConstructionGraph().ValueOrException();
+        var secondGraph = draft.TryCreateConstructionGraph().ValueOrException();
+
+        await Assert.That(ReferenceEquals(firstGraph, secondGraph)).IsFalse();
+        await Assert.That(firstGraph.IsFrozen).IsFalse();
+        await Assert.That(firstGraph.TableModels.Single(tm => tm.Table.DbName == "orders").Table.ColumnIndices.Count).IsEqualTo(0);
+        await Assert.That(firstGraph.TableModels.Single(tm => tm.Table.DbName == "orders").Model.RelationProperties.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task MutableDraftInput_CreatesDefensiveConstructionGraphCopy()
+    {
+        var database = CreateRelationDraft();
+
+        var constructionGraph = CreateMutableConstructionGraph(database).ValueOrException();
+
+        await Assert.That(ReferenceEquals(database, constructionGraph)).IsFalse();
+        await Assert.That(ReferenceEquals(database.TableModels.First(), constructionGraph.TableModels.First())).IsFalse();
+        await Assert.That(database.TableModels.Single(tm => tm.Table.DbName == "orders").Table.ColumnIndices.Count).IsEqualTo(0);
+        await Assert.That(constructionGraph.TableModels.Single(tm => tm.Table.DbName == "orders").Table.ColumnIndices.Count).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task Build_TableModelRegisteredOnWrongDatabase_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var ownerDatabase = new DatabaseDefinition(
@@ -2962,6 +2989,9 @@ public class MetadataDefinitionFactoryTests
         MetadataDefinitionFactory factory,
         DatabaseDefinition database) =>
         factory.BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+    private static Option<DatabaseDefinition, IDLOptionFailure> CreateMutableConstructionGraph(DatabaseDefinition database) =>
+        MetadataDefinitionDraft.FromMutableMetadata(database).TryCreateConstructionGraph();
 
     private static void SetMetadataListItem<T>(MetadataList<T> list, int index, T item) =>
         list[index] = item;

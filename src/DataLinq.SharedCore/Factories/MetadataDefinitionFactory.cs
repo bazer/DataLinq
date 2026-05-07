@@ -22,10 +22,10 @@ public sealed class MetadataDefinitionFactory
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
 
-        if (!draft.TryCreateMutableSnapshot().TryUnwrap(out var snapshot, out var snapshotFailure))
-            return snapshotFailure;
+        if (!draft.TryCreateConstructionGraph().TryUnwrap(out var constructionGraph, out var constructionGraphFailure))
+            return constructionGraphFailure;
 
-        return DLOptionFailure.CatchAll(() => BuildCore(snapshot));
+        return DLOptionFailure.CatchAll(() => BuildCore(constructionGraph));
     }
 
     public Option<DatabaseDefinition, IDLOptionFailure> Build(MetadataDatabaseDraft draft)
@@ -50,10 +50,10 @@ public sealed class MetadataDefinitionFactory
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
 
-        if (!draft.TryCreateMutableSnapshot().TryUnwrap(out var snapshot, out var snapshotFailure))
-            return snapshotFailure;
+        if (!draft.TryCreateConstructionGraph().TryUnwrap(out var constructionGraph, out var constructionGraphFailure))
+            return constructionGraphFailure;
 
-        return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(snapshot));
+        return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(constructionGraph));
     }
 
     public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(MetadataDatabaseDraft draft)
