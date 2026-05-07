@@ -28,6 +28,7 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     private static readonly string InvalidRelationSourcePath = GeneratorTestPaths.TestModel("InvalidRelationModel.cs");
     private static readonly string InvalidTablePropertySourcePath = GeneratorTestPaths.TestModel("InvalidTablePropertyModel.cs");
     private static readonly string MissingTableModelSourcePath = GeneratorTestPaths.TestModel("MissingTableModel.cs");
+    private static readonly string InvalidQualifiedDefaultValueSourcePath = GeneratorTestPaths.TestModel("InvalidQualifiedDefaultModel.cs");
 
     private const string DefaultValueTestModelSource = @"
     using DataLinq.Attributes;
@@ -91,6 +92,33 @@ public class ModelGenerationLogicTests : GeneratorTestBase
         [Column(""kontotexten"")]
         [Default(56)]
         public abstract string Kontotexten { get; }
+    }";
+
+    private const string InvalidQualifiedDefaultValueTestModelSource = @"
+    using DataLinq.Attributes;
+    using DataLinq.Interfaces;
+    using DataLinq.Instances;
+    using DataLinq.Mutation;
+    using DataLinq;
+
+    namespace TestInvalidQualifiedDefaultNamespace;
+
+    public partial class InvalidQualifiedDefaultDb : IDatabaseModel
+    {
+        public InvalidQualifiedDefaultDb(DataSourceAccess dsa){}
+        public DbRead<InvalidQualifiedDefaultModel> Rows { get; }
+    }
+
+    [Table(""rows"")]
+    public abstract partial class InvalidQualifiedDefaultModel(IRowData rowData, IDataSourceAccess dataSource)
+        : Immutable<InvalidQualifiedDefaultModel, InvalidQualifiedDefaultDb>(rowData, dataSource), ITableModel<InvalidQualifiedDefaultDb>
+    {
+        [PrimaryKey, AutoIncrement, Column(""id"")]
+        public abstract int? Id { get; }
+
+        [Column(""name"")]
+        [DataLinq.Attributes.DefaultAttribute(56)]
+        public abstract string Name { get; }
     }";
 
     private const string InvalidCacheLimitModelSource = @"
@@ -676,6 +704,19 @@ public class ModelGenerationLogicTests : GeneratorTestBase
 
         var generatedCode = string.Join(Environment.NewLine, generatedTrees.Select(x => x.ToString()));
         await Assert.That(generatedCode.Contains("this.Kontotexten = 56;", StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
+    public async Task Property_WithQualifiedInvalidDefault_ShouldReportDiagnosticOnSourceAttribute()
+    {
+        var inputTree = CSharpSyntaxTree.ParseText(InvalidQualifiedDefaultValueTestModelSource, path: InvalidQualifiedDefaultValueSourcePath);
+
+        var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
+
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG003");
+        await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
+        await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(InvalidQualifiedDefaultValueSourcePath);
+        await Assert.That(inputTree.GetText().ToString(diagnostic.Location.SourceSpan)).IsEqualTo("56");
     }
 
     [Test]

@@ -126,7 +126,7 @@ public partial class TestDb : ITestDb
 public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, ITestDb>(rowData, dataSource), ITableModel<TestDb>
 {
     [Column("id"), PrimaryKey] public abstract int Id { get; }
-    [Column("score"), Default(56)] public abstract int Score { get; }
+    [Column("score"), DataLinq.Attributes.DefaultAttribute(56)] public abstract int Score { get; }
 }
 """;
 

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using DataLinq.Core.Factories;
 using DataLinq.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -102,7 +103,6 @@ internal static class SourceModelSyntaxResolver
 
     private static bool IsDefaultAttributeSyntax(AttributeSyntax attributeSyntax)
     {
-        var name = attributeSyntax.Name.ToString();
-        return name == "Default" || name == "DefaultAttribute";
+        return SyntaxParser.GetUnqualifiedAttributeName(attributeSyntax.Name) == "Default";
     }
 }

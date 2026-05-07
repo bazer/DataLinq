@@ -797,7 +797,7 @@ public class SyntaxParser
         return name == "Column" || name == "Relation";
     }
 
-    private static string GetUnqualifiedAttributeName(NameSyntax nameSyntax)
+    internal static string GetUnqualifiedAttributeName(NameSyntax nameSyntax)
     {
         var name = nameSyntax switch
         {
@@ -1136,11 +1136,7 @@ public class SyntaxParser
     {
         var defaultExpression = propSyntax.AttributeLists
             .SelectMany(attrList => attrList.Attributes)
-            .Where(attr =>
-            {
-                var name = attr.Name.ToString();
-                return name == "Default" || name == "DefaultAttribute";
-            })
+            .Where(attr => GetUnqualifiedAttributeName(attr.Name) == "Default")
             .Select(attr => attr.ArgumentList?.Arguments.SingleOrDefault()?.Expression)
             .FirstOrDefault(expr => expr != null);
 
