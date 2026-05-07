@@ -962,6 +962,27 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ForeignKeyWithNegativeOrdinal_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationTypedDraft(
+            orderCustomerIdAttributes:
+            [
+                new ForeignKeyAttribute("users", "user_id", "FK_Order_User", -1),
+                new ColumnAttribute("customer_id")
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Foreign key attribute on value property 'Order.CustomerId'");
+        await Assert.That(failure.Message).Contains("negative ordinal '-1'");
+        await Assert.That(failure.Message).Contains("must be nonnegative");
+    }
+
+    [Test]
     public async Task Build_RelationAttributeWithEmptyReferencedColumn_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationTypedDraft(

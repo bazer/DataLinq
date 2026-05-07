@@ -1135,6 +1135,9 @@ public static class MetadataFactory
         if (string.IsNullOrWhiteSpace(attribute.Name))
             return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} has an empty constraint name.");
 
+        if (attribute.Ordinal < 0)
+            return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} uses negative ordinal '{attribute.Ordinal}'. Foreign-key ordinals must be nonnegative.");
+
         if (!Enum.IsDefined(typeof(ReferentialAction), attribute.OnUpdate))
             return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} uses unsupported on-update action '{attribute.OnUpdate}'.");
 
