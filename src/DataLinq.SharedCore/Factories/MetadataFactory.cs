@@ -2734,6 +2734,9 @@ public static class MetadataFactory
             else
             {
                 var propName = GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute);
+                if (!ValidateGeneratedRelationPropertyName(manySideModel, propName, firstForeignKey.Column, firstAttribute).TryUnwrap(out _, out var generatedPropertyFailure))
+                    return generatedPropertyFailure;
+
                 var propType = oneSideModel.CsType;
                 var propAttr = new RelationAttribute(oneSideModel.Table.DbName, candidateColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
                 AddRelationPropertyCore(manySideModel, propName, propType, manySidePart, propAttr);
@@ -2760,6 +2763,9 @@ public static class MetadataFactory
             else
             {
                 var propName = GetCandidateKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute);
+                if (!ValidateGeneratedRelationPropertyName(oneSideModel, propName, firstForeignKey.Column, firstAttribute).TryUnwrap(out _, out var generatedPropertyFailure))
+                    return generatedPropertyFailure;
+
                 var genericTypeName = manySideModel.CsType.Name;
                 var propType = new CsTypeDeclaration($"IImmutableRelation<{genericTypeName}>", "DataLinq.Instances", ModelCsType.Interface);
                 var propAttr = new RelationAttribute(manySideModel.Table.DbName, foreignKeyColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
@@ -2946,6 +2952,27 @@ public static class MetadataFactory
         attribute.Table == referencedTableName &&
         attribute.Columns.SequenceEqual(referencedColumnNames) &&
         (attribute.Name == null || attribute.Name == constraintName);
+
+    private static Option<bool, IDLOptionFailure> ValidateGeneratedRelationPropertyName(
+        ModelDefinition model,
+        string propertyName,
+        ColumnDefinition foreignKeyColumn,
+        ForeignKeyAttribute attribute)
+    {
+        var existingKind = model.ValueProperties.ContainsKey(propertyName)
+            ? "value property"
+            : model.RelationProperties.ContainsKey(propertyName)
+                ? "relation property"
+                : null;
+
+        if (existingKind is null)
+            return true;
+
+        return CreateForeignKeyFailure(
+            foreignKeyColumn,
+            attribute,
+            $"Foreign key '{attribute.Name}' on table '{foreignKeyColumn.Table.DbName}' would generate relation property '{model.CsType.Name}.{propertyName}', but model '{model.CsType.Name}' already defines a {existingKind} with that name. Add an explicit [Relation] property with a non-conflicting name or rename the existing property.");
+    }
 
     private static IDLOptionFailure CreateRelationPropertyFailure(
         RelationProperty relation,

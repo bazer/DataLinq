@@ -1823,6 +1823,54 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_GeneratedManyToOneRelationPropertyNameCollision_ReturnsInvalidModelFailure()
+    {
+        var database = CreateRelationTypedDraft(
+            orderAdditionalValueProperties:
+            [
+                CreateTypedValueProperty(
+                    "Customer",
+                    typeof(string),
+                    "customer_label",
+                    attributes: [new ColumnAttribute("customer_label")])
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Foreign key 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("would generate relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("already defines a value property");
+    }
+
+    [Test]
+    public async Task Build_GeneratedOneToManyRelationPropertyNameCollision_ReturnsInvalidModelFailure()
+    {
+        var database = CreateRelationTypedDraft(
+            userAdditionalValueProperties:
+            [
+                CreateTypedValueProperty(
+                    "Order",
+                    typeof(int),
+                    "sort_order",
+                    attributes: [new ColumnAttribute("sort_order")])
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Foreign key 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("would generate relation property 'User.Order'");
+        await Assert.That(failure.Message).Contains("already defines a value property");
+    }
+
+    [Test]
     public async Task Build_TableModelPropertyMatchingDatabaseType_RenamesBuiltDatabaseTypeWithoutMutatingDraft()
     {
         var database = CreateSingleTableTypedDraft(
@@ -3382,6 +3430,8 @@ public class MetadataDefinitionFactoryTests
         string foreignKeyColumnName = "customer_id",
         IReadOnlyList<Attribute>? orderCustomerIdAttributes = null,
         IReadOnlyList<MetadataRelationPropertyDraft>? orderRelationProperties = null,
+        IReadOnlyList<MetadataValuePropertyDraft>? userAdditionalValueProperties = null,
+        IReadOnlyList<MetadataValuePropertyDraft>? orderAdditionalValueProperties = null,
         bool includeFreezeCoverageMetadata = false)
     {
         var orderIdColumn = new MetadataColumnDraft("order_id")
@@ -3433,7 +3483,8 @@ public class MetadataDefinitionFactoryTests
                                 new MetadataColumnDraft("user_name"))
                             {
                                 Attributes = [new ColumnAttribute("user_name")]
-                            }
+                            },
+                            .. (userAdditionalValueProperties ?? [])
                         ]
                     },
                     new MetadataTableDraft("users")),
@@ -3478,7 +3529,8 @@ public class MetadataDefinitionFactoryTests
                                 new MetadataColumnDraft("amount"))
                             {
                                 Attributes = [new ColumnAttribute("amount")]
-                            }
+                            },
+                            .. (orderAdditionalValueProperties ?? [])
                         ]
                     },
                     new MetadataTableDraft("orders")
