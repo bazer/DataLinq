@@ -2042,23 +2042,23 @@ public static class MetadataFactory
         if (relation.CandidateKey.ColumnIndex is null)
             return createFailure($"Existing relation '{relationName}' has a candidate-key part without a column index.");
 
-        var foreignKeyTableFailure = ValidateRelationPartIndexTable(
+        var foreignKeyIndexFailure = ValidateRelationPartIndexRegistration(
             database,
             relation.ForeignKey,
             relationName,
             "foreign-key",
             createFailure);
-        if (foreignKeyTableFailure != null)
-            return foreignKeyTableFailure;
+        if (foreignKeyIndexFailure != null)
+            return foreignKeyIndexFailure;
 
-        var candidateKeyTableFailure = ValidateRelationPartIndexTable(
+        var candidateKeyIndexFailure = ValidateRelationPartIndexRegistration(
             database,
             relation.CandidateKey,
             relationName,
             "candidate-key",
             createFailure);
-        if (candidateKeyTableFailure != null)
-            return candidateKeyTableFailure;
+        if (candidateKeyIndexFailure != null)
+            return candidateKeyIndexFailure;
 
         if (!relation.ForeignKey.ColumnIndex.RelationParts.Contains(relation.ForeignKey))
             return createFailure($"Existing relation '{relationName}' foreign-key part is not registered on index '{relation.ForeignKey.ColumnIndex.Name}'.");
@@ -2075,7 +2075,7 @@ public static class MetadataFactory
         return null;
     }
 
-    private static IDLOptionFailure? ValidateRelationPartIndexTable(
+    private static IDLOptionFailure? ValidateRelationPartIndexRegistration(
         DatabaseDefinition database,
         RelationPart relationPart,
         string relationName,
@@ -2083,15 +2083,21 @@ public static class MetadataFactory
         Func<string, IDLOptionFailure> createFailure)
     {
         var table = relationPart.ColumnIndex.Table;
-        if (table is not null &&
-            database.TableModels.Any(tableModel => ReferenceEquals(tableModel?.Table, table)))
-        {
-            return null;
-        }
-
         var tableName = table?.DbName ?? "<unknown>";
-        return createFailure(
-            $"Existing relation '{relationName}' has a {sideName} part on table '{tableName}', but that table is not registered on database '{database.DbName}'.");
+
+        if (table is null)
+            return createFailure(
+                $"Existing relation '{relationName}' has a {sideName} part on table '{tableName}', but that table is not registered on database '{database.DbName}'.");
+
+        if (!database.TableModels.Any(tableModel => ReferenceEquals(tableModel?.Table, table)))
+            return createFailure(
+                $"Existing relation '{relationName}' has a {sideName} part on table '{tableName}', but that table is not registered on database '{database.DbName}'.");
+
+        if (!table.ColumnIndices.Contains(relationPart.ColumnIndex))
+            return createFailure(
+                $"Existing relation '{relationName}' has a {sideName} part on index '{relationPart.ColumnIndex.Name}', but that index is not registered on table '{tableName}'.");
+
+        return null;
     }
 
     private static SourceLocation? GetColumnNameSourceLocation(ValueProperty property)
