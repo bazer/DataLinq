@@ -181,6 +181,13 @@ public class MetadataFromTypeFactoryTests
             "TableModels");
 
     [Test]
+    public Task ParseDatabase_GeneratedDeclarationNullTableModels_ReturnsInvalidModelFailure() =>
+        AssertGeneratedDeclarationFailure(
+            typeof(NullTableModelsGeneratedDeclarationDb),
+            typeof(NullTableModelsGeneratedDeclarationDb).FullName!,
+            "TableModels");
+
+    [Test]
     public Task ParseDatabase_GeneratedDeclarationMissingImmutableType_FailsBeforeMetadataReflection() =>
         AssertGeneratedDeclarationFailure(
             typeof(MissingImmutableTypeDb),
@@ -316,6 +323,12 @@ public sealed class WrongGeneratedModelHookReturnTypeDb : IDatabaseModel
 public sealed class DefaultGeneratedDeclarationDb : IDatabaseModel
 {
     public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() => default;
+}
+
+public sealed class NullTableModelsGeneratedDeclarationDb : IDatabaseModel
+{
+    public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
+        new((GeneratedTableModelDeclaration[])null!);
 }
 
 public sealed class MissingImmutableTypeDb : IDatabaseModel

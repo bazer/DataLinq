@@ -13,7 +13,7 @@ public readonly struct GeneratedDatabaseModelDeclaration
 
     public GeneratedDatabaseModelDeclaration(params GeneratedTableModelDeclaration[] tableModels)
     {
-        this.tableModels = tableModels?.ToArray() ?? throw new ArgumentNullException(nameof(tableModels));
+        this.tableModels = tableModels?.ToArray();
     }
 
     public GeneratedTableModelDeclaration[] TableModels => tableModels?.ToArray() ?? [];
