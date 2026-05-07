@@ -606,6 +606,100 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TypedDraftWithNullTableModel_ReturnsInvalidModelFailureBeforeLowering()
+    {
+        var database = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels = [null!]
+        };
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Typed metadata draft for database 'TestDb'");
+        await Assert.That(failure.Message).Contains("contains a null table model draft");
+    }
+
+    [Test]
+    public async Task Build_TypedDraftWithNullValueProperty_ReturnsInvalidModelFailureBeforeLowering()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties: [null!]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Typed table model draft 'Items'");
+        await Assert.That(failure.Message).Contains("contains a null value property draft");
+    }
+
+    [Test]
+    public async Task Build_TypedDraftWithValuePropertyWithoutColumn_ReturnsInvalidModelFailureBeforeLowering()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                new MetadataValuePropertyDraft(
+                    "Id",
+                    new CsTypeDeclaration(typeof(int)),
+                    null!)
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Typed value property draft 'Items.Id'");
+        await Assert.That(failure.Message).Contains("has no column draft");
+    }
+
+    [Test]
+    public async Task Build_TypedDraftWithNullRelationProperty_ReturnsInvalidModelFailureBeforeLowering()
+    {
+        var database = CreateSingleTableTypedDraft(
+            relationProperties: [null!]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Typed table model draft 'Items'");
+        await Assert.That(failure.Message).Contains("contains a null relation property draft");
+    }
+
+    [Test]
+    public async Task Build_TypedDraftWithNullAttributeSourceSpanAttribute_ReturnsInvalidModelFailureBeforeLowering()
+    {
+        var database = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            AttributeSourceSpans = [(null!, new SourceTextSpan(1, 1))]
+        };
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Typed database draft 'TestDb'");
+        await Assert.That(failure.Message).Contains("null attribute source-span attribute");
+    }
+
+    [Test]
     public async Task Build_ValuePropertyWithUnsupportedPropertyType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(

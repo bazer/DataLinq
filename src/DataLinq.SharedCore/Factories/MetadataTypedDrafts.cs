@@ -95,6 +95,9 @@ internal static class MetadataTypedDraftConverter
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Typed metadata draft cannot be null.");
 
+        if (!ValidateTypedDraftShape(draft).TryUnwrap(out _, out var shapeFailure))
+            return shapeFailure;
+
         var database = new DatabaseDefinition(draft.Name, draft.CsType, draft.DbName);
         if (draft.CsFile.HasValue)
             database.SetCsFileCore(draft.CsFile.Value);
@@ -124,6 +127,89 @@ internal static class MetadataTypedDraftConverter
 
         database.SetTableModelsCore(tableModels);
         return database;
+    }
+
+    private static Option<bool, IDLOptionFailure> ValidateTypedDraftShape(MetadataDatabaseDraft draft)
+    {
+        var databaseName = draft.DbName ?? draft.Name;
+
+        if (!ValidateAttributeSourceSpans(
+                draft.AttributeSourceSpans,
+                $"Typed database draft '{databaseName}'").TryUnwrap(out _, out var databaseAttributeSourceSpanFailure))
+            return databaseAttributeSourceSpanFailure;
+
+        foreach (var tableModelDraft in draft.TableModels ?? [])
+        {
+            if (tableModelDraft is null)
+                return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Typed metadata draft for database '{databaseName}' contains a null table model draft.");
+
+            var tableModelName = tableModelDraft.CsPropertyName;
+            if (tableModelDraft.Model is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Typed table model draft '{tableModelName}' on database '{databaseName}' has no model draft.");
+
+            if (tableModelDraft.Table is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"Typed table model draft '{tableModelName}' on database '{databaseName}' has no table draft.");
+
+            if (!ValidateAttributeSourceSpans(
+                    tableModelDraft.Model.AttributeSourceSpans,
+                    $"Typed model draft '{tableModelDraft.Model.CsType.Name}' on database '{databaseName}'").TryUnwrap(out _, out var modelAttributeSourceSpanFailure))
+                return modelAttributeSourceSpanFailure;
+
+            foreach (var propertyDraft in tableModelDraft.Model.ValueProperties ?? [])
+            {
+                if (propertyDraft is null)
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Typed table model draft '{tableModelName}' on database '{databaseName}' contains a null value property draft.");
+
+                if (propertyDraft.Column is null)
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Typed value property draft '{tableModelName}.{propertyDraft.PropertyName}' on database '{databaseName}' has no column draft.");
+
+                if (!ValidateAttributeSourceSpans(
+                        propertyDraft.AttributeSourceSpans,
+                        $"Typed value property draft '{tableModelName}.{propertyDraft.PropertyName}' on database '{databaseName}'").TryUnwrap(out _, out var propertyAttributeSourceSpanFailure))
+                    return propertyAttributeSourceSpanFailure;
+            }
+
+            foreach (var propertyDraft in tableModelDraft.Model.RelationProperties ?? [])
+            {
+                if (propertyDraft is null)
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Typed table model draft '{tableModelName}' on database '{databaseName}' contains a null relation property draft.");
+
+                if (!ValidateAttributeSourceSpans(
+                        propertyDraft.AttributeSourceSpans,
+                        $"Typed relation property draft '{tableModelName}.{propertyDraft.PropertyName}' on database '{databaseName}'").TryUnwrap(out _, out var propertyAttributeSourceSpanFailure))
+                    return propertyAttributeSourceSpanFailure;
+            }
+        }
+
+        return true;
+    }
+
+    private static Option<bool, IDLOptionFailure> ValidateAttributeSourceSpans(
+        IEnumerable<(Attribute Attribute, SourceTextSpan Span)>? sourceSpans,
+        string ownerDescription)
+    {
+        if (sourceSpans is null)
+            return true;
+
+        foreach (var (attribute, _) in sourceSpans)
+        {
+            if (attribute is null)
+                return DLOptionFailure.Fail(
+                    DLFailureType.InvalidModel,
+                    $"{ownerDescription} contains a null attribute source-span attribute.");
+        }
+
+        return true;
     }
 
     private static Option<TableModel, IDLOptionFailure> CreateTableModel(
