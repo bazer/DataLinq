@@ -236,6 +236,41 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task EnumProperty_ReturnsDefensiveCopies()
+    {
+        var dbEnumValues = new List<(string name, int value)>
+        {
+            ("active", 1),
+            ("inactive", 2)
+        };
+        var csEnumValues = new List<(string name, int value)>
+        {
+            ("Active", 1),
+            ("Inactive", 2)
+        };
+
+        var enumProperty = new EnumProperty(dbEnumValues, csEnumValues);
+
+        dbEnumValues[0] = ("changed", 99);
+        csEnumValues[0] = ("Changed", 99);
+
+        await Assert.That(enumProperty.DbEnumValues).IsEquivalentTo([("active", 1), ("inactive", 2)]);
+        await Assert.That(enumProperty.CsEnumValues).IsEquivalentTo([("Active", 1), ("Inactive", 2)]);
+        await Assert.That(enumProperty.CsValuesOrDbValues).IsEquivalentTo([("Active", 1), ("Inactive", 2)]);
+        await Assert.That(enumProperty.DbValuesOrCsValues).IsEquivalentTo([("active", 1), ("inactive", 2)]);
+
+        await Assert.That(enumProperty.DbEnumValues is (string name, int value)[]).IsFalse();
+        await Assert.That(enumProperty.CsEnumValues is (string name, int value)[]).IsFalse();
+        await Assert.That(enumProperty.CsValuesOrDbValues is (string name, int value)[]).IsFalse();
+        await Assert.That(enumProperty.DbValuesOrCsValues is (string name, int value)[]).IsFalse();
+
+        await Assert.That(enumProperty.DbEnumValues).IsEquivalentTo([("active", 1), ("inactive", 2)]);
+        await Assert.That(enumProperty.CsEnumValues).IsEquivalentTo([("Active", 1), ("Inactive", 2)]);
+        await Assert.That(enumProperty.CsValuesOrDbValues).IsEquivalentTo([("Active", 1), ("Inactive", 2)]);
+        await Assert.That(enumProperty.DbValuesOrCsValues).IsEquivalentTo([("active", 1), ("inactive", 2)]);
+    }
+
+    [Test]
     public async Task PublicMetadataDefinitionMutators_AreMarkedObsolete()
     {
         var missingMethods = new (Type Type, string[] MethodNames)[]

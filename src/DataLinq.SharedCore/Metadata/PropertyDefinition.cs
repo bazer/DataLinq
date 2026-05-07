@@ -297,17 +297,20 @@ public class ValueProperty : PropertyDefinition
 
 public record struct EnumProperty
 {
+    private readonly (string name, int value)[]? dbEnumValues;
+    private readonly (string name, int value)[]? csEnumValues;
+
     public EnumProperty(IEnumerable<(string name, int value)>? enumValues = null, IEnumerable<(string name, int value)>? csEnumValues = null, bool declaredInClass = true)
     {
-        DbEnumValues = enumValues?.ToArray() ?? [];
-        CsEnumValues = csEnumValues?.ToArray() ?? [];
+        dbEnumValues = enumValues?.ToArray() ?? [];
+        this.csEnumValues = csEnumValues?.ToArray() ?? [];
         DeclaredInClass = declaredInClass;
     }
 
-    public IReadOnlyList<(string name, int value)> DbEnumValues { get; }
-    public IReadOnlyList<(string name, int value)> CsEnumValues { get; }
-    public IReadOnlyList<(string name, int value)> CsValuesOrDbValues => CsEnumValues.Count != 0 ? CsEnumValues : DbEnumValues;
-    public IReadOnlyList<(string name, int value)> DbValuesOrCsValues => DbEnumValues.Count != 0 ? DbEnumValues : CsEnumValues;
+    public IReadOnlyList<(string name, int value)> DbEnumValues => dbEnumValues is null ? [] : [.. dbEnumValues];
+    public IReadOnlyList<(string name, int value)> CsEnumValues => csEnumValues is null ? [] : [.. csEnumValues];
+    public IReadOnlyList<(string name, int value)> CsValuesOrDbValues => csEnumValues?.Length > 0 ? [.. csEnumValues] : DbEnumValues;
+    public IReadOnlyList<(string name, int value)> DbValuesOrCsValues => dbEnumValues?.Length > 0 ? [.. dbEnumValues] : CsEnumValues;
     public bool DeclaredInClass { get; }
 }
 
