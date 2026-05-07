@@ -99,8 +99,8 @@ public class MetadataFromFileFactory
         var modelSyntaxes = trees
             .Where(x => x.HasCompilationUnitRoot)
             .SelectMany(x => x.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
-                    .Where(cls => cls.BaseList?.Types.Any(baseType =>
-                        SyntaxParser.IsModelInterface(baseType.ToString())) == true))
+                .Where(cls => cls.BaseList?.Types.Any(baseType =>
+                    SyntaxParser.IsModelInterface(baseType.Type)) == true))
             .ToImmutableArray();
         var enumSyntaxes = trees
             .Where(x => x.HasCompilationUnitRoot)

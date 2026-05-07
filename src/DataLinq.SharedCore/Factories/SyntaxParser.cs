@@ -21,7 +21,65 @@ public class SyntaxParser
     private readonly ImmutableArray<EnumDeclarationSyntax> enumSyntaxes;
 
     public static bool IsModelInterface(string interfaceName) =>
-        modelInterfaceNames.Any(interfaceName.StartsWith);
+        modelInterfaceNames.Any(GetUnqualifiedTypeName(interfaceName).StartsWith);
+
+    public static bool IsModelInterface(TypeSyntax interfaceType) =>
+        modelInterfaceNames.Any(GetUnqualifiedTypeName(interfaceType).StartsWith);
+
+    internal static string GetUnqualifiedTypeName(TypeSyntax typeSyntax)
+    {
+        return typeSyntax switch
+        {
+            GenericNameSyntax genericName => FormatGenericName(genericName),
+            IdentifierNameSyntax identifierName => identifierName.Identifier.Text,
+            QualifiedNameSyntax qualifiedName => GetUnqualifiedTypeName(qualifiedName.Right),
+            AliasQualifiedNameSyntax aliasQualifiedName => GetUnqualifiedTypeName(aliasQualifiedName.Name),
+            NullableTypeSyntax nullableType => $"{GetUnqualifiedTypeName(nullableType.ElementType)}?",
+            ArrayTypeSyntax arrayType => $"{GetUnqualifiedTypeName(arrayType.ElementType)}{string.Concat(arrayType.RankSpecifiers.Select(x => x.ToString()))}",
+            PredefinedTypeSyntax predefinedType => predefinedType.Keyword.Text,
+            _ => typeSyntax.ToString()
+        };
+    }
+
+    private static string FormatGenericName(GenericNameSyntax genericName)
+    {
+        var typeArguments = genericName.TypeArgumentList.Arguments
+            .Select(GetUnqualifiedTypeName)
+            .ToJoinedString(", ");
+
+        return $"{genericName.Identifier.Text}<{typeArguments}>";
+    }
+
+    private static string GetUnqualifiedTypeName(string typeName)
+    {
+        var trimmedTypeName = typeName.Trim();
+        var genericStart = trimmedTypeName.IndexOf('<');
+        var prefix = genericStart >= 0
+            ? trimmedTypeName.Substring(0, genericStart)
+            : trimmedTypeName;
+        var suffix = genericStart >= 0
+            ? trimmedTypeName.Substring(genericStart)
+            : string.Empty;
+
+        var dotIndex = prefix.LastIndexOf('.');
+        var aliasIndex = LastAliasSeparatorIndex(prefix);
+        var separatorIndex = Math.Max(dotIndex, aliasIndex);
+
+        return separatorIndex >= 0
+            ? prefix.Substring(separatorIndex + (prefix[separatorIndex] == ':' ? 2 : 1)) + suffix
+            : trimmedTypeName;
+    }
+
+    private static int LastAliasSeparatorIndex(string text)
+    {
+        for (var i = text.Length - 2; i >= 0; i--)
+        {
+            if (text[i] == ':' && text[i + 1] == ':')
+                return i;
+        }
+
+        return -1;
+    }
     
     public SyntaxParser(ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, ImmutableArray<EnumDeclarationSyntax> enumSyntaxes = default)
     {
@@ -313,7 +371,7 @@ public class SyntaxParser
         try
         {
             var declaration = new CsTypeDeclaration(baseType);
-            return new CsTypeDeclaration(declaration.Name, declaration.Namespace, ModelCsType.Interface);
+            return new CsTypeDeclaration(GetUnqualifiedTypeName(baseType.Type), declaration.Namespace, ModelCsType.Interface);
         }
         catch (NotImplementedException exception)
         {

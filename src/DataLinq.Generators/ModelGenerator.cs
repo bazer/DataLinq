@@ -73,7 +73,7 @@ public sealed class ModelGenerator : IIncrementalGenerator
     private static bool IsModelDeclaration(SyntaxNode node)
     {
         return node is ClassDeclarationSyntax classDeclaration &&
-               classDeclaration.BaseList?.Types.Any(t => SyntaxParser.IsModelInterface(t.ToString())) == true;
+               classDeclaration.BaseList?.Types.Any(t => SyntaxParser.IsModelInterface(t.Type)) == true;
     }
 
     private static ModelDeclarationInput GetModelDeclaration(GeneratorSyntaxContext context) =>

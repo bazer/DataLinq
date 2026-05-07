@@ -52,6 +52,14 @@ public class SyntaxParserTests
 #pragma warning restore CS0618
 
     [Test]
+    public async Task IsModelInterface_QualifiedNames_ReturnsTrue()
+    {
+        await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Interfaces.IDatabaseModel")).IsTrue();
+        await Assert.That(SyntaxParser.IsModelInterface("global::DataLinq.Interfaces.ITableModel<TestNamespace.TestDb>")).IsTrue();
+        await Assert.That(SyntaxParser.IsModelInterface(SyntaxFactory.ParseTypeName("DataLinq.Interfaces.IViewModel<TestNamespace.TestDb>"))).IsTrue();
+    }
+
+    [Test]
     public async Task MutableMetadataParserOutputs_AreMarkedObsolete()
     {
         var missingMethods = new (string MethodName, Type[] ParameterTypes)[]
@@ -617,5 +625,43 @@ public abstract partial class Employee : ITableModel<TestDb> { }
         await Assert.That(result.csPropertyName).IsEqualTo("Employees");
         await Assert.That(result.classSyntax).IsNotNull();
         await Assert.That(result.classSyntax.Identifier.Text).IsEqualTo("Employee");
+    }
+
+    [Test]
+    public async Task ParseTableModelDraft_QualifiedTableInterface_ReturnsTableDraft()
+    {
+        const string code = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : DataLinq.Interfaces.IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+}
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestNamespace.TestDb>(rowData, dataSource), DataLinq.Interfaces.ITableModel<TestNamespace.TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+        var syntaxTree = CSharpSyntaxTree.ParseText(code);
+        var root = syntaxTree.GetCompilationUnitRoot();
+        var modelSyntax = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "UserModel");
+        var allDeclarations = root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
+        var parser = new SyntaxParser(allDeclarations);
+
+        var result = parser.ParseTableModelDraft(
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class),
+            modelSyntax,
+            "Users").ValueOrException();
+
+        await Assert.That(result.Table.Type).IsEqualTo(TableType.Table);
+        await Assert.That(result.Table.DbName).IsEqualTo("users");
+        await Assert.That(result.Model.OriginalInterfaces.Single().Name).IsEqualTo("ITableModel<TestDb>");
     }
 }

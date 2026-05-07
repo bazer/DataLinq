@@ -108,7 +108,7 @@ public class MetadataFromModelsFactory
         if (type.BaseList == null) return false;
         foreach (var baseType in type.BaseList.Types)
         {
-            var baseTypeName = baseType.Type.ToString();
+            var baseTypeName = SyntaxParser.GetUnqualifiedTypeName(baseType.Type);
             if (interfaceNameFunc(baseTypeName))
                 return true;
             var interfaceDecl = modelSyntaxes
