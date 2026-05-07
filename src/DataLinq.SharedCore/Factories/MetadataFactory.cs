@@ -2063,6 +2063,18 @@ public static class MetadataFactory
         if (candidateKeyIndexFailure != null)
             return candidateKeyIndexFailure;
 
+        if (relation.ForeignKey.ColumnIndex.Characteristic != IndexCharacteristic.ForeignKey)
+        {
+            return createFailure(
+                $"Existing relation '{relationName}' has a foreign-key part on index '{relation.ForeignKey.ColumnIndex.Name}', but that index is marked as '{relation.ForeignKey.ColumnIndex.Characteristic}' instead of '{IndexCharacteristic.ForeignKey}'.");
+        }
+
+        if (relation.CandidateKey.ColumnIndex.Characteristic is not IndexCharacteristic.PrimaryKey and not IndexCharacteristic.Unique)
+        {
+            return createFailure(
+                $"Existing relation '{relationName}' has a candidate-key part on index '{relation.CandidateKey.ColumnIndex.Name}', but candidate-key indexes must be primary or unique.");
+        }
+
         if (!relation.ForeignKey.ColumnIndex.RelationParts.Contains(relation.ForeignKey))
             return createFailure($"Existing relation '{relationName}' foreign-key part is not registered on index '{relation.ForeignKey.ColumnIndex.Name}'.");
 
