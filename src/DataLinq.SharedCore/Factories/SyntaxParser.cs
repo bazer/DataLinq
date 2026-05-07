@@ -809,9 +809,12 @@ public class SyntaxParser
         if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes for {propSyntax.Identifier.Text}", model, failures);
 
+        if (!ParsePropertyCsType(propSyntax).TryUnwrap(out var csType, out var csTypeFailure))
+            return csTypeFailure;
+
         PropertyDefinition property = parsedAttributes.Any(attribute => attribute is RelationAttribute)
-            ? new RelationProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, parsedAttributes)
-            : new ValueProperty(propSyntax.Identifier.Text, new CsTypeDeclaration(propSyntax), model, parsedAttributes);
+            ? new RelationProperty(propSyntax.Identifier.Text, csType, model, parsedAttributes)
+            : new ValueProperty(propSyntax.Identifier.Text, csType, model, parsedAttributes);
 
         property.SetCsNullableCore(propSyntax.Type is NullableTypeSyntax);
         property.SetSourceInfoCore(new PropertySourceInfo(
@@ -892,7 +895,9 @@ public class SyntaxParser
         if (failures.Any())
             return DLOptionFailure.Fail($"Parsing attributes for {propSyntax.Identifier.Text}", failures);
 
-        var csType = new CsTypeDeclaration(propSyntax);
+        if (!ParsePropertyCsType(propSyntax).TryUnwrap(out var csType, out var csTypeFailure))
+            return csTypeFailure;
+
         var sourceInfo = new PropertySourceInfo(
             new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
             GetDefaultValueExpressionSourceSpan(propSyntax));
@@ -968,6 +973,21 @@ public class SyntaxParser
             CsSize = csSize,
             EnumProperty = enumProperty
         };
+    }
+
+    private static Option<CsTypeDeclaration, IDLOptionFailure> ParsePropertyCsType(PropertyDeclarationSyntax propSyntax)
+    {
+        try
+        {
+            return new CsTypeDeclaration(propSyntax);
+        }
+        catch (NotImplementedException exception)
+        {
+            return FailProperty(
+                propSyntax.Type,
+                DLFailureType.InvalidModel,
+                $"Property '{propSyntax.Identifier.Text}' uses unsupported C# type syntax '{propSyntax.Type}': {exception.Message}");
+        }
     }
 
     private static MetadataColumnDraft ParseColumnDraft(string propertyName, IEnumerable<Attribute> attributes)

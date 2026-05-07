@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
+using DataLinq.ErrorHandling;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -35,6 +36,12 @@ public class SyntaxParserTests
         PropertyDeclarationSyntax propertySyntax,
         ModelDefinition model) =>
         parser.ParseProperty(propertySyntax, model).ValueOrException();
+
+    private static ThrowAway.Option<PropertyDefinition, IDLOptionFailure> ParseMutablePropertyResult(
+        SyntaxParser parser,
+        PropertyDeclarationSyntax propertySyntax,
+        ModelDefinition model) =>
+        parser.ParseProperty(propertySyntax, model);
 #pragma warning restore CS0618
 
     [Test]
@@ -432,6 +439,23 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
 
         await Assert.That(syntax.ToString()).IsEqualTo(syntax.SyntaxTree.GetText().ToString(propertySpan));
         await Assert.That(syntax.SyntaxTree.GetText().ToString(defaultSpan)).IsEqualTo("56");
+    }
+
+    [Test]
+    public async Task ParsePropertySyntax_UnsupportedTypeSyntax_ReturnsInvalidModelFailure()
+    {
+        var (parser, _, model) = GetPropertySyntax(@"[Column(""id""), PrimaryKey] public abstract int Id { get; }");
+        var syntax = (PropertyDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(
+            @"[Column(""callback""), PrimaryKey] public abstract delegate*<void> Callback { get; }")!;
+
+        var result = ParseMutablePropertyResult(parser, syntax, model);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Callback");
+        await Assert.That(failure.Message).Contains("unsupported C# type syntax");
+        await Assert.That(failure.Message).DoesNotContain("[Exception]");
     }
 
     [Test]

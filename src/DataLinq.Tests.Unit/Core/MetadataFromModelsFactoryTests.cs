@@ -4,9 +4,11 @@ using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
+using DataLinq.ErrorHandling;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
 
@@ -149,6 +151,45 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
         var defaultSpanInfo = scoreProperty.SourceInfo.Value.DefaultValueExpressionSpan!.Value;
         var defaultSpan = new TextSpan(defaultSpanInfo.Start, defaultSpanInfo.Length);
         await Assert.That(syntaxTree.GetText().ToString(defaultSpan)).IsEqualTo("56");
+    }
+
+    [Test]
+    public async Task ReadSyntaxTrees_UnsupportedPropertyTypeSyntax_ReturnsInvalidModelFailure()
+    {
+        const string code = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UnsafeModel> UnsafeRows { get; }
+}
+
+[Table("unsafe_rows")]
+public abstract partial class UnsafeModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UnsafeModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("callback"), PrimaryKey] public abstract delegate*<void> Callback { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+
+        var result = factory.ReadSyntaxTrees(declarations).Single();
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsNotEqualTo(DLFailureType.Exception);
+
+        var failureMessage = failure.ToString();
+        await Assert.That(failureMessage).Contains("Callback");
+        await Assert.That(failureMessage).Contains("unsupported C# type syntax");
+        await Assert.That(failureMessage).DoesNotContain("[Exception]");
     }
 
     private static ImmutableArray<TypeDeclarationSyntax> GetSyntaxDeclarations(string code)
