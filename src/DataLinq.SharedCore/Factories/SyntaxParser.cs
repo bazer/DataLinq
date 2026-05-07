@@ -1146,7 +1146,7 @@ public class SyntaxParser
         return new SourceTextSpan(defaultExpression.SpanStart, defaultExpression.Span.Length);
     }
 
-    public Option<(string csPropertyName, TypeDeclarationSyntax classSyntax), IDLOptionFailure> GetTableType(
+    public Option<(string csPropertyName, TypeDeclarationSyntax? classSyntax), IDLOptionFailure> GetTableType(
         PropertyDeclarationSyntax property,
         List<TypeDeclarationSyntax> modelTypeSyntaxes,
         bool allowMissingTableModel = true,
@@ -1159,13 +1159,14 @@ public class SyntaxParser
             if (genericType.TypeArgumentList.Arguments.Count != 1)
                 return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' must use DbRead with exactly one model type argument.");
 
-            if (genericType.TypeArgumentList.Arguments[0] is IdentifierNameSyntax typeArgument)
+            var typeArgument = genericType.TypeArgumentList.Arguments[0];
+            if (TryGetSimpleModelTypeName(typeArgument, out var modelTypeName))
             {
-                var modelClass = modelTypeSyntaxes.FirstOrDefault(cls => cls.Identifier.Text == typeArgument.Identifier.Text);
-                modelClass ??= declaredTypeSyntaxes?.FirstOrDefault(cls => cls.Identifier.Text == typeArgument.Identifier.Text);
+                var modelClass = modelTypeSyntaxes.FirstOrDefault(cls => cls.Identifier.Text == modelTypeName);
+                modelClass ??= declaredTypeSyntaxes?.FirstOrDefault(cls => cls.Identifier.Text == modelTypeName);
 
                 if (modelClass == null && !allowMissingTableModel)
-                    return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' references model '{typeArgument.Identifier.Text}', but no matching table or view model declaration was found.");
+                    return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' references model '{modelTypeName}', but no matching table or view model declaration was found.");
 
                 return (property.Identifier.Text, modelClass);
             }
@@ -1174,6 +1175,24 @@ public class SyntaxParser
         }
 
         return FailProperty(property, DLFailureType.NotImplemented, $"Table type {propType} is not implemented.");
+    }
+
+    private static bool TryGetSimpleModelTypeName(TypeSyntax typeSyntax, out string modelTypeName)
+    {
+        switch (typeSyntax)
+        {
+            case IdentifierNameSyntax identifierName:
+                modelTypeName = identifierName.Identifier.Text;
+                return true;
+            case QualifiedNameSyntax qualifiedName:
+                return TryGetSimpleModelTypeName(qualifiedName.Right, out modelTypeName);
+            case AliasQualifiedNameSyntax { Name: IdentifierNameSyntax identifierName }:
+                modelTypeName = identifierName.Identifier.Text;
+                return true;
+            default:
+                modelTypeName = GetUnqualifiedTypeName(typeSyntax);
+                return false;
+        }
     }
 
     internal static bool IsDbReadTableType(TypeSyntax typeSyntax) =>
