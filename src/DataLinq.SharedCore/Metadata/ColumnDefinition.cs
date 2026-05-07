@@ -13,7 +13,13 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
     public string Name { get; private set; } = name;
     public bool IsFrozen { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetName(string name)
+    {
+        SetNameCore(name);
+    }
+
+    internal void SetNameCore(string name)
     {
         ThrowIfFrozen();
         Name = name;
@@ -21,7 +27,13 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
 
     public ulong? Length { get; private set; } = length;
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetLength(ulong? length)
+    {
+        SetLengthCore(length);
+    }
+
+    internal void SetLengthCore(ulong? length)
     {
         ThrowIfFrozen();
         Length = length == 0 ? null : length;
@@ -29,13 +41,25 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
 
     public uint? Decimals { get; private set; } = decimals;
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDecimals(uint? decimals)
+    {
+        SetDecimalsCore(decimals);
+    }
+
+    internal void SetDecimalsCore(uint? decimals)
     {
         ThrowIfFrozen();
         Decimals = decimals;
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetDecimals(ulong? decimals)
+    {
+        SetDecimalsCore(decimals);
+    }
+
+    internal void SetDecimalsCore(ulong? decimals)
     {
         ThrowIfFrozen();
         Decimals = (uint?)decimals;
@@ -43,7 +67,13 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
 
     public bool? Signed { get; private set; } = signed;
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetSigned(bool signed)
+    {
+        SetSignedCore(signed);
+    }
+
+    internal void SetSignedCore(bool signed)
     {
         ThrowIfFrozen();
         Signed = signed;

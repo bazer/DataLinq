@@ -73,26 +73,29 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
             return new ProviderColumnImport(null);
         }
 
-        var dbType = new DatabaseColumnType(databaseType, dbColumns.DATA_TYPE);
+        var dbTypeName = dbColumns.DATA_TYPE;
+        var signed = dbColumns.COLUMN_TYPE.Contains("unsigned")
+            ? false
+            : (bool?)null;
+        ulong? length = null;
+        uint? decimals = null;
 
-        if (dbColumns.COLUMN_TYPE.Contains("unsigned"))
-            dbType.SetSigned(false);
-
-        if (dbType.Name == "decimal" || dbType.Name == "bit")
+        if (dbTypeName == "decimal" || dbTypeName == "bit")
         {
-            dbType.SetLength(dbColumns.NUMERIC_PRECISION);
-            dbType.SetDecimals(dbColumns.NUMERIC_SCALE);
+            length = NormalizeColumnLength(dbColumns.NUMERIC_PRECISION);
+            decimals = ConvertColumnDecimals(dbColumns.NUMERIC_SCALE);
         }
-        else if (dbType.Name == "int" || dbType.Name == "tinyint" || dbType.Name == "smallint" || dbType.Name == "mediumint" || dbType.Name == "bigint")
+        else if (dbTypeName == "int" || dbTypeName == "tinyint" || dbTypeName == "smallint" || dbTypeName == "mediumint" || dbTypeName == "bigint")
         {
             // Parse length from COLUMN_TYPE string
-            var length = ParseLengthFromColumnType(dbColumns.COLUMN_TYPE);
-            dbType.SetLength(length);
+            length = NormalizeColumnLength(ParseLengthFromColumnType(dbColumns.COLUMN_TYPE));
         }
-        else if (dbType.Name != "enum")
+        else if (dbTypeName != "enum")
         {
-            dbType.SetLength(dbColumns.CHARACTER_MAXIMUM_LENGTH);
+            length = NormalizeColumnLength(dbColumns.CHARACTER_MAXIMUM_LENGTH);
         }
+
+        var dbType = new DatabaseColumnType(databaseType, dbTypeName, length, decimals, signed);
 
         var column = new ProviderColumnDraft(dbColumns.COLUMN_NAME)
         {
@@ -526,6 +529,12 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
         return null; // Default length if parsing fails
     }
+
+    private static ulong? NormalizeColumnLength(ulong? length) =>
+        length == 0 ? null : length;
+
+    private static uint? ConvertColumnDecimals(ulong? decimals) =>
+        decimals is null ? null : (uint)decimals.Value;
 
     private (IEnumerable<(string, int)> dbValues, IEnumerable<(string, int)> csValues) ParseEnumType(string COLUMN_TYPE)
     {

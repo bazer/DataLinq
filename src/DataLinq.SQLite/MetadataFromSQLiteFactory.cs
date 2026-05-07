@@ -292,10 +292,12 @@ public class MetadataFromSQLiteFactory : IMetadataFromSqlFactory
 
     private Option<SQLiteProviderValuePropertyDraft, IDLOptionFailure> ParseColumn(SQLiteProviderTableDraft table, IDataLinqDataReader reader, DatabaseAccess dbAccess)
     {
-        var dbType = new DatabaseColumnType(DatabaseType.SQLite, reader.GetString(2).ToLower());
+        var dbTypeName = reader.GetString(2).ToLower();
 
-        if (string.IsNullOrEmpty(dbType.Name))
-            dbType.SetName("text");
+        if (string.IsNullOrEmpty(dbTypeName))
+            dbTypeName = "text";
+
+        var dbType = new DatabaseColumnType(DatabaseType.SQLite, dbTypeName);
 
         var dbName = reader.GetString(1);
 

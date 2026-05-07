@@ -107,6 +107,9 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => AddColumnToIndex(foreignKeyIndex, amount));
         await AssertFrozenMutation(() => SetRelationConstraintName(relation, "Changed"));
         await AssertFrozenMutation(() => SetDatabaseColumnTypeName(dbType, "bigint"));
+        await AssertFrozenMutation(() => SetDatabaseColumnTypeLength(dbType, 12));
+        await AssertFrozenMutation(() => SetDatabaseColumnTypeDecimals(dbType, 2U));
+        await AssertFrozenMutation(() => SetDatabaseColumnTypeSigned(dbType, false));
         await AssertFrozenMutation(() => orderTable.ColumnIndices.Add(new ColumnIndex("idx_amount", IndexCharacteristic.Simple, IndexType.BTREE, [amount])));
         await AssertFrozenMutation(() => orderModel.ValueProperties.Clear());
         await AssertFrozenMutation(() => orderModel.RelationProperties.Clear());
@@ -130,6 +133,7 @@ public class MetadataDefinitionFactoryTests
                 (typeof(ViewDefinition), [nameof(ViewDefinition.SetDefinition)]),
                 (typeof(ModelDefinition), [nameof(ModelDefinition.SetCsType), nameof(ModelDefinition.SetCsFile), nameof(ModelDefinition.SetImmutableType), nameof(ModelDefinition.SetImmutableFactory), nameof(ModelDefinition.SetMutableType), nameof(ModelDefinition.SetModelInstanceInterface), nameof(ModelDefinition.SetInterfaces), nameof(ModelDefinition.SetUsings), nameof(ModelDefinition.SetAttributes), nameof(ModelDefinition.AddAttribute), nameof(ModelDefinition.SetSourceSpan), nameof(ModelDefinition.SetAttributeSourceSpan), nameof(ModelDefinition.AddProperties), nameof(ModelDefinition.AddProperty)]),
                 (typeof(ColumnDefinition), [nameof(ColumnDefinition.SetDbName), nameof(ColumnDefinition.SetIndex), nameof(ColumnDefinition.SetForeignKey), nameof(ColumnDefinition.SetAutoIncrement), nameof(ColumnDefinition.SetNullable), nameof(ColumnDefinition.SetValueProperty), nameof(ColumnDefinition.SetPrimaryKey), nameof(ColumnDefinition.AddDbType)]),
+                (typeof(DatabaseColumnType), [nameof(DatabaseColumnType.SetName), nameof(DatabaseColumnType.SetLength), nameof(DatabaseColumnType.SetDecimals), nameof(DatabaseColumnType.SetSigned)]),
                 (typeof(PropertyDefinition), [nameof(PropertyDefinition.SetAttributes), nameof(PropertyDefinition.AddAttribute), nameof(PropertyDefinition.SetPropertyName), nameof(PropertyDefinition.SetCsType), nameof(PropertyDefinition.SetCsNullable), nameof(PropertyDefinition.SetSourceInfo), nameof(PropertyDefinition.SetAttributeSourceSpan)]),
                 (typeof(ValueProperty), [nameof(ValueProperty.SetColumn), nameof(ValueProperty.SetCsSize), nameof(ValueProperty.SetEnumProperty)]),
                 (typeof(RelationProperty), [nameof(RelationProperty.SetRelationPart), nameof(RelationProperty.SetRelationName)]),
@@ -2842,6 +2846,15 @@ public class MetadataDefinitionFactoryTests
 
     private static void SetDatabaseColumnTypeName(DatabaseColumnType columnType, string name) =>
         columnType.SetName(name);
+
+    private static void SetDatabaseColumnTypeLength(DatabaseColumnType columnType, ulong? length) =>
+        columnType.SetLength(length);
+
+    private static void SetDatabaseColumnTypeDecimals(DatabaseColumnType columnType, uint? decimals) =>
+        columnType.SetDecimals(decimals);
+
+    private static void SetDatabaseColumnTypeSigned(DatabaseColumnType columnType, bool signed) =>
+        columnType.SetSigned(signed);
 #pragma warning restore CS0618
 
     private static async Task AssertFrozenMutation(Action action)
