@@ -15,6 +15,7 @@ public sealed class MetadataDefinitionDraft
         this.createMutableMetadata = createMutableMetadata;
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryInputObsoleteMessage)]
     public static MetadataDefinitionDraft FromMutableMetadata(DatabaseDefinition metadata)
     {
         if (metadata is null)

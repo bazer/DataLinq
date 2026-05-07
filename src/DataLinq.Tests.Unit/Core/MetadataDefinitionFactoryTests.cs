@@ -8,6 +8,7 @@ using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Metadata;
 using DataLinq.Testing;
+using ThrowAway;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -249,10 +250,26 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task MutableMetadataFactoryInputs_AreMarkedObsolete()
+    {
+        var missingMethods = new (Type Type, string MethodName, Type[] ParameterTypes, BindingFlags Flags)[]
+            {
+                (typeof(MetadataDefinitionFactory), nameof(MetadataDefinitionFactory.Build), [typeof(DatabaseDefinition)], BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataDefinitionFactory), nameof(MetadataDefinitionFactory.BuildProviderMetadata), [typeof(DatabaseDefinition)], BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataDefinitionDraft), nameof(MetadataDefinitionDraft.FromMutableMetadata), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly)
+            }
+            .Select(item => FindMissingObsoleteMethod(item.Type, item.MethodName, item.ParameterTypes, item.Flags))
+            .OfType<string>()
+            .ToArray();
+
+        await Assert.That(missingMethods).IsEmpty();
+    }
+
+    [Test]
     public async Task Build_TypedRelationDraft_MatchesMutableRelationDraft()
     {
         var factory = new MetadataDefinitionFactory();
-        var mutableBuilt = factory.Build(CreateRelationDraft()).ValueOrException();
+        var mutableBuilt = BuildMutableMetadataDraft(factory, CreateRelationDraft()).ValueOrException();
         var typedBuilt = factory.Build(CreateRelationTypedDraft()).ValueOrException();
 
         await Assert.That(MetadataEquivalenceDigest.CreateText(typedBuilt))
@@ -312,8 +329,7 @@ public class MetadataDefinitionFactoryTests
         var database = CreateRelationDraft();
         var orderDraft = database.TableModels.Single(tm => tm.Table.DbName == "orders");
 
-        var built = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+        var built = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database)
             .ValueOrException();
 
         var builtOrderTable = built.TableModels.Single(tm => tm.Table.DbName == "orders").Table;
@@ -344,8 +360,7 @@ public class MetadataDefinitionFactoryTests
             new CsTypeDeclaration("TargetDb", "TestNamespace", ModelCsType.Class));
         SetDatabaseTableModels(targetDatabase, [tableModel]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(targetDatabase));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), targetDatabase);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -370,8 +385,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         SetDatabaseTableModels(database, [tableModel]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -389,8 +403,7 @@ public class MetadataDefinitionFactoryTests
         var ghostPrimaryKey = new ColumnDefinition("ghost_pk", table);
         SetColumnPrimaryKey(ghostPrimaryKey);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -408,8 +421,7 @@ public class MetadataDefinitionFactoryTests
         var idColumn = table.Columns.Single(column => column.DbName == "id");
         RemoveTablePrimaryKeyColumn(table, idColumn);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -452,8 +464,7 @@ public class MetadataDefinitionFactoryTests
         var tableModel = database.TableModels.Single();
         SetDatabaseTableModels(database, [tableModel, tableModel]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -479,8 +490,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         SetDatabaseTableModels(database, [tableModel]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -505,8 +515,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new ColumnAttribute("id")]));
         SetDatabaseTableModels(database, [tableModel]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -533,8 +542,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         SetDatabaseTableModels(database, [tableModel]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -599,8 +607,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         SetMetadataDictionaryValue(database.TableModels.Single().Model.ValueProperties, "Ghost", null!);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -711,8 +718,7 @@ public class MetadataDefinitionFactoryTests
         var property = database.TableModels.Single().Model.ValueProperties["Id"];
         SetPropertyType(property, (PropertyType)999);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -752,8 +758,7 @@ public class MetadataDefinitionFactoryTests
         var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
         SetMetadataDictionaryValue(orderModel.RelationProperties, "Customer", null!);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -776,8 +781,7 @@ public class MetadataDefinitionFactoryTests
         SetPropertyType(relationProperty, PropertyType.Value);
         AddModelProperty(orderModel, relationProperty);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1557,8 +1561,7 @@ public class MetadataDefinitionFactoryTests
         AddModelProperty(orderModel, relationProperty);
         SetPropertyName(relationProperty, "Buyer");
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1579,8 +1582,7 @@ public class MetadataDefinitionFactoryTests
             userModel,
             [new RelationAttribute("users", "user_id", "FK_Order_User")]));
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1626,8 +1628,7 @@ public class MetadataDefinitionFactoryTests
         var wrongSidePart = userModel.RelationProperties["Order"].RelationPart;
         SetRelationPropertyPart(orderModel.RelationProperties["Customer"], wrongSidePart);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2023,8 +2024,7 @@ public class MetadataDefinitionFactoryTests
         var orphanColumn = new ColumnDefinition("ghost", table);
         SetTableColumns(table, table.Columns.Concat([orphanColumn]));
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2048,8 +2048,7 @@ public class MetadataDefinitionFactoryTests
         SetColumnValueProperty(ghostColumn, ghostProperty);
         AddModelProperty(tableModel.Model, ghostProperty);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2067,8 +2066,7 @@ public class MetadataDefinitionFactoryTests
         var userId = users.Columns.Single(column => column.DbName == "user_id");
         AddMetadataListItem(orders.ColumnIndices, new ColumnIndex("idx_wrong_table", IndexCharacteristic.Simple, IndexType.BTREE, [userId]));
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2086,8 +2084,7 @@ public class MetadataDefinitionFactoryTests
         var unregisteredColumn = new ColumnDefinition("ghost", table);
         AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_ghost", IndexCharacteristic.Simple, IndexType.BTREE, [unregisteredColumn]));
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2105,8 +2102,7 @@ public class MetadataDefinitionFactoryTests
         var idColumn = table.Columns.Single();
         AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_bad_characteristic", (IndexCharacteristic)999, IndexType.BTREE, [idColumn]));
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2124,8 +2120,7 @@ public class MetadataDefinitionFactoryTests
         var idColumn = table.Columns.Single();
         AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_bad_type", IndexCharacteristic.Simple, (IndexType)999, [idColumn]));
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2145,8 +2140,7 @@ public class MetadataDefinitionFactoryTests
         SetIndexRelationParts(index, null!);
         AddMetadataListItem(table.ColumnIndices, index);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2165,8 +2159,7 @@ public class MetadataDefinitionFactoryTests
         AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_duplicate", IndexCharacteristic.Simple, IndexType.BTREE, [idColumn]));
         AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_duplicate", IndexCharacteristic.Unique, IndexType.BTREE, [idColumn]));
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2196,8 +2189,7 @@ public class MetadataDefinitionFactoryTests
         SetRelationPropertyPart(relationProperty, foreignKeyPart);
         AddModelProperty(orders.Model, relationProperty);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2232,8 +2224,7 @@ public class MetadataDefinitionFactoryTests
         SetRelationPropertyPart(relationProperty, foreignKeyPart);
         AddModelProperty(orders.Model, relationProperty);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2270,8 +2261,7 @@ public class MetadataDefinitionFactoryTests
         SetRelationPropertyPart(relationProperty, foreignKeyPart);
         AddModelProperty(orders.Model, relationProperty);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2317,8 +2307,7 @@ public class MetadataDefinitionFactoryTests
         var idColumn = table.Columns.Single();
         SetTableColumns(table, [idColumn, idColumn]);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2394,8 +2383,7 @@ public class MetadataDefinitionFactoryTests
         SetRelationPropertyName(relationProperty, "");
         AddModelProperty(orderModel, relationProperty);
 
-        var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2441,8 +2429,7 @@ public class MetadataDefinitionFactoryTests
         var draftTable = database.TableModels.Single().Table;
         var draftModel = database.TableModels.Single().Model;
 
-        var built = new MetadataDefinitionFactory()
-            .BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database))
+        var built = BuildProviderMutableMetadataDraft(new MetadataDefinitionFactory(), database)
             .ValueOrException();
 
         var builtTable = built.TableModels.Single().Table;
@@ -2944,6 +2931,19 @@ public class MetadataDefinitionFactoryTests
         }
     }
 
+    private static string? FindMissingObsoleteMethod(
+        Type type,
+        string methodName,
+        Type[] parameterTypes,
+        BindingFlags flags)
+    {
+        var method = type.GetMethod(methodName, flags, binder: null, types: parameterTypes, modifiers: null);
+        if (method?.GetCustomAttribute<ObsoleteAttribute>() is not null)
+            return null;
+
+        return $"{type.Name}.{methodName}({string.Join(", ", parameterTypes.Select(parameterType => parameterType.Name))})";
+    }
+
     private static void SetPropertyType(PropertyDefinition property, PropertyType type)
     {
         var backingField = typeof(PropertyDefinition).GetField(
@@ -2953,6 +2953,16 @@ public class MetadataDefinitionFactoryTests
     }
 
 #pragma warning disable CS0618 // These helpers intentionally exercise the legacy mutable metadata surface.
+    private static Option<DatabaseDefinition, IDLOptionFailure> BuildMutableMetadataDraft(
+        MetadataDefinitionFactory factory,
+        DatabaseDefinition database) =>
+        factory.Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+
+    private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMutableMetadataDraft(
+        MetadataDefinitionFactory factory,
+        DatabaseDefinition database) =>
+        factory.BuildProviderMetadata(MetadataDefinitionDraft.FromMutableMetadata(database));
+
     private static void SetMetadataListItem<T>(MetadataList<T> list, int index, T item) =>
         list[index] = item;
 

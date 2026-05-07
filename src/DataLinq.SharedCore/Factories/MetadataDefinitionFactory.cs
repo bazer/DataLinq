@@ -8,6 +8,7 @@ namespace DataLinq.Core.Factories;
 
 public sealed class MetadataDefinitionFactory
 {
+    [Obsolete(MetadataMutationGuard.MutableFactoryInputObsoleteMessage)]
     public Option<DatabaseDefinition, IDLOptionFailure> Build(DatabaseDefinition draft)
     {
         if (draft is null)
@@ -35,6 +36,7 @@ public sealed class MetadataDefinitionFactory
         return Build(MetadataDefinitionDraft.FromTypedMetadata(draft));
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryInputObsoleteMessage)]
     public Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadata(DatabaseDefinition draft)
     {
         if (draft is null)
