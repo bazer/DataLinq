@@ -1077,7 +1077,19 @@ public static class MetadataFactory
 
             foreach (var property in model.RelationProperties.Values)
             {
-                foreach (var relation in property.Attributes.OfType<RelationAttribute>())
+                var relationAttributes = property.Attributes
+                    .OfType<RelationAttribute>()
+                    .ToList();
+
+                if (relationAttributes.Count > 1)
+                {
+                    return CreateRelationPropertyFailure(
+                        property,
+                        relationAttributes[1],
+                        $"Relation property '{GetRelationPropertyDisplayName(property)}' has multiple [Relation] attributes. A relation property can identify only one database relation.");
+                }
+
+                foreach (var relation in relationAttributes)
                 {
                     var failure = ValidateRelationAttribute(property, relation);
                     if (failure is not null)

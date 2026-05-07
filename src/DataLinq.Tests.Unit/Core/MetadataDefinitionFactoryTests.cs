@@ -983,6 +983,35 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_RelationPropertyWithMultipleRelationAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationTypedDraft(
+            orderRelationProperties:
+            [
+                new MetadataRelationPropertyDraft(
+                    "Customer",
+                    new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                {
+                    Attributes =
+                    [
+                        new RelationAttribute("users", "user_id", "FK_Order_User"),
+                        new RelationAttribute("users", "user_name", "FK_Order_User")
+                    ]
+                }
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("multiple [Relation] attributes");
+        await Assert.That(failure.Message).Contains("identify only one database relation");
+    }
+
+    [Test]
     public async Task Build_RelationAttributeWithEmptyReferencedColumn_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationTypedDraft(
