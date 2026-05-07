@@ -154,6 +154,40 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
     }
 
     [Test]
+    public async Task ReadSyntaxTrees_QualifiedDbReadType_ParsesTableModel()
+    {
+        const string code = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DataLinq.DbRead<UserModel> Users { get; }
+}
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+
+        var databaseDefinition = factory.ReadSyntaxTrees(declarations).Single().Value;
+
+        await Assert.That(databaseDefinition.TableModels.Length).IsEqualTo(1);
+        await Assert.That(databaseDefinition.TableModels.Single().CsPropertyName).IsEqualTo("Users");
+        await Assert.That(databaseDefinition.TableModels.Single().Model.CsType.Name).IsEqualTo("UserModel");
+    }
+
+    [Test]
     public async Task ReadSyntaxTrees_UnsupportedPropertyTypeSyntax_ReturnsInvalidModelFailure()
     {
         const string code = """

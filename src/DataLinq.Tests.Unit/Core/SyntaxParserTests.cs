@@ -590,4 +590,32 @@ public abstract partial class Employee : ITableModel<TestDb> { }
         await Assert.That(result.classSyntax).IsNotNull();
         await Assert.That(result.classSyntax.Identifier.Text).IsEqualTo("Employee");
     }
+
+    [Test]
+    public async Task GetTableTypeSyntax_QualifiedDbRead_ReturnsReferencedModel()
+    {
+        const string code = """
+using DataLinq.Interfaces;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public DataLinq.DbRead<Employee> Employees { get; }
+}
+
+public abstract partial class Employee : ITableModel<TestDb> { }
+""";
+        var syntaxTree = CSharpSyntaxTree.ParseText(code);
+        var root = syntaxTree.GetCompilationUnitRoot();
+        var propertySyntax = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().First(p => p.Identifier.Text == "Employees");
+        var modelSyntaxes = root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
+        var parser = new SyntaxParser(modelSyntaxes);
+
+        var result = parser.GetTableType(propertySyntax, modelSyntaxes.ToList()).ValueOrException();
+
+        await Assert.That(result.csPropertyName).IsEqualTo("Employees");
+        await Assert.That(result.classSyntax).IsNotNull();
+        await Assert.That(result.classSyntax.Identifier.Text).IsEqualTo("Employee");
+    }
 }

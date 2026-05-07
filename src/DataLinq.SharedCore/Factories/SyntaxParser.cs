@@ -1066,7 +1066,7 @@ public class SyntaxParser
     {
         var propType = property.Type;
 
-        if (propType is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
+        if (TryGetDbReadGenericType(propType, out var genericType))
         {
             if (genericType.TypeArgumentList.Arguments.Count != 1)
                 return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' must use DbRead with exactly one model type argument.");
@@ -1086,6 +1086,28 @@ public class SyntaxParser
         }
 
         return FailProperty(property, DLFailureType.NotImplemented, $"Table type {propType} is not implemented.");
+    }
+
+    internal static bool IsDbReadTableType(TypeSyntax typeSyntax) =>
+        TryGetDbReadGenericType(typeSyntax, out _);
+
+    private static bool TryGetDbReadGenericType(TypeSyntax typeSyntax, out GenericNameSyntax genericType)
+    {
+        if (typeSyntax is GenericNameSyntax directGeneric && directGeneric.Identifier.Text == "DbRead")
+        {
+            genericType = directGeneric;
+            return true;
+        }
+
+        if (typeSyntax is QualifiedNameSyntax { Right: GenericNameSyntax qualifiedGeneric } &&
+            qualifiedGeneric.Identifier.Text == "DbRead")
+        {
+            genericType = qualifiedGeneric;
+            return true;
+        }
+
+        genericType = null!;
+        return false;
     }
 
     private static IDLOptionFailure FailProperty(SyntaxNode syntaxNode, DLFailureType type, string message)
