@@ -2245,9 +2245,27 @@ public static class MetadataFactory
                 .OfType<ForeignKeyAttribute>()
                 .Where(attribute => string.Equals(attribute.Name, relation.ConstraintName, StringComparison.Ordinal))
                 .ToList();
-            var matchingAttribute = foreignKeyAttributes.FirstOrDefault(attribute =>
-                string.Equals(attribute.Table, candidateColumn.Table.DbName, StringComparison.Ordinal) &&
-                string.Equals(attribute.Column, candidateColumn.DbName, StringComparison.Ordinal));
+            var matchingAttributesForTarget = foreignKeyAttributes
+                .Where(attribute =>
+                    string.Equals(attribute.Table, candidateColumn.Table.DbName, StringComparison.Ordinal) &&
+                    string.Equals(attribute.Column, candidateColumn.DbName, StringComparison.Ordinal))
+                .ToList();
+
+            if (matchingAttributesForTarget.Count > 1)
+            {
+                return createFailure(
+                    $"Existing relation '{relationName}' foreign-key column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' has duplicate [ForeignKey] attributes with constraint name '{relation.ConstraintName}' targeting '{foreignKeyTarget}'.");
+            }
+
+            var matchingAttribute = matchingAttributesForTarget.FirstOrDefault();
+            if (matchingAttribute is not null && foreignKeyAttributes.Count != 1)
+            {
+                var targets = foreignKeyAttributes
+                    .Select(attribute => $"{attribute.Table}.{attribute.Column}")
+                    .ToJoinedString(", ");
+                return createFailure(
+                    $"Existing relation '{relationName}' foreign-key column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' has multiple [ForeignKey] attributes with constraint name '{relation.ConstraintName}'. Expected one targeting '{foreignKeyTarget}', but found '{targets}'.");
+            }
 
             if (matchingAttribute is null)
             {

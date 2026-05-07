@@ -2426,6 +2426,33 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ExistingRelationWithDuplicateForeignKeyAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
+
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        SetPropertyAttributes(
+            orderModel.ValueProperties["CustomerId"],
+            [
+                new ForeignKeyAttribute("users", "user_id", "FK_Order_User"),
+                new ForeignKeyAttribute("users", "user_name", "FK_Order_User"),
+                new ColumnAttribute("customer_id")
+            ]);
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("multiple [ForeignKey] attributes with constraint name 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("Expected one targeting 'users.user_id'");
+        await Assert.That(failure.Message).Contains("users.user_name");
+    }
+
+    [Test]
     public async Task Build_ExistingCompositeRelationWithPartialForeignKeyOrdinals_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateCompositeRelationDraft();
