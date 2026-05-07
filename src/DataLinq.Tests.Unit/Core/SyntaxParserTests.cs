@@ -426,6 +426,21 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParsePropertySyntax_QualifiedRelationTypes_NormalizesTypeName()
+    {
+        var (manyParser, manySyntax, manyModel) = GetPropertySyntax(
+            @"[Relation(""orders"", ""user_id"", ""FK_Order_User"")] public DataLinq.Interfaces.IImmutableRelation<TestNamespace.OrderModel> Orders { get; }");
+        var (oneParser, oneSyntax, oneModel) = GetPropertySyntax(
+            @"[Relation(""users"", ""id"", ""FK_Order_User"")] public global::TestNamespace.UserModel User { get; }");
+
+        var manyProperty = (RelationProperty)ParseMutableProperty(manyParser, manySyntax, manyModel);
+        var oneProperty = (RelationProperty)ParseMutableProperty(oneParser, oneSyntax, oneModel);
+
+        await Assert.That(manyProperty.CsType.Name).IsEqualTo("IImmutableRelation<OrderModel>");
+        await Assert.That(oneProperty.CsType.Name).IsEqualTo("UserModel");
+    }
+
+    [Test]
     public async Task ParsePropertySyntax_Enum()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Column(""status_col""), Enum(""Active"", ""Inactive"")] public StatusEnum Status { get; }");

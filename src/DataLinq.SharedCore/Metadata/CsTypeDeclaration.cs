@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using DataLinq.Core.Factories;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -84,14 +85,33 @@ public readonly record struct CsTypeDeclaration
 
     //public CsTypeDeclaration Clone() => new(Name, Namespace, ModelCsType);
 
-    private static string ParseTypeName(TypeSyntax baseTypeSyntax)
+    private static string ParseTypeName(TypeSyntax baseTypeSyntax) =>
+        ParseTypeName(baseTypeSyntax, stripTopLevelNullable: true);
+
+    private static string ParseTypeName(TypeSyntax typeSyntax, bool stripTopLevelNullable)
     {
-        return baseTypeSyntax switch
+        return typeSyntax switch
         {
-            GenericNameSyntax genericName => genericName.ToString(),
+            GenericNameSyntax genericName => FormatGenericName(genericName),
+            IdentifierNameSyntax identifierName => identifierName.Identifier.Text,
+            QualifiedNameSyntax qualifiedName => ParseTypeName(qualifiedName.Right, stripTopLevelNullable),
+            AliasQualifiedNameSyntax aliasQualifiedName => ParseTypeName(aliasQualifiedName.Name, stripTopLevelNullable),
+            NullableTypeSyntax nullableType => stripTopLevelNullable
+                ? ParseTypeName(nullableType.ElementType, stripTopLevelNullable: false)
+                : $"{ParseTypeName(nullableType.ElementType, stripTopLevelNullable: false)}?",
+            ArrayTypeSyntax arrayType => $"{ParseTypeName(arrayType.ElementType, stripTopLevelNullable: false)}{string.Concat(arrayType.RankSpecifiers.Select(rank => rank.ToString()))}",
+            PredefinedTypeSyntax predefinedType => predefinedType.Keyword.Text,
             SimpleNameSyntax simpleName => simpleName.Identifier.Text,
-            _ => baseTypeSyntax.ToString().Trim('?', '"', '\"')
+            _ => typeSyntax.ToString().Trim('?', '"', '\"')
         };
+    }
+
+    private static string FormatGenericName(GenericNameSyntax genericName)
+    {
+        var typeArguments = genericName.TypeArgumentList.Arguments
+            .Select(typeArgument => ParseTypeName(typeArgument, stripTopLevelNullable: false));
+
+        return $"{genericName.Identifier.Text}<{string.Join(", ", typeArguments)}>";
     }
 
     public static ModelCsType ParseModelCsType(Type type)

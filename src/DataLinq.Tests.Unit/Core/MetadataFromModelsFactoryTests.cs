@@ -302,6 +302,61 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
     }
 
     [Test]
+    public async Task ReadSyntaxTrees_QualifiedRelationPropertyTypes_ParsesRelations()
+    {
+        const string code = """
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UserModel> Users { get; }
+    public DbRead<OrderModel> Orders { get; }
+}
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+    [Relation("orders", "user_id", "FK_Order_User")] public abstract DataLinq.Interfaces.IImmutableRelation<TestNamespace.OrderModel> Orders { get; }
+}
+
+[Table("orders")]
+public abstract partial class OrderModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<OrderModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("order_id"), PrimaryKey] public abstract int OrderId { get; }
+    [Column("user_id"), ForeignKey("users", "id", "FK_Order_User")] public abstract int UserId { get; }
+    [Relation("users", "id", "FK_Order_User")] public abstract global::TestNamespace.UserModel User { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+        var result = factory.ReadSyntaxTrees(declarations).Single();
+
+        await Assert.That(result.HasValue).IsTrue();
+
+        var databaseDefinition = result.Value;
+        var userTableModel = databaseDefinition.TableModels.Single(tm => tm.CsPropertyName == "Users");
+        var orderTableModel = databaseDefinition.TableModels.Single(tm => tm.CsPropertyName == "Orders");
+
+        var ordersRelation = userTableModel.Model.RelationProperties["Orders"];
+        var userRelation = orderTableModel.Model.RelationProperties["User"];
+
+        await Assert.That(ordersRelation.CsType.Name).IsEqualTo("IImmutableRelation<OrderModel>");
+        await Assert.That(userRelation.CsType.Name).IsEqualTo("UserModel");
+        await Assert.That(ordersRelation.RelationPart).IsNotNull();
+        await Assert.That(userRelation.RelationPart).IsNotNull();
+        await Assert.That(ReferenceEquals(ordersRelation.RelationPart.Relation, userRelation.RelationPart.Relation)).IsTrue();
+    }
+
+    [Test]
     public async Task ReadSyntaxTrees_UnsupportedPropertyTypeSyntax_ReturnsInvalidModelFailure()
     {
         const string code = """
