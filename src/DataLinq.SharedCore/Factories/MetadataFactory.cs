@@ -685,6 +685,10 @@ public static class MetadataFactory
 
     public static Option<bool, IDLOptionFailure> ValidateCacheMetadata(DatabaseDefinition database)
     {
+        var databaseAttributeFailure = ValidateDatabaseCacheAttributes(database);
+        if (databaseAttributeFailure is not null)
+            return databaseAttributeFailure;
+
         foreach (var (limitType, amount) in database.CacheLimits)
         {
             var failure = ValidateCacheLimit(
@@ -744,6 +748,10 @@ public static class MetadataFactory
             var table = tableModel.Table;
             var scope = $"Table '{table.DbName}'";
 
+            var tableAttributeFailure = ValidateModelCacheAttributes(tableModel);
+            if (tableAttributeFailure is not null)
+                return tableAttributeFailure;
+
             foreach (var (limitType, amount) in table.CacheLimits)
             {
                 var failure = ValidateCacheLimit(limitType, amount, scope, table);
@@ -771,6 +779,253 @@ public static class MetadataFactory
         }
 
         return true;
+    }
+
+    private static IDLOptionFailure? ValidateDatabaseCacheAttributes(DatabaseDefinition database)
+    {
+        var useCacheAttributes = database.Attributes
+            .OfType<UseCacheAttribute>()
+            .ToArray();
+
+        if (useCacheAttributes.Length > 1)
+            return CreateDatabaseAttributeFailure(
+                database,
+                useCacheAttributes[1],
+                $"Database '{database.DbName}' has multiple [UseCache] attributes. Database cache metadata can define the cache flag only once.");
+
+        if (useCacheAttributes.SingleOrDefault() is { } useCacheAttribute &&
+            useCacheAttribute.UseCache != database.UseCache)
+        {
+            return CreateDatabaseAttributeFailure(
+                database,
+                useCacheAttribute,
+                $"Database '{database.DbName}' has [UseCache] value '{useCacheAttribute.UseCache}', but linked cache metadata resolves to '{database.UseCache}'.");
+        }
+
+        var cacheLimitFailure = ValidateCacheLimitAttributes(
+            database.Attributes.OfType<CacheLimitAttribute>().ToArray(),
+            database.CacheLimits,
+            $"Database '{database.DbName}'",
+            (attribute, message) => CreateDatabaseAttributeFailure(database, attribute, message));
+        if (cacheLimitFailure is not null)
+            return cacheLimitFailure;
+
+        var cacheCleanupFailure = ValidateCacheCleanupAttributes(
+            database.Attributes.OfType<CacheCleanupAttribute>().ToArray(),
+            database.CacheCleanup,
+            $"Database '{database.DbName}'",
+            (attribute, message) => CreateDatabaseAttributeFailure(database, attribute, message));
+        if (cacheCleanupFailure is not null)
+            return cacheCleanupFailure;
+
+        return ValidateIndexCacheAttributes(
+            database.Attributes.OfType<IndexCacheAttribute>().ToArray(),
+            database.IndexCache,
+            $"Database '{database.DbName}'",
+            (attribute, message) => CreateDatabaseAttributeFailure(database, attribute, message));
+    }
+
+    private static IDLOptionFailure? ValidateModelCacheAttributes(TableModel tableModel)
+    {
+        var model = tableModel.Model;
+        var table = tableModel.Table;
+        var scope = $"Model '{model.CsType.Name}'";
+        var useCacheAttributes = model.Attributes
+            .OfType<UseCacheAttribute>()
+            .ToArray();
+
+        if (useCacheAttributes.Length > 1)
+            return CreateModelAttributeFailure(
+                model,
+                useCacheAttributes[1],
+                $"{scope} has multiple [UseCache] attributes. Table cache metadata can define an explicit cache override only once.");
+
+        if (useCacheAttributes.SingleOrDefault() is { } useCacheAttribute)
+        {
+            if (!table.explicitUseCache.HasValue)
+                return CreateModelAttributeFailure(
+                    model,
+                    useCacheAttribute,
+                    $"{scope} has [UseCache] metadata, but linked table '{table.DbName}' has no explicit cache override.");
+
+            if (useCacheAttribute.UseCache != table.explicitUseCache.Value)
+                return CreateModelAttributeFailure(
+                    model,
+                    useCacheAttribute,
+                    $"{scope} has [UseCache] value '{useCacheAttribute.UseCache}', but linked table '{table.DbName}' resolves its explicit cache override to '{table.explicitUseCache.Value}'.");
+        }
+
+        if (model.Attributes.OfType<CacheCleanupAttribute>().FirstOrDefault() is { } cacheCleanupAttribute)
+            return CreateModelAttributeFailure(
+                model,
+                cacheCleanupAttribute,
+                $"{scope} has [CacheCleanup] metadata, but cache cleanup is database-scoped and is not supported on table models.");
+
+        var cacheLimitFailure = ValidateCacheLimitAttributes(
+            model.Attributes.OfType<CacheLimitAttribute>().ToArray(),
+            table.CacheLimits,
+            scope,
+            (attribute, message) => CreateModelAttributeFailure(model, attribute, message));
+        if (cacheLimitFailure is not null)
+            return cacheLimitFailure;
+
+        return ValidateIndexCacheAttributes(
+            model.Attributes.OfType<IndexCacheAttribute>().ToArray(),
+            table.IndexCache,
+            scope,
+            (attribute, message) => CreateModelAttributeFailure(model, attribute, message));
+    }
+
+    private static IDLOptionFailure? ValidateCacheLimitAttributes(
+        IReadOnlyList<CacheLimitAttribute> attributes,
+        IReadOnlyList<(CacheLimitType limitType, long amount)> metadata,
+        string scope,
+        Func<Attribute, string, IDLOptionFailure> createFailure)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (!Enum.IsDefined(typeof(CacheLimitType), attribute.LimitType))
+                return createFailure(
+                    attribute,
+                    $"{scope} has [CacheLimit] metadata with unsupported cache limit type '{attribute.LimitType}'.");
+
+            if (attribute.Amount <= 0)
+                return createFailure(
+                    attribute,
+                    $"{scope} has [CacheLimit] metadata for '{attribute.LimitType}' with amount '{attribute.Amount}'. Cache limit amounts must be greater than zero.");
+        }
+
+        var duplicateGroup = attributes
+            .GroupBy(attribute => attribute.LimitType)
+            .FirstOrDefault(group => group.Count() > 1);
+
+        if (duplicateGroup is not null)
+            return createFailure(
+                duplicateGroup.Skip(1).First(),
+                $"{scope} has multiple [CacheLimit] attributes for '{duplicateGroup.Key}'. Cache limits can include multiple limit types, but each type can be configured only once.");
+
+        foreach (var attribute in attributes)
+        {
+            if (metadata.Contains((attribute.LimitType, attribute.Amount)))
+                continue;
+
+            var matchingLimit = metadata.FirstOrDefault(limit => limit.limitType == attribute.LimitType);
+            var message = matchingLimit != default
+                ? $"{scope} has [CacheLimit] attribute for '{attribute.LimitType}' amount '{attribute.Amount}', but linked cache metadata resolves that limit to '{matchingLimit.amount}'."
+                : $"{scope} has [CacheLimit] attribute for '{attribute.LimitType}' amount '{attribute.Amount}', but linked cache metadata does not contain that policy.";
+
+            return createFailure(attribute, message);
+        }
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateCacheCleanupAttributes(
+        IReadOnlyList<CacheCleanupAttribute> attributes,
+        IReadOnlyList<(CacheCleanupType cleanupType, long amount)> metadata,
+        string scope,
+        Func<Attribute, string, IDLOptionFailure> createFailure)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (!Enum.IsDefined(typeof(CacheCleanupType), attribute.LimitType))
+                return createFailure(
+                    attribute,
+                    $"{scope} has [CacheCleanup] metadata with unsupported cache cleanup type '{attribute.LimitType}'.");
+
+            if (attribute.Amount <= 0)
+                return createFailure(
+                    attribute,
+                    $"{scope} has [CacheCleanup] metadata for '{attribute.LimitType}' with amount '{attribute.Amount}'. Cache cleanup amounts must be greater than zero.");
+        }
+
+        var duplicateGroup = attributes
+            .GroupBy(attribute => attribute.LimitType)
+            .FirstOrDefault(group => group.Count() > 1);
+
+        if (duplicateGroup is not null)
+            return createFailure(
+                duplicateGroup.Skip(1).First(),
+                $"{scope} has multiple [CacheCleanup] attributes for '{duplicateGroup.Key}'. Cache cleanup can configure each cleanup type only once.");
+
+        foreach (var attribute in attributes)
+        {
+            if (metadata.Contains((attribute.LimitType, attribute.Amount)))
+                continue;
+
+            var matchingCleanup = metadata.FirstOrDefault(cleanup => cleanup.cleanupType == attribute.LimitType);
+            var message = matchingCleanup != default
+                ? $"{scope} has [CacheCleanup] attribute for '{attribute.LimitType}' amount '{attribute.Amount}', but linked cache metadata resolves that cleanup to '{matchingCleanup.amount}'."
+                : $"{scope} has [CacheCleanup] attribute for '{attribute.LimitType}' amount '{attribute.Amount}', but linked cache metadata does not contain that policy.";
+
+            return createFailure(attribute, message);
+        }
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateIndexCacheAttributes(
+        IReadOnlyList<IndexCacheAttribute> attributes,
+        IReadOnlyList<(IndexCacheType indexCacheType, int? amount)> metadata,
+        string scope,
+        Func<Attribute, string, IDLOptionFailure> createFailure)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (!Enum.IsDefined(typeof(IndexCacheType), attribute.Type))
+                return createFailure(
+                    attribute,
+                    $"{scope} has [IndexCache] metadata with unsupported index-cache type '{attribute.Type}'.");
+
+            if (attribute.Type == IndexCacheType.MaxAmountRows && !attribute.Amount.HasValue)
+                return createFailure(
+                    attribute,
+                    $"{scope} has MaxAmountRows [IndexCache] metadata without a row amount.");
+
+            if (attribute.Amount is <= 0)
+                return createFailure(
+                    attribute,
+                    $"{scope} has [IndexCache] metadata for '{attribute.Type}' with amount '{attribute.Amount}'. Index-cache amounts must be greater than zero.");
+
+            if (attribute.Type != IndexCacheType.MaxAmountRows && attribute.Amount.HasValue)
+                return createFailure(
+                    attribute,
+                    $"{scope} has [IndexCache] metadata for '{attribute.Type}' with amount '{attribute.Amount}', but only MaxAmountRows can specify an amount.");
+        }
+
+        var duplicateGroup = attributes
+            .GroupBy(attribute => attribute.Type)
+            .FirstOrDefault(group => group.Count() > 1);
+
+        if (duplicateGroup is not null)
+            return createFailure(
+                duplicateGroup.Skip(1).First(),
+                $"{scope} has multiple [IndexCache] attributes for '{duplicateGroup.Key}'. A cache scope can configure each index-cache policy type only once.");
+
+        var policyTypes = attributes
+            .Select(attribute => attribute.Type)
+            .Distinct()
+            .ToArray();
+
+        if (policyTypes.Length > 1)
+            return createFailure(
+                attributes[1],
+                $"{scope} has conflicting [IndexCache] policies '{policyTypes.ToJoinedString(", ")}'. A cache scope can use only one index-cache policy.");
+
+        foreach (var attribute in attributes)
+        {
+            if (metadata.Contains((attribute.Type, attribute.Amount)))
+                continue;
+
+            var matchingPolicy = metadata.FirstOrDefault(policy => policy.indexCacheType == attribute.Type);
+            var message = matchingPolicy != default
+                ? $"{scope} has [IndexCache] attribute for '{attribute.Type}' amount '{FormatNullableValue(attribute.Amount)}', but linked cache metadata resolves that policy to '{FormatNullableValue(matchingPolicy.amount)}'."
+                : $"{scope} has [IndexCache] attribute for '{attribute.Type}' amount '{FormatNullableValue(attribute.Amount)}', but linked cache metadata does not contain that policy.";
+
+            return createFailure(attribute, message);
+        }
+
+        return null;
     }
 
     private static IDLOptionFailure? ValidateCacheLimit(
@@ -1367,6 +1622,19 @@ public static class MetadataFactory
             return CreateRelationPropertyFailure(property, attribute, $"{scope} has an empty constraint name.");
 
         return null;
+    }
+
+    private static IDLOptionFailure CreateDatabaseAttributeFailure(DatabaseDefinition database, Attribute attribute, string message)
+    {
+        var attributeLocation = database.GetAttributeSourceLocation(attribute);
+        if (attributeLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, attributeLocation.Value);
+
+        var databaseLocation = database.GetSourceLocation();
+        if (databaseLocation.HasValue)
+            return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, databaseLocation.Value);
+
+        return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, database);
     }
 
     private static IDLOptionFailure CreateModelAttributeFailure(ModelDefinition model, Attribute attribute, string message)

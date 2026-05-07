@@ -1521,6 +1521,105 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DatabaseUseCacheAttributeMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            databaseAttributes: [new UseCacheAttribute(true)]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("[UseCache] value 'True'");
+        await Assert.That(failure.Message).Contains("resolves to 'False'");
+    }
+
+    [Test]
+    public async Task Build_DatabaseCacheLimitAttributeMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            databaseAttributes: [new CacheLimitAttribute(CacheLimitType.Rows, 10)],
+            databaseCacheLimits: [(CacheLimitType.Rows, 20)]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("[CacheLimit] attribute for 'Rows' amount '10'");
+        await Assert.That(failure.Message).Contains("resolves that limit to '20'");
+    }
+
+    [Test]
+    public async Task Build_TableUseCacheAttributeWithoutExplicitOverride_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new UseCacheAttribute(false)]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[UseCache] metadata");
+        await Assert.That(failure.Message).Contains("no explicit cache override");
+    }
+
+    [Test]
+    public async Task Build_TableCacheLimitAttributeMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new CacheLimitAttribute(CacheLimitType.Rows, 10)],
+            tableCacheLimits: [(CacheLimitType.Rows, 20)]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[CacheLimit] attribute for 'Rows' amount '10'");
+        await Assert.That(failure.Message).Contains("resolves that limit to '20'");
+    }
+
+    [Test]
+    public async Task Build_TableIndexCacheAttributeMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new IndexCacheAttribute(IndexCacheType.MaxAmountRows, 10)],
+            tableIndexCache: [(IndexCacheType.MaxAmountRows, 20)]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[IndexCache] attribute for 'MaxAmountRows' amount '10'");
+        await Assert.That(failure.Message).Contains("resolves that policy to '20'");
+    }
+
+    [Test]
+    public async Task Build_TableCacheCleanupAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new CacheCleanupAttribute(CacheCleanupType.Minutes, 5)]);
+
+        var result = new MetadataDefinitionFactory().Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[CacheCleanup] metadata");
+        await Assert.That(failure.Message).Contains("database-scoped");
+    }
+
+    [Test]
     public async Task Build_CheckAttributeWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(
@@ -3902,6 +4001,7 @@ public class MetadataDefinitionFactoryTests
         IReadOnlyList<(CacheLimitType limitType, long amount)>? databaseCacheLimits = null,
         IReadOnlyList<(CacheCleanupType cleanupType, long amount)>? databaseCacheCleanup = null,
         IReadOnlyList<(IndexCacheType indexCacheType, int? amount)>? databaseIndexCache = null,
+        bool? tableUseCache = null,
         IReadOnlyList<(CacheLimitType limitType, long amount)>? tableCacheLimits = null,
         IReadOnlyList<(IndexCacheType indexCacheType, int? amount)>? tableIndexCache = null)
     {
@@ -3948,6 +4048,7 @@ public class MetadataDefinitionFactoryTests
                     },
                     new MetadataTableDraft(tableDbName)
                     {
+                        UseCache = tableUseCache,
                         CacheLimits = tableCacheLimits ?? [],
                         IndexCache = tableIndexCache ?? []
                     })
