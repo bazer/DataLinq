@@ -105,6 +105,8 @@ public enum IndexCharacteristic
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
 public sealed class IndexAttribute : Attribute
 {
+    private readonly string[] columns;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="IndexAttribute"/> class with the specified name, characteristic, type, and columns.
     /// </summary>
@@ -120,7 +122,7 @@ public sealed class IndexAttribute : Attribute
         Name = name;
         Type = type;
         Characteristic = characteristic;
-        Columns = columns;
+        this.columns = columns is null ? [] : [.. columns];
     }
 
     /// <summary>
@@ -150,5 +152,5 @@ public sealed class IndexAttribute : Attribute
     /// <summary>
     /// Gets the columns associated with the index.
     /// </summary>
-    public string[] Columns { get; }
+    public string[] Columns => [.. columns];
 }

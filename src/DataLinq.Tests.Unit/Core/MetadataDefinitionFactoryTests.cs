@@ -204,6 +204,38 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task ArrayValuedMetadataAttributes_ReturnDefensiveCopies()
+    {
+        var enumValues = new[] { "Active", "Inactive" };
+        var indexColumns = new[] { "tenant_id", "account_no" };
+        var relationColumns = new[] { "tenant_id", "order_no" };
+
+        var enumAttribute = new EnumAttribute(enumValues);
+        var indexAttribute = new IndexAttribute("IX_lookup", IndexCharacteristic.Unique, IndexType.BTREE, indexColumns);
+        var relationAttribute = new RelationAttribute("orders", relationColumns, "FK_line_order");
+
+        enumValues[0] = "Changed";
+        indexColumns[0] = "changed";
+        relationColumns[0] = "changed";
+
+        await Assert.That(enumAttribute.Values).IsEquivalentTo(["Active", "Inactive"]);
+        await Assert.That(indexAttribute.Columns).IsEquivalentTo(["tenant_id", "account_no"]);
+        await Assert.That(relationAttribute.Columns).IsEquivalentTo(["tenant_id", "order_no"]);
+
+        var returnedEnumValues = enumAttribute.Values;
+        var returnedIndexColumns = indexAttribute.Columns;
+        var returnedRelationColumns = relationAttribute.Columns;
+
+        returnedEnumValues[0] = "ChangedAgain";
+        returnedIndexColumns[0] = "changed_again";
+        returnedRelationColumns[0] = "changed_again";
+
+        await Assert.That(enumAttribute.Values).IsEquivalentTo(["Active", "Inactive"]);
+        await Assert.That(indexAttribute.Columns).IsEquivalentTo(["tenant_id", "account_no"]);
+        await Assert.That(relationAttribute.Columns).IsEquivalentTo(["tenant_id", "order_no"]);
+    }
+
+    [Test]
     public async Task PublicMetadataDefinitionMutators_AreMarkedObsolete()
     {
         var missingMethods = new (Type Type, string[] MethodNames)[]
