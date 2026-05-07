@@ -2198,7 +2198,7 @@ public static class MetadataFactory
                 var propName = GetForeignKeyRelationPropertyName(manySideModel, oneSideModel, foreignKeyColumns, firstAttribute);
                 var propType = oneSideModel.CsType;
                 var propAttr = new RelationAttribute(oneSideModel.Table.DbName, candidateColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
-                AddRelationProperty(manySideModel, propName, propType, manySidePart, propAttr);
+                AddRelationPropertyCore(manySideModel, propName, propType, manySidePart, propAttr);
             }
 
             // --- Link or Create One-to-Many Property ---
@@ -2225,7 +2225,7 @@ public static class MetadataFactory
                 var genericTypeName = manySideModel.CsType.Name;
                 var propType = new CsTypeDeclaration($"IImmutableRelation<{genericTypeName}>", "DataLinq.Instances", ModelCsType.Interface);
                 var propAttr = new RelationAttribute(manySideModel.Table.DbName, foreignKeyColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
-                AddRelationProperty(oneSideModel, propName, propType, oneSidePart, propAttr);
+                AddRelationPropertyCore(oneSideModel, propName, propType, oneSidePart, propAttr);
             }
         }
 
@@ -2511,7 +2511,13 @@ public static class MetadataFactory
             : fallbackPrefix + propertyName;
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static void AddRelationProperty(ModelDefinition model, string propertyName, CsTypeDeclaration propertyType, RelationPart relationPart, RelationAttribute relationAttribute)
+    {
+        AddRelationPropertyCore(model, propertyName, propertyType, relationPart, relationAttribute);
+    }
+
+    internal static void AddRelationPropertyCore(ModelDefinition model, string propertyName, CsTypeDeclaration propertyType, RelationPart relationPart, RelationAttribute relationAttribute)
     {
         var originalPropertyName = propertyName;
         var i = 2;

@@ -265,6 +265,7 @@ public class MetadataDefinitionFactoryTests
                 (typeof(MetadataFactory), nameof(MetadataFactory.ParseTable), [typeof(ModelDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
                 (typeof(MetadataFactory), nameof(MetadataFactory.ParseColumn), [typeof(TableDefinition), typeof(ValueProperty)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
                 (typeof(MetadataFactory), nameof(MetadataFactory.ParseAttributes), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.AddRelationProperty), [typeof(ModelDefinition), typeof(string), typeof(CsTypeDeclaration), typeof(RelationPart), typeof(RelationAttribute)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
                 (typeof(MetadataFactory), nameof(MetadataFactory.AttachValueProperty), [typeof(ColumnDefinition), typeof(string), typeof(bool)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
                 (typeof(MetadataFactory), nameof(MetadataFactory.TryAttachValueProperty), [typeof(ColumnDefinition), typeof(string), typeof(bool)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly)
             }
