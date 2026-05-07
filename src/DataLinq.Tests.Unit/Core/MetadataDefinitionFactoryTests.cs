@@ -256,7 +256,12 @@ public class MetadataDefinitionFactoryTests
             {
                 (typeof(MetadataDefinitionFactory), nameof(MetadataDefinitionFactory.Build), [typeof(DatabaseDefinition)], BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly),
                 (typeof(MetadataDefinitionFactory), nameof(MetadataDefinitionFactory.BuildProviderMetadata), [typeof(DatabaseDefinition)], BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly),
-                (typeof(MetadataDefinitionDraft), nameof(MetadataDefinitionDraft.FromMutableMetadata), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                (typeof(MetadataDefinitionDraft), nameof(MetadataDefinitionDraft.FromMutableMetadata), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.ParseInterfaces), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.NormalizeDatabaseTypeName), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.ParseIndices), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.ParseRelations), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly),
+                (typeof(MetadataFactory), nameof(MetadataFactory.IndexColumns), [typeof(DatabaseDefinition)], BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly)
             }
             .Select(item => FindMissingObsoleteMethod(item.Type, item.MethodName, item.ParameterTypes, item.Flags))
             .OfType<string>()
@@ -1647,8 +1652,8 @@ public class MetadataDefinitionFactoryTests
     public async Task Build_RelationPropertyPointingAtOtherTableRelationPart_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();
-        MetadataFactory.ParseIndices(database).ValueOrException();
-        MetadataFactory.ParseRelations(database).ValueOrException();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
 
         var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
         var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
@@ -2992,6 +2997,12 @@ public class MetadataDefinitionFactoryTests
 
     private static Option<DatabaseDefinition, IDLOptionFailure> CreateMutableConstructionGraph(DatabaseDefinition database) =>
         MetadataDefinitionDraft.FromMutableMetadata(database).TryCreateConstructionGraph();
+
+    private static Option<bool, IDLOptionFailure> ParseMetadataIndices(DatabaseDefinition database) =>
+        MetadataFactory.ParseIndices(database);
+
+    private static Option<bool, IDLOptionFailure> ParseMetadataRelations(DatabaseDefinition database) =>
+        MetadataFactory.ParseRelations(database);
 
     private static void SetMetadataListItem<T>(MetadataList<T> list, int index, T item) =>
         list[index] = item;

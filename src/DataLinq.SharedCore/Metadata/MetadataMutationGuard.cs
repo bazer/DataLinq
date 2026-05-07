@@ -6,6 +6,7 @@ internal static class MetadataMutationGuard
 {
     public const string PublicMutationObsoleteMessage = "Runtime metadata definitions are finalized snapshots. Use typed metadata drafts and MetadataDefinitionFactory instead of mutating definitions directly.";
     public const string MutableFactoryInputObsoleteMessage = "Mutable metadata factory inputs are compatibility API. Use typed metadata drafts so MetadataDefinitionFactory owns construction and finalization.";
+    public const string MutableFactoryHelperObsoleteMessage = "Mutable metadata factory helpers are compatibility API. Use typed metadata drafts and MetadataDefinitionFactory so construction, validation, and finalization stay centralized.";
 
     public static void ThrowIfFrozen(bool isFrozen, object metadata)
     {

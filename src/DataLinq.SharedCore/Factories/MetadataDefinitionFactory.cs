@@ -66,7 +66,7 @@ public sealed class MetadataDefinitionFactory
 
     private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)
     {
-        MetadataFactory.ParseInterfaces(draft);
+        MetadataFactory.ParseInterfacesCore(draft);
 
         return BuildCore(draft);
     }
@@ -100,7 +100,7 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateSchemaAnnotationMetadata(draft).TryUnwrap(out _, out var schemaAnnotationFailure))
             return schemaAnnotationFailure;
 
-        MetadataFactory.NormalizeDatabaseTypeName(draft);
+        MetadataFactory.NormalizeDatabaseTypeNameCore(draft);
 
         if (!MetadataFactory.ValidateUniqueTableNames(draft).TryUnwrap(out _, out var duplicateTableFailure))
             return duplicateTableFailure;
@@ -129,7 +129,7 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateUniqueColumnNames(draft).TryUnwrap(out _, out var duplicateColumnFailure))
             return duplicateColumnFailure;
 
-        if (!MetadataFactory.ParseIndices(draft).TryUnwrap(out _, out var indexFailure))
+        if (!MetadataFactory.ParseIndicesCore(draft).TryUnwrap(out _, out var indexFailure))
             return indexFailure;
 
         if (!MetadataFactory.ValidateExistingColumnIndices(draft).TryUnwrap(out _, out var indexOwnershipFailure))
@@ -138,7 +138,7 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var relationPartFailure))
             return relationPartFailure;
 
-        if (!MetadataFactory.ParseRelations(draft).TryUnwrap(out _, out var relationFailure))
+        if (!MetadataFactory.ParseRelationsCore(draft).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
 
         if (!MetadataFactory.ValidateCSharpSymbolNames(draft).TryUnwrap(out _, out var finalizedCsharpSymbolFailure))
@@ -150,7 +150,7 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var finalizedRelationPartFailure))
             return finalizedRelationPartFailure;
 
-        MetadataFactory.IndexColumns(draft);
+        MetadataFactory.IndexColumnsCore(draft);
         draft.Freeze();
 
         return draft;

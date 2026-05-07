@@ -7,6 +7,7 @@ using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Metadata;
+using ThrowAway;
 using ThrowAway.Extensions;
 using Attribute = System.Attribute;
 
@@ -23,6 +24,8 @@ public class MetadataFactoryTests
     private static void SetDatabaseTableModels(DatabaseDefinition database, IEnumerable<TableModel> tableModels) => database.SetTableModels(tableModels);
     private static void AddModelProperty(ModelDefinition model, PropertyDefinition property) => model.AddProperty(property);
     private static void SetEnumMetadata(ValueProperty property, EnumProperty enumProperty) => property.SetEnumProperty(enumProperty);
+    private static Option<bool, IDLOptionFailure> ParseMetadataIndices(DatabaseDefinition database) => MetadataFactory.ParseIndices(database);
+    private static Option<bool, IDLOptionFailure> ParseMetadataRelations(DatabaseDefinition database) => MetadataFactory.ParseRelations(database);
 #pragma warning restore CS0618
 
     private (DatabaseDefinition db, TableModel tableModel, ModelDefinition model, TableDefinition table) CreateTestHierarchy(
@@ -93,8 +96,8 @@ public class MetadataFactoryTests
 
         SetDatabaseTableModels(db, [userTableModel, orderTableModel]);
 
-        MetadataFactory.ParseIndices(db);
-        MetadataFactory.ParseRelations(db);
+        ParseMetadataIndices(db);
+        ParseMetadataRelations(db);
 
         return db;
     }
@@ -132,8 +135,8 @@ public class MetadataFactoryTests
 
         SetDatabaseTableModels(db, [accountTableModel, invoiceTableModel]);
 
-        MetadataFactory.ParseIndices(db).ValueOrException();
-        MetadataFactory.ParseRelations(db).ValueOrException();
+        ParseMetadataIndices(db).ValueOrException();
+        ParseMetadataRelations(db).ValueOrException();
 
         return db;
     }
@@ -425,7 +428,7 @@ public class MetadataFactoryTests
 
         var columnDefinition = table.ParseColumn(valueProperty);
         SetTableColumns(table, [columnDefinition]);
-        MetadataFactory.ParseIndices(model.Database);
+        ParseMetadataIndices(model.Database);
 
         var indexAttribute = valueProperty.Attributes.OfType<IndexAttribute>().Single();
         var columnIndex = table.ColumnIndices.Single();
@@ -450,7 +453,7 @@ public class MetadataFactoryTests
 
         var columnDefinition = table.ParseColumn(valueProperty);
         SetTableColumns(table, [columnDefinition]);
-        MetadataFactory.ParseIndices(model.Database);
+        ParseMetadataIndices(model.Database);
 
         var indexAttribute = valueProperty.Attributes.OfType<IndexAttribute>().Single();
         var columnIndex = table.ColumnIndices.Single();
@@ -628,7 +631,7 @@ public class MetadataFactoryTests
         var property2Column = MetadataFactory.ParseColumn(table, property2);
         SetTableColumns(table, [property1Column, property2Column]);
 
-        MetadataFactory.ParseIndices(model.Database);
+        ParseMetadataIndices(model.Database);
         var index = table.ColumnIndices.Single();
 
         await Assert.That(index.Name).IsEqualTo("idx_multi");
@@ -651,7 +654,7 @@ public class MetadataFactoryTests
         var property2Column = MetadataFactory.ParseColumn(table, property2);
         SetTableColumns(table, [property1Column, property2Column]);
 
-        MetadataFactory.ParseIndices(model.Database).ValueOrException();
+        ParseMetadataIndices(model.Database).ValueOrException();
         var index = table.ColumnIndices.Single();
 
         await Assert.That(index.Name).IsEqualTo("idx_multi");
@@ -671,7 +674,7 @@ public class MetadataFactoryTests
         var property2Column = MetadataFactory.ParseColumn(table, property2);
         SetTableColumns(table, [property1Column, property2Column]);
 
-        var result = MetadataFactory.ParseIndices(model.Database);
+        var result = ParseMetadataIndices(model.Database);
 
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.Message).Contains("IndexAttribute.Columns expects database column names, not C# property names.");

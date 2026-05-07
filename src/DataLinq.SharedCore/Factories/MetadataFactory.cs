@@ -43,7 +43,13 @@ public static class MetadataFactory
         "volatile", "while"
     };
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static void ParseInterfaces(DatabaseDefinition database)
+    {
+        ParseInterfacesCore(database);
+    }
+
+    internal static void ParseInterfacesCore(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels)
         {
@@ -97,14 +103,26 @@ public static class MetadataFactory
         return table;
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static void IndexColumns(DatabaseDefinition database)
+    {
+        IndexColumnsCore(database);
+    }
+
+    internal static void IndexColumnsCore(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Select(x => x.Table))
             for (var i = 0; i < table.Columns.Length; i++)
                 table.Columns[i].SetIndexCore(i);
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static Option<bool, IDLOptionFailure> ParseIndices(DatabaseDefinition database)
+    {
+        return ParseIndicesCore(database);
+    }
+
+    internal static Option<bool, IDLOptionFailure> ParseIndicesCore(DatabaseDefinition database)
     {
         foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
         {
@@ -277,7 +295,13 @@ public static class MetadataFactory
         return DLOptionFailure.Fail(DLFailureType.InvalidModel, message, duplicate.Model);
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static void NormalizeDatabaseTypeName(DatabaseDefinition database)
+    {
+        NormalizeDatabaseTypeNameCore(database);
+    }
+
+    internal static void NormalizeDatabaseTypeNameCore(DatabaseDefinition database)
     {
         var tablePropertyNames = new HashSet<string>(
             database.TableModels.Select(x => x.CsPropertyName),
@@ -2042,7 +2066,13 @@ public static class MetadataFactory
         return null;
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static Option<bool, IDLOptionFailure> ParseRelations(DatabaseDefinition database)
+    {
+        return ParseRelationsCore(database);
+    }
+
+    internal static Option<bool, IDLOptionFailure> ParseRelationsCore(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).Select(x => x.Table))
         {
