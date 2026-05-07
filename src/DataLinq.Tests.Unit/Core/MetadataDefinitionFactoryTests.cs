@@ -1731,6 +1731,50 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ForeignKeyRelationPropertyWithMismatchedCsType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
+
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var relationProperty = orderModel.RelationProperties["Customer"];
+        SetPropertyCsType(relationProperty, new CsTypeDeclaration("Order", "TestNamespace", ModelCsType.Class));
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("uses C# type 'Order'");
+        await Assert.That(failure.Message).Contains("relation side on table 'users' requires 'User'");
+    }
+
+    [Test]
+    public async Task Build_CandidateKeyRelationPropertyWithMismatchedCsType_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
+
+        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
+        var relationProperty = userModel.RelationProperties["Order"];
+        SetPropertyCsType(
+            relationProperty,
+            new CsTypeDeclaration("IImmutableRelation<User>", "DataLinq.Instances", ModelCsType.Interface));
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'User.Order'");
+        await Assert.That(failure.Message).Contains("uses C# type 'IImmutableRelation<User>'");
+        await Assert.That(failure.Message).Contains("relation side on table 'orders' requires 'IImmutableRelation<Order>'");
+    }
+
+    [Test]
     public async Task Build_MultipleDefaultAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(

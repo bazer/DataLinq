@@ -1993,6 +1993,19 @@ public static class MetadataFactory
                                 $"Relation property '{model.CsType.Name}.{property.PropertyName}' targets relation '{relationAttribute.Name}', but it is linked to relation '{relation.ConstraintName}'.");
                         }
                     }
+
+                    if (otherPart is not null)
+                    {
+                        var expectedTypeName = GetExpectedRelationPropertyTypeName(relationPart, otherPart);
+                        if (expectedTypeName is not null &&
+                            !string.Equals(property.CsType.Name, expectedTypeName, StringComparison.Ordinal))
+                        {
+                            return CreateRelationPropertyFailure(
+                                property,
+                                null,
+                                $"Relation property '{model.CsType.Name}.{property.PropertyName}' uses C# type '{property.CsType.Name}', but relation side on table '{otherPart.ColumnIndex.Table.DbName}' requires '{expectedTypeName}'.");
+                        }
+                    }
                 }
             }
         }
@@ -2001,9 +2014,20 @@ public static class MetadataFactory
     }
 
     private static RelationPart? TryGetOtherRelationSide(RelationPart relationPart) =>
-        relationPart.Type == RelationPartType.CandidateKey
-            ? relationPart.Relation.ForeignKey
-            : relationPart.Relation.CandidateKey;
+        relationPart.Type switch
+        {
+            RelationPartType.CandidateKey => relationPart.Relation.ForeignKey,
+            RelationPartType.ForeignKey => relationPart.Relation.CandidateKey,
+            _ => null
+        };
+
+    private static string? GetExpectedRelationPropertyTypeName(RelationPart relationPart, RelationPart otherPart) =>
+        relationPart.Type switch
+        {
+            RelationPartType.ForeignKey => otherPart.ColumnIndex.Table.Model.CsType.Name,
+            RelationPartType.CandidateKey => $"IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>",
+            _ => null
+        };
 
     private static bool RelationAttributeColumnsMatch(IReadOnlyList<string> attributeColumns, IReadOnlyList<ColumnDefinition> relationColumns)
     {
