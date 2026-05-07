@@ -2298,6 +2298,42 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ExistingRelationWithEmptyConstraintName_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var users = database.TableModels.Single(tm => tm.Table.DbName == "users");
+        var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
+        var userId = users.Table.Columns.Single(column => column.DbName == "user_id");
+        var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
+        var candidateKeyIndex = new ColumnIndex("users_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [userId]);
+        var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
+        AddMetadataListItem(users.Table.ColumnIndices, candidateKeyIndex);
+        AddMetadataListItem(orders.Table.ColumnIndices, foreignKeyIndex);
+        var relation = new RelationDefinition("", RelationType.OneToMany);
+        var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
+        var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "Orders");
+        SetRelationForeignKey(relation, foreignKeyPart);
+        SetRelationCandidateKey(relation, candidateKeyPart);
+        AddMetadataListItem(foreignKeyIndex.RelationParts, foreignKeyPart);
+        AddMetadataListItem(candidateKeyIndex.RelationParts, candidateKeyPart);
+        var relationProperty = new RelationProperty(
+            "Customer",
+            users.Model.CsType,
+            orders.Model,
+            [new RelationAttribute("users", "user_id", "FK_Broken")]);
+        SetRelationPropertyPart(relationProperty, foreignKeyPart);
+        AddModelProperty(orders.Model, relationProperty);
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation referenced by index 'users_primary_key' on table 'users'");
+        await Assert.That(failure.Message).Contains("empty constraint name");
+    }
+
+    [Test]
     public async Task Build_ExistingRelationWithUnregisteredCandidateKeyIndex_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();

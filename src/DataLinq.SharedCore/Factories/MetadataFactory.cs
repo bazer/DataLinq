@@ -2000,6 +2000,9 @@ public static class MetadataFactory
             ? "<unnamed>"
             : relation.ConstraintName;
 
+        if (string.IsNullOrWhiteSpace(relation.ConstraintName))
+            return createFailure($"Existing relation referenced by {ownerDescription} has an empty constraint name.");
+
         if (!Enum.IsDefined(typeof(RelationPartType), relationPart.Type))
             return createFailure($"Existing relation part referenced by {ownerDescription} has unsupported relation-part type '{relationPart.Type}'.");
 
