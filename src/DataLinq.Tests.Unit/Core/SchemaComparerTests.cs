@@ -124,7 +124,7 @@ public class SchemaComparerTests
                         "display_name",
                         typeof(string),
                         nullable: false,
-                        attributes: [new DefaultAttribute("anonymous").SetCodeExpression("\"anonymous\"")])
+                        attributes: [new DefaultAttribute("anonymous", "\"anonymous\"")])
                 ]));
         var database = CreateDatabase(
             CreateTable(

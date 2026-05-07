@@ -24,11 +24,22 @@ public enum UUIDVersion
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
 public class DefaultAttribute(object value) : Attribute
 {
+    public DefaultAttribute(object value, string? codeExpression) : this(value)
+    {
+        SetCodeExpressionCore(codeExpression);
+    }
+
     public object Value { get; } = value ?? throw new ArgumentNullException(nameof(value));
     public string? CodeExpression { get; private set; }
     public bool IsFrozen { get; private set; }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public DefaultAttribute SetCodeExpression(string? codeExpression)
+    {
+        return SetCodeExpressionCore(codeExpression);
+    }
+
+    internal DefaultAttribute SetCodeExpressionCore(string? codeExpression)
     {
         MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
         CodeExpression = codeExpression;
@@ -44,6 +55,11 @@ public class DefaultAttribute(object value) : Attribute
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
 public class DefaultAttribute<T>(T value) : DefaultAttribute(value ?? throw new ArgumentNullException(nameof(value)))
 {
+    public DefaultAttribute(T value, string? codeExpression) : this(value)
+    {
+        SetCodeExpressionCore(codeExpression);
+    }
+
     public new T Value => (T)base.Value;
 }
 

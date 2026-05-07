@@ -88,7 +88,7 @@ public class MetadataTransformerTests
             {
                 new ColumnAttribute("status_db"),
                 new EnumAttribute("Active", "Inactive"),
-                new DefaultAttribute("MyStatusEnum.Inactive").SetCodeExpression("MyStatusEnum.Inactive")
+                new DefaultAttribute("MyStatusEnum.Inactive", "MyStatusEnum.Inactive")
             }
             : [new ColumnAttribute("status_db"), new EnumAttribute("Active", "Inactive")];
         var statusEnum = new EnumProperty(

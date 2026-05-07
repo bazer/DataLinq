@@ -206,7 +206,7 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_TypedDraft_FreezesDefaultAttributes()
     {
-        var defaultAttribute = new DefaultAttribute(1).SetCodeExpression("1");
+        var defaultAttribute = new DefaultAttribute(1, "1");
         var database = CreateSingleTableTypedDraft(
             valuePropertyAttributes: [defaultAttribute]);
 
@@ -223,7 +223,7 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(builtDefaultAttribute).IsNotNull();
         await Assert.That(builtDefaultAttribute!.IsFrozen).IsTrue();
         await Assert.That(builtDefaultAttribute.CodeExpression).IsEqualTo("1");
-        await AssertFrozenMutation(() => builtDefaultAttribute.SetCodeExpression("2"));
+        await AssertFrozenMutation(() => SetDefaultCodeExpression(builtDefaultAttribute, "2"));
         await Assert.That(builtDefaultAttribute.CodeExpression).IsEqualTo("1");
     }
 
@@ -310,6 +310,7 @@ public class MetadataDefinitionFactoryTests
                 (typeof(ValueProperty), [nameof(ValueProperty.SetColumn), nameof(ValueProperty.SetCsSize), nameof(ValueProperty.SetEnumProperty)]),
                 (typeof(RelationProperty), [nameof(RelationProperty.SetRelationPart), nameof(RelationProperty.SetRelationName)]),
                 (typeof(ColumnIndex), [nameof(ColumnIndex.AddColumn)]),
+                (typeof(DefaultAttribute), [nameof(DefaultAttribute.SetCodeExpression)]),
                 (typeof(MetadataList<>), [nameof(MetadataList<object>.Add), nameof(MetadataList<object>.AddRange), nameof(MetadataList<object>.Clear), nameof(MetadataList<object>.Insert), nameof(MetadataList<object>.Remove), nameof(MetadataList<object>.RemoveAt)]),
                 (typeof(MetadataDictionary<,>), [nameof(MetadataDictionary<string, object>.Add), nameof(MetadataDictionary<string, object>.Clear), nameof(MetadataDictionary<string, object>.Remove)])
             }
@@ -4715,6 +4716,9 @@ public class MetadataDefinitionFactoryTests
 
     private static void SetDatabaseColumnTypeSigned(DatabaseColumnType columnType, bool signed) =>
         columnType.SetSigned(signed);
+
+    private static void SetDefaultCodeExpression(DefaultAttribute attribute, string? codeExpression) =>
+        attribute.SetCodeExpression(codeExpression);
 #pragma warning restore CS0618
 
     private static async Task AssertFrozenMutation(Action action)

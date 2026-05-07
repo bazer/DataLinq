@@ -534,7 +534,7 @@ public class SyntaxParser
                 return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too few arguments");
 
             var codeExpression = attributeSyntax.ArgumentList?.Arguments[0].Expression.ToString();
-            return new DefaultAttribute(arguments[0]).SetCodeExpression(codeExpression);
+            return new DefaultAttribute(arguments[0], codeExpression);
         }
 
         if (name == "DefaultSql")
