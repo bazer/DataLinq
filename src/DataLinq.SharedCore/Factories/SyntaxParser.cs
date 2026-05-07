@@ -131,13 +131,15 @@ public class SyntaxParser
 
         if (typeSyntax.BaseList != null)
         {
-            // Build all interfaces from the BaseList.
-            var interfaces = typeSyntax.BaseList.Types
+            if (!typeSyntax.BaseList.Types
                 .Select(ParseDeclaredInterface)
-                .Where(x => !x.Name.StartsWith("Immutable<"))
-                .ToList();
+                .Transpose()
+                .TryUnwrap(out var declaredInterfaces, out var interfaceFailures))
+                return DLOptionFailure.Fail($"Parsing base interfaces for {typeSyntax.Identifier.Text}", model, interfaceFailures);
 
-            model.SetInterfacesCore(interfaces);
+            model.SetInterfacesCore(declaredInterfaces
+                .Where(x => !x.Name.StartsWith("Immutable<"))
+                .ToList());
         }
 
         if (model.CsType.ModelCsType == ModelCsType.Interface)
@@ -206,12 +208,19 @@ public class SyntaxParser
                 DLFailureType.InvalidArgument,
                 $"Multiple model instance interfaces ({modelInstanceInterfaces.Select(x => x.Name).ToJoinedString(", ")}) found in model");
 
-        var interfaces = typeSyntax.BaseList != null
-            ? typeSyntax.BaseList.Types
+        CsTypeDeclaration[] interfaces = [];
+        if (typeSyntax.BaseList != null)
+        {
+            if (!typeSyntax.BaseList.Types
                 .Select(ParseDeclaredInterface)
+                .Transpose()
+                .TryUnwrap(out var declaredInterfaces, out var interfaceFailures))
+                return DLOptionFailure.Fail($"Parsing base interfaces for {typeSyntax.Identifier.Text}", interfaceFailures);
+
+            interfaces = declaredInterfaces
                 .Where(x => !x.Name.StartsWith("Immutable<"))
-                .ToArray()
-            : [];
+                .ToArray();
+        }
 
         if (csType.ModelCsType == ModelCsType.Interface)
             csType = csType.MutateName(MetadataTypeConverter.RemoveInterfacePrefix(csType.Name));
@@ -299,10 +308,20 @@ public class SyntaxParser
         };
     }
 
-    private static CsTypeDeclaration ParseDeclaredInterface(BaseTypeSyntax baseType)
+    private static Option<CsTypeDeclaration, IDLOptionFailure> ParseDeclaredInterface(BaseTypeSyntax baseType)
     {
-        var declaration = new CsTypeDeclaration(baseType);
-        return new CsTypeDeclaration(declaration.Name, declaration.Namespace, ModelCsType.Interface);
+        try
+        {
+            var declaration = new CsTypeDeclaration(baseType);
+            return new CsTypeDeclaration(declaration.Name, declaration.Namespace, ModelCsType.Interface);
+        }
+        catch (NotImplementedException exception)
+        {
+            return FailType(
+                baseType.Type,
+                DLFailureType.InvalidModel,
+                $"Base type '{baseType.Type}' uses unsupported C# type syntax: {exception.Message}");
+        }
     }
 
     public Option<Attribute, IDLOptionFailure> ParseAttribute(AttributeSyntax attributeSyntax)

@@ -192,6 +192,46 @@ public abstract partial class UnsafeModel(IRowData rowData, IDataSourceAccess da
         await Assert.That(failureMessage).DoesNotContain("[Exception]");
     }
 
+    [Test]
+    public async Task ReadSyntaxTrees_UnsupportedModelBaseTypeSyntax_ReturnsInvalidModelFailure()
+    {
+        const string code = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UnsafeModel> UnsafeRows { get; }
+}
+
+[Table("unsafe_rows")]
+public abstract partial class UnsafeModel(IRowData rowData, IDataSourceAccess dataSource) : delegate*<void>, ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+
+        var result = factory.ReadSyntaxTrees(declarations).Single();
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsNotEqualTo(DLFailureType.Exception);
+
+        var failureMessage = failure.ToString();
+        await Assert.That(failureMessage).Contains("UnsafeModel");
+        await Assert.That(failureMessage).Contains("delegate*<void>");
+        await Assert.That(failureMessage).Contains("unsupported C# type syntax");
+        await Assert.That(failureMessage).DoesNotContain("[Exception]");
+    }
+
     private static ImmutableArray<TypeDeclarationSyntax> GetSyntaxDeclarations(string code)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(code);

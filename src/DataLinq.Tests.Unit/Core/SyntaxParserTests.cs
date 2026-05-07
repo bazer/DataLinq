@@ -31,6 +31,13 @@ public class SyntaxParserTests
         string csPropertyName) =>
         parser.ParseTableModel(database, typeSyntax, csPropertyName).ValueOrException();
 
+    private static ThrowAway.Option<TableModel, IDLOptionFailure> ParseMutableTableModelResult(
+        SyntaxParser parser,
+        DatabaseDefinition database,
+        TypeDeclarationSyntax typeSyntax,
+        string csPropertyName) =>
+        parser.ParseTableModel(database, typeSyntax, csPropertyName);
+
     private static PropertyDefinition ParseMutableProperty(
         SyntaxParser parser,
         PropertyDeclarationSyntax propertySyntax,
@@ -527,6 +534,32 @@ public abstract partial class MyModel : ITableModel<TestDb>
         await Assert.That(index.Name).IsEqualTo("idx_multi");
         await Assert.That(index.Characteristic).IsEqualTo(IndexCharacteristic.Unique);
         await Assert.That(index.Columns).IsEquivalentTo(["first_col", "second_col"]);
+    }
+
+    [Test]
+    public async Task ParseModelSyntax_UnsupportedBaseTypeSyntax_ReturnsInvalidModelFailure()
+    {
+        var (parser, syntax) = GetTypeSyntax(
+            """
+[Table("my_models")]
+public abstract partial class MyModel : delegate*<void>, ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""");
+        var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration(typeof(TestDb)));
+
+        var result = ParseMutableTableModelResult(parser, db, syntax, "MyModels");
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.Aggregation);
+
+        var failureMessage = failure.ToString();
+        await Assert.That(failureMessage).Contains("MyModel");
+        await Assert.That(failureMessage).Contains("delegate*<void>");
+        await Assert.That(failureMessage).Contains("unsupported C# type syntax");
+        await Assert.That(failureMessage).DoesNotContain("[Exception]");
     }
 
     [Test]
