@@ -1953,7 +1953,67 @@ public static class MetadataFactory
                         null,
                         $"Relation property '{model.CsType.Name}.{property.PropertyName}' is linked to relation part on table '{relationIndex.Table.DbName}', but relation properties must point at a relation part on their own table '{table.DbName}'.");
                 }
+
+                if (property.RelationPart is { } relationPart)
+                {
+                    var relation = relationPart.Relation;
+                    if (property.RelationName is not null &&
+                        !string.IsNullOrWhiteSpace(relation.ConstraintName) &&
+                        !string.Equals(property.RelationName, relation.ConstraintName, StringComparison.Ordinal))
+                    {
+                        return CreateRelationPropertyFailure(
+                            property,
+                            null,
+                            $"Relation property '{model.CsType.Name}.{property.PropertyName}' stores relation name '{property.RelationName}', but it is linked to relation '{relation.ConstraintName}'.");
+                    }
+
+                    var relationAttribute = property.Attributes.OfType<RelationAttribute>().FirstOrDefault();
+                    var otherPart = TryGetOtherRelationSide(relationPart);
+                    if (relationAttribute is not null && otherPart is not null)
+                    {
+                        if (!string.Equals(relationAttribute.Table, otherPart.ColumnIndex.Table.DbName, StringComparison.Ordinal))
+                            return CreateRelationPropertyFailure(
+                                property,
+                                relationAttribute,
+                                $"Relation property '{model.CsType.Name}.{property.PropertyName}' targets table '{relationAttribute.Table}', but it is linked to relation side on table '{otherPart.ColumnIndex.Table.DbName}'.");
+
+                        if (!RelationAttributeColumnsMatch(relationAttribute.Columns, otherPart.ColumnIndex.Columns))
+                            return CreateRelationPropertyFailure(
+                                property,
+                                relationAttribute,
+                                $"Relation property '{model.CsType.Name}.{property.PropertyName}' targets columns '{relationAttribute.Columns.ToJoinedString(", ")}', but it is linked to relation side columns '{otherPart.ColumnIndex.Columns.Select(column => column.DbName).ToJoinedString(", ")}'.");
+
+                        if (relationAttribute.Name is not null &&
+                            !string.IsNullOrWhiteSpace(relation.ConstraintName) &&
+                            !string.Equals(relationAttribute.Name, relation.ConstraintName, StringComparison.Ordinal))
+                        {
+                            return CreateRelationPropertyFailure(
+                                property,
+                                relationAttribute,
+                                $"Relation property '{model.CsType.Name}.{property.PropertyName}' targets relation '{relationAttribute.Name}', but it is linked to relation '{relation.ConstraintName}'.");
+                        }
+                    }
+                }
             }
+        }
+
+        return true;
+    }
+
+    private static RelationPart? TryGetOtherRelationSide(RelationPart relationPart) =>
+        relationPart.Type == RelationPartType.CandidateKey
+            ? relationPart.Relation.ForeignKey
+            : relationPart.Relation.CandidateKey;
+
+    private static bool RelationAttributeColumnsMatch(IReadOnlyList<string> attributeColumns, IReadOnlyList<ColumnDefinition> relationColumns)
+    {
+        if (attributeColumns.Count != relationColumns.Count)
+            return false;
+
+        for (var i = 0; i < attributeColumns.Count; i++)
+        {
+            if (!string.Equals(attributeColumns[i], relationColumns[i].DbName, StringComparison.Ordinal))
+                return false;
         }
 
         return true;
