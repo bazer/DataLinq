@@ -2426,6 +2426,64 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ExistingCompositeRelationWithPartialForeignKeyOrdinals_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateCompositeRelationDraft();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
+
+        var lineModel = database.TableModels.Single(tm => tm.Table.DbName == "order_line").Model;
+        SetPropertyAttributes(
+            lineModel.ValueProperties["OrderNo"],
+            [
+                new ForeignKeyAttribute("order_header", "order_no", "FK_OrderLine_Header"),
+                new ColumnAttribute("order_no")
+            ]);
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_OrderLine_Header'");
+        await Assert.That(failure.Message).Contains("partial composite [ForeignKey] ordinal metadata");
+        await Assert.That(failure.Message).Contains("order_line.order_no");
+    }
+
+    [Test]
+    public async Task Build_ExistingCompositeRelationWithMismatchedForeignKeyOrdinals_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateCompositeRelationDraft();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
+
+        var lineModel = database.TableModels.Single(tm => tm.Table.DbName == "order_line").Model;
+        SetPropertyAttributes(
+            lineModel.ValueProperties["TenantId"],
+            [
+                new ForeignKeyAttribute("order_header", "tenant_id", "FK_OrderLine_Header", 2),
+                new ColumnAttribute("tenant_id")
+            ]);
+        SetPropertyAttributes(
+            lineModel.ValueProperties["OrderNo"],
+            [
+                new ForeignKeyAttribute("order_header", "order_no", "FK_OrderLine_Header", 1),
+                new ColumnAttribute("order_no")
+            ]);
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_OrderLine_Header'");
+        await Assert.That(failure.Message).Contains("composite [ForeignKey] ordinals");
+        await Assert.That(failure.Message).Contains("foreign-key column order 'tenant_id, order_no'");
+        await Assert.That(failure.Message).Contains("order_line.tenant_id=2");
+        await Assert.That(failure.Message).Contains("order_line.order_no=1");
+    }
+
+    [Test]
     public async Task Build_ExistingRelationMissingCandidateKey_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();
@@ -2995,6 +3053,35 @@ public class MetadataDefinitionFactoryTests
         SetDatabaseTableModels(database, [
             userModel.TableModel,
             orderModel.TableModel
+        ]);
+
+        return database;
+    }
+
+    private static DatabaseDefinition CreateCompositeRelationDraft()
+    {
+        var database = new DatabaseDefinition(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
+
+        var headerModel = CreateTableModel(database, "OrderHeaders", "OrderHeader", "order_header").Model;
+        AddValueProperties(
+            headerModel,
+            ("TenantId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("tenant_id")]),
+            ("OrderNo", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("order_no")]),
+            ("Summary", typeof(string), [new ColumnAttribute("summary")]));
+
+        var lineModel = CreateTableModel(database, "OrderLines", "OrderLine", "order_line").Model;
+        AddValueProperties(
+            lineModel,
+            ("LineId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("line_id")]),
+            ("TenantId", typeof(int), [new ForeignKeyAttribute("order_header", "tenant_id", "FK_OrderLine_Header", 1), new ColumnAttribute("tenant_id")]),
+            ("OrderNo", typeof(int), [new ForeignKeyAttribute("order_header", "order_no", "FK_OrderLine_Header", 2), new ColumnAttribute("order_no")]),
+            ("Sku", typeof(string), [new ColumnAttribute("sku")]));
+
+        SetDatabaseTableModels(database, [
+            headerModel.TableModel,
+            lineModel.TableModel
         ]);
 
         return database;

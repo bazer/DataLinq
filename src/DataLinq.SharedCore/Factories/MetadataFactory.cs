@@ -2230,6 +2230,7 @@ public static class MetadataFactory
     {
         var foreignKeyColumns = relation.ForeignKey.ColumnIndex.Columns;
         var candidateColumns = relation.CandidateKey.ColumnIndex.Columns;
+        var matchingAttributes = new List<(ColumnDefinition Column, ForeignKeyAttribute Attribute)>(foreignKeyColumns.Count);
 
         for (var i = 0; i < foreignKeyColumns.Count; i++)
         {
@@ -2267,9 +2268,77 @@ public static class MetadataFactory
                 return createFailure(
                     $"Existing relation '{relationName}' uses on-update action '{relation.OnUpdate}' and on-delete action '{relation.OnDelete}', but foreign-key column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' metadata uses on-update action '{matchingAttribute.OnUpdate}' and on-delete action '{matchingAttribute.OnDelete}'.");
             }
+
+            matchingAttributes.Add((foreignKeyColumn, matchingAttribute));
         }
 
+        var ordinalFailure = ValidateExistingCompositeForeignKeyOrdinals(
+            relationName,
+            matchingAttributes,
+            createFailure);
+        if (ordinalFailure != null)
+            return ordinalFailure;
+
         return null;
+    }
+
+    private static IDLOptionFailure? ValidateExistingCompositeForeignKeyOrdinals(
+        string relationName,
+        IReadOnlyList<(ColumnDefinition Column, ForeignKeyAttribute Attribute)> matchingAttributes,
+        Func<string, IDLOptionFailure> createFailure)
+    {
+        if (matchingAttributes.Count <= 1)
+            return null;
+
+        var ordinals = matchingAttributes
+            .Select(x => x.Attribute.Ordinal)
+            .ToArray();
+        var ordinalCount = ordinals.Count(x => x.HasValue);
+
+        if (ordinalCount == 0)
+            return null;
+
+        if (ordinalCount != ordinals.Length)
+        {
+            var missingColumns = matchingAttributes
+                .Where(x => !x.Attribute.Ordinal.HasValue)
+                .Select(x => $"{x.Column.Table.DbName}.{x.Column.DbName}")
+                .ToJoinedString(", ");
+            return createFailure(
+                $"Existing relation '{relationName}' has partial composite [ForeignKey] ordinal metadata. Columns without ordinals: '{missingColumns}'.");
+        }
+
+        if (OrdinalsMatch(matchingAttributes, 0) || OrdinalsMatch(matchingAttributes, 1))
+            return null;
+
+        var foreignKeyOrder = matchingAttributes
+            .Select(x => x.Column.DbName)
+            .ToJoinedString(", ");
+        var actualOrdinals = matchingAttributes
+            .Select(x => $"{x.Column.Table.DbName}.{x.Column.DbName}={x.Attribute.Ordinal}")
+            .ToJoinedString(", ");
+        var zeroBasedExpected = Enumerable.Range(0, matchingAttributes.Count)
+            .Select(x => x.ToString())
+            .ToJoinedString(", ");
+        var oneBasedExpected = Enumerable.Range(1, matchingAttributes.Count)
+            .Select(x => x.ToString())
+            .ToJoinedString(", ");
+
+        return createFailure(
+            $"Existing relation '{relationName}' has composite [ForeignKey] ordinals that disagree with foreign-key column order '{foreignKeyOrder}'. Expected contiguous zero-based ordinals '{zeroBasedExpected}' or one-based ordinals '{oneBasedExpected}', but found '{actualOrdinals}'.");
+    }
+
+    private static bool OrdinalsMatch(
+        IReadOnlyList<(ColumnDefinition Column, ForeignKeyAttribute Attribute)> matchingAttributes,
+        int start)
+    {
+        for (var i = 0; i < matchingAttributes.Count; i++)
+        {
+            if (matchingAttributes[i].Attribute.Ordinal != start + i)
+                return false;
+        }
+
+        return true;
     }
 
     private static IDLOptionFailure? ValidateRelationPartIndexRegistration(
