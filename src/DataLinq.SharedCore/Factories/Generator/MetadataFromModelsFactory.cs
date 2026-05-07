@@ -179,7 +179,7 @@ public class MetadataFromModelsFactory
 
         if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.Type is GenericNameSyntax genericType && genericType.Identifier.Text == "DbRead")
-            .Select(prop => syntaxParser.GetTableType(prop, modelClasses, allowMissingTableModels || modelClasses.Count == 0))
+            .Select(prop => syntaxParser.GetTableType(prop, modelClasses, allowMissingTableModels || modelClasses.Count == 0, modelSyntaxes))
             .Transpose()
             .Map(x => x.Select(t => syntaxParser.ParseTableModelDraft(databaseCsType, t.classSyntax, t.csPropertyName)))
             .FlatMap(x => x.Transpose())

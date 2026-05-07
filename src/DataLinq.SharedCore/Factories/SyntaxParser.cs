@@ -1061,7 +1061,8 @@ public class SyntaxParser
     public Option<(string csPropertyName, TypeDeclarationSyntax classSyntax), IDLOptionFailure> GetTableType(
         PropertyDeclarationSyntax property,
         List<TypeDeclarationSyntax> modelTypeSyntaxes,
-        bool allowMissingTableModel = true)
+        bool allowMissingTableModel = true,
+        IReadOnlyCollection<TypeDeclarationSyntax>? declaredTypeSyntaxes = null)
     {
         var propType = property.Type;
 
@@ -1073,6 +1074,8 @@ public class SyntaxParser
             if (genericType.TypeArgumentList.Arguments[0] is IdentifierNameSyntax typeArgument)
             {
                 var modelClass = modelTypeSyntaxes.FirstOrDefault(cls => cls.Identifier.Text == typeArgument.Identifier.Text);
+                modelClass ??= declaredTypeSyntaxes?.FirstOrDefault(cls => cls.Identifier.Text == typeArgument.Identifier.Text);
+
                 if (modelClass == null && !allowMissingTableModel)
                     return FailProperty(property, DLFailureType.InvalidModel, $"Table property '{property.Identifier.Text}' references model '{typeArgument.Identifier.Text}', but no matching table or view model declaration was found.");
 
