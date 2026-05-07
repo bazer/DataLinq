@@ -936,7 +936,9 @@ public class SyntaxParser
 
         if (property is ValueProperty valueProp)
         {
-            var enumAttribute = parsedAttributes.OfType<EnumAttribute>().SingleOrDefault();
+            if (!TryGetSingleEnumAttribute(propSyntax, parsedAttributes, out var enumAttribute, out var enumFailure))
+                return enumFailure!;
+
             var propertyTypeName = valueProp.CsType.Name;
             var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
             var enumDeclaration = FindEnumDeclaration(propertyTypeName);
@@ -1030,7 +1032,9 @@ public class SyntaxParser
 
         int? csSize;
         EnumProperty? enumProperty = null;
-        var enumAttribute = parsedAttributes.OfType<EnumAttribute>().SingleOrDefault();
+        if (!TryGetSingleEnumAttribute(propSyntax, parsedAttributes, out var enumAttribute, out var enumFailure))
+            return enumFailure!;
+
         var propertyTypeName = csType.Name;
         var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
         var enumDeclaration = FindEnumDeclaration(propertyTypeName);
@@ -1084,6 +1088,28 @@ public class SyntaxParser
             CsSize = csSize,
             EnumProperty = enumProperty
         };
+    }
+
+    private static bool TryGetSingleEnumAttribute(
+        PropertyDeclarationSyntax propSyntax,
+        IEnumerable<Attribute> attributes,
+        out EnumAttribute? enumAttribute,
+        out IDLOptionFailure? failure)
+    {
+        var enumAttributes = attributes.OfType<EnumAttribute>().ToArray();
+        if (enumAttributes.Length > 1)
+        {
+            enumAttribute = null;
+            failure = FailProperty(
+                propSyntax,
+                DLFailureType.InvalidModel,
+                $"Property '{propSyntax.Identifier.Text}' defines multiple Enum attributes. A property can have only one Enum attribute.");
+            return false;
+        }
+
+        enumAttribute = enumAttributes.SingleOrDefault();
+        failure = null;
+        return true;
     }
 
     private static Option<CsTypeDeclaration, IDLOptionFailure> ParsePropertyCsType(PropertyDeclarationSyntax propSyntax)

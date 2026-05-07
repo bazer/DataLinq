@@ -2501,8 +2501,19 @@ public static class MetadataFactory
         {
             foreach (var property in tableModel.Model.ValueProperties.Values)
             {
+                var enumAttributes = property.Attributes.OfType<EnumAttribute>().ToArray();
+                if (enumAttributes.Length > 1)
+                    return CreateValuePropertyFailure(
+                        property,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' defines multiple EnumAttribute metadata entries. A value property can have only one enum attribute.");
+
                 if (!property.EnumProperty.HasValue)
                 {
+                    if (enumAttributes.Length == 1)
+                        return CreateValuePropertyFailure(
+                            property,
+                            $"Value property '{GetValuePropertyDisplayName(property)}' declares EnumAttribute metadata, but no enum property metadata is attached.");
+
                     if (property.CsType.Type?.IsEnum == true)
                         return CreateValuePropertyFailure(
                             property,

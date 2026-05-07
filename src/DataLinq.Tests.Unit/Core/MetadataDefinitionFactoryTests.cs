@@ -2919,6 +2919,39 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_EnumAttributeWithoutEnumMetadata_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [new EnumAttribute("Active", "Inactive")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Item.Id");
+        await Assert.That(failure.Message).Contains("declares EnumAttribute metadata");
+        await Assert.That(failure.Message).Contains("no enum property metadata");
+    }
+
+    [Test]
+    public async Task Build_MultipleEnumAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [new EnumAttribute("Active"), new EnumAttribute("Inactive")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Item.Id");
+        await Assert.That(failure.Message).Contains("multiple EnumAttribute metadata entries");
+    }
+
+    [Test]
     public async Task Build_EnumPropertyWithoutValues_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(

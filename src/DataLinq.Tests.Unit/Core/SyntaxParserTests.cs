@@ -440,6 +440,23 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParsePropertySyntax_MultipleEnumAttributes_ReturnsInvalidModelFailure()
+    {
+        var (parser, _, model) = GetPropertySyntax(@"[Column(""id""), PrimaryKey] public int Id { get; }");
+        var syntax = (PropertyDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(
+            @"[Column(""status_col""), Enum(""Active""), Enum(""Inactive"")] public StatusEnum Status { get; }")!;
+
+        var result = ParseMutablePropertyResult(parser, syntax, model);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Status");
+        await Assert.That(failure.Message).Contains("multiple Enum attributes");
+        await Assert.That(failure.Message).DoesNotContain("[Exception]");
+    }
+
+    [Test]
     public async Task ParsePropertySyntax_DefaultValue_PopulatesSourceInfo()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Column(""kontotexten""), Default(56)] public string Kontotexten { get; }");
