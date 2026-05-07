@@ -134,6 +134,35 @@ public class ModelFileFactoryTests
         await Assert.That(syntaxErrors).IsEmpty();
     }
 
+    [Test]
+    public async Task CreateModelFiles_CachePolicy_EmitsDatabaseAndTableCacheAttributes()
+    {
+        var database = CreateDatabaseWithCachePolicy();
+        var generatedFiles = new ModelFileFactory(new ModelFileFactoryOptions())
+            .CreateModelFiles(database)
+            .ToList();
+
+        var databaseFile = generatedFiles.Single(file => file.path == "CacheDb.cs");
+        await Assert.That(databaseFile.contents).Contains("[UseCache]");
+        await Assert.That(databaseFile.contents).Contains("[CacheLimit(CacheLimitType.Megabytes, 512)]");
+        await Assert.That(databaseFile.contents).Contains("[CacheCleanup(CacheCleanupType.Minutes, 15)]");
+        await Assert.That(databaseFile.contents).Contains("[IndexCache(IndexCacheType.MaxAmountRows, 2500)]");
+
+        var modelFile = generatedFiles.Single(file => file.path == "CachedModel.cs");
+        await Assert.That(modelFile.contents).Contains("[UseCache(false)]");
+        await Assert.That(modelFile.contents).Contains("[CacheLimit(CacheLimitType.Rows, 25)]");
+        await Assert.That(modelFile.contents).Contains("[IndexCache(IndexCacheType.All)]");
+        await Assert.That(modelFile.contents).Contains("[Table(\"cached_items\")]");
+
+        var databaseSyntaxTree = CSharpSyntaxTree.ParseText(databaseFile.contents);
+        var databaseSyntaxErrors = databaseSyntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+        await Assert.That(databaseSyntaxErrors).IsEmpty();
+
+        var modelSyntaxTree = CSharpSyntaxTree.ParseText(modelFile.contents);
+        var modelSyntaxErrors = modelSyntaxTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+        await Assert.That(modelSyntaxErrors).IsEmpty();
+    }
+
     private static DatabaseDefinition CreateDatabaseWithDefaultValue(CsTypeDeclaration propertyType, object defaultValue)
     {
         var draft = new MetadataDatabaseDraft(
@@ -285,6 +314,39 @@ public class ModelFileFactoryTests
                     {
                         Type = TableType.View,
                         Definition = "select \"active\" as status"
+                    })
+            ]
+        };
+
+        return Build(draft);
+    }
+
+    private static DatabaseDefinition CreateDatabaseWithCachePolicy()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "CacheDb",
+            new CsTypeDeclaration("CacheDb", "TestNamespace", ModelCsType.Class))
+        {
+            UseCache = true,
+            CacheLimits = [(CacheLimitType.Megabytes, 512)],
+            CacheCleanup = [(CacheCleanupType.Minutes, 15)],
+            IndexCache = [(IndexCacheType.MaxAmountRows, 2500)],
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "CachedModels",
+                    new MetadataModelDraft(new CsTypeDeclaration("CachedModel", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            CreateValueProperty("Id", typeof(int), "id", "int", primaryKey: true)
+                        ]
+                    },
+                    new MetadataTableDraft("cached_items")
+                    {
+                        UseCache = false,
+                        CacheLimits = [(CacheLimitType.Rows, 25)],
+                        IndexCache = [(IndexCacheType.All, null)]
                     })
             ]
         };

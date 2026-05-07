@@ -112,6 +112,9 @@ public class ModelFileFactory
         foreach (var cleanup in database.CacheCleanup)
             yield return $"{namespaceTab}[CacheCleanup(CacheCleanupType.{cleanup.cleanupType}, {cleanup.amount})]";
 
+        foreach (var indexCache in database.IndexCache)
+            yield return $"{namespaceTab}{FormatIndexCacheAttribute(indexCache)}";
+
         yield return $"{namespaceTab}[Database({FormatStringLiteral(database.Name)})]";
         yield return $"{namespaceTab}public partial class {dbName}(DataSourceAccess dataSource) : IDatabaseModel";
         //yield return $"{namespaceTab}public interface {dbName} : IDatabaseModel";
@@ -174,6 +177,17 @@ public class ModelFileFactory
 
         foreach (var check in model.Attributes.OfType<CheckAttribute>())
             yield return $"{namespaceTab}{FormatCheckAttribute(check)}";
+
+        if (table.explicitUseCache.HasValue)
+            yield return table.explicitUseCache.Value
+                ? $"{namespaceTab}[UseCache]"
+                : $"{namespaceTab}[UseCache(false)]";
+
+        foreach (var limit in table.CacheLimits)
+            yield return $"{namespaceTab}[CacheLimit(CacheLimitType.{limit.limitType}, {limit.amount})]";
+
+        foreach (var indexCache in table.IndexCache)
+            yield return $"{namespaceTab}{FormatIndexCacheAttribute(indexCache)}";
 
         if (table is ViewDefinition view)
         {
@@ -351,6 +365,11 @@ public class ModelFileFactory
             ? $"[Check({name}, {expression})]"
             : $"[Check(DatabaseType.{check.DatabaseType}, {name}, {expression})]";
     }
+
+    private static string FormatIndexCacheAttribute((IndexCacheType indexCacheType, int? amount) indexCache) =>
+        indexCache.amount.HasValue
+            ? $"[IndexCache(IndexCacheType.{indexCache.indexCacheType}, {indexCache.amount.Value})]"
+            : $"[IndexCache(IndexCacheType.{indexCache.indexCacheType})]";
 
     private static string FormatStringLiteral(string value) =>
         SymbolDisplay.FormatLiteral(value, quote: true);
