@@ -90,6 +90,10 @@ public sealed class MetadataDefinitionDraft
         if (!viewDefinitionValidation.HasValue)
             return viewDefinitionValidation.Failure;
 
+        var columnPropertyValidation = MetadataFactory.ValidateExistingColumnPropertyBindings(metadata);
+        if (!columnPropertyValidation.HasValue)
+            return columnPropertyValidation.Failure;
+
         var primaryKeyValidation = MetadataFactory.ValidateExistingPrimaryKeyColumns(metadata);
         if (!primaryKeyValidation.HasValue)
             return primaryKeyValidation.Failure;
@@ -97,10 +101,6 @@ public sealed class MetadataDefinitionDraft
         var indexValidation = MetadataFactory.ValidateExistingColumnIndices(metadata);
         if (!indexValidation.HasValue)
             return indexValidation.Failure;
-
-        var columnPropertyValidation = MetadataFactory.ValidateExistingColumnPropertyBindings(metadata);
-        if (!columnPropertyValidation.HasValue)
-            return columnPropertyValidation.Failure;
 
         var columnTypeValidation = MetadataFactory.ValidateExistingColumnTypes(metadata);
         if (!columnTypeValidation.HasValue)
