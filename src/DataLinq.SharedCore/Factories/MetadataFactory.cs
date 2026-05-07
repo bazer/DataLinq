@@ -1941,6 +1941,7 @@ public static class MetadataFactory
                     continue;
 
                 var failure = ValidateExistingRelationPart(
+                    database,
                     relationPart,
                     $"relation property '{tableModel.Model.CsType.Name}.{relationProperty.PropertyName}'",
                     message => CreateRelationPropertyFailure(relationProperty, null, message));
@@ -1969,6 +1970,7 @@ public static class MetadataFactory
                     }
 
                     var failure = ValidateExistingRelationPart(
+                        database,
                         relationPart,
                         $"index '{index.Name}' on table '{tableModel.Table.DbName}'",
                         message => CreateColumnIndexFailure(tableModel.Table, message));
@@ -1982,6 +1984,7 @@ public static class MetadataFactory
     }
 
     private static IDLOptionFailure? ValidateExistingRelationPart(
+        DatabaseDefinition database,
         RelationPart relationPart,
         string ownerDescription,
         Func<string, IDLOptionFailure> createFailure)
@@ -2039,6 +2042,24 @@ public static class MetadataFactory
         if (relation.CandidateKey.ColumnIndex is null)
             return createFailure($"Existing relation '{relationName}' has a candidate-key part without a column index.");
 
+        var foreignKeyTableFailure = ValidateRelationPartIndexTable(
+            database,
+            relation.ForeignKey,
+            relationName,
+            "foreign-key",
+            createFailure);
+        if (foreignKeyTableFailure != null)
+            return foreignKeyTableFailure;
+
+        var candidateKeyTableFailure = ValidateRelationPartIndexTable(
+            database,
+            relation.CandidateKey,
+            relationName,
+            "candidate-key",
+            createFailure);
+        if (candidateKeyTableFailure != null)
+            return candidateKeyTableFailure;
+
         if (!relation.ForeignKey.ColumnIndex.RelationParts.Contains(relation.ForeignKey))
             return createFailure($"Existing relation '{relationName}' foreign-key part is not registered on index '{relation.ForeignKey.ColumnIndex.Name}'.");
 
@@ -2052,6 +2073,25 @@ public static class MetadataFactory
         }
 
         return null;
+    }
+
+    private static IDLOptionFailure? ValidateRelationPartIndexTable(
+        DatabaseDefinition database,
+        RelationPart relationPart,
+        string relationName,
+        string sideName,
+        Func<string, IDLOptionFailure> createFailure)
+    {
+        var table = relationPart.ColumnIndex.Table;
+        if (table is not null &&
+            database.TableModels.Any(tableModel => ReferenceEquals(tableModel?.Table, table)))
+        {
+            return null;
+        }
+
+        var tableName = table?.DbName ?? "<unknown>";
+        return createFailure(
+            $"Existing relation '{relationName}' has a {sideName} part on table '{tableName}', but that table is not registered on database '{database.DbName}'.");
     }
 
     private static SourceLocation? GetColumnNameSourceLocation(ValueProperty property)

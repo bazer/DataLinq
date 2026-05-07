@@ -2298,6 +2298,50 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ExistingRelationWithExternalCandidateKeyIndex_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        var externalDatabase = new DatabaseDefinition(
+            "ExternalDb",
+            new CsTypeDeclaration("ExternalDb", "TestNamespace", ModelCsType.Class));
+        var externalModel = CreateTableModel(externalDatabase, "ExternalItems", "ExternalItem", "external_items").Model;
+        AddValueProperties(
+            externalModel,
+            ("ExternalId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("external_id")]));
+
+        var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
+        var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
+        var externalId = externalModel.Table.Columns.Single(column => column.DbName == "external_id");
+        var foreignKeyIndex = new ColumnIndex("FK_External", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
+        var candidateKeyIndex = new ColumnIndex("external_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [externalId]);
+        AddMetadataListItem(orders.Table.ColumnIndices, foreignKeyIndex);
+        AddMetadataListItem(externalModel.Table.ColumnIndices, candidateKeyIndex);
+        var relation = new RelationDefinition("FK_External", RelationType.OneToMany);
+        var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "ExternalItem");
+        var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "Orders");
+        SetRelationForeignKey(relation, foreignKeyPart);
+        SetRelationCandidateKey(relation, candidateKeyPart);
+        AddMetadataListItem(foreignKeyIndex.RelationParts, foreignKeyPart);
+        AddMetadataListItem(candidateKeyIndex.RelationParts, candidateKeyPart);
+        var relationProperty = new RelationProperty(
+            "ExternalItem",
+            externalModel.CsType,
+            orders.Model,
+            [new RelationAttribute("external_items", "external_id", "FK_External")]);
+        SetRelationPropertyPart(relationProperty, foreignKeyPart);
+        AddModelProperty(orders.Model, relationProperty);
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_External'");
+        await Assert.That(failure.Message).Contains("candidate-key part on table 'external_items'");
+        await Assert.That(failure.Message).Contains("not registered on database 'TestDb'");
+    }
+
+    [Test]
     public async Task Build_ExistingRelationWithUnsupportedReferentialAction_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();
