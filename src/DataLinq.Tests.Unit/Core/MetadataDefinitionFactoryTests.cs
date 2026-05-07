@@ -54,6 +54,15 @@ public class MetadataDefinitionFactoryTests
         var foreignKeyIndex = orderTable.ColumnIndices.Single(index => index.Name == "FK_Order_User");
         var relation = customerProperty.RelationPart.Relation;
         var dbType = orderId.DbTypes.Single();
+        var changedFile = new CsFileDeclaration("Changed.cs");
+        var changedClass = new CsTypeDeclaration("Changed", "TestNamespace", ModelCsType.Class);
+        var changedInterface = new CsTypeDeclaration("IChanged", "TestNamespace", ModelCsType.Interface);
+        var changedRecord = new CsTypeDeclaration("ChangedRecord", "TestNamespace", ModelCsType.Record);
+        var sourceSpan = new SourceTextSpan(1, 1);
+        var attributeSourceSpan = new SourceTextSpan(2, 1);
+        var databaseAttribute = new DatabaseAttribute("ChangedDb");
+        var modelAttribute = new TableAttribute("changed");
+        var propertyAttribute = new ColumnAttribute("changed");
         ColumnIndex NewAmountIndex(string name) => new(name, IndexCharacteristic.Simple, IndexType.BTREE, [amount]);
 
         await Assert.That(built.IsFrozen).IsTrue();
@@ -97,16 +106,64 @@ public class MetadataDefinitionFactoryTests
         await AssertArrayElementAssignmentDoesNotMutate(() => orderId.DbTypes, new DatabaseColumnType(DatabaseType.MySQL, "bigint"));
         await AssertArrayElementAssignmentDoesNotMutate(() => orderIdProperty.Attributes, new ColumnAttribute("changed"));
 
+        await AssertFrozenMutation(() => SetDatabaseName(built, "Changed"));
         await AssertFrozenMutation(() => SetDatabaseDbName(built, "changed"));
+        await AssertFrozenMutation(() => SetDatabaseCsType(built, changedClass));
+        await AssertFrozenMutation(() => SetDatabaseCsFile(built, changedFile));
+        await AssertFrozenMutation(() => SetDatabaseCache(built, true));
+        await AssertFrozenMutation(() => SetDatabaseAttributes(built, [databaseAttribute]));
+        await AssertFrozenMutation(() => SetDatabaseSourceSpan(built, sourceSpan));
+        await AssertFrozenMutation(() => SetDatabaseAttributeSourceSpan(built, databaseAttribute, attributeSourceSpan));
+        await AssertFrozenMutation(() => SetDatabaseTableModels(built, [orderTableModel]));
         await AssertFrozenMutation(() => SetTableModelPropertyName(orderTableModel, "Changed"));
         await AssertFrozenMutation(() => SetTableDbName(orderTable, "changed"));
+        await AssertFrozenMutation(() => SetTableColumns(orderTable, [orderId, amount]));
         await AssertFrozenMutation(() => SetTableUseCache(orderTable, true));
+        await AssertFrozenMutation(() => AddTablePrimaryKeyColumn(orderTable, amount));
+        await AssertFrozenMutation(() => RemoveTablePrimaryKeyColumn(orderTable, orderId));
         await AssertFrozenMutation(() => SetModelCsType(orderModel, new CsTypeDeclaration("Changed", "TestNamespace", ModelCsType.Class)));
+        await AssertFrozenMutation(() => SetModelCsFile(orderModel, changedFile));
+        await AssertFrozenMutation(() => SetModelImmutableType(orderModel, changedRecord));
+        await AssertFrozenMutation(() => SetModelImmutableFactory(orderModel, new Func<object>(() => new object())));
+        await AssertFrozenMutation(() => SetModelMutableType(orderModel, changedClass));
+        await AssertFrozenMutation(() => SetModelInstanceInterface(orderModel, changedInterface));
+        await AssertFrozenMutation(() => SetModelInterfaces(orderModel, [changedInterface]));
+        await AssertFrozenMutation(() => SetModelUsings(orderModel, [new ModelUsing("Other.Namespace")]));
+        await AssertFrozenMutation(() => SetModelAttributes(orderModel, [modelAttribute]));
+        await AssertFrozenMutation(() => AddModelAttribute(orderModel, modelAttribute));
+        await AssertFrozenMutation(() => SetModelSourceSpan(orderModel, sourceSpan));
+        await AssertFrozenMutation(() => SetModelAttributeSourceSpan(orderModel, modelAttribute, attributeSourceSpan));
+        await AssertFrozenMutation(() => AddModelProperties(orderModel, [orderIdProperty]));
+        await AssertFrozenMutation(() => AddModelProperty(orderModel, orderIdProperty));
+        await AssertFrozenMutation(() => SetColumnDbName(orderId, "changed"));
         await AssertFrozenMutation(() => SetColumnIndex(orderId, 42));
+        await AssertFrozenMutation(() => SetColumnForeignKey(orderId, true));
+        await AssertFrozenMutation(() => SetColumnAutoIncrement(orderId, true));
+        await AssertFrozenMutation(() => SetColumnNullable(orderId, true));
+        await AssertFrozenMutation(() => SetColumnValueProperty(orderId, orderIdProperty));
+        await AssertFrozenMutation(() => SetColumnPrimaryKey(orderId));
+        await AssertFrozenMutation(() => AddColumnDbType(orderId, new DatabaseColumnType(DatabaseType.MySQL, "bigint")));
+        await AssertFrozenMutation(() => SetPropertyAttributes(orderIdProperty, [propertyAttribute]));
+        await AssertFrozenMutation(() => AddPropertyAttribute(orderIdProperty, propertyAttribute));
         await AssertFrozenMutation(() => SetPropertyName(orderIdProperty, "Changed"));
+        await AssertFrozenMutation(() => SetPropertyCsType(orderIdProperty, new CsTypeDeclaration(typeof(long))));
+        await AssertFrozenMutation(() => SetPropertyCsNullable(orderIdProperty, true));
+        await AssertFrozenMutation(() => SetPropertySourceInfo(orderIdProperty, new PropertySourceInfo(sourceSpan, attributeSourceSpan)));
+        await AssertFrozenMutation(() => SetPropertyAttributeSourceSpan(orderIdProperty, propertyAttribute, attributeSourceSpan));
+        await AssertFrozenMutation(() => SetValuePropertyColumn(orderIdProperty, amount));
+        await AssertFrozenMutation(() => SetValuePropertyCsSize(orderIdProperty, 32));
+        await AssertFrozenMutation(() => SetValuePropertyEnumProperty(orderIdProperty, new EnumProperty([("Changed", 1)])));
         await AssertFrozenMutation(() => SetRelationPropertyName(customerProperty, "Changed"));
+        await AssertFrozenMutation(() => SetRelationPropertyPart(customerProperty, relation.ForeignKey));
+        await AssertFrozenMutation(() => SetIndexTable(foreignKeyIndex, orderTable));
         await AssertFrozenMutation(() => AddColumnToIndex(foreignKeyIndex, amount));
+        await AssertFrozenMutation(() => SetIndexRelationParts(foreignKeyIndex, new MetadataList<RelationPart>()));
+        await AssertFrozenMutation(() => SetRelationForeignKey(relation, relation.ForeignKey));
+        await AssertFrozenMutation(() => SetRelationCandidateKey(relation, relation.CandidateKey));
+        await AssertFrozenMutation(() => SetRelationType(relation, RelationType.OneToMany));
         await AssertFrozenMutation(() => SetRelationConstraintName(relation, "Changed"));
+        await AssertFrozenMutation(() => SetRelationOnUpdate(relation, ReferentialAction.Cascade));
+        await AssertFrozenMutation(() => SetRelationOnDelete(relation, ReferentialAction.SetNull));
         await AssertFrozenMutation(() => SetDatabaseColumnTypeName(dbType, "bigint"));
         await AssertFrozenMutation(() => SetDatabaseColumnTypeLength(dbType, 12));
         await AssertFrozenMutation(() => SetDatabaseColumnTypeDecimals(dbType, 2U));
@@ -131,6 +188,18 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => built.IndexCache.Clear());
         await AssertFrozenMutation(() => orderTable.CacheLimits.Clear());
         await AssertFrozenMutation(() => orderTable.IndexCache.Clear());
+    }
+
+    [Test]
+    public async Task Build_TypedViewDraft_ReturnsFrozenViewDefinition()
+    {
+        var database = CreateViewTypedDraft("select name from active_items");
+
+        var built = new MetadataDefinitionFactory().Build(database).ValueOrException();
+
+        var view = (ViewDefinition)built.TableModels.Single().Table;
+        await Assert.That(view.IsFrozen).IsTrue();
+        await AssertFrozenMutation(() => SetViewDefinition(view, "select 1"));
     }
 
     [Test]
@@ -2786,11 +2855,32 @@ public class MetadataDefinitionFactoryTests
     }
 
 #pragma warning disable CS0618 // These helpers intentionally exercise the legacy mutable metadata surface.
+    private static void SetDatabaseName(DatabaseDefinition database, string name) =>
+        database.SetName(name);
+
     private static void SetDatabaseTableModels(DatabaseDefinition database, IEnumerable<TableModel> tableModels) =>
         database.SetTableModels(tableModels);
 
     private static void SetDatabaseDbName(DatabaseDefinition database, string dbName) =>
         database.SetDbName(dbName);
+
+    private static void SetDatabaseCsType(DatabaseDefinition database, CsTypeDeclaration csType) =>
+        database.SetCsType(csType);
+
+    private static void SetDatabaseCsFile(DatabaseDefinition database, CsFileDeclaration csFile) =>
+        database.SetCsFile(csFile);
+
+    private static void SetDatabaseCache(DatabaseDefinition database, bool useCache) =>
+        database.SetCache(useCache);
+
+    private static void SetDatabaseAttributes(DatabaseDefinition database, IEnumerable<Attribute> attributes) =>
+        database.SetAttributes(attributes);
+
+    private static void SetDatabaseSourceSpan(DatabaseDefinition database, SourceTextSpan sourceSpan) =>
+        database.SetSourceSpan(sourceSpan);
+
+    private static void SetDatabaseAttributeSourceSpan(DatabaseDefinition database, Attribute attribute, SourceTextSpan sourceSpan) =>
+        database.SetAttributeSourceSpan(attribute, sourceSpan);
 
     private static void SetTableModelPropertyName(TableModel tableModel, string propertyName) =>
         tableModel.SetCsPropertyName(propertyName);
@@ -2807,8 +2897,41 @@ public class MetadataDefinitionFactoryTests
     private static void SetModelCsType(ModelDefinition model, CsTypeDeclaration csType) =>
         model.SetCsType(csType);
 
+    private static void SetModelCsFile(ModelDefinition model, CsFileDeclaration csFile) =>
+        model.SetCsFile(csFile);
+
+    private static void SetModelImmutableType(ModelDefinition model, CsTypeDeclaration immutableType) =>
+        model.SetImmutableType(immutableType);
+
+    private static void SetModelImmutableFactory(ModelDefinition model, Delegate immutableFactory) =>
+        model.SetImmutableFactory(immutableFactory);
+
+    private static void SetModelMutableType(ModelDefinition model, CsTypeDeclaration mutableType) =>
+        model.SetMutableType(mutableType);
+
+    private static void SetModelInstanceInterface(ModelDefinition model, CsTypeDeclaration? interfaceType) =>
+        model.SetModelInstanceInterface(interfaceType);
+
     private static void SetModelInterfaces(ModelDefinition model, IEnumerable<CsTypeDeclaration> interfaces) =>
         model.SetInterfaces(interfaces);
+
+    private static void SetModelUsings(ModelDefinition model, IEnumerable<ModelUsing> usings) =>
+        model.SetUsings(usings);
+
+    private static void SetModelAttributes(ModelDefinition model, IEnumerable<Attribute> attributes) =>
+        model.SetAttributes(attributes);
+
+    private static void AddModelAttribute(ModelDefinition model, Attribute attribute) =>
+        model.AddAttribute(attribute);
+
+    private static void SetModelSourceSpan(ModelDefinition model, SourceTextSpan sourceSpan) =>
+        model.SetSourceSpan(sourceSpan);
+
+    private static void SetModelAttributeSourceSpan(ModelDefinition model, Attribute attribute, SourceTextSpan sourceSpan) =>
+        model.SetAttributeSourceSpan(attribute, sourceSpan);
+
+    private static void AddModelProperties(ModelDefinition model, IEnumerable<PropertyDefinition> properties) =>
+        model.AddProperties(properties);
 
     private static void AddModelProperty(ModelDefinition model, PropertyDefinition property) =>
         model.AddProperty(property);
@@ -2816,26 +2939,74 @@ public class MetadataDefinitionFactoryTests
     private static void SetTableColumns(TableDefinition table, IEnumerable<ColumnDefinition> columns) =>
         table.SetColumns(columns);
 
+    private static void AddTablePrimaryKeyColumn(TableDefinition table, ColumnDefinition column) =>
+        table.AddPrimaryKeyColumn(column);
+
     private static void SetColumnPrimaryKey(ColumnDefinition column) =>
         column.SetPrimaryKey();
 
     private static void RemoveTablePrimaryKeyColumn(TableDefinition table, ColumnDefinition column) =>
         table.RemovePrimaryKeyColumn(column);
 
+    private static void SetColumnDbName(ColumnDefinition column, string dbName) =>
+        column.SetDbName(dbName);
+
     private static void SetColumnIndex(ColumnDefinition column, int index) =>
         column.SetIndex(index);
+
+    private static void SetColumnForeignKey(ColumnDefinition column, bool foreignKey) =>
+        column.SetForeignKey(foreignKey);
+
+    private static void SetColumnAutoIncrement(ColumnDefinition column, bool autoIncrement) =>
+        column.SetAutoIncrement(autoIncrement);
+
+    private static void SetColumnNullable(ColumnDefinition column, bool nullable) =>
+        column.SetNullable(nullable);
 
     private static void SetColumnValueProperty(ColumnDefinition column, ValueProperty property) =>
         column.SetValueProperty(property);
 
+    private static void AddColumnDbType(ColumnDefinition column, DatabaseColumnType columnType) =>
+        column.AddDbType(columnType);
+
+    private static void SetPropertyAttributes(PropertyDefinition property, IEnumerable<Attribute> attributes) =>
+        property.SetAttributes(attributes);
+
+    private static void AddPropertyAttribute(PropertyDefinition property, Attribute attribute) =>
+        property.AddAttribute(attribute);
+
     private static void SetPropertyName(PropertyDefinition property, string propertyName) =>
         property.SetPropertyName(propertyName);
+
+    private static void SetPropertyCsType(PropertyDefinition property, CsTypeDeclaration csType) =>
+        property.SetCsType(csType);
+
+    private static void SetPropertyCsNullable(PropertyDefinition property, bool csNullable) =>
+        property.SetCsNullable(csNullable);
+
+    private static void SetPropertySourceInfo(PropertyDefinition property, PropertySourceInfo sourceInfo) =>
+        property.SetSourceInfo(sourceInfo);
+
+    private static void SetPropertyAttributeSourceSpan(PropertyDefinition property, Attribute attribute, SourceTextSpan sourceSpan) =>
+        property.SetAttributeSourceSpan(attribute, sourceSpan);
+
+    private static void SetValuePropertyColumn(ValueProperty property, ColumnDefinition column) =>
+        property.SetColumn(column);
+
+    private static void SetValuePropertyCsSize(ValueProperty property, int? csSize) =>
+        property.SetCsSize(csSize);
+
+    private static void SetValuePropertyEnumProperty(ValueProperty property, EnumProperty enumProperty) =>
+        property.SetEnumProperty(enumProperty);
 
     private static void SetRelationPropertyName(RelationProperty property, string? relationName) =>
         property.SetRelationName(relationName);
 
     private static void SetRelationPropertyPart(RelationProperty property, RelationPart relationPart) =>
         property.SetRelationPart(relationPart);
+
+    private static void SetIndexTable(ColumnIndex index, TableDefinition table) =>
+        index.Table = table;
 
     private static void AddColumnToIndex(ColumnIndex index, ColumnDefinition column) =>
         index.AddColumn(column);
@@ -2849,8 +3020,14 @@ public class MetadataDefinitionFactoryTests
     private static void SetRelationCandidateKey(RelationDefinition relation, RelationPart candidateKey) =>
         relation.CandidateKey = candidateKey;
 
+    private static void SetRelationType(RelationDefinition relation, RelationType type) =>
+        relation.Type = type;
+
     private static void SetRelationConstraintName(RelationDefinition relation, string constraintName) =>
         relation.ConstraintName = constraintName;
+
+    private static void SetRelationOnUpdate(RelationDefinition relation, ReferentialAction onUpdate) =>
+        relation.OnUpdate = onUpdate;
 
     private static void SetRelationOnDelete(RelationDefinition relation, ReferentialAction onDelete) =>
         relation.OnDelete = onDelete;
