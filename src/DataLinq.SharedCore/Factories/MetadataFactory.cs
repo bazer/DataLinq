@@ -1504,6 +1504,26 @@ public static class MetadataFactory
                             table,
                             $"Index '{index.Name}' on table '{table.DbName}' references column '{column.DbName}', but that column is not registered on the table.");
                 }
+
+                if (index.Characteristic == IndexCharacteristic.PrimaryKey &&
+                    !ColumnsMatch(index.Columns, table.PrimaryKeyColumns))
+                {
+                    var primaryKeyColumns = table.PrimaryKeyColumns.Select(column => column.DbName).ToJoinedString(", ");
+                    return CreateColumnIndexFailure(
+                        table,
+                        $"Primary-key index '{index.Name}' on table '{table.DbName}' must match the table primary-key columns '{primaryKeyColumns}'.");
+                }
+
+                if (index.Characteristic == IndexCharacteristic.ForeignKey)
+                {
+                    var nonForeignKeyColumn = index.Columns.FirstOrDefault(column => !column.ForeignKey);
+                    if (nonForeignKeyColumn != null)
+                    {
+                        return CreateColumnIndexFailure(
+                            table,
+                            $"Foreign-key index '{index.Name}' on table '{table.DbName}' references column '{nonForeignKeyColumn.DbName}', but foreign-key index columns must be marked as foreign keys.");
+                    }
+                }
             }
 
             var duplicateIndexGroup = table.ColumnIndices

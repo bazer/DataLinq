@@ -2214,6 +2214,45 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_PrimaryKeyIndexWithNonPrimaryColumn_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("Code", typeof(string), [new ColumnAttribute("code")]));
+        var table = database.TableModels.Single().Table;
+        var codeColumn = table.Columns.Single(column => column.DbName == "code");
+        AddMetadataListItem(table.ColumnIndices, new ColumnIndex("items_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [codeColumn]));
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Primary-key index 'items_primary_key'");
+        await Assert.That(failure.Message).Contains("must match the table primary-key columns 'id'");
+    }
+
+    [Test]
+    public async Task Build_ForeignKeyIndexWithNonForeignKeyColumn_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableDraft(
+            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
+            ("Code", typeof(string), [new ColumnAttribute("code")]));
+        var table = database.TableModels.Single().Table;
+        var codeColumn = table.Columns.Single(column => column.DbName == "code");
+        AddMetadataListItem(table.ColumnIndices, new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [codeColumn]));
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Foreign-key index 'FK_Broken'");
+        await Assert.That(failure.Message).Contains("references column 'code'");
+        await Assert.That(failure.Message).Contains("must be marked as foreign keys");
+    }
+
+    [Test]
     public async Task Build_TableWithDuplicateExistingIndexNames_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableDraft(
