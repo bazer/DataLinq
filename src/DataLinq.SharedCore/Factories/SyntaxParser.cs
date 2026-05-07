@@ -49,7 +49,7 @@ public class SyntaxParser
                 return failure;
         }
 
-        return new TableModel(csPropertyName, database, model, typeSyntax == null);
+        return TableModel.FromParsedModelCore(csPropertyName, database, model, typeSyntax == null);
     }
 
     public Option<MetadataTableModelDraft, IDLOptionFailure> ParseTableModelDraft(

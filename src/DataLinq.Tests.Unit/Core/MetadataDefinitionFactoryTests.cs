@@ -272,7 +272,16 @@ public class MetadataDefinitionFactoryTests
             .OfType<string>()
             .ToArray();
 
+        var missingConstructors = new (Type Type, Type[] ParameterTypes)[]
+            {
+                (typeof(TableModel), [typeof(string), typeof(DatabaseDefinition), typeof(ModelDefinition), typeof(bool)])
+            }
+            .Select(item => FindMissingObsoleteConstructor(item.Type, item.ParameterTypes))
+            .OfType<string>()
+            .ToArray();
+
         await Assert.That(missingMethods).IsEmpty();
+        await Assert.That(missingConstructors).IsEmpty();
     }
 
     [Test]
@@ -2979,6 +2988,15 @@ public class MetadataDefinitionFactoryTests
             return null;
 
         return $"{type.Name}.{methodName}({string.Join(", ", parameterTypes.Select(parameterType => parameterType.Name))})";
+    }
+
+    private static string? FindMissingObsoleteConstructor(Type type, Type[] parameterTypes)
+    {
+        var constructor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, binder: null, types: parameterTypes, modifiers: null);
+        if (constructor?.GetCustomAttribute<ObsoleteAttribute>() is not null)
+            return null;
+
+        return $"{type.Name}({string.Join(", ", parameterTypes.Select(parameterType => parameterType.Name))})";
     }
 
     private static void SetPropertyType(PropertyDefinition property, PropertyType type)

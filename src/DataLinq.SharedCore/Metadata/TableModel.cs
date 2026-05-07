@@ -35,16 +35,24 @@ public class TableModel
         Model.SetTableModel(this);
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public TableModel(string csPropertyName, DatabaseDefinition database, ModelDefinition model, bool isStub = false)
+        : this(csPropertyName, database, model, MetadataFactory.ParseTableCore(model), isStub)
     {
-        CsPropertyName = csPropertyName;
-        Database = database;
-        Model = model;
-        Table = MetadataFactory.ParseTableCore(model);
-        IsStub = isStub;
+    }
 
-        Table.SetTableModel(this);
-        Model.SetTableModel(this);
+    internal static TableModel FromParsedModelCore(
+        string csPropertyName,
+        DatabaseDefinition database,
+        ModelDefinition model,
+        bool isStub = false)
+    {
+        return new TableModel(
+            csPropertyName,
+            database,
+            model,
+            MetadataFactory.ParseTableCore(model),
+            isStub);
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
