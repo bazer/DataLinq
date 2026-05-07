@@ -463,12 +463,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DatabaseWithNullAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.SetAttributes([null!]);
+        var database = CreateSingleTableTypedDraft(
+            databaseAttributes: [null!]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -480,12 +479,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ModelWithNullAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.TableModels.Single().Model.SetAttributes([null!]);
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [null!]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -497,12 +495,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ValuePropertyWithNullAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.TableModels.Single().Model.ValueProperties["Id"].SetAttributes([null!]);
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [null!]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -549,17 +546,19 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_RelationPropertyWithNullAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateRelationDraft();
-        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
-        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
-        orderModel.AddProperty(new RelationProperty(
-            "Customer",
-            userModel.CsType,
-            orderModel,
-            [null!]));
+        var database = CreateRelationTypedDraft(
+            orderRelationProperties:
+            [
+                new MetadataRelationPropertyDraft(
+                    "Customer",
+                    new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                {
+                    Attributes = [null!]
+                }
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -613,12 +612,12 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DatabaseWithEmptyName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.SetName(" ");
+        var database = CreateSingleTableTypedDraft(
+            databaseName: " ",
+            databaseDbName: "TestDb");
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -630,12 +629,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DatabaseWithEmptyPhysicalName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.SetDbName("");
+        var database = CreateSingleTableTypedDraft(
+            databaseDbName: "");
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -647,12 +645,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_TableWithEmptyName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.TableModels.Single().Table.SetDbName(" ");
+        var database = CreateSingleTableTypedDraft(
+            tableDbName: " ");
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -664,12 +661,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ColumnWithEmptyName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.TableModels.Single().Table.Columns.Single().SetDbName("");
+        var database = CreateSingleTableTypedDraft(
+            valueColumnName: "");
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -681,13 +677,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ClassIndexWithUnsupportedType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var model = database.TableModels.Single().Model;
-        model.AddAttribute(new IndexAttribute("IX_items_id", IndexCharacteristic.Simple, (IndexType)999, "id"));
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new IndexAttribute("IX_items_id", IndexCharacteristic.Simple, (IndexType)999, "id")]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -699,13 +693,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_PropertyIndexWithEmptyColumnName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.AddAttribute(new IndexAttribute("IX_items_id", IndexCharacteristic.Simple, ""));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [new IndexAttribute("IX_items_id", IndexCharacteristic.Simple, "")]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -717,17 +709,20 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ForeignKeyWithUnsupportedReferentialAction_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateRelationDraft();
-        var property = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model.ValueProperties["CustomerId"];
-        property.AddAttribute(new ForeignKeyAttribute(
-            "users",
-            "user_id",
-            "FK_Order_User_Invalid",
-            (ReferentialAction)999,
-            ReferentialAction.Cascade));
+        var database = CreateRelationTypedDraft(
+            orderCustomerIdAttributes:
+            [
+                new ForeignKeyAttribute(
+                    "users",
+                    "user_id",
+                    "FK_Order_User_Invalid",
+                    (ReferentialAction)999,
+                    ReferentialAction.Cascade),
+                new ColumnAttribute("customer_id")
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -739,17 +734,19 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_RelationAttributeWithEmptyReferencedColumn_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateRelationDraft();
-        var users = database.TableModels.Single(tm => tm.Table.DbName == "users");
-        var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
-        orders.Model.AddProperty(new RelationProperty(
-            "BrokenCustomer",
-            users.Model.CsType,
-            orders.Model,
-            [new RelationAttribute("users", "", "FK_Order_User")]));
+        var database = CreateRelationTypedDraft(
+            orderRelationProperties:
+            [
+                new MetadataRelationPropertyDraft(
+                    "BrokenCustomer",
+                    new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                {
+                    Attributes = [new RelationAttribute("users", "", "FK_Order_User")]
+                }
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1418,17 +1415,19 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ValueAndRelationPropertiesWithSameName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateRelationDraft();
-        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
-        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
-        orderModel.AddProperty(new RelationProperty(
-            "OrderId",
-            userModel.CsType,
-            orderModel,
-            [new RelationAttribute("users", "user_id", "FK_Order_User")]));
+        var database = CreateRelationTypedDraft(
+            orderRelationProperties:
+            [
+                new MetadataRelationPropertyDraft(
+                    "OrderId",
+                    new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                {
+                    Attributes = [new RelationAttribute("users", "user_id", "FK_Order_User")]
+                }
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2159,20 +2158,22 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DuplicateRelationPropertiesForSameForeignKey_ReturnsInvalidModelFailure()
     {
-        var database = CreateRelationDraft();
-        var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
-        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
-
-        orderModel.AddProperty(new RelationProperty(
-            "Customer",
-            userModel.CsType,
-            orderModel,
-            [new RelationAttribute("users", "user_id", "FK_Order_User")]));
-        orderModel.AddProperty(new RelationProperty(
-            "Buyer",
-            userModel.CsType,
-            orderModel,
-            [new RelationAttribute("users", "user_id", "FK_Order_User")]));
+        var database = CreateRelationTypedDraft(
+            orderRelationProperties:
+            [
+                new MetadataRelationPropertyDraft(
+                    "Customer",
+                    new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                {
+                    Attributes = [new RelationAttribute("users", "user_id", "FK_Order_User")]
+                },
+                new MetadataRelationPropertyDraft(
+                    "Buyer",
+                    new CsTypeDeclaration("User", "TestNamespace", ModelCsType.Class))
+                {
+                    Attributes = [new RelationAttribute("users", "user_id", "FK_Order_User")]
+                }
+            ]);
 
         var result = new MetadataDefinitionFactory().Build(database);
 
@@ -2213,10 +2214,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ForeignKeyWithEmptyConstraintName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateRelationDraft(foreignKeyName: "");
+        var database = CreateRelationTypedDraft(foreignKeyName: "");
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -2325,6 +2326,7 @@ public class MetadataDefinitionFactoryTests
     private static MetadataDatabaseDraft CreateRelationTypedDraft(
         string foreignKeyName = "FK_Order_User",
         string foreignKeyColumnName = "customer_id",
+        IReadOnlyList<Attribute>? orderCustomerIdAttributes = null,
         IReadOnlyList<MetadataRelationPropertyDraft>? orderRelationProperties = null,
         bool includeFreezeCoverageMetadata = false)
     {
@@ -2410,7 +2412,7 @@ public class MetadataDefinitionFactoryTests
                                 new CsTypeDeclaration(typeof(int)),
                                 new MetadataColumnDraft(foreignKeyColumnName) { ForeignKey = true })
                             {
-                                Attributes =
+                                Attributes = orderCustomerIdAttributes ??
                                 [
                                     new ForeignKeyAttribute("users", "user_id", foreignKeyName),
                                     new ColumnAttribute("customer_id")
@@ -2505,8 +2507,11 @@ public class MetadataDefinitionFactoryTests
 
     private static MetadataDatabaseDraft CreateSingleTableTypedDraft(
         string databaseName = "TestDb",
+        string? databaseDbName = null,
         CsTypeDeclaration? databaseCsType = null,
+        IReadOnlyList<Attribute>? databaseAttributes = null,
         string tableModelPropertyName = "Items",
+        string tableDbName = "items",
         CsTypeDeclaration? modelCsType = null,
         CsTypeDeclaration? modelInstanceInterface = null,
         CsTypeDeclaration? immutableType = null,
@@ -2515,6 +2520,7 @@ public class MetadataDefinitionFactoryTests
         IReadOnlyList<Attribute>? modelAttributes = null,
         string valuePropertyName = "Id",
         CsTypeDeclaration? valuePropertyCsType = null,
+        string valueColumnName = "id",
         IReadOnlyList<Attribute>? valuePropertyAttributes = null,
         IReadOnlyList<DatabaseColumnType>? valueColumnDbTypes = null,
         EnumProperty? valuePropertyEnumProperty = null,
@@ -2530,6 +2536,8 @@ public class MetadataDefinitionFactoryTests
             databaseName,
             databaseCsType ?? new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
         {
+            DbName = databaseDbName,
+            Attributes = databaseAttributes ?? [],
             CacheLimits = databaseCacheLimits ?? [],
             CacheCleanup = databaseCacheCleanup ?? [],
             IndexCache = databaseIndexCache ?? [],
@@ -2553,7 +2561,7 @@ public class MetadataDefinitionFactoryTests
                             CreateTypedValueProperty(
                                 valuePropertyName,
                                 valuePropertyCsType ?? new CsTypeDeclaration(typeof(int)),
-                                "id",
+                                valueColumnName,
                                 primaryKey: true,
                                 attributes:
                                 [
@@ -2565,7 +2573,7 @@ public class MetadataDefinitionFactoryTests
                                 enumProperty: valuePropertyEnumProperty)
                         ]
                     },
-                    new MetadataTableDraft("items")
+                    new MetadataTableDraft(tableDbName)
                     {
                         CacheLimits = tableCacheLimits ?? [],
                         IndexCache = tableIndexCache ?? []
