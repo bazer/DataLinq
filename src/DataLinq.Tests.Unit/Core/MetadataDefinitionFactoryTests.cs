@@ -1781,6 +1781,27 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_RelationPropertyWithoutRelationAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
+
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var relationProperty = orderModel.RelationProperties["Customer"];
+        SetPropertyAttributes(relationProperty, []);
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Relation property 'Order.Customer'");
+        await Assert.That(failure.Message).Contains("linked to relation 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("has no [Relation] attribute");
+    }
+
+    [Test]
     public async Task Build_ForeignKeyRelationPropertyWithMismatchedCsType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();

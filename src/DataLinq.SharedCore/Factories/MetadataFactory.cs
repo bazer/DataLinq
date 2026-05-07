@@ -1984,6 +1984,14 @@ public static class MetadataFactory
 
                     var relationAttribute = property.Attributes.OfType<RelationAttribute>().FirstOrDefault();
                     var otherPart = TryGetOtherRelationSide(relationPart);
+                    if (relationAttribute is null && otherPart is not null)
+                    {
+                        return CreateRelationPropertyFailure(
+                            property,
+                            null,
+                            $"Relation property '{model.CsType.Name}.{property.PropertyName}' is linked to relation '{relation.ConstraintName}', but has no [Relation] attribute.");
+                    }
+
                     if (relationAttribute is not null && otherPart is not null)
                     {
                         if (!string.Equals(relationAttribute.Table, otherPart.ColumnIndex.Table.DbName, StringComparison.Ordinal))
