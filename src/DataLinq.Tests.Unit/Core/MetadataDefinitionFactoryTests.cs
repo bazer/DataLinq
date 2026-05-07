@@ -937,6 +937,46 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_RepeatedIndexAttributesWithConflictingShape_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedValueProperty(
+                    "Id",
+                    typeof(int),
+                    "id",
+                    primaryKey: true,
+                    attributes:
+                    [
+                        new PrimaryKeyAttribute(),
+                        new ColumnAttribute("id"),
+                        new IndexAttribute("IX_items_lookup", IndexCharacteristic.Unique)
+                    ]),
+                CreateTypedValueProperty(
+                    "Code",
+                    typeof(string),
+                    "code",
+                    attributes:
+                    [
+                        new ColumnAttribute("code"),
+                        new IndexAttribute("IX_items_lookup", IndexCharacteristic.Simple)
+                    ])
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index attribute 'IX_items_lookup' on table 'items'");
+        await Assert.That(failure.Message).Contains("Simple");
+        await Assert.That(failure.Message).Contains("Unique");
+        await Assert.That(failure.Message).Contains("must agree on characteristic and type");
+    }
+
+    [Test]
     public async Task Build_ForeignKeyWithUnsupportedReferentialAction_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationTypedDraft(

@@ -1096,6 +1096,10 @@ public static class MetadataFactory
                         return failure;
                 }
             }
+
+            var repeatedIndexFailure = ValidateRepeatedIndexAttributeMetadata(tableModel);
+            if (repeatedIndexFailure is not null)
+                return repeatedIndexFailure;
         }
 
         return true;
@@ -1130,6 +1134,58 @@ public static class MetadataFactory
         }
 
         return null;
+    }
+
+    private static IDLOptionFailure? ValidateRepeatedIndexAttributeMetadata(TableModel tableModel)
+    {
+        var definitions = new List<(IndexAttribute Attribute, ValueProperty? Property)>();
+        var model = tableModel.Model;
+
+        foreach (var attribute in model.Attributes.OfType<IndexAttribute>())
+            definitions.Add((attribute, null));
+
+        foreach (var property in model.ValueProperties.Values)
+        {
+            foreach (var attribute in property.Attributes.OfType<IndexAttribute>())
+                definitions.Add((attribute, property));
+        }
+
+        foreach (var group in definitions.GroupBy(definition => definition.Attribute.Name, StringComparer.Ordinal))
+        {
+            var first = group.First();
+            var conflict = group
+                .Skip(1)
+                .FirstOrDefault(definition =>
+                    definition.Attribute.Characteristic != first.Attribute.Characteristic ||
+                    definition.Attribute.Type != first.Attribute.Type);
+
+            if (conflict.Attribute is null)
+                continue;
+
+            var message = $"Index attribute '{conflict.Attribute.Name}' on table '{tableModel.Table.DbName}' uses characteristic '{conflict.Attribute.Characteristic}' and type '{conflict.Attribute.Type}', but another attribute with the same name uses characteristic '{first.Attribute.Characteristic}' and type '{first.Attribute.Type}'. Repeated index attributes with the same name on a table must agree on characteristic and type.";
+            return CreateIndexAttributeFailure(
+                model,
+                conflict.Property,
+                conflict.Attribute,
+                message);
+        }
+
+        return null;
+    }
+
+    private static IDLOptionFailure CreateIndexAttributeFailure(
+        ModelDefinition model,
+        ValueProperty? property,
+        IndexAttribute attribute,
+        string message)
+    {
+        if (property?.Column is { } column)
+            return CreateIndexFailure(column, attribute, message);
+
+        if (property is not null)
+            return CreateValuePropertyAttributeFailure(property, attribute, message);
+
+        return CreateIndexFailure(model, attribute, message);
     }
 
     private static IDLOptionFailure? ValidateForeignKeyAttribute(
