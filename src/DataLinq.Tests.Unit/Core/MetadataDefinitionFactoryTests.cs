@@ -873,6 +873,39 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_DatabaseAttributeNameMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            databaseAttributes: [new DatabaseAttribute("LegacyDb")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("[Database] name 'LegacyDb'");
+        await Assert.That(failure.Message).Contains("resolves the name to 'TestDb'");
+    }
+
+    [Test]
+    public async Task Build_DuplicateDatabaseAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            databaseAttributes: [new DatabaseAttribute("TestDb"), new DatabaseAttribute("TestDb")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Database 'TestDb'");
+        await Assert.That(failure.Message).Contains("multiple [Database] attributes");
+    }
+
+    [Test]
     public async Task Build_TableWithEmptyName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(
@@ -1870,6 +1903,59 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(failure.Message).Contains("Model 'Item' model-instance interface");
         await Assert.That(failure.Message).Contains("must be an interface");
+    }
+
+    [Test]
+    public async Task Build_InterfaceAttributeNameMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelInstanceInterface: new CsTypeDeclaration("IItem", "TestNamespace", ModelCsType.Interface),
+            modelAttributes: [new InterfaceAttribute("ILegacyItem")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[Interface] name 'ILegacyItem'");
+        await Assert.That(failure.Message).Contains("resolves generated interface 'IItem'");
+    }
+
+    [Test]
+    public async Task Build_InterfaceAttributeWithoutGeneratedInterface_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelAttributes: [new InterfaceAttribute()]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("[Interface] metadata requesting generated interface 'IItem'");
+        await Assert.That(failure.Message).Contains("no generated model-instance interface");
+    }
+
+    [Test]
+    public async Task Build_InterfaceAttributeGenerateFalseWithGeneratedInterface_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            modelInstanceInterface: new CsTypeDeclaration("IItem", "TestNamespace", ModelCsType.Interface),
+            modelAttributes: [new InterfaceAttribute(generateInterface: false)]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item'");
+        await Assert.That(failure.Message).Contains("generation disabled");
+        await Assert.That(failure.Message).Contains("generated model-instance interface 'IItem'");
     }
 
     [Test]

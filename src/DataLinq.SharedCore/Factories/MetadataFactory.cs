@@ -364,6 +364,107 @@ public static class MetadataFactory
         return true;
     }
 
+    public static Option<bool, IDLOptionFailure> ValidateIdentityAttributeMetadata(DatabaseDefinition database)
+    {
+        var databaseAttributeFailure = ValidateDatabaseIdentityAttributes(database);
+        if (databaseAttributeFailure is not null)
+            return databaseAttributeFailure;
+
+        foreach (var tableModel in database.TableModels)
+        {
+            var interfaceAttributeFailure = ValidateModelInterfaceAttributes(tableModel.Model);
+            if (interfaceAttributeFailure is not null)
+                return interfaceAttributeFailure;
+        }
+
+        return true;
+    }
+
+    private static IDLOptionFailure? ValidateDatabaseIdentityAttributes(DatabaseDefinition database)
+    {
+        var databaseAttributes = database.Attributes
+            .OfType<DatabaseAttribute>()
+            .ToArray();
+
+        if (databaseAttributes.Length > 1)
+            return CreateDatabaseAttributeFailure(
+                database,
+                databaseAttributes[1],
+                $"Database '{database.CsType.Name}' has multiple [Database] attributes. Database identity metadata can define the database name only once.");
+
+        if (databaseAttributes.SingleOrDefault() is not { } databaseAttribute)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(databaseAttribute.Name))
+            return CreateDatabaseAttributeFailure(
+                database,
+                databaseAttribute,
+                $"Database '{database.CsType.Name}' has a [Database] attribute with an empty database name.");
+
+        if (!string.Equals(databaseAttribute.Name, database.Name, StringComparison.Ordinal))
+            return CreateDatabaseAttributeFailure(
+                database,
+                databaseAttribute,
+                $"Database '{database.CsType.Name}' has [Database] name '{databaseAttribute.Name}', but linked database metadata resolves the name to '{database.Name}'.");
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateModelInterfaceAttributes(ModelDefinition model)
+    {
+        var interfaceAttributes = model.Attributes
+            .OfType<InterfaceAttribute>()
+            .ToArray();
+
+        if (interfaceAttributes.Length > 1)
+            return CreateModelAttributeFailure(
+                model,
+                interfaceAttributes[1],
+                $"Model '{model.CsType.Name}' has multiple [Interface] attributes. Model interface metadata can define one generated model-instance interface.");
+
+        if (interfaceAttributes.SingleOrDefault() is not { } interfaceAttribute)
+            return null;
+
+        var scope = $"Model '{model.CsType.Name}'";
+        if (!interfaceAttribute.GenerateInterface)
+        {
+            if (model.ModelInstanceInterface.HasValue)
+                return CreateModelAttributeFailure(
+                    model,
+                    interfaceAttribute,
+                    $"{scope} has [Interface] metadata with generation disabled, but linked model metadata resolves generated model-instance interface '{model.ModelInstanceInterface.Value.Name}'.");
+
+            return null;
+        }
+
+        var interfaceName = interfaceAttribute.Name ?? $"I{model.CsType.Name}";
+        if (string.IsNullOrWhiteSpace(interfaceName))
+            return CreateModelAttributeFailure(
+                model,
+                interfaceAttribute,
+                $"{scope} has [Interface] metadata with an empty generated interface name.");
+
+        if (!IsValidCSharpIdentifier(interfaceName))
+            return CreateModelAttributeFailure(
+                model,
+                interfaceAttribute,
+                $"{scope} has [Interface] metadata with generated interface name '{interfaceName}', which is not a valid unescaped C# identifier.");
+
+        if (!model.ModelInstanceInterface.HasValue)
+            return CreateModelAttributeFailure(
+                model,
+                interfaceAttribute,
+                $"{scope} has [Interface] metadata requesting generated interface '{interfaceName}', but linked model metadata has no generated model-instance interface.");
+
+        if (!string.Equals(interfaceName, model.ModelInstanceInterface.Value.Name, StringComparison.Ordinal))
+            return CreateModelAttributeFailure(
+                model,
+                interfaceAttribute,
+                $"{scope} has [Interface] name '{interfaceName}', but linked model metadata resolves generated interface '{model.ModelInstanceInterface.Value.Name}'.");
+
+        return null;
+    }
+
     public static Option<bool, IDLOptionFailure> ValidateCSharpSymbolNames(DatabaseDefinition database)
     {
         var databaseTypeFailure = ValidateCSharpTypeDeclaration(
