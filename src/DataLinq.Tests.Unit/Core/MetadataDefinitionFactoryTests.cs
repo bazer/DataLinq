@@ -275,7 +275,8 @@ public class MetadataDefinitionFactoryTests
 
         var missingConstructors = new (Type Type, Type[] ParameterTypes)[]
             {
-                (typeof(TableModel), [typeof(string), typeof(DatabaseDefinition), typeof(ModelDefinition), typeof(bool)])
+                (typeof(TableModel), [typeof(string), typeof(DatabaseDefinition), typeof(ModelDefinition), typeof(bool)]),
+                (typeof(TableModel), [typeof(string), typeof(DatabaseDefinition), typeof(TableDefinition), typeof(string)])
             }
             .Select(item => FindMissingObsoleteConstructor(item.Type, item.ParameterTypes))
             .OfType<string>()
@@ -2708,7 +2709,7 @@ public class MetadataDefinitionFactoryTests
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
         var table = new TableDefinition("items");
-        var tableModel = new TableModel("Items", database, table, "Item");
+        var tableModel = CreateMutableTableModel("Items", database, table, "Item");
 
         AddValueProperties(
             tableModel.Model,
@@ -3024,6 +3025,13 @@ public class MetadataDefinitionFactoryTests
 
     private static Option<TableDefinition, IDLOptionFailure> ParseMetadataTable(ModelDefinition model) =>
         MetadataFactory.ParseTable(model);
+
+    private static TableModel CreateMutableTableModel(
+        string csPropertyName,
+        DatabaseDefinition database,
+        TableDefinition table,
+        string csName) =>
+        new(csPropertyName, database, table, csName);
 
     private static ColumnDefinition ParseMetadataColumn(TableDefinition table, ValueProperty property) =>
         table.ParseColumn(property);

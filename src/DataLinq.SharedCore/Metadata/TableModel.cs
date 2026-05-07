@@ -23,6 +23,7 @@ public class TableModel
         Model.SetTableModel(this);
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public TableModel(string csPropertyName, DatabaseDefinition database, TableDefinition table, string csName)
     {
         CsPropertyName = csPropertyName;
