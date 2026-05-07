@@ -29,7 +29,13 @@ public class SyntaxParser
         this.enumSyntaxes = enumSyntaxes.IsDefault ? [] : enumSyntaxes;
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public Option<TableModel, IDLOptionFailure> ParseTableModel(DatabaseDefinition database, TypeDeclarationSyntax typeSyntax, string csPropertyName)
+    {
+        return ParseTableModelCore(database, typeSyntax, csPropertyName);
+    }
+
+    internal Option<TableModel, IDLOptionFailure> ParseTableModelCore(DatabaseDefinition database, TypeDeclarationSyntax typeSyntax, string csPropertyName)
     {
         ModelDefinition model;
         if (typeSyntax == null)
@@ -140,7 +146,7 @@ public class SyntaxParser
         if (!typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
                 .Any(attr => attr.Name.ToString() == "Column" || attr.Name.ToString() == "Relation"))
-            .Select(prop => ParseProperty(prop, model))
+            .Select(prop => ParsePropertyCore(prop, model))
             .Transpose()
             .TryUnwrap(out var properties, out var propFailures))
             return DLOptionFailure.Fail($"Parsing properties", model, propFailures);
@@ -775,7 +781,13 @@ public class SyntaxParser
         return true;
     }
 
+    [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public Option<PropertyDefinition, IDLOptionFailure> ParseProperty(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
+    {
+        return ParsePropertyCore(propSyntax, model);
+    }
+
+    internal Option<PropertyDefinition, IDLOptionFailure> ParsePropertyCore(PropertyDeclarationSyntax propSyntax, ModelDefinition model)
     {
         var attributeSourceSpans = new List<(Attribute Attribute, SourceTextSpan Span)>();
         var parsedAttributes = new List<Attribute>();

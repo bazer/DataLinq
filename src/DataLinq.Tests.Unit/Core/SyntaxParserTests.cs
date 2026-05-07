@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
 using DataLinq.Core.Factories;
@@ -20,6 +22,50 @@ public partial class TestDb : IDatabaseModel
 
 public class SyntaxParserTests
 {
+#pragma warning disable CS0618 // These tests intentionally exercise legacy SyntaxParser mutable metadata outputs.
+    private static TableModel ParseMutableTableModel(
+        SyntaxParser parser,
+        DatabaseDefinition database,
+        TypeDeclarationSyntax typeSyntax,
+        string csPropertyName) =>
+        parser.ParseTableModel(database, typeSyntax, csPropertyName).ValueOrException();
+
+    private static PropertyDefinition ParseMutableProperty(
+        SyntaxParser parser,
+        PropertyDeclarationSyntax propertySyntax,
+        ModelDefinition model) =>
+        parser.ParseProperty(propertySyntax, model).ValueOrException();
+#pragma warning restore CS0618
+
+    [Test]
+    public async Task MutableMetadataParserOutputs_AreMarkedObsolete()
+    {
+        var missingMethods = new (string MethodName, Type[] ParameterTypes)[]
+            {
+                (nameof(SyntaxParser.ParseTableModel), [typeof(DatabaseDefinition), typeof(TypeDeclarationSyntax), typeof(string)]),
+                (nameof(SyntaxParser.ParseProperty), [typeof(PropertyDeclarationSyntax), typeof(ModelDefinition)])
+            }
+            .Select(item => FindMissingObsoleteMethod(item.MethodName, item.ParameterTypes))
+            .OfType<string>()
+            .ToArray();
+
+        await Assert.That(missingMethods).IsEmpty();
+    }
+
+    private static string? FindMissingObsoleteMethod(string methodName, Type[] parameterTypes)
+    {
+        var method = typeof(SyntaxParser).GetMethod(
+            methodName,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly,
+            binder: null,
+            types: parameterTypes,
+            modifiers: null);
+
+        return method?.GetCustomAttribute<ObsoleteAttribute>() is null
+            ? $"{nameof(SyntaxParser)}.{methodName}({string.Join(", ", parameterTypes.Select(parameterType => parameterType.Name))})"
+            : null;
+    }
+
     private static (SyntaxParser parser, AttributeSyntax attributeSyntax) GetAttributeSyntax(string attributeCode)
     {
         var code = $@"
@@ -66,7 +112,7 @@ public abstract partial class TestModel(IRowData rowData, IDataSourceAccess data
         var allDeclarations = root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
         var parser = new SyntaxParser(allDeclarations);
         var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
-        var model = parser.ParseTableModel(db, classSyntax, "TestModels").ValueOrException().Model;
+        var model = ParseMutableTableModel(parser, db, classSyntax, "TestModels").Model;
 
         return (parser, propertySyntax, model);
     }
@@ -337,7 +383,7 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     public async Task ParsePropertySyntax_Value()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Column(""my_col""), Nullable] public string? Name { get; }");
-        var property = (ValueProperty)parser.ParseProperty(syntax, model).ValueOrException();
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
 
         await Assert.That(property.PropertyName).IsEqualTo("Name");
         await Assert.That(property.CsType.Name).IsEqualTo("string");
@@ -350,7 +396,7 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     public async Task ParsePropertySyntax_Relation()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Relation(""Other"", ""FkId"")] public Other Related { get; }");
-        var property = (RelationProperty)parser.ParseProperty(syntax, model).ValueOrException();
+        var property = (RelationProperty)ParseMutableProperty(parser, syntax, model);
 
         await Assert.That(property.PropertyName).IsEqualTo("Related");
         await Assert.That(property.CsType.Name).IsEqualTo("Other");
@@ -361,7 +407,7 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     public async Task ParsePropertySyntax_Enum()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Column(""status_col""), Enum(""Active"", ""Inactive"")] public StatusEnum Status { get; }");
-        var property = (ValueProperty)parser.ParseProperty(syntax, model).ValueOrException();
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
 
         await Assert.That(property.PropertyName).IsEqualTo("Status");
         await Assert.That(property.CsType.Name).IsEqualTo("StatusEnum");
@@ -375,7 +421,7 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     public async Task ParsePropertySyntax_DefaultValue_PopulatesSourceInfo()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Column(""kontotexten""), Default(56)] public string Kontotexten { get; }");
-        var property = (ValueProperty)parser.ParseProperty(syntax, model).ValueOrException();
+        var property = (ValueProperty)ParseMutableProperty(parser, syntax, model);
 
         await Assert.That(property.SourceInfo.HasValue).IsTrue();
         await Assert.That(property.SourceInfo!.Value.DefaultValueExpressionSpan.HasValue).IsTrue();
@@ -401,7 +447,7 @@ public abstract partial class MyModel : ITableModel<TestDb>
 }
 """);
         var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration(typeof(TestDb)));
-        var tableModel = parser.ParseTableModel(db, syntax, "MyModels").ValueOrException();
+        var tableModel = ParseMutableTableModel(parser, db, syntax, "MyModels");
         var model = tableModel.Model;
 
         await Assert.That(model.CsType.Name).IsEqualTo("MyModel");
@@ -430,7 +476,7 @@ public abstract partial class MyModel : ITableModel<TestDb>
 }
 """);
         var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration(typeof(TestDb)));
-        var model = parser.ParseTableModel(db, syntax, "MyModels").ValueOrException().Model;
+        var model = ParseMutableTableModel(parser, db, syntax, "MyModels").Model;
 
         await Assert.That(model.ModelInstanceInterface.HasValue).IsTrue();
         await Assert.That(model.ModelInstanceInterface!.Value.Name).IsEqualTo("IMySpecialModel");
@@ -451,7 +497,7 @@ public abstract partial class MyModel : ITableModel<TestDb>
 }
 """);
         var db = new DatabaseDefinition("TestDb", new CsTypeDeclaration(typeof(TestDb)));
-        var model = parser.ParseTableModel(db, syntax, "MyModels").ValueOrException().Model;
+        var model = ParseMutableTableModel(parser, db, syntax, "MyModels").Model;
         var index = model.Attributes.OfType<IndexAttribute>().Single();
 
         await Assert.That(index.Name).IsEqualTo("idx_multi");
