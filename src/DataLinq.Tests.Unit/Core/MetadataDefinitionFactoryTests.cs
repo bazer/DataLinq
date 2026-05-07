@@ -2379,6 +2379,53 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ExistingRelationWithMismatchedForeignKeyAttributeTarget_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
+
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        SetPropertyAttributes(
+            orderModel.ValueProperties["CustomerId"],
+            [
+                new ForeignKeyAttribute("users", "user_name", "FK_Order_User"),
+                new ColumnAttribute("customer_id")
+            ]);
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("pairs foreign-key column 'orders.customer_id'");
+        await Assert.That(failure.Message).Contains("candidate column 'users.user_id'");
+        await Assert.That(failure.Message).Contains("targets 'users.user_name'");
+    }
+
+    [Test]
+    public async Task Build_ExistingRelationWithMismatchedForeignKeyActions_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationDraft();
+        ParseMetadataIndices(database).ValueOrException();
+        ParseMetadataRelations(database).ValueOrException();
+
+        var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
+        var relation = orderModel.RelationProperties["Customer"].RelationPart.Relation;
+        SetRelationOnUpdate(relation, ReferentialAction.Cascade);
+
+        var result = BuildMutableMetadataDraft(new MetadataDefinitionFactory(), database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Existing relation 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("uses on-update action 'Cascade'");
+        await Assert.That(failure.Message).Contains("foreign-key column 'orders.customer_id' metadata uses on-update action 'Unspecified'");
+    }
+
+    [Test]
     public async Task Build_ExistingRelationMissingCandidateKey_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationDraft();
@@ -2416,6 +2463,12 @@ public class MetadataDefinitionFactoryTests
         var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
         var userId = users.Table.Columns.Single(column => column.DbName == "user_id");
         var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
+        SetPropertyAttributes(
+            orders.Model.ValueProperties["CustomerId"],
+            [
+                new ForeignKeyAttribute("users", "user_id", "FK_Broken"),
+                new ColumnAttribute("customer_id")
+            ]);
         var candidateKeyIndex = new ColumnIndex("users_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [userId]);
         var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
         AddMetadataListItem(users.Table.ColumnIndices, candidateKeyIndex);
@@ -2451,6 +2504,12 @@ public class MetadataDefinitionFactoryTests
         var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
         var userId = users.Table.Columns.Single(column => column.DbName == "user_id");
         var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
+        SetPropertyAttributes(
+            orders.Model.ValueProperties["CustomerId"],
+            [
+                new ForeignKeyAttribute("users", "user_id", "FK_Broken"),
+                new ColumnAttribute("customer_id")
+            ]);
         var candidateKeyIndex = new ColumnIndex("users_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [userId]);
         var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
         AddMetadataListItem(users.Table.ColumnIndices, candidateKeyIndex);

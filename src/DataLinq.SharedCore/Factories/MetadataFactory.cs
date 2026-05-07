@@ -2213,6 +2213,62 @@ public static class MetadataFactory
                 $"Existing relation '{relationName}' has mismatched column counts between foreign-key index '{relation.ForeignKey.ColumnIndex.Name}' and candidate-key index '{relation.CandidateKey.ColumnIndex.Name}'.");
         }
 
+        var foreignKeyAttributeFailure = ValidateExistingRelationForeignKeyAttributes(
+            relation,
+            relationName,
+            createFailure);
+        if (foreignKeyAttributeFailure != null)
+            return foreignKeyAttributeFailure;
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateExistingRelationForeignKeyAttributes(
+        RelationDefinition relation,
+        string relationName,
+        Func<string, IDLOptionFailure> createFailure)
+    {
+        var foreignKeyColumns = relation.ForeignKey.ColumnIndex.Columns;
+        var candidateColumns = relation.CandidateKey.ColumnIndex.Columns;
+
+        for (var i = 0; i < foreignKeyColumns.Count; i++)
+        {
+            var foreignKeyColumn = foreignKeyColumns[i];
+            var candidateColumn = candidateColumns[i];
+            var foreignKeyTarget = $"{candidateColumn.Table.DbName}.{candidateColumn.DbName}";
+            if (foreignKeyColumn.ValueProperty is null)
+                return createFailure(
+                    $"Existing relation '{relationName}' foreign-key column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' has no value property for [ForeignKey] metadata.");
+
+            var foreignKeyAttributes = foreignKeyColumn.ValueProperty.Attributes
+                .OfType<ForeignKeyAttribute>()
+                .Where(attribute => string.Equals(attribute.Name, relation.ConstraintName, StringComparison.Ordinal))
+                .ToList();
+            var matchingAttribute = foreignKeyAttributes.FirstOrDefault(attribute =>
+                string.Equals(attribute.Table, candidateColumn.Table.DbName, StringComparison.Ordinal) &&
+                string.Equals(attribute.Column, candidateColumn.DbName, StringComparison.Ordinal));
+
+            if (matchingAttribute is null)
+            {
+                if (foreignKeyAttributes.Count == 0)
+                    return createFailure(
+                        $"Existing relation '{relationName}' foreign-key column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' is missing a [ForeignKey] attribute with constraint name '{relation.ConstraintName}' targeting '{foreignKeyTarget}'.");
+
+                var targets = foreignKeyAttributes
+                    .Select(attribute => $"{attribute.Table}.{attribute.Column}")
+                    .ToJoinedString(", ");
+                return createFailure(
+                    $"Existing relation '{relationName}' pairs foreign-key column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' with candidate column '{foreignKeyTarget}', but the column's [ForeignKey] metadata for that relation targets '{targets}'.");
+            }
+
+            if (matchingAttribute.OnUpdate != relation.OnUpdate ||
+                matchingAttribute.OnDelete != relation.OnDelete)
+            {
+                return createFailure(
+                    $"Existing relation '{relationName}' uses on-update action '{relation.OnUpdate}' and on-delete action '{relation.OnDelete}', but foreign-key column '{foreignKeyColumn.Table.DbName}.{foreignKeyColumn.DbName}' metadata uses on-update action '{matchingAttribute.OnUpdate}' and on-delete action '{matchingAttribute.OnDelete}'.");
+            }
+        }
+
         return null;
     }
 
