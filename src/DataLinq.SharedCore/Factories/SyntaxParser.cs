@@ -205,7 +205,7 @@ public class SyntaxParser
 
         if (!typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
-                .Any(attr => attr.Name.ToString() == "Column" || attr.Name.ToString() == "Relation"))
+                .Any(IsModelPropertyAttribute))
             .Select(prop => ParsePropertyCore(prop, model))
             .Transpose()
             .TryUnwrap(out var properties, out var propFailures))
@@ -285,7 +285,7 @@ public class SyntaxParser
 
         if (!typeSyntax.Members.OfType<PropertyDeclarationSyntax>()
             .Where(prop => prop.AttributeLists.SelectMany(attrList => attrList.Attributes)
-                .Any(attr => attr.Name.ToString() == "Column" || attr.Name.ToString() == "Relation"))
+                .Any(IsModelPropertyAttribute))
             .Select(ParsePropertyDraft)
             .Transpose()
             .TryUnwrap(out var properties, out var propFailures))
@@ -384,8 +384,8 @@ public class SyntaxParser
 
     public Option<Attribute, IDLOptionFailure> ParseAttribute(AttributeSyntax attributeSyntax)
     {
-        var name = attributeSyntax.Name.ToString();
-        var generictype = attributeSyntax.Name as GenericNameSyntax;
+        var name = GetUnqualifiedAttributeName(attributeSyntax.Name);
+        var generictype = GetGenericAttributeName(attributeSyntax.Name);
         var arguments = attributeSyntax.ArgumentList?.Arguments
             .Select(ParseAttributeArgument)
             .ToList() ?? [];
@@ -789,6 +789,40 @@ public class SyntaxParser
         }
 
         return FailAttribute(attributeSyntax, DLFailureType.NotImplemented, $"Attribute '{name}' not implemented");
+    }
+
+    private static bool IsModelPropertyAttribute(AttributeSyntax attributeSyntax)
+    {
+        var name = GetUnqualifiedAttributeName(attributeSyntax.Name);
+        return name == "Column" || name == "Relation";
+    }
+
+    private static string GetUnqualifiedAttributeName(NameSyntax nameSyntax)
+    {
+        var name = nameSyntax switch
+        {
+            GenericNameSyntax genericName => genericName.Identifier.Text,
+            IdentifierNameSyntax identifierName => identifierName.Identifier.Text,
+            QualifiedNameSyntax qualifiedName => GetUnqualifiedAttributeName(qualifiedName.Right),
+            AliasQualifiedNameSyntax aliasQualifiedName => GetUnqualifiedAttributeName(aliasQualifiedName.Name),
+            _ => nameSyntax.ToString()
+        };
+
+        const string attributeSuffix = "Attribute";
+        return name.EndsWith(attributeSuffix, StringComparison.Ordinal)
+            ? name.Substring(0, name.Length - attributeSuffix.Length)
+            : name;
+    }
+
+    private static GenericNameSyntax? GetGenericAttributeName(NameSyntax nameSyntax)
+    {
+        return nameSyntax switch
+        {
+            GenericNameSyntax genericName => genericName,
+            QualifiedNameSyntax qualifiedName => GetGenericAttributeName(qualifiedName.Right),
+            AliasQualifiedNameSyntax aliasQualifiedName => GetGenericAttributeName(aliasQualifiedName.Name),
+            _ => null
+        };
     }
 
     private static string ParseAttributeArgument(AttributeArgumentSyntax argument)

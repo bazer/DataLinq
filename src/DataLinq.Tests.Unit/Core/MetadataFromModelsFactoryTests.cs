@@ -227,6 +227,46 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
     }
 
     [Test]
+    public async Task ReadSyntaxTrees_QualifiedAttributeNames_ParsesModelProperties()
+    {
+        const string code = """
+using DataLinq;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UserModel> Users { get; }
+}
+
+public partial interface IUserModel { }
+
+[DataLinq.Attributes.TableAttribute("users")]
+[DataLinq.Attributes.InterfaceAttribute<IUserModel>]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [DataLinq.Attributes.ColumnAttribute("id"), DataLinq.Attributes.PrimaryKeyAttribute] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+
+        var databaseDefinition = factory.ReadSyntaxTrees(declarations).Single().Value;
+        var tableModel = databaseDefinition.TableModels.Single();
+
+        await Assert.That(tableModel.Table.DbName).IsEqualTo("users");
+        await Assert.That(tableModel.Model.ModelInstanceInterface!.Value.Name).IsEqualTo("IUserModel");
+        await Assert.That(tableModel.Model.ValueProperties.Count).IsEqualTo(1);
+        await Assert.That(tableModel.Model.ValueProperties["Id"].Column.DbName).IsEqualTo("id");
+        await Assert.That(tableModel.Model.ValueProperties["Id"].Column.PrimaryKey).IsTrue();
+    }
+
+    [Test]
     public async Task ReadSyntaxTrees_UnsupportedPropertyTypeSyntax_ReturnsInvalidModelFailure()
     {
         const string code = """
