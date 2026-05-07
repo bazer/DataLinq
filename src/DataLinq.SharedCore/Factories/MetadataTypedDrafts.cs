@@ -278,7 +278,7 @@ internal static class MetadataTypedDraftConverter
         var column = new ColumnDefinition(draft.DbName, table);
 
         foreach (var dbType in draft.DbTypes ?? [])
-            column.AddDbTypeCore(dbType.Clone());
+            column.AddDbTypeCore(dbType is null ? null! : dbType.Clone());
 
         return column;
     }

@@ -1463,12 +1463,19 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_MultipleDefaultAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
-            ("Name", typeof(string), [new ColumnAttribute("name"), new DefaultAttribute("first"), new DefaultAttribute("second")]));
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "Name",
+                    typeof(string),
+                    "name",
+                    attributes: [new ColumnAttribute("name"), new DefaultAttribute("first"), new DefaultAttribute("second")])
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1480,12 +1487,19 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DefaultNewUuidOnNonGuidProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
-            ("Token", typeof(string), [new ColumnAttribute("token"), new DefaultNewUUIDAttribute()]));
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "Token",
+                    typeof(string),
+                    "token",
+                    attributes: [new ColumnAttribute("token"), new DefaultNewUUIDAttribute()])
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1498,12 +1512,19 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DefaultCurrentTimestampOnNonTemporalProperty_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
-            ("IsReady", typeof(bool), [new ColumnAttribute("is_ready"), new DefaultCurrentTimestampAttribute()]));
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "IsReady",
+                    typeof(bool),
+                    "is_ready",
+                    attributes: [new ColumnAttribute("is_ready"), new DefaultCurrentTimestampAttribute()])
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1516,12 +1537,19 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DefaultValueIncompatibleWithPropertyType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
-            ("Count", typeof(int), [new ColumnAttribute("count"), new DefaultAttribute("not-a-number")]));
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "Count",
+                    typeof(int),
+                    "count",
+                    attributes: [new ColumnAttribute("count"), new DefaultAttribute("not-a-number")])
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1533,12 +1561,19 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_DefaultNewUuidWithUnsupportedVersion_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]),
-            ("PublicId", typeof(Guid), [new ColumnAttribute("public_id"), new DefaultNewUUIDAttribute((UUIDVersion)999)]));
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "PublicId",
+                    typeof(Guid),
+                    "public_id",
+                    attributes: [new ColumnAttribute("public_id"), new DefaultNewUUIDAttribute((UUIDVersion)999)])
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1550,10 +1585,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ViewWithoutDefinition_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateViewDraft(definition: null);
+        var database = CreateViewTypedDraft(definition: null);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1567,10 +1602,10 @@ public class MetadataDefinitionFactoryTests
     public async Task Build_ViewWithDefinition_SucceedsWithoutPrimaryKey()
     {
         const string definition = "select name from active_items";
-        var database = CreateViewDraft(definition);
+        var database = CreateViewTypedDraft(definition);
 
         var built = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .Build(database)
             .ValueOrException();
 
         var view = (ViewDefinition)built.TableModels.Single().Table;
@@ -1582,10 +1617,10 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ViewWithExplicitEmptyDefinition_SucceedsForProviderPlaceholder()
     {
-        var database = CreateViewDraft("");
+        var database = CreateViewTypedDraft("");
 
         var built = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .Build(database)
             .ValueOrException();
 
         var view = (ViewDefinition)built.TableModels.Single().Table;
@@ -1596,13 +1631,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ColumnWithNullDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var column = database.TableModels.Single().Table.Columns.Single();
-        column.AddDbType(null!);
+        var database = CreateSingleTableTypedDraft(
+            valueColumnDbTypes: [null!]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1614,13 +1647,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ColumnWithEmptyDatabaseTypeName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var column = database.TableModels.Single().Table.Columns.Single();
-        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, ""));
+        var database = CreateSingleTableTypedDraft(
+            valueColumnDbTypes: [new DatabaseColumnType(DatabaseType.MySQL, "")]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1633,13 +1664,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ColumnWithUnsupportedDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var column = database.TableModels.Single().Table.Columns.Single();
-        column.AddDbType(new DatabaseColumnType((DatabaseType)999, "int"));
+        var database = CreateSingleTableTypedDraft(
+            valueColumnDbTypes: [new DatabaseColumnType((DatabaseType)999, "int")]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1652,13 +1681,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ColumnWithUnknownDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var column = database.TableModels.Single().Table.Columns.Single();
-        column.AddDbType(new DatabaseColumnType(DatabaseType.Unknown, "int"));
+        var database = CreateSingleTableTypedDraft(
+            valueColumnDbTypes: [new DatabaseColumnType(DatabaseType.Unknown, "int")]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1671,13 +1698,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ColumnWithDatabaseTypeDecimalsWithoutLength_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var column = database.TableModels.Single().Table.Columns.Single();
-        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "decimal", null, 2));
+        var database = CreateSingleTableTypedDraft(
+            valueColumnDbTypes: [new DatabaseColumnType(DatabaseType.MySQL, "decimal", null, 2)]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1690,14 +1715,15 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ColumnWithDuplicateDatabaseType_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var column = database.TableModels.Single().Table.Columns.Single();
-        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "int"));
-        column.AddDbType(new DatabaseColumnType(DatabaseType.MySQL, "integer"));
+        var database = CreateSingleTableTypedDraft(
+            valueColumnDbTypes:
+            [
+                new DatabaseColumnType(DatabaseType.MySQL, "int"),
+                new DatabaseColumnType(DatabaseType.MySQL, "integer")
+            ]);
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1709,13 +1735,11 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_EnumClrTypeWithoutEnumMetadata_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.SetCsType(new CsTypeDeclaration(typeof(RuntimeStatus)));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyCsType: new CsTypeDeclaration(typeof(RuntimeStatus)));
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1727,14 +1751,12 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_EnumPropertyWithoutValues_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.SetCsType(new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum));
-        property.SetEnumProperty(new EnumProperty());
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyCsType: new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum),
+            valuePropertyEnumProperty: new EnumProperty());
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1746,14 +1768,12 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_EnumPropertyWithInvalidMemberName_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.SetCsType(new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum));
-        property.SetEnumProperty(new EnumProperty(csEnumValues: [("Not Valid", 1)]));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyCsType: new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum),
+            valuePropertyEnumProperty: new EnumProperty(csEnumValues: [("Not Valid", 1)]));
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1765,16 +1785,14 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_EnumPropertyWithDuplicateDatabaseValues_ReturnsInvalidModelFailureBeforeSnapshot()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.SetCsType(new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum));
-        property.SetEnumProperty(new EnumProperty(
-            enumValues: [("PRI", 1), ("pri", 2)],
-            csEnumValues: [("Primary", 1), ("AlternatePrimary", 2)]));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyCsType: new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum),
+            valuePropertyEnumProperty: new EnumProperty(
+                enumValues: [("PRI", 1), ("pri", 2)],
+                csEnumValues: [("Primary", 1), ("AlternatePrimary", 2)]));
 
         var result = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
+            .Build(database);
 
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
@@ -1786,16 +1804,14 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_EnumPropertyWithEmptyDatabaseValueAndValidCsName_Succeeds()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.SetCsType(new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum));
-        property.SetEnumProperty(new EnumProperty(
-            enumValues: [("", 1), ("PRI", 2)],
-            csEnumValues: [("Empty", 1), ("PRI", 2)]));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyCsType: new CsTypeDeclaration("StatusValue", "TestNamespace", ModelCsType.Enum),
+            valuePropertyEnumProperty: new EnumProperty(
+                enumValues: [("", 1), ("PRI", 2)],
+                csEnumValues: [("Empty", 1), ("PRI", 2)]));
 
         var built = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .Build(database)
             .ValueOrException();
 
         var enumProperty = built.TableModels.Single().Model.ValueProperties["Id"].EnumProperty!.Value;
@@ -1806,16 +1822,14 @@ public class MetadataDefinitionFactoryTests
     [Test]
     public async Task Build_ExternalEnumPropertyWithEmptyDatabaseValueWithoutCsNames_Succeeds()
     {
-        var database = CreateSingleTableDraft(
-            ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        var property = database.TableModels.Single().Model.ValueProperties["Id"];
-        property.SetCsType(new CsTypeDeclaration("COLUMN_KEY", "TestNamespace", ModelCsType.Enum));
-        property.SetEnumProperty(new EnumProperty(
-            enumValues: [("", 1), ("PRI", 2)],
-            declaredInClass: false));
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyCsType: new CsTypeDeclaration("COLUMN_KEY", "TestNamespace", ModelCsType.Enum),
+            valuePropertyEnumProperty: new EnumProperty(
+                enumValues: [("", 1), ("PRI", 2)],
+                declaredInClass: false));
 
         var built = new MetadataDefinitionFactory()
-            .Build(MetadataDefinitionDraft.FromMutableMetadata(database))
+            .Build(database)
             .ValueOrException();
 
         var enumProperty = built.TableModels.Single().Model.ValueProperties["Id"].EnumProperty!.Value;
@@ -2502,6 +2516,9 @@ public class MetadataDefinitionFactoryTests
         string valuePropertyName = "Id",
         CsTypeDeclaration? valuePropertyCsType = null,
         IReadOnlyList<Attribute>? valuePropertyAttributes = null,
+        IReadOnlyList<DatabaseColumnType>? valueColumnDbTypes = null,
+        EnumProperty? valuePropertyEnumProperty = null,
+        IReadOnlyList<MetadataValuePropertyDraft>? valueProperties = null,
         IReadOnlyList<MetadataRelationPropertyDraft>? relationProperties = null,
         IReadOnlyList<(CacheLimitType limitType, long amount)>? databaseCacheLimits = null,
         IReadOnlyList<(CacheCleanupType cleanupType, long amount)>? databaseCacheCleanup = null,
@@ -2531,20 +2548,21 @@ public class MetadataDefinitionFactoryTests
                         Usings = modelUsings ?? [],
                         Attributes = modelAttributes ?? [],
                         RelationProperties = relationProperties ?? [],
-                        ValueProperties =
+                        ValueProperties = valueProperties ??
                         [
-                            new MetadataValuePropertyDraft(
+                            CreateTypedValueProperty(
                                 valuePropertyName,
                                 valuePropertyCsType ?? new CsTypeDeclaration(typeof(int)),
-                                new MetadataColumnDraft("id") { PrimaryKey = true })
-                            {
-                                Attributes =
+                                "id",
+                                primaryKey: true,
+                                attributes:
                                 [
                                     new PrimaryKeyAttribute(),
                                     new ColumnAttribute("id"),
                                     .. (valuePropertyAttributes ?? [])
-                                ]
-                            }
+                                ],
+                                dbTypes: valueColumnDbTypes,
+                                enumProperty: valuePropertyEnumProperty)
                         ]
                     },
                     new MetadataTableDraft("items")
@@ -2556,26 +2574,90 @@ public class MetadataDefinitionFactoryTests
         };
     }
 
-    private static DatabaseDefinition CreateViewDraft(string? definition)
+    private static MetadataDatabaseDraft CreateViewTypedDraft(string? definition)
     {
-        var database = new DatabaseDefinition(
+        return new MetadataDatabaseDraft(
             "TestDb",
-            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
-        var model = new ModelDefinition(new CsTypeDeclaration("ActiveItem", "TestNamespace", ModelCsType.Class));
-        model.SetInterfaces([new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "ActiveItems",
+                    new MetadataModelDraft(new CsTypeDeclaration("ActiveItem", "TestNamespace", ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        ValueProperties =
+                        [
+                            CreateTypedValueProperty(
+                                "Name",
+                                typeof(string),
+                                "name",
+                                attributes: [new ColumnAttribute("name")])
+                        ]
+                    },
+                    new MetadataTableDraft("active_items")
+                    {
+                        Type = TableType.View,
+                        Definition = definition
+                    })
+            ]
+        };
+    }
 
-        var table = (ViewDefinition)MetadataFactory.ParseTable(model).ValueOrException();
-        table.SetDbName("active_items");
-        if (definition != null)
-            table.SetDefinition(definition);
+    private static MetadataValuePropertyDraft CreateTypedValueProperty(
+        string propertyName,
+        Type csType,
+        string columnName,
+        bool primaryKey = false,
+        IReadOnlyList<Attribute>? attributes = null,
+        IReadOnlyList<DatabaseColumnType>? dbTypes = null,
+        EnumProperty? enumProperty = null)
+    {
+        return CreateTypedValueProperty(
+            propertyName,
+            new CsTypeDeclaration(csType),
+            columnName,
+            primaryKey,
+            attributes,
+            dbTypes,
+            enumProperty);
+    }
 
-        var tableModel = new TableModel("ActiveItems", database, model, table);
-        AddValueProperties(
-            model,
-            ("Name", typeof(string), [new ColumnAttribute("name")]));
+    private static MetadataValuePropertyDraft CreateTypedIdProperty()
+    {
+        return CreateTypedValueProperty(
+            "Id",
+            typeof(int),
+            "id",
+            primaryKey: true,
+            attributes: [new PrimaryKeyAttribute(), new ColumnAttribute("id")]);
+    }
 
-        database.SetTableModels([tableModel]);
-        return database;
+    private static MetadataValuePropertyDraft CreateTypedValueProperty(
+        string propertyName,
+        CsTypeDeclaration csType,
+        string columnName,
+        bool primaryKey = false,
+        IReadOnlyList<Attribute>? attributes = null,
+        IReadOnlyList<DatabaseColumnType>? dbTypes = null,
+        EnumProperty? enumProperty = null)
+    {
+        return new MetadataValuePropertyDraft(
+            propertyName,
+            csType,
+            new MetadataColumnDraft(columnName)
+            {
+                DbTypes = dbTypes ?? [],
+                PrimaryKey = primaryKey
+            })
+        {
+            Attributes = attributes ?? [],
+            EnumProperty = enumProperty
+        };
     }
 
     private static TableModel CreateTableModel(
