@@ -108,9 +108,9 @@ internal static class MetadataTypedDraftConverter
         database.SetAttributesCore(draft.Attributes ?? []);
         ApplyAttributeSourceSpans(draft.AttributeSourceSpans, database.SetAttributeSourceSpanCore);
         database.SetCacheCore(draft.UseCache);
-        database.CacheLimits.AddRange(draft.CacheLimits ?? []);
-        database.CacheCleanup.AddRange(draft.CacheCleanup ?? []);
-        database.IndexCache.AddRange(draft.IndexCache ?? []);
+        database.CacheLimits.AddRangeCore(draft.CacheLimits ?? []);
+        database.CacheCleanup.AddRangeCore(draft.CacheCleanup ?? []);
+        database.IndexCache.AddRangeCore(draft.IndexCache ?? []);
 
         var tableModels = new List<TableModel>();
         foreach (var tableModelDraft in draft.TableModels ?? [])
@@ -294,8 +294,8 @@ internal static class MetadataTypedDraftConverter
         if (draft.UseCache.HasValue)
             table.SetUseCacheCore(draft.UseCache.Value);
 
-        table.CacheLimits.AddRange(draft.CacheLimits ?? []);
-        table.IndexCache.AddRange(draft.IndexCache ?? []);
+        table.CacheLimits.AddRangeCore(draft.CacheLimits ?? []);
+        table.IndexCache.AddRangeCore(draft.IndexCache ?? []);
 
         return table;
     }

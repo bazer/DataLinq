@@ -168,26 +168,26 @@ public class MetadataDefinitionFactoryTests
         await AssertFrozenMutation(() => SetDatabaseColumnTypeLength(dbType, 12));
         await AssertFrozenMutation(() => SetDatabaseColumnTypeDecimals(dbType, 2U));
         await AssertFrozenMutation(() => SetDatabaseColumnTypeSigned(dbType, false));
-        await AssertFrozenMutation(() => orderTable.ColumnIndices.Add(NewAmountIndex("idx_amount")));
-        await AssertFrozenMutation(() => orderTable.ColumnIndices.AddRange([NewAmountIndex("idx_amount_range")]));
-        await AssertFrozenMutation(() => orderTable.ColumnIndices.Insert(0, NewAmountIndex("idx_amount_insert")));
-        await AssertFrozenMutation(() => orderTable.ColumnIndices[0] = NewAmountIndex("idx_amount_replace"));
-        await AssertFrozenMutation(() => orderTable.ColumnIndices.Remove(foreignKeyIndex));
-        await AssertFrozenMutation(() => orderTable.ColumnIndices.RemoveAt(0));
-        await AssertFrozenMutation(() => orderModel.ValueProperties.Add("OrderIdCopy", orderIdProperty));
-        await AssertFrozenMutation(() => orderModel.ValueProperties.Add(new KeyValuePair<string, ValueProperty>("OrderIdCopy", orderIdProperty)));
-        await AssertFrozenMutation(() => orderModel.ValueProperties["OrderId"] = orderIdProperty);
-        await AssertFrozenMutation(() => orderModel.ValueProperties.Remove("OrderId"));
-        await AssertFrozenMutation(() => orderModel.ValueProperties.Remove(new KeyValuePair<string, ValueProperty>("OrderId", orderIdProperty)));
-        await AssertFrozenMutation(() => orderModel.ValueProperties.Clear());
-        await AssertFrozenMutation(() => orderModel.RelationProperties.Clear());
-        await AssertFrozenMutation(() => foreignKeyIndex.Columns.Add(amount));
-        await AssertFrozenMutation(() => foreignKeyIndex.RelationParts.Clear());
-        await AssertFrozenMutation(() => built.CacheLimits.Clear());
-        await AssertFrozenMutation(() => built.CacheCleanup.Clear());
-        await AssertFrozenMutation(() => built.IndexCache.Clear());
-        await AssertFrozenMutation(() => orderTable.CacheLimits.Clear());
-        await AssertFrozenMutation(() => orderTable.IndexCache.Clear());
+        await AssertFrozenMutation(() => AddMetadataListItem(orderTable.ColumnIndices, NewAmountIndex("idx_amount")));
+        await AssertFrozenMutation(() => AddMetadataListItems(orderTable.ColumnIndices, [NewAmountIndex("idx_amount_range")]));
+        await AssertFrozenMutation(() => InsertMetadataListItem(orderTable.ColumnIndices, 0, NewAmountIndex("idx_amount_insert")));
+        await AssertFrozenMutation(() => SetMetadataListItem(orderTable.ColumnIndices, 0, NewAmountIndex("idx_amount_replace")));
+        await AssertFrozenMutation(() => RemoveMetadataListItem(orderTable.ColumnIndices, foreignKeyIndex));
+        await AssertFrozenMutation(() => RemoveMetadataListItemAt(orderTable.ColumnIndices, 0));
+        await AssertFrozenMutation(() => AddMetadataDictionaryValue(orderModel.ValueProperties, "OrderIdCopy", orderIdProperty));
+        await AssertFrozenMutation(() => AddMetadataDictionaryItem(orderModel.ValueProperties, new KeyValuePair<string, ValueProperty>("OrderIdCopy", orderIdProperty)));
+        await AssertFrozenMutation(() => SetMetadataDictionaryValue(orderModel.ValueProperties, "OrderId", orderIdProperty));
+        await AssertFrozenMutation(() => RemoveMetadataDictionaryValue(orderModel.ValueProperties, "OrderId"));
+        await AssertFrozenMutation(() => RemoveMetadataDictionaryItem(orderModel.ValueProperties, new KeyValuePair<string, ValueProperty>("OrderId", orderIdProperty)));
+        await AssertFrozenMutation(() => ClearMetadataDictionary(orderModel.ValueProperties));
+        await AssertFrozenMutation(() => ClearMetadataDictionary(orderModel.RelationProperties));
+        await AssertFrozenMutation(() => AddMetadataListItem(foreignKeyIndex.Columns, amount));
+        await AssertFrozenMutation(() => ClearMetadataList(foreignKeyIndex.RelationParts));
+        await AssertFrozenMutation(() => ClearMetadataList(built.CacheLimits));
+        await AssertFrozenMutation(() => ClearMetadataList(built.CacheCleanup));
+        await AssertFrozenMutation(() => ClearMetadataList(built.IndexCache));
+        await AssertFrozenMutation(() => ClearMetadataList(orderTable.CacheLimits));
+        await AssertFrozenMutation(() => ClearMetadataList(orderTable.IndexCache));
     }
 
     [Test]
@@ -217,7 +217,9 @@ public class MetadataDefinitionFactoryTests
                 (typeof(PropertyDefinition), [nameof(PropertyDefinition.SetAttributes), nameof(PropertyDefinition.AddAttribute), nameof(PropertyDefinition.SetPropertyName), nameof(PropertyDefinition.SetCsType), nameof(PropertyDefinition.SetCsNullable), nameof(PropertyDefinition.SetSourceInfo), nameof(PropertyDefinition.SetAttributeSourceSpan)]),
                 (typeof(ValueProperty), [nameof(ValueProperty.SetColumn), nameof(ValueProperty.SetCsSize), nameof(ValueProperty.SetEnumProperty)]),
                 (typeof(RelationProperty), [nameof(RelationProperty.SetRelationPart), nameof(RelationProperty.SetRelationName)]),
-                (typeof(ColumnIndex), [nameof(ColumnIndex.AddColumn)])
+                (typeof(ColumnIndex), [nameof(ColumnIndex.AddColumn)]),
+                (typeof(MetadataList<>), [nameof(MetadataList<object>.Add), nameof(MetadataList<object>.AddRange), nameof(MetadataList<object>.Clear), nameof(MetadataList<object>.Insert), nameof(MetadataList<object>.Remove), nameof(MetadataList<object>.RemoveAt)]),
+                (typeof(MetadataDictionary<,>), [nameof(MetadataDictionary<string, object>.Add), nameof(MetadataDictionary<string, object>.Clear), nameof(MetadataDictionary<string, object>.Remove)])
             }
             .SelectMany(item => FindMissingObsoleteMethods(item.Type, item.MethodNames))
             .ToArray();
@@ -227,6 +229,8 @@ public class MetadataDefinitionFactoryTests
                 (typeof(TableDefinition), nameof(TableDefinition.UseCache)),
                 (typeof(ColumnIndex), nameof(ColumnIndex.Table)),
                 (typeof(ColumnIndex), nameof(ColumnIndex.RelationParts)),
+                (typeof(MetadataList<>), "Item"),
+                (typeof(MetadataDictionary<,>), "Item"),
                 (typeof(RelationDefinition), nameof(RelationDefinition.ForeignKey)),
                 (typeof(RelationDefinition), nameof(RelationDefinition.CandidateKey)),
                 (typeof(RelationDefinition), nameof(RelationDefinition.Type)),
@@ -593,7 +597,7 @@ public class MetadataDefinitionFactoryTests
     {
         var database = CreateSingleTableDraft(
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.TableModels.Single().Model.ValueProperties["Ghost"] = null!;
+        SetMetadataDictionaryValue(database.TableModels.Single().Model.ValueProperties, "Ghost", null!);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -746,7 +750,7 @@ public class MetadataDefinitionFactoryTests
     {
         var database = CreateRelationDraft();
         var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
-        orderModel.RelationProperties["Customer"] = null!;
+        SetMetadataDictionaryValue(orderModel.RelationProperties, "Customer", null!);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2061,7 +2065,7 @@ public class MetadataDefinitionFactoryTests
         var users = database.TableModels.Single(tm => tm.Table.DbName == "users").Table;
         var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders").Table;
         var userId = users.Columns.Single(column => column.DbName == "user_id");
-        orders.ColumnIndices.Add(new ColumnIndex("idx_wrong_table", IndexCharacteristic.Simple, IndexType.BTREE, [userId]));
+        AddMetadataListItem(orders.ColumnIndices, new ColumnIndex("idx_wrong_table", IndexCharacteristic.Simple, IndexType.BTREE, [userId]));
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2080,7 +2084,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var unregisteredColumn = new ColumnDefinition("ghost", table);
-        table.ColumnIndices.Add(new ColumnIndex("idx_ghost", IndexCharacteristic.Simple, IndexType.BTREE, [unregisteredColumn]));
+        AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_ghost", IndexCharacteristic.Simple, IndexType.BTREE, [unregisteredColumn]));
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2099,7 +2103,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var idColumn = table.Columns.Single();
-        table.ColumnIndices.Add(new ColumnIndex("idx_bad_characteristic", (IndexCharacteristic)999, IndexType.BTREE, [idColumn]));
+        AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_bad_characteristic", (IndexCharacteristic)999, IndexType.BTREE, [idColumn]));
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2118,7 +2122,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var idColumn = table.Columns.Single();
-        table.ColumnIndices.Add(new ColumnIndex("idx_bad_type", IndexCharacteristic.Simple, (IndexType)999, [idColumn]));
+        AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_bad_type", IndexCharacteristic.Simple, (IndexType)999, [idColumn]));
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2139,7 +2143,7 @@ public class MetadataDefinitionFactoryTests
         var idColumn = table.Columns.Single();
         var index = new ColumnIndex("idx_null_parts", IndexCharacteristic.Simple, IndexType.BTREE, [idColumn]);
         SetIndexRelationParts(index, null!);
-        table.ColumnIndices.Add(index);
+        AddMetadataListItem(table.ColumnIndices, index);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2158,8 +2162,8 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var idColumn = table.Columns.Single();
-        table.ColumnIndices.Add(new ColumnIndex("idx_duplicate", IndexCharacteristic.Simple, IndexType.BTREE, [idColumn]));
-        table.ColumnIndices.Add(new ColumnIndex("idx_duplicate", IndexCharacteristic.Unique, IndexType.BTREE, [idColumn]));
+        AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_duplicate", IndexCharacteristic.Simple, IndexType.BTREE, [idColumn]));
+        AddMetadataListItem(table.ColumnIndices, new ColumnIndex("idx_duplicate", IndexCharacteristic.Unique, IndexType.BTREE, [idColumn]));
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2179,11 +2183,11 @@ public class MetadataDefinitionFactoryTests
         var orders = database.TableModels.Single(tm => tm.Table.DbName == "orders");
         var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
         var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
-        orders.Table.ColumnIndices.Add(foreignKeyIndex);
+        AddMetadataListItem(orders.Table.ColumnIndices, foreignKeyIndex);
         var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany);
         var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
         SetRelationForeignKey(relation, foreignKeyPart);
-        foreignKeyIndex.RelationParts.Add(foreignKeyPart);
+        AddMetadataListItem(foreignKeyIndex.RelationParts, foreignKeyPart);
         var relationProperty = new RelationProperty(
             "Customer",
             users.Model.CsType,
@@ -2212,14 +2216,14 @@ public class MetadataDefinitionFactoryTests
         var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
         var candidateKeyIndex = new ColumnIndex("users_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [userId]);
         var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
-        users.Table.ColumnIndices.Add(candidateKeyIndex);
-        orders.Table.ColumnIndices.Add(foreignKeyIndex);
+        AddMetadataListItem(users.Table.ColumnIndices, candidateKeyIndex);
+        AddMetadataListItem(orders.Table.ColumnIndices, foreignKeyIndex);
         var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany);
         var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
         var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "Orders");
         SetRelationForeignKey(relation, foreignKeyPart);
         SetRelationCandidateKey(relation, candidateKeyPart);
-        candidateKeyIndex.RelationParts.Add(candidateKeyPart);
+        AddMetadataListItem(candidateKeyIndex.RelationParts, candidateKeyPart);
         var relationProperty = new RelationProperty(
             "Customer",
             users.Model.CsType,
@@ -2248,16 +2252,16 @@ public class MetadataDefinitionFactoryTests
         var customerId = orders.Table.Columns.Single(column => column.DbName == "customer_id");
         var candidateKeyIndex = new ColumnIndex("users_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, [userId]);
         var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
-        users.Table.ColumnIndices.Add(candidateKeyIndex);
-        orders.Table.ColumnIndices.Add(foreignKeyIndex);
+        AddMetadataListItem(users.Table.ColumnIndices, candidateKeyIndex);
+        AddMetadataListItem(orders.Table.ColumnIndices, foreignKeyIndex);
         var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany);
         SetRelationOnDelete(relation, (ReferentialAction)999);
         var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
         var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "Orders");
         SetRelationForeignKey(relation, foreignKeyPart);
         SetRelationCandidateKey(relation, candidateKeyPart);
-        foreignKeyIndex.RelationParts.Add(foreignKeyPart);
-        candidateKeyIndex.RelationParts.Add(candidateKeyPart);
+        AddMetadataListItem(foreignKeyIndex.RelationParts, foreignKeyPart);
+        AddMetadataListItem(candidateKeyIndex.RelationParts, candidateKeyPart);
         var relationProperty = new RelationProperty(
             "Customer",
             users.Model.CsType,
@@ -2949,6 +2953,51 @@ public class MetadataDefinitionFactoryTests
     }
 
 #pragma warning disable CS0618 // These helpers intentionally exercise the legacy mutable metadata surface.
+    private static void SetMetadataListItem<T>(MetadataList<T> list, int index, T item) =>
+        list[index] = item;
+
+    private static void AddMetadataListItem<T>(MetadataList<T> list, T item) =>
+        list.Add(item);
+
+    private static void AddMetadataListItems<T>(MetadataList<T> list, IEnumerable<T> items) =>
+        list.AddRange(items);
+
+    private static void InsertMetadataListItem<T>(MetadataList<T> list, int index, T item) =>
+        list.Insert(index, item);
+
+    private static void ClearMetadataList<T>(MetadataList<T> list) =>
+        list.Clear();
+
+    private static void RemoveMetadataListItem<T>(MetadataList<T> list, T item) =>
+        list.Remove(item);
+
+    private static void RemoveMetadataListItemAt<T>(MetadataList<T> list, int index) =>
+        list.RemoveAt(index);
+
+    private static void SetMetadataDictionaryValue<TKey, TValue>(MetadataDictionary<TKey, TValue> dictionary, TKey key, TValue value)
+        where TKey : notnull =>
+        dictionary[key] = value;
+
+    private static void AddMetadataDictionaryValue<TKey, TValue>(MetadataDictionary<TKey, TValue> dictionary, TKey key, TValue value)
+        where TKey : notnull =>
+        dictionary.Add(key, value);
+
+    private static void AddMetadataDictionaryItem<TKey, TValue>(MetadataDictionary<TKey, TValue> dictionary, KeyValuePair<TKey, TValue> item)
+        where TKey : notnull =>
+        dictionary.Add(item);
+
+    private static void ClearMetadataDictionary<TKey, TValue>(MetadataDictionary<TKey, TValue> dictionary)
+        where TKey : notnull =>
+        dictionary.Clear();
+
+    private static void RemoveMetadataDictionaryValue<TKey, TValue>(MetadataDictionary<TKey, TValue> dictionary, TKey key)
+        where TKey : notnull =>
+        dictionary.Remove(key);
+
+    private static void RemoveMetadataDictionaryItem<TKey, TValue>(MetadataDictionary<TKey, TValue> dictionary, KeyValuePair<TKey, TValue> item)
+        where TKey : notnull =>
+        dictionary.Remove(item);
+
     private static void SetDatabaseName(DatabaseDefinition database, string name) =>
         database.SetName(name);
 

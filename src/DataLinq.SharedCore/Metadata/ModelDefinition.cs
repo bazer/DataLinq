@@ -232,10 +232,10 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
         if (property is RelationProperty relationProperty)
             // This will add or overwrite the entry for the given property name.
-            RelationProperties[relationProperty.PropertyName] = relationProperty;
+            RelationProperties.SetCore(relationProperty.PropertyName, relationProperty);
         else if (property is ValueProperty valueProperty)
             // This will add or overwrite the entry for the given property name.
-            ValueProperties[valueProperty.PropertyName] = valueProperty;
+            ValueProperties.SetCore(valueProperty.PropertyName, valueProperty);
         else
             throw new NotImplementedException();
     }

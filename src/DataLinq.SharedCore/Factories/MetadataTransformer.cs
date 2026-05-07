@@ -67,12 +67,12 @@ public class MetadataTransformer
     {
         destMetadata.SetAttributesCore(srcMetadata.Attributes);
         destMetadata.SetCacheCore(srcMetadata.UseCache);
-        destMetadata.CacheLimits.Clear();
-        destMetadata.CacheLimits.AddRange(srcMetadata.CacheLimits);
-        destMetadata.IndexCache.Clear();
-        destMetadata.IndexCache.AddRange(srcMetadata.IndexCache);
-        destMetadata.CacheCleanup.Clear();
-        destMetadata.CacheCleanup.AddRange(srcMetadata.CacheCleanup);
+        destMetadata.CacheLimits.ClearCore();
+        destMetadata.CacheLimits.AddRangeCore(srcMetadata.CacheLimits);
+        destMetadata.IndexCache.ClearCore();
+        destMetadata.IndexCache.AddRangeCore(srcMetadata.IndexCache);
+        destMetadata.CacheCleanup.ClearCore();
+        destMetadata.CacheCleanup.AddRangeCore(srcMetadata.CacheCleanup);
 
         destMetadata.SetCsTypeCore(TransformCsType(srcMetadata.CsType, destMetadata.CsType));
 
@@ -130,8 +130,8 @@ public class MetadataTransformer
             // Check if the property name has changed and update the key
             if (key != srcProperty.PropertyName)
             {
-                destTable.Model.ValueProperties.Remove(key);
-                destTable.Model.ValueProperties.Add(srcProperty.PropertyName, destProperty);
+                destTable.Model.ValueProperties.RemoveCore(key);
+                destTable.Model.ValueProperties.AddCore(srcProperty.PropertyName, destProperty);
             }
 
             destProperty.SetPropertyNameCore(srcProperty.PropertyName);
@@ -248,7 +248,7 @@ public class MetadataTransformer
         }
 
         // Replace the old relation properties with the new, correctly merged list.
-        destTable.Model.RelationProperties.Clear();
+        destTable.Model.RelationProperties.ClearCore();
         destTable.Model.AddPropertiesCore(finalRelations);
     }
 }

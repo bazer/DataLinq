@@ -56,9 +56,9 @@ internal static class MetadataDefinitionSnapshot
         CopyAttributeSpans(source.Attributes, source.GetAttributeSourceLocation, destination.SetAttributeSourceSpanCore);
 
         destination.SetCacheCore(source.UseCache);
-        destination.CacheLimits.AddRange(source.CacheLimits);
-        destination.CacheCleanup.AddRange(source.CacheCleanup);
-        destination.IndexCache.AddRange(source.IndexCache);
+        destination.CacheLimits.AddRangeCore(source.CacheLimits);
+        destination.CacheCleanup.AddRangeCore(source.CacheCleanup);
+        destination.IndexCache.AddRangeCore(source.IndexCache);
     }
 
     private static TableModel CopyTableModel(
@@ -118,8 +118,8 @@ internal static class MetadataDefinitionSnapshot
         if (source.explicitUseCache.HasValue)
             table.SetUseCacheCore(source.explicitUseCache.Value);
 
-        table.CacheLimits.AddRange(source.CacheLimits);
-        table.IndexCache.AddRange(source.IndexCache);
+        table.CacheLimits.AddRangeCore(source.CacheLimits);
+        table.IndexCache.AddRangeCore(source.IndexCache);
 
         return table;
     }
@@ -215,7 +215,7 @@ internal static class MetadataDefinitionSnapshot
                 sourceIndex.Type,
                 sourceIndex.Columns.Select(column => columnMap[column]).ToList());
 
-            destinationTable.ColumnIndices.Add(destinationIndex);
+            destinationTable.ColumnIndices.AddCore(destinationIndex);
             indexMap.Add(sourceIndex, destinationIndex);
         }
     }
@@ -301,7 +301,7 @@ internal static class MetadataDefinitionSnapshot
             source.Type,
             source.Columns.Select(column => columnMap[column]).ToList());
 
-        tableMap[source.Table].ColumnIndices.Add(destinationIndex);
+        tableMap[source.Table].ColumnIndices.AddCore(destinationIndex);
         indexMap.Add(source, destinationIndex);
 
         return destinationIndex;
@@ -353,7 +353,7 @@ internal static class MetadataDefinitionSnapshot
             foreach (var sourcePart in sourceIndex.RelationParts)
                 if (relationPartMap.TryGetValue(sourcePart, out var destinationPart) &&
                     !destinationIndex.RelationParts.Contains(destinationPart))
-                    destinationIndex.RelationParts.Add(destinationPart);
+                    destinationIndex.RelationParts.AddCore(destinationPart);
         }
     }
 

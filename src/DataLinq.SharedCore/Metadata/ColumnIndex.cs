@@ -107,7 +107,7 @@ public class ColumnIndex : IDefinition
         if (Columns.Contains(column))
             throw new ArgumentException($"Columns already contains column '{column}'");
 
-        Columns.Add(column);
+        Columns.AddCore(column);
     }
 
     /// <summary>

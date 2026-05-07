@@ -83,10 +83,10 @@ public static class MetadataFactory
                 table.SetUseCacheCore(useCache.UseCache);
 
             if (attribute is CacheLimitAttribute cacheLimit)
-                table.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+                table.CacheLimits.AddCore((cacheLimit.LimitType, cacheLimit.Amount));
 
             if (attribute is IndexCacheAttribute indexCache)
-                table.IndexCache.Add((indexCache.Type, indexCache.Amount));
+                table.IndexCache.AddCore((indexCache.Type, indexCache.Amount));
 
             if (table is ViewDefinition view && attribute is DefinitionAttribute definitionAttribute)
                 view.SetDefinitionCore(definitionAttribute.Sql);
@@ -124,7 +124,7 @@ public static class MetadataFactory
 
                 try
                 {
-                    tableModel.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
+                    tableModel.Table.ColumnIndices.AddCore(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
                 }
                 catch (InvalidOperationException exception)
                 {
@@ -172,7 +172,7 @@ public static class MetadataFactory
 
                     try
                     {
-                        column.Table.ColumnIndices.Add(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
+                        column.Table.ColumnIndices.AddCore(new ColumnIndex(indexAttribute.Name, indexAttribute.Characteristic, indexAttribute.Type, columnsForIndex));
                     }
                     catch (InvalidOperationException exception)
                     {
@@ -2051,7 +2051,7 @@ public static class MetadataFactory
                 return CreateMissingPrimaryKeyFailure(table);
 
             if (!table.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.PrimaryKey))
-                table.ColumnIndices.Add(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
+                table.ColumnIndices.AddCore(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
         }
 
         foreach (var foreignKeyGroup in database.TableModels
@@ -2121,7 +2121,7 @@ public static class MetadataFactory
                         $"Foreign key '{firstAttribute.Name}' on table '{foreignKeyTable.DbName}' could not create its index: {foreignKeyIndexFailure}");
                 }
 
-                foreignKeyTable.ColumnIndices.Add(foreignKeyIndex);
+                foreignKeyTable.ColumnIndices.AddCore(foreignKeyIndex);
             }
 
             var candidateKeyIndex = FindCandidateKeyIndex(candidateTableModel.Table, candidateColumns);
@@ -2155,7 +2155,7 @@ public static class MetadataFactory
             {
                 manyToOneProp.SetRelationPartCore(manySidePart);
                 if (!manySidePart.ColumnIndex.RelationParts.Contains(manySidePart))
-                    manySidePart.ColumnIndex.RelationParts.Add(manySidePart);
+                    manySidePart.ColumnIndex.RelationParts.AddCore(manySidePart);
             }
             else
             {
@@ -2181,7 +2181,7 @@ public static class MetadataFactory
             {
                 oneToManyProp.SetRelationPartCore(oneSidePart);
                 if (!oneSidePart.ColumnIndex.RelationParts.Contains(oneSidePart))
-                    oneSidePart.ColumnIndex.RelationParts.Add(oneSidePart);
+                    oneSidePart.ColumnIndex.RelationParts.AddCore(oneSidePart);
             }
             else
             {
@@ -2495,7 +2495,7 @@ public static class MetadataFactory
         // Also ensure the back-reference on the index is set
         if (!relationPart.ColumnIndex.RelationParts.Contains(relationPart))
         {
-            relationPart.ColumnIndex.RelationParts.Add(relationPart);
+            relationPart.ColumnIndex.RelationParts.AddCore(relationPart);
         }
     }
 
@@ -2581,13 +2581,13 @@ public static class MetadataFactory
                 database.SetCacheCore(useCache.UseCache);
 
             if (attribute is CacheLimitAttribute cacheLimit)
-                database.CacheLimits.Add((cacheLimit.LimitType, cacheLimit.Amount));
+                database.CacheLimits.AddCore((cacheLimit.LimitType, cacheLimit.Amount));
 
             if (attribute is IndexCacheAttribute indexCache)
-                database.IndexCache.Add((indexCache.Type, indexCache.Amount));
+                database.IndexCache.AddCore((indexCache.Type, indexCache.Amount));
 
             if (attribute is CacheCleanupAttribute cacheCleanup)
-                database.CacheCleanup.Add((cacheCleanup.LimitType, cacheCleanup.Amount));
+                database.CacheCleanup.AddCore((cacheCleanup.LimitType, cacheCleanup.Amount));
         }
     }
 

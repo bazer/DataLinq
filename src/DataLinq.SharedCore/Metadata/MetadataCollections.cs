@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -24,26 +25,50 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     public T this[int index]
     {
         get => items[index];
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            items[index] = value;
+            SetCore(index, value);
         }
     }
 
+    internal void SetCore(int index, T value)
+    {
+        ThrowIfFrozen();
+        items[index] = value;
+    }
+
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void Add(T item)
+    {
+        AddCore(item);
+    }
+
+    internal void AddCore(T item)
     {
         ThrowIfFrozen();
         items.Add(item);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void AddRange(IEnumerable<T> range)
+    {
+        AddRangeCore(range);
+    }
+
+    internal void AddRangeCore(IEnumerable<T> range)
     {
         ThrowIfFrozen();
         items.AddRange(range);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void Clear()
+    {
+        ClearCore();
+    }
+
+    internal void ClearCore()
     {
         ThrowIfFrozen();
         items.Clear();
@@ -57,19 +82,37 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
 
     public int IndexOf(T item) => items.IndexOf(item);
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void Insert(int index, T item)
+    {
+        InsertCore(index, item);
+    }
+
+    internal void InsertCore(int index, T item)
     {
         ThrowIfFrozen();
         items.Insert(index, item);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public bool Remove(T item)
+    {
+        return RemoveCore(item);
+    }
+
+    internal bool RemoveCore(T item)
     {
         ThrowIfFrozen();
         return items.Remove(item);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void RemoveAt(int index)
+    {
+        RemoveAtCore(index);
+    }
+
+    internal void RemoveAtCore(int index)
     {
         ThrowIfFrozen();
         items.RemoveAt(index);
@@ -101,26 +144,50 @@ public sealed class MetadataDictionary<TKey, TValue> : IDictionary<TKey, TValue>
     public TValue this[TKey key]
     {
         get => items[key];
+        [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
-            ThrowIfFrozen();
-            items[key] = value;
+            SetCore(key, value);
         }
     }
 
+    internal void SetCore(TKey key, TValue value)
+    {
+        ThrowIfFrozen();
+        items[key] = value;
+    }
+
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void Add(TKey key, TValue value)
+    {
+        AddCore(key, value);
+    }
+
+    internal void AddCore(TKey key, TValue value)
     {
         ThrowIfFrozen();
         items.Add(key, value);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void Add(KeyValuePair<TKey, TValue> item)
+    {
+        AddCore(item);
+    }
+
+    internal void AddCore(KeyValuePair<TKey, TValue> item)
     {
         ThrowIfFrozen();
         ((ICollection<KeyValuePair<TKey, TValue>>)items).Add(item);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void Clear()
+    {
+        ClearCore();
+    }
+
+    internal void ClearCore()
     {
         ThrowIfFrozen();
         items.Clear();
@@ -135,13 +202,25 @@ public sealed class MetadataDictionary<TKey, TValue> : IDictionary<TKey, TValue>
 
     public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => items.GetEnumerator();
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public bool Remove(TKey key)
+    {
+        return RemoveCore(key);
+    }
+
+    internal bool RemoveCore(TKey key)
     {
         ThrowIfFrozen();
         return items.Remove(key);
     }
 
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public bool Remove(KeyValuePair<TKey, TValue> item)
+    {
+        return RemoveCore(item);
+    }
+
+    internal bool RemoveCore(KeyValuePair<TKey, TValue> item)
     {
         ThrowIfFrozen();
         return ((ICollection<KeyValuePair<TKey, TValue>>)items).Remove(item);
