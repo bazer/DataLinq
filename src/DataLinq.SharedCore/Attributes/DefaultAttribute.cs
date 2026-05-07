@@ -1,4 +1,5 @@
 ﻿using System;
+using DataLinq.Metadata;
 
 namespace DataLinq.Attributes;
 
@@ -25,11 +26,18 @@ public class DefaultAttribute(object value) : Attribute
 {
     public object Value { get; } = value ?? throw new ArgumentNullException(nameof(value));
     public string? CodeExpression { get; private set; }
+    public bool IsFrozen { get; private set; }
 
     public DefaultAttribute SetCodeExpression(string? codeExpression)
     {
+        MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
         CodeExpression = codeExpression;
         return this;
+    }
+
+    internal void Freeze()
+    {
+        IsFrozen = true;
     }
 }
 

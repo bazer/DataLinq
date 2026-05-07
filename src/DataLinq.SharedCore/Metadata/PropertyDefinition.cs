@@ -135,6 +135,9 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
             return;
 
         IsFrozen = true;
+
+        foreach (var defaultAttribute in attributeArray.OfType<DefaultAttribute>())
+            defaultAttribute.Freeze();
     }
 
     protected void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);

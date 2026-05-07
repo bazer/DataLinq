@@ -204,6 +204,30 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TypedDraft_FreezesDefaultAttributes()
+    {
+        var defaultAttribute = new DefaultAttribute(1).SetCodeExpression("1");
+        var database = CreateSingleTableTypedDraft(
+            valuePropertyAttributes: [defaultAttribute]);
+
+        var built = new MetadataDefinitionFactory()
+            .Build(database)
+            .ValueOrException();
+
+        var builtDefaultAttribute = built.TableModels
+            .Single()
+            .Model
+            .ValueProperties["Id"]
+            .GetDefaultAttribute();
+
+        await Assert.That(builtDefaultAttribute).IsNotNull();
+        await Assert.That(builtDefaultAttribute!.IsFrozen).IsTrue();
+        await Assert.That(builtDefaultAttribute.CodeExpression).IsEqualTo("1");
+        await AssertFrozenMutation(() => builtDefaultAttribute.SetCodeExpression("2"));
+        await Assert.That(builtDefaultAttribute.CodeExpression).IsEqualTo("1");
+    }
+
+    [Test]
     public async Task ArrayValuedMetadataAttributes_ReturnDefensiveCopies()
     {
         var enumValues = new[] { "Active", "Inactive" };
