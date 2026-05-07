@@ -1985,6 +1985,7 @@ public static class MetadataFactory
                 if (index is null)
                     continue;
 
+                var registeredRelationParts = new HashSet<RelationPart>();
                 foreach (var relationPart in index.RelationParts)
                 {
                     if (relationPart is null)
@@ -2007,6 +2008,16 @@ public static class MetadataFactory
                         message => CreateColumnIndexFailure(tableModel.Table, message));
                     if (failure != null)
                         return failure;
+
+                    if (!registeredRelationParts.Add(relationPart))
+                    {
+                        var relationName = string.IsNullOrWhiteSpace(relationPart.Relation.ConstraintName)
+                            ? "<unnamed>"
+                            : relationPart.Relation.ConstraintName;
+                        return CreateColumnIndexFailure(
+                            tableModel.Table,
+                            $"Index '{index.Name}' on table '{tableModel.Table.DbName}' contains duplicate relation part for relation '{relationName}'. Relation parts must be unique within an index.");
+                    }
                 }
             }
         }
