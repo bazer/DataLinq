@@ -102,6 +102,7 @@ public sealed class TypeAttribute : Attribute
         DatabaseType = dbType.DatabaseType;
         Name = dbType.Name;
         Length = dbType.Length;
+        Decimals = dbType.Decimals;
         Signed = dbType.Signed;
     }
 

@@ -1839,11 +1839,158 @@ public static class MetadataFactory
                     return CreateValuePropertyFailure(
                         property,
                         $"Value property '{GetValuePropertyDisplayName(property)}' references column '{table.DbName}.{column.DbName}', but that column points at a different value property.");
+
+                var columnAttributeFailure = ValidateValuePropertyColumnAttributes(property, column);
+                if (columnAttributeFailure is not null)
+                    return columnAttributeFailure;
             }
         }
 
         return true;
     }
+
+    private static IDLOptionFailure? ValidateValuePropertyColumnAttributes(ValueProperty property, ColumnDefinition column)
+    {
+        var columnAttributes = property.Attributes.OfType<ColumnAttribute>().ToArray();
+        if (columnAttributes.Length > 1)
+            return CreateValuePropertyAttributeFailure(
+                property,
+                columnAttributes[1],
+                $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [Column] attributes. A value property can identify only one database column.");
+
+        if (columnAttributes.Length == 1)
+        {
+            var columnAttribute = columnAttributes[0];
+            if (string.IsNullOrWhiteSpace(columnAttribute.Name))
+                return CreateValuePropertyAttributeFailure(
+                    property,
+                    columnAttribute,
+                    $"Value property '{GetValuePropertyDisplayName(property)}' has an empty [Column] attribute name.");
+
+            if (!string.Equals(columnAttribute.Name, column.DbName, StringComparison.Ordinal))
+                return CreateValuePropertyAttributeFailure(
+                    property,
+                    columnAttribute,
+                    $"Value property '{GetValuePropertyDisplayName(property)}' has [Column] name '{columnAttribute.Name}', but it is linked to column '{column.Table.DbName}.{column.DbName}'. Value-property column attributes must match the linked column metadata.");
+        }
+
+        var primaryKeyFailure = ValidateSingleColumnFlagAttribute<PrimaryKeyAttribute>(
+            property,
+            column,
+            column.PrimaryKey,
+            "PrimaryKey",
+            "a primary key");
+        if (primaryKeyFailure is not null)
+            return primaryKeyFailure;
+
+        var nullableFailure = ValidateSingleColumnFlagAttribute<NullableAttribute>(
+            property,
+            column,
+            column.Nullable,
+            "Nullable",
+            "nullable");
+        if (nullableFailure is not null)
+            return nullableFailure;
+
+        var autoIncrementFailure = ValidateSingleColumnFlagAttribute<AutoIncrementAttribute>(
+            property,
+            column,
+            column.AutoIncrement,
+            "AutoIncrement",
+            "auto-increment");
+        if (autoIncrementFailure is not null)
+            return autoIncrementFailure;
+
+        var foreignKeyAttributes = property.Attributes.OfType<ForeignKeyAttribute>().ToArray();
+        if (foreignKeyAttributes.Length > 0 && !column.ForeignKey)
+            return CreateValuePropertyAttributeFailure(
+                property,
+                foreignKeyAttributes[0],
+                $"Value property '{GetValuePropertyDisplayName(property)}' has [ForeignKey] metadata, but linked column '{column.Table.DbName}.{column.DbName}' is not marked as a foreign key.");
+
+        if (column.ForeignKey && foreignKeyAttributes.Length == 0)
+            return CreateValuePropertyFailure(
+                property,
+                $"Column '{column.Table.DbName}.{column.DbName}' is marked as a foreign key, but value property '{GetValuePropertyDisplayName(property)}' has no [ForeignKey] attribute.");
+
+        return ValidateValuePropertyTypeAttributes(property, column);
+    }
+
+    private static IDLOptionFailure? ValidateSingleColumnFlagAttribute<TAttribute>(
+        ValueProperty property,
+        ColumnDefinition column,
+        bool columnValue,
+        string attributeName,
+        string metadataName)
+        where TAttribute : Attribute
+    {
+        var attributes = property.Attributes.OfType<TAttribute>().ToArray();
+        if (attributes.Length > 1)
+            return CreateValuePropertyAttributeFailure(
+                property,
+                attributes[1],
+                $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [{attributeName}] attributes.");
+
+        if (attributes.Length == 1 && !columnValue)
+            return CreateValuePropertyAttributeFailure(
+                property,
+                attributes[0],
+                $"Value property '{GetValuePropertyDisplayName(property)}' has [{attributeName}], but linked column '{column.Table.DbName}.{column.DbName}' is not marked as {metadataName}.");
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateValuePropertyTypeAttributes(ValueProperty property, ColumnDefinition column)
+    {
+        var typeAttributes = property.Attributes.OfType<TypeAttribute>().ToArray();
+        var duplicateTypeGroup = typeAttributes
+            .GroupBy(attribute => attribute.DatabaseType)
+            .FirstOrDefault(group => group.Count() > 1);
+
+        if (duplicateTypeGroup is not null)
+        {
+            var duplicate = duplicateTypeGroup.Skip(1).First();
+            return CreateValuePropertyAttributeFailure(
+                property,
+                duplicate,
+                $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [Type] attributes for database type '{duplicate.DatabaseType}'. A value property can define only one type attribute per provider.");
+        }
+
+        foreach (var attribute in typeAttributes)
+        {
+            var columnType = column.DbTypes.FirstOrDefault(type => type.DatabaseType == attribute.DatabaseType);
+            if (columnType is null)
+                return CreateValuePropertyAttributeFailure(
+                    property,
+                    attribute,
+                    $"Value property '{GetValuePropertyDisplayName(property)}' has [Type] metadata for database type '{attribute.DatabaseType}', but linked column '{column.Table.DbName}.{column.DbName}' has no matching database type metadata.");
+
+            if (!TypeAttributeMatchesColumnType(attribute, columnType))
+                return CreateValuePropertyAttributeFailure(
+                    property,
+                    attribute,
+                    $"Value property '{GetValuePropertyDisplayName(property)}' has [Type] metadata '{FormatTypeAttribute(attribute)}', but linked column '{column.Table.DbName}.{column.DbName}' defines '{FormatDatabaseColumnType(columnType)}'. Value-property type attributes must match linked column metadata.");
+        }
+
+        return null;
+    }
+
+    private static bool TypeAttributeMatchesColumnType(TypeAttribute attribute, DatabaseColumnType columnType) =>
+        attribute.DatabaseType == columnType.DatabaseType &&
+        string.Equals(attribute.Name, columnType.Name, StringComparison.Ordinal) &&
+        attribute.Length == columnType.Length &&
+        attribute.Decimals == columnType.Decimals &&
+        attribute.Signed == columnType.Signed;
+
+    private static string FormatTypeAttribute(TypeAttribute attribute) =>
+        $"{attribute.DatabaseType}:{attribute.Name}(length={FormatNullableValue(attribute.Length)}, decimals={FormatNullableValue(attribute.Decimals)}, signed={FormatNullableValue(attribute.Signed)})";
+
+    private static string FormatDatabaseColumnType(DatabaseColumnType columnType) =>
+        $"{columnType.DatabaseType}:{columnType.Name}(length={FormatNullableValue(columnType.Length)}, decimals={FormatNullableValue(columnType.Decimals)}, signed={FormatNullableValue(columnType.Signed)})";
+
+    private static string FormatNullableValue<T>(T? value)
+        where T : struct =>
+        value?.ToString() ?? "<null>";
 
     public static Option<bool, IDLOptionFailure> ValidateViewDefinitions(DatabaseDefinition database)
     {

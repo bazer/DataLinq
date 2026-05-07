@@ -937,6 +937,166 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ValuePropertyColumnAttributeMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedValueProperty(
+                    "Id",
+                    typeof(int),
+                    "id",
+                    primaryKey: true,
+                    attributes: [new PrimaryKeyAttribute(), new ColumnAttribute("legacy_id")])
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Id'");
+        await Assert.That(failure.Message).Contains("[Column] name 'legacy_id'");
+        await Assert.That(failure.Message).Contains("linked to column 'items.id'");
+    }
+
+    [Test]
+    public async Task Build_ValuePropertyPrimaryKeyAttributeMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "Code",
+                    typeof(string),
+                    "code",
+                    attributes: [new PrimaryKeyAttribute(), new ColumnAttribute("code")])
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Code'");
+        await Assert.That(failure.Message).Contains("[PrimaryKey]");
+        await Assert.That(failure.Message).Contains("not marked as a primary key");
+    }
+
+    [Test]
+    public async Task Build_ValuePropertyForeignKeyAttributeWithoutColumnFlag_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "CustomerId",
+                    typeof(int),
+                    "customer_id",
+                    attributes:
+                    [
+                        new ForeignKeyAttribute("users", "user_id", "FK_Order_User"),
+                        new ColumnAttribute("customer_id")
+                    ])
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.CustomerId'");
+        await Assert.That(failure.Message).Contains("[ForeignKey] metadata");
+        await Assert.That(failure.Message).Contains("not marked as a foreign key");
+    }
+
+    [Test]
+    public async Task Build_ForeignKeyColumnWithoutForeignKeyAttribute_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateRelationTypedDraft(
+            orderCustomerIdAttributes: [new ColumnAttribute("customer_id")]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Column 'orders.customer_id'");
+        await Assert.That(failure.Message).Contains("marked as a foreign key");
+        await Assert.That(failure.Message).Contains("has no [ForeignKey] attribute");
+    }
+
+    [Test]
+    public async Task Build_ValuePropertyTypeAttributeMismatch_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "Price",
+                    typeof(decimal),
+                    "price",
+                    attributes:
+                    [
+                        new ColumnAttribute("price"),
+                        new TypeAttribute(DatabaseType.MySQL, "decimal", 10, 3)
+                    ],
+                    dbTypes: [new DatabaseColumnType(DatabaseType.MySQL, "decimal", 10, 2)])
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Value property 'Item.Price'");
+        await Assert.That(failure.Message).Contains("[Type] metadata");
+        await Assert.That(failure.Message).Contains("decimals=3");
+        await Assert.That(failure.Message).Contains("decimals=2");
+    }
+
+    [Test]
+    public async Task Build_ValuePropertyTypeAttributeFromColumnTypePreservesDecimals()
+    {
+        var dbType = new DatabaseColumnType(DatabaseType.MySQL, "decimal", 10, 2, true);
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedIdProperty(),
+                CreateTypedValueProperty(
+                    "Price",
+                    typeof(decimal),
+                    "price",
+                    attributes:
+                    [
+                        new ColumnAttribute("price"),
+                        new TypeAttribute(dbType)
+                    ],
+                    dbTypes: [dbType])
+            ]);
+
+        var built = new MetadataDefinitionFactory()
+            .Build(database)
+            .ValueOrException();
+
+        var typeAttribute = built.TableModels.Single()
+            .Model.ValueProperties["Price"]
+            .Attributes.OfType<TypeAttribute>()
+            .Single();
+        await Assert.That(typeAttribute.Length).IsEqualTo((ulong)10);
+        await Assert.That(typeAttribute.Decimals).IsEqualTo((uint)2);
+        await Assert.That(typeAttribute.Signed).IsTrue();
+    }
+
+    [Test]
     public async Task Build_RepeatedIndexAttributesWithConflictingShape_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(
@@ -3520,7 +3680,7 @@ public class MetadataDefinitionFactoryTests
                                 Attributes = orderCustomerIdAttributes ??
                                 [
                                     new ForeignKeyAttribute("users", "user_id", foreignKeyName),
-                                    new ColumnAttribute("customer_id")
+                                    new ColumnAttribute(foreignKeyColumnName)
                                 ]
                             },
                             new MetadataValuePropertyDraft(
