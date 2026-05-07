@@ -1071,6 +1071,111 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ForeignKeyConstraintNameWithMultipleTargetTables_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                CreateSingleTableModelTypedDraft("Users", "User", "users", "UserId", "user_id"),
+                CreateSingleTableModelTypedDraft("Products", "Product", "products", "ProductId", "product_id"),
+                new MetadataTableModelDraft(
+                    "Orders",
+                    new MetadataModelDraft(new CsTypeDeclaration("Order", "TestNamespace", ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        ValueProperties =
+                        [
+                            CreateTypedValueProperty(
+                                "OrderId",
+                                typeof(int),
+                                "order_id",
+                                primaryKey: true,
+                                attributes: [new PrimaryKeyAttribute(), new ColumnAttribute("order_id")]),
+                            CreateTypedForeignKeyProperty(
+                                "CustomerId",
+                                "customer_id",
+                                new ForeignKeyAttribute("users", "user_id", "FK_Order_Target")),
+                            CreateTypedForeignKeyProperty(
+                                "ProductId",
+                                "product_id",
+                                new ForeignKeyAttribute("products", "product_id", "FK_Order_Target"))
+                        ]
+                    },
+                    new MetadataTableDraft("orders"))
+            ]
+        };
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Foreign key attribute 'FK_Order_Target' on table 'orders'");
+        await Assert.That(failure.Message).Contains("references table 'products'");
+        await Assert.That(failure.Message).Contains("references table 'users'");
+        await Assert.That(failure.Message).Contains("must target one referenced table");
+    }
+
+    [Test]
+    public async Task Build_ForeignKeyConstraintNameWithMismatchedActions_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                CreateSingleTableModelTypedDraft("Users", "User", "users", "UserId", "user_id"),
+                new MetadataTableModelDraft(
+                    "Orders",
+                    new MetadataModelDraft(new CsTypeDeclaration("Order", "TestNamespace", ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        ValueProperties =
+                        [
+                            CreateTypedValueProperty(
+                                "OrderId",
+                                typeof(int),
+                                "order_id",
+                                primaryKey: true,
+                                attributes: [new PrimaryKeyAttribute(), new ColumnAttribute("order_id")]),
+                            CreateTypedForeignKeyProperty(
+                                "CustomerId",
+                                "customer_id",
+                                new ForeignKeyAttribute("users", "user_id", "FK_Order_User", ReferentialAction.Cascade, ReferentialAction.Cascade)),
+                            CreateTypedForeignKeyProperty(
+                                "ApproverId",
+                                "approver_id",
+                                new ForeignKeyAttribute("users", "user_id", "FK_Order_User", ReferentialAction.NoAction, ReferentialAction.Cascade))
+                        ]
+                    },
+                    new MetadataTableDraft("orders"))
+            ]
+        };
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Foreign key attribute 'FK_Order_User' on table 'orders'");
+        await Assert.That(failure.Message).Contains("uses on-update action 'NoAction'");
+        await Assert.That(failure.Message).Contains("uses on-update action 'Cascade'");
+        await Assert.That(failure.Message).Contains("must agree on referential actions");
+    }
+
+    [Test]
     public async Task Build_RelationPropertyWithMultipleRelationAttributes_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationTypedDraft(
@@ -2605,10 +2710,9 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(result.HasValue).IsFalse();
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
-        await Assert.That(failure.Message).Contains("Existing relation 'FK_Order_User'");
+        await Assert.That(failure.Message).Contains("Value property 'Order.CustomerId'");
         await Assert.That(failure.Message).Contains("multiple [ForeignKey] attributes with constraint name 'FK_Order_User'");
-        await Assert.That(failure.Message).Contains("Expected one targeting 'users.user_id'");
-        await Assert.That(failure.Message).Contains("users.user_name");
+        await Assert.That(failure.Message).Contains("single value property can contribute only one column");
     }
 
     [Test]
@@ -3621,6 +3725,20 @@ public class MetadataDefinitionFactoryTests
             "id",
             primaryKey: true,
             attributes: [new PrimaryKeyAttribute(), new ColumnAttribute("id")]);
+    }
+
+    private static MetadataValuePropertyDraft CreateTypedForeignKeyProperty(
+        string propertyName,
+        string columnName,
+        ForeignKeyAttribute foreignKey)
+    {
+        return new MetadataValuePropertyDraft(
+            propertyName,
+            new CsTypeDeclaration(typeof(int)),
+            new MetadataColumnDraft(columnName) { ForeignKey = true })
+        {
+            Attributes = [foreignKey, new ColumnAttribute(columnName)]
+        };
     }
 
     private static MetadataValuePropertyDraft CreateTypedValueProperty(

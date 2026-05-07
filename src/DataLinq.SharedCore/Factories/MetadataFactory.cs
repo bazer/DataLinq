@@ -1075,6 +1075,10 @@ public static class MetadataFactory
                 }
             }
 
+            var foreignKeyConstraintFailure = ValidateForeignKeyConstraintAttributeMetadata(tableModel);
+            if (foreignKeyConstraintFailure is not null)
+                return foreignKeyConstraintFailure;
+
             foreach (var property in model.RelationProperties.Values)
             {
                 var relationAttributes = property.Attributes
@@ -1282,6 +1286,60 @@ public static class MetadataFactory
 
         if (!Enum.IsDefined(typeof(ReferentialAction), attribute.OnDelete))
             return CreateValuePropertyAttributeFailure(property, attribute, $"{scope} uses unsupported on-delete action '{attribute.OnDelete}'.");
+
+        return null;
+    }
+
+    private static IDLOptionFailure? ValidateForeignKeyConstraintAttributeMetadata(TableModel tableModel)
+    {
+        var definitions = tableModel.Model.ValueProperties.Values
+            .SelectMany(property => property.Attributes
+                .OfType<ForeignKeyAttribute>()
+                .Select(attribute => (Property: property, Attribute: attribute)))
+            .GroupBy(definition => definition.Attribute.Name, StringComparer.Ordinal);
+
+        foreach (var group in definitions)
+        {
+            var first = group.First();
+            var duplicateProperty = group
+                .GroupBy(definition => definition.Property)
+                .FirstOrDefault(propertyGroup => propertyGroup.Count() > 1);
+
+            if (duplicateProperty is not null)
+            {
+                var conflict = duplicateProperty.Skip(1).First();
+                return CreateValuePropertyAttributeFailure(
+                    conflict.Property,
+                    conflict.Attribute,
+                    $"Value property '{GetValuePropertyDisplayName(conflict.Property)}' has multiple [ForeignKey] attributes with constraint name '{conflict.Attribute.Name}'. A single value property can contribute only one column to a foreign-key constraint.");
+            }
+
+            var targetTableConflict = group
+                .Skip(1)
+                .FirstOrDefault(definition => !string.Equals(definition.Attribute.Table, first.Attribute.Table, StringComparison.Ordinal));
+
+            if (targetTableConflict.Attribute is not null)
+            {
+                return CreateValuePropertyAttributeFailure(
+                    targetTableConflict.Property,
+                    targetTableConflict.Attribute,
+                    $"Foreign key attribute '{targetTableConflict.Attribute.Name}' on table '{tableModel.Table.DbName}' references table '{targetTableConflict.Attribute.Table}', but another attribute with the same constraint name references table '{first.Attribute.Table}'. Foreign-key attributes with the same constraint name on a table must target one referenced table.");
+            }
+
+            var actionConflict = group
+                .Skip(1)
+                .FirstOrDefault(definition =>
+                    definition.Attribute.OnUpdate != first.Attribute.OnUpdate ||
+                    definition.Attribute.OnDelete != first.Attribute.OnDelete);
+
+            if (actionConflict.Attribute is not null)
+            {
+                return CreateValuePropertyAttributeFailure(
+                    actionConflict.Property,
+                    actionConflict.Attribute,
+                    $"Foreign key attribute '{actionConflict.Attribute.Name}' on table '{tableModel.Table.DbName}' uses on-update action '{actionConflict.Attribute.OnUpdate}' and on-delete action '{actionConflict.Attribute.OnDelete}', but another attribute with the same constraint name uses on-update action '{first.Attribute.OnUpdate}' and on-delete action '{first.Attribute.OnDelete}'. Foreign-key attributes with the same constraint name must agree on referential actions.");
+            }
+        }
 
         return null;
     }
