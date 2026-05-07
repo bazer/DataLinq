@@ -1160,7 +1160,16 @@ public static class MetadataFactory
                     definition.Attribute.Type != first.Attribute.Type);
 
             if (conflict.Attribute is null)
+            {
+                var columnConflict = ValidateRepeatedIndexAttributeColumns(
+                    tableModel,
+                    model,
+                    group);
+                if (columnConflict is not null)
+                    return columnConflict;
+
                 continue;
+            }
 
             var message = $"Index attribute '{conflict.Attribute.Name}' on table '{tableModel.Table.DbName}' uses characteristic '{conflict.Attribute.Characteristic}' and type '{conflict.Attribute.Type}', but another attribute with the same name uses characteristic '{first.Attribute.Characteristic}' and type '{first.Attribute.Type}'. Repeated index attributes with the same name on a table must agree on characteristic and type.";
             return CreateIndexAttributeFailure(
@@ -1171,6 +1180,68 @@ public static class MetadataFactory
         }
 
         return null;
+    }
+
+    private static IDLOptionFailure? ValidateRepeatedIndexAttributeColumns(
+        TableModel tableModel,
+        ModelDefinition model,
+        IEnumerable<(IndexAttribute Attribute, ValueProperty? Property)> group)
+    {
+        var definitions = group.ToList();
+        var explicitDefinitions = definitions
+            .Where(definition => definition.Attribute.Columns.Length > 0)
+            .ToList();
+
+        if (explicitDefinitions.Count == 0)
+            return null;
+
+        var first = explicitDefinitions[0];
+        var conflict = explicitDefinitions
+            .Skip(1)
+            .FirstOrDefault(definition => !IndexAttributeColumnsMatch(definition.Attribute.Columns, first.Attribute.Columns));
+
+        if (conflict.Attribute is not null)
+        {
+            var message = $"Index attribute '{conflict.Attribute.Name}' on table '{tableModel.Table.DbName}' targets columns '{conflict.Attribute.Columns.ToJoinedString(", ")}', but another attribute with the same name targets columns '{first.Attribute.Columns.ToJoinedString(", ")}'. Repeated index attributes with explicit columns must agree on column order.";
+            return CreateIndexAttributeFailure(
+                model,
+                conflict.Property,
+                conflict.Attribute,
+                message);
+        }
+
+        var implicitConflict = definitions
+            .Where(definition => definition.Property is not null && definition.Attribute.Columns.Length == 0)
+            .FirstOrDefault(definition =>
+                definition.Property?.Column?.DbName is not { } columnName ||
+                !first.Attribute.Columns.Contains(columnName, StringComparer.Ordinal));
+
+        if (implicitConflict.Attribute is null)
+            return null;
+
+        var propertyName = implicitConflict.Property is null
+            ? "<unknown>"
+            : GetValuePropertyDisplayName(implicitConflict.Property);
+        var implicitMessage = $"Index attribute '{implicitConflict.Attribute.Name}' on value property '{propertyName}' does not specify explicit columns, but another attribute with the same name targets columns '{first.Attribute.Columns.ToJoinedString(", ")}'. Mixed implicit and explicit repeated index attributes must only appear on columns included in the explicit index target.";
+        return CreateIndexAttributeFailure(
+            model,
+            implicitConflict.Property,
+            implicitConflict.Attribute,
+            implicitMessage);
+    }
+
+    private static bool IndexAttributeColumnsMatch(IReadOnlyList<string> left, IReadOnlyList<string> right)
+    {
+        if (left.Count != right.Count)
+            return false;
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (!string.Equals(left[i], right[i], StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
     }
 
     private static IDLOptionFailure CreateIndexAttributeFailure(

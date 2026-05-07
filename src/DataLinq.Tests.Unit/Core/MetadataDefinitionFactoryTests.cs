@@ -977,6 +977,54 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_RepeatedIndexAttributesWithConflictingColumns_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            valueProperties:
+            [
+                CreateTypedValueProperty(
+                    "Id",
+                    typeof(int),
+                    "id",
+                    primaryKey: true,
+                    attributes:
+                    [
+                        new PrimaryKeyAttribute(),
+                        new ColumnAttribute("id")
+                    ]),
+                CreateTypedValueProperty(
+                    "Code",
+                    typeof(string),
+                    "code",
+                    attributes:
+                    [
+                        new ColumnAttribute("code"),
+                        new IndexAttribute("IX_items_lookup", IndexCharacteristic.Simple, IndexType.BTREE, "id", "code")
+                    ]),
+                CreateTypedValueProperty(
+                    "Name",
+                    typeof(string),
+                    "name",
+                    attributes:
+                    [
+                        new ColumnAttribute("name"),
+                        new IndexAttribute("IX_items_lookup", IndexCharacteristic.Simple, IndexType.BTREE, "id", "name")
+                    ])
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Index attribute 'IX_items_lookup' on table 'items'");
+        await Assert.That(failure.Message).Contains("targets columns 'id, name'");
+        await Assert.That(failure.Message).Contains("targets columns 'id, code'");
+        await Assert.That(failure.Message).Contains("must agree on column order");
+    }
+
+    [Test]
     public async Task Build_ForeignKeyWithUnsupportedReferentialAction_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateRelationTypedDraft(
