@@ -10,8 +10,6 @@ using DataLinq.Metadata;
 using DataLinq.Testing;
 using ThrowAway.Extensions;
 
-#pragma warning disable CS0618 // These fixtures intentionally exercise the legacy mutable metadata surface until Workstream C removes it.
-
 namespace DataLinq.Tests.Unit.Core;
 
 public class MetadataDefinitionFactoryTests
@@ -98,17 +96,17 @@ public class MetadataDefinitionFactoryTests
         await AssertArrayElementAssignmentDoesNotMutate(() => orderId.DbTypes, new DatabaseColumnType(DatabaseType.MySQL, "bigint"));
         await AssertArrayElementAssignmentDoesNotMutate(() => orderIdProperty.Attributes, new ColumnAttribute("changed"));
 
-        await AssertFrozenMutation(() => built.SetDbName("changed"));
-        await AssertFrozenMutation(() => orderTableModel.SetCsPropertyName("Changed"));
-        await AssertFrozenMutation(() => orderTable.SetDbName("changed"));
-        await AssertFrozenMutation(() => orderTable.UseCache = true);
-        await AssertFrozenMutation(() => orderModel.SetCsType(new CsTypeDeclaration("Changed", "TestNamespace", ModelCsType.Class)));
-        await AssertFrozenMutation(() => orderId.SetIndex(42));
-        await AssertFrozenMutation(() => orderIdProperty.SetPropertyName("Changed"));
-        await AssertFrozenMutation(() => customerProperty.SetRelationName("Changed"));
-        await AssertFrozenMutation(() => foreignKeyIndex.AddColumn(amount));
-        await AssertFrozenMutation(() => relation.ConstraintName = "Changed");
-        await AssertFrozenMutation(() => dbType.SetName("bigint"));
+        await AssertFrozenMutation(() => SetDatabaseDbName(built, "changed"));
+        await AssertFrozenMutation(() => SetTableModelPropertyName(orderTableModel, "Changed"));
+        await AssertFrozenMutation(() => SetTableDbName(orderTable, "changed"));
+        await AssertFrozenMutation(() => SetTableUseCache(orderTable, true));
+        await AssertFrozenMutation(() => SetModelCsType(orderModel, new CsTypeDeclaration("Changed", "TestNamespace", ModelCsType.Class)));
+        await AssertFrozenMutation(() => SetColumnIndex(orderId, 42));
+        await AssertFrozenMutation(() => SetPropertyName(orderIdProperty, "Changed"));
+        await AssertFrozenMutation(() => SetRelationPropertyName(customerProperty, "Changed"));
+        await AssertFrozenMutation(() => AddColumnToIndex(foreignKeyIndex, amount));
+        await AssertFrozenMutation(() => SetRelationConstraintName(relation, "Changed"));
+        await AssertFrozenMutation(() => SetDatabaseColumnTypeName(dbType, "bigint"));
         await AssertFrozenMutation(() => orderTable.ColumnIndices.Add(new ColumnIndex("idx_amount", IndexCharacteristic.Simple, IndexType.BTREE, [amount])));
         await AssertFrozenMutation(() => orderModel.ValueProperties.Clear());
         await AssertFrozenMutation(() => orderModel.RelationProperties.Clear());
@@ -256,7 +254,7 @@ public class MetadataDefinitionFactoryTests
         var targetDatabase = new DatabaseDefinition(
             "TargetDb",
             new CsTypeDeclaration("TargetDb", "TestNamespace", ModelCsType.Class));
-        targetDatabase.SetTableModels([tableModel]);
+        SetDatabaseTableModels(targetDatabase, [tableModel]);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(targetDatabase));
@@ -275,14 +273,14 @@ public class MetadataDefinitionFactoryTests
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
         var model = new ModelDefinition(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class));
-        model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        SetModelInterfaces(model, [new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
         var table = MetadataFactory.ParseTable(model).ValueOrException();
-        table.SetDbName("items");
+        SetTableDbName(table, "items");
         var tableModel = new TableModel("Items", null!, model, table);
         AddValueProperties(
             model,
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.SetTableModels([tableModel]);
+        SetDatabaseTableModels(database, [tableModel]);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -301,7 +299,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var ghostPrimaryKey = new ColumnDefinition("ghost_pk", table);
-        ghostPrimaryKey.SetPrimaryKey();
+        SetColumnPrimaryKey(ghostPrimaryKey);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -320,7 +318,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var idColumn = table.Columns.Single(column => column.DbName == "id");
-        table.RemovePrimaryKeyColumn(idColumn);
+        RemoveTablePrimaryKeyColumn(table, idColumn);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -364,7 +362,7 @@ public class MetadataDefinitionFactoryTests
         var database = CreateSingleTableDraft(
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var tableModel = database.TableModels.Single();
-        database.SetTableModels([tableModel, tableModel]);
+        SetDatabaseTableModels(database, [tableModel, tableModel]);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -384,14 +382,14 @@ public class MetadataDefinitionFactoryTests
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
         var model = new ModelDefinition(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class));
-        model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        SetModelInterfaces(model, [new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
         var table = new MutableTableDefinition("items");
         table.SetType((TableType)999);
         var tableModel = new TableModel("Items", database, model, table);
         AddValueProperties(
             model,
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.SetTableModels([tableModel]);
+        SetDatabaseTableModels(database, [tableModel]);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -410,14 +408,14 @@ public class MetadataDefinitionFactoryTests
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
         var model = new ModelDefinition(new CsTypeDeclaration("Item", "TestNamespace", ModelCsType.Class));
-        model.SetInterfaces([new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        SetModelInterfaces(model, [new CsTypeDeclaration("IViewModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
         var table = new MutableTableDefinition("items");
         table.SetType(TableType.View);
         var tableModel = new TableModel("Items", database, model, table);
         AddValueProperties(
             model,
             ("Id", typeof(int), [new ColumnAttribute("id")]));
-        database.SetTableModels([tableModel]);
+        SetDatabaseTableModels(database, [tableModel]);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -437,15 +435,15 @@ public class MetadataDefinitionFactoryTests
             "TestDb",
             new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
         var model = new ModelDefinition(new CsTypeDeclaration("ActiveItem", "TestNamespace", ModelCsType.Class));
-        model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        SetModelInterfaces(model, [new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
         var view = new MutableViewDefinition("active_items");
-        view.SetDefinition("select 1");
+        SetViewDefinition(view, "select 1");
         view.SetType(TableType.Table);
         var tableModel = new TableModel("ActiveItems", database, model, view);
         AddValueProperties(
             model,
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
-        database.SetTableModels([tableModel]);
+        SetDatabaseTableModels(database, [tableModel]);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -594,7 +592,7 @@ public class MetadataDefinitionFactoryTests
             orderModel,
             [new RelationAttribute("users", "user_id", "FK_Order_User")]);
         SetPropertyType(relationProperty, PropertyType.Value);
-        orderModel.AddProperty(relationProperty);
+        AddModelProperty(orderModel, relationProperty);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -1374,8 +1372,8 @@ public class MetadataDefinitionFactoryTests
             userModel.CsType,
             orderModel,
             [new RelationAttribute("users", "user_id", "FK_Order_User")]);
-        orderModel.AddProperty(relationProperty);
-        relationProperty.SetPropertyName("Buyer");
+        AddModelProperty(orderModel, relationProperty);
+        SetPropertyName(relationProperty, "Buyer");
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -1393,7 +1391,7 @@ public class MetadataDefinitionFactoryTests
         var database = CreateRelationDraft();
         var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
         var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
-        orderModel.AddProperty(new RelationProperty(
+        AddModelProperty(orderModel, new RelationProperty(
             "Customer",
             userModel.CsType,
             userModel,
@@ -1444,7 +1442,7 @@ public class MetadataDefinitionFactoryTests
         var orderModel = database.TableModels.Single(tm => tm.Table.DbName == "orders").Model;
         var userModel = database.TableModels.Single(tm => tm.Table.DbName == "users").Model;
         var wrongSidePart = userModel.RelationProperties["Order"].RelationPart;
-        orderModel.RelationProperties["Customer"].SetRelationPart(wrongSidePart);
+        SetRelationPropertyPart(orderModel.RelationProperties["Customer"], wrongSidePart);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -1841,7 +1839,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var orphanColumn = new ColumnDefinition("ghost", table);
-        table.SetColumns(table.Columns.Concat([orphanColumn]));
+        SetTableColumns(table, table.Columns.Concat([orphanColumn]));
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -1865,8 +1863,8 @@ public class MetadataDefinitionFactoryTests
             tableModel.Model,
             [new ColumnAttribute("ghost")]);
         var ghostColumn = new ColumnDefinition("ghost", tableModel.Table);
-        ghostColumn.SetValueProperty(ghostProperty);
-        tableModel.Model.AddProperty(ghostProperty);
+        SetColumnValueProperty(ghostColumn, ghostProperty);
+        AddModelProperty(tableModel.Model, ghostProperty);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -1961,10 +1959,8 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var idColumn = table.Columns.Single();
-        var index = new ColumnIndex("idx_null_parts", IndexCharacteristic.Simple, IndexType.BTREE, [idColumn])
-        {
-            RelationParts = null!
-        };
+        var index = new ColumnIndex("idx_null_parts", IndexCharacteristic.Simple, IndexType.BTREE, [idColumn]);
+        SetIndexRelationParts(index, null!);
         table.ColumnIndices.Add(index);
 
         var result = new MetadataDefinitionFactory()
@@ -2008,15 +2004,15 @@ public class MetadataDefinitionFactoryTests
         orders.Table.ColumnIndices.Add(foreignKeyIndex);
         var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany);
         var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
-        relation.ForeignKey = foreignKeyPart;
+        SetRelationForeignKey(relation, foreignKeyPart);
         foreignKeyIndex.RelationParts.Add(foreignKeyPart);
         var relationProperty = new RelationProperty(
             "Customer",
             users.Model.CsType,
             orders.Model,
             [new RelationAttribute("users", "user_id", "FK_Broken")]);
-        relationProperty.SetRelationPart(foreignKeyPart);
-        orders.Model.AddProperty(relationProperty);
+        SetRelationPropertyPart(relationProperty, foreignKeyPart);
+        AddModelProperty(orders.Model, relationProperty);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2043,16 +2039,16 @@ public class MetadataDefinitionFactoryTests
         var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany);
         var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
         var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "Orders");
-        relation.ForeignKey = foreignKeyPart;
-        relation.CandidateKey = candidateKeyPart;
+        SetRelationForeignKey(relation, foreignKeyPart);
+        SetRelationCandidateKey(relation, candidateKeyPart);
         candidateKeyIndex.RelationParts.Add(candidateKeyPart);
         var relationProperty = new RelationProperty(
             "Customer",
             users.Model.CsType,
             orders.Model,
             [new RelationAttribute("users", "user_id", "FK_Broken")]);
-        relationProperty.SetRelationPart(foreignKeyPart);
-        orders.Model.AddProperty(relationProperty);
+        SetRelationPropertyPart(relationProperty, foreignKeyPart);
+        AddModelProperty(orders.Model, relationProperty);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2076,14 +2072,12 @@ public class MetadataDefinitionFactoryTests
         var foreignKeyIndex = new ColumnIndex("FK_Broken", IndexCharacteristic.ForeignKey, IndexType.BTREE, [customerId]);
         users.Table.ColumnIndices.Add(candidateKeyIndex);
         orders.Table.ColumnIndices.Add(foreignKeyIndex);
-        var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany)
-        {
-            OnDelete = (ReferentialAction)999
-        };
+        var relation = new RelationDefinition("FK_Broken", RelationType.OneToMany);
+        SetRelationOnDelete(relation, (ReferentialAction)999);
         var foreignKeyPart = new RelationPart(foreignKeyIndex, relation, RelationPartType.ForeignKey, "Customer");
         var candidateKeyPart = new RelationPart(candidateKeyIndex, relation, RelationPartType.CandidateKey, "Orders");
-        relation.ForeignKey = foreignKeyPart;
-        relation.CandidateKey = candidateKeyPart;
+        SetRelationForeignKey(relation, foreignKeyPart);
+        SetRelationCandidateKey(relation, candidateKeyPart);
         foreignKeyIndex.RelationParts.Add(foreignKeyPart);
         candidateKeyIndex.RelationParts.Add(candidateKeyPart);
         var relationProperty = new RelationProperty(
@@ -2091,8 +2085,8 @@ public class MetadataDefinitionFactoryTests
             users.Model.CsType,
             orders.Model,
             [new RelationAttribute("users", "user_id", "FK_Broken")]);
-        relationProperty.SetRelationPart(foreignKeyPart);
-        orders.Model.AddProperty(relationProperty);
+        SetRelationPropertyPart(relationProperty, foreignKeyPart);
+        AddModelProperty(orders.Model, relationProperty);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2139,7 +2133,7 @@ public class MetadataDefinitionFactoryTests
             ("Id", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("id")]));
         var table = database.TableModels.Single().Table;
         var idColumn = table.Columns.Single();
-        table.SetColumns([idColumn, idColumn]);
+        SetTableColumns(table, [idColumn, idColumn]);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2215,8 +2209,8 @@ public class MetadataDefinitionFactoryTests
             userModel.CsType,
             orderModel,
             [new RelationAttribute("users", "user_id", "FK_Order_User")]);
-        relationProperty.SetRelationName("");
-        orderModel.AddProperty(relationProperty);
+        SetRelationPropertyName(relationProperty, "");
+        AddModelProperty(orderModel, relationProperty);
 
         var result = new MetadataDefinitionFactory()
             .Build(MetadataDefinitionDraft.FromMutableMetadata(database));
@@ -2332,7 +2326,7 @@ public class MetadataDefinitionFactoryTests
             ("CustomerId", typeof(int), [new ForeignKeyAttribute("users", "user_id", foreignKeyName), new ColumnAttribute("customer_id")]),
             ("Amount", typeof(decimal), [new ColumnAttribute("amount")]));
 
-        database.SetTableModels([
+        SetDatabaseTableModels(database, [
             userModel.TableModel,
             orderModel.TableModel
         ]);
@@ -2505,7 +2499,7 @@ public class MetadataDefinitionFactoryTests
             ("ItemId", typeof(int), [new PrimaryKeyAttribute(), new ColumnAttribute("item_id")]),
             ("Name", typeof(string), [new ColumnAttribute("name")]));
 
-        database.SetTableModels([tableModel]);
+        SetDatabaseTableModels(database, [tableModel]);
         return database;
     }
 
@@ -2518,7 +2512,7 @@ public class MetadataDefinitionFactoryTests
 
         AddValueProperties(model, properties);
 
-        database.SetTableModels([model.TableModel]);
+        SetDatabaseTableModels(database, [model.TableModel]);
         return database;
     }
 
@@ -2720,10 +2714,10 @@ public class MetadataDefinitionFactoryTests
         string tableName)
     {
         var model = new ModelDefinition(new CsTypeDeclaration(modelName, "TestNamespace", ModelCsType.Class));
-        model.SetInterfaces([new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
+        SetModelInterfaces(model, [new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)]);
 
         var table = MetadataFactory.ParseTable(model).ValueOrException();
-        table.SetDbName(tableName);
+        SetTableDbName(table, tableName);
 
         return new TableModel(csPropertyName, database, model, table);
     }
@@ -2740,12 +2734,12 @@ public class MetadataDefinitionFactoryTests
                     new CsTypeDeclaration(property.CsType),
                     model,
                     property.Attributes);
-                model.AddProperty(valueProperty);
+                AddModelProperty(model, valueProperty);
                 return MetadataFactory.ParseColumn(model.Table, valueProperty);
             })
             .ToArray();
 
-        model.Table.SetColumns(columns);
+        SetTableColumns(model.Table, columns);
     }
 
     private static IEnumerable<string> FindMissingObsoleteMethods(Type type, IEnumerable<string> methodNames)
@@ -2775,6 +2769,80 @@ public class MetadataDefinitionFactoryTests
             BindingFlags.Instance | BindingFlags.NonPublic);
         backingField!.SetValue(property, type);
     }
+
+#pragma warning disable CS0618 // These helpers intentionally exercise the legacy mutable metadata surface.
+    private static void SetDatabaseTableModels(DatabaseDefinition database, IEnumerable<TableModel> tableModels) =>
+        database.SetTableModels(tableModels);
+
+    private static void SetDatabaseDbName(DatabaseDefinition database, string dbName) =>
+        database.SetDbName(dbName);
+
+    private static void SetTableModelPropertyName(TableModel tableModel, string propertyName) =>
+        tableModel.SetCsPropertyName(propertyName);
+
+    private static void SetTableDbName(TableDefinition table, string dbName) =>
+        table.SetDbName(dbName);
+
+    private static void SetTableUseCache(TableDefinition table, bool useCache) =>
+        table.UseCache = useCache;
+
+    private static void SetViewDefinition(ViewDefinition view, string definition) =>
+        view.SetDefinition(definition);
+
+    private static void SetModelCsType(ModelDefinition model, CsTypeDeclaration csType) =>
+        model.SetCsType(csType);
+
+    private static void SetModelInterfaces(ModelDefinition model, IEnumerable<CsTypeDeclaration> interfaces) =>
+        model.SetInterfaces(interfaces);
+
+    private static void AddModelProperty(ModelDefinition model, PropertyDefinition property) =>
+        model.AddProperty(property);
+
+    private static void SetTableColumns(TableDefinition table, IEnumerable<ColumnDefinition> columns) =>
+        table.SetColumns(columns);
+
+    private static void SetColumnPrimaryKey(ColumnDefinition column) =>
+        column.SetPrimaryKey();
+
+    private static void RemoveTablePrimaryKeyColumn(TableDefinition table, ColumnDefinition column) =>
+        table.RemovePrimaryKeyColumn(column);
+
+    private static void SetColumnIndex(ColumnDefinition column, int index) =>
+        column.SetIndex(index);
+
+    private static void SetColumnValueProperty(ColumnDefinition column, ValueProperty property) =>
+        column.SetValueProperty(property);
+
+    private static void SetPropertyName(PropertyDefinition property, string propertyName) =>
+        property.SetPropertyName(propertyName);
+
+    private static void SetRelationPropertyName(RelationProperty property, string? relationName) =>
+        property.SetRelationName(relationName);
+
+    private static void SetRelationPropertyPart(RelationProperty property, RelationPart relationPart) =>
+        property.SetRelationPart(relationPart);
+
+    private static void AddColumnToIndex(ColumnIndex index, ColumnDefinition column) =>
+        index.AddColumn(column);
+
+    private static void SetIndexRelationParts(ColumnIndex index, MetadataList<RelationPart> relationParts) =>
+        index.RelationParts = relationParts;
+
+    private static void SetRelationForeignKey(RelationDefinition relation, RelationPart foreignKey) =>
+        relation.ForeignKey = foreignKey;
+
+    private static void SetRelationCandidateKey(RelationDefinition relation, RelationPart candidateKey) =>
+        relation.CandidateKey = candidateKey;
+
+    private static void SetRelationConstraintName(RelationDefinition relation, string constraintName) =>
+        relation.ConstraintName = constraintName;
+
+    private static void SetRelationOnDelete(RelationDefinition relation, ReferentialAction onDelete) =>
+        relation.OnDelete = onDelete;
+
+    private static void SetDatabaseColumnTypeName(DatabaseColumnType columnType, string name) =>
+        columnType.SetName(name);
+#pragma warning restore CS0618
 
     private static async Task AssertFrozenMutation(Action action)
     {
