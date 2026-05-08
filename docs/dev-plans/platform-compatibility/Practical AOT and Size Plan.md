@@ -2,9 +2,11 @@
 > This document is roadmap and engineering planning material. It is not normative product documentation and should not be treated as a support claim.
 # Practical AOT and Size Plan
 
-**Status:** Draft follow-up plan after Phase 8.
+**Status:** Draft follow-up plan after Phase 8, now split across Phase 8C and Phase 13.
 
 **Created:** 2026-05-05.
+
+**Update 2026-05-08:** The package graph, size reporting, generated startup, and packaging work belongs to [Phase 8C](../roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work belongs to [Phase 13](../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md).
 
 ## Purpose
 

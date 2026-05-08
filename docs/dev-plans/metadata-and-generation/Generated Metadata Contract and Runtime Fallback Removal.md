@@ -2,9 +2,11 @@
 > This document is roadmap and engineering planning material. It is not normative product documentation and should not be treated as a shipped support claim.
 # Generated Metadata Contract and Runtime Fallback Removal
 
-**Status:** Draft plan for Phase 8B.
+**Status:** Split plan. Generated-hook cleanup and declaration validation landed in Phase 8B; complete generated metadata startup and generated indexed/handle access moved to Phase 8C.
 
 **Created:** 2026-05-05.
+
+**Update 2026-05-08:** Treat the audit below as the original planning snapshot. Workstreams 1 and 2 are covered by the completed Phase 8B foundation. Workstreams 3 through 5 now belong to [Phase 8C](../roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). Query/projection parser work remains separate in [Phase 13](../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md).
 
 ## Purpose
 
@@ -16,11 +18,11 @@ The policy should be blunt:
 
 Compatibility fallbacks are useful only when they are explicit legacy APIs. They are harmful when they silently protect broken generated output, stale analyzer payloads, or trimmed-away members.
 
-## Current Audit
+## Original Audit
 
 This is the important correction: the worst old dynamic-code story is already gone from the checked runtime source. A search of `src` currently finds no `Expression.Compile()` call. Several planning docs still mention expression-compiled constructor fallbacks, but those notes are stale.
 
-Current generated path:
+Generated path at plan creation:
 
 - `IDataLinqGeneratedDatabaseModel<TDatabase>` requires `GetDataLinqGeneratedModel()` and `NewDataLinqDatabase(...)`.
 - `GeneratorFileFactory` emits a database partial implementing that interface.
@@ -29,7 +31,7 @@ Current generated path:
 - `MetadataFromTypeFactory` already throws if the generated table declaration is missing the immutable type or immutable factory.
 - `InstanceFactory.NewImmutableRow(...)` throws if the immutable factory is absent or has the wrong delegate shape.
 
-Remaining fallback and runtime-dynamic issues:
+Remaining fallback and runtime-dynamic issues at plan creation:
 
 - `GeneratorFileFactory` still emits the old `GetDataLinqGeneratedTableModels()` shim.
 - `MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(Type)` still searches for `GetDataLinqGeneratedModel()` via reflection and then falls back to `GetDataLinqGeneratedTableModels()`.
@@ -188,7 +190,7 @@ Boundary:
 
 - metadata startup, object construction, property access, and relation access belong in this plan
 - arbitrary query/projection parsing belongs in `Remotion.Linq Replacement Plan`
-- compatibility wording belongs in the Phase 8B AOT package graph work
+- compatibility wording belongs in the Phase 8C package graph and generated runtime work
 
 ## Suggested Sequence
 

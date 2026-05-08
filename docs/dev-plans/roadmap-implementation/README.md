@@ -27,11 +27,13 @@ What are we actually going to do, in what order, and how will we know it worked?
 | Phase 6: LINQ Translation Coverage and Query Composition | Implemented | `phase-6-linq-translation-coverage-and-query-composition/` |
 | Phase 7: LINQ Feature Expansion | Implemented | `phase-7-linq-feature-expansion/` |
 | Phase 8: Native AOT and WebAssembly Readiness | Implemented for generated SQLite AOT/WASM boundary | `phase-8-native-aot-and-webassembly-readiness/` |
-| Phase 8B: Practical AOT and Package Graph Hardening | Active recommended follow-up before a broad public AOT support claim | `phase-8b-practical-aot-and-package-graph-hardening/` |
+| Phase 8B: Generated Contract and Immutable Metadata Foundation | Complete for the generated-contract and immutable metadata foundation | `phase-8b-practical-aot-and-package-graph-hardening/` |
+| Phase 8C: Practical AOT Package Graph and Generated Runtime Hardening | Planned constrained-platform package/runtime cleanup | `phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/` |
+| Phase 13: Query Plan and Remotion Isolation | Deferred query-boundary and WebAssembly warning phase | `phase-13-query-plan-and-remotion-isolation/` |
 
 ## Current Roadmap Position
 
-As of the Phase 8 planning-doc review on 2026-05-05, Phase 8 is closed for its planned smoke boundary, but the active implementation frontier should not jump straight to a broad "AOT-compatible ORM" story.
+As of the Phase 8B/8C split on 2026-05-08, Phase 8 is closed for its planned smoke boundary and Phase 8B is closed for the generated-contract and immutable metadata foundation. The active implementation frontier should not jump straight to a broad "AOT-compatible ORM" story.
 
 Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. Full versioned migration execution is not a remaining Phase 5 cleanup task; it is a separate future product surface.
 
@@ -41,9 +43,11 @@ The Phase 6 plan completed the support-matrix audit, chained `Where(...)` correc
 
 The Phase 7 plan completed scalar aggregates, projection expansion, nullable predicate polish, a narrow LINQ `Join(...)` baseline, and relation-aware predicate translation.
 
-The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. The result is intentionally scoped: generated hooks are now required for the AOT path, hot-path `Expression.Compile()` use has been removed from the checked LINQ/instance surface, and browser cache startup avoids the cleanup worker. Broad public compatibility still needs generated-hook fail-fast hardening, dependency cleanup around `Remotion.Linq`, SQLitePCLRaw WebAssembly varargs warnings, no-AOT interpreter failures, and Roslyn payload leakage.
+The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. The result is intentionally scoped: generated hooks are now required for the AOT path, hot-path `Expression.Compile()` use has been removed from the checked LINQ/instance surface, and browser cache startup avoids the cleanup worker. Broad public compatibility still needs package/runtime cleanup, dependency cleanup around `Remotion.Linq`, SQLitePCLRaw WebAssembly varargs warnings, no-AOT interpreter failures, and Roslyn payload leakage.
 
-The next recommended implementation slice is Phase 8B: practical AOT and package graph hardening. That means fail-fast generated metadata contracts, size reporting, removing Roslyn from the runtime graph, introducing the query-plan boundary needed to replace or isolate Remotion, and investigating SQLitePCLRaw WebAssembly warnings. Phase 9 cache, memory, and invalidation foundations remain the next broad runtime phase after that, unless full migration execution becomes the immediate product priority.
+Phase 8B is now the completed generated-contract and immutable metadata foundation. Phase 8C is the bounded package/generated-runtime cleanup slice: size reporting, Roslyn removal from the runtime graph, complete generated metadata startup, generated indexed access, and package/public wording. The query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw warning work moved to Phase 13 at the back of the roadmap.
+
+Phase 9 cache, memory, and invalidation foundations are the next broad runtime priority unless constrained-platform package cleanup becomes urgent.
 
 For the older Phase 4/5 checkpoint, see the archived [Phase 4 and 5 Status Review](../archive/roadmap-implementation/Phase%204%20and%205%20Status%20Review.md).
 

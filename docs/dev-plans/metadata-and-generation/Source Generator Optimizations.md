@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Source Generator Optimizations
 
-**Status:** Partially implemented by Roadmap Phase 2 and Phase 8; runtime/package-graph AOT cleanup remains.
+**Status:** Partially implemented by Roadmap Phase 2, Phase 8, and Phase 8B; runtime/package-graph generated startup cleanup remains in Phase 8C.
 **Goal:** Shift the heavy lifting of object instantiation, metadata discovery, and property mapping from **Runtime** (Reflection/Dictionaries) to **Compile Time** (Source Generation). This enables instant startup, Native AOT compatibility, and O(1) property access.
 
 For the current fail-fast generated hook plan, see [Generated Metadata Contract and Runtime Fallback Removal](Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md).
@@ -20,12 +20,11 @@ Phase 2 and Phase 8 implemented the low-risk parts that paid off immediately:
 Still not implemented:
 
 - `InstanceFactory` is not gone; it still owns materialization dispatch and last-resort factory-shape guards
-- the stale `GetDataLinqGeneratedTableModels()` compatibility hook still exists and should be removed
 - the generator does not emit a complete static `BuildMetadata()` graph for runtime startup
 - property access has not universally moved to generated `GetFast(int)`-style accessors
 - this work improves AOT-readiness, and Phase 8 proved a generated SQLite smoke boundary, but it does not make DataLinq broadly Native AOT-safe
 
-The next serious continuation belongs in the Phase 8B practical AOT/package-graph work: split Roslyn from the runtime surface, keep generated hooks as the AOT path, and avoid silently falling back to reflection or dynamic-code paths under constrained publishing.
+Phase 8B removed the stale generated-hook compatibility path and built the immutable metadata foundation. The next serious continuation belongs in Phase 8C: split Roslyn from the runtime surface, generate complete metadata startup, use indexed generated access, and avoid silently falling back to reflection or dynamic-code paths under constrained publishing.
 
 ---
 

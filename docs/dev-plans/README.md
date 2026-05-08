@@ -70,6 +70,10 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
+- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
+- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
+- `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/README.md`
+- `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation Plan.md`
 
 ### Providers and features
 
@@ -113,7 +117,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 ## Current Stage Audit
 
-As of the Phase 8 completion update on 2026-05-05:
+As of the Phase 8B/8C roadmap split on 2026-05-08:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
@@ -123,10 +127,12 @@ As of the Phase 8 completion update on 2026-05-05:
 - Phase 5 product-trust work is implemented for the intended validation/diff/snapshot scope: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
 - Phase 6 LINQ translation coverage and query composition is implemented: the support audit, chained `Where(...)` fix, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics have landed.
 - Phase 7 LINQ feature expansion is implemented: scalar aggregates, computed projections, nullable predicate polish, explicit joins, and relation-aware predicate translation have landed within their documented support boundaries.
-- Phase 8 Native AOT and WebAssembly readiness is implemented for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary. The honest follow-up work is the practical AOT package graph: split Roslyn from the runtime package, replace or isolate `Remotion.Linq`, investigate SQLitePCLRaw WebAssembly warnings, and automate size reports.
-- Phase 8B practical AOT and package graph hardening is the recommended next execution slice if constrained-platform support is the priority. It should convert the Phase 8 smoke proof into a cleaner generated-contract, immutable metadata snapshot, package, and warning story before public docs claim more than a narrow generated SQLite boundary.
+- Phase 8 Native AOT and WebAssembly readiness is implemented for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary. The honest follow-up work is split now: package/generated-runtime cleanup belongs in Phase 8C, while Remotion/query-parser and SQLitePCLRaw warning work is deferred to Phase 13.
+- Phase 8B generated contract and immutable metadata foundation is complete for its foundation scope: stale generated hooks fail early, malformed generated declarations fail during initialization, and runtime metadata snapshots are factory-built and frozen against ordinary mutation.
+- Phase 8C practical AOT package graph and generated runtime hardening is the bounded constrained-platform cleanup slice: size reports, Roslyn/runtime package split, complete generated metadata startup, generated indexed access, and packaging/public wording. It is not the current broad runtime priority unless constrained-platform polish is chosen ahead of memory work.
+- Phase 13 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
-The next roadmap execution work should be Phase 8B practical AOT cleanup, starting with generated-hook fail-fast behavior, then the immutable metadata builder/factory foundation before full generated metadata startup, and then runtime/Roslyn separation and the Remotion replacement path, unless we deliberately pause to start the separate full migration-execution feature or move straight to Phase 9 cache/memory foundations.
+The next broad runtime work should be Phase 9 cache, memory, and invalidation foundations unless constrained-platform package cleanup becomes urgent enough to pull Phase 8C forward. The Remotion/parser rewrite should stay out of the immediate queue.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

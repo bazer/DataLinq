@@ -18,14 +18,14 @@ The blunt version:
 
 ## Roadmap Placement
 
-This work belongs inside the Phase 8B practical AOT and package-graph hardening lane, before the full generated metadata switch.
+This work landed as the core of the Phase 8B generated-contract and immutable metadata foundation. The full generated metadata switch now belongs to Phase 8C.
 
 It should not block the small fail-fast generated-hook cleanup in [Generated Metadata Contract and Runtime Fallback Removal](Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md). Workstreams 1 and 2 from that plan can land first:
 
 1. remove stale generated hook compatibility
 2. tighten generated declaration validation
 
-But this immutable metadata work should happen before Workstream 3 from that plan, "Generate Complete Runtime Metadata".
+But this immutable metadata work had to happen before Workstream 3 from that plan, "Generate Complete Runtime Metadata".
 
 Generating complete metadata into the current mutable graph would be backwards. It would create generated output targeting a shape we already know we need to replace, then force a second migration later. The better sequence is:
 

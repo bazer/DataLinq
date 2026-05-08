@@ -20,7 +20,7 @@ Several important things are already true:
 - There is now a benchmark and observability foundation to build on, including the Phase 3 query/runtime hot-path lane used to keep optimization claims honest.
 - `RowData` has already moved to dense indexed storage, so the performance roadmap should build on that rather than pretending memory optimization is still only theoretical.
 - Metadata and generator hardening have removed some avoidable runtime work, but SQL building, query translation, projection materialization, and compatibility-sensitive runtime paths still contain meaningful dynamism and allocation overhead.
-- The runtime metadata graph is still mutable. A complete generated metadata switch should target builder-built immutable metadata snapshots rather than generating into the current mutable definition graph and paying for a second rewrite later.
+- The runtime metadata graph now has a Phase 8B factory/freeze boundary for ordinary construction. A complete generated metadata switch should target that builder-built snapshot path rather than reviving reflection-heavy startup.
 - Provider metadata roundtrip fidelity now has an explicit support boundary for SQLite, MySQL, and MariaDB, including tested coverage for the ordinary table/column/index/relation subset and documented unsupported provider details.
 - Schema validation and conservative diff-script tooling now exist for that supported subset; full versioned migration execution remains intentionally deferred.
 - Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT, but it also exposed the practical compatibility debt: Roslyn still leaks into constrained publish payloads, `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw still emits WebAssembly native varargs warnings, and no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path yet.
@@ -243,34 +243,32 @@ Key related plans:
 - `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
+- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
+- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
 - `query-and-runtime/Remotion.Linq Replacement Plan.md`
 
-### Phase 8B: Practical AOT and Package Graph Hardening
+### Phase 8B: Generated Contract and Immutable Metadata Foundation
 
-Status: active recommended follow-up after Phase 8.
+Status: complete for the generated-contract and immutable metadata foundation.
 
 Goals:
 
 - make generated hooks and generated metadata a strict fail-fast runtime contract
 - remove stale generated-hook compatibility shims that hide broken or stale generated output
 - introduce builder-built immutable runtime metadata definitions before switching generated startup to complete metadata
-- split Roslyn/compiler dependencies out of the runtime package graph
-- add repeatable size reports and banned-payload checks for AOT, trimmed, and WebAssembly publishes
-- introduce the DataLinq-owned query-plan boundary that lets `Remotion.Linq` be replaced or isolated
-- investigate SQLitePCLRaw WebAssembly warnings instead of blindly suppressing them
-- define the narrow public compatibility contract without pretending the whole ORM is AOT-compatible
+- move normal metadata production onto typed drafts and the factory path
+- freeze factory-built runtime snapshots against ordinary mutation
+- obsolete public mutable construction APIs where the product no longer needs them
 
-Why before cache/memory work:
+Why before generated package/runtime work:
 
 - Phase 8 produced real proof, but not a clean product support story
 - silent generated-hook fallback is incompatible with a credible generated/AOT support boundary
 - generated complete metadata should not target the current mutable definition graph because that would preserve the wrong construction model
-- the remaining AOT blockers are concrete and measured, not vague architecture concerns
-- Roslyn payload leakage is embarrassing and should be fixed before users start evaluating browser or trimmed output
-- replacing or isolating Remotion also unlocks the later query-pipeline abstraction work more cleanly than treating it as a distant rewrite
+- package graph cleanup and complete generated metadata startup needed a factory-owned snapshot foundation first
 
 Key related plans:
 
@@ -278,10 +276,37 @@ Key related plans:
 - `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
 - `metadata-and-generation/Generated Metadata Contract and Runtime Fallback Removal.md`
 - `metadata-and-generation/Immutable Metadata Definitions and Factory Plan.md`
+
+### Phase 8C: Practical AOT Package Graph and Generated Runtime Hardening
+
+Status: planned follow-up, but not the current priority unless constrained-platform polish is chosen ahead of memory/cache work.
+
+Goals:
+
+- add repeatable size reports and banned-payload checks for AOT, trimmed, and WebAssembly publishes
+- split Roslyn/compiler dependencies out of the runtime package graph
+- remove `Microsoft.CodeAnalysis.*` from `DataLinq.dll` runtime dependency groups and constrained publish outputs
+- switch generated-model startup to complete generated metadata through the Phase 8B factory path
+- generate indexed value access, relation handles, and mutable metadata handles
+- inspect packed package assets, not only project references
+- keep public compatibility wording narrow until the later query-boundary work is complete
+
+Why separate from Phase 8B:
+
+- Workstream C became a real implementation phase, not a small prerequisite
+- runtime package cleanup should not be mixed with the historical metadata foundation log
+- generated startup and indexed access are important, but they are not the same job as replacing the query parser
+- this slice can improve package/runtime hygiene without blocking memory/cache work on the larger Remotion replacement
+
+Key related plans:
+
+- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
+- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
-- `query-and-runtime/Remotion.Linq Replacement Plan.md`
 
 ### Phase 9: Cache, Memory, and Invalidation Foundations
+
+Status: recommended next broad runtime priority after the Phase 8B foundation, unless constrained-platform polish becomes urgent.
 
 Goals:
 
@@ -370,6 +395,33 @@ Key related plans:
 - `query-and-runtime/Projections and Views.md`
 - `performance/Memory management.md`
 
+### Phase 13: Query Plan and Remotion Isolation
+
+Status: deferred to the back of the roadmap.
+
+Goals:
+
+- introduce a DataLinq-owned query plan behind the current Remotion parser
+- move SQL generation and supported query diagnostics behind that plan
+- build a supported-subset expression parser that can serve the generated/AOT path
+- remove or isolate `Remotion.Linq` from the practical AOT support boundary
+- investigate SQLitePCLRaw WebAssembly warnings with exact call-path evidence
+- keep no-AOT browser WebAssembly unsupported unless it actually runs
+
+Why last:
+
+- this is a query-pipeline migration, not a cleanup task
+- it has high regression risk across the LINQ support matrix
+- memory/cache work is more important right now
+- Phase 8C can clean the package/generated-runtime surface without forcing a parser rewrite
+
+Key related plans:
+
+- `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/README.md`
+- `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation Plan.md`
+- `query-and-runtime/Remotion.Linq Replacement Plan.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
 ## What Should Happen Right Now
 
 Phase 4 is no longer the next concrete stretch. It has done its job: DataLinq now has a documented provider metadata support boundary that Phase 5 could consume.
@@ -389,7 +441,7 @@ Phase 7 LINQ feature expansion is implemented for its planned support boundary: 
 
 Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw emits WebAssembly native varargs warnings, and Roslyn still leaks into constrained publish payloads.
 
-The next execution slice should be Phase 8B practical AOT/package-graph hardening if DataLinq wants to turn the Phase 8 smoke proof into a support claim that can survive contact with users. The first Phase 8B moves should be generated-hook fail-fast cleanup, then immutable metadata builder/factory work before the complete generated metadata switch. Phase 9 cache, memory, and invalidation foundations should follow after that, unless we deliberately choose to prioritize full migration execution or cache/memory work over constrained-platform polish.
+Phase 8B is now the completed generated-contract and immutable metadata foundation. Phase 8C remains the bounded package/generated-runtime cleanup slice for constrained-platform polish, but it should not drag the Remotion/parser rewrite back into the critical path. The next broad runtime priority should be Phase 9 cache, memory, and invalidation foundations unless constrained-platform package cleanup becomes urgent.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
