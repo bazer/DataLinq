@@ -402,6 +402,16 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_Interface_GenericQualifiedType_NormalizesTypeName()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Interface<TestNamespace.IMyThing>]");
+        var attribute = (InterfaceAttribute)parser.ParseAttribute(syntax).ValueOrException();
+
+        await Assert.That(attribute.GenerateInterface).IsTrue();
+        await Assert.That(attribute.Name).IsEqualTo("IMyThing");
+    }
+
+    [Test]
     public async Task ParsePropertySyntax_Value()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Column(""my_col""), Nullable] public string? Name { get; }");

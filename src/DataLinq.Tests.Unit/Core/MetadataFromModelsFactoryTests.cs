@@ -281,7 +281,7 @@ public partial class TestDb : IDatabaseModel
 public partial interface IUserModel { }
 
 [DataLinq.Attributes.TableAttribute("users")]
-[DataLinq.Attributes.InterfaceAttribute<IUserModel>]
+[DataLinq.Attributes.InterfaceAttribute<TestNamespace.IUserModel>]
 public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
 {
     [DataLinq.Attributes.ColumnAttribute("id"), DataLinq.Attributes.PrimaryKeyAttribute] public abstract int Id { get; }

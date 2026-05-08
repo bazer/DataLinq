@@ -764,8 +764,7 @@ public class SyntaxParser
                 if (arguments.Count > 1)
                     return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
 
-                // Extract the type argument from the generic type
-                var typeArgument = generictype.TypeArgumentList.Arguments[0].ToString();
+                var typeArgument = GetUnqualifiedTypeName(generictype.TypeArgumentList.Arguments[0]);
                 if (arguments.Count == 0)
                     return new InterfaceAttribute(typeArgument);
 
