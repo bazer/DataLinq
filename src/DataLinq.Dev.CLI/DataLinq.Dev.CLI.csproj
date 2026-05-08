@@ -4,6 +4,7 @@
 		<OutputType>Exe</OutputType>
 		<TargetFrameworks>net8.0</TargetFrameworks>
 		<Description>Developer environment and build wrapper CLI for DataLinq.</Description>
+		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 
 	<ItemGroup>

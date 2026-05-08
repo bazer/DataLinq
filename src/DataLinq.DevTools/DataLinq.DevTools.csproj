@@ -3,6 +3,7 @@
 	<PropertyGroup>
 		<TargetFrameworks>net8.0</TargetFrameworks>
 		<Description>Shared developer tooling primitives for DataLinq CLI wrappers.</Description>
+		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 
 </Project>

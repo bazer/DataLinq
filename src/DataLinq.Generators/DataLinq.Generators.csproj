@@ -7,7 +7,8 @@
 		<_EnableDefaultWindowsPlatform>false</_EnableDefaultWindowsPlatform>
 		<ReloadSourceGeneratorBeforeBuild>false</ReloadSourceGeneratorBeforeBuild>
 		<!--<GeneratePackageOnBuild>true</GeneratePackageOnBuild>-->
-		<!-- Do not include the generator as a lib dependency -->
+		<!-- The generator ships inside the DataLinq package's analyzer assets, not as a standalone package. -->
+		<IsPackable>false</IsPackable>
 		<IncludeBuildOutput>false</IncludeBuildOutput>
 		<IncludeSymbols>false</IncludeSymbols>
 	</PropertyGroup>
@@ -43,13 +44,6 @@
 		<AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
 		<AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
 	</ItemGroup>
-
-	<ItemGroup>
-		<!-- Package the generator in the analyzer directory of the nuget package -->
-		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
-		<None Include="$(OutputPath)\$(AssemblyName).deps.json" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
-	</ItemGroup>
-    
 	<Target Name="CopyAnalyzerDependencies" AfterTargets="Build">
 		<ItemGroup>
 			<!-- Visual Studio design-time analyzer loading is stricter than command-line builds.
