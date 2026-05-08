@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 8C Implementation Plan: Practical AOT Package Graph and Generated Runtime Hardening
 
-**Status:** In progress after Phase 8B. Workstream A is implemented.
+**Status:** In progress after Phase 8B. Workstreams A, B, and C are implemented.
 
 ## Purpose
 
@@ -164,6 +164,8 @@ Implementation notes:
 
 ## Workstream C: Complete Generated Metadata Startup And Runtime Reflection Removal
 
+**Status:** Implemented.
+
 Goals:
 
 - stop generated-model startup from rediscovering metadata the generator already knew
@@ -193,6 +195,18 @@ Exit criteria:
 - missing, stale, malformed, or unreadable generated metadata fails during initialization with a specific `InvalidModel` diagnostic
 - Phase 8 smoke projects still publish and run under Native AOT, trimming, and WASM AOT
 - Roslyn types are not required by the runtime-safe generated metadata builder surface
+
+Implementation notes:
+
+- Generated database partials now implement `GetDataLinqGeneratedMetadata()` and return a complete `MetadataDatabaseDraft` with table, model, column, relation, attribute, cache, enum, type, and immutable factory metadata.
+- Generic generated-provider startup calls the static generated hook directly and builds metadata through `MetadataDefinitionFactory`; it no longer reflects over app model attributes, properties, interfaces, enum declarations, or nullability.
+- The non-generic `MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(Type)` path remains only as a tooling/test compatibility surface and is explicitly marked `RequiresUnreferencedCode` because it reflects over the generated hook itself.
+- `DatabaseProvider` no longer falls back to runtime model metadata discovery when no metadata factory is supplied. Generated startup must provide generated metadata or fail.
+- The source generator now collects enum declarations as generator input, including external enum declarations, so generated metadata keeps enum values and runtime type identity without rediscovering enum metadata at startup.
+- Generated value-property metadata emits runtime `CsTypeDeclaration(typeof(...))` for known CLR value types and enum types. This preserves the CLR type metadata needed by query translation and data readers after runtime reflection discovery is removed.
+- Runtime generated startup failures for missing hooks, wrong return types, null payloads, unreadable payloads, malformed typed drafts, and factory-validation failures now return `InvalidModel` diagnostics that name the database type, generated hook, and regeneration action.
+- Unit coverage includes source/generated metadata digest equivalence for `EmployeesDb`, `AllroundBenchmark`, and `PlatformSmokeDb`, plus a static source check that generated startup does not use `GetCustomAttributes`, `GetProperties`, `GetInterfaces`, or `NullabilityInfoContext`.
+- `artifacts/dev/compat-size-report/20260508-133325155/report.md` was generated with `--fail-on-banned-payload`; Native AOT and trimmed smokes were `ok`, WASM and WASM AOT publishes were `ok`, and all targets had `Banned = 0`.
 
 ## Workstream D: Generated Indexed Access And Metadata Handles
 

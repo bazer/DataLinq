@@ -2,11 +2,11 @@
 > This document is roadmap and engineering planning material. It is not normative product documentation and should not be treated as a shipped support claim.
 # Generated Metadata Contract and Runtime Fallback Removal
 
-**Status:** Split plan. Generated-hook cleanup and declaration validation landed in Phase 8B; complete generated metadata startup and generated indexed/handle access moved to Phase 8C.
+**Status:** Split plan. Generated-hook cleanup and declaration validation landed in Phase 8B; complete generated metadata startup landed in Phase 8C; generated indexed/handle access remains in the next Phase 8C workstream.
 
 **Created:** 2026-05-05.
 
-**Update 2026-05-08:** Treat the audit below as the original planning snapshot. Workstreams 1 and 2 are covered by the completed Phase 8B foundation. Workstreams 3 through 5 now belong to [Phase 8C](../roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). Query/projection parser work remains separate in [Phase 13](../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md).
+**Update 2026-05-08:** Treat the audit below as the original planning snapshot. Workstreams 1 and 2 are covered by the completed Phase 8B foundation. Workstream 3 is implemented in [Phase 8C](../roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md): generated startup now uses `GetDataLinqGeneratedMetadata()` and no longer rediscovers application model metadata through runtime reflection. Workstreams 4 and 5 remain in Phase 8C. Query/projection parser work remains separate in [Phase 13](../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md).
 
 ## Purpose
 
@@ -106,9 +106,13 @@ Exit criteria:
 
 ## Workstream 3: Generate Complete Runtime Metadata
 
+**Status:** Implemented in Phase 8C.
+
 This is the real startup win.
 
-Today `GetDataLinqGeneratedModel()` avoids database-property scanning, but `MetadataFromTypeFactory` still reflects over every model type to recover attributes and properties. That is wasteful because the generator already parsed the source model to create the generated classes.
+At plan creation, `GetDataLinqGeneratedModel()` avoided database-property scanning, but `MetadataFromTypeFactory` still reflected over every model type to recover attributes and properties. That was wasteful because the generator already parsed the source model to create the generated classes.
+
+The implemented path now emits a generated `GetDataLinqGeneratedMetadata()` hook that returns a complete typed metadata draft. Generic generated-provider startup calls that static hook directly and feeds the draft into `MetadataDefinitionFactory`. The old runtime rediscovery of model attributes, properties, interfaces, enum declarations, and nullability is gone from the generated startup path.
 
 Recommended direction:
 
@@ -136,6 +140,14 @@ Exit criteria:
 - missing, stale, malformed, or unreadable generated metadata fails during startup with a descriptive `InvalidModel` diagnostic
 - Phase 8 smoke projects still pass after trimming and Native AOT publish
 - Roslyn types remain outside the runtime-safe metadata builder surface
+
+Implementation evidence:
+
+- `MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<TDatabase>()` builds from `TDatabase.GetDataLinqGeneratedMetadata()` through `MetadataDefinitionFactory`.
+- `DatabaseProvider` no longer contains a runtime app-model metadata fallback when no metadata factory is supplied.
+- The non-generic `ParseDatabaseFromDatabaseModel(Type)` path is retained only as a `RequiresUnreferencedCode` compatibility/test path that reflects over the generated hook itself.
+- Source/generated digest tests cover `EmployeesDb`, `AllroundBenchmark`, and `PlatformSmokeDb`.
+- Phase 8C size report `artifacts/dev/compat-size-report/20260508-133325155/report.md` passed with `Banned = 0` for Native AOT, trimmed, WASM, and WASM AOT targets.
 
 ## Workstream 4: Generate Indexed Value Access
 
