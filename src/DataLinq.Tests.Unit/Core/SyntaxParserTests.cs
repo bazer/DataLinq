@@ -420,6 +420,19 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_InterfaceLookalike_ReturnsNotImplementedFailure()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[InterfaceBackup]");
+
+        var result = parser.ParseAttribute(syntax);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.NotImplemented);
+        await Assert.That(failure.Message).Contains("InterfaceBackup");
+    }
+
+    [Test]
     public async Task ParsePropertySyntax_Value()
     {
         var (parser, syntax, model) = GetPropertySyntax(@"[Column(""my_col""), Nullable] public string? Name { get; }");

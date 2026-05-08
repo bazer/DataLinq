@@ -763,7 +763,7 @@ public class SyntaxParser
             return FailAttribute(attributeSyntax, DLFailureType.NotImplemented, $"Attribute 'TypeAttribute' with {arguments.Count} arguments not implemented");
         }
 
-        if (name.StartsWith("Interface"))
+        if (name == "Interface")
         {
             // Handle generic InterfaceAttribute<T>
             if (generictype != null)
