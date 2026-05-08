@@ -206,7 +206,7 @@ The focused execution plan is [Generated Metadata Contract and Runtime Fallback 
 The next step is to turn generated models into a clean product contract:
 
 - document generated models as the only AOT-supported model path
-- mark reflection-discovered metadata APIs as compatibility APIs, not AOT APIs
+- remove runtime reflection metadata-discovery APIs from generated startup instead of marking them as compatibility APIs
 - remove stale generated-hook compatibility shims instead of accepting old generated output
 - validate generated table declarations during provider initialization
 - move ordinary generated-model metadata startup away from attribute/property reflection
@@ -224,7 +224,7 @@ Exit criteria:
 
 - missing generated hook diagnostics are covered by unit or generator tests
 - malformed generated table declarations fail before materialization
-- generated model startup does not rediscover ordinary metadata through runtime reflection
+- generated model startup requires complete generated metadata and has no runtime reflection metadata-discovery fallback
 - docs clearly separate AOT-supported and compatibility-only paths
 - no AOT smoke test depends on reflection fallback
 

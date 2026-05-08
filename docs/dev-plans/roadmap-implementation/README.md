@@ -45,7 +45,7 @@ The Phase 7 plan completed scalar aggregates, projection expansion, nullable pre
 
 The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. The result is intentionally scoped: generated hooks are now required for the AOT path, hot-path `Expression.Compile()` use has been removed from the checked LINQ/instance surface, and browser cache startup avoids the cleanup worker. Broad public compatibility still needs package/runtime cleanup, dependency cleanup around `Remotion.Linq`, SQLitePCLRaw WebAssembly varargs warnings, no-AOT interpreter failures, and Roslyn payload leakage.
 
-Phase 8B is now the completed generated-contract and immutable metadata foundation. Phase 8C is the bounded package/generated-runtime cleanup slice: size reporting, Roslyn removal from the runtime graph, complete generated metadata startup, generated indexed access, and package/public wording. The query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw warning work moved to Phase 13 at the back of the roadmap.
+Phase 8B is now the completed generated-contract and immutable metadata foundation. Phase 8C is the bounded package/generated-runtime cleanup slice: size reporting, Roslyn removal from the runtime graph, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and package/public wording. The query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw warning work moved to Phase 13 at the back of the roadmap.
 
 Phase 9 cache, memory, and invalidation foundations are the next broad runtime priority unless constrained-platform package cleanup becomes urgent.
 

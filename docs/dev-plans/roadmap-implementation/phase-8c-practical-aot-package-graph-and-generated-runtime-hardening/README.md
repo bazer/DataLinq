@@ -12,7 +12,8 @@ Phase 8C uses the Phase 8B generated-contract and immutable metadata foundation 
 
 - make constrained-platform measurements repeatable
 - remove Roslyn/compiler payloads from runtime publishes
-- switch generated startup toward complete generated metadata
+- switch generated startup to require complete generated metadata
+- remove runtime reflection metadata discovery instead of keeping it as a compatibility fallback
 - generate indexed metadata/value/relation access where it removes avoidable lookup
 - keep public compatibility wording narrow and evidence-backed
 
@@ -24,6 +25,7 @@ In scope:
 - runtime-safe metadata/package split work
 - removal of `Microsoft.CodeAnalysis.*` from runtime dependency groups
 - complete generated metadata startup
+- removal of runtime reflection compatibility for generated metadata startup
 - generated indexed value access, relation handles, and mutable metadata handles
 - package inspection and public compatibility wording discipline
 
@@ -55,7 +57,7 @@ The query-plan/parser and SQLitePCLRaw warning work moved to the later query-bou
 2. Split runtime-safe metadata from Roslyn/generator code.
 3. Remove Roslyn from the runtime package graph and verify publish-size impact.
 4. Generate complete runtime metadata for generated models.
-5. Switch generated-model startup to prefer complete generated metadata.
+5. Remove runtime reflection metadata discovery and make missing or unreadable generated metadata a descriptive startup failure.
 6. Generate indexed value access, relation handles, and mutable metadata handles.
 7. Inspect packed package assets and update compatibility wording without overclaiming.
 
@@ -66,8 +68,8 @@ Phase 8C is done when:
 - compatibility results can be refreshed without manual folder inspection
 - trimmed and WebAssembly outputs do not contain Roslyn runtime payloads
 - `DataLinq.dll` runtime dependency groups do not include `Microsoft.CodeAnalysis.*`
-- generated model startup no longer rediscovers ordinary metadata through runtime reflection
+- generated model startup requires complete generated metadata and has no runtime reflection metadata-discovery fallback
+- missing, stale, or unreadable generated metadata fails during startup with a descriptive `InvalidModel` diagnostic
 - generated value, relation, and mutable access paths avoid avoidable name/global metadata lookup
 - package inspection confirms analyzer payloads do not leak into runtime dependencies
 - public docs avoid broad AOT claims and clearly leave Remotion/query-parser and SQLitePCLRaw warning disposition to the later query-boundary phase
-

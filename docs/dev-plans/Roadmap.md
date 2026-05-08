@@ -286,7 +286,8 @@ Goals:
 - add repeatable size reports and banned-payload checks for AOT, trimmed, and WebAssembly publishes
 - split Roslyn/compiler dependencies out of the runtime package graph
 - remove `Microsoft.CodeAnalysis.*` from `DataLinq.dll` runtime dependency groups and constrained publish outputs
-- switch generated-model startup to complete generated metadata through the Phase 8B factory path
+- switch generated-model startup to require complete generated metadata through the Phase 8B factory path
+- remove runtime reflection metadata discovery instead of preserving it as a compatibility fallback
 - generate indexed value access, relation handles, and mutable metadata handles
 - inspect packed package assets, not only project references
 - keep public compatibility wording narrow until the later query-boundary work is complete

@@ -12,7 +12,8 @@ Phase 8C is the remaining package/runtime part of that practical AOT cleanup:
 
 - make constrained-platform evidence repeatable
 - remove Roslyn/compiler dependencies from runtime outputs
-- make generated startup consume complete generated metadata instead of rediscovering ordinary metadata through reflection
+- make generated startup require complete generated metadata instead of rediscovering ordinary metadata through reflection
+- delete runtime reflection metadata-discovery compatibility instead of preserving it behind a softer fallback
 - use generated indexed access and metadata handles where they remove avoidable runtime lookup
 - keep package and public compatibility claims honest
 
@@ -33,6 +34,7 @@ The remaining package/runtime debt is still concrete:
 - `src/DataLinq/DataLinq.csproj` still carries Roslyn/compiler dependencies through the runtime package graph
 - constrained publish sizes and banned payloads need repeatable tooling instead of manual folder inspection
 - generated startup still has too much ordinary metadata rediscovery work
+- the plan should remove that runtime reflection discovery outright; a generated model without complete generated metadata is a broken generated model, not a compatibility scenario
 - generated instance access can use indexed handles instead of repeated name/global metadata lookups
 - package assets and public wording need to match the actual evidence
 
@@ -41,7 +43,8 @@ The remaining package/runtime debt is still concrete:
 - add repeatable compatibility size, warning, and banned-payload reports
 - split runtime-safe metadata from Roslyn/generator code
 - remove `Microsoft.CodeAnalysis.*` from `DataLinq.dll` runtime dependency groups and constrained publish outputs
-- switch generated-model startup to complete generated metadata through the Phase 8B factory path
+- switch generated-model startup to require complete generated metadata through the Phase 8B factory path
+- remove runtime reflection metadata-discovery compatibility and fail startup descriptively when generated metadata is missing, stale, malformed, or unreadable
 - generate indexed value access, relation handles, and mutable metadata handles
 - verify packed NuGet assets, not only project references
 - keep compatibility wording narrow until the later query-boundary phase removes or isolates Remotion and resolves SQLitePCLRaw warning disposition
@@ -52,6 +55,7 @@ The remaining package/runtime debt is still concrete:
 - introducing a DataLinq-owned query plan
 - building the supported-subset expression parser
 - claiming warning-clean generated/AOT query support
+- preserving reflection-discovered runtime model metadata as a compatibility mode
 - resolving SQLitePCLRaw WebAssembly native varargs warnings
 - claiming no-AOT browser WebAssembly support
 - MySQL/MariaDB browser support
@@ -133,30 +137,35 @@ Exit criteria:
 - generator, tooling, and source-model tests still pass
 - measured trim and WASM sizes improve or have a documented reason if they do not
 
-## Workstream C: Complete Generated Metadata Startup
+## Workstream C: Complete Generated Metadata Startup And Runtime Reflection Removal
 
 Goals:
 
 - stop generated-model startup from rediscovering metadata the generator already knew
 - use the immutable metadata builder/factory path from Phase 8B
-- preserve compatibility reflection only behind explicit compatibility surfaces
+- remove runtime reflection metadata discovery entirely from the generated-model startup path
+- make missing, stale, malformed, or unreadable generated metadata fail during startup with a descriptive `InvalidModel` diagnostic
 
 Tasks:
 
 1. Add a generated hook or generated declaration that provides complete runtime metadata inputs.
 2. Emit generated metadata in builder/declaration form instead of one giant unreadable object graph unless benchmarks prove direct construction is worth it.
 3. Feed generated metadata declarations into the runtime-safe metadata factory.
-4. Add metadata equivalence tests comparing generated complete metadata against current reflected metadata for representative models.
-5. Switch generic generated-provider startup to prefer generated complete metadata.
-6. Keep reflection parsing for explicit compatibility/tooling paths, not as the ordinary generated-model path.
-7. Verify generated metadata startup does not call `Type.GetCustomAttributes(...)`, `Type.GetProperties(...)`, or `Type.GetInterfaces()` for ordinary metadata loading.
-8. Re-run Native AOT and trimmed smoke publishes after the startup switch.
+4. Use the existing reflected metadata path only as a temporary migration oracle while developing the generated metadata shape; final parity tests should compare generated metadata against source/provider metadata digests, not require a runtime reflection fallback.
+5. Switch generic generated-provider startup to require generated complete metadata.
+6. Remove runtime APIs or branches that parse application model metadata through reflection as a startup compatibility path.
+7. If tooling still needs reflective/source parsing, move it to generator/tooling-owned code outside the runtime package and name it as tooling, not as runtime fallback.
+8. Add negative startup tests for missing generated metadata, stale generated metadata, malformed generated declarations, unreadable generated metadata payloads, and generated metadata that fails factory validation.
+9. Make those failures name the database type, generated hook/payload, model/table member when known, and the regeneration action expected from the user.
+10. Add a static test or build/report check that the runtime generated-model startup path does not call `Type.GetCustomAttributes(...)`, `Type.GetProperties(...)`, `Type.GetInterfaces()`, or other app-model metadata reflection APIs.
+11. Re-run Native AOT and trimmed smoke publishes after the startup switch.
 
 Exit criteria:
 
-- generated model startup uses generated complete metadata for ordinary metadata loading
-- generated metadata and reflected metadata are equivalent for active test models
-- reflection-discovered metadata APIs are clearly compatibility APIs
+- generated model startup requires generated complete metadata for metadata loading
+- runtime metadata startup has no reflection-discovered application model metadata fallback
+- generated metadata and source/provider metadata digests are equivalent for active test models
+- missing, stale, malformed, or unreadable generated metadata fails during initialization with a specific `InvalidModel` diagnostic
 - Phase 8 smoke projects still publish and run under Native AOT, trimming, and WASM AOT
 - Roslyn types are not required by the runtime-safe generated metadata builder surface
 
@@ -221,7 +230,7 @@ Exit criteria:
 2. Split runtime-safe metadata from Roslyn/generator code.
 3. Remove Roslyn from the runtime package graph and verify size/report improvement.
 4. Generate complete metadata against the Phase 8B immutable metadata factory.
-5. Switch generated-model startup to generated complete metadata.
+5. Remove runtime reflection metadata discovery and require generated complete metadata at startup.
 6. Generate indexed value access, relation handles, and mutable metadata handles.
 7. Promote only the compatibility wording supported by package, smoke, and report evidence.
 
@@ -266,7 +275,8 @@ Blazor WebAssembly builds are known to be unreliable inside the Codex sandbox on
 | --- | --- | --- |
 | Roslyn split breaks tooling/generator reuse | Medium | Move Roslyn code to generator/tooling adapters and keep runtime-safe DTOs small and explicit. |
 | Size reporting becomes noisy or environment-specific | Medium | Separate hard banned-file checks from advisory size thresholds; include workload/environment metadata in reports. |
-| Complete generated metadata drifts from reflected metadata | High | Keep representative equivalence tests and compare source/generated/provider metadata digests. |
+| Complete generated metadata drifts from current behavior | High | Use reflected metadata only as a temporary migration oracle, then keep representative source/generated/provider digest tests. |
+| Removing reflection compatibility breaks stale generated consumers | Medium | Fail during startup with database/model-specific diagnostics that tell users to regenerate with the current DataLinq generator package. |
 | Generated indexed access assumes full-column rows | High | Add subset-column query coverage before switching access paths broadly. |
 | Public docs overclaim | High | Promote only wording that package inspection, smokes, and report evidence already support. |
 
@@ -277,9 +287,9 @@ Phase 8C is complete when:
 - compatibility size reports can be refreshed by tooling
 - trimmed and WebAssembly outputs contain no Roslyn runtime payload
 - `DataLinq.dll` runtime dependency groups no longer include `Microsoft.CodeAnalysis.*`
-- generated model startup no longer rediscovers ordinary metadata through runtime reflection
+- generated model startup requires complete generated metadata and no longer has a runtime reflection metadata-discovery fallback
+- missing, stale, malformed, or unreadable generated metadata fails during startup with a descriptive `InvalidModel` diagnostic
 - generated value, relation, and mutable access paths avoid avoidable name/global metadata lookup
 - generated SQLite Native AOT and trimmed publishes run without DataLinq-owned AOT/trim warnings
 - package inspection confirms analyzer assets do not leak runtime dependencies
 - public docs can state the narrow package/generated-runtime evidence without pretending Remotion/query-parser or SQLitePCLRaw warning work is complete
-

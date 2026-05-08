@@ -114,10 +114,10 @@ Recommended direction:
 
 1. Introduce the immutable metadata builder/factory foundation described in [Immutable Metadata Definitions and Factory Plan](Immutable%20Metadata%20Definitions%20and%20Factory%20Plan.md).
 2. Add a generated hook that returns complete metadata builder declarations, or extend the existing generated declaration into a complete metadata declaration.
-3. Prefer a generated metadata builder/declaration path over reflection in `MetadataFromTypeFactory`.
-4. Keep reflection parsing only behind an explicit compatibility method if it is still needed for tooling or tests.
+3. Require a generated metadata builder/declaration path instead of reflection in runtime startup.
+4. Remove runtime reflection metadata-discovery compatibility; if tooling still needs reflective/source parsing, move it outside the runtime package and name it as tooling, not as fallback.
 5. Move shared metadata construction helpers into runtime-safe code that does not depend on Roslyn.
-6. Keep relation/index construction deterministic and test it against current `MetadataFromTypeFactory` output.
+6. Keep relation/index construction deterministic and use the old reflected path only as a temporary migration oracle while generated metadata is being built.
 
 Potential generated hook:
 
@@ -131,8 +131,9 @@ The generator does not need to hand-write the whole object graph in one massive 
 
 Exit criteria:
 
-- generated model startup does not call `Type.GetCustomAttributes(...)`, `Type.GetProperties(...)`, or `Type.GetInterfaces()` for ordinary metadata loading
-- generated metadata matches existing runtime metadata for the active test models
+- generated model startup does not call `Type.GetCustomAttributes(...)`, `Type.GetProperties(...)`, or `Type.GetInterfaces()` for metadata loading
+- generated metadata matches source/provider metadata digests for the active test models
+- missing, stale, malformed, or unreadable generated metadata fails during startup with a descriptive `InvalidModel` diagnostic
 - Phase 8 smoke projects still pass after trimming and Native AOT publish
 - Roslyn types remain outside the runtime-safe metadata builder surface
 
@@ -197,8 +198,8 @@ Boundary:
 1. Remove stale hook compatibility.
 2. Tighten declaration validation.
 3. Introduce builder-built immutable metadata definitions.
-4. Add generated metadata side by side with reflected metadata and assert equivalence.
-5. Switch generated-provider startup to generated metadata.
+4. Add generated metadata side by side with the current reflected path and use that path only as a temporary migration oracle.
+5. Switch generated-provider startup to require generated metadata and remove the runtime reflection discovery path.
 6. Generate indexed value access.
 7. Generate relation and mutable metadata handles.
 8. Delete or quarantine compatibility reflection paths that are no longer needed.
@@ -212,7 +213,7 @@ Required tests:
 - generator output tests for emitted hooks and absence of old shim
 - runtime initialization tests for missing generated hook pieces
 - immutable metadata factory tests proving built definitions cannot be mutated after construction
-- metadata equivalence tests comparing generated metadata against current reflected metadata for `EmployeesDb`, `AllroundBenchmark`, and platform smoke models
+- metadata equivalence tests comparing generated metadata against source/provider metadata digests for `EmployeesDb`, `AllroundBenchmark`, and platform smoke models
 - mutation tests for generated mutable table metadata
 - relation tests for generated relation handles
 - AOT and trim smoke publishes after the generated metadata switch
