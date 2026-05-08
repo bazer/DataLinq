@@ -166,9 +166,7 @@ public static class MetadataFromTypeFactory
         var attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray();
 
         var interfaces = type.GetInterfaces();
-        var modelInstanceInterfaceType = interfaces.Any(IsModelInstanceContract)
-            ? interfaces.FirstOrDefault(IsApplicationInterface)
-            : null;
+        var modelInstanceInterfaceType = FindModelInstanceInterfaceType(type, attributes, interfaces);
 
         var propertyDrafts = type
             .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -219,6 +217,33 @@ public static class MetadataFromTypeFactory
             type.Namespace?.StartsWith("DataLinq.Instance") != true &&
             type.Namespace?.StartsWith("DataLinq.Interfaces") != true;
     }
+
+    private static Type? FindModelInstanceInterfaceType(
+        Type modelType,
+        IReadOnlyList<Attribute> attributes,
+        IReadOnlyList<Type> interfaces)
+    {
+        var modelInstanceContracts = interfaces
+            .Where(IsModelInstanceContract)
+            .ToArray();
+        var interfaceAttribute = attributes.OfType<InterfaceAttribute>().SingleOrDefault();
+        if (interfaceAttribute is not null)
+        {
+            if (!interfaceAttribute.GenerateInterface)
+                return null;
+
+            var interfaceName = interfaceAttribute.Name ?? $"I{modelType.Name}";
+            return interfaces.FirstOrDefault(type =>
+                string.Equals(type.Name, interfaceName, StringComparison.Ordinal) &&
+                IsApplicationModelInstanceInterface(type, modelInstanceContracts));
+        }
+
+        return interfaces.FirstOrDefault(type => IsApplicationModelInstanceInterface(type, modelInstanceContracts));
+    }
+
+    private static bool IsApplicationModelInstanceInterface(Type type, IReadOnlyList<Type> modelInstanceContracts) =>
+        IsApplicationInterface(type) &&
+        modelInstanceContracts.Any(contract => contract.IsAssignableFrom(type));
 
     private static bool IsModelInstanceContract(Type type) =>
         type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IModelInstance<>);

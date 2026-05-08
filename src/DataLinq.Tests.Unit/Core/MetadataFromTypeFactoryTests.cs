@@ -142,6 +142,17 @@ public class MetadataFromTypeFactoryTests
     }
 
     [Test]
+    public async Task ParseDatabase_ModelWithAdditionalApplicationInterface_SelectsGeneratedModelInstanceInterface()
+    {
+        var databaseDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(RuntimeInterfaceSelectionDb)).ValueOrException();
+        var model = databaseDefinition.TableModels.Single().Model;
+
+        await Assert.That(model.ModelInstanceInterface.HasValue).IsTrue();
+        await Assert.That(model.ModelInstanceInterface!.Value.Name).IsEqualTo("IRuntimeInterfaceSelectionRow");
+        await Assert.That(model.OriginalInterfaces.Any(x => x.Name == nameof(IOrdinaryRuntimeInterface))).IsTrue();
+    }
+
+    [Test]
     public async Task ParseModel_NullableReferenceRelation_PreservesNullableAnnotation()
     {
         var databaseDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(AllroundBenchmark)).ValueOrException();
@@ -301,6 +312,23 @@ public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabase
         ]);
 }
 
+public sealed class RuntimeInterfaceSelectionDb : IDatabaseModel, IDataLinqGeneratedDatabaseModel<RuntimeInterfaceSelectionDb>
+{
+    public static RuntimeInterfaceSelectionDb NewDataLinqDatabase(IDataSourceAccess dataSource) => new();
+
+    public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
+        new(
+        [
+            new(
+                "Rows",
+                typeof(RuntimeInterfaceSelectionRow),
+                typeof(ImmutableRuntimeInterfaceSelectionRow),
+                null,
+                new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableRuntimeInterfaceSelectionRow.NewDataLinqImmutableInstance),
+                TableType.View)
+        ]);
+}
+
 public sealed class OldBootstrapHookOnlyDb : IDatabaseModel
 {
     public static GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>
@@ -417,6 +445,36 @@ public partial class ImmutableBootstrapHookRow(IRowData rowData, IDataSourceAcce
 {
     public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) =>
         new ImmutableBootstrapHookRow(rowData, dataSource);
+
+    public override int Id => (int)GetValue(nameof(Id));
+}
+
+public interface IOrdinaryRuntimeInterface
+{
+}
+
+public partial interface IRuntimeInterfaceSelectionRow : IModelInstance<RuntimeInterfaceSelectionDb>
+{
+}
+
+[Definition("select id from runtime_interface_rows")]
+[View("runtime_interface_rows")]
+[Interface<IRuntimeInterfaceSelectionRow>]
+public abstract partial class RuntimeInterfaceSelectionRow(IRowData rowData, IDataSourceAccess dataSource)
+    : Immutable<RuntimeInterfaceSelectionRow, RuntimeInterfaceSelectionDb>(rowData, dataSource),
+    IOrdinaryRuntimeInterface,
+    IRuntimeInterfaceSelectionRow,
+    IViewModel<RuntimeInterfaceSelectionDb>
+{
+    [Column("id")]
+    public abstract int Id { get; }
+}
+
+public partial class ImmutableRuntimeInterfaceSelectionRow(IRowData rowData, IDataSourceAccess dataSource)
+    : RuntimeInterfaceSelectionRow(rowData, dataSource)
+{
+    public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) =>
+        new ImmutableRuntimeInterfaceSelectionRow(rowData, dataSource);
 
     public override int Id => (int)GetValue(nameof(Id));
 }
