@@ -115,9 +115,13 @@ public class Mutable<T> : IMutableInstance,
     }
 
     // Constructor for NEW instances
-    public Mutable()
+    public Mutable() : this(ModelDefinition.Find<T>() ?? throw new InvalidOperationException($"Model {typeof(T).Name} not found"))
     {
-        metadata = ModelDefinition.Find<T>() ?? throw new InvalidOperationException($"Model {typeof(T).Name} not found");
+    }
+
+    protected Mutable(ModelDefinition metadata)
+    {
+        this.metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         this.mutableRowData = new MutableRowData(metadata.Table);
         isNew = true;
         _isPkCached = false;
@@ -164,6 +168,8 @@ public class Mutable<T> : IMutableInstance,
 
     public object? GetValue(string propertyName) => mutableRowData.GetValue(metadata.ValueProperties[propertyName].Column);
     public void SetValue<V>(string propertyName, V value) => this[propertyName] = value; // Use indexer to handle PK invalidation
+    protected object? GetValue(ColumnDefinition column) => mutableRowData.GetValue(column);
+    protected void SetValue<V>(ColumnDefinition column, V value) => this[column] = value; // Use indexer to handle PK invalidation
     
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetChanges() => mutableRowData.GetChanges();
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetValues() => mutableRowData.GetColumnAndValues();

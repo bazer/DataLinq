@@ -37,6 +37,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration)
         : base(connectionString, typeof(T), databaseType, loggingConfiguration, metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>)
     {
+        T.SetDataLinqGeneratedMetadata(Metadata);
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 
@@ -49,6 +50,7 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName)
         : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName, MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>)
     {
+        T.SetDataLinqGeneratedMetadata(Metadata);
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
     }
 

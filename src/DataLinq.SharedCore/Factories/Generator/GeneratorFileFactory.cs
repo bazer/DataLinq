@@ -193,6 +193,25 @@ public class GeneratorFileFactory
 
         yield return $"{namespaceTab}{tab}]);";
         yield return "";
+        yield return $"{namespaceTab}{tab}public static void SetDataLinqGeneratedMetadata(global::DataLinq.Metadata.DatabaseDefinition metadata)";
+        yield return $"{namespaceTab}{tab}" + "{";
+        yield return $"{namespaceTab}{tab}{tab}if (metadata is null)";
+        yield return $"{namespaceTab}{tab}{tab}{tab}throw new global::System.ArgumentNullException(nameof(metadata));";
+        yield return "";
+        yield return $"{namespaceTab}{tab}{tab}var tableModels = metadata.TableModels;";
+        yield return $"{namespaceTab}{tab}{tab}if (tableModels.Length != {tableModels.Length.ToString(CultureInfo.InvariantCulture)})";
+        yield return $"{namespaceTab}{tab}{tab}{tab}throw new global::System.InvalidOperationException(\"Generated DataLinq metadata table model count mismatch. Regenerate the DataLinq model sources with the current generator package.\");";
+
+        for (var i = 0; i < tableModels.Length; i++)
+        {
+            var modelType = GetGlobalTypeName(tableModels[i].Model.CsType);
+            yield return $"{namespaceTab}{tab}{tab}if (tableModels[{i.ToString(CultureInfo.InvariantCulture)}].Model.CsType.Type != typeof({modelType}))";
+            yield return $"{namespaceTab}{tab}{tab}{tab}throw new global::System.InvalidOperationException(\"Generated DataLinq metadata table model order mismatch. Regenerate the DataLinq model sources with the current generator package.\");";
+            yield return $"{namespaceTab}{tab}{tab}{modelType}.SetDataLinqGeneratedModel(tableModels[{i.ToString(CultureInfo.InvariantCulture)}].Model);";
+        }
+
+        yield return $"{namespaceTab}{tab}" + "}";
+        yield return "";
         foreach (var row in GeneratedMetadataDraftMethod(database, tableModels))
             yield return row;
 
@@ -652,6 +671,34 @@ public class GeneratorFileFactory
     private static string FormatNullableStringLiteral(string? value) =>
         value is null ? "null" : FormatStringLiteral(value);
 
+    private static string GetGeneratedColumnIndexName(ValueProperty property) =>
+        $"DataLinqColumnIndex_{GetGeneratedIdentifierSuffix(property.PropertyName)}";
+
+    private static string GetGeneratedColumnHandleName(ValueProperty property) =>
+        $"DataLinqColumn_{GetGeneratedIdentifierSuffix(property.PropertyName)}";
+
+    private static string GetGeneratedRelationHandleName(RelationProperty property) =>
+        $"DataLinqRelation_{GetGeneratedIdentifierSuffix(property.PropertyName)}";
+
+    private static string GetGeneratedIdentifierSuffix(string name)
+    {
+        var chars = name
+            .Select(static character => IsAsciiIdentifierCharacter(character) ? character : '_')
+            .ToArray();
+
+        var suffix = new string(chars);
+        if (string.IsNullOrEmpty(suffix) || char.IsDigit(suffix[0]))
+            return $"_{suffix}";
+
+        return suffix;
+    }
+
+    private static bool IsAsciiIdentifierCharacter(char character) =>
+        character == '_'
+        || (character >= '0' && character <= '9')
+        || (character >= 'A' && character <= 'Z')
+        || (character >= 'a' && character <= 'z');
+
     private static string FormatBool(bool value) =>
         value ? "true" : "false";
 
@@ -731,6 +778,37 @@ public class GeneratorFileFactory
 
         yield return $"{namespaceTab}public abstract partial {(options.UseRecords ? "record" : "class")} {model.CsType.Name}{(model.ModelInstanceInterface != null ? $": {model.ModelInstanceInterface.Value.Name}" : "")}";
         yield return namespaceTab + "{";
+        yield return $"{namespaceTab}{tab}private static global::DataLinq.Metadata.ModelDefinition DataLinqGeneratedModel = null!;";
+        yield return $"{namespaceTab}{tab}internal static global::DataLinq.Metadata.ModelDefinition DataLinqModel => DataLinqGeneratedModel ?? throw new global::System.InvalidOperationException(\"Generated DataLinq metadata for '{model.CsType.Name}' has not been initialized. Initialize a generated DataLinq provider before creating mutable instances.\");";
+        yield return "";
+
+        foreach (var valueProperty in model.ValueProperties.Values.OrderBy(x => x.PropertyName, StringComparer.Ordinal))
+        {
+            yield return $"{namespaceTab}{tab}protected const int {GetGeneratedColumnIndexName(valueProperty)} = {valueProperty.Column.Index.ToString(CultureInfo.InvariantCulture)};";
+            yield return $"{namespaceTab}{tab}internal static global::DataLinq.Metadata.ColumnDefinition {GetGeneratedColumnHandleName(valueProperty)} {{ get; private set; }} = null!;";
+        }
+
+        if (model.ValueProperties.Any())
+            yield return "";
+
+        foreach (var relationProperty in model.RelationProperties.Values.OrderBy(x => x.PropertyName, StringComparer.Ordinal))
+            yield return $"{namespaceTab}{tab}internal static global::DataLinq.Metadata.RelationProperty {GetGeneratedRelationHandleName(relationProperty)} {{ get; private set; }} = null!;";
+
+        if (model.RelationProperties.Any())
+            yield return "";
+
+        yield return $"{namespaceTab}{tab}internal static void SetDataLinqGeneratedModel(global::DataLinq.Metadata.ModelDefinition model)";
+        yield return $"{namespaceTab}{tab}" + "{";
+        yield return $"{namespaceTab}{tab}{tab}DataLinqGeneratedModel = model ?? throw new global::System.ArgumentNullException(nameof(model));";
+
+        foreach (var valueProperty in model.ValueProperties.Values.OrderBy(x => x.PropertyName, StringComparer.Ordinal))
+            yield return $"{namespaceTab}{tab}{tab}{GetGeneratedColumnHandleName(valueProperty)} = model.ValueProperties[{FormatStringLiteral(valueProperty.PropertyName)}].Column;";
+
+        foreach (var relationProperty in model.RelationProperties.Values.OrderBy(x => x.PropertyName, StringComparer.Ordinal))
+            yield return $"{namespaceTab}{tab}{tab}{GetGeneratedRelationHandleName(relationProperty)} = model.RelationProperties[{FormatStringLiteral(relationProperty.PropertyName)}];";
+
+        yield return $"{namespaceTab}{tab}" + "}";
+        yield return "";
 
         if (model.Table.Type == TableType.Table)
         {
@@ -814,7 +892,7 @@ public class GeneratorFileFactory
             foreach (var row in FormatSummaryXmlDocs(GetDocumentationComment(c.ValueProperty.Attributes), $"{namespaceTab}{tab}"))
                 yield return row;
 
-            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= ({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}(nameof({c.ValueProperty.PropertyName}));";
+            yield return $"{namespaceTab}{tab}public override {GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)} {c.ValueProperty.PropertyName} => _{c.ValueProperty.PropertyName} ??= ({GetCsTypeName(c.ValueProperty)}{GetImmutablePropertyNullable(c.ValueProperty)}){(IsImmutableGetterNullable(valueProperty) ? "GetNullableValue" : "GetValue")}({GetGeneratedColumnIndexName(valueProperty)});";
             yield return $"";
         }
 
@@ -830,12 +908,12 @@ public class GeneratorFileFactory
                 var expressionSuffix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? ")!" : "";
 
                 yield return $"{namespaceTab}{tab}private ImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
-                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => {expressionPrefix}_{relationProperty.PropertyName} ??= GetImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName})){expressionSuffix};";
+                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => {expressionPrefix}_{relationProperty.PropertyName} ??= GetImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>({GetGeneratedRelationHandleName(relationProperty)}){expressionSuffix};";
             }
             else
             {
                 yield return $"{namespaceTab}{tab}private IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
-                yield return $"{namespaceTab}{tab}public override IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= GetImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>(nameof({relationProperty.PropertyName}));";
+                yield return $"{namespaceTab}{tab}public override IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= GetImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>({GetGeneratedRelationHandleName(relationProperty)});";
             }
 
             yield return $"";
@@ -863,7 +941,7 @@ public class GeneratorFileFactory
         var defaultProps = GetDefaultValueProperties(model);
 
         // Parameterless constructor for users who prefer setting properties via setters.
-        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}() : base()";
+        yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name}() : base({model.CsType.Name}.DataLinqModel)";
         yield return $"{namespaceTab}{tab}" + "{";
 
         foreach (var v in defaultProps)
@@ -920,8 +998,8 @@ public class GeneratorFileFactory
 
             yield return $"{namespaceTab}{tab}public {newModifier}virtual {GetMutablePropertyRequired(c.ValueProperty)}{GetCsTypeName(c.ValueProperty)}{nullableAnnotation} {c.ValueProperty.PropertyName}";
             yield return $"{namespaceTab}{tab}" + "{";
-            yield return $"{namespaceTab}{tab}{tab}get => ({GetCsTypeName(c.ValueProperty)}{nullableAnnotation})GetValue(nameof({c.ValueProperty.PropertyName})){nullForgivingOperator};";
-            yield return $"{namespaceTab}{tab}{tab}set => SetValue(nameof({c.ValueProperty.PropertyName}), value);";
+            yield return $"{namespaceTab}{tab}{tab}get => ({GetCsTypeName(c.ValueProperty)}{nullableAnnotation})GetValue({model.CsType.Name}.{GetGeneratedColumnHandleName(valueProperty)}){nullForgivingOperator};";
+            yield return $"{namespaceTab}{tab}{tab}set => SetValue({model.CsType.Name}.{GetGeneratedColumnHandleName(valueProperty)}, value);";
             yield return $"{namespaceTab}{tab}" + "}";
         }
 

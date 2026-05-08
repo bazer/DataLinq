@@ -310,6 +310,10 @@ public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabase
     public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
         GeneratedMetadataTestDrafts.CreateBootstrapDraft();
 
+    public static void SetDataLinqGeneratedMetadata(DatabaseDefinition metadata)
+    {
+    }
+
     public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
         new(
         [
@@ -329,6 +333,10 @@ public sealed class RuntimeInterfaceSelectionDb : IDatabaseModel, IDataLinqGener
 
     public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
         GeneratedMetadataTestDrafts.CreateRuntimeInterfaceSelectionDraft();
+
+    public static void SetDataLinqGeneratedMetadata(DatabaseDefinition metadata)
+    {
+    }
 
     public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
         new(

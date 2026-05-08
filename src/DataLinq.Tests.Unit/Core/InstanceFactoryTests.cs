@@ -34,6 +34,10 @@ public class InstanceFactoryTests
         public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
             new("FactoryDatabase", new CsTypeDeclaration(typeof(FactoryDatabase)));
 
+        public static void SetDataLinqGeneratedMetadata(DatabaseDefinition metadata)
+        {
+        }
+
         public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() => new([]);
 
         public static FactoryDatabase NewDataLinqDatabase(IDataSourceAccess dataSource) =>

@@ -10,8 +10,10 @@ public interface IRowData
     TableDefinition Table { get; }
 
     object? this[ColumnDefinition column] { get; }
+    object? this[int columnIndex] { get; }
 
     object? GetValue(ColumnDefinition column);
+    object? GetValue(int columnIndex);
 
     IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns);
 
@@ -44,11 +46,17 @@ public sealed class RowData : IRowData, IEquatable<RowData>
     public int Size { get; }
 
     public object? this[ColumnDefinition column] => GetValue(column);
+    public object? this[int columnIndex] => GetValue(columnIndex);
 
     public object? GetValue(ColumnDefinition column)
     {
         // Fast array access using the pre-calculated index
         return data[column.Index];
+    }
+
+    public object? GetValue(int columnIndex)
+    {
+        return data[columnIndex];
     }
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()

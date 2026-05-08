@@ -13,6 +13,7 @@ public class MutableRowData : IRowData
     public bool HasChanges() => MutatedData.Count > 0;
 
     public object? this[ColumnDefinition column] => GetValue(column);
+    public object? this[int columnIndex] => GetValue(columnIndex);
 
     public MutableRowData(TableDefinition table)
     {
@@ -46,6 +47,8 @@ public class MutableRowData : IRowData
 
         return ImmutableRowData?.GetValue(column);
     }
+
+    public object? GetValue(int columnIndex) => GetValue(Table.Columns[columnIndex]);
 
     public IEnumerable<object?> GetValues(IEnumerable<ColumnDefinition> columns)
     {
@@ -81,8 +84,4 @@ public class MutableRowData : IRowData
             yield return change;
     }
 
-    IEnumerable<object?> IRowData.GetValues(IEnumerable<ColumnDefinition> columns)
-    {
-        throw new System.NotImplementedException();
-    }
 }

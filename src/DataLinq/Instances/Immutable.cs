@@ -13,8 +13,7 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
     where T : IModel
     where M : class, IDatabaseModel
 {
-    protected Dictionary<RelationProperty, IKey> relationKeys = rowData.Table.Model.RelationProperties
-        .ToDictionary(x => x.Value, x => KeyFactory.CreateKeyFromValues(rowData.GetValues(x.Value.RelationPart.ColumnIndex.Columns)));
+    protected ConcurrentDictionary<RelationProperty, IKey> relationKeys = new();
 
     protected ConcurrentDictionary<string, object?>? lazyValues = null;
 
@@ -22,6 +21,7 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
     protected IKey? _cachedPrimaryKey = null;
 
     public object? this[ColumnDefinition column] => rowData[column];
+    public object? this[int columnIndex] => rowData[columnIndex];
     public object? this[string propertyName] => rowData.GetValue(rowData.Table.Model.ValueProperties[propertyName].Column);
 
     public ModelDefinition Metadata() => rowData.Table.Model;
@@ -53,17 +53,29 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
     protected ImmutableForeignKey<V> GetImmutableForeignKey<V>(string propertyName) where V : IImmutableInstance
     {
         var property = rowData.Table.Model.RelationProperties[propertyName];
-        return new ImmutableForeignKey<V>(relationKeys[property], GetDataSource(), property);
+        return GetImmutableForeignKey<V>(property);
+    }
+
+    protected ImmutableForeignKey<V> GetImmutableForeignKey<V>(RelationProperty property) where V : IImmutableInstance
+    {
+        return new ImmutableForeignKey<V>(GetRelationKey(property), GetDataSource(), property);
     }
 
     protected ImmutableRelation<V> GetImmutableRelation<V>(string propertyName) where V : IImmutableInstance
     {
         var property = rowData.Table.Model.RelationProperties[propertyName];
-        return new ImmutableRelation<V>(relationKeys[property], GetDataSource(), property);
+        return GetImmutableRelation<V>(property);
+    }
+
+    protected ImmutableRelation<V> GetImmutableRelation<V>(RelationProperty property) where V : IImmutableInstance
+    {
+        return new ImmutableRelation<V>(GetRelationKey(property), GetDataSource(), property);
     }
 
     protected object GetValue(string propertyName) => GetNullableValue(propertyName) ?? throw new ArgumentNullException(propertyName);
     protected object? GetNullableValue(string propertyName) => rowData.GetValue(rowData.Table.Model.ValueProperties[propertyName].Column);
+    protected object GetValue(int columnIndex) => GetNullableValue(columnIndex) ?? throw new ArgumentNullException(nameof(columnIndex));
+    protected object? GetNullableValue(int columnIndex) => rowData.GetValue(columnIndex);
     protected V? GetForeignKey<V>(string propertyName) where V : IImmutableInstance => GetRelation<V>(rowData.Table.Model.RelationProperties[propertyName]).SingleOrDefault();
     protected IEnumerable<V> GetRelation<V>(string propertyName) where V : IImmutableInstance => GetRelation<V>(rowData.Table.Model.RelationProperties[propertyName]);
 
@@ -74,11 +86,14 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
         var otherSide = property.RelationPart.GetOtherSide();
         var result = source.Provider
             .GetTableCache(otherSide.ColumnIndex.Table)
-            .GetRows(relationKeys[property], property, source)
+            .GetRows(GetRelationKey(property), property, source)
             .Cast<V>();
 
         return result;
     }
+
+    private IKey GetRelationKey(RelationProperty property) =>
+        relationKeys.GetOrAdd(property, relationProperty => KeyFactory.CreateKeyFromValues(rowData.GetValues(relationProperty.RelationPart.ColumnIndex.Columns)));
 
     public IDataSourceAccess GetDataSource()
     {
