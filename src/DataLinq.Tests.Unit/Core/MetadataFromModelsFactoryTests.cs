@@ -383,6 +383,50 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
     }
 
     [Test]
+    public async Task ReadSyntaxTrees_InterfaceAttributeWithMultipleTypeArguments_ReturnsInvalidArgumentFailure()
+    {
+        const string code = """
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UserModel> Users { get; }
+}
+
+public partial interface IUserModel { }
+public partial interface IOtherUserModel { }
+
+[Table("users")]
+[Interface<IUserModel, IOtherUserModel>]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+        var result = factory.ReadSyntaxTrees(declarations).Single();
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsNotEqualTo(DLFailureType.Exception);
+
+        var failureMessage = failure.ToString();
+        await Assert.That(failureMessage).Contains("Interface");
+        await Assert.That(failureMessage).Contains("InvalidArgument");
+        await Assert.That(failureMessage).Contains("exactly one type argument");
+        await Assert.That(failureMessage).DoesNotContain("[Exception]");
+    }
+
+    [Test]
     public async Task ReadSyntaxTrees_QualifiedRelationPropertyTypes_ParsesRelations()
     {
         const string code = """

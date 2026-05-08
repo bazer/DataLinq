@@ -420,6 +420,19 @@ public partial class TestDb : IDatabaseModel {{ public TestDb(DataSourceAccess d
     }
 
     [Test]
+    public async Task ParseAttributeSyntax_InterfaceGenericWithMultipleTypeArguments_ReturnsInvalidArgumentFailure()
+    {
+        var (parser, syntax) = GetAttributeSyntax(@"[Interface<IFirstThing, ISecondThing>]");
+
+        var result = parser.ParseAttribute(syntax);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidArgument);
+        await Assert.That(failure.Message).Contains("exactly one type argument");
+    }
+
+    [Test]
     public async Task ParseAttributeSyntax_InterfaceLookalike_ReturnsNotImplementedFailure()
     {
         var (parser, syntax) = GetAttributeSyntax(@"[InterfaceBackup]");

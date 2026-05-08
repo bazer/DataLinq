@@ -768,6 +768,9 @@ public class SyntaxParser
             // Handle generic InterfaceAttribute<T>
             if (generictype != null)
             {
+                if (generictype.TypeArgumentList.Arguments.Count != 1)
+                    return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' must have exactly one type argument");
+
                 if (arguments.Count > 1)
                     return FailAttribute(attributeSyntax, DLFailureType.InvalidArgument, $"Attribute '{name}' have too many arguments");
 
