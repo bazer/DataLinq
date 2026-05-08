@@ -328,11 +328,8 @@ public class SyntaxParser
 
         if (typeSyntax.BaseList != null)
         {
-            if (!typeSyntax.BaseList.Types
-                .Select(ParseDeclaredInterface)
-                .Transpose()
-                .TryUnwrap(out var declaredInterfaces, out var interfaceFailures))
-                return DLOptionFailure.Fail($"Parsing base interfaces for {typeSyntax.Identifier.Text}", model, interfaceFailures);
+            if (!ParseDeclaredInterfaces(typeSyntax).TryUnwrap(out var declaredInterfaces, out var interfaceFailure))
+                return DLOptionFailure.Fail($"Parsing base interfaces for {typeSyntax.Identifier.Text}", model, [interfaceFailure]);
 
             model.SetInterfacesCore(declaredInterfaces
                 .Where(x => !MatchesUnqualifiedTypeName(x.Name, "Immutable"))
@@ -408,11 +405,8 @@ public class SyntaxParser
         CsTypeDeclaration[] interfaces = [];
         if (typeSyntax.BaseList != null)
         {
-            if (!typeSyntax.BaseList.Types
-                .Select(ParseDeclaredInterface)
-                .Transpose()
-                .TryUnwrap(out var declaredInterfaces, out var interfaceFailures))
-                return DLOptionFailure.Fail($"Parsing base interfaces for {typeSyntax.Identifier.Text}", interfaceFailures);
+            if (!ParseDeclaredInterfaces(typeSyntax).TryUnwrap(out var declaredInterfaces, out var interfaceFailure))
+                return DLOptionFailure.Fail($"Parsing base interfaces for {typeSyntax.Identifier.Text}", [interfaceFailure]);
 
             interfaces = declaredInterfaces
                 .Where(x => !MatchesUnqualifiedTypeName(x.Name, "Immutable"))
@@ -532,6 +526,75 @@ public class SyntaxParser
                 DLFailureType.InvalidModel,
                 $"Base type '{baseType.Type}' uses unsupported C# type syntax: {exception.Message}");
         }
+    }
+
+    private Option<IReadOnlyList<CsTypeDeclaration>, IDLOptionFailure> ParseDeclaredInterfaces(TypeDeclarationSyntax typeSyntax)
+    {
+        var declarations = new List<CsTypeDeclaration>();
+        if (typeSyntax.BaseList == null)
+            return declarations;
+
+        var visitedInterfaces = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var baseType in typeSyntax.BaseList.Types)
+        {
+            if (!ParseDeclaredInterfaceTree(baseType, declarations, visitedInterfaces).TryUnwrap(out _, out var failure))
+                return failure;
+        }
+
+        return declarations;
+    }
+
+    private Option<bool, IDLOptionFailure> ParseDeclaredInterfaceTree(
+        BaseTypeSyntax baseType,
+        List<CsTypeDeclaration> declarations,
+        HashSet<string> visitedInterfaces)
+    {
+        if (!ParseDeclaredInterface(baseType).TryUnwrap(out var declaration, out var failure))
+            return failure;
+
+        AddDeclaredInterface(declarations, declaration);
+
+        var interfaceDeclaration = FindDeclaredInterfaceSyntax(declaration.Name);
+        if (interfaceDeclaration?.BaseList == null)
+            return true;
+
+        if (!visitedInterfaces.Add(interfaceDeclaration.Identifier.Text))
+            return true;
+
+        foreach (var inheritedInterface in interfaceDeclaration.BaseList.Types)
+        {
+            if (!ParseDeclaredInterfaceTree(inheritedInterface, declarations, visitedInterfaces).TryUnwrap(out _, out var inheritedFailure))
+                return inheritedFailure;
+        }
+
+        return true;
+    }
+
+    private InterfaceDeclarationSyntax? FindDeclaredInterfaceSyntax(string interfaceName)
+    {
+        var lookupName = GetUnqualifiedGenericTypeDefinitionName(interfaceName);
+        return modelSyntaxes
+            .OfType<InterfaceDeclarationSyntax>()
+            .FirstOrDefault(interfaceSyntax => interfaceSyntax.Identifier.Text == lookupName);
+    }
+
+    private static string GetUnqualifiedGenericTypeDefinitionName(string typeName)
+    {
+        var unqualifiedTypeName = GetUnqualifiedTypeName(typeName);
+        var genericStart = unqualifiedTypeName.IndexOf('<');
+        return genericStart >= 0
+            ? unqualifiedTypeName.Substring(0, genericStart).Trim()
+            : unqualifiedTypeName;
+    }
+
+    private static void AddDeclaredInterface(List<CsTypeDeclaration> declarations, CsTypeDeclaration declaration)
+    {
+        if (declarations.Any(existing =>
+            string.Equals(existing.Name, declaration.Name, StringComparison.Ordinal) &&
+            string.Equals(existing.Namespace, declaration.Namespace, StringComparison.Ordinal)))
+            return;
+
+        declarations.Add(declaration);
     }
 
     public Option<Attribute, IDLOptionFailure> ParseAttribute(AttributeSyntax attributeSyntax)

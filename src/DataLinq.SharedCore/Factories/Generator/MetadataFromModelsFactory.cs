@@ -123,7 +123,7 @@ public class MetadataFromModelsFactory
                 return true;
             var interfaceDecl = modelSyntaxes
                 .OfType<InterfaceDeclarationSyntax>()
-                .FirstOrDefault(i => i.Identifier.Text == baseTypeName);
+                .FirstOrDefault(i => SyntaxParser.MatchesUnqualifiedTypeName(baseTypeName, i.Identifier.Text));
             if (interfaceDecl != null && ImplementsInterface(interfaceDecl, modelSyntaxes, interfaceNameFunc, visitedDeclarations))
                 return true;
         }

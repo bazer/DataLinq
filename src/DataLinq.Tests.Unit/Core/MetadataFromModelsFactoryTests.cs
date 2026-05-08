@@ -5,6 +5,7 @@ using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.Core.Factories.Models;
 using DataLinq.ErrorHandling;
+using DataLinq.Metadata;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
@@ -416,6 +417,46 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
         await Assert.That(result.HasValue).IsTrue();
         await Assert.That(result.Value.TableModels.Single().CsPropertyName).IsEqualTo("Users");
         await Assert.That(result.Value.TableModels.Single().Model.CsType.Name).IsEqualTo("UserModel");
+    }
+
+    [Test]
+    public async Task ReadSyntaxTrees_GenericInheritedTableModelInterface_ParsesDatabase()
+    {
+        const string code = """
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UserModel> Users { get; }
+}
+
+public interface IProjectModel<TModel> : ITableModel<TestDb> { }
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), IProjectModel<UserModel>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+        var result = factory.ReadSyntaxTrees(declarations).Single();
+
+        await Assert.That(result.HasValue).IsTrue();
+
+        var tableModel = result.Value.TableModels.Single();
+        await Assert.That(tableModel.CsPropertyName).IsEqualTo("Users");
+        await Assert.That(tableModel.Table.Type).IsEqualTo(TableType.Table);
+        await Assert.That(tableModel.Model.OriginalInterfaces.Any(x => x.Name == "IProjectModel<UserModel>")).IsTrue();
+        await Assert.That(tableModel.Model.OriginalInterfaces.Any(x => x.Name == "ITableModel<TestDb>")).IsTrue();
     }
 
     [Test]
