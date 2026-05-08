@@ -1,13 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Data;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Reflection;
-using DataLinq.Attributes;
 using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
-using DataLinq.Instances;
 using DataLinq.Interfaces;
 using ThrowAway;
 using ThrowAway.Extensions;
@@ -16,350 +11,121 @@ namespace DataLinq.Metadata;
 
 public static class MetadataFromTypeFactory
 {
-    private const string GeneratedDatabaseModelMethodName = "GetDataLinqGeneratedModel";
+    private const string GeneratedMetadataMethodName = "GetDataLinqGeneratedMetadata";
 
-    public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel<
-        [DynamicallyAccessedMembers(
-            DynamicallyAccessedMemberTypes.PublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicProperties)]
-        TDatabase>()
+    public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel<TDatabase>()
         where TDatabase : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<TDatabase> =>
-        DLOptionFailure.CatchAll(() => ParseDatabaseFromGeneratedModel(typeof(TDatabase), TDatabase.GetDataLinqGeneratedModel()));
+        BuildGeneratedMetadata(typeof(TDatabase), () => TDatabase.GetDataLinqGeneratedMetadata());
 
-    public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel(
-        [DynamicallyAccessedMembers(
-            DynamicallyAccessedMemberTypes.PublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicProperties)]
-        Type type) => DLOptionFailure.CatchAll(() =>
-        GetGeneratedDatabaseModel(type)
-            .FlatMap(generatedModel => ParseDatabaseFromGeneratedModel(type, generatedModel)));
-
-    private static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromGeneratedModel(
-        [DynamicallyAccessedMembers(
-            DynamicallyAccessedMemberTypes.PublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicProperties)]
-        Type type,
-        GeneratedDatabaseModelDeclaration generatedModel)
+    [RequiresUnreferencedCode("Non-generic generated metadata loading reflects over the generated hook. Provider startup uses the static generic hook and does not require this path.")]
+    public static Option<DatabaseDefinition, IDLOptionFailure> ParseDatabaseFromDatabaseModel(Type type)
     {
-        if (!generatedModel.TryValidate(type).TryUnwrap(out _, out var validationFailure))
-            return validationFailure;
+        if (type is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Database type cannot be null.");
 
-        var attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray();
-        var databaseName = attributes
-            .OfType<DatabaseAttribute>()
-            .LastOrDefault()?
-            .Name ?? type.Name;
-
-        var database = new MetadataDatabaseDraft(databaseName, new CsTypeDeclaration(type))
-        {
-            DbName = databaseName,
-            Attributes = attributes,
-            UseCache = attributes
-                .OfType<UseCacheAttribute>()
-                .LastOrDefault()?
-                .UseCache ?? false,
-            CacheLimits = attributes
-                .OfType<CacheLimitAttribute>()
-                .Select(x => (x.LimitType, x.Amount))
-                .ToArray(),
-            CacheCleanup = attributes
-                .OfType<CacheCleanupAttribute>()
-                .Select(x => (x.LimitType, x.Amount))
-                .ToArray(),
-            IndexCache = attributes
-                .OfType<IndexCacheAttribute>()
-                .Select(x => (x.Type, x.Amount))
-                .ToArray(),
-            TableModels = generatedModel.TableModels
-                .Select(ParseTableModelDraft)
-                .ToArray()
-        };
-
-        return new MetadataDefinitionFactory()
-            .Build(database);
+        return GetGeneratedMetadataDraft(type)
+            .FlatMap(draft => BuildGeneratedMetadataDraft(type, draft));
     }
 
-    private static MetadataTableModelDraft ParseTableModelDraft(GeneratedTableModelDeclaration declaration)
-    {
-        var model = declaration.ModelType.ParseModelDraft(declaration);
-        var table = ParseTableDraft(model, declaration.TableType);
-        return new MetadataTableModelDraft(declaration.CsPropertyName, model, table);
-    }
-
-    private static MetadataTableDraft ParseTableDraft(MetadataModelDraft model, TableType tableType)
-    {
-        var dbName = model.CsType.Name;
-        foreach (var attribute in model.Attributes)
-        {
-            if (attribute is TableAttribute tableAttribute)
-                dbName = tableAttribute.Name;
-
-            if (attribute is ViewAttribute viewAttribute)
-                dbName = viewAttribute.Name;
-        }
-
-        return new MetadataTableDraft(dbName)
-        {
-            Type = tableType,
-            Definition = model.Attributes
-                .OfType<DefinitionAttribute>()
-                .LastOrDefault()?
-                .Sql,
-            UseCache = model.Attributes
-                .OfType<UseCacheAttribute>()
-                .LastOrDefault()?
-                .UseCache,
-            CacheLimits = model.Attributes
-                .OfType<CacheLimitAttribute>()
-                .Select(x => (x.LimitType, x.Amount))
-                .ToArray(),
-            IndexCache = model.Attributes
-                .OfType<IndexCacheAttribute>()
-                .Select(x => (x.Type, x.Amount))
-                .ToArray()
-        };
-    }
-
-    private static Option<GeneratedDatabaseModelDeclaration, IDLOptionFailure> GetGeneratedDatabaseModel(
-        [DynamicallyAccessedMembers(
-            DynamicallyAccessedMemberTypes.PublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicMethods)]
-        Type databaseType)
+    private static Option<DatabaseDefinition, IDLOptionFailure> BuildGeneratedMetadata(
+        Type databaseType,
+        Func<MetadataDatabaseDraft> getMetadataDraft)
     {
         if (databaseType is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Database type cannot be null.");
 
-        var generatedModelMethod = databaseType.GetMethod(
-            GeneratedDatabaseModelMethodName,
+        MetadataDatabaseDraft draft;
+        try
+        {
+            draft = getMetadataDraft();
+        }
+        catch (Exception exception)
+        {
+            return CreateUnreadableGeneratedMetadataFailure(databaseType, exception);
+        }
+
+        return BuildGeneratedMetadataDraft(databaseType, draft);
+    }
+
+    private static Option<DatabaseDefinition, IDLOptionFailure> BuildGeneratedMetadataDraft(
+        Type databaseType,
+        MetadataDatabaseDraft draft)
+    {
+        var hookName = GetHookName(databaseType);
+        if (draft is null)
+            return CreateNullGeneratedMetadataPayloadFailure(databaseType);
+
+        var metadataResult = new MetadataDefinitionFactory().Build(draft);
+        if (!metadataResult.TryUnwrap(out var metadata, out var failure))
+        {
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Generated DataLinq metadata hook '{hookName}' returned invalid metadata for database '{GetDatabaseTypeName(databaseType)}'. Regenerate the DataLinq model sources with the current generator package.",
+                [failure]);
+        }
+
+        return metadata;
+    }
+
+    [RequiresUnreferencedCode("Uses reflection to invoke the generated metadata hook for non-generic callers.")]
+    private static Option<MetadataDatabaseDraft, IDLOptionFailure> GetGeneratedMetadataDraft(Type databaseType)
+    {
+        if (databaseType is null)
+            return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Database type cannot be null.");
+
+        var generatedMetadataMethod = databaseType.GetMethod(
+            GeneratedMetadataMethodName,
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
             binder: null,
             types: Type.EmptyTypes,
             modifiers: null);
 
-        if (generatedModelMethod is not null)
+        var hookName = GetHookName(databaseType);
+        if (generatedMetadataMethod is null)
         {
-            if (generatedModelMethod.ReturnType != typeof(GeneratedDatabaseModelDeclaration))
-                return DLOptionFailure.Fail(
-                    DLFailureType.InvalidModel,
-                    $"Generated metadata bootstrap method '{databaseType.FullName}.{GeneratedDatabaseModelMethodName}' must return '{typeof(GeneratedDatabaseModelDeclaration).FullName}'.");
-
-            return (GeneratedDatabaseModelDeclaration)generatedModelMethod.Invoke(null, null)!;
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Database model '{GetDatabaseTypeName(databaseType)}' is missing the generated complete DataLinq metadata hook '{GeneratedMetadataMethodName}'. Regenerate the DataLinq model sources with the current generator package and ensure the database model is declared as a partial class.");
         }
 
-        return DLOptionFailure.Fail(
+        if (generatedMetadataMethod.ReturnType != typeof(MetadataDatabaseDraft))
+        {
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Generated DataLinq metadata hook '{hookName}' must return '{typeof(MetadataDatabaseDraft).FullName}'. Regenerate the DataLinq model sources with the current generator package.");
+        }
+
+        try
+        {
+            var draft = generatedMetadataMethod.Invoke(null, null);
+            if (draft is null)
+                return CreateNullGeneratedMetadataPayloadFailure(databaseType);
+
+            return (MetadataDatabaseDraft)draft;
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            return CreateUnreadableGeneratedMetadataFailure(databaseType, exception.InnerException);
+        }
+        catch (Exception exception)
+        {
+            return CreateUnreadableGeneratedMetadataFailure(databaseType, exception);
+        }
+    }
+
+    private static IDLOptionFailure CreateUnreadableGeneratedMetadataFailure(Type databaseType, Exception exception) =>
+        DLOptionFailure.Fail(
             DLFailureType.InvalidModel,
-            $"Database model '{databaseType.FullName}' is missing the generated DataLinq metadata hook '{GeneratedDatabaseModelMethodName}'. " +
-            "Run the DataLinq source generator and ensure the database model is declared as a partial class.");
-    }
+            $"Generated DataLinq metadata hook '{GetHookName(databaseType)}' could not be read for database '{GetDatabaseTypeName(databaseType)}'. {exception.GetType().Name}: {exception.Message}. Regenerate the DataLinq model sources with the current generator package.");
 
-    private static MetadataModelDraft ParseModelDraft(
-        [DynamicallyAccessedMembers(
-            DynamicallyAccessedMemberTypes.PublicProperties |
-            DynamicallyAccessedMemberTypes.NonPublicProperties |
-            DynamicallyAccessedMemberTypes.Interfaces)]
-        this Type type,
-        GeneratedTableModelDeclaration generatedDeclaration)
-    {
-        var attributes = type.GetCustomAttributes(false).Cast<Attribute>().ToArray();
+    private static IDLOptionFailure CreateNullGeneratedMetadataPayloadFailure(Type databaseType) =>
+        DLOptionFailure.Fail(
+            DLFailureType.InvalidModel,
+            $"Generated DataLinq metadata hook '{GetHookName(databaseType)}' returned a null metadata payload for database '{GetDatabaseTypeName(databaseType)}'. Regenerate the DataLinq model sources with the current generator package.");
 
-        var interfaces = type.GetInterfaces();
-        var modelInstanceInterfaceType = FindModelInstanceInterfaceType(type, attributes, interfaces);
+    private static string GetHookName(Type databaseType) =>
+        $"{GetDatabaseTypeName(databaseType)}.{GeneratedMetadataMethodName}";
 
-        var propertyDrafts = type
-            .GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            .Select(ParsePropertyDraft)
-            .OfType<object>()
-            .ToList();
-
-        var valueProperties = propertyDrafts
-            .OfType<MetadataValuePropertyDraft>()
-            .ToArray();
-        var relationProperties = propertyDrafts
-            .OfType<MetadataRelationPropertyDraft>()
-            .ToArray();
-        var usings = valueProperties
-            .Select(x => x.CsType.Namespace)
-            .Distinct()
-            .Where(x => x != null)
-            .Select(name => (name!.StartsWith("System"), name))
-            .OrderByDescending(x => x.Item1)
-            .ThenBy(x => x.name)
-            .Select(x => new ModelUsing(x.name))
-            .ToArray();
-
-        return new MetadataModelDraft(new CsTypeDeclaration(type))
-        {
-            Attributes = attributes,
-            OriginalInterfaces = interfaces
-                .Where(x => x != modelInstanceInterfaceType)
-                .Select(x => new CsTypeDeclaration(x))
-                .ToArray(),
-            ModelInstanceInterface = modelInstanceInterfaceType is not null
-                ? new CsTypeDeclaration(modelInstanceInterfaceType)
-                : null,
-            Usings = usings,
-            ValueProperties = valueProperties,
-            RelationProperties = relationProperties,
-            ImmutableType = new CsTypeDeclaration(generatedDeclaration.ImmutableType!),
-            ImmutableFactory = generatedDeclaration.ImmutableFactory,
-            MutableType = generatedDeclaration.MutableType is not null
-                ? new CsTypeDeclaration(generatedDeclaration.MutableType)
-                : null
-        };
-    }
-
-    private static bool IsApplicationInterface(Type type)
-    {
-        return type.Namespace?.StartsWith("System") != true &&
-            type.Namespace?.StartsWith("DataLinq.Instance") != true &&
-            type.Namespace?.StartsWith("DataLinq.Interfaces") != true;
-    }
-
-    private static Type? FindModelInstanceInterfaceType(
-        Type modelType,
-        IReadOnlyList<Attribute> attributes,
-        IReadOnlyList<Type> interfaces)
-    {
-        var modelInstanceContracts = interfaces
-            .Where(IsModelInstanceContract)
-            .ToArray();
-        var interfaceAttribute = attributes.OfType<InterfaceAttribute>().SingleOrDefault();
-        if (interfaceAttribute is not null)
-        {
-            if (!interfaceAttribute.GenerateInterface)
-                return null;
-
-            var interfaceName = interfaceAttribute.Name ?? $"I{modelType.Name}";
-            return interfaces.FirstOrDefault(type =>
-                string.Equals(type.Name, interfaceName, StringComparison.Ordinal) &&
-                IsApplicationModelInstanceInterface(type, modelInstanceContracts));
-        }
-
-        return interfaces.FirstOrDefault(type => IsApplicationModelInstanceInterface(type, modelInstanceContracts));
-    }
-
-    private static bool IsApplicationModelInstanceInterface(Type type, IReadOnlyList<Type> modelInstanceContracts) =>
-        IsApplicationInterface(type) &&
-        modelInstanceContracts.Any(contract => contract.IsAssignableFrom(type));
-
-    private static bool IsModelInstanceContract(Type type) =>
-        type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IModelInstance<>);
-
-    private static MetadataRelationPropertyDraft ParseRelationPropertyDraft(
-        PropertyInfo propertyInfo,
-        CsTypeDeclaration csType,
-        IReadOnlyList<Attribute> attributes) => new(
-            propertyInfo.Name,
-            csType)
-        {
-            Attributes = attributes,
-            CsNullable = IsNullable(propertyInfo),
-            RelationName = attributes
-                .OfType<RelationAttribute>()
-                .FirstOrDefault()?
-                .Name
-        };
-
-    private static MetadataValuePropertyDraft ParseValuePropertyDraft(
-        PropertyInfo propertyInfo,
-        CsTypeDeclaration csType,
-        IReadOnlyList<Attribute> attributes)
-    {
-        int? csSize;
-        EnumProperty? enumProperty = null;
-
-        if (csType.Type?.IsEnum == true)
-        {
-            csSize = MetadataTypeConverter.CsTypeSize("enum");
-
-            var enumValueList = attributes.Any(attribute => attribute is EnumAttribute)
-                ? attributes.OfType<EnumAttribute>().Single().Values.Select((x, i) => (x, i + 1)).ToList()
-                : new List<(string name, int value)>();
-
-            var enumType = csType.Type;
-            var declaredInClass = enumType.DeclaringType == propertyInfo.DeclaringType;
-
-            var enumValues = Enum.GetValuesAsUnderlyingType(enumType)
-                .Cast<object>()
-                .Select(Convert.ToInt32)
-                .ToList();
-            var csEnumValues = Enum.GetNames(enumType).Select((x, i) => (x, enumValues[i])).ToList();
-
-            enumProperty = new EnumProperty(enumValueList, csEnumValues, declaredInClass);
-        }
-        else
-        {
-            csSize = MetadataTypeConverter.CsTypeSize(csType.Name);
-        }
-
-        return new MetadataValuePropertyDraft(
-            propertyInfo.Name,
-            csType,
-            ParseColumnDraft(propertyInfo.Name, attributes))
-        {
-            Attributes = attributes,
-            CsNullable = IsNullable(propertyInfo),
-            CsSize = csSize,
-            EnumProperty = enumProperty
-        };
-    }
-
-    private static MetadataColumnDraft ParseColumnDraft(string propertyName, IEnumerable<Attribute> attributes)
-    {
-        var columnName = propertyName;
-        foreach (var attribute in attributes)
-        {
-            if (attribute is ColumnAttribute columnAttribute)
-                columnName = columnAttribute.Name;
-        }
-
-        return new MetadataColumnDraft(columnName)
-        {
-            Nullable = attributes.Any(x => x is NullableAttribute),
-            AutoIncrement = attributes.Any(x => x is AutoIncrementAttribute),
-            PrimaryKey = attributes.Any(x => x is PrimaryKeyAttribute),
-            ForeignKey = attributes.Any(x => x is ForeignKeyAttribute),
-            DbTypes = attributes
-                .OfType<TypeAttribute>()
-                .Select(x => new DatabaseColumnType(x.DatabaseType, x.Name, x.Length, x.Decimals, x.Signed))
-                .ToArray()
-        };
-    }
-
-    private static object? ParsePropertyDraft(this PropertyInfo propertyInfo)
-    {
-        var attributes = propertyInfo
-                .GetCustomAttributes(false)
-                .OfType<Attribute>()
-                .ToArray();
-
-        if (propertyInfo.Name == "EqualityContract" ||
-            !attributes.Any(x => x is ColumnAttribute || x is RelationAttribute))
-        {
-            return null;
-        }
-
-        var type = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
-        var csType = new CsTypeDeclaration(type);
-
-        return attributes.Any(attribute => attribute is RelationAttribute)
-            ? ParseRelationPropertyDraft(propertyInfo, csType, attributes)
-            : ParseValuePropertyDraft(propertyInfo, csType, attributes);
-    }
-
-    private static bool IsNullable(PropertyInfo propertyInfo)
-    {
-        if (Nullable.GetUnderlyingType(propertyInfo.PropertyType) != null)
-            return true;
-
-        if (propertyInfo.PropertyType.IsValueType)
-            return false;
-
-        return new NullabilityInfoContext()
-            .Create(propertyInfo)
-            .ReadState == NullabilityState.Nullable;
-    }
+    private static string GetDatabaseTypeName(Type databaseType) =>
+        databaseType.FullName ?? databaseType.Name;
 }

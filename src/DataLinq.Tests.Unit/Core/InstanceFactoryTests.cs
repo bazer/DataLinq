@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
+using DataLinq.Core.Factories;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
@@ -29,6 +30,9 @@ public class InstanceFactoryTests
         }
 
         public DataSourceAccess DataSource { get; }
+
+        public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
+            new("FactoryDatabase", new CsTypeDeclaration(typeof(FactoryDatabase)));
 
         public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() => new([]);
 

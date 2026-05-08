@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DataLinq.ErrorHandling;
 using ThrowAway;
@@ -56,7 +55,6 @@ public readonly struct GeneratedTableModelDeclaration
 
     public GeneratedTableModelDeclaration(
         string csPropertyName,
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
         Type modelType,
         Type immutableType,
         Type? mutableType,
@@ -72,7 +70,6 @@ public readonly struct GeneratedTableModelDeclaration
     }
 
     public string CsPropertyName { get; }
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
     public Type ModelType { get; }
     public Type? ImmutableType { get; }
     public Type? MutableType { get; }

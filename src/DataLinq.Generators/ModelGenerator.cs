@@ -45,14 +45,28 @@ public sealed class ModelGenerator : IIncrementalGenerator
             .WithComparer(ModelDeclarationInputComparer.Instance)
             .WithTrackingName(ModelGeneratorTrackingNames.ModelDeclarations);
 
+        IncrementalValuesProvider<EnumDeclarationInput> enumDeclarations = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => node is EnumDeclarationSyntax,
+                transform: static (syntaxContext, _) => GetEnumDeclaration(syntaxContext))
+            .WithComparer(EnumDeclarationInputComparer.Instance)
+            .WithTrackingName(ModelGeneratorTrackingNames.EnumDeclarations);
+
         IncrementalValueProvider<ImmutableArray<ModelDeclarationInput>> collectedClasses =
             modelDeclarations.Collect()
                 .Select(static (declarations, _) => ModelGeneratorInput.NormalizeModelDeclarationOrder(declarations))
                 .WithComparer(ModelDeclarationInputArrayComparer.Instance)
                 .WithTrackingName(ModelGeneratorTrackingNames.CollectedModelDeclarations);
 
+        IncrementalValueProvider<ImmutableArray<EnumDeclarationInput>> collectedEnums =
+            enumDeclarations.Collect()
+                .Select(static (declarations, _) => ModelGeneratorInput.NormalizeEnumDeclarationOrder(declarations))
+                .WithComparer(EnumDeclarationInputArrayComparer.Instance)
+                .WithTrackingName(ModelGeneratorTrackingNames.CollectedEnumDeclarations);
+
         var metadataResults = collectedClasses
-            .Select(static (declarations, cancellationToken) => ReadMetadataSafely(declarations, cancellationToken))
+            .Combine(collectedEnums)
+            .Select(static (input, cancellationToken) => ReadMetadataSafely(input.Left, input.Right, cancellationToken))
             .WithTrackingName(ModelGeneratorTrackingNames.MetadataResults);
 
         var generatorInputs = context.CompilationProvider
@@ -79,8 +93,12 @@ public sealed class ModelGenerator : IIncrementalGenerator
     private static ModelDeclarationInput GetModelDeclaration(GeneratorSyntaxContext context) =>
         ModelDeclarationInput.Create((TypeDeclarationSyntax)context.Node);
 
+    private static EnumDeclarationInput GetEnumDeclaration(GeneratorSyntaxContext context) =>
+        EnumDeclarationInput.Create((EnumDeclarationSyntax)context.Node);
+
     private static ImmutableArray<Option<DatabaseDefinition, IDLOptionFailure>> ReadMetadataSafely(
         ImmutableArray<ModelDeclarationInput> declarations,
+        ImmutableArray<EnumDeclarationInput> enumDeclarations,
         System.Threading.CancellationToken cancellationToken)
     {
         try
@@ -89,8 +107,9 @@ public sealed class ModelGenerator : IIncrementalGenerator
                 return [];
 
             var syntaxTrees = declarations.Select(static declaration => declaration.Syntax).ToImmutableArray();
+            var enumSyntaxTrees = enumDeclarations.Select(static declaration => declaration.Syntax).ToImmutableArray();
             var metadataFactory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
-            return metadataFactory.ReadSyntaxTrees(syntaxTrees).ToImmutableArray();
+            return metadataFactory.ReadSyntaxTrees(syntaxTrees, enumSyntaxTrees).ToImmutableArray();
         }
         catch (Exception e)
         {

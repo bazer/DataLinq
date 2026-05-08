@@ -29,7 +29,13 @@ public class GeneratorFileFactoryTests
             "public static global::DataLinq.Metadata.GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>"))
             .IsTrue();
         await Assert.That(generatedFile.contents.Contains(
+            "public static global::DataLinq.Core.Factories.MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>"))
+            .IsTrue();
+        await Assert.That(generatedFile.contents.Contains(
             "new(\"GeneratorModels\", typeof(global::TestNamespace.GeneratorModel), typeof(global::TestNamespace.ImmutableGeneratorModel), typeof(global::TestNamespace.MutableGeneratorModel), new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>(global::TestNamespace.ImmutableGeneratorModel.NewDataLinqImmutableInstance), global::DataLinq.Metadata.TableType.Table),"))
+            .IsTrue();
+        await Assert.That(generatedFile.contents.Contains(
+            "new global::DataLinq.Core.Factories.MetadataValuePropertyDraft("))
             .IsTrue();
         await Assert.That(generatedFile.contents.Contains(
             "public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>"))

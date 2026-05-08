@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -66,12 +65,7 @@ public class ReadOnlyAccess : DataSourceAccess
 /// Represents a database transaction.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public class ReadOnlyAccess<
-    [DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicMethods |
-        DynamicallyAccessedMemberTypes.NonPublicMethods |
-        DynamicallyAccessedMemberTypes.NonPublicProperties)]
-    T> : ReadOnlyAccess, IDataSourceAccess<T>
+public class ReadOnlyAccess<T> : ReadOnlyAccess, IDataSourceAccess<T>
     where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     /// <summary>

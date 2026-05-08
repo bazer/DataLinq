@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using DataLinq.Attributes;
@@ -191,9 +192,483 @@ public class GeneratorFileFactory
         }
 
         yield return $"{namespaceTab}{tab}]);";
+        yield return "";
+        foreach (var row in GeneratedMetadataDraftMethod(database, tableModels))
+            yield return row;
+
         yield return namespaceTab + "}";
         yield return "";
     }
+
+    private IEnumerable<string> GeneratedMetadataDraftMethod(DatabaseDefinition database, IReadOnlyList<TableModel> tableModels)
+    {
+        var indent1 = $"{namespaceTab}{tab}";
+        var indent2 = $"{namespaceTab}{tab}{tab}";
+        var indent3 = $"{namespaceTab}{tab}{tab}{tab}";
+
+        yield return $"{indent1}public static global::DataLinq.Core.Factories.MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>";
+        yield return $"{indent2}new(";
+        yield return $"{indent3}{FormatStringLiteral(database.Name)},";
+        yield return $"{indent3}{FormatRuntimeCsTypeDeclaration(database.CsType)})";
+        yield return $"{indent2}{{";
+        yield return $"{indent3}DbName = {FormatStringLiteral(database.DbName)},";
+        foreach (var row in AttributeCollection("Attributes", database.Attributes, indent3))
+            yield return row;
+        yield return $"{indent3}UseCache = {FormatBool(database.UseCache)},";
+        foreach (var row in CacheLimitCollection("CacheLimits", database.CacheLimits, indent3))
+            yield return row;
+        foreach (var row in CacheCleanupCollection("CacheCleanup", database.CacheCleanup, indent3))
+            yield return row;
+        foreach (var row in IndexCacheCollection("IndexCache", database.IndexCache, indent3))
+            yield return row;
+        yield return $"{indent3}TableModels =";
+        yield return $"{indent3}[";
+
+        foreach (var tableModel in tableModels)
+        {
+            foreach (var row in TableModelDraft(tableModel, $"{indent3}{tab}"))
+                yield return row;
+        }
+
+        yield return $"{indent3}],";
+        yield return $"{indent2}}};";
+    }
+
+    private IEnumerable<string> TableModelDraft(TableModel tableModel, string indent)
+    {
+        var childIndent = $"{indent}{tab}";
+        var model = tableModel.Model;
+        var table = tableModel.Table;
+
+        yield return $"{indent}new global::DataLinq.Core.Factories.MetadataTableModelDraft(";
+        yield return $"{childIndent}{FormatStringLiteral(tableModel.CsPropertyName)},";
+
+        foreach (var row in ModelDraft(model, childIndent))
+            yield return row;
+        yield return $"{childIndent},";
+
+        foreach (var row in TableDraft(model, table, childIndent))
+            yield return row;
+        yield return $"{indent}),";
+    }
+
+    private IEnumerable<string> ModelDraft(ModelDefinition model, string indent)
+    {
+        var childIndent = $"{indent}{tab}";
+        var immutableType = GetGlobalImmutableTypeName(model.CsType);
+        var mutableType = model.Table.Type == TableType.Table
+            ? GetGlobalMutableTypeName(model.CsType)
+            : null;
+
+        yield return $"{indent}new global::DataLinq.Core.Factories.MetadataModelDraft({FormatRuntimeCsTypeDeclaration(model.CsType)})";
+        yield return $"{indent}{{";
+        yield return $"{childIndent}ImmutableType = {FormatRuntimeCsTypeDeclaration(immutableType)},";
+        yield return $"{childIndent}ImmutableFactory = new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>({immutableType}.NewDataLinqImmutableInstance),";
+        yield return $"{childIndent}MutableType = {FormatNullableRuntimeCsTypeDeclaration(mutableType)},";
+        yield return $"{childIndent}ModelInstanceInterface = {FormatNullableCsTypeDeclaration(model.ModelInstanceInterface)},";
+        foreach (var row in CsTypeCollection("OriginalInterfaces", model.OriginalInterfaces, childIndent))
+            yield return row;
+        foreach (var row in ModelUsingCollection("Usings", model.Usings, childIndent))
+            yield return row;
+        foreach (var row in AttributeCollection("Attributes", model.Attributes, childIndent))
+            yield return row;
+        foreach (var row in ValuePropertyCollection(model, childIndent))
+            yield return row;
+        foreach (var row in RelationPropertyCollection(model, childIndent))
+            yield return row;
+        yield return $"{indent}}}";
+    }
+
+    private IEnumerable<string> TableDraft(ModelDefinition model, TableDefinition table, string indent)
+    {
+        var childIndent = $"{indent}{tab}";
+        var explicitUseCache = model.Attributes
+            .OfType<UseCacheAttribute>()
+            .LastOrDefault()?
+            .UseCache;
+
+        yield return $"{indent}new global::DataLinq.Core.Factories.MetadataTableDraft({FormatStringLiteral(table.DbName)})";
+        yield return $"{indent}{{";
+        yield return $"{childIndent}Type = global::DataLinq.Metadata.TableType.{table.Type},";
+        if (table is ViewDefinition view)
+            yield return $"{childIndent}Definition = {FormatNullableStringLiteral(view.Definition)},";
+        yield return $"{childIndent}UseCache = {FormatNullableBool(explicitUseCache)},";
+        foreach (var row in CacheLimitCollection("CacheLimits", table.CacheLimits, childIndent))
+            yield return row;
+        foreach (var row in IndexCacheCollection("IndexCache", table.IndexCache, childIndent))
+            yield return row;
+        yield return $"{indent}}}";
+    }
+
+    private IEnumerable<string> ValuePropertyCollection(ModelDefinition model, string indent)
+    {
+        yield return $"{indent}ValueProperties =";
+        yield return $"{indent}[";
+
+        var properties = model.Table.Columns
+            .OrderBy(static column => column.Index)
+            .ThenBy(static column => column.DbName, StringComparer.Ordinal)
+            .Select(static column => column.ValueProperty);
+
+        foreach (var property in properties)
+        {
+            foreach (var row in ValuePropertyDraft(property, $"{indent}{tab}"))
+                yield return row;
+        }
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> ValuePropertyDraft(ValueProperty property, string indent)
+    {
+        var childIndent = $"{indent}{tab}";
+
+        yield return $"{indent}new global::DataLinq.Core.Factories.MetadataValuePropertyDraft(";
+        yield return $"{childIndent}{FormatStringLiteral(property.PropertyName)},";
+        yield return $"{childIndent}{FormatValuePropertyCsTypeDeclaration(property)},";
+        foreach (var row in ColumnDraft(property.Column, childIndent))
+            yield return row;
+        yield return $"{indent})";
+        yield return $"{indent}{{";
+        foreach (var row in AttributeCollection("Attributes", property.Attributes, childIndent))
+            yield return row;
+        yield return $"{childIndent}CsNullable = {FormatBool(property.CsNullable)},";
+        yield return $"{childIndent}CsSize = {FormatNullableInt(property.CsSize)},";
+        yield return $"{childIndent}EnumProperty = {FormatNullableEnumProperty(property.EnumProperty)},";
+        yield return $"{indent}}},";
+    }
+
+    private IEnumerable<string> ColumnDraft(ColumnDefinition column, string indent)
+    {
+        var childIndent = $"{indent}{tab}";
+
+        yield return $"{indent}new global::DataLinq.Core.Factories.MetadataColumnDraft({FormatStringLiteral(column.DbName)})";
+        yield return $"{indent}{{";
+        foreach (var row in DatabaseColumnTypeCollection("DbTypes", column.DbTypes, childIndent))
+            yield return row;
+        yield return $"{childIndent}PrimaryKey = {FormatBool(column.PrimaryKey)},";
+        yield return $"{childIndent}ForeignKey = {FormatBool(column.ForeignKey)},";
+        yield return $"{childIndent}AutoIncrement = {FormatBool(column.AutoIncrement)},";
+        yield return $"{childIndent}Nullable = {FormatBool(column.Nullable)},";
+        yield return $"{indent}}}";
+    }
+
+    private IEnumerable<string> RelationPropertyCollection(ModelDefinition model, string indent)
+    {
+        yield return $"{indent}RelationProperties =";
+        yield return $"{indent}[";
+
+        foreach (var property in model.RelationProperties.Values.OrderBy(static property => property.PropertyName, StringComparer.Ordinal))
+        {
+            foreach (var row in RelationPropertyDraft(property, $"{indent}{tab}"))
+                yield return row;
+        }
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> RelationPropertyDraft(RelationProperty property, string indent)
+    {
+        var childIndent = $"{indent}{tab}";
+
+        yield return $"{indent}new global::DataLinq.Core.Factories.MetadataRelationPropertyDraft(";
+        yield return $"{childIndent}{FormatStringLiteral(property.PropertyName)},";
+        yield return $"{childIndent}{FormatCsTypeDeclaration(property.CsType)})";
+        yield return $"{indent}{{";
+        foreach (var row in AttributeCollection("Attributes", property.Attributes, childIndent))
+            yield return row;
+        yield return $"{childIndent}CsNullable = {FormatBool(property.CsNullable)},";
+        yield return $"{childIndent}RelationName = {FormatNullableStringLiteral(property.RelationName)},";
+        yield return $"{indent}}},";
+    }
+
+    private IEnumerable<string> AttributeCollection(string propertyName, IEnumerable<Attribute> attributes, string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var attribute in attributes)
+            yield return $"{indent}{tab}{FormatAttribute(attribute)},";
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> CsTypeCollection(string propertyName, IEnumerable<CsTypeDeclaration> csTypes, string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var csType in csTypes)
+            yield return $"{indent}{tab}{FormatCsTypeDeclaration(csType)},";
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> ModelUsingCollection(string propertyName, IEnumerable<ModelUsing> usings, string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var modelUsing in usings)
+            yield return $"{indent}{tab}new global::DataLinq.Metadata.ModelUsing({FormatStringLiteral(modelUsing.FullNamespaceName)}),";
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> DatabaseColumnTypeCollection(string propertyName, IEnumerable<DatabaseColumnType> dbTypes, string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var dbType in dbTypes)
+        {
+            yield return $"{indent}{tab}new global::DataLinq.Metadata.DatabaseColumnType(global::DataLinq.DatabaseType.{dbType.DatabaseType}, {FormatStringLiteral(dbType.Name)}, {FormatNullableULong(dbType.Length)}, {FormatNullableUInt(dbType.Decimals)}, {FormatNullableBool(dbType.Signed)}),";
+        }
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> CacheLimitCollection(string propertyName, IEnumerable<(CacheLimitType limitType, long amount)> limits, string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var limit in limits)
+            yield return $"{indent}{tab}(global::DataLinq.Attributes.CacheLimitType.{limit.limitType}, {FormatLong(limit.amount)}),";
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> CacheCleanupCollection(string propertyName, IEnumerable<(CacheCleanupType cleanupType, long amount)> limits, string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var limit in limits)
+            yield return $"{indent}{tab}(global::DataLinq.Attributes.CacheCleanupType.{limit.cleanupType}, {FormatLong(limit.amount)}),";
+
+        yield return $"{indent}],";
+    }
+
+    private IEnumerable<string> IndexCacheCollection(string propertyName, IEnumerable<(IndexCacheType indexCacheType, int? amount)> limits, string indent)
+    {
+        yield return $"{indent}{propertyName} =";
+        yield return $"{indent}[";
+
+        foreach (var limit in limits)
+            yield return $"{indent}{tab}(global::DataLinq.Attributes.IndexCacheType.{limit.indexCacheType}, {FormatNullableInt(limit.amount)}),";
+
+        yield return $"{indent}],";
+    }
+
+    private static string FormatRuntimeCsTypeDeclaration(CsTypeDeclaration csType) =>
+        FormatRuntimeCsTypeDeclaration(csType, GetGlobalTypeName(csType));
+
+    private static string FormatRuntimeCsTypeDeclaration(CsTypeDeclaration csType, string runtimeTypeName) =>
+        FormatRuntimeCsTypeDeclaration(runtimeTypeName);
+
+    private static string FormatRuntimeCsTypeDeclaration(string runtimeTypeName) =>
+        $"new global::DataLinq.Metadata.CsTypeDeclaration(typeof({runtimeTypeName}))";
+
+    private static string FormatNullableRuntimeCsTypeDeclaration(string? runtimeTypeName) =>
+        runtimeTypeName is not null
+            ? FormatRuntimeCsTypeDeclaration(runtimeTypeName)
+            : "null";
+
+    private static string FormatCsTypeDeclaration(CsTypeDeclaration csType) =>
+        $"new global::DataLinq.Metadata.CsTypeDeclaration({FormatStringLiteral(csType.Name)}, {FormatStringLiteral(csType.Namespace)}, global::DataLinq.Metadata.ModelCsType.{csType.ModelCsType})";
+
+    private static string FormatNullableCsTypeDeclaration(CsTypeDeclaration? csType) =>
+        csType.HasValue
+            ? FormatCsTypeDeclaration(csType.Value)
+            : "null";
+
+    private static string FormatValuePropertyCsTypeDeclaration(ValueProperty property)
+    {
+        var runtimeTypeName = GetValuePropertyRuntimeTypeName(property);
+        return runtimeTypeName is null
+            ? FormatCsTypeDeclaration(property.CsType)
+            : FormatRuntimeCsTypeDeclaration(runtimeTypeName);
+    }
+
+    private static string? GetValuePropertyRuntimeTypeName(ValueProperty property)
+    {
+        if (property.EnumProperty?.DeclaredInClass == true)
+            return $"{GetGlobalTypeName(property.Model.CsType)}.{property.CsType.Name}";
+
+        if (property.EnumProperty.HasValue)
+            return GetGlobalTypeName(property.CsType);
+
+        if (MetadataTypeConverter.IsKnownCsType(property.CsType.Name))
+            return $"global::{MetadataTypeConverter.GetFullTypeName(property.CsType.Name)}";
+
+        return null;
+    }
+
+    private static string FormatAttribute(Attribute attribute) => attribute switch
+    {
+        DatabaseAttribute value => $"new global::DataLinq.Attributes.DatabaseAttribute({FormatStringLiteral(value.Name)})",
+        TableAttribute value => $"new global::DataLinq.Attributes.TableAttribute({FormatStringLiteral(value.Name)})",
+        ViewAttribute value => $"new global::DataLinq.Attributes.ViewAttribute({FormatStringLiteral(value.Name)})",
+        ColumnAttribute value => $"new global::DataLinq.Attributes.ColumnAttribute({FormatStringLiteral(value.Name)})",
+        UseCacheAttribute value => $"new global::DataLinq.Attributes.UseCacheAttribute({FormatBool(value.UseCache)})",
+        CacheLimitAttribute value => $"new global::DataLinq.Attributes.CacheLimitAttribute(global::DataLinq.Attributes.CacheLimitType.{value.LimitType}, {FormatLong(value.Amount)})",
+        CacheCleanupAttribute value => $"new global::DataLinq.Attributes.CacheCleanupAttribute(global::DataLinq.Attributes.CacheCleanupType.{value.LimitType}, {FormatLong(value.Amount)})",
+        IndexCacheAttribute value => value.Amount.HasValue
+            ? $"new global::DataLinq.Attributes.IndexCacheAttribute(global::DataLinq.Attributes.IndexCacheType.{value.Type}, {value.Amount.Value.ToString(CultureInfo.InvariantCulture)})"
+            : $"new global::DataLinq.Attributes.IndexCacheAttribute(global::DataLinq.Attributes.IndexCacheType.{value.Type})",
+        DefinitionAttribute value => $"new global::DataLinq.Attributes.DefinitionAttribute({FormatStringLiteral(value.Sql)})",
+        CheckAttribute value => value.DatabaseType == DatabaseType.Default
+            ? $"new global::DataLinq.Attributes.CheckAttribute({FormatStringLiteral(value.Name)}, {FormatStringLiteral(value.Expression)})"
+            : $"new global::DataLinq.Attributes.CheckAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, {FormatStringLiteral(value.Name)}, {FormatStringLiteral(value.Expression)})",
+        CommentAttribute value => value.DatabaseType == DatabaseType.Default
+            ? $"new global::DataLinq.Attributes.CommentAttribute({FormatStringLiteral(value.Text)})"
+            : $"new global::DataLinq.Attributes.CommentAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, {FormatStringLiteral(value.Text)})",
+        EnumAttribute value => $"new global::DataLinq.Attributes.EnumAttribute({FormatStringArguments(value.Values)})",
+        PrimaryKeyAttribute => "new global::DataLinq.Attributes.PrimaryKeyAttribute()",
+        NullableAttribute => "new global::DataLinq.Attributes.NullableAttribute()",
+        AutoIncrementAttribute => "new global::DataLinq.Attributes.AutoIncrementAttribute()",
+        TypeAttribute value => $"new global::DataLinq.Attributes.TypeAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, {FormatStringLiteral(value.Name)}, {FormatNullableULong(value.Length)}, {FormatNullableUInt(value.Decimals)}, {FormatNullableBool(value.Signed)})",
+        ForeignKeyAttribute value => FormatForeignKeyAttribute(value),
+        RelationAttribute value => FormatRelationAttribute(value),
+        IndexAttribute value => $"new global::DataLinq.Attributes.IndexAttribute({FormatStringLiteral(value.Name)}, global::DataLinq.Attributes.IndexCharacteristic.{value.Characteristic}, global::DataLinq.Attributes.IndexType.{value.Type}{FormatOptionalStringArguments(value.Columns)})",
+        InterfaceAttribute value => value.Name is null
+            ? $"new global::DataLinq.Attributes.InterfaceAttribute({FormatBool(value.GenerateInterface)})"
+            : $"new global::DataLinq.Attributes.InterfaceAttribute({FormatStringLiteral(value.Name)}, {FormatBool(value.GenerateInterface)})",
+        DefaultSqlAttribute value => $"new global::DataLinq.Attributes.DefaultSqlAttribute(global::DataLinq.DatabaseType.{value.DatabaseType}, {FormatStringLiteral(value.Expression)})",
+        DefaultCurrentTimestampAttribute => "new global::DataLinq.Attributes.DefaultCurrentTimestampAttribute()",
+        DefaultNewUUIDAttribute value => $"new global::DataLinq.Attributes.DefaultNewUUIDAttribute(global::DataLinq.Attributes.UUIDVersion.{value.Version})",
+        DefaultAttribute value => value.CodeExpression is null
+            ? $"new global::DataLinq.Attributes.DefaultAttribute({FormatValueLiteral(value.Value)})"
+            : $"new global::DataLinq.Attributes.DefaultAttribute({FormatValueLiteral(value.Value)}, {FormatStringLiteral(value.CodeExpression)})",
+        _ => throw new NotSupportedException($"Generated metadata does not support attribute type '{attribute.GetType().FullName}'.")
+    };
+
+    private static string FormatForeignKeyAttribute(ForeignKeyAttribute value)
+    {
+        if (value.Ordinal.HasValue)
+        {
+            if (value.OnUpdate != ReferentialAction.Unspecified || value.OnDelete != ReferentialAction.Unspecified)
+            {
+                return $"new global::DataLinq.Attributes.ForeignKeyAttribute({FormatStringLiteral(value.Table)}, {FormatStringLiteral(value.Column)}, {FormatStringLiteral(value.Name)}, {value.Ordinal.Value.ToString(CultureInfo.InvariantCulture)}, global::DataLinq.Attributes.ReferentialAction.{value.OnUpdate}, global::DataLinq.Attributes.ReferentialAction.{value.OnDelete})";
+            }
+
+            return $"new global::DataLinq.Attributes.ForeignKeyAttribute({FormatStringLiteral(value.Table)}, {FormatStringLiteral(value.Column)}, {FormatStringLiteral(value.Name)}, {value.Ordinal.Value.ToString(CultureInfo.InvariantCulture)})";
+        }
+
+        if (value.OnUpdate != ReferentialAction.Unspecified || value.OnDelete != ReferentialAction.Unspecified)
+        {
+            return $"new global::DataLinq.Attributes.ForeignKeyAttribute({FormatStringLiteral(value.Table)}, {FormatStringLiteral(value.Column)}, {FormatStringLiteral(value.Name)}, global::DataLinq.Attributes.ReferentialAction.{value.OnUpdate}, global::DataLinq.Attributes.ReferentialAction.{value.OnDelete})";
+        }
+
+        return $"new global::DataLinq.Attributes.ForeignKeyAttribute({FormatStringLiteral(value.Table)}, {FormatStringLiteral(value.Column)}, {FormatStringLiteral(value.Name)})";
+    }
+
+    private static string FormatRelationAttribute(RelationAttribute value)
+    {
+        if (value.Columns.Length == 1)
+            return $"new global::DataLinq.Attributes.RelationAttribute({FormatStringLiteral(value.Table)}, {FormatStringLiteral(value.Columns[0])}, {FormatNullableStringLiteral(value.Name)})";
+
+        return $"new global::DataLinq.Attributes.RelationAttribute({FormatStringLiteral(value.Table)}, new string[] {{ {FormatStringArguments(value.Columns)} }}, {FormatNullableStringLiteral(value.Name)})";
+    }
+
+    private static string FormatNullableEnumProperty(EnumProperty? enumProperty)
+    {
+        if (!enumProperty.HasValue)
+            return "null";
+
+        var value = enumProperty.Value;
+        return $"new global::DataLinq.Metadata.EnumProperty({FormatEnumTupleArray(value.DbEnumValues)}, {FormatEnumTupleArray(value.CsEnumValues)}, {FormatBool(value.DeclaredInClass)})";
+    }
+
+    private static string FormatEnumTupleArray(IReadOnlyList<(string name, int value)> values) =>
+        $"new (string name, int value)[] {{ {string.Join(", ", values.Select(value => $"({FormatStringLiteral(value.name)}, {value.value.ToString(CultureInfo.InvariantCulture)})"))} }}";
+
+    private static string FormatValueLiteral(object value) => value switch
+    {
+        string stringValue => FormatStringLiteral(stringValue),
+        char charValue => CSharpLiteralFormatter.FormatChar(charValue),
+        bool boolValue => FormatBool(boolValue),
+        sbyte sbyteValue => $"(sbyte){sbyteValue.ToString(CultureInfo.InvariantCulture)}",
+        byte byteValue => $"(byte){byteValue.ToString(CultureInfo.InvariantCulture)}",
+        short shortValue => $"(short){shortValue.ToString(CultureInfo.InvariantCulture)}",
+        ushort ushortValue => $"(ushort){ushortValue.ToString(CultureInfo.InvariantCulture)}",
+        int intValue => intValue.ToString(CultureInfo.InvariantCulture),
+        uint uintValue => $"{uintValue.ToString(CultureInfo.InvariantCulture)}U",
+        long longValue => FormatLong(longValue),
+        ulong ulongValue => $"{ulongValue.ToString(CultureInfo.InvariantCulture)}UL",
+        float floatValue => $"{floatValue.ToString("R", CultureInfo.InvariantCulture)}F",
+        double doubleValue => $"{doubleValue.ToString("R", CultureInfo.InvariantCulture)}D",
+        decimal decimalValue => $"{decimalValue.ToString(CultureInfo.InvariantCulture)}M",
+        DateTime dateTime => $"new global::System.DateTime({dateTime.Ticks.ToString(CultureInfo.InvariantCulture)}L, global::System.DateTimeKind.{dateTime.Kind})",
+        DateTimeOffset dateTimeOffset => $"new global::System.DateTimeOffset({dateTimeOffset.Ticks.ToString(CultureInfo.InvariantCulture)}L, global::System.TimeSpan.FromTicks({dateTimeOffset.Offset.Ticks.ToString(CultureInfo.InvariantCulture)}L))",
+        TimeSpan timeSpan => $"global::System.TimeSpan.FromTicks({timeSpan.Ticks.ToString(CultureInfo.InvariantCulture)}L)",
+        Guid guid => $"new global::System.Guid({FormatStringLiteral(guid.ToString())})",
+        DynamicFunctions dynamicFunction => $"global::DataLinq.Attributes.DynamicFunctions.{dynamicFunction}",
+        UUIDVersion uuidVersion => $"global::DataLinq.Attributes.UUIDVersion.{uuidVersion}",
+        _ when value.GetType().FullName == "System.DateOnly" => FormatDateOnlyLiteral(value),
+        _ when value.GetType().FullName == "System.TimeOnly" => FormatTimeOnlyLiteral(value),
+        _ when value.GetType().IsEnum => $"({FormatGlobalRuntimeTypeName(value.GetType())}){Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}",
+        _ => throw new NotSupportedException($"Generated metadata does not support literal value type '{value.GetType().FullName}'.")
+    };
+
+    private static string FormatDateOnlyLiteral(object value)
+    {
+        var type = value.GetType();
+        var year = (int)type.GetProperty("Year")!.GetValue(value)!;
+        var month = (int)type.GetProperty("Month")!.GetValue(value)!;
+        var day = (int)type.GetProperty("Day")!.GetValue(value)!;
+
+        return $"new global::System.DateOnly({year.ToString(CultureInfo.InvariantCulture)}, {month.ToString(CultureInfo.InvariantCulture)}, {day.ToString(CultureInfo.InvariantCulture)})";
+    }
+
+    private static string FormatTimeOnlyLiteral(object value)
+    {
+        var ticks = (long)value.GetType().GetProperty("Ticks")!.GetValue(value)!;
+        return $"new global::System.TimeOnly({ticks.ToString(CultureInfo.InvariantCulture)}L)";
+    }
+
+    private static string FormatGlobalRuntimeTypeName(Type type)
+    {
+        if (type.IsNested && type.DeclaringType is not null)
+            return $"{FormatGlobalRuntimeTypeName(type.DeclaringType)}.{type.Name}";
+
+        return string.IsNullOrWhiteSpace(type.Namespace)
+            ? $"global::{type.Name}"
+            : $"global::{type.Namespace}.{type.Name}";
+    }
+
+    private static string FormatStringArguments(IEnumerable<string> values) =>
+        string.Join(", ", values.Select(FormatStringLiteral));
+
+    private static string FormatOptionalStringArguments(IReadOnlyCollection<string> values) =>
+        values.Count == 0
+            ? string.Empty
+            : $", {FormatStringArguments(values)}";
+
+    private static string FormatStringLiteral(string value) =>
+        CSharpLiteralFormatter.FormatString(value);
+
+    private static string FormatNullableStringLiteral(string? value) =>
+        value is null ? "null" : FormatStringLiteral(value);
+
+    private static string FormatBool(bool value) =>
+        value ? "true" : "false";
+
+    private static string FormatNullableBool(bool? value) =>
+        value.HasValue ? FormatBool(value.Value) : "null";
+
+    private static string FormatNullableInt(int? value) =>
+        value.HasValue ? value.Value.ToString(CultureInfo.InvariantCulture) : "null";
+
+    private static string FormatLong(long value) =>
+        $"{value.ToString(CultureInfo.InvariantCulture)}L";
+
+    private static string FormatNullableULong(ulong? value) =>
+        value.HasValue ? $"{value.Value.ToString(CultureInfo.InvariantCulture)}UL" : "(ulong?)null";
+
+    private static string FormatNullableUInt(uint? value) =>
+        value.HasValue ? $"{value.Value.ToString(CultureInfo.InvariantCulture)}U" : "(uint?)null";
 
     private string GetFilePath(TableModel table)
     {

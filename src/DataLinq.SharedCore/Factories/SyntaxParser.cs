@@ -1207,6 +1207,10 @@ public class SyntaxParser
         if (!ParsePropertyCsType(propSyntax).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
+        var enumDeclaration = FindEnumDeclaration(csType.Name);
+        if (enumDeclaration != null)
+            csType = CreateEnumCsTypeDeclaration(csType, enumDeclaration);
+
         PropertyDefinition property = parsedAttributes.Any(attribute => attribute is RelationAttribute)
             ? new RelationProperty(propSyntax.Identifier.Text, csType, model, parsedAttributes)
             : new ValueProperty(propSyntax.Identifier.Text, csType, model, parsedAttributes);
@@ -1223,9 +1227,7 @@ public class SyntaxParser
             if (!TryGetSingleEnumAttribute(propSyntax, parsedAttributes, out var enumAttribute, out var enumFailure))
                 return enumFailure!;
 
-            var propertyTypeName = valueProp.CsType.Name;
             var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
-            var enumDeclaration = FindEnumDeclaration(propertyTypeName);
 
             if (enumAttribute != null || enumDeclaration != null)
             {
@@ -1235,7 +1237,7 @@ public class SyntaxParser
 
                 var declaredInClass = parentClassSyntax?.Members
                     .OfType<EnumDeclarationSyntax>()
-                    .Any(enumDecl => enumDecl.Identifier.ValueText == propertyTypeName) ?? false;
+                    .Any(enumDecl => enumDecl.Identifier.ValueText == valueProp.CsType.Name) ?? false;
 
                 var csEnumValues = new List<(string name, int value)>();
 
@@ -1295,6 +1297,10 @@ public class SyntaxParser
         if (!ParsePropertyCsType(propSyntax).TryUnwrap(out var csType, out var csTypeFailure))
             return csTypeFailure;
 
+        var enumDeclaration = FindEnumDeclaration(csType.Name);
+        if (enumDeclaration != null)
+            csType = CreateEnumCsTypeDeclaration(csType, enumDeclaration);
+
         var sourceInfo = new PropertySourceInfo(
             new SourceTextSpan(propSyntax.SpanStart, propSyntax.Span.Length),
             GetDefaultValueExpressionSourceSpan(propSyntax));
@@ -1319,9 +1325,7 @@ public class SyntaxParser
         if (!TryGetSingleEnumAttribute(propSyntax, parsedAttributes, out var enumAttribute, out var enumFailure))
             return enumFailure!;
 
-        var propertyTypeName = csType.Name;
         var parentClassSyntax = propSyntax.Parent as TypeDeclarationSyntax;
-        var enumDeclaration = FindEnumDeclaration(propertyTypeName);
 
         if (enumAttribute != null || enumDeclaration != null)
         {
@@ -1330,7 +1334,7 @@ public class SyntaxParser
             var enumValueList = enumAttribute?.Values.Select((x, i) => (x, i + 1)) ?? [];
             var declaredInClass = parentClassSyntax?.Members
                 .OfType<EnumDeclarationSyntax>()
-                .Any(enumDecl => enumDecl.Identifier.ValueText == propertyTypeName) ?? false;
+                .Any(enumDecl => enumDecl.Identifier.ValueText == csType.Name) ?? false;
             var csEnumValues = new List<(string name, int value)>();
 
             if (enumDeclaration != null)
@@ -1441,6 +1445,11 @@ public class SyntaxParser
 
         return allEnums.FirstOrDefault(e => e.Identifier.ValueText == enumName);
     }
+
+    private static CsTypeDeclaration CreateEnumCsTypeDeclaration(
+        CsTypeDeclaration csType,
+        EnumDeclarationSyntax enumDeclaration) =>
+        new(csType.Name, CsTypeDeclarationSyntax.GetNamespace(enumDeclaration), ModelCsType.Enum);
 
     private static SourceTextSpan? GetDefaultValueExpressionSourceSpan(PropertyDeclarationSyntax propSyntax)
     {

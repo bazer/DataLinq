@@ -39,8 +39,10 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(code.Contains("public static IImmutableInstance NewDataLinqImmutableInstance(IRowData rowData, IDataSourceAccess dataSource) => new ImmutableEmployee(rowData, dataSource);", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public partial class EmployeesDb : global::DataLinq.Interfaces.IDataLinqGeneratedDatabaseModel<EmployeesDb>", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public static global::DataLinq.Metadata.GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("public static global::DataLinq.Core.Factories.MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("new(\"Employees\", typeof(global::DataLinq.Tests.Models.Employees.Employee), typeof(global::DataLinq.Tests.Models.Employees.ImmutableEmployee), typeof(global::DataLinq.Tests.Models.Employees.MutableEmployee), new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>(global::DataLinq.Tests.Models.Employees.ImmutableEmployee.NewDataLinqImmutableInstance), global::DataLinq.Metadata.TableType.Table),", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("new global::DataLinq.Core.Factories.MetadataValuePropertyDraft(", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

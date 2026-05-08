@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using DataLinq.Exceptions;
@@ -447,12 +446,7 @@ public class Transaction : DataSourceAccess, IDisposable, IEquatable<Transaction
 /// Represents a database transaction.
 /// </summary>
 /// <typeparam name="T">The type of the database model.</typeparam>
-public class Transaction<
-    [DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicMethods |
-        DynamicallyAccessedMemberTypes.NonPublicMethods |
-        DynamicallyAccessedMemberTypes.NonPublicProperties)]
-    T> : Transaction, IDataSourceAccess<T>
+public class Transaction<T> : Transaction, IDataSourceAccess<T>
     where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     /// <summary>

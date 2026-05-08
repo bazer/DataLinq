@@ -2,7 +2,6 @@
 using DataLinq.Logging;
 using DataLinq.Metadata;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics.CodeAnalysis;
 
 namespace DataLinq.SQLite;
 
@@ -15,12 +14,7 @@ public class SQLiteDatabaseCreator : IDatabaseProviderCreator
         return typeName.Equals("sqlite", System.StringComparison.OrdinalIgnoreCase);
     }
 
-    Database<T> IDatabaseProviderCreator.GetDatabaseProvider<
-        [DynamicallyAccessedMembers(
-            DynamicallyAccessedMemberTypes.PublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicMethods |
-            DynamicallyAccessedMemberTypes.NonPublicProperties)]
-        T>(string connectionString, string databaseName)
+    Database<T> IDatabaseProviderCreator.GetDatabaseProvider<T>(string connectionString, string databaseName)
     {
         return new SQLiteDatabase<T>(connectionString, databaseName, loggerFactory);
     }
@@ -35,12 +29,7 @@ public class SQLiteDatabaseCreator : IDatabaseProviderCreator
         UseLoggerFactory(loggerFactory);
 }
 
-public class SQLiteDatabase<
-    [DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicMethods |
-        DynamicallyAccessedMemberTypes.NonPublicMethods |
-        DynamicallyAccessedMemberTypes.NonPublicProperties)]
-    T> : Database<T>
+public class SQLiteDatabase<T> : Database<T>
      where T : class, IDatabaseModel, IDataLinqGeneratedDatabaseModel<T>
 {
     public SQLiteDatabase(string connectionString, ILoggerFactory? loggerFactory = null) :

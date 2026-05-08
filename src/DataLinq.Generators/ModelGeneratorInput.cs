@@ -13,7 +13,9 @@ namespace DataLinq.SourceGenerators;
 internal static class ModelGeneratorTrackingNames
 {
     public const string ModelDeclarations = "DataLinq.ModelDeclarations";
+    public const string EnumDeclarations = "DataLinq.EnumDeclarations";
     public const string CollectedModelDeclarations = "DataLinq.CollectedModelDeclarations";
+    public const string CollectedEnumDeclarations = "DataLinq.CollectedEnumDeclarations";
     public const string MetadataResults = "DataLinq.MetadataResults";
     public const string GeneratorInputs = "DataLinq.GeneratorInputs";
 }
@@ -65,6 +67,14 @@ internal sealed class ModelGeneratorInput
 
     internal static ImmutableArray<ModelDeclarationInput> NormalizeModelDeclarationOrder(ImmutableArray<ModelDeclarationInput> modelDeclarations)
         => modelDeclarations
+            .OrderBy(static declaration => declaration.Snapshot.Namespace, StringComparer.Ordinal)
+            .ThenBy(static declaration => declaration.Snapshot.Name, StringComparer.Ordinal)
+            .ThenBy(static declaration => declaration.Syntax.SyntaxTree.FilePath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static declaration => declaration.Syntax.SpanStart)
+            .ToImmutableArray();
+
+    internal static ImmutableArray<EnumDeclarationInput> NormalizeEnumDeclarationOrder(ImmutableArray<EnumDeclarationInput> enumDeclarations)
+        => enumDeclarations
             .OrderBy(static declaration => declaration.Snapshot.Namespace, StringComparer.Ordinal)
             .ThenBy(static declaration => declaration.Snapshot.Name, StringComparer.Ordinal)
             .ThenBy(static declaration => declaration.Syntax.SyntaxTree.FilePath, StringComparer.OrdinalIgnoreCase)
@@ -125,6 +135,63 @@ internal sealed class ModelDeclarationInputArrayComparer : IEqualityComparer<Imm
     }
 }
 
+internal sealed class EnumDeclarationInputComparer : IEqualityComparer<EnumDeclarationInput>
+{
+    public static EnumDeclarationInputComparer Instance { get; } = new();
+
+    public bool Equals(EnumDeclarationInput x, EnumDeclarationInput y)
+        => x.Snapshot.Equals(y.Snapshot);
+
+    public int GetHashCode(EnumDeclarationInput obj)
+        => obj.Snapshot.GetHashCode();
+}
+
+internal sealed class EnumDeclarationInputArrayComparer : IEqualityComparer<ImmutableArray<EnumDeclarationInput>>
+{
+    public static EnumDeclarationInputArrayComparer Instance { get; } = new();
+
+    public bool Equals(ImmutableArray<EnumDeclarationInput> x, ImmutableArray<EnumDeclarationInput> y)
+    {
+        if (x.Length != y.Length)
+            return false;
+
+        for (var i = 0; i < x.Length; i++)
+        {
+            if (!EnumDeclarationInputComparer.Instance.Equals(x[i], y[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    public int GetHashCode(ImmutableArray<EnumDeclarationInput> obj)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var item in obj)
+                hash = hash * 31 + EnumDeclarationInputComparer.Instance.GetHashCode(item);
+
+            return hash;
+        }
+    }
+}
+
+internal readonly struct EnumDeclarationInput
+{
+    public EnumDeclarationInput(EnumDeclarationSyntax syntax, ModelDeclarationSnapshot snapshot)
+    {
+        Syntax = syntax;
+        Snapshot = snapshot;
+    }
+
+    public EnumDeclarationSyntax Syntax { get; }
+    public ModelDeclarationSnapshot Snapshot { get; }
+
+    public static EnumDeclarationInput Create(EnumDeclarationSyntax syntax)
+        => new(syntax, ModelDeclarationSnapshot.Create(syntax));
+}
+
 internal readonly struct ModelDeclarationInput
 {
     public ModelDeclarationInput(TypeDeclarationSyntax syntax, ModelDeclarationSnapshot snapshot)
@@ -153,7 +220,7 @@ internal readonly struct ModelDeclarationSnapshot : IEquatable<ModelDeclarationS
     public string Name { get; }
     public string StructuralText { get; }
 
-    public static ModelDeclarationSnapshot Create(TypeDeclarationSyntax syntax)
+    public static ModelDeclarationSnapshot Create(BaseTypeDeclarationSyntax syntax)
         => new(
             GetNamespace(syntax),
             syntax.Identifier.ValueText,

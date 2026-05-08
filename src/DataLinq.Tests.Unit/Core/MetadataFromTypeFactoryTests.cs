@@ -1,7 +1,9 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLinq.Attributes;
+using DataLinq.Core.Factories;
 using DataLinq.ErrorHandling;
 using DataLinq.Instances;
 using DataLinq.Interfaces;
@@ -9,6 +11,7 @@ using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Tests.Models.Allround;
 using DataLinq.Tests.Models.Employees;
+using DataLinq.Testing;
 using ThrowAway.Extensions;
 
 namespace DataLinq.Tests.Unit.Core;
@@ -128,7 +131,7 @@ public class MetadataFromTypeFactoryTests
     }
 
     [Test]
-    public async Task ParseDatabase_GeneratedTableBootstrap_ReplacesDatabasePropertyReflection()
+    public async Task ParseDatabase_GeneratedMetadataHook_ReplacesRuntimeMetadataReflection()
     {
         var databaseDefinition = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(BootstrapHookDb)).ValueOrException();
 
@@ -163,7 +166,7 @@ public class MetadataFromTypeFactoryTests
     }
 
     [Test]
-    public async Task ParseDatabase_OldGeneratedTableBootstrapOnly_ReturnsMissingGeneratedModelHookFailure()
+    public async Task ParseDatabase_OldGeneratedTableBootstrapOnly_ReturnsMissingGeneratedMetadataHookFailure()
     {
         var result = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(OldBootstrapHookOnlyDb));
 
@@ -171,69 +174,74 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
         await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
         await Assert.That(result.Failure.ToString()!).Contains(typeof(OldBootstrapHookOnlyDb).FullName!);
-        await Assert.That(result.Failure.ToString()!).Contains("GetDataLinqGeneratedModel");
-        await Assert.That(result.Failure.ToString()!).Contains("missing the generated DataLinq metadata hook");
+        await Assert.That(result.Failure.ToString()!).Contains("GetDataLinqGeneratedMetadata");
+        await Assert.That(result.Failure.ToString()!).Contains("missing the generated complete DataLinq metadata hook");
+        await Assert.That(result.Failure.ToString()!).Contains("Regenerate");
     }
 
     [Test]
-    public Task ParseDatabase_GeneratedModelHookWrongReturnType_ReturnsInvalidModelFailure() =>
-        AssertGeneratedDeclarationFailure(
+    public Task ParseDatabase_GeneratedMetadataHookWrongReturnType_ReturnsInvalidModelFailure() =>
+        AssertGeneratedMetadataFailure(
             typeof(WrongGeneratedModelHookReturnTypeDb),
             typeof(WrongGeneratedModelHookReturnTypeDb).FullName!,
-            "GetDataLinqGeneratedModel",
+            "GetDataLinqGeneratedMetadata",
             "must return",
-            typeof(GeneratedDatabaseModelDeclaration).FullName!);
+            typeof(MetadataDatabaseDraft).FullName!,
+            "Regenerate");
 
     [Test]
-    public Task ParseDatabase_DefaultGeneratedDeclaration_ReturnsInvalidModelFailure() =>
-        AssertGeneratedDeclarationFailure(
-            typeof(DefaultGeneratedDeclarationDb),
-            typeof(DefaultGeneratedDeclarationDb).FullName!,
-            "TableModels");
+    public Task ParseDatabase_NullGeneratedMetadataPayload_ReturnsInvalidModelFailure() =>
+        AssertGeneratedMetadataFailure(
+            typeof(NullGeneratedMetadataPayloadDb),
+            typeof(NullGeneratedMetadataPayloadDb).FullName!,
+            "GetDataLinqGeneratedMetadata",
+            "null metadata payload",
+            "Regenerate");
 
     [Test]
-    public Task ParseDatabase_GeneratedDeclarationNullTableModels_ReturnsInvalidModelFailure() =>
-        AssertGeneratedDeclarationFailure(
-            typeof(NullTableModelsGeneratedDeclarationDb),
-            typeof(NullTableModelsGeneratedDeclarationDb).FullName!,
-            "TableModels");
+    public Task ParseDatabase_UnreadableGeneratedMetadataPayload_ReturnsInvalidModelFailure() =>
+        AssertGeneratedMetadataFailure(
+            typeof(UnreadableGeneratedMetadataPayloadDb),
+            typeof(UnreadableGeneratedMetadataPayloadDb).FullName!,
+            "GetDataLinqGeneratedMetadata",
+            "could not be read",
+            "InvalidOperationException",
+            "simulated generated metadata failure",
+            "Regenerate");
 
     [Test]
-    public Task ParseDatabase_GeneratedDeclarationMissingImmutableType_FailsBeforeMetadataReflection() =>
-        AssertGeneratedDeclarationFailure(
-            typeof(MissingImmutableTypeDb),
-            typeof(MissingImmutableTypeDb).FullName!,
-            typeof(GeneratedDeclarationValidationRow).FullName!,
-            "View model",
-            "ImmutableType");
+    public Task ParseDatabase_NullGeneratedTableModel_ReturnsInvalidModelFailure() =>
+        AssertGeneratedMetadataFailure(
+            typeof(NullGeneratedTableModelDb),
+            typeof(NullGeneratedTableModelDb).FullName!,
+            "GetDataLinqGeneratedMetadata",
+            "invalid metadata",
+            "contains a null table model draft",
+            "Regenerate");
 
     [Test]
-    public Task ParseDatabase_GeneratedTableDeclarationMissingMutableType_FailsBeforeMetadataReflection() =>
-        AssertGeneratedDeclarationFailure(
-            typeof(MissingMutableTableTypeDb),
-            typeof(MissingMutableTableTypeDb).FullName!,
-            typeof(GeneratedDeclarationValidationRow).FullName!,
-            "Table model",
-            "MutableType");
+    public Task ParseDatabase_GeneratedMetadataFactoryValidationFailure_ReturnsInvalidModelFailure() =>
+        AssertGeneratedMetadataFailure(
+            typeof(FactoryValidationFailureDb),
+            typeof(FactoryValidationFailureDb).FullName!,
+            "GetDataLinqGeneratedMetadata",
+            "invalid metadata",
+            "invalid_rows",
+            "missing a primary key",
+            "Regenerate");
 
     [Test]
-    public Task ParseDatabase_GeneratedDeclarationMissingImmutableFactory_FailsBeforeMetadataReflection() =>
-        AssertGeneratedDeclarationFailure(
-            typeof(MissingImmutableFactoryDb),
-            typeof(MissingImmutableFactoryDb).FullName!,
-            typeof(GeneratedDeclarationValidationRow).FullName!,
-            "View model",
-            "ImmutableFactory");
+    public async Task GeneratedStartupPath_DoesNotUseRuntimeModelReflectionDiscovery()
+    {
+        var repositoryRoot = RepositoryLayout.FindRepositoryRoot();
+        var factoryPath = Path.Combine(repositoryRoot, "src", "DataLinq", "Metadata", "MetadataFromTypeFactory.cs");
+        var factorySource = File.ReadAllText(factoryPath);
 
-    [Test]
-    public Task ParseDatabase_GeneratedDeclarationWrongImmutableFactoryShape_FailsBeforeMetadataReflection() =>
-        AssertGeneratedDeclarationFailure(
-            typeof(WrongImmutableFactoryShapeDb),
-            typeof(WrongImmutableFactoryShapeDb).FullName!,
-            typeof(GeneratedDeclarationValidationRow).FullName!,
-            "View model",
-            "malformed member 'ImmutableFactory'",
-            "System.Func<DataLinq.Instances.IRowData");
+        await Assert.That(factorySource).DoesNotContain("GetCustomAttributes");
+        await Assert.That(factorySource).DoesNotContain("GetProperties");
+        await Assert.That(factorySource).DoesNotContain("GetInterfaces");
+        await Assert.That(factorySource).DoesNotContain("NullabilityInfoContext");
+    }
 
     [Test]
     public async Task GeneratedDatabaseModelDeclaration_TableModels_ReturnsDefensiveCopy()
@@ -281,7 +289,7 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(matchesExpectedType).IsTrue();
     }
 
-    private static async Task AssertGeneratedDeclarationFailure(Type databaseType, params string[] expectedMessageFragments)
+    private static async Task AssertGeneratedMetadataFailure(Type databaseType, params string[] expectedMessageFragments)
     {
         var result = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(databaseType);
 
@@ -299,6 +307,9 @@ public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabase
 {
     public static BootstrapHookDb NewDataLinqDatabase(IDataSourceAccess dataSource) => new();
 
+    public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
+        GeneratedMetadataTestDrafts.CreateBootstrapDraft();
+
     public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
         new(
         [
@@ -315,6 +326,9 @@ public sealed class BootstrapHookDb : IDatabaseModel, IDataLinqGeneratedDatabase
 public sealed class RuntimeInterfaceSelectionDb : IDatabaseModel, IDataLinqGeneratedDatabaseModel<RuntimeInterfaceSelectionDb>
 {
     public static RuntimeInterfaceSelectionDb NewDataLinqDatabase(IDataSourceAccess dataSource) => new();
+
+    public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
+        GeneratedMetadataTestDrafts.CreateRuntimeInterfaceSelectionDraft();
 
     public static GeneratedDatabaseModelDeclaration GetDataLinqGeneratedModel() =>
         new(
@@ -345,7 +359,33 @@ public sealed class OldBootstrapHookOnlyDb : IDatabaseModel
 
 public sealed class WrongGeneratedModelHookReturnTypeDb : IDatabaseModel
 {
-    public static GeneratedTableModelDeclaration[] GetDataLinqGeneratedModel() => [];
+    public static GeneratedTableModelDeclaration[] GetDataLinqGeneratedMetadata() => [];
+}
+
+public sealed class NullGeneratedMetadataPayloadDb : IDatabaseModel
+{
+    public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() => null!;
+}
+
+public sealed class UnreadableGeneratedMetadataPayloadDb : IDatabaseModel
+{
+    public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
+        throw new InvalidOperationException("simulated generated metadata failure");
+}
+
+public sealed class NullGeneratedTableModelDb : IDatabaseModel
+{
+    public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
+        new("NullGeneratedTableModelDb", new CsTypeDeclaration(typeof(NullGeneratedTableModelDb)))
+        {
+            TableModels = [null!]
+        };
+}
+
+public sealed class FactoryValidationFailureDb : IDatabaseModel
+{
+    public static MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>
+        GeneratedMetadataTestDrafts.CreateFactoryValidationFailureDraft();
 }
 
 public sealed class DefaultGeneratedDeclarationDb : IDatabaseModel
@@ -429,6 +469,125 @@ public sealed class ImmutableGeneratedDeclarationValidationRow
 
 public sealed class MutableGeneratedDeclarationValidationRow
 {
+}
+
+internal static class GeneratedMetadataTestDrafts
+{
+    public static MetadataDatabaseDraft CreateBootstrapDraft() =>
+        new("BootstrapHookDb", new CsTypeDeclaration(typeof(BootstrapHookDb)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(typeof(BootstrapHookRow)))
+                    {
+                        ImmutableType = new CsTypeDeclaration(typeof(ImmutableBootstrapHookRow)),
+                        ImmutableFactory = new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableBootstrapHookRow.NewDataLinqImmutableInstance),
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("IViewModel<BootstrapHookDb>", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        Attributes =
+                        [
+                            new DefinitionAttribute("select id from bootstrap_rows"),
+                            new ViewAttribute("bootstrap_rows")
+                        ],
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id"))
+                            {
+                                Attributes = [new ColumnAttribute("id")],
+                                CsSize = sizeof(int)
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("bootstrap_rows")
+                    {
+                        Type = TableType.View,
+                        Definition = "select id from bootstrap_rows"
+                    })
+            ]
+        };
+
+    public static MetadataDatabaseDraft CreateRuntimeInterfaceSelectionDraft() =>
+        new("RuntimeInterfaceSelectionDb", new CsTypeDeclaration(typeof(RuntimeInterfaceSelectionDb)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration(typeof(RuntimeInterfaceSelectionRow)))
+                    {
+                        ImmutableType = new CsTypeDeclaration(typeof(ImmutableRuntimeInterfaceSelectionRow)),
+                        ImmutableFactory = new Func<IRowData, IDataSourceAccess, IImmutableInstance>(ImmutableRuntimeInterfaceSelectionRow.NewDataLinqImmutableInstance),
+                        ModelInstanceInterface = new CsTypeDeclaration(nameof(IRuntimeInterfaceSelectionRow), typeof(IRuntimeInterfaceSelectionRow).Namespace!, ModelCsType.Interface),
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration(nameof(IOrdinaryRuntimeInterface), typeof(IOrdinaryRuntimeInterface).Namespace!, ModelCsType.Interface),
+                            new CsTypeDeclaration("IViewModel<RuntimeInterfaceSelectionDb>", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        Attributes =
+                        [
+                            new DefinitionAttribute("select id from runtime_interface_rows"),
+                            new ViewAttribute("runtime_interface_rows"),
+                            new InterfaceAttribute(nameof(IRuntimeInterfaceSelectionRow))
+                        ],
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id"))
+                            {
+                                Attributes = [new ColumnAttribute("id")],
+                                CsSize = sizeof(int)
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("runtime_interface_rows")
+                    {
+                        Type = TableType.View,
+                        Definition = "select id from runtime_interface_rows"
+                    })
+            ]
+        };
+
+    public static MetadataDatabaseDraft CreateFactoryValidationFailureDraft() =>
+        new("FactoryValidationFailureDb", new CsTypeDeclaration(typeof(FactoryValidationFailureDb)))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Rows",
+                    new MetadataModelDraft(new CsTypeDeclaration("InvalidRow", typeof(FactoryValidationFailureDb).Namespace!, ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel<FactoryValidationFailureDb>", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        Attributes = [new TableAttribute("invalid_rows")],
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id"))
+                            {
+                                Attributes = [new ColumnAttribute("id")],
+                                CsSize = sizeof(int)
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("invalid_rows")
+                    {
+                        Type = TableType.Table
+                    })
+            ]
+        };
 }
 
 [Definition("select id from bootstrap_rows")]
