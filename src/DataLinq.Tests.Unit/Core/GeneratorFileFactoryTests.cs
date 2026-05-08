@@ -32,6 +32,9 @@ public class GeneratorFileFactoryTests
             "public static global::DataLinq.Core.Factories.MetadataDatabaseDraft GetDataLinqGeneratedMetadata() =>"))
             .IsTrue();
         await Assert.That(generatedFile.contents.Contains(
+            "public static void SetDataLinqGeneratedMetadata(global::DataLinq.Metadata.DatabaseDefinition metadata)"))
+            .IsTrue();
+        await Assert.That(generatedFile.contents.Contains(
             "new(\"GeneratorModels\", typeof(global::TestNamespace.GeneratorModel), typeof(global::TestNamespace.ImmutableGeneratorModel), typeof(global::TestNamespace.MutableGeneratorModel), new global::System.Func<global::DataLinq.Instances.IRowData, global::DataLinq.Interfaces.IDataSourceAccess, global::DataLinq.Instances.IImmutableInstance>(global::TestNamespace.ImmutableGeneratorModel.NewDataLinqImmutableInstance), global::DataLinq.Metadata.TableType.Table),"))
             .IsTrue();
         await Assert.That(generatedFile.contents.Contains(
@@ -40,6 +43,29 @@ public class GeneratorFileFactoryTests
         await Assert.That(generatedFile.contents.Contains(
             "public static global::DataLinq.Metadata.GeneratedTableModelDeclaration[] GetDataLinqGeneratedTableModels() =>"))
             .IsFalse();
+    }
+
+    [Test]
+    public async Task CreateModelFiles_Model_EmitsIndexedGeneratedAccess()
+    {
+        var database = CreateDatabaseWithDefaultValue(
+            propertyName: "Name",
+            propertyType: new CsTypeDeclaration(typeof(string)),
+            defaultValue: "generated");
+
+        var generatedFile = new GeneratorFileFactory(new GeneratorFileFactoryOptions())
+            .CreateModelFiles(database)
+            .Single(file => file.path == "GeneratorModel.cs");
+
+        await Assert.That(generatedFile.contents).Contains("protected const int DataLinqColumnIndex_Name = 0;");
+        await Assert.That(generatedFile.contents).Contains("internal static global::DataLinq.Metadata.ColumnDefinition DataLinqColumn_Name { get; private set; } = null!;");
+        await Assert.That(generatedFile.contents).Contains("internal static void SetDataLinqGeneratedModel(global::DataLinq.Metadata.ModelDefinition model)");
+        await Assert.That(generatedFile.contents).Contains("GetNullableValue(DataLinqColumnIndex_Name)");
+        await Assert.That(generatedFile.contents).Contains("public MutableGeneratorModel() : base(GeneratorModel.DataLinqModel)");
+        await Assert.That(generatedFile.contents).Contains("get => (string)GetValue(GeneratorModel.DataLinqColumn_Name)");
+        await Assert.That(generatedFile.contents).Contains("set => SetValue(GeneratorModel.DataLinqColumn_Name, value);");
+        await Assert.That(generatedFile.contents).DoesNotContain("GetValue(nameof(");
+        await Assert.That(generatedFile.contents).DoesNotContain("SetValue(nameof(");
     }
 
     [Test]
