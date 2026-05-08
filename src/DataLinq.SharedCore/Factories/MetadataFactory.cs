@@ -76,9 +76,9 @@ public static class MetadataFactory
 
         TableDefinition table;
 
-        if (model.OriginalInterfaces.Any(x => SyntaxParser.MatchesUnqualifiedTypeName(x.Name, "ITableModel")/* && x.Namespace == "DataLinq.Interfaces"*/))
+        if (model.OriginalInterfaces.Any(x => SyntaxParser.IsTableModelContract(x.Name)/* && x.Namespace == "DataLinq.Interfaces"*/))
             table = new TableDefinition(model.CsType.Name);
-        else if (model.OriginalInterfaces.Any(x => SyntaxParser.MatchesUnqualifiedTypeName(x.Name, "IViewModel")/* && x.Namespace == "DataLinq.Interfaces"*/))
+        else if (model.OriginalInterfaces.Any(x => SyntaxParser.IsViewModelContract(x.Name)/* && x.Namespace == "DataLinq.Interfaces"*/))
             table = new ViewDefinition(model.CsType.Name);
         else
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Model '{model.CsType.Name}' does not inherit from 'ITableModel' or 'IViewModel'.");
@@ -519,6 +519,16 @@ public static class MetadataFactory
                     "an interface");
                 if (originalInterfaceKindFailure is not null)
                     return originalInterfaceKindFailure;
+
+                if (SyntaxParser.TryGetInvalidModelInterfaceContractArity(
+                    originalInterface.Name,
+                    out var contractName,
+                    out var typeArgumentCount,
+                    out var expectedDescription))
+                    return DLOptionFailure.Fail(
+                        DLFailureType.InvalidModel,
+                        $"Model '{model.CsType.Name}' declared DataLinq model contract '{originalInterface.Name}' with {typeArgumentCount} type arguments. '{contractName}' {expectedDescription}.",
+                        model);
             }
 
             var modelInstanceInterfaceFailure = ValidateOptionalCSharpTypeReference(

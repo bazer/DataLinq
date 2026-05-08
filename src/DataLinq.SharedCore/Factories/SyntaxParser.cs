@@ -16,15 +16,147 @@ namespace DataLinq.Core.Factories;
 
 public class SyntaxParser
 {
-    private static readonly string[] modelInterfaceNames = ["IDatabaseModel", "ITableModel", "IViewModel", "IModelInstance"];
     private readonly ImmutableArray<TypeDeclarationSyntax> modelSyntaxes;
     private readonly ImmutableArray<EnumDeclarationSyntax> enumSyntaxes;
 
     public static bool IsModelInterface(string interfaceName) =>
-        modelInterfaceNames.Any(modelInterfaceName => MatchesUnqualifiedTypeName(interfaceName, modelInterfaceName));
+        IsDatabaseModelContract(interfaceName) ||
+        IsTableModelContract(interfaceName) ||
+        IsViewModelContract(interfaceName) ||
+        IsModelInstanceContract(interfaceName);
 
     public static bool IsModelInterface(TypeSyntax interfaceType) =>
-        modelInterfaceNames.Any(modelInterfaceName => MatchesUnqualifiedTypeName(GetUnqualifiedTypeName(interfaceType), modelInterfaceName));
+        IsModelInterface(GetUnqualifiedTypeName(interfaceType));
+
+    internal static bool IsTableModelContract(string interfaceName) =>
+        MatchesModelInterfaceContract(interfaceName, "ITableModel", allowSingleGenericArgument: true);
+
+    internal static bool IsViewModelContract(string interfaceName) =>
+        MatchesModelInterfaceContract(interfaceName, "IViewModel", allowSingleGenericArgument: true);
+
+    internal static bool IsTableOrViewModelContractForDatabase(string interfaceName, string databaseTypeName) =>
+        MatchesModelInterfaceContractForDatabase(interfaceName, "ITableModel", databaseTypeName) ||
+        MatchesModelInterfaceContractForDatabase(interfaceName, "IViewModel", databaseTypeName);
+
+    internal static bool TryGetInvalidModelInterfaceContractArity(
+        string interfaceName,
+        out string contractName,
+        out int typeArgumentCount,
+        out string expectedDescription)
+    {
+        contractName = string.Empty;
+        typeArgumentCount = 0;
+        expectedDescription = string.Empty;
+
+        var unqualifiedTypeName = GetUnqualifiedTypeName(interfaceName);
+        if (!TrySplitGenericTypeName(unqualifiedTypeName, out var genericName, out var typeArguments))
+            return false;
+
+        if (string.Equals(genericName, "IDatabaseModel", StringComparison.Ordinal))
+        {
+            contractName = genericName;
+            typeArgumentCount = typeArguments.Count;
+            expectedDescription = "must be non-generic";
+            return true;
+        }
+
+        if ((string.Equals(genericName, "ITableModel", StringComparison.Ordinal) ||
+            string.Equals(genericName, "IViewModel", StringComparison.Ordinal) ||
+            string.Equals(genericName, "IModelInstance", StringComparison.Ordinal)) &&
+            typeArguments.Count != 1)
+        {
+            contractName = genericName;
+            typeArgumentCount = typeArguments.Count;
+            expectedDescription = "must be non-generic or use exactly one database type argument";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsDatabaseModelContract(string interfaceName) =>
+        MatchesModelInterfaceContract(interfaceName, "IDatabaseModel", allowSingleGenericArgument: false);
+
+    private static bool IsModelInstanceContract(string interfaceName) =>
+        MatchesModelInterfaceContract(interfaceName, "IModelInstance", allowSingleGenericArgument: true);
+
+    private static bool MatchesModelInterfaceContract(
+        string interfaceName,
+        string expectedTypeName,
+        bool allowSingleGenericArgument)
+    {
+        var unqualifiedTypeName = GetUnqualifiedTypeName(interfaceName);
+        if (string.Equals(unqualifiedTypeName, expectedTypeName, StringComparison.Ordinal))
+            return true;
+
+        return allowSingleGenericArgument &&
+            TrySplitGenericTypeName(unqualifiedTypeName, out var genericName, out var typeArguments) &&
+            string.Equals(genericName, expectedTypeName, StringComparison.Ordinal) &&
+            typeArguments.Count == 1;
+    }
+
+    private static bool MatchesModelInterfaceContractForDatabase(
+        string interfaceName,
+        string expectedTypeName,
+        string databaseTypeName)
+    {
+        var unqualifiedTypeName = GetUnqualifiedTypeName(interfaceName);
+        if (!TrySplitGenericTypeName(unqualifiedTypeName, out var genericName, out var typeArguments) ||
+            !string.Equals(genericName, expectedTypeName, StringComparison.Ordinal) ||
+            typeArguments.Count != 1)
+            return false;
+
+        var contractDatabaseName = GetUnqualifiedTypeName(typeArguments[0]);
+        var expectedDatabaseName = GetUnqualifiedTypeName(databaseTypeName);
+        return string.Equals(contractDatabaseName, expectedDatabaseName, StringComparison.Ordinal);
+    }
+
+    private static bool TrySplitGenericTypeName(
+        string typeName,
+        out string genericName,
+        out IReadOnlyList<string> typeArguments)
+    {
+        genericName = string.Empty;
+        typeArguments = [];
+
+        var genericStart = typeName.IndexOf('<');
+        if (genericStart < 0 || !typeName.EndsWith(">", StringComparison.Ordinal))
+            return false;
+
+        genericName = typeName.Substring(0, genericStart).Trim();
+        var argumentsText = typeName.Substring(genericStart + 1, typeName.Length - genericStart - 2);
+        var arguments = new List<string>();
+        if (string.IsNullOrWhiteSpace(argumentsText))
+        {
+            typeArguments = arguments;
+            return true;
+        }
+
+        var depth = 0;
+        var argumentStart = 0;
+        for (var i = 0; i < argumentsText.Length; i++)
+        {
+            if (argumentsText[i] == '<')
+                depth++;
+            else if (argumentsText[i] == '>')
+                depth--;
+            else if (argumentsText[i] == ',' && depth == 0)
+            {
+                arguments.Add(argumentsText.Substring(argumentStart, i - argumentStart).Trim());
+                argumentStart = i + 1;
+            }
+
+            if (depth < 0)
+                return false;
+        }
+
+        if (depth != 0)
+            return false;
+
+        arguments.Add(argumentsText.Substring(argumentStart).Trim());
+        typeArguments = arguments;
+        return true;
+    }
 
     internal static bool MatchesUnqualifiedTypeName(string typeName, string expectedTypeName)
     {
@@ -334,9 +466,22 @@ public class SyntaxParser
     private static Option<MetadataTableDraft, IDLOptionFailure> ParseTableDraft(MetadataModelDraft model)
     {
         TableType tableType;
-        if (model.OriginalInterfaces.Any(x => MatchesUnqualifiedTypeName(x.Name, "ITableModel")))
+        foreach (var originalInterface in model.OriginalInterfaces)
+        {
+            if (TryGetInvalidModelInterfaceContractArity(
+                originalInterface.Name,
+                out var contractName,
+                out var typeArgumentCount,
+                out var expectedDescription))
+                return FailModelDraft(
+                    model,
+                    DLFailureType.InvalidModel,
+                    $"Model '{model.CsType.Name}' declared DataLinq model contract '{originalInterface.Name}' with {typeArgumentCount} type arguments. '{contractName}' {expectedDescription}.");
+        }
+
+        if (model.OriginalInterfaces.Any(x => IsTableModelContract(x.Name)))
             tableType = TableType.Table;
-        else if (model.OriginalInterfaces.Any(x => MatchesUnqualifiedTypeName(x.Name, "IViewModel")))
+        else if (model.OriginalInterfaces.Any(x => IsViewModelContract(x.Name)))
             tableType = TableType.View;
         else
             return FailModelDraft(model, DLFailureType.InvalidModel, $"Model '{model.CsType.Name}' does not inherit from 'ITableModel' or 'IViewModel'.");

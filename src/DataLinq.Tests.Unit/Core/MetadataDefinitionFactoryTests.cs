@@ -2134,6 +2134,26 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_ModelDeclaredInterfaceWithInvalidModelContractArity_ReturnsInvalidModelFailureBeforeSnapshot()
+    {
+        var database = CreateSingleTableTypedDraft(
+            originalInterfaces:
+            [
+                new CsTypeDeclaration("ITableModel<TestDb, OtherDb>", "DataLinq.Interfaces", ModelCsType.Interface)
+            ]);
+
+        var result = new MetadataDefinitionFactory()
+            .Build(database);
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("Model 'Item' declared DataLinq model contract");
+        await Assert.That(failure.Message).Contains("ITableModel<TestDb, OtherDb>");
+        await Assert.That(failure.Message).Contains("exactly one database type argument");
+    }
+
+    [Test]
     public async Task Build_ModelDeclaredInterfaceWithInvalidNamespace_ReturnsInvalidModelFailureBeforeSnapshot()
     {
         var database = CreateSingleTableTypedDraft(

@@ -68,6 +68,15 @@ public class SyntaxParserTests
     }
 
     [Test]
+    public async Task IsModelInterface_InvalidGenericArity_ReturnsFalse()
+    {
+        await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Interfaces.IDatabaseModel<TestNamespace.TestDb>")).IsFalse();
+        await Assert.That(SyntaxParser.IsModelInterface("global::DataLinq.Interfaces.ITableModel<TestNamespace.TestDb, TestNamespace.OtherDb>")).IsFalse();
+        await Assert.That(SyntaxParser.IsModelInterface(SyntaxFactory.ParseTypeName("DataLinq.Interfaces.IViewModel<>"))).IsFalse();
+        await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Instances.IModelInstance<TestNamespace.TestDb, TestNamespace.OtherDb>")).IsFalse();
+    }
+
+    [Test]
     public async Task MutableMetadataParserOutputs_AreMarkedObsolete()
     {
         var missingMethods = new (string MethodName, Type[] ParameterTypes)[]
@@ -768,5 +777,45 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
         await Assert.That(result.Table.Type).IsEqualTo(TableType.Table);
         await Assert.That(result.Table.DbName).IsEqualTo("users");
         await Assert.That(result.Model.OriginalInterfaces.Single().Name).IsEqualTo("ITableModel<TestDb>");
+    }
+
+    [Test]
+    public async Task ParseTableModelDraft_ModelContractWithMultipleTypeArguments_ReturnsInvalidModelFailure()
+    {
+        const string code = """
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+}
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ITableModel<TestDb, OtherDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+        var syntaxTree = CSharpSyntaxTree.ParseText(code);
+        var root = syntaxTree.GetCompilationUnitRoot();
+        var modelSyntax = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "UserModel");
+        var allDeclarations = root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToImmutableArray();
+        var parser = new SyntaxParser(allDeclarations);
+
+        var result = parser.ParseTableModelDraft(
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class),
+            modelSyntax,
+            "Users");
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+        await Assert.That(failure.Message).Contains("ITableModel<TestDb, OtherDb>");
+        await Assert.That(failure.Message).Contains("exactly one database type argument");
     }
 }

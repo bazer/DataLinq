@@ -171,10 +171,10 @@ public class MetadataFromModelsFactory
         var databaseCsType = new CsTypeDeclaration(dbType);
 
         var modelClasses = modelSyntaxes
-            .Where(x =>
-                ImplementsInterface(x, modelSyntaxes, i => i.EndsWith($"<{dbType.Identifier.Text}>", StringComparison.Ordinal)) &&
-                   (ImplementsInterface(x, modelSyntaxes, i => SyntaxParser.MatchesUnqualifiedTypeName(i, "ITableModel")) ||
-                    ImplementsInterface(x, modelSyntaxes, i => SyntaxParser.MatchesUnqualifiedTypeName(i, "IViewModel"))))
+            .Where(x => ImplementsInterface(
+                x,
+                modelSyntaxes,
+                i => SyntaxParser.IsTableOrViewModelContractForDatabase(i, dbType.Identifier.Text)))
             .ToList();
 
         if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
