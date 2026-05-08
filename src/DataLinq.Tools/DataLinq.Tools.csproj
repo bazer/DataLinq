@@ -6,6 +6,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+		<PackageReference Include="ThrowAway" />
 		<PackageReference Include="Microsoft.SourceLink.GitHub">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -17,15 +18,27 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\DataLinq\DataLinq.csproj" />
 		<ProjectReference Include="..\DataLinq.MySql\DataLinq.MySql.csproj" />
 		<ProjectReference Include="..\DataLinq.SQLite\DataLinq.SQLite.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<!-- Shared source files -->
-		<Compile Include="..\DataLinq.SharedCore\Extensions\**\*.cs">
-			<!-- Adjust path -->
-			<Link>Core\%(RecursiveDir)%(FileName)%(Extension)</Link>
+		<Compile Include="..\DataLinq.SharedCore\Factories\ModelContractName.cs">
+			<Link>Core\Factories\ModelContractName.cs</Link>
+		</Compile>
+		<Compile Include="..\DataLinq.SharedCore\Factories\SyntaxParser.cs">
+			<Link>Core\Factories\SyntaxParser.cs</Link>
+		</Compile>
+		<Compile Include="..\DataLinq.SharedCore\Factories\Generator\**\*.cs">
+			<Link>Core\Factories\Generator\%(RecursiveDir)%(FileName)%(Extension)</Link>
+		</Compile>
+		<Compile Include="..\DataLinq.SharedCore\Factories\Models\**\*.cs">
+			<Link>Core\Factories\Models\%(RecursiveDir)%(FileName)%(Extension)</Link>
+		</Compile>
+		<Compile Include="..\DataLinq.SharedCore\Metadata\CsTypeDeclarationSyntax.cs">
+			<Link>Core\Metadata\CsTypeDeclarationSyntax.cs</Link>
 		</Compile>
 	</ItemGroup>
 	

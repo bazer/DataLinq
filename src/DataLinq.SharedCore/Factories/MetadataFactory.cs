@@ -7,7 +7,6 @@ using DataLinq.ErrorHandling;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
-using Microsoft.CodeAnalysis.CSharp;
 using ThrowAway;
 using ThrowAway.Extensions;
 
@@ -76,9 +75,9 @@ public static class MetadataFactory
 
         TableDefinition table;
 
-        if (model.OriginalInterfaces.Any(x => SyntaxParser.IsTableModelContract(x.Name)/* && x.Namespace == "DataLinq.Interfaces"*/))
+        if (model.OriginalInterfaces.Any(x => ModelContractName.IsTableModelContract(x.Name)/* && x.Namespace == "DataLinq.Interfaces"*/))
             table = new TableDefinition(model.CsType.Name);
-        else if (model.OriginalInterfaces.Any(x => SyntaxParser.IsViewModelContract(x.Name)/* && x.Namespace == "DataLinq.Interfaces"*/))
+        else if (model.OriginalInterfaces.Any(x => ModelContractName.IsViewModelContract(x.Name)/* && x.Namespace == "DataLinq.Interfaces"*/))
             table = new ViewDefinition(model.CsType.Name);
         else
             return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Model '{model.CsType.Name}' does not inherit from 'ITableModel' or 'IViewModel'.");
@@ -520,7 +519,7 @@ public static class MetadataFactory
                 if (originalInterfaceKindFailure is not null)
                     return originalInterfaceKindFailure;
 
-                if (SyntaxParser.TryGetInvalidModelInterfaceContractArity(
+                if (ModelContractName.TryGetInvalidModelInterfaceContractArity(
                     originalInterface.Name,
                     out var contractName,
                     out var typeArgumentCount,
@@ -2621,9 +2620,7 @@ public static class MetadataFactory
         if (!string.Equals(typeName, typeName.Trim(), StringComparison.Ordinal))
             return false;
 
-        var typeSyntax = SyntaxFactory.ParseTypeName(typeName);
-        return typeSyntax.FullSpan.Length == typeName.Length &&
-            !typeSyntax.GetDiagnostics().Any();
+        return new CSharpTypeReferenceNameParser(typeName).TryParse();
     }
 
     private static bool IsCSharpIdentifierStart(char character) =>
@@ -2631,6 +2628,164 @@ public static class MetadataFactory
 
     private static bool IsCSharpIdentifierPart(char character) =>
         character == '_' || char.IsLetterOrDigit(character);
+
+    private sealed class CSharpTypeReferenceNameParser
+    {
+        private static readonly HashSet<string> PredefinedTypeNames = new(StringComparer.Ordinal)
+        {
+            "bool",
+            "byte",
+            "char",
+            "decimal",
+            "double",
+            "float",
+            "int",
+            "long",
+            "object",
+            "sbyte",
+            "short",
+            "string",
+            "uint",
+            "ulong",
+            "ushort",
+            "void"
+        };
+
+        private readonly string text;
+        private int position;
+
+        public CSharpTypeReferenceNameParser(string text)
+        {
+            this.text = text;
+        }
+
+        public bool TryParse()
+        {
+            if (!TryParseType())
+                return false;
+
+            SkipWhitespace();
+            return position == text.Length;
+        }
+
+        private bool TryParseType()
+        {
+            SkipWhitespace();
+
+            if (!TryParseQualifiedIdentifier())
+                return false;
+
+            SkipWhitespace();
+            if (TryConsume('<'))
+            {
+                do
+                {
+                    if (!TryParseType())
+                        return false;
+
+                    SkipWhitespace();
+                }
+                while (TryConsume(','));
+
+                if (!TryConsume('>'))
+                    return false;
+            }
+
+            while (TryParseArrayRank())
+            {
+            }
+
+            while (TryConsume('*'))
+            {
+            }
+
+            TryConsume('?');
+            SkipWhitespace();
+            return true;
+        }
+
+        private bool TryParseQualifiedIdentifier()
+        {
+            if (!TryParseIdentifier(out _))
+                return false;
+
+            if (TryConsume("::") && !TryParseIdentifier(out _))
+                return false;
+
+            while (TryConsume('.'))
+            {
+                if (!TryParseIdentifier(out _))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private bool TryParseIdentifier(out string identifier)
+        {
+            SkipWhitespace();
+            identifier = string.Empty;
+
+            if (position >= text.Length || !IsCSharpIdentifierStart(text[position]))
+                return false;
+
+            var start = position++;
+            while (position < text.Length && IsCSharpIdentifierPart(text[position]))
+                position++;
+
+            identifier = text.Substring(start, position - start);
+            return !CSharpKeywords.Contains(identifier) || PredefinedTypeNames.Contains(identifier);
+        }
+
+        private bool TryParseArrayRank()
+        {
+            var start = position;
+            if (!TryConsume('['))
+                return false;
+
+            while (TryConsume(','))
+            {
+            }
+
+            if (TryConsume(']'))
+                return true;
+
+            position = start;
+            return false;
+        }
+
+        private bool TryConsume(char expected)
+        {
+            SkipWhitespace();
+            if (position >= text.Length || text[position] != expected)
+                return false;
+
+            position++;
+            return true;
+        }
+
+        private bool TryConsume(string expected)
+        {
+            SkipWhitespace();
+            if (position + expected.Length > text.Length)
+                return false;
+
+            for (var i = 0; i < expected.Length; i++)
+            {
+                if (text[position + i] != expected[i])
+                    return false;
+            }
+
+            position += expected.Length;
+            return true;
+        }
+
+        private void SkipWhitespace()
+        {
+            while (position < text.Length && char.IsWhiteSpace(text[position]))
+                position++;
+        }
+    }
 
     private static string GetValuePropertyDisplayName(ValueProperty property) =>
         $"{property.Model.CsType.Name}.{property.PropertyName}";

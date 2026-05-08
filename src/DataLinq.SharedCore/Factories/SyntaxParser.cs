@@ -331,7 +331,7 @@ public class SyntaxParser
 
     private Option<ModelDefinition, IDLOptionFailure> ParseModel(TypeDeclarationSyntax typeSyntax)
     {
-        var model = new ModelDefinition(new CsTypeDeclaration(typeSyntax));
+        var model = new ModelDefinition(CsTypeDeclarationSyntax.Create(typeSyntax));
         model.SetSourceSpanCore(new SourceTextSpan(typeSyntax.SpanStart, typeSyntax.Span.Length));
 
         if (!string.IsNullOrEmpty(typeSyntax.SyntaxTree.FilePath))
@@ -416,7 +416,7 @@ public class SyntaxParser
 
     private Option<MetadataModelDraft, IDLOptionFailure> ParseModelDraft(TypeDeclarationSyntax typeSyntax)
     {
-        var csType = new CsTypeDeclaration(typeSyntax);
+        var csType = CsTypeDeclarationSyntax.Create(typeSyntax);
         var csFile = !string.IsNullOrEmpty(typeSyntax.SyntaxTree.FilePath)
             ? new CsFileDeclaration(typeSyntax.SyntaxTree.FilePath)
             : (CsFileDeclaration?)null;
@@ -568,7 +568,7 @@ public class SyntaxParser
     {
         try
         {
-            var declaration = new CsTypeDeclaration(baseType);
+            var declaration = CsTypeDeclarationSyntax.Create(baseType);
             return new CsTypeDeclaration(GetUnqualifiedTypeName(baseType.Type), declaration.Namespace, ModelCsType.Interface);
         }
         catch (NotImplementedException exception)
@@ -1400,7 +1400,7 @@ public class SyntaxParser
     {
         try
         {
-            return new CsTypeDeclaration(propSyntax);
+            return CsTypeDeclarationSyntax.Create(propSyntax);
         }
         catch (NotImplementedException exception)
         {
@@ -1557,7 +1557,7 @@ public class SyntaxParser
             foreach (var baseTypeSyntax in matchingSyntax.BaseList.Types)
             {
                 // Create a CsTypeDeclaration for the base type.
-                var baseDecl = new CsTypeDeclaration(baseTypeSyntax);
+                var baseDecl = CsTypeDeclarationSyntax.Create(baseTypeSyntax);
 
                 // Direct match: if the baseDecl's name is the type of interest.
                 if (MatchesUnqualifiedTypeName(baseDecl.Name, typeName))

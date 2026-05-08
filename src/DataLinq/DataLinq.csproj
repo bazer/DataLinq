@@ -2,10 +2,6 @@
 
 	<PropertyGroup>
 		<Description>A lightweight, high-performance .NET ORM using source generators for immutability and efficient caching - optimized for read-heavy applications.</Description>
-		
-		<!-- This is a source generator package -->
-		<IsRoslynComponent>true</IsRoslynComponent>
-
 		<!-- Let pack include the main DataLinq build output so symbols flow into snupkg automatically -->
 		<IncludeBuildOutput>true</IncludeBuildOutput>
 
@@ -19,6 +15,7 @@
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="DataLinq.Benchmark" />
+		<InternalsVisibleTo Include="DataLinq.Tools" />
 		<InternalsVisibleTo Include="DataLinq.Tests.Unit" />
 		<InternalsVisibleTo Include="DataLinq.Tests.Compliance" />
 	</ItemGroup>
@@ -29,9 +26,12 @@
 			<!-- Adjust path -->
 			<Link>Core\%(RecursiveDir)%(FileName)%(Extension)</Link>
 		</Compile>
+		<Compile Remove="..\DataLinq.SharedCore\Factories\Generator\**\*.cs" />
+		<Compile Remove="..\DataLinq.SharedCore\Factories\Models\**\*.cs" />
+		<Compile Remove="..\DataLinq.SharedCore\Factories\SyntaxParser.cs" />
+		<Compile Remove="..\DataLinq.SharedCore\Metadata\CsTypeDeclarationSyntax.cs" />
 		
 		<!-- Runtime Package References for DataLinq.dll -->
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="Remotion.Linq" />
 		<PackageReference Include="ThrowAway" />

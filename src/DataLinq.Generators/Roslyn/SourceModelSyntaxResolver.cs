@@ -79,7 +79,7 @@ internal static class SourceModelSyntaxResolver
                 var containingType = x.FirstAncestorOrSelf<TypeDeclarationSyntax>();
                 return containingType != null
                     && containingType.Identifier.ValueText == property.Model.CsType.Name
-                    && CsTypeDeclaration.GetNamespace(containingType) == property.Model.CsType.Namespace;
+                    && CsTypeDeclarationSyntax.GetNamespace(containingType) == property.Model.CsType.Namespace;
             });
     }
 

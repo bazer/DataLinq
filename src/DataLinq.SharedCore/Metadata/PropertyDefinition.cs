@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
-using Microsoft.CodeAnalysis.CSharp;
 
 namespace DataLinq.Metadata;
 
@@ -273,8 +272,8 @@ public class ValueProperty : PropertyDefinition
     {
         return CsType.Name switch
         {
-            "string" => SymbolDisplay.FormatLiteral(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty, quote: true),
-            "char" => SymbolDisplay.FormatLiteral(Convert.ToChar(value, CultureInfo.InvariantCulture), quote: true),
+            "string" => CSharpLiteralFormatter.FormatString(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty),
+            "char" => CSharpLiteralFormatter.FormatChar(Convert.ToChar(value, CultureInfo.InvariantCulture)),
             "bool" => Convert.ToBoolean(value, CultureInfo.InvariantCulture) ? "true" : "false",
             "sbyte" => $"(sbyte){Convert.ToSByte(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}",
             "byte" => $"(byte){Convert.ToByte(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}",
@@ -287,12 +286,12 @@ public class ValueProperty : PropertyDefinition
             "float" => $"{Convert.ToSingle(value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture)}F",
             "double" => $"{Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture)}D",
             "decimal" => $"{Convert.ToDecimal(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}M",
-            "DateTime" => $"DateTime.Parse({SymbolDisplay.FormatLiteral(((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture), quote: true)})",
-            "DateTimeOffset" => $"DateTimeOffset.Parse({SymbolDisplay.FormatLiteral(((DateTimeOffset)value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture), quote: true)})",
-            "TimeSpan" => $"TimeSpan.Parse({SymbolDisplay.FormatLiteral(((TimeSpan)value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture), quote: true)})",
-            "DateOnly" => $"DateOnly.Parse({SymbolDisplay.FormatLiteral(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty, quote: true)})",
-            "TimeOnly" => $"TimeOnly.Parse({SymbolDisplay.FormatLiteral(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty, quote: true)})",
-            "Guid" or "System.Guid" => $"Guid.Parse({SymbolDisplay.FormatLiteral(((Guid)value).ToString(), quote: true)})",
+            "DateTime" => $"DateTime.Parse({CSharpLiteralFormatter.FormatString(((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture))})",
+            "DateTimeOffset" => $"DateTimeOffset.Parse({CSharpLiteralFormatter.FormatString(((DateTimeOffset)value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture))})",
+            "TimeSpan" => $"TimeSpan.Parse({CSharpLiteralFormatter.FormatString(((TimeSpan)value).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture))})",
+            "DateOnly" => $"DateOnly.Parse({CSharpLiteralFormatter.FormatString(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)})",
+            "TimeOnly" => $"TimeOnly.Parse({CSharpLiteralFormatter.FormatString(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)})",
+            "Guid" or "System.Guid" => $"Guid.Parse({CSharpLiteralFormatter.FormatString(((Guid)value).ToString())})",
             _ => value.ToString() ?? string.Empty,
         };
     }

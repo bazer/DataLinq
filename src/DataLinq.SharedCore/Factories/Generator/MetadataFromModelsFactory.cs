@@ -214,7 +214,7 @@ public class MetadataFromModelsFactory
             .OfType<DatabaseAttribute>()
             .LastOrDefault()?
             .Name ?? MetadataTypeConverter.RemoveInterfacePrefix(dbType.Identifier.Text);
-        var databaseCsType = new CsTypeDeclaration(dbType);
+        var databaseCsType = CsTypeDeclarationSyntax.Create(dbType);
 
         var modelClasses = modelSyntaxes
             .Where(x => ImplementsInterface(
