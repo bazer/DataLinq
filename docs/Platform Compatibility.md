@@ -17,7 +17,9 @@ Current package and repo builds target .NET 8, .NET 9, and .NET 10. Provider beh
 
 DataLinq has a proven generated SQLite smoke path for Native AOT and trimmed publish.
 
-That means the tested boundary is:
+The runtime package graph has also been cleaned up for the public runtime packages: Roslyn/compiler assemblies are not runtime dependencies of `DataLinq`, `DataLinq.SQLite`, or `DataLinq.MySql`. The source generator is packaged under `DataLinq` analyzer assets, which is the right place for build-time code generation and the wrong place for runtime payload.
+
+That means the tested and packaged boundary is:
 
 - generated SQLite database models
 - generated metadata hooks
@@ -25,14 +27,17 @@ That means the tested boundary is:
 - schema creation from generated metadata
 - ordinary SQLite insert/query/relation/projection smoke behavior
 - the documented LINQ subset used by the smoke path
+- runtime package dependency groups without `Microsoft.CodeAnalysis.*`
+- generator assets under `analyzers/dotnet/cs`
 
 That does not mean every DataLinq scenario is AOT-compatible. Reflection-discovered model metadata, arbitrary client projection expressions, and broad provider coverage are not public support claims.
 
-The current blockers to a stronger claim are concrete:
+The current blockers to a stronger claim are still concrete:
 
-- the runtime package still references Roslyn/compiler APIs
+- the query pipeline still uses `Remotion.Linq` outside a dedicated generated/AOT query boundary
 - `Remotion.Linq` still emits Native AOT and trimming warnings
-- practical size reporting is not automated yet
+- SQLitePCLRaw WebAssembly AOT warning cleanup is deferred
+- generated SQLite smoke coverage is not broad provider coverage
 
 ## Blazor WebAssembly
 
@@ -49,16 +54,18 @@ The browser proof is also intentionally narrow:
 
 It does not prove MySQL/MariaDB browser support, OPFS/file-backed browser storage, arbitrary LINQ, or a small production payload.
 
+Payload numbers should be read from the compatibility size report with symbol files excluded, and symbol packages should be treated as separate release artifacts. Counting `.pdb` or `.snupkg` payload as deployed constrained-platform runtime size is misleading accounting.
+
 ## What To Claim
 
 Accurate:
 
-> DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary.
+> DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary, with Roslyn kept out of the runtime package dependency groups.
 
 Not accurate yet:
 
 > DataLinq is broadly AOT-compatible.
 
-The second statement has to wait until the package graph and query dependency warnings are cleaned up.
+The second statement has to wait until the query dependency boundary and remaining third-party warning work are cleaned up.
 
-For the engineering evidence, see the Phase 8 [Compatibility Results](dev-plans/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md).
+For the engineering evidence, see the Phase 8 [Compatibility Results](dev-plans/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md) and the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands.

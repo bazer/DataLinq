@@ -122,13 +122,67 @@ Useful options:
 - `--fail-on-threshold`
   Makes advisory threshold findings fail the command.
 - `--fail-on-banned-payload`
-  Makes banned Roslyn payload findings fail the command. Keep this off until the runtime package split has landed.
+  Makes banned Roslyn payload findings fail the command. Use this for the Phase 8C runtime payload gate after the package graph has been refreshed.
 - `--skip-smoke`
   Skips executable smoke runs after publish. Browser WebAssembly smoke is reported as not automated by this command.
 - `--format summary|markdown|json`
   Controls console output. The JSON and Markdown artifacts are always written.
 
 Reports are written under `artifacts/dev/compat-size-report/<timestamp>/` as `report.json` and `report.md`. Raw publish and smoke logs are also written under `artifacts/dev/`.
+
+### `package-report`
+
+Inspects packed NuGet output for the public package set.
+
+```bash
+dotnet run --project src/DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp>
+dotnet run --project src/DataLinq.Dev.CLI -- package-report --package-dir artifacts/nuget-release/<timestamp> --format markdown
+```
+
+Use this after `publish-nuget.ps1 -PackOnly` or another fresh pack output directory. Do not point it at a long-lived package cache if you want release evidence; stale packages make the report noisy on purpose.
+
+The default expected package set is:
+
+- `DataLinq`
+- `DataLinq.SQLite`
+- `DataLinq.MySql`
+- `DataLinq.CLI`
+- `DataLinq.Tools`
+
+The default runtime package set is narrower:
+
+- `DataLinq`
+- `DataLinq.SQLite`
+- `DataLinq.MySql`
+
+The report checks:
+
+- every expected public package is present
+- no unexpected package ids are present
+- every `.nupkg` has a matching `.snupkg`
+- runtime package dependency groups do not reference `Microsoft.CodeAnalysis.*`
+- runtime package `lib/` and `runtimes/` assets do not contain Roslyn payloads
+- the `DataLinq` source generator lives under `analyzers/dotnet/cs`
+- analyzer payloads are not placed under runtime assets
+
+Useful options:
+
+- `--expected-packages`
+  Overrides the public package set with a comma-separated list, or `public`.
+- `--runtime-packages`
+  Overrides the runtime package set with a comma-separated list, or `runtime`.
+- `--allow-unexpected-packages`
+  Reports unexpected package ids without failing.
+- `--allow-missing-symbols`
+  Reports missing `.snupkg` files without failing.
+- `--allow-runtime-roslyn`
+  Reports runtime Roslyn package dependencies or payload assets without failing.
+- `--allow-analyzer-leaks`
+  Reports missing or misplaced analyzer assets without failing.
+- `--format summary|markdown|json`
+  Controls console output. The JSON and Markdown artifacts are always written.
+
+Reports are written under `artifacts/dev/package-report/<timestamp>/` as `report.json` and `report.md`.
 
 ### `exec`
 

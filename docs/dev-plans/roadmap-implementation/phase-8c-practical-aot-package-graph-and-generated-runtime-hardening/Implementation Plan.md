@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 8C Implementation Plan: Practical AOT Package Graph and Generated Runtime Hardening
 
-**Status:** In progress after Phase 8B. Workstreams A, B, C, and D are implemented.
+**Status:** Implemented after Phase 8B. Workstreams A, B, C, D, and E are implemented.
 
 ## Purpose
 
@@ -256,6 +256,8 @@ Implementation notes:
 
 ## Workstream E: Packaging And Public Compatibility Wording
 
+**Status:** Implemented.
+
 Goals:
 
 - keep package assets honest
@@ -279,6 +281,14 @@ Exit criteria:
 - public docs and support matrices match the implementation evidence
 - roadmap documents remain separate from shipped behavior docs
 - product docs do not imply the later query-boundary phase has already happened
+
+Implementation notes:
+
+- Internal/dev/test projects are explicitly non-packable so solution-level packing cannot accidentally produce `DataLinq.DevTools`, `DataLinq.Dev.CLI`, `DataLinq.Testing.CLI`, `DataLinq.Tests.Models`, `DataLinq.Benchmark.CLI`, or standalone `DataLinq.Generators` packages.
+- `DataLinq.Generators` is deliberately not a standalone package. The generator ships through the `DataLinq` package under `analyzers/dotnet/cs`, beside its private analyzer dependency.
+- `DataLinq.Dev.CLI package-report` inspects actual `.nupkg` and `.snupkg` output for the public package set, missing symbols, unexpected package ids, runtime Roslyn dependencies/assets, and analyzer placement.
+- Public compatibility wording now says only what the package and smoke evidence supports: generated SQLite Native AOT, trimmed publish, and WebAssembly AOT smoke boundaries with Roslyn absent from runtime dependency groups.
+- The docs still keep the Remotion/query-boundary work, SQLitePCLRaw warning cleanup, MySQL/MariaDB browser support, OPFS storage, arbitrary client projections, and no-AOT browser WebAssembly outside the public support claim.
 
 ## Recommended Order
 
