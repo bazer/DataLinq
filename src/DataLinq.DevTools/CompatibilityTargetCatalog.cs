@@ -18,7 +18,7 @@ public static class CompatibilityTargetCatalog
             RequiresRuntimeIdentifier: true,
             IsWebAssembly: false,
             ExecutableName: "DataLinq.AotSmoke",
-            PublishProperties: ["PublishAot=true", "SelfContained=true"]),
+            PublishProperties: []),
         new(
             Name: "trimmed",
             Kind: CompatibilityTargetKind.Trimmed,
@@ -28,7 +28,7 @@ public static class CompatibilityTargetCatalog
             RequiresRuntimeIdentifier: true,
             IsWebAssembly: false,
             ExecutableName: "DataLinq.TrimSmoke",
-            PublishProperties: ["PublishTrimmed=true", "SelfContained=true"]),
+            PublishProperties: []),
         new(
             Name: "wasm",
             Kind: CompatibilityTargetKind.Wasm,
