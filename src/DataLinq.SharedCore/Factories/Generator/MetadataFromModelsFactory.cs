@@ -103,8 +103,18 @@ public class MetadataFromModelsFactory
         return database.GetSourceLocation();
     }
 
-    private static bool ImplementsInterface(TypeDeclarationSyntax type, ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, Func<string, bool> interfaceNameFunc)
+    private static bool ImplementsInterface(TypeDeclarationSyntax type, ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, Func<string, bool> interfaceNameFunc) =>
+        ImplementsInterface(type, modelSyntaxes, interfaceNameFunc, new HashSet<string>(StringComparer.Ordinal));
+
+    private static bool ImplementsInterface(
+        TypeDeclarationSyntax type,
+        ImmutableArray<TypeDeclarationSyntax> modelSyntaxes,
+        Func<string, bool> interfaceNameFunc,
+        HashSet<string> visitedDeclarations)
     {
+        if (!visitedDeclarations.Add(type.Identifier.Text))
+            return false;
+
         if (type.BaseList == null) return false;
         foreach (var baseType in type.BaseList.Types)
         {
@@ -114,7 +124,7 @@ public class MetadataFromModelsFactory
             var interfaceDecl = modelSyntaxes
                 .OfType<InterfaceDeclarationSyntax>()
                 .FirstOrDefault(i => i.Identifier.Text == baseTypeName);
-            if (interfaceDecl != null && ImplementsInterface(interfaceDecl, modelSyntaxes, interfaceNameFunc))
+            if (interfaceDecl != null && ImplementsInterface(interfaceDecl, modelSyntaxes, interfaceNameFunc, visitedDeclarations))
                 return true;
         }
         return false;

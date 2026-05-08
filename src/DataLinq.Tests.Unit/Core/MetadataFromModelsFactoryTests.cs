@@ -382,6 +382,43 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
     }
 
     [Test]
+    public async Task ReadSyntaxTrees_CyclicNonModelInterfaceBeforeTableModelContract_ParsesDatabase()
+    {
+        const string code = """
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UserModel> Users { get; }
+}
+
+public interface ICycleA : ICycleB { }
+public interface ICycleB : ICycleA { }
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ICycleA, ITableModel<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+        var result = factory.ReadSyntaxTrees(declarations).Single();
+
+        await Assert.That(result.HasValue).IsTrue();
+        await Assert.That(result.Value.TableModels.Single().CsPropertyName).IsEqualTo("Users");
+        await Assert.That(result.Value.TableModels.Single().Model.CsType.Name).IsEqualTo("UserModel");
+    }
+
+    [Test]
     public async Task ReadSyntaxTrees_LookalikeInterfaceAttribute_ReturnsNotImplementedFailure()
     {
         const string code = """
