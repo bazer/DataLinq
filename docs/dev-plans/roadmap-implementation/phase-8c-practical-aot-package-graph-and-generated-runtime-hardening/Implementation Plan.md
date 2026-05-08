@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 8C Implementation Plan: Practical AOT Package Graph and Generated Runtime Hardening
 
-**Status:** In progress after Phase 8B. Workstreams A, B, and C are implemented.
+**Status:** In progress after Phase 8B. Workstreams A, B, C, and D are implemented.
 
 ## Purpose
 
@@ -210,6 +210,8 @@ Implementation notes:
 
 ## Workstream D: Generated Indexed Access And Metadata Handles
 
+**Status:** Implemented.
+
 Goals:
 
 - take advantage of dense indexed `RowData`
@@ -236,6 +238,21 @@ Exit criteria:
 - `new MutableFoo()` does not search `DatabaseDefinition.LoadedDatabases`
 - indexed access is correct for projected/subset-loaded rows
 - property access benchmarks are neutral or better
+
+Implementation notes:
+
+- `IRowData` now exposes indexed access through `this[int columnIndex]` and `GetValue(int columnIndex)`.
+- `RowData` keeps dense column-index storage for full and subset projections; unselected dense slots remain null instead of shifting ordinals.
+- `MutableRowData` now implements the interface `GetValues(...)` path instead of throwing, and supports indexed value reads through the table column handles.
+- Generated model partials emit per-property column-index constants and static `ColumnDefinition` handles.
+- Generated immutable value getters call `GetValue(int)` / `GetNullableValue(int)` with the generated column index instead of `GetValue(nameof(...))`.
+- Generated mutable getters and setters use generated column handles instead of name-based `GetValue` / `SetValue`.
+- Generated relation getters use generated `RelationProperty` handles instead of `GetImmutableRelation(nameof(...))` / `GetImmutableForeignKey(nameof(...))`.
+- Relation keys on immutable instances are now computed lazily by relation handle, avoiding eager relation-key construction for every materialized row.
+- Generated database partials emit `SetDataLinqGeneratedMetadata(DatabaseDefinition metadata)` and bind generated model static handles to the exact provider metadata graph. Generic provider construction rebinds already-loaded metadata as well, so generated mutable constructors use provider-owned metadata and do not fall back to `ModelDefinition.Find<T>()`.
+- The non-generic metadata parser remains a tooling/test compatibility surface and intentionally does not bind generated static handles, because doing so can poison provider cache identity with a detached metadata graph.
+- Unit coverage includes dense indexed subset-row reads and mutable row-data interface reads. Generator coverage asserts generated value, mutable, and relation paths no longer emit name-based access.
+- Existing fetch and relation benchmark scenarios remain the meaningful performance guard for this path; no standalone property-getter microbenchmark was added because generated immutable getters cache first materialization and isolated repeated property reads mostly measure the cache field.
 
 ## Workstream E: Packaging And Public Compatibility Wording
 
