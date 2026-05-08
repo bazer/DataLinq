@@ -79,9 +79,14 @@ public abstract class IDLOptionFailure
 public static class DLOptionFailure
 {
     private static SourceLocation? GetDefinitionLocation(IDefinition definition) =>
-        definition.CsFile.HasValue
-            ? new SourceLocation(definition.CsFile.Value)
-            : null;
+        definition switch
+        {
+            DatabaseDefinition database => database.GetSourceLocation(),
+            ModelDefinition model => model.GetSourceLocation(),
+            _ => definition.CsFile.HasValue
+                ? new SourceLocation(definition.CsFile.Value)
+                : null
+        };
 
     public static DLOptionFailure<T> Fail<T>(T failure) =>
         new(failure);

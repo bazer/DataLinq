@@ -800,19 +800,19 @@ public class ModelGenerationLogicTests : GeneratorTestBase
     }
 
     [Test]
-    public async Task MissingNamespace_ShouldReportModelFileGenerationDiagnosticAtModelLocation()
+    public async Task MissingNamespace_ShouldReportMetadataDiagnosticAtDatabaseLocation()
     {
         var inputTree = CSharpSyntaxTree.ParseText(MissingNamespaceModelSource, path: MissingNamespaceSourcePath);
 
         var (_, diagnostics, _) = RunGeneratorWithDiagnostics([inputTree]);
 
-        var diagnostic = diagnostics.Single(x => x.Id == "DLG002");
+        var diagnostic = diagnostics.Single(x => x.Id == "DLG001");
         var highlightedSource = inputTree.GetText().ToString(diagnostic.Location.SourceSpan);
         await Assert.That(diagnostic.Severity).IsEqualTo(DiagnosticSeverity.Error);
         await Assert.That(diagnostic.Location.GetLineSpan().Path).IsEqualTo(MissingNamespaceSourcePath);
-        await Assert.That(highlightedSource.Contains("class MissingNamespaceModel", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(diagnostic.GetMessage().Contains("Namespace is missing", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(diagnostic.GetMessage().Contains("MissingNamespaceModel", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(highlightedSource.Contains("class MissingNamespaceDb", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("missing a C# namespace", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(diagnostic.GetMessage().Contains("MissingNamespaceDb", StringComparison.Ordinal)).IsTrue();
     }
 
     [Test]

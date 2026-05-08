@@ -104,6 +104,43 @@ public abstract partial class OrderModel(IRowData rowData, IDataSourceAccess dat
     }
 
     [Test]
+    public async Task ReadSyntaxTrees_MissingNamespace_ReturnsInvalidModelFailure()
+    {
+        const string code = """
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+public partial class MissingNamespaceDb : IDatabaseModel
+{
+    public MissingNamespaceDb(DataSourceAccess dataSource) { }
+    public DbRead<MissingNamespaceModel> Rows { get; }
+}
+
+[Table("rows")]
+public abstract partial class MissingNamespaceModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<MissingNamespaceModel, MissingNamespaceDb>(rowData, dataSource), ITableModel<MissingNamespaceDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+        var result = factory.ReadSyntaxTrees(declarations).Single();
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsEqualTo(DLFailureType.InvalidModel);
+
+        var failureMessage = failure.ToString();
+        await Assert.That(failureMessage).Contains("MissingNamespaceDb");
+        await Assert.That(failureMessage).Contains("missing a C# namespace");
+        await Assert.That(failureMessage).DoesNotContain("[Exception]");
+    }
+
+    [Test]
     public async Task ReadSyntaxTrees_SourceDraftPreservesSourceLocations()
     {
         const string code = """

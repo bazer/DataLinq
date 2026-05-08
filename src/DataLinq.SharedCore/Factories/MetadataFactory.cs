@@ -661,6 +661,12 @@ public static class MetadataFactory
                 $"{scope} uses C# type name '{type.Name}', which is not a valid unescaped C# identifier.",
                 context);
 
+        if (string.IsNullOrWhiteSpace(type.Namespace))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"{scope} is missing a C# namespace. DataLinq generated metadata must be declared inside a namespace.",
+                context);
+
         if (!IsValidCSharpNamespace(type.Namespace))
             return DLOptionFailure.Fail(
                 DLFailureType.InvalidModel,
