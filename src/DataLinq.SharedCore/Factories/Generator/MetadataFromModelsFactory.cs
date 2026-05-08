@@ -104,30 +104,66 @@ public class MetadataFromModelsFactory
     }
 
     private static bool ImplementsInterface(TypeDeclarationSyntax type, ImmutableArray<TypeDeclarationSyntax> modelSyntaxes, Func<string, bool> interfaceNameFunc) =>
-        ImplementsInterface(type, modelSyntaxes, interfaceNameFunc, new HashSet<string>(StringComparer.Ordinal));
+        ImplementsInterface(
+            type,
+            modelSyntaxes,
+            interfaceNameFunc,
+            new HashSet<string>(StringComparer.Ordinal),
+            new Dictionary<string, string>(StringComparer.Ordinal));
 
     private static bool ImplementsInterface(
         TypeDeclarationSyntax type,
         ImmutableArray<TypeDeclarationSyntax> modelSyntaxes,
         Func<string, bool> interfaceNameFunc,
-        HashSet<string> visitedDeclarations)
+        HashSet<string> visitedDeclarations,
+        IReadOnlyDictionary<string, string> typeParameterSubstitutions)
     {
-        if (!visitedDeclarations.Add(type.Identifier.Text))
+        if (!visitedDeclarations.Add(GetVisitedDeclarationKey(type, typeParameterSubstitutions)))
             return false;
 
         if (type.BaseList == null) return false;
         foreach (var baseType in type.BaseList.Types)
         {
-            var baseTypeName = SyntaxParser.GetUnqualifiedTypeName(baseType.Type);
+            var baseTypeName = SyntaxParser.ApplyTypeParameterSubstitutions(
+                SyntaxParser.GetUnqualifiedTypeName(baseType.Type),
+                typeParameterSubstitutions);
+
             if (interfaceNameFunc(baseTypeName))
                 return true;
+
             var interfaceDecl = modelSyntaxes
                 .OfType<InterfaceDeclarationSyntax>()
-                .FirstOrDefault(i => SyntaxParser.MatchesUnqualifiedTypeName(baseTypeName, i.Identifier.Text));
-            if (interfaceDecl != null && ImplementsInterface(interfaceDecl, modelSyntaxes, interfaceNameFunc, visitedDeclarations))
+                .FirstOrDefault(i => string.Equals(
+                    i.Identifier.Text,
+                    SyntaxParser.GetUnqualifiedGenericTypeDefinitionName(baseTypeName),
+                    StringComparison.Ordinal));
+
+            if (interfaceDecl == null)
+                continue;
+
+            var inheritedSubstitutions = SyntaxParser.CreateTypeParameterSubstitutions(
+                interfaceDecl,
+                baseTypeName,
+                typeParameterSubstitutions);
+
+            if (ImplementsInterface(interfaceDecl, modelSyntaxes, interfaceNameFunc, visitedDeclarations, inheritedSubstitutions))
                 return true;
         }
         return false;
+    }
+
+    private static string GetVisitedDeclarationKey(
+        TypeDeclarationSyntax type,
+        IReadOnlyDictionary<string, string> typeParameterSubstitutions)
+    {
+        if (typeParameterSubstitutions.Count == 0)
+            return type.Identifier.Text;
+
+        return type.Identifier.Text + "<" + string.Join(
+            ",",
+            typeParameterSubstitutions
+                .OrderBy(x => x.Key, StringComparer.Ordinal)
+                .Select(x => x.Key + "=" + x.Value)) + ">";
     }
 
     private static IEnumerable<Option<DatabaseDefinition, IDLOptionFailure>> ParseDatabaseModels(

@@ -165,6 +165,58 @@ public class SyntaxParser
             unqualifiedTypeName.StartsWith(expectedTypeName + "<", StringComparison.Ordinal);
     }
 
+    internal static string ApplyTypeParameterSubstitutions(
+        string typeName,
+        IReadOnlyDictionary<string, string> typeParameterSubstitutions)
+    {
+        var unqualifiedTypeName = GetUnqualifiedTypeName(typeName);
+        if (typeParameterSubstitutions.Count == 0)
+            return unqualifiedTypeName;
+
+        if (typeParameterSubstitutions.TryGetValue(unqualifiedTypeName, out var substitutedTypeName))
+            return substitutedTypeName;
+
+        if (!TrySplitGenericTypeName(unqualifiedTypeName, out var genericName, out var typeArguments))
+            return unqualifiedTypeName;
+
+        var substitutedTypeArguments = typeArguments
+            .Select(typeArgument => ApplyTypeParameterSubstitutions(typeArgument, typeParameterSubstitutions))
+            .ToJoinedString(", ");
+
+        return $"{genericName}<{substitutedTypeArguments}>";
+    }
+
+    internal static Dictionary<string, string> CreateTypeParameterSubstitutions(
+        InterfaceDeclarationSyntax interfaceDeclaration,
+        string interfaceTypeName,
+        IReadOnlyDictionary<string, string> inheritedSubstitutions)
+    {
+        var substitutions = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var substitution in inheritedSubstitutions)
+            substitutions[substitution.Key] = substitution.Value;
+
+        var typeParameters = interfaceDeclaration.TypeParameterList?.Parameters
+            .Select(parameter => parameter.Identifier.Text)
+            .ToArray() ?? [];
+
+        if (typeParameters.Length == 0)
+            return substitutions;
+
+        var unqualifiedTypeName = GetUnqualifiedTypeName(interfaceTypeName);
+        if (!TrySplitGenericTypeName(unqualifiedTypeName, out _, out var typeArguments) ||
+            typeArguments.Count != typeParameters.Length)
+            return substitutions;
+
+        for (var i = 0; i < typeParameters.Length; i++)
+        {
+            substitutions[typeParameters[i]] = ApplyTypeParameterSubstitutions(
+                typeArguments[i],
+                inheritedSubstitutions);
+        }
+
+        return substitutions;
+    }
+
     internal static string GetUnqualifiedTypeName(TypeSyntax typeSyntax)
     {
         return typeSyntax switch
@@ -537,7 +589,11 @@ public class SyntaxParser
         var visitedInterfaces = new HashSet<string>(StringComparer.Ordinal);
         foreach (var baseType in typeSyntax.BaseList.Types)
         {
-            if (!ParseDeclaredInterfaceTree(baseType, declarations, visitedInterfaces).TryUnwrap(out _, out var failure))
+            if (!ParseDeclaredInterfaceTree(
+                baseType,
+                declarations,
+                visitedInterfaces,
+                new Dictionary<string, string>(StringComparer.Ordinal)).TryUnwrap(out _, out var failure))
                 return failure;
         }
 
@@ -547,23 +603,34 @@ public class SyntaxParser
     private Option<bool, IDLOptionFailure> ParseDeclaredInterfaceTree(
         BaseTypeSyntax baseType,
         List<CsTypeDeclaration> declarations,
-        HashSet<string> visitedInterfaces)
+        HashSet<string> visitedInterfaces,
+        IReadOnlyDictionary<string, string> typeParameterSubstitutions)
     {
         if (!ParseDeclaredInterface(baseType).TryUnwrap(out var declaration, out var failure))
             return failure;
 
+        declaration = declaration.MutateName(ApplyTypeParameterSubstitutions(declaration.Name, typeParameterSubstitutions));
         AddDeclaredInterface(declarations, declaration);
 
         var interfaceDeclaration = FindDeclaredInterfaceSyntax(declaration.Name);
         if (interfaceDeclaration?.BaseList == null)
             return true;
 
-        if (!visitedInterfaces.Add(interfaceDeclaration.Identifier.Text))
+        if (!visitedInterfaces.Add(declaration.Name))
             return true;
+
+        var inheritedSubstitutions = CreateTypeParameterSubstitutions(
+            interfaceDeclaration,
+            declaration.Name,
+            typeParameterSubstitutions);
 
         foreach (var inheritedInterface in interfaceDeclaration.BaseList.Types)
         {
-            if (!ParseDeclaredInterfaceTree(inheritedInterface, declarations, visitedInterfaces).TryUnwrap(out _, out var inheritedFailure))
+            if (!ParseDeclaredInterfaceTree(
+                inheritedInterface,
+                declarations,
+                visitedInterfaces,
+                inheritedSubstitutions).TryUnwrap(out _, out var inheritedFailure))
                 return inheritedFailure;
         }
 
@@ -578,7 +645,7 @@ public class SyntaxParser
             .FirstOrDefault(interfaceSyntax => interfaceSyntax.Identifier.Text == lookupName);
     }
 
-    private static string GetUnqualifiedGenericTypeDefinitionName(string typeName)
+    internal static string GetUnqualifiedGenericTypeDefinitionName(string typeName)
     {
         var unqualifiedTypeName = GetUnqualifiedTypeName(typeName);
         var genericStart = unqualifiedTypeName.IndexOf('<');
