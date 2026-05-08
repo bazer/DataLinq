@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 8C: Practical AOT Package Graph and Generated Runtime Hardening
 
-**Status:** Planned follow-up after Phase 8B. This is a bounded constrained-platform cleanup slice, not the current memory/cache priority unless constrained-platform polish becomes the active goal again.
+**Status:** In progress after Phase 8B. Workstream A, the repeatable compatibility size report and banned-payload gate, is implemented.
 
 ## Purpose
 

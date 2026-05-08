@@ -86,6 +86,50 @@ Useful options:
 
 The optional target defaults to `src/DataLinq.sln`.
 
+### `size-report`
+
+Publishes the Phase 8C constrained-platform smoke targets and writes a repeatable compatibility payload report.
+
+```bash
+dotnet run --project src/DataLinq.Dev.CLI -- size-report --target phase8c
+dotnet run --project src/DataLinq.Dev.CLI -- size-report --targets aot,trim --no-restore
+dotnet run --project src/DataLinq.Dev.CLI -- size-report --targets wasm,wasm-aot --format markdown
+```
+
+The default `phase8c` target set includes:
+
+- `aot`
+  Native AOT publish of `src/DataLinq.AotSmoke`.
+- `trim`
+  trimmed self-contained publish of `src/DataLinq.TrimSmoke`.
+- `wasm`
+  no-AOT Blazor WebAssembly publish of `src/DataLinq.BlazorWasm`.
+- `wasm-aot`
+  Blazor WebAssembly AOT publish of `src/DataLinq.BlazorWasm`.
+
+Each report includes total payload size, symbol-excluded size, file count, `.br` and `.gz` asset totals, largest files, publish warnings grouped by owner, smoke status, and banned Roslyn payload findings.
+
+Useful options:
+
+- `--targets`
+  Limits the run to `aot`, `trim`, `wasm`, `wasm-aot`, or a comma-separated subset.
+- `--runtime`
+  Runtime identifier for native publish targets. Defaults to the current OS and architecture.
+- `--top`
+  Number of largest files to list per target.
+- `--max-total-size-mb`, `--max-symbol-excluded-size-mb`, `--max-file-count`
+  Advisory thresholds. Exceeding them is reported as a warning.
+- `--fail-on-threshold`
+  Makes advisory threshold findings fail the command.
+- `--fail-on-banned-payload`
+  Makes banned Roslyn payload findings fail the command. Keep this off until the runtime package split has landed.
+- `--skip-smoke`
+  Skips executable smoke runs after publish. Browser WebAssembly smoke is reported as not automated by this command.
+- `--format summary|markdown|json`
+  Controls console output. The JSON and Markdown artifacts are always written.
+
+Reports are written under `artifacts/dev/compat-size-report/<timestamp>/` as `report.json` and `report.md`. Raw publish and smoke logs are also written under `artifacts/dev/`.
+
 ### `exec`
 
 Runs an arbitrary `dotnet` command through the same repo-local execution profile.

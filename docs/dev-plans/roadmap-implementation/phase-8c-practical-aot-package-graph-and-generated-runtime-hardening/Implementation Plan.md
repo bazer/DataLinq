@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 8C Implementation Plan: Practical AOT Package Graph and Generated Runtime Hardening
 
-**Status:** Planned follow-up after Phase 8B.
+**Status:** In progress after Phase 8B. Workstream A is implemented.
 
 ## Purpose
 
@@ -64,6 +64,8 @@ The remaining package/runtime debt is still concrete:
 
 ## Workstream A: Compatibility Size Reports And Banned-Payload Gates
 
+**Status:** Implemented as the `DataLinq.Dev.CLI size-report` command.
+
 Goals:
 
 - make constrained-platform evidence repeatable
@@ -84,19 +86,17 @@ Tasks:
 6. Store report output under `artifacts/` or print stable machine-readable output that can be attached to PRs.
 7. Keep size thresholds configurable. Start with warning thresholds before hard-failing on size growth.
 
-Candidate command shapes:
+Command shape:
 
 ```powershell
 dotnet run --project src\DataLinq.Dev.CLI -- size-report --target phase8c
 ```
 
-or:
-
 ```powershell
-dotnet run --project src\DataLinq.Testing.CLI -- compatibility size-report --targets aot,trim,wasm-aot
+dotnet run --project src\DataLinq.Dev.CLI -- size-report --targets aot,trim,wasm-aot
 ```
 
-The exact host is less important than repeatability. The Testing CLI is attractive if the command naturally grows into smoke execution. The Dev CLI is attractive if this is primarily a build/report workflow.
+The command lives in the Dev CLI because this is primarily a build/report workflow. The Testing CLI still owns provider matrix orchestration and server-backed test infrastructure.
 
 Exit criteria:
 
@@ -104,6 +104,15 @@ Exit criteria:
 - Roslyn payload presence is reported and can fail the report once the runtime split lands
 - AOT, trim, and WASM warnings are grouped by owner and warning code
 - the report can reproduce the Phase 8 measurements with comparable numbers
+
+Implementation notes:
+
+- `dotnet run --project src\DataLinq.Dev.CLI -- size-report --target phase8c` runs the full report set.
+- `--targets aot,trim,wasm,wasm-aot` can narrow the report while preserving the same schema.
+- `report.json` and `report.md` are written under `artifacts/dev/compat-size-report/<timestamp>/`.
+- banned Roslyn payload findings are advisory by default and become hard failures with `--fail-on-banned-payload`; this is intentional because Workstream B has not removed Roslyn from runtime outputs yet.
+- size and file-count thresholds are advisory by default and become hard failures with `--fail-on-threshold`.
+- native AOT and trimmed console smokes are executed after successful publish unless `--skip-smoke` is used; browser WebAssembly smoke is reported as not automated by this command.
 
 ## Workstream B: Split Runtime-Safe Metadata From Roslyn And Generator Code
 
