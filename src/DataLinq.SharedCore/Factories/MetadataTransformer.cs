@@ -111,8 +111,6 @@ public class MetadataTransformer
             destTable.Model.SetModelInstanceInterfaceCore(new CsTypeDeclaration(interfaceName, destTable.Model.CsType.Namespace, ModelCsType.Interface));
         }
 
-
-        //destTable.Model.SetInterfacesCore([srcTable.Model.CsType]); //TODO: Investigate if this is needed
         destTable.Model.SetUsingsCore(srcTable.Model.Usings);
 
         foreach (var srcProperty in srcTable.Model.ValueProperties.Values)

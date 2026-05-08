@@ -261,6 +261,8 @@ public class MetadataTransformerTests
         await Assert.That(destinationModel.CsType.Namespace).IsEqualTo("SourceNamespace");
         await Assert.That(destinationModel.ModelInstanceInterface.HasValue).IsTrue();
         await Assert.That(destinationModel.ModelInstanceInterface!.Value.Name).IsEqualTo("IMyModel");
+        await Assert.That(destinationModel.OriginalInterfaces.Select(x => x.Name).ToArray()).IsEquivalentTo(["ITableModel"]);
+        await Assert.That(destinationModel.OriginalInterfaces.All(x => x.ModelCsType == ModelCsType.Interface)).IsTrue();
 
         await Assert.That(destinationTableModel.Table.DbName).IsEqualTo("my_table");
 
