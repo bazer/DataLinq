@@ -110,11 +110,13 @@ Implementation notes:
 - `dotnet run --project src\DataLinq.Dev.CLI -- size-report --target phase8c` runs the full report set.
 - `--targets aot,trim,wasm,wasm-aot` can narrow the report while preserving the same schema.
 - `report.json` and `report.md` are written under `artifacts/dev/compat-size-report/<timestamp>/`.
-- banned Roslyn payload findings are advisory by default and become hard failures with `--fail-on-banned-payload`; this is intentional because Workstream B has not removed Roslyn from runtime outputs yet.
+- banned Roslyn payload findings are advisory by default and become hard failures with `--fail-on-banned-payload`; after Workstream B this hard gate passes for the full Phase 8C target set.
 - size and file-count thresholds are advisory by default and become hard failures with `--fail-on-threshold`.
 - native AOT and trimmed console smokes are executed after successful publish unless `--skip-smoke` is used; browser WebAssembly smoke is reported as not automated by this command.
 
 ## Workstream B: Split Runtime-Safe Metadata From Roslyn And Generator Code
+
+**Status:** Implemented.
 
 Goals:
 
@@ -145,6 +147,20 @@ Exit criteria:
 - package inspection confirms analyzer payload is under analyzer assets, not runtime dependencies
 - generator, tooling, and source-model tests still pass
 - measured trim and WASM sizes improve or have a documented reason if they do not
+
+Implementation notes:
+
+- `src/DataLinq/DataLinq.csproj` no longer references `Microsoft.CodeAnalysis.CSharp` and excludes Roslyn/source-generation files from the runtime compile.
+- Runtime metadata keeps `CsTypeDeclaration`, source spans, generated declarations, schema comparison, provider-neutral metadata, and type conversion Roslyn-free.
+- Roslyn-owned source parsing now lives in generator/tooling paths:
+  - `SyntaxParser`
+  - `MetadataFromModelsFactory`
+  - `ModelFileFactory`
+  - `MetadataFromFileFactory`
+  - Roslyn-specific `CsTypeDeclarationSyntax`
+- Release package inspection confirmed runtime dependency groups contain only `Microsoft.Extensions.Logging.Abstractions`, `Remotion.Linq`, and `ThrowAway`; `DataLinq.Generators.dll`, `DataLinq.Generators.deps.json`, and `ThrowAway.dll` are under `analyzers/dotnet/cs`.
+- `artifacts/dev/compat-size-report/20260508-122503189/report.md` was generated with `--fail-on-banned-payload`; all targets had `Banned = 0`.
+- Compared with the pre-split report `artifacts/dev/compat-size-report/20260508-112516857/report.md`, trimmed output dropped from 95 files / 32.41 MB / 28 banned payloads to 65 files / 24.06 MB / 0 banned payloads; no-AOT WASM dropped from 374 files / 53.45 MB / 28 banned payloads to 242 files / 25.74 MB / 0 banned payloads; WASM AOT dropped from 374 files / 137.18 MB / 28 banned payloads to 242 files / 64.54 MB / 0 banned payloads.
 
 ## Workstream C: Complete Generated Metadata Startup And Runtime Reflection Removal
 

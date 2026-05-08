@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 8C: Practical AOT Package Graph and Generated Runtime Hardening
 
-**Status:** In progress after Phase 8B. Workstream A, the repeatable compatibility size report and banned-payload gate, is implemented.
+**Status:** In progress after Phase 8B. Workstreams A and B are implemented: compatibility size reporting is repeatable, and Roslyn/compiler payloads are removed from the runtime package graph and constrained publish outputs.
 
 ## Purpose
 
