@@ -46,7 +46,7 @@ public sealed class DotnetCommandRunner
         }
 
         string? binaryLogPath = null;
-        if (generateBinaryLog && commandType == DotnetCommandType.Build && !ContainsBinaryLog(finalArguments))
+        if (generateBinaryLog && SupportsBinaryLog(commandType) && !ContainsBinaryLog(finalArguments))
         {
             binaryLogPath = CreateArtifactPath(artifactPrefix, "binlog");
             finalArguments.Add($"/bl:{binaryLogPath}");
@@ -92,10 +92,13 @@ public sealed class DotnetCommandRunner
     }
 
     private static bool SupportsMsBuildProperties(DotnetCommandType commandType) =>
-        commandType is DotnetCommandType.Restore or DotnetCommandType.Build or DotnetCommandType.Test;
+        commandType is DotnetCommandType.Restore or DotnetCommandType.Build or DotnetCommandType.Publish or DotnetCommandType.Test;
 
     private static bool SupportsNoLogo(DotnetCommandType commandType) =>
-        commandType is DotnetCommandType.Restore or DotnetCommandType.Build;
+        commandType is DotnetCommandType.Restore or DotnetCommandType.Build or DotnetCommandType.Publish;
+
+    private static bool SupportsBinaryLog(DotnetCommandType commandType) =>
+        commandType is DotnetCommandType.Build or DotnetCommandType.Publish;
 
     private static bool ContainsArgument(IReadOnlyList<string> arguments, string expected) =>
         arguments.Any(argument => string.Equals(argument, expected, StringComparison.OrdinalIgnoreCase));

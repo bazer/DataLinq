@@ -7,6 +7,7 @@ public enum DotnetCommandType
 {
     Restore,
     Build,
+    Publish,
     Test,
     Info,
     Exec
