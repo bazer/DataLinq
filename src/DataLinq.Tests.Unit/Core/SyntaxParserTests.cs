@@ -60,6 +60,14 @@ public class SyntaxParserTests
     }
 
     [Test]
+    public async Task IsModelInterface_LookalikeNames_ReturnsFalse()
+    {
+        await Assert.That(SyntaxParser.IsModelInterface("DataLinq.Interfaces.IDatabaseModelBackup")).IsFalse();
+        await Assert.That(SyntaxParser.IsModelInterface("global::DataLinq.Interfaces.ITableModelBackup<TestNamespace.TestDb>")).IsFalse();
+        await Assert.That(SyntaxParser.IsModelInterface(SyntaxFactory.ParseTypeName("DataLinq.Interfaces.IViewModelBackup<TestNamespace.TestDb>"))).IsFalse();
+    }
+
+    [Test]
     public async Task MutableMetadataParserOutputs_AreMarkedObsolete()
     {
         var missingMethods = new (string MethodName, Type[] ParameterTypes)[]

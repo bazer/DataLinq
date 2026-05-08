@@ -21,10 +21,17 @@ public class SyntaxParser
     private readonly ImmutableArray<EnumDeclarationSyntax> enumSyntaxes;
 
     public static bool IsModelInterface(string interfaceName) =>
-        modelInterfaceNames.Any(GetUnqualifiedTypeName(interfaceName).StartsWith);
+        modelInterfaceNames.Any(modelInterfaceName => MatchesUnqualifiedTypeName(interfaceName, modelInterfaceName));
 
     public static bool IsModelInterface(TypeSyntax interfaceType) =>
-        modelInterfaceNames.Any(GetUnqualifiedTypeName(interfaceType).StartsWith);
+        modelInterfaceNames.Any(modelInterfaceName => MatchesUnqualifiedTypeName(GetUnqualifiedTypeName(interfaceType), modelInterfaceName));
+
+    internal static bool MatchesUnqualifiedTypeName(string typeName, string expectedTypeName)
+    {
+        var unqualifiedTypeName = GetUnqualifiedTypeName(typeName);
+        return string.Equals(unqualifiedTypeName, expectedTypeName, StringComparison.Ordinal) ||
+            unqualifiedTypeName.StartsWith(expectedTypeName + "<", StringComparison.Ordinal);
+    }
 
     internal static string GetUnqualifiedTypeName(TypeSyntax typeSyntax)
     {
@@ -196,7 +203,7 @@ public class SyntaxParser
                 return DLOptionFailure.Fail($"Parsing base interfaces for {typeSyntax.Identifier.Text}", model, interfaceFailures);
 
             model.SetInterfacesCore(declaredInterfaces
-                .Where(x => !x.Name.StartsWith("Immutable<"))
+                .Where(x => !MatchesUnqualifiedTypeName(x.Name, "Immutable"))
                 .ToList());
         }
 
@@ -276,7 +283,7 @@ public class SyntaxParser
                 return DLOptionFailure.Fail($"Parsing base interfaces for {typeSyntax.Identifier.Text}", interfaceFailures);
 
             interfaces = declaredInterfaces
-                .Where(x => !x.Name.StartsWith("Immutable<"))
+                .Where(x => !MatchesUnqualifiedTypeName(x.Name, "Immutable"))
                 .ToArray();
         }
 
@@ -327,9 +334,9 @@ public class SyntaxParser
     private static Option<MetadataTableDraft, IDLOptionFailure> ParseTableDraft(MetadataModelDraft model)
     {
         TableType tableType;
-        if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("ITableModel")))
+        if (model.OriginalInterfaces.Any(x => MatchesUnqualifiedTypeName(x.Name, "ITableModel")))
             tableType = TableType.Table;
-        else if (model.OriginalInterfaces.Any(x => x.Name.StartsWith("IViewModel")))
+        else if (model.OriginalInterfaces.Any(x => MatchesUnqualifiedTypeName(x.Name, "IViewModel")))
             tableType = TableType.View;
         else
             return FailModelDraft(model, DLFailureType.InvalidModel, $"Model '{model.CsType.Name}' does not inherit from 'ITableModel' or 'IViewModel'.");
@@ -1275,7 +1282,7 @@ public class SyntaxParser
                 var baseDecl = new CsTypeDeclaration(baseTypeSyntax);
 
                 // Direct match: if the baseDecl's name is the type of interest.
-                if (baseDecl.Name == typeName || baseDecl.Name.StartsWith(typeName + "<"))
+                if (MatchesUnqualifiedTypeName(baseDecl.Name, typeName))
                     return true;
 
                 // Recursively check if the base type inherits from the type.

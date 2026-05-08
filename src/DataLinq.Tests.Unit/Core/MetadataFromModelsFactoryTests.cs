@@ -302,6 +302,47 @@ public abstract partial class UserModel(IRowData rowData, IDataSourceAccess data
     }
 
     [Test]
+    public async Task ReadSyntaxTrees_LookalikeTableModelInterface_ReturnsInvalidModelFailure()
+    {
+        const string code = """
+using DataLinq;
+using DataLinq.Attributes;
+using DataLinq.Interfaces;
+using DataLinq.Instances;
+using DataLinq.Mutation;
+
+namespace TestNamespace;
+
+public partial class TestDb : IDatabaseModel
+{
+    public TestDb(DataSourceAccess dataSource) { }
+    public DbRead<UserModel> Users { get; }
+}
+
+public interface ITableModelBackup<TDatabase> { }
+
+[Table("users")]
+public abstract partial class UserModel(IRowData rowData, IDataSourceAccess dataSource) : Immutable<UserModel, TestDb>(rowData, dataSource), ITableModelBackup<TestDb>
+{
+    [Column("id"), PrimaryKey] public abstract int Id { get; }
+}
+""";
+
+        var declarations = GetSyntaxDeclarations(code);
+        var factory = new MetadataFromModelsFactory(new MetadataFromInterfacesFactoryOptions());
+        var result = factory.ReadSyntaxTrees(declarations).Single();
+
+        await Assert.That(result.HasValue).IsFalse();
+        await Assert.That(result.TryUnwrap(out _, out var failure)).IsFalse();
+        await Assert.That(failure.FailureType).IsNotEqualTo(DLFailureType.Exception);
+
+        var failureMessage = failure.ToString();
+        await Assert.That(failureMessage).Contains("UserModel");
+        await Assert.That(failureMessage).Contains("does not inherit from 'ITableModel' or 'IViewModel'");
+        await Assert.That(failureMessage).DoesNotContain("[Exception]");
+    }
+
+    [Test]
     public async Task ReadSyntaxTrees_QualifiedRelationPropertyTypes_ParsesRelations()
     {
         const string code = """

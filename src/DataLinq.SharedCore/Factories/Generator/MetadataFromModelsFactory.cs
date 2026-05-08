@@ -172,9 +172,9 @@ public class MetadataFromModelsFactory
 
         var modelClasses = modelSyntaxes
             .Where(x =>
-                ImplementsInterface(x, modelSyntaxes, i => i.Contains($"<{dbType.Identifier.Text}>")) &&
-                   (ImplementsInterface(x, modelSyntaxes, i => i.StartsWith("ITableModel")) ||
-                    ImplementsInterface(x, modelSyntaxes, i => i.StartsWith("IViewModel"))))
+                ImplementsInterface(x, modelSyntaxes, i => i.EndsWith($"<{dbType.Identifier.Text}>", StringComparison.Ordinal)) &&
+                   (ImplementsInterface(x, modelSyntaxes, i => SyntaxParser.MatchesUnqualifiedTypeName(i, "ITableModel")) ||
+                    ImplementsInterface(x, modelSyntaxes, i => SyntaxParser.MatchesUnqualifiedTypeName(i, "IViewModel"))))
             .ToList();
 
         if (!dbType.Members.OfType<PropertyDeclarationSyntax>()
