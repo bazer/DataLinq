@@ -43,7 +43,9 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `performance/Memory management.md`
 - `performance/Memory Optimization and Deduplication.md`
+- `performance/Allocation Reduction Audit.md`
 - `performance/Performance Benchmarking.md`
+- `performance/Representative Benchmark Suite and Website Trends.md`
 
 ### Roadmap implementation
 
