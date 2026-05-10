@@ -1,9 +1,9 @@
 > [!WARNING]
-> This document is planning material. It records allocation findings from a code audit after the phase 8 work. It should be validated with fresh BenchmarkDotNet numbers before any change is treated as proven.
+> This document is planning material. It records allocation findings from a code audit after the phase 8 work and a local 2026-05-10 benchmark refresh. Each implementation change still needs its own before/after BenchmarkDotNet validation before a win is treated as proven.
 
 # Allocation Reduction Audit
 
-**Status:** Draft audit  
+**Status:** Draft audit, refreshed with 2026-05-10 local benchmark data
 **Created:** 2026-05-09  
 **Scope:** provider initialization, generated metadata startup, metadata access, keys, row data, cache internals, and query construction.
 
@@ -11,41 +11,58 @@
 
 The blunt answer is that DataLinq is not suffering from one giant allocation leak. It is suffering from a bunch of small, defensible-looking copies that became expensive once phase 8 made provider startup and hot paths more visible.
 
-The most important pattern is repeated array snapshotting from metadata objects. Public getters such as `DatabaseDefinition.TableModels`, `TableDefinition.Columns`, `TableDefinition.PrimaryKeyColumns`, `ColumnDefinition.DbTypes`, and several attribute/value getters return fresh arrays. That is a good immutability instinct, but it is the wrong shape for internal runtime code. The runtime now uses these getters in provider initialization, query construction, cache setup, row reads, model accessors, and LINQ execution. That means we repeatedly allocate arrays just to iterate over already-frozen metadata.
+The most important pattern is repeated array snapshotting from metadata objects. Public getters such as `DatabaseDefinition.TableModels`, `TableDefinition.Columns`, `TableDefinition.PrimaryKeyColumns`, `ColumnDefinition.DbTypes`, and several attribute/value getters return fresh arrays. That is a good immutability instinct, but it is the wrong API shape now that backward compatibility is not a constraint. The runtime now uses these getters in provider initialization, query construction, cache setup, row reads, model accessors, and LINQ execution. That means we repeatedly allocate arrays just to iterate over already-frozen metadata.
 
 The second major pattern is key materialization. `IKey.Values` returns an `object?[]`, and the cache code reads it frequently. Simple integer and GUID keys should be close to allocation-free once they exist, but every `Values[0]` access allocates a one-element array and boxes value types. Composite keys are worse because `CompositeKey.Values` allocates nested arrays from child keys and then allocates the final array.
 
-The third major pattern is generated metadata startup. Generated metadata avoids reflection, which is good, but it still builds a transient `MetadataDatabaseDraft` graph, converts it into runtime metadata, validates it, freezes it, and binds generated handles. Provider metadata caching hides that work for repeated provider instances, but the cold path is still object-heavy.
+The third major pattern is generated metadata startup. Generated metadata avoids reflection, which is good, but it still builds a transient `MetadataDatabaseDraft` graph, converts it into runtime metadata, validates it, freezes it, and binds generated handles. Provider metadata caching hides that work for repeated provider instances, but the cold path is still object-heavy. Provider startup should be treated as a first-class hot path: cache lifetime can improve repeated construction, but it should not justify eager cache work during provider construction.
 
-Spans can help in tight internal loops and key construction. They are not the main answer for the public API. The better answer is frozen internal arrays, non-copying internal views, lookup maps built once during freeze, and span-based overloads at the small number of places where temporary sequences are currently forced into arrays.
+Spans can help in tight internal loops and key construction. They are not the main answer for the public API. The better answer is read-only metadata collections backed by frozen internal arrays, non-copying internal views, lookup maps built once during freeze, and span-based overloads at the small number of places where temporary sequences are currently forced into arrays.
 
 String builders are also not the main problem. `Sql` already uses `StringBuilder`, and `DbCommand.CommandText` eventually needs a `string`. We can reduce intermediate strings and parameter-name arrays, but we cannot make command text generation truly allocation-free.
 
 ## Measurement State
 
-The existing benchmark lane is useful but needs a fresh, trustworthy baseline before implementation starts.
+The existing benchmark lane is useful again. A local default-profile run on 2026-05-10 completed successfully for `sqlite-memory` on commit `57ce5efd36875f346969d7dfb596ffe21e50e5a2`.
 
-The last usable benchmark artifact found during this audit was:
+The fresh Phase 2 watchpoint run was:
 
-- `artifacts/benchmarks/results/20260428-192551821-ad13addd73d244e3981990af365291bc-summary.json`
-
-That run predates the current phase 8 state, so it should be treated as historical evidence, not the current baseline. It still points at the right areas:
-
-- provider initialization allocated roughly 334 KB per operation for the SQLite provider variants
-- startup primary-key fetch allocated roughly 119 KB per operation
-- warm primary-key fetch still allocated roughly 15 KB per operation, despite the row cache avoiding database work
-- warm relation traversal was in the same allocation neighborhood
-- repeated `IN` predicate fetch was materially higher, around the low tens of KB per operation
-
-A fresh run on 2026-05-09 did not produce valid current numbers. The smoke profile produced invalid BenchmarkDotNet job output for provider initialization, and the default profile failed with an `UnauthorizedAccessException` against:
-
-```text
-.dotnet\Home\AppData\Local\Microsoft\Windows\INetCache\Content.IE5
+```powershell
+$env:DATALINQ_BENCHMARK_PROVIDERS = 'sqlite-memory'
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile default --history-json artifacts\benchmarks\history\allocation-audit-phase2-watch-20260510.json
 ```
 
-The benchmark CLI creates child process environments through `BenchmarkCliSettings.CreateProcessEnvironment()`, which uses `DevToolPaths.CreateEnvironment(ToolingProfile.Repo)`. That deliberately pins `APPDATA`, `LOCALAPPDATA`, `HOME`, `USERPROFILE`, `DOTNET_CLI_HOME`, and NuGet paths under the repository. That is the right general idea for reproducible tooling, but BenchmarkDotNet is currently tripping over the repo-local Windows internet cache folder.
+Results:
 
-The first implementation step should be to fix this measurement blocker, not to guess from code audit alone.
+| Method | Provider | Mean | Allocated | Noise |
+| --- | --- | ---: | ---: | ---: |
+| Provider initialization | `sqlite-memory` | 2,428.8 us | 899.41 KB | 353.1% |
+| Startup primary-key fetch | `sqlite-memory` | 839.5 us | 145.86 KB | 181.6% |
+| Warm primary-key fetch | `sqlite-memory` | 264.9 us | 15.75 KB | 228.4% |
+
+The fresh Phase 3 query hot-path run was:
+
+```powershell
+$env:DATALINQ_BENCHMARK_PROVIDERS = 'sqlite-memory'
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile default --history-json artifacts\benchmarks\history\allocation-audit-phase3-query-hotpath-20260510.json
+```
+
+Results:
+
+| Method | Provider | Mean | Allocated | Noise |
+| --- | --- | ---: | ---: | ---: |
+| Repeated non-PK equality fetch | `sqlite-memory` | 495.1 us | 33.3 KB | 63.4% |
+| Repeated scalar `Any` | `sqlite-memory` | 514.0 us | 25.73 KB | 106.0% |
+| Repeated `IN` predicate fetch | `sqlite-memory` | 660.5 us | 47.91 KB | 180.3% |
+
+These timings are far too noisy for latency claims. The allocation columns are still good enough to invalidate the stale April numbers and to guide the next allocation-reduction pass. The important correction is brutal: provider initialization is not around 334 KB anymore. The local run measured 899.41 KB, and the May 10 published trend screenshot shows the same order of magnitude at roughly 829 KB.
+
+The benchmark artifacts from this refresh are:
+
+- `artifacts/benchmarks/results/20260510-122107538-ab7fd2d71e034318a04df80b54caca9f-summary.json`
+- `artifacts/benchmarks/results/20260510-122228296-b2428406423d436b81c711cb4487a3c5-summary.json`
+- `artifacts/benchmarks/history/allocation-audit-phase2-watch-20260510.json`
+- `artifacts/benchmarks/history/allocation-audit-phase3-query-hotpath-20260510.json`
 
 ## What Phase 8 Already Improved
 
@@ -77,7 +94,7 @@ Several metadata properties return fresh arrays every time they are accessed:
 - `EnumProperty.CsValuesOrDbValues`
 - `GeneratedDatabaseModelDeclaration.TableModels`
 
-This is defensible for a public immutability boundary. It is wasteful for runtime code that is only reading frozen metadata.
+This was defensible for a public immutability boundary when compatibility mattered. It is wasteful for runtime code and public callers that only need to read frozen metadata.
 
 Current hot call sites include:
 
@@ -92,10 +109,11 @@ Current hot call sites include:
 
 Recommended direction:
 
-1. Keep public array-returning properties for compatibility and defensive copying.
-2. Add internal non-copying accessors for frozen runtime use.
-3. Migrate DataLinq runtime code to those accessors.
-4. Add tests that mutating a public returned array does not mutate metadata.
+1. Replace public metadata array properties with stable read-only collection APIs. Backward compatibility is not required here.
+2. Use `IReadOnlyList<T>` for public and internal surfaces that need a holdable collection object.
+3. Use `ReadOnlySpan<T>` only for immediate internal iteration where the data is already contiguous and the method does not need to store it.
+4. Back the read-only collections with frozen metadata-owned arrays or another genuinely immutable collection shape. Do not expose a mutable array instance behind an `IReadOnlyList<T>` property if callers can reasonably cast it back to `T[]`.
+5. Add focused tests proving callers cannot mutate metadata through the public collection surface.
 
 Possible internal API shape:
 
@@ -107,7 +125,7 @@ internal int ColumnCount => columns.Length;
 internal ColumnDefinition GetColumn(int index) => columns[index];
 ```
 
-For APIs that need to be stored or passed through interfaces, `IReadOnlyList<T>` or internal arrays are usually more practical than `ReadOnlySpan<T>`.
+For APIs that need to be stored or passed through interfaces, `IReadOnlyList<T>` or a cached read-only wrapper over a frozen array is usually more practical than `ReadOnlySpan<T>`.
 
 Expected impact: high. This is cross-cutting and removes allocations from provider initialization, cache construction, query construction, row reads, and LINQ metadata lookup.
 
@@ -151,6 +169,8 @@ Generated metadata is not reflection-based anymore, but cold provider initializa
 
 Provider metadata caching in `DatabaseDefinition.loadedDatabases` prevents repeated cold builds for the same database type. It does not change the allocation shape of the first provider initialization, and benchmarks intentionally clear the cache to measure that path.
 
+The design target should be extremely lean provider startup. Cache lifetime can stay useful for repeated provider construction, but provider construction should not eagerly build cache state that is only needed after a query or mutation. Generated metadata construction itself should be lean enough that cold startup is respectable without leaning on cache warmup as an excuse.
+
 Recommended direction:
 
 1. Short term: reduce copies inside typed draft conversion and avoid public copying getters while binding generated handles.
@@ -187,16 +207,16 @@ Recommended direction:
 ```csharp
 public interface IKey
 {
-    object?[] Values { get; }
+    IReadOnlyList<object?> Values { get; }
     int ValueCount { get; }
     object? GetValue(int index);
     bool TryGetSingleValue(out object? value);
 }
 ```
 
-Then keep `Values` as a compatibility snapshot and migrate runtime code to `GetValue`.
+Then migrate runtime code to `GetValue` or `TryGetSingleValue`.
 
-`CompositeKey` should probably store `object?[]` values directly, or at least expose values without forcing nested child-key arrays. If we keep the child-key representation, `CompositeKey.GetValue(int)` must call the child key's non-allocating accessor.
+`CompositeKey` should store raw values directly if that keeps the implementation simple. That is the cleaner representation for cache lookups because the cache wants values, not a tree of child key objects. If raw storage makes the code notably more complex, keep child keys but make `CompositeKey.GetValue(int)` use the child key's non-allocating accessor. What should not survive is the current nested `Values` allocation pattern.
 
 Expected impact: high for warm primary-key fetches, relation traversal, and index maintenance. This is one of the clearest examples where the current design allocates for no real semantic reason.
 
@@ -270,7 +290,7 @@ That means provider initialization allocates snapshot state even before the user
 Recommended direction:
 
 - make the first snapshot lazy
-- keep an initial snapshot only if a feature actually needs it immediately
+- do not perform cache-history work during provider construction unless a feature proves it needs that exact eager behavior
 - ensure telemetry/history behavior remains unchanged from a public point of view
 
 Expected impact: medium for provider initialization. The exact size needs measurement.
@@ -343,9 +363,9 @@ Use spans where the data is already contiguous and the method does not need to s
 - SQL parameter append loops
 - internal metadata iteration
 
-Do not try to make spans the public long-lived metadata API. `ReadOnlySpan<T>` cannot be stored on classes, cannot be used in async state machines, and is awkward across many interface boundaries. For stable metadata, frozen arrays plus internal span-returning properties are the sweet spot.
+Do not try to make spans the public long-lived metadata API. `ReadOnlySpan<T>` cannot be stored on classes, cannot be used in async state machines, and is awkward across many interface boundaries. For stable metadata, read-only collections backed by frozen arrays plus internal span-returning helpers are the sweet spot.
 
-Use `IReadOnlyList<T>` when callers need a stable object they can hold. Use `ReadOnlySpan<T>` when callers need fast immediate iteration. Use public array snapshots only at compatibility boundaries.
+Use `IReadOnlyList<T>` when callers need a stable object they can hold. Use `ReadOnlySpan<T>` when callers need fast immediate iteration. Do not keep public array snapshots for metadata just for compatibility; compatibility is not a constraint for this cleanup.
 
 Use `StringBuilder` for command construction, but accept that the final SQL string has to allocate. The better target is fewer intermediate strings, fewer arrays of parameter names, and more reuse of known SQL shapes.
 
@@ -353,41 +373,44 @@ Do not pool long-lived metadata arrays. Pooling is wrong for frozen metadata bec
 
 ## Proposed Workstreams
 
-### P0: Fix Measurement First
+### P0: Keep Measurement Honest
 
-Goal: get valid current numbers before optimization work starts.
+Goal: keep using valid current numbers before and after optimization work.
 
 Tasks:
 
-- fix the BenchmarkDotNet repo-local `INetCache\Content.IE5` failure
-- rerun provider initialization and phase 2 watch benchmarks with the default profile
+- rerun provider initialization and phase 2 watch benchmarks before claiming startup wins
+- rerun the Phase 3 query hot-path lane before claiming query-construction wins
 - store the baseline artifact and note commit SHA/date/profile
-- add a benchmark note if smoke profile cannot validly measure provider initialization
+- treat the current default-profile timing means as noisy, but the allocation columns as useful
 
-Candidate command once the blocker is fixed:
+Current baseline commands:
 
 ```powershell
-.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile default --history-json artifacts\benchmarks\history\phase8-allocation-baseline.json
+$env:DATALINQ_BENCHMARK_PROVIDERS = 'sqlite-memory'
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile default --history-json artifacts\benchmarks\history\allocation-audit-phase2-watch-20260510.json
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile default --history-json artifacts\benchmarks\history\allocation-audit-phase3-query-hotpath-20260510.json
 ```
 
 Acceptance criteria:
 
-- current provider initialization allocations are known
-- warm primary-key fetch allocations are known
-- startup primary-key fetch allocations are known
-- the benchmark output has no configuration failures
+- provider initialization allocation is compared against the 899.41 KB local baseline
+- startup primary-key fetch allocation is compared against the 145.86 KB local baseline
+- warm primary-key fetch allocation is compared against the 15.75 KB local baseline
+- repeated non-PK equality, scalar `Any`, and `IN` predicate allocations are compared against the May 10 Phase 3 lane
 
-### P1: Add Non-Copying Metadata Runtime Access
+### P1: Replace Metadata Array APIs With Read-Only Collections
 
-Goal: stop internal runtime code from paying public defensive-copy costs.
+Goal: stop runtime and public callers from paying defensive-copy costs for frozen metadata.
 
 Tasks:
 
-- add internal span/list accessors to database, table, column, property, enum, and generated declaration metadata types
+- replace public metadata array properties with `IReadOnlyList<T>` or the most appropriate stable read-only collection type
+- add internal span/list accessors to database, table, column, property, enum, and generated declaration metadata types where they still add value
 - add `ColumnCount` and `GetColumn(int)` to `TableDefinition`
-- migrate runtime call sites away from public array-copy properties
-- preserve public snapshot behavior
-- add tests for public array immutability boundaries
+- migrate runtime call sites away from array-copy properties
+- remove public snapshot behavior unless a specific API still needs it
+- add tests for public metadata immutability boundaries
 
 Likely files:
 
@@ -406,10 +429,10 @@ Likely files:
 
 Acceptance criteria:
 
-- public array getters still return defensive snapshots
+- public metadata collections are stable and non-mutating
 - runtime provider initialization does not use `TableModels` snapshots
 - row construction does not use `Table.Columns.Length`
-- unit tests prove snapshot mutation does not mutate metadata
+- unit tests prove public callers cannot mutate metadata
 
 ### P1: Add Frozen Metadata Lookup Maps
 
@@ -440,13 +463,13 @@ Tasks:
 - update `CompositeKey`
 - add span-based key factory overloads where useful
 - migrate `TableCache`, relation handling, and index handling away from `Values`
-- keep `Values` as a compatibility snapshot
+- make `Values` a read-only collection surface, not an array snapshot
 
 Acceptance criteria:
 
 - warm primary-key cache reads do not allocate one-element key value arrays
 - composite key access avoids nested child `Values` arrays
-- public `Values` behavior remains unchanged
+- public `Values` remains read-only and does not expose mutable key internals
 
 ### P2: Lower Generated Metadata Startup Allocation
 
@@ -490,6 +513,7 @@ Goal: clean up smaller allocation and correctness issues.
 Tasks:
 
 - make `DatabaseCache` initial snapshot lazy if behavior allows
+- avoid other provider-construction cache work unless it is required for observable behavior
 - replace or lock mutable reverse-index lists in `IndexCache`
 - maintain a running byte count in `RowCache`
 - inspect cache policy copies after metadata API changes
@@ -502,8 +526,8 @@ Acceptance criteria:
 
 ## Suggested Priority Order
 
-1. Fix benchmark measurement.
-2. Add internal non-copying metadata accessors.
+1. Keep benchmark measurement current.
+2. Replace metadata array APIs with read-only collections and add internal non-copying accessors where useful.
 3. Add frozen metadata lookup maps.
 4. Add non-allocating key value access.
 5. Re-measure provider initialization, startup fetch, warm fetch, relation traversal, and `IN` predicates.
@@ -520,28 +544,28 @@ The first serious optimization pass should aim for measurable, conservative wins
 - provider initialization allocation reduced by at least 25 percent from the new current baseline
 - startup primary-key fetch allocation reduced by at least 20 percent
 - warm primary-key fetch allocation reduced enough to prove metadata/key snapshots were removed from the hot path
-- no public compatibility break from array-returning metadata getters
-- tests covering public snapshot immutability and non-allocating key access
+- public metadata arrays replaced with stable read-only collection APIs
+- tests covering public collection immutability and non-allocating key access
 - benchmark history artifact saved with before/after numbers
 
 The warm fetch target should be treated carefully. Some allocation comes from LINQ expression/query infrastructure rather than the cache itself. The goal is not a fantasy zero-allocation ORM call. The goal is to remove DataLinq-owned allocations that are clearly unnecessary.
 
 ## Things Not To Do First
 
-- Do not rewrite public metadata APIs to spans. That would be awkward, breaking, and not worth it.
+- Do not rewrite public metadata APIs to spans. That would be awkward and not worth it.
 - Do not pool frozen metadata arrays. They are long-lived by design.
 - Do not chase the final SQL command string allocation. ADO.NET needs command text as a string.
 - Do not remove validation from generated metadata startup just to save allocations.
 - Do not optimize provider schema import factories before runtime provider initialization and query hot paths are measured.
 - Do not replace all LINQ everywhere. Replace the LINQ that sits on hot paths or forces metadata snapshots.
 
-## Open Questions
+## Resolved Questions And Remaining Gaps
 
-- Should public metadata array properties eventually be marked as snapshot APIs and supplemented with public `IReadOnlyList<T>` properties?
-- Is metadata cache lifetime correct for all provider scenarios, or do tests intentionally force cold startup often enough that generated metadata construction must be extremely lean?
-- Does telemetry/history require an initial cache snapshot at provider construction, or can it be lazy without changing user-observable behavior?
-- How much of warm query allocation is DataLinq-owned versus Remotion/LINQ infrastructure?
-- Should composite keys continue to be represented as child `IKey` values, or should they store raw values directly?
+- Public metadata array properties should be replaced with stable read-only collection APIs. Do not keep array snapshots for backward compatibility.
+- Provider startup should be optimized as an extremely lean path. Cache lifetime may still help repeated construction, but provider construction should not eagerly do cache work that can be lazy.
+- Telemetry/history should be lazy unless a concrete public behavior requires an initial cache snapshot at provider construction.
+- The current benchmark lane does not split warm query allocation between DataLinq and Remotion/LINQ infrastructure. Current `sqlite-memory` totals are 15.75 KB for warm primary-key fetch, 33.3 KB for repeated non-PK equality, 25.73 KB for repeated scalar `Any`, and 47.91 KB for repeated `IN` predicate fetch. A separate allocation attribution pass is needed before claiming which part belongs to Remotion.
+- Composite keys should store raw values directly if that keeps the code clean. If direct raw storage makes the implementation ugly, keep child `IKey` values but expose composite values without nested array allocation.
 
 ## Reference Files
 
