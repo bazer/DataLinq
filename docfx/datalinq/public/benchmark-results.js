@@ -201,11 +201,20 @@ function getProfile(run) {
 }
 
 function getCategory(row) {
-  if (row.Category === 'phase2-watch' || row.Category === 'phase3-query-hotpath') {
+  const category = row.Category || row.TrackingGroup
+  if (isBenchmarkCategoryTag(category)) {
     return inferCategory(row.Method)
   }
 
-  return row.Category || row.TrackingGroup || inferCategory(row.Method)
+  return category || inferCategory(row.Method)
+}
+
+function isBenchmarkCategoryTag(value) {
+  return value === 'stable' ||
+    value === 'experimental' ||
+    value === 'macro' ||
+    value === 'phase2-watch' ||
+    value === 'phase3-query-hotpath'
 }
 
 function inferCategory(method) {
@@ -872,18 +881,60 @@ function installChartHover(root) {
   }
 }
 
-function renderTrendCards(points) {
-  const groups = [...groupBy(points, point => `${point.method}__${point.providerName}`).values()]
-    .sort((left, right) =>
-      categoryRank(left[left.length - 1].category) - categoryRank(right[right.length - 1].category) ||
-      left[left.length - 1].method.localeCompare(right[right.length - 1].method) ||
-      left[left.length - 1].providerName.localeCompare(right[right.length - 1].providerName))
+function renderTrendCards(points, expectedScenarios, selectedProfile) {
+  const groupsByKey = groupBy(points, point => `${point.method}__${point.providerName}`)
+  const cards = [...groupsByKey.entries()].map(([key, groupPoints]) => ({
+    key,
+    scenario: {
+      method: groupPoints[groupPoints.length - 1].method,
+      providerName: groupPoints[groupPoints.length - 1].providerName,
+      category: groupPoints[groupPoints.length - 1].category
+    },
+    groupPoints
+  }))
 
-  if (groups.length === 0) {
+  for (const scenario of expectedScenarios) {
+    const key = `${scenario.method}__${scenario.providerName}`
+    if (!groupsByKey.has(key)) {
+      cards.push({ key, scenario, groupPoints: [] })
+    }
+  }
+
+  cards.sort((left, right) =>
+    categoryRank(left.scenario.category) - categoryRank(right.scenario.category) ||
+    left.scenario.method.localeCompare(right.scenario.method) ||
+    left.scenario.providerName.localeCompare(right.scenario.providerName))
+
+  if (cards.length === 0) {
     return '<p class="benchmark-muted">No benchmark history is published yet.</p>'
   }
 
-  return groups.map(groupPoints => {
+  return cards.map(({ scenario, groupPoints }) => {
+    if (groupPoints.length === 0) {
+      return `
+        <section class="benchmark-card benchmark-card-missing">
+          <header class="benchmark-card-header">
+            <div>
+              <h3>${escapeHtml(scenario.method)}</h3>
+              <p>No ${escapeHtml(selectedProfile)} runs yet</p>
+            </div>
+          </header>
+          <div class="benchmark-card-grid">
+            <div>
+              <h4>Mean Time</h4>
+              <div class="benchmark-empty-chart">No ${escapeHtml(selectedProfile)} run has been published for this scenario yet.</div>
+              <p class="benchmark-card-value">-</p>
+            </div>
+            <div>
+              <h4>Allocated Bytes</h4>
+              <div class="benchmark-empty-chart">No ${escapeHtml(selectedProfile)} run has been published for this scenario yet.</div>
+              <p class="benchmark-card-value">-</p>
+            </div>
+          </div>
+        </section>
+      `
+    }
+
     const meanSeries = withoutInteriorOutliers(groupPoints, 'meanMicroseconds')
     const latest = meanSeries.points[meanSeries.points.length - 1] ?? groupPoints[groupPoints.length - 1]
     const skipped = meanSeries.skipped
@@ -964,7 +1015,7 @@ function renderBenchmarkPage(root, points, selectedProfile, allowedProviders, ex
     ${renderTrendTable(profilePoints, expectedScenarios, selectedProfile, commitUrlTemplate)}
     <h2>Charts</h2>
     <div class="benchmark-card-list">
-      ${renderTrendCards(profilePoints)}
+      ${renderTrendCards(profilePoints, expectedScenarios, selectedProfile)}
     </div>
   `
 

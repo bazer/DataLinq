@@ -238,6 +238,10 @@ article h4 {
   background: var(--color-bg-primary);
 }
 
+.benchmark-card-missing {
+  opacity: 0.78;
+}
+
 .benchmark-card-header {
   display: flex;
   align-items: flex-start;
