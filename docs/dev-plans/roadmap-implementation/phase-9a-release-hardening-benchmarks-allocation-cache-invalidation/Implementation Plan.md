@@ -143,6 +143,8 @@ Exit criteria:
 
 ## Workstream C: Metadata Collection And Lookup Allocation
 
+Workstream C is implemented. Public runtime metadata arrays now use stable `MetadataCollection<T>` read-only surfaces instead of defensive array snapshots, table and column metadata expose lookup helpers, and runtime query/materialization paths use those helpers where the old code repeatedly scanned copied arrays. The 2026-05-10 default-profile `sqlite-memory` rerun recorded Phase 2 watch allocations of 830.78 KB for provider initialization, 144.35 KB for startup primary-key fetch, and 15.25 KB for warm primary-key fetch. The Phase 3 query-hotpath rerun recorded 32.27 KB for repeated non-PK equality fetch, 25.19 KB for repeated scalar `Any`, and 47.29 KB for repeated `IN` predicate fetch. Timings were noisy; these runs are allocation evidence, not latency claims.
+
 Goals:
 
 - remove repeated metadata array snapshot allocation

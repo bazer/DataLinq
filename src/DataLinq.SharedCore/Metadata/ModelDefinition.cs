@@ -243,19 +243,20 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     internal bool IsOfType(Type modelType) =>
            modelType == CsType.Type || modelType.BaseType == CsType.Type;
 
-    public static ModelDefinition? Find(IModel model) =>
-        DatabaseDefinition
-        .LoadedDatabaseValues
-        .Select(x => x.TableModels.FirstOrDefault(y => y.Model.IsOfType(model.GetType())))
-        .FirstOrDefault(x => x != null)
-        ?.Model;
+    public static ModelDefinition? Find(IModel model) => Find(model.GetType());
 
-    public static ModelDefinition? Find<T>() where T : IModel =>
-        DatabaseDefinition
-        .LoadedDatabaseValues
-        .Select(x => x.TableModels.FirstOrDefault(y => y.Model.IsOfType(typeof(T))))
-        .FirstOrDefault(x => x != null)
-        ?.Model;
+    public static ModelDefinition? Find<T>() where T : IModel => Find(typeof(T));
+
+    private static ModelDefinition? Find(Type modelType)
+    {
+        foreach (var database in DatabaseDefinition.LoadedDatabaseValues)
+        {
+            if (database.TryGetTableModel(modelType, out var tableModel))
+                return tableModel.Model;
+        }
+
+        return null;
+    }
 
     public CsTypeDeclaration CsTypeOrInterface => ModelInstanceInterface ?? CsType;
 
