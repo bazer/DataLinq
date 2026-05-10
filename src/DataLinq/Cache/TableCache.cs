@@ -478,7 +478,7 @@ public class TableCache
 
         var select = new SqlQuery(Table, dataSource ?? DatabaseCache.Database.ReadOnlyAccess)
             .What(Table.PrimaryKeyColumns)
-            .Where(index.Columns.Select((x, i) => (x.DbName, foreignKey.Values[i])))
+            .Where(index.Columns.Select((x, i) => (x.DbName, foreignKey.GetValue(i))))
             .SelectQuery();
 
         var newKeys = KeyFactory.GetKeys(select, Table.PrimaryKeyColumns).ToArray();
@@ -620,7 +620,7 @@ public class TableCache
             var pkColumn = Table.PrimaryKeyColumns[0];
 
             q.Where(pkColumn.DbName)
-             .In(keys.Select(x => dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, x.Values[0])));
+             .In(keys.Select(x => dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, x.GetValue(0))));
         }
         else
         {
@@ -639,7 +639,7 @@ public class TableCache
                     // All conditions for a single key are ANDed together *within* keySpecificAndGroup.
                     // The AddWhere on keySpecificAndGroup will use its InternalJoinType (which is AND by default for new groups from SqlQuery.AddWhereGroup)
                     keySpecificAndGroup.Where(pkColumn.DbName)
-                                       .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key.Values[i]));
+                                       .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key.GetValue(i)));
                 }
             }
         }

@@ -122,6 +122,43 @@ public class KeyFactoryAndEqualityTests
         await Assert.That(key1.Equals(key3)).IsFalse();
     }
 
+    [Test]
+    public async Task KeyValues_Surface_IsReadOnlyAndDoesNotExposeMutableArrays()
+    {
+        var simpleKey = KeyFactory.CreateKeyFromValue("employee-1");
+        var compositeKey = KeyFactory.CreateKeyFromValues(new object?[] { "employee-1", "dept-1" });
+
+        await Assert.That(simpleKey.Values.Count).IsEqualTo(1);
+        await Assert.That(compositeKey.Values.Count).IsEqualTo(2);
+        await Assert.That((object)simpleKey.Values is object?[]).IsFalse();
+        await Assert.That((object)compositeKey.Values is object?[]).IsFalse();
+
+        var returnedValues = compositeKey.Values.ToArray();
+        returnedValues[0] = "changed";
+
+        await Assert.That(compositeKey.GetValue(0)).IsEqualTo("employee-1");
+    }
+
+    [Test]
+    public async Task SimpleKeyValueReads_DoNotAllocateSnapshotArrays()
+    {
+        IKey key = new StringKey("employee-1");
+
+        var allocatedBytes = MeasureKeyReads(key);
+
+        await Assert.That(allocatedBytes).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task CompositeKeyValueReads_DoNotAllocateNestedSnapshotArrays()
+    {
+        var key = KeyFactory.CreateKeyFromValues(new object?[] { "employee-1", "dept-1" });
+
+        var allocatedBytes = MeasureKeyReads(key);
+
+        await Assert.That(allocatedBytes).IsEqualTo(0);
+    }
+
     public static IEnumerable<Func<SimpleKeyCase>> SimpleKeyTypeData()
     {
         var guid = Guid.NewGuid();
@@ -144,5 +181,22 @@ public class KeyFactoryAndEqualityTests
         yield return () => new SimpleKeyCase(timeOnly, new TimeOnly(timeOnly.Ticks), timeOnly.AddHours(1));
         yield return () => new SimpleKeyCase(true, true, false);
         yield return () => new SimpleKeyCase(123.45m, 123.45m, 678.90m);
+    }
+
+    private static long MeasureKeyReads(IKey key)
+    {
+        _ = key.ValueCount;
+        _ = key.GetValue(0);
+        _ = key.TryGetSingleValue(out _);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 10_000; i++)
+        {
+            _ = key.ValueCount;
+            _ = key.GetValue(0);
+            _ = key.TryGetSingleValue(out _);
+        }
+
+        return GC.GetAllocatedBytesForCurrentThread() - before;
     }
 }

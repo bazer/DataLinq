@@ -13,14 +13,9 @@ public static class KeyFactory
         if (value is RowData)
             throw new Exception("Cannot create a primary key from a RowData object. Use CreatePrimaryKey(RowData, Column[]) instead.");
 
-        if (value is Enum enumValue)
-        {
-            // Convert the enum to its underlying primitive type (int, byte, long, etc.)
-            // and then call this method again. The recursion is safe because the type changes.
-            return CreateKeyFromValue(Convert.ChangeType(enumValue, enumValue.GetTypeCode()));
-        }
+        var normalized = NormalizeKeyValue(value);
 
-        return value switch
+        return normalized switch
         {
             null => new NullKey(),
 
@@ -46,13 +41,13 @@ public static class KeyFactory
             float floatValue => new ObjectKey(floatValue),
             double doubleValue => new ObjectKey(doubleValue),
 
-            _ => throw new Exception($"Type {value.GetType()} not supported as a key value")
+            _ => throw new Exception($"Type {normalized.GetType()} not supported as a key value")
         };
     }
 
     public static IKey CreateKeyFromValues(IEnumerable<object?> values)
     {
-        var array = values.ToArray();
+        var array = values.Select(NormalizeKeyValue).ToArray();
 
         if (array.Length == 1)
             return CreateKeyFromValue(array[0]);
@@ -60,9 +55,15 @@ public static class KeyFactory
         if (array.All(x => x == null))
             return new NullKey();
 
-        // Convert each object to its specific IKey type.
-        var keys = array.Select(CreateKeyFromValue).ToArray();
-        return new CompositeKey(keys);
+        return new CompositeKey(array);
+    }
+
+    private static object? NormalizeKeyValue(object? value)
+    {
+        if (value is Enum enumValue)
+            return Convert.ChangeType(enumValue, enumValue.GetTypeCode());
+
+        return value;
     }
 
     public static IKey GetKey(IDataLinqDataReader reader, IReadOnlyList<ColumnDefinition> columns)
