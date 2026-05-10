@@ -62,9 +62,7 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
 
                     tableCache.SubscribeToChanges(this, source as Transaction);
 
-                    valueHolder = new((T?)tableCache
-                        .GetRows(foreignKey, property, dataSource)
-                        .SingleOrDefault());
+                    valueHolder = new(LoadInstance(tableCache, source));
 
                     tableCache.MetricsHandle.RecordRelationReferenceLoad();
                 }
@@ -72,6 +70,17 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
 
             return valueHolder.Value;
         }
+    }
+
+    private T? LoadInstance(TableCache tableCache, IDataSourceAccess source)
+    {
+        var otherSide = property.RelationPart.GetOtherSide();
+        if (tableCache.Table.PrimaryKeyColumns.SequenceEqual(otherSide.ColumnIndex.Columns))
+            return (T?)tableCache.GetRow(foreignKey, source);
+
+        return (T?)tableCache
+            .GetRows(foreignKey, property, source)
+            .SingleOrDefault();
     }
 
     public void Clear()

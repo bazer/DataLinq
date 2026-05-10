@@ -140,6 +140,8 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
     where T : IImmutableInstance
 {
     private volatile FrozenDictionary<IKey, T>? relationInstances;
+    private ImmutableArray<T> relationValues;
+    private volatile bool relationValuesLoaded;
 
 #if NET9_0_OR_GREATER
     protected readonly Lock loadLock = new();
@@ -159,9 +161,9 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
     /// </summary>
     public T? Get(IKey key) => GetInstances().TryGetValue(key, out var instance) ? instance : default;
 
-    public ImmutableArray<T> Values => GetInstances().Values;
+    public ImmutableArray<T> Values => GetValues();
     public ImmutableArray<IKey> Keys => GetInstances().Keys;
-    public int Count => GetInstances().Count;
+    public int Count => GetValues().Length;
     public bool ContainsKey(IKey key) => GetInstances().ContainsKey(key);
     public IEnumerable<KeyValuePair<IKey, T>> AsEnumerable() => GetInstances().AsEnumerable();
     public FrozenDictionary<IKey, T> ToFrozenDictionary() => GetInstances();
@@ -177,10 +179,26 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
         return dataSource;
     }
 
+    protected ImmutableArray<T> GetValues()
+    {
+        if (relationValuesLoaded)
+        {
+            GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
+            return relationValues;
+        }
+
+        lock (loadLock)
+        {
+            // Check if another thread loaded relationInstances while we were waiting for the lock.
+            if (!relationValuesLoaded)
+                return LoadValues();
+
+            return relationValues;
+        }
+    }
+
     protected FrozenDictionary<IKey, T> GetInstances()
     {
-        // Copy to local instance in case relationInstance gets changed
-        // by another thread inbetween the null check and return.
         var localInstance = relationInstances;
         if (localInstance != null)
         {
@@ -190,35 +208,49 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
 
         lock (loadLock)
         {
-            // Check if another thread loaded relationInstances while we were waiting for the lock.
             if (relationInstances == null)
             {
-                // Load the relation instances from the data source.
-                // This will only happen once, and subsequent calls will return the cached value.
-                var source = GetDataSource();
-                var tableCache = GetTableCache(source);
+                var valuesWereLoaded = relationValuesLoaded;
+                var values = valuesWereLoaded ? relationValues : LoadValues();
+                if (valuesWereLoaded)
+                    GetTableCache().MetricsHandle.RecordRelationCollectionCacheHit();
 
-                tableCache.SubscribeToChanges(this, source as Transaction);
-
-                relationInstances = tableCache
-                    .GetRows(foreignKey, property, source)
-                    .Select(x => (T)x)
-                    .ToFrozenDictionary(x => x.PrimaryKeys());
-
-                tableCache.MetricsHandle.RecordRelationCollectionLoad();
+                relationInstances = values.ToFrozenDictionary(x => x.PrimaryKeys());
             }
 
             return relationInstances;
         }
     }
 
+    private ImmutableArray<T> LoadValues()
+    {
+        // Load the relation instances from the data source.
+        // This will only happen once, and subsequent calls will return the cached value.
+        var source = GetDataSource();
+        var tableCache = GetTableCache(source);
+
+        tableCache.SubscribeToChanges(this, source as Transaction);
+
+        relationValues = tableCache
+            .GetRows(foreignKey, property, source)
+            .Select(x => (T)x)
+            .ToImmutableArray();
+
+        relationValuesLoaded = true;
+        tableCache.MetricsHandle.RecordRelationCollectionLoad();
+
+        return relationValues;
+    }
+
     public void Clear()
     {
-        if (relationInstances != null)
+        if (relationValuesLoaded || relationInstances != null)
         {
             lock (loadLock)
             {
                 relationInstances = null;
+                relationValues = default;
+                relationValuesLoaded = false;
             }
         }
     }
@@ -226,7 +258,7 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
     public IEnumerator<T> GetEnumerator()
     {
         // Cast to IEnumerable<T> so that we get an IEnumerator<T>.
-        return ((IEnumerable<T>)GetInstances().Values).GetEnumerator();
+        return ((IEnumerable<T>)GetValues()).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()

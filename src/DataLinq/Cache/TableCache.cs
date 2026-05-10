@@ -547,7 +547,20 @@ public class TableCache
         if (foreignKey is NullKey)
             return [];
 
-        return GetRows(GetKeys(foreignKey, otherSide, dataSource), dataSource);
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        EnsureTransactionRowCache(dataSource);
+
+        var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
+        if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
+        {
+            var row = GetRow(foreignKey, dataSource);
+            return row is null ? [] : [row];
+        }
+
+        if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None && IndexCaches[index].TryGetValue(foreignKey, out var keys))
+            return GetRows(keys!, dataSource);
+
+        return LoadRowsFromForeignKeyAndCache(foreignKey, index, dataSource);
     }
 
     public IImmutableInstance? GetRow(IKey primaryKeys, IDataSourceAccess dataSource)
@@ -583,10 +596,21 @@ public class TableCache
     {
         EnsureTransactionRowCache(dataSource);
 
+        if (primaryKeys.Length == 0)
+            return [];
+
         if (orderings == null || orderings.Count == 0)
+        {
+            if (primaryKeys.Length == 1)
+            {
+                var row = GetRow(primaryKeys[0], dataSource);
+                return row is null ? [] : [row];
+            }
+
             return LoadRowsFromDatabaseAndCache(primaryKeys, dataSource);
-        else
-            return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
+        }
+
+        return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
     }
 
     private void EnsureTransactionRowCache(IDataSourceAccess dataSource)
@@ -629,6 +653,47 @@ public class TableCache
 
             Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
         }
+    }
+
+    private IImmutableInstance[] LoadRowsFromForeignKeyAndCache(IKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
+    {
+        var q = new SqlQuery(Table, dataSource)
+            .Where(index.Columns.Select((x, i) => (x.DbName, foreignKey.GetValue(i))))
+            .SelectQuery();
+
+        var rows = new List<IImmutableInstance>();
+        var primaryKeys = indexCachePolicy.type == IndexCacheType.None ? null : new List<IKey>();
+        var rowCacheHits = 0;
+        var rowCacheMisses = 0;
+
+        foreach (var rowData in q.ReadRows())
+        {
+            var primaryKey = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
+            primaryKeys?.Add(primaryKey);
+
+            if (GetRowFromCache(primaryKey, dataSource, out var cachedRow))
+            {
+                rowCacheHits++;
+                rows.Add(cachedRow!);
+                continue;
+            }
+
+            rowCacheMisses++;
+            MetricsHandle.RecordDatabaseRowsLoaded(1);
+            rows.Add(AddRow(rowData, dataSource));
+        }
+
+        MetricsHandle.RecordRowCacheHits(rowCacheHits);
+        MetricsHandle.RecordRowCacheMisses(rowCacheMisses);
+        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, rowCacheHits);
+        Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, rowCacheMisses);
+
+        if (primaryKeys is not null)
+            IndexCaches[index].TryAdd(foreignKey, primaryKeys.ToArray());
+
+        RefreshOccupancyMetrics();
+
+        return rows.ToArray();
     }
 
     private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache(IKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)
