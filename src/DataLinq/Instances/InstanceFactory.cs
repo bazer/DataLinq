@@ -51,8 +51,7 @@ public interface IImmutable<T>
         if (dataSource == null)
             throw new ArgumentNullException(nameof(dataSource), "Data source cannot be null");
 
-        var tableModel = dataSource.Provider.Metadata.TableModels.SingleOrDefault(x => x.Model.CsType.Type == typeof(T));
-        if (tableModel == null)
+        if (!dataSource.Provider.Metadata.TryGetTableModel(typeof(T), out var tableModel))
             throw new Exception($"Found no TableDefinition for model '{typeof(T)}'");
 
         return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource);

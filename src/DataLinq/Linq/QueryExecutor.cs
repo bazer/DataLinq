@@ -349,10 +349,9 @@ internal class QueryExecutor : IQueryExecutor
 
     private TableDefinition GetTableForModelType(Type modelType)
     {
-        return Transaction.Provider.Metadata.TableModels
-            .SingleOrDefault(x => x.Model.CsType.Type == modelType)
-            ?.Table
-            ?? throw new QueryTranslationException($"Join inner sequence type '{modelType}' is not a mapped DataLinq table model.");
+        return Transaction.Provider.Metadata.TryGetTableModel(modelType, out var tableModel)
+            ? tableModel.Table
+            : throw new QueryTranslationException($"Join inner sequence type '{modelType}' is not a mapped DataLinq table model.");
     }
 
     private static void ValidateJoinInnerSequence(JoinClause joinClause)
@@ -377,8 +376,9 @@ internal class QueryExecutor : IQueryExecutor
             throw new QueryTranslationException($"The {side} Join key selector '{keySelector}' is not supported. Only direct member keys and nullable Value member keys are supported.");
         }
 
-        return source.Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == memberExpression.Member.Name)
-            ?? throw new QueryTranslationException($"The {side} Join key member '{memberExpression.Member.Name}' is not mapped on table '{source.Table.DbName}'.");
+        return source.Table.TryGetColumnByPropertyName(memberExpression.Member.Name, out var column)
+            ? column
+            : throw new QueryTranslationException($"The {side} Join key member '{memberExpression.Member.Name}' is not mapped on table '{source.Table.DbName}'.");
     }
 
     private static IEnumerable<string> GetJoinedPrimaryKeySelectors<T>(SqlQuery<T> query, IReadOnlyList<JoinQuerySource> sources)
@@ -583,8 +583,9 @@ internal class QueryExecutor : IQueryExecutor
         if (!IsNumericType(selector.Type))
             throw new QueryTranslationException($"Aggregate selector '{selector}' for '{op.GetType().Name}' must be numeric. Selector type: {selector.Type}");
 
-        var column = query.Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == memberExpression.Member.Name)
-            ?? throw new QueryTranslationException($"Aggregate selector member '{memberExpression.Member.Name}' was not found on table '{query.Table.DbName}'. Selector: {selector}");
+        var column = query.Table.TryGetColumnByPropertyName(memberExpression.Member.Name, out var aggregateColumn)
+            ? aggregateColumn
+            : throw new QueryTranslationException($"Aggregate selector member '{memberExpression.Member.Name}' was not found on table '{query.Table.DbName}'. Selector: {selector}");
 
         return $"{query.EscapeCharacter}{column.DbName}{query.EscapeCharacter}";
     }

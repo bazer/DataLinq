@@ -97,7 +97,7 @@ public class DatabaseColumnType(DatabaseType databaseType, string name, ulong? l
 
 public class ColumnDefinition(string dbName, TableDefinition table) : IDefinition
 {
-    private DatabaseColumnType[] dbTypes = [];
+    private MetadataCollection<DatabaseColumnType> dbTypes = MetadataCollection<DatabaseColumnType>.Empty;
 
     public TableDefinition Table { get; } = table;
     public string DbName { get; private set; } = dbName;
@@ -115,7 +115,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
         DbName = value;
     }
 
-    public DatabaseColumnType[] DbTypes => dbTypes.ToArray();
+    public MetadataCollection<DatabaseColumnType> DbTypes => dbTypes;
     public int Index { get; private set; }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -218,7 +218,8 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     internal void AddDbTypeCore(DatabaseColumnType columnType)
     {
         ThrowIfFrozen();
-        dbTypes = dbTypes.AsEnumerable().Append(columnType).ToArray();
+        dbTypes = new MetadataCollection<DatabaseColumnType>(dbTypes.Append(columnType));
+        cachedDbTypes.Clear();
     }
 
     private readonly ConcurrentDictionary<DatabaseType, DatabaseColumnType?> cachedDbTypes = new();

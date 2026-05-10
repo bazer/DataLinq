@@ -33,7 +33,7 @@ public class ReadOnlyAccess : DataSourceAccess
     /// <returns>The models returned by the query.</returns>
     public override IEnumerable<T> GetFromQuery<T>(string query)
     {
-        var table = Provider.Metadata.TableModels.Single(x => x.Model.CsType.Type == typeof(T)).Table;
+        var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
         return Provider
             .DatabaseAccess
@@ -50,7 +50,7 @@ public class ReadOnlyAccess : DataSourceAccess
     /// <returns>The models returned by the command.</returns>
     public override IEnumerable<T> GetFromCommand<T>(IDbCommand dbCommand)
     {
-        var table = Provider.Metadata.TableModels.Single(x => x.Model.CsType.Type == typeof(T)).Table;
+        var table = Provider.Metadata.GetTableModel(typeof(T)).Table;
 
         return Provider
             .DatabaseAccess
@@ -98,7 +98,7 @@ public class ReadOnlyAccess<T> : ReadOnlyAccess, IDataSourceAccess<T>
     /// <returns>The SQL query.</returns>
     public SqlQuery From(string tableName)
     {
-        var table = Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
+        var table = Provider.Metadata.GetTableModel(tableName).Table;
 
         return new SqlQuery(table, this);
     }

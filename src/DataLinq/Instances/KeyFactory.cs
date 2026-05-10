@@ -65,9 +65,9 @@ public static class KeyFactory
         return new CompositeKey(keys);
     }
 
-    public static IKey GetKey(IDataLinqDataReader reader, ColumnDefinition[] columns)
+    public static IKey GetKey(IDataLinqDataReader reader, IReadOnlyList<ColumnDefinition> columns)
     {
-        if (columns.Length == 1)
+        if (columns.Count == 1)
         {
             // The fast path
             var columnType = columns[0].ValueProperty.CsType.Type;
@@ -84,10 +84,10 @@ public static class KeyFactory
         return CreateKeyFromValues(columns.Select(x => reader.GetValue<object>(x)));
     }
 
-    public static IKey GetKey(RowData row, ColumnDefinition[] columns) =>
+    public static IKey GetKey(RowData row, IReadOnlyList<ColumnDefinition> columns) =>
         CreateKeyFromValues(columns.Select(row.GetValue));
 
-    public static IEnumerable<IKey> GetKeys<T>(Select<T> select, ColumnDefinition[] columns) => select
+    public static IEnumerable<IKey> GetKeys<T>(Select<T> select, IReadOnlyList<ColumnDefinition> columns) => select
         .ReadReader()
         .Select(x => GetKey(x, columns));
 }

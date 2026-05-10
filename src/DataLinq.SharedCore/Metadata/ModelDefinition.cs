@@ -7,9 +7,9 @@ namespace DataLinq.Metadata;
 
 public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 {
-    private CsTypeDeclaration[] originalInterfaces = [];
-    private ModelUsing[] usings = [];
-    private Attribute[] attributes = [];
+    private MetadataCollection<CsTypeDeclaration> originalInterfaces = MetadataCollection<CsTypeDeclaration>.Empty;
+    private MetadataCollection<ModelUsing> usings = MetadataCollection<ModelUsing>.Empty;
+    private MetadataCollection<Attribute> attributes = MetadataCollection<Attribute>.Empty;
 
     public CsTypeDeclaration CsType { get; private set; } = csType;
     public bool IsFrozen { get; private set; }
@@ -106,7 +106,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         ModelInstanceInterface = interfaceType;
     }
 
-    public CsTypeDeclaration[] OriginalInterfaces => originalInterfaces.ToArray();
+    public MetadataCollection<CsTypeDeclaration> OriginalInterfaces => originalInterfaces;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetInterfaces(IEnumerable<CsTypeDeclaration> interfaces)
@@ -117,10 +117,10 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     internal void SetInterfacesCore(IEnumerable<CsTypeDeclaration> interfaces)
     {
         ThrowIfFrozen();
-        originalInterfaces = interfaces.ToArray();
+        originalInterfaces = new MetadataCollection<CsTypeDeclaration>(interfaces);
     }
 
-    public ModelUsing[] Usings => usings.ToArray();
+    public MetadataCollection<ModelUsing> Usings => usings;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetUsings(IEnumerable<ModelUsing> usings)
@@ -131,12 +131,12 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     internal void SetUsingsCore(IEnumerable<ModelUsing> usings)
     {
         ThrowIfFrozen();
-        this.usings = usings.ToArray();
+        this.usings = new MetadataCollection<ModelUsing>(usings);
     }
 
     public MetadataDictionary<string, RelationProperty> RelationProperties { get; } = new();
     public MetadataDictionary<string, ValueProperty> ValueProperties { get; } = new();
-    public Attribute[] Attributes => attributes.ToArray();
+    public MetadataCollection<Attribute> Attributes => attributes;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)
@@ -147,7 +147,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     internal void SetAttributesCore(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
-        this.attributes = attributes.ToArray();
+        this.attributes = new MetadataCollection<Attribute>(attributes);
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -159,7 +159,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     internal void AddAttributeCore(Attribute attribute)
     {
         ThrowIfFrozen();
-        attributes = [.. attributes, attribute];
+        attributes = new MetadataCollection<Attribute>(attributes.Append(attribute));
     }
 
     public SourceTextSpan? SourceSpan { get; private set; }
@@ -240,20 +240,20 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
             throw new NotImplementedException();
     }
 
-    protected bool IsOfType(Type modelType) =>
+    internal bool IsOfType(Type modelType) =>
            modelType == CsType.Type || modelType.BaseType == CsType.Type;
 
     public static ModelDefinition? Find(IModel model) =>
         DatabaseDefinition
         .LoadedDatabaseValues
-        .Select(x => Array.Find(x.TableModels, y => y.Model.IsOfType(model.GetType())))
+        .Select(x => x.TableModels.FirstOrDefault(y => y.Model.IsOfType(model.GetType())))
         .FirstOrDefault(x => x != null)
         ?.Model;
 
     public static ModelDefinition? Find<T>() where T : IModel =>
         DatabaseDefinition
         .LoadedDatabaseValues
-        .Select(x => Array.Find(x.TableModels, y => y.Model.IsOfType(typeof(T))))
+        .Select(x => x.TableModels.FirstOrDefault(y => y.Model.IsOfType(typeof(T))))
         .FirstOrDefault(x => x != null)
         ?.Model;
 

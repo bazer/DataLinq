@@ -15,9 +15,9 @@ public enum PropertyType
 
 public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration csType, ModelDefinition model, IEnumerable<Attribute> attributes) : IDefinition
 {
-    private Attribute[] attributeArray = attributes.ToArray();
+    private MetadataCollection<Attribute> attributeArray = new(attributes);
 
-    public Attribute[] Attributes => attributeArray.ToArray();
+    public MetadataCollection<Attribute> Attributes => attributeArray;
     public bool IsFrozen { get; private set; }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -29,7 +29,7 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     internal void SetAttributesCore(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
-        attributeArray = attributes.ToArray();
+        attributeArray = new MetadataCollection<Attribute>(attributes);
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -41,7 +41,7 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
     internal void AddAttributeCore(Attribute attribute)
     {
         ThrowIfFrozen();
-        attributeArray = [.. attributeArray, attribute];
+        attributeArray = new MetadataCollection<Attribute>(attributeArray.Append(attribute));
     }
 
     public string PropertyName { get; private set; } = propertyName;

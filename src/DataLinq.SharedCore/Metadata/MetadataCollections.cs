@@ -1,8 +1,32 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DataLinq.Metadata;
+
+public sealed class MetadataCollection<T> : IReadOnlyList<T>
+{
+    public static MetadataCollection<T> Empty { get; } = new([]);
+
+    private readonly T[] items;
+
+    public MetadataCollection(IEnumerable<T> items)
+    {
+        this.items = items?.ToArray() ?? [];
+    }
+
+    public int Count => items.Length;
+    public int Length => items.Length;
+
+    public T this[int index] => items[index];
+
+    public T[] ToArray() => items.ToArray();
+
+    public IEnumerator<T> GetEnumerator() => ((IEnumerable<T>)items).GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
 
 public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
 {

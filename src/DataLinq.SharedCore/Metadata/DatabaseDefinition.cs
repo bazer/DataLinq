@@ -10,8 +10,10 @@ namespace DataLinq.Metadata;
 public class DatabaseDefinition : IDefinition
 {
     private static readonly ConcurrentDictionary<Type, DatabaseDefinition> loadedDatabases = new();
-    private Attribute[] attributes = [];
-    private TableModel[] tableModels = [];
+    private MetadataCollection<Attribute> attributes = MetadataCollection<Attribute>.Empty;
+    private MetadataCollection<TableModel> tableModels = MetadataCollection<TableModel>.Empty;
+    private Dictionary<Type, TableModel> tableModelsByModelType = new();
+    private Dictionary<string, TableModel> tableModelsByDbName = new(StringComparer.Ordinal);
 
     [Obsolete("Direct mutation of the global metadata registry is obsolete. Runtime code should use provider-owned metadata or internal registry helpers.")]
     public static ConcurrentDictionary<Type, DatabaseDefinition> LoadedDatabases => loadedDatabases;
@@ -125,7 +127,7 @@ public class DatabaseDefinition : IDefinition
         UseCache = useCache;
     }
 
-    public Attribute[] Attributes => attributes.ToArray();
+    public MetadataCollection<Attribute> Attributes => attributes;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributes(IEnumerable<Attribute> attributes)
@@ -136,7 +138,7 @@ public class DatabaseDefinition : IDefinition
     internal void SetAttributesCore(IEnumerable<Attribute> attributes)
     {
         ThrowIfFrozen();
-        this.attributes = attributes.ToArray();
+        this.attributes = new MetadataCollection<Attribute>(attributes);
     }
 
     public SourceTextSpan? SourceSpan { get; private set; }
@@ -183,7 +185,55 @@ public class DatabaseDefinition : IDefinition
         return new SourceLocation(CsFile.Value, sourceSpan);
     }
 
-    public TableModel[] TableModels => tableModels.ToArray();
+    public MetadataCollection<TableModel> TableModels => tableModels;
+
+    public TableModel GetTableModel(Type modelType)
+    {
+        if (TryGetTableModel(modelType, out var tableModel))
+            return tableModel;
+
+        throw new KeyNotFoundException($"No table model registered for model type '{modelType.FullName ?? modelType.Name}'.");
+    }
+
+    public bool TryGetTableModel(Type modelType, out TableModel tableModel)
+    {
+        if (modelType is null)
+            throw new ArgumentNullException(nameof(modelType));
+
+        if (tableModelsByModelType.TryGetValue(modelType, out var exactMatch))
+        {
+            tableModel = exactMatch;
+            return true;
+        }
+
+        foreach (var candidate in tableModels)
+        {
+            if (candidate.Model.IsOfType(modelType))
+            {
+                tableModel = candidate;
+                return true;
+            }
+        }
+
+        tableModel = null!;
+        return false;
+    }
+
+    public TableModel GetTableModel(string tableName)
+    {
+        if (TryGetTableModel(tableName, out var tableModel))
+            return tableModel;
+
+        throw new KeyNotFoundException($"No table model registered for database table '{tableName}'.");
+    }
+
+    public bool TryGetTableModel(string tableName, out TableModel tableModel)
+    {
+        if (tableName is null)
+            throw new ArgumentNullException(nameof(tableName));
+
+        return tableModelsByDbName.TryGetValue(tableName, out tableModel!);
+    }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetTableModels(IEnumerable<TableModel> tableModels)
@@ -194,7 +244,8 @@ public class DatabaseDefinition : IDefinition
     internal void SetTableModelsCore(IEnumerable<TableModel> tableModels)
     {
         ThrowIfFrozen();
-        this.tableModels = tableModels.ToArray();
+        this.tableModels = new MetadataCollection<TableModel>(tableModels);
+        RebuildTableModelLookups();
     }
 
     public MetadataList<(CacheLimitType limitType, long amount)> CacheLimits { get; } = new();
@@ -206,6 +257,7 @@ public class DatabaseDefinition : IDefinition
         if (IsFrozen)
             return;
 
+        RebuildTableModelLookups();
         IsFrozen = true;
 
         foreach (var tableModel in tableModels)
@@ -224,6 +276,28 @@ public class DatabaseDefinition : IDefinition
         {
             relation.Freeze();
         }
+    }
+
+    private void RebuildTableModelLookups()
+    {
+        var byModelType = new Dictionary<Type, TableModel>();
+        var byDbName = new Dictionary<string, TableModel>(StringComparer.Ordinal);
+
+        foreach (var tableModel in tableModels)
+        {
+            if (tableModel is null)
+                continue;
+
+            var modelType = tableModel.Model.CsType.Type;
+            if (modelType is not null && !byModelType.ContainsKey(modelType))
+                byModelType.Add(modelType, tableModel);
+
+            if (!byDbName.ContainsKey(tableModel.Table.DbName))
+                byDbName.Add(tableModel.Table.DbName, tableModel);
+        }
+
+        tableModelsByModelType = byModelType;
+        tableModelsByDbName = byDbName;
     }
 
     private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);

@@ -107,6 +107,10 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(databaseDefinition.TableModels.Any(tm => tm.Table.DbName == "current_dept_emp" && tm.Model.CsType.Type == typeof(current_dept_emp) && tm.Table.Type == TableType.View)).IsTrue();
         await Assert.That(databaseDefinition.TableModels.Any(tm => tm.Table.DbName == "dept_emp_latest_date" && tm.Model.CsType.Type == typeof(dept_emp_latest_date) && tm.Table.Type == TableType.View)).IsTrue();
 
+        await Assert.That(ReferenceEquals(
+            databaseDefinition.GetTableModel(typeof(Employee)),
+            databaseDefinition.GetTableModel("employees"))).IsTrue();
+
         var employeeModel = databaseDefinition.TableModels.Single(tm => tm.Table.DbName == "employees").Model;
         var deptEmpModel = databaseDefinition.TableModels.Single(tm => tm.Table.DbName == "dept-emp").Model;
 
@@ -122,12 +126,13 @@ public class MetadataFromTypeFactoryTests
         await Assert.That(ReferenceEquals(deptEmpToEmployee.RelationPart, employeeToDeptEmp.RelationPart.GetOtherSide())).IsTrue();
 
         var departmentsTable = databaseDefinition.TableModels.Single(tm => tm.Table.DbName == "departments").Table;
-        var nameColumn = departmentsTable.Columns.Single(c => c.DbName == "dept_name");
+        var nameColumn = departmentsTable.GetColumnByDbName("dept_name");
         var uniqueIndex = departmentsTable.ColumnIndices.Single(idx => idx.Name == "dept_name");
 
         await Assert.That(uniqueIndex.Characteristic).IsEqualTo(IndexCharacteristic.Unique);
         await Assert.That(uniqueIndex.Columns.Count).IsEqualTo(1);
         await Assert.That(ReferenceEquals(nameColumn, uniqueIndex.Columns[0])).IsTrue();
+        await Assert.That(ReferenceEquals(nameColumn, departmentsTable.GetColumnByPropertyName("Name"))).IsTrue();
     }
 
     [Test]

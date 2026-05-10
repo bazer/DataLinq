@@ -180,7 +180,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
         };
     }
 
-    private string? GetComment(Attribute[] attributes)
+    private string? GetComment(IEnumerable<Attribute> attributes)
     {
         var comments = attributes.OfType<CommentAttribute>();
         var typedComment = comments.FirstOrDefault(x => x.DatabaseType == DatabaseType);
@@ -189,7 +189,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
             ?? comments.FirstOrDefault(x => x.DatabaseType == DatabaseType.Default)?.Text;
     }
 
-    private IEnumerable<CheckAttribute> GetCheckAttributes(Attribute[] attributes)
+    private IEnumerable<CheckAttribute> GetCheckAttributes(IEnumerable<Attribute> attributes)
     {
         var checks = attributes.OfType<CheckAttribute>().ToList();
         var typedChecks = checks

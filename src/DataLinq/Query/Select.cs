@@ -136,7 +136,7 @@ public class Select<T> : IQuery
             .Select(x => new RowData(x, query.Table, columnsToRead, true));
     }
 
-    private ColumnDefinition[] GetColumnsToRead()
+    private IReadOnlyList<ColumnDefinition> GetColumnsToRead()
     {
         // If no specific columns requested, return all (default SELECT *)
         if (query.WhatList == null || query.WhatList.Count == 0)
@@ -155,7 +155,9 @@ public class Select<T> : IQuery
             // Find the matching column. 
             // Note: If 'what' is a raw SQL expression (e.g. "COUNT(*)"), this will be null.
             // RowData is designed for Entity Materialization, so it expects mapped columns.
-            var col = query.Table.Columns.FirstOrDefault(c => c.DbName.Equals(cleanName, StringComparison.OrdinalIgnoreCase));
+            var col = query.Table.TryGetColumnByDbName(cleanName, out var exactColumn)
+                ? exactColumn
+                : query.Table.Columns.FirstOrDefault(c => c.DbName.Equals(cleanName, StringComparison.OrdinalIgnoreCase));
 
             if (col != null)
             {

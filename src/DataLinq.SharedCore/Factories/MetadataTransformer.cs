@@ -78,9 +78,7 @@ public class MetadataTransformer
 
         foreach (var srcTable in srcMetadata.TableModels)
         {
-            var destTable = destMetadata.TableModels.FirstOrDefault(x => x.Table.DbName == srcTable.Table.DbName);
-
-            if (destTable == null)
+            if (!destMetadata.TryGetTableModel(srcTable.Table.DbName, out var destTable))
             {
                 //log($"Couldn't find table with name '{srcTable.Table.DbName}' in {nameof(destMetadata)}");
                 continue;

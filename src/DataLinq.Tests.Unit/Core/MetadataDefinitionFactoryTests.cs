@@ -39,6 +39,27 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TypedRelationDraft_BuildsStableMetadataLookups()
+    {
+        var database = CreateRelationTypedDraft();
+
+        var built = new MetadataDefinitionFactory().Build(database).ValueOrException();
+
+        var users = built.GetTableModel("users");
+        var orders = built.GetTableModel("orders");
+        var userId = users.Table.GetColumnByDbName("user_id");
+        var customerId = orders.Table.GetColumnByPropertyName("CustomerId");
+
+        await Assert.That(ReferenceEquals(users, built.TableModels.Single(tm => tm.Table.DbName == "users"))).IsTrue();
+        await Assert.That(ReferenceEquals(userId, users.Table.GetColumn(0))).IsTrue();
+        await Assert.That(ReferenceEquals(customerId, orders.Table.GetColumnByDbName("customer_id"))).IsTrue();
+        await Assert.That(users.Table.ColumnCount).IsEqualTo(users.Table.Columns.Length);
+        await Assert.That(built.TryGetTableModel("missing", out _)).IsFalse();
+        await Assert.That(users.Table.TryGetColumnByDbName("missing", out _)).IsFalse();
+        await Assert.That(users.Table.TryGetColumnByPropertyName("Missing", out _)).IsFalse();
+    }
+
+    [Test]
     public async Task Build_TypedRelationDraft_ReturnsFrozenMetadataSnapshot()
     {
         var database = CreateRelationTypedDraft(includeFreezeCoverageMetadata: true);
@@ -97,15 +118,15 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(orderTable.IndexCache.IsFrozen).IsTrue();
         await Assert.That(orderTable.IndexCache.IsReadOnly).IsTrue();
 
-        await AssertArrayElementAssignmentDoesNotMutate(() => built.TableModels, orderTableModel);
-        await AssertArrayElementAssignmentDoesNotMutate(() => built.Attributes, new DatabaseAttribute("ChangedDb"));
-        await AssertArrayElementAssignmentDoesNotMutate(() => orderTable.Columns, amount);
-        await AssertArrayElementAssignmentDoesNotMutate(() => orderTable.PrimaryKeyColumns, amount);
-        await AssertArrayElementAssignmentDoesNotMutate(() => orderModel.OriginalInterfaces, new CsTypeDeclaration("IOther", "TestNamespace", ModelCsType.Interface));
-        await AssertArrayElementAssignmentDoesNotMutate(() => orderModel.Usings, new ModelUsing("Other.Namespace"));
-        await AssertArrayElementAssignmentDoesNotMutate(() => orderModel.Attributes, new TableAttribute("changed"));
-        await AssertArrayElementAssignmentDoesNotMutate(() => orderId.DbTypes, new DatabaseColumnType(DatabaseType.MySQL, "bigint"));
-        await AssertArrayElementAssignmentDoesNotMutate(() => orderIdProperty.Attributes, new ColumnAttribute("changed"));
+        await AssertReadOnlyCollectionIsStable(() => built.TableModels);
+        await AssertReadOnlyCollectionIsStable(() => built.Attributes);
+        await AssertReadOnlyCollectionIsStable(() => orderTable.Columns);
+        await AssertReadOnlyCollectionIsStable(() => orderTable.PrimaryKeyColumns);
+        await AssertReadOnlyCollectionIsStable(() => orderModel.OriginalInterfaces);
+        await AssertReadOnlyCollectionIsStable(() => orderModel.Usings);
+        await AssertReadOnlyCollectionIsStable(() => orderModel.Attributes);
+        await AssertReadOnlyCollectionIsStable(() => orderId.DbTypes);
+        await AssertReadOnlyCollectionIsStable(() => orderIdProperty.Attributes);
 
         await AssertFrozenMutation(() => SetDatabaseName(built, "Changed"));
         await AssertFrozenMutation(() => SetDatabaseDbName(built, "changed"));
@@ -4790,14 +4811,16 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(exception!.Message).Contains("is frozen");
     }
 
-    private static async Task AssertArrayElementAssignmentDoesNotMutate<T>(Func<T[]> getArray, T replacement)
+    private static async Task AssertReadOnlyCollectionIsStable<T>(Func<MetadataCollection<T>> getCollection)
     {
-        var returnedArray = getArray();
-        var originalFirstItem = returnedArray[0];
+        var firstRead = getCollection();
+        var secondRead = getCollection();
+        var collectionAsObject = (object)firstRead;
 
-        returnedArray[0] = replacement;
-
-        await Assert.That(getArray()[0]).IsEqualTo(originalFirstItem);
+        await Assert.That(ReferenceEquals(firstRead, secondRead)).IsTrue();
+        await Assert.That(collectionAsObject is T[]).IsFalse();
+        await Assert.That(collectionAsObject is IList<T>).IsFalse();
+        await Assert.That(firstRead[0]).IsEqualTo(secondRead[0]);
     }
 
     private sealed class MutableTableDefinition(string dbName) : TableDefinition(dbName)

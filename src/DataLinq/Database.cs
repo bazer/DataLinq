@@ -112,7 +112,7 @@ public abstract class Database<T> : IDisposable, IDataSourceAccess<T>
         if (alias == null)
             (tableName, alias) = QueryUtils.ParseTableNameAndAlias(tableName);
 
-        var table = Provider.ReadOnlyAccess.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
+        var table = Provider.ReadOnlyAccess.Provider.Metadata.GetTableModel(tableName).Table;
 
         return new SqlQuery(table, Provider.ReadOnlyAccess, alias);
     }

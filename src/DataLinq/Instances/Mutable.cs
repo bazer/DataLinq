@@ -69,7 +69,7 @@ public class Mutable<T> : IMutableInstance,
     }
 
     // Helper method to check if any PK columns are in the mutated data
-    private bool MutatedDataContainsKey(ColumnDefinition[] pkColumns)
+    private bool MutatedDataContainsKey(IReadOnlyList<ColumnDefinition> pkColumns)
     {
         // Assuming mutableRowData exposes its internal changes dictionary or a method to check
         // If mutableRowData.MutatedData is accessible:

@@ -54,7 +54,7 @@ public class SqlQuery<T>
         CheckTransaction(dataSource);
 
         this.DataSource = dataSource;
-        this.Table = dataSource.Provider.Metadata.TableModels.Single(x => x.Model.CsType.Type == typeof(T)).Table;
+        this.Table = dataSource.Provider.Metadata.GetTableModel(typeof(T)).Table;
         this.Alias = alias;
     }
 
@@ -72,7 +72,7 @@ public class SqlQuery<T>
         CheckTransaction(transaction);
 
         this.DataSource = transaction;
-        this.Table = transaction.Provider.Metadata.TableModels.Single(x => x.Table.DbName == tableName).Table;
+        this.Table = transaction.Provider.Metadata.GetTableModel(tableName).Table;
         this.Alias = alias;
     }
 
@@ -298,7 +298,7 @@ public class SqlQuery<T>
         if (alias == null)
             (columnName, alias) = QueryUtils.ParseColumnNameAndAlias(columnName);
 
-        return OrderBy(this.Table.Columns.Single(x => x.DbName == columnName), alias, ascending);
+        return OrderBy(this.Table.GetColumnByDbName(columnName), alias, ascending);
     }
 
     public SqlQuery<T> OrderBy(ColumnDefinition column, string? alias = null, bool ascending = true)
@@ -316,7 +316,7 @@ public class SqlQuery<T>
         if (alias == null)
             (columnName, alias) = QueryUtils.ParseColumnNameAndAlias(columnName);
 
-        return OrderByDesc(this.Table.Columns.Single(x => x.DbName == columnName), alias);
+        return OrderByDesc(this.Table.GetColumnByDbName(columnName), alias);
     }
 
     public SqlQuery<T> OrderByDesc(ColumnDefinition column, string? alias = null)

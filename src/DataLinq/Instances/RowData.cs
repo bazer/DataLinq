@@ -26,13 +26,13 @@ public sealed class RowData : IRowData, IEquatable<RowData>
 {
     private readonly object?[] data;
 
-    public RowData(IDataLinqDataReader reader, TableDefinition table, ReadOnlySpan<ColumnDefinition> columns, bool hasIndexedColumns)
+    public RowData(IDataLinqDataReader reader, TableDefinition table, IReadOnlyList<ColumnDefinition> columns, bool hasIndexedColumns)
     {
         Table = table;
 
         // Initialize array sized to the total number of columns in the table definition
         // This allows O(1) access by Column.Index
-        data = new object?[table.Columns.Length];
+        data = new object?[table.ColumnCount];
 
         // Read values based on the *requested* columns (which match the reader's ordinal order)
         // and place them into their correct slots in the dense array.
@@ -76,12 +76,12 @@ public sealed class RowData : IRowData, IEquatable<RowData>
             yield return GetValue(column);
     }
 
-    private static int ReadOrderedIndexReader(IDataLinqDataReader reader, ReadOnlySpan<ColumnDefinition> columns, object?[] data)
+    private static int ReadOrderedIndexReader(IDataLinqDataReader reader, IReadOnlyList<ColumnDefinition> columns, object?[] data)
     {
         var size = 0;
 
         // Iterate using the span length. The reader ordinals 0..N match this span's order.
-        for (int i = 0; i < columns.Length; i++)
+        for (int i = 0; i < columns.Count; i++)
         {
             var column = columns[i];
             var value = reader.GetValue<object>(column, i); // Pass 'i' directly as ordinal!
@@ -91,7 +91,7 @@ public sealed class RowData : IRowData, IEquatable<RowData>
         return size;
     }
 
-    private static int ReadUnorderedReader(IDataLinqDataReader reader, ReadOnlySpan<ColumnDefinition> columns, object?[] data)
+    private static int ReadUnorderedReader(IDataLinqDataReader reader, IReadOnlyList<ColumnDefinition> columns, object?[] data)
     {
         var size = 0;
 

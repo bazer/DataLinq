@@ -195,7 +195,7 @@ public class WhereGroup<T> : IWhere<T>
     /// <summary>
     /// Analyzes the group to see if it represents a simple equality check for the specified Primary Key columns.
     /// </summary>
-    internal IKey? TryGetSimplePrimaryKey(ColumnDefinition[] pkColumns)
+    internal IKey? TryGetSimplePrimaryKey(IReadOnlyList<ColumnDefinition> pkColumns)
     {
         // 1. Empty or negated group cannot be a simple key lookup
         if (whereList == null || whereList.Count == 0 || IsNegated) return null;
@@ -208,7 +208,7 @@ public class WhereGroup<T> : IWhere<T>
                 return null;
         }
 
-        var collectedValues = new object?[pkColumns.Length];
+        var collectedValues = new object?[pkColumns.Count];
         var foundColumns = 0;
 
         // 3. Iterate conditions
@@ -224,7 +224,15 @@ public class WhereGroup<T> : IWhere<T>
                 if (w.Left is ColumnOperand colOp && w.Operator == Operator.Equal && w.Right is ValueOperand valOp && valOp.HasOneValue)
                 {
                     // Check if this column is part of the PK
-                    int pkIndex = Array.FindIndex(pkColumns, c => c.DbName == colOp.Name);
+                    var pkIndex = -1;
+                    for (var i = 0; i < pkColumns.Count; i++)
+                    {
+                        if (pkColumns[i].DbName == colOp.Name)
+                        {
+                            pkIndex = i;
+                            break;
+                        }
+                    }
 
                     if (pkIndex != -1)
                     {
@@ -245,7 +253,7 @@ public class WhereGroup<T> : IWhere<T>
         }
 
         // 4. Did we find values for ALL primary key columns?
-        if (foundColumns != pkColumns.Length)
+        if (foundColumns != pkColumns.Count)
             return null;
 
         // 5. Create the key

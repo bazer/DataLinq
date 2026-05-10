@@ -117,8 +117,8 @@ public static class MetadataFactory
     internal static void IndexColumnsCore(DatabaseDefinition database)
     {
         foreach (var table in database.TableModels.Select(x => x.Table))
-            for (var i = 0; i < table.Columns.Length; i++)
-                table.Columns[i].SetIndexCore(i);
+            for (var i = 0; i < table.ColumnCount; i++)
+                table.GetColumn(i).SetIndexCore(i);
     }
 
     [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
@@ -223,8 +223,7 @@ public static class MetadataFactory
 
         foreach (var columnName in indexAttribute.Columns)
         {
-            var indexColumn = table.Columns.SingleOrDefault(c => c.DbName == columnName);
-            if (indexColumn == null)
+            if (!table.TryGetColumnByDbName(columnName, out var indexColumn))
             {
                 missingColumn = columnName;
                 return false;
@@ -3419,10 +3418,7 @@ public static class MetadataFactory
             var firstForeignKey = orderedForeignKeys[0];
             var firstAttribute = firstForeignKey.Attribute;
             var foreignKeyTable = firstForeignKey.Column.Table;
-            var candidateTableModel = database
-                .TableModels.FirstOrDefault(x => x.Table.DbName == firstAttribute.Table);
-
-            if (candidateTableModel == null)
+            if (!database.TryGetTableModel(firstAttribute.Table, out var candidateTableModel))
                 return CreateForeignKeyFailure(
                     firstForeignKey.Column,
                     firstAttribute,
@@ -3433,10 +3429,7 @@ public static class MetadataFactory
             {
                 var foreignKeyColumn = foreignKey.Column;
                 var attribute = foreignKey.Attribute;
-                var candidateColumn = candidateTableModel
-                    .Table.Columns.FirstOrDefault(x => x.DbName == attribute.Column);
-
-                if (candidateColumn == null)
+                if (!candidateTableModel.Table.TryGetColumnByDbName(attribute.Column, out var candidateColumn))
                     return CreateForeignKeyFailure(
                         foreignKeyColumn,
                         attribute,

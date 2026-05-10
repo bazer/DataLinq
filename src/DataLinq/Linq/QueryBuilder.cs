@@ -458,8 +458,7 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
         if (expression is MemberExpression memberExpression &&
             IsRelationPredicateSource(memberExpression.Expression, childQuerySource, childParameter))
         {
-            column = childTable.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == memberExpression.Member.Name)!;
-            return column is not null;
+            return childTable.TryGetColumnByPropertyName(memberExpression.Member.Name, out column);
         }
 
         column = null!;
@@ -992,7 +991,7 @@ internal class QueryBuilder<T>(SqlQuery<T> query)
         GetColumnMaybe(expression) ?? throw new InvalidQueryException($"Column '{expression.Member.Name}' not found in table '{query.Table.DbName}'");
 
     internal ColumnDefinition? GetColumnMaybe(MemberExpression expression) =>
-        query.Table.Columns.SingleOrDefault(x => x.ValueProperty.PropertyName == expression.Member.Name);
+        query.Table.TryGetColumnByPropertyName(expression.Member.Name, out var column) ? column : null;
 
     internal Operator GetOperator(ExpressionType type) => type switch
     {
