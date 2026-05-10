@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -22,7 +23,62 @@ public interface IImmutableRelation<T> : IEnumerable<T> where T : IModelInstance
 
     IEnumerable<KeyValuePair<IKey, T>> AsEnumerable();
     void Clear();
+    bool Any() => Count != 0;
+
     bool ContainsKey(IKey key);
+
+    T First()
+    {
+        var values = Values;
+        if (values.Length == 0)
+            throw new InvalidOperationException("Sequence contains no elements");
+
+        return values[0];
+    }
+
+    T? FirstOrDefault()
+    {
+        var values = Values;
+        return values.Length == 0 ? default : values[0];
+    }
+
+    T Last()
+    {
+        var values = Values;
+        if (values.Length == 0)
+            throw new InvalidOperationException("Sequence contains no elements");
+
+        return values[values.Length - 1];
+    }
+
+    T? LastOrDefault()
+    {
+        var values = Values;
+        return values.Length == 0 ? default : values[values.Length - 1];
+    }
+
+    T Single()
+    {
+        var values = Values;
+        return values.Length switch
+        {
+            0 => throw new InvalidOperationException("Sequence contains no elements"),
+            1 => values[0],
+            _ => throw new InvalidOperationException("Sequence contains more than one element")
+        };
+    }
+
+    T? SingleOrDefault()
+    {
+        var values = Values;
+        return values.Length switch
+        {
+            0 => default,
+            1 => values[0],
+            _ => throw new InvalidOperationException("Sequence contains more than one element")
+        };
+    }
+
     T? Get(IKey key);
     FrozenDictionary<IKey, T> ToFrozenDictionary();
 }
