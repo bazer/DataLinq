@@ -317,7 +317,9 @@ article h4 {
 .benchmark-chart-tooltip {
   position: absolute;
   z-index: 2;
-  max-width: min(270px, calc(100% - 1rem));
+  width: max-content;
+  min-width: 12.5rem;
+  max-width: min(22rem, calc(100% - 1rem));
   border: 1px solid var(--color-border);
   border-radius: 0.35rem;
   padding: 0.45rem 0.55rem;
@@ -327,8 +329,26 @@ article h4 {
   line-height: 1.28;
   opacity: 0;
   pointer-events: none;
+  overflow-wrap: normal;
   transform: translate(-50%, calc(-100% - 0.45rem));
   transition: opacity 0.08s ease-in-out;
+}
+
+.benchmark-chart-tooltip strong {
+  display: block;
+  margin-bottom: 0.12rem;
+}
+
+.benchmark-chart-tooltip-left {
+  transform: translate(0.35rem, calc(-100% - 0.45rem));
+}
+
+.benchmark-chart-tooltip-center {
+  transform: translate(-50%, calc(-100% - 0.45rem));
+}
+
+.benchmark-chart-tooltip-right {
+  transform: translate(calc(-100% - 0.35rem), calc(-100% - 0.45rem));
 }
 
 .benchmark-chart-frame-active .benchmark-chart-crosshair,

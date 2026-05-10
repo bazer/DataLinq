@@ -201,6 +201,10 @@ function getProfile(run) {
 }
 
 function getCategory(row) {
+  if (row.Category === 'phase2-watch' || row.Category === 'phase3-query-hotpath') {
+    return inferCategory(row.Method)
+  }
+
   return row.Category || row.TrackingGroup || inferCategory(row.Method)
 }
 
@@ -286,6 +290,26 @@ function profileRank(profile) {
 function getAvailableProfiles(points) {
   return [...new Set(points.map(point => point.profile))]
     .sort((left, right) => profileRank(left) - profileRank(right) || left.localeCompare(right))
+}
+
+function getExpectedScenarios(points, allowedMethods, allowedProviders) {
+  if (allowedMethods.length === 0) {
+    return []
+  }
+
+  const observedProviders = [...new Set(points.map(point => point.providerName))].sort()
+  const providers = allowedProviders.length > 0
+    ? allowedProviders
+    : observedProviders.length > 0
+      ? observedProviders
+      : ['sqlite-memory']
+
+  return providers.flatMap(providerName =>
+    allowedMethods.map(method => ({
+      method,
+      providerName,
+      category: inferCategory(method)
+    })))
 }
 
 function chooseProfile(root, profiles) {
@@ -393,9 +417,10 @@ function getRecentSlopePercent(points, selector) {
   return deltaPercent(first, latest)
 }
 
-function buildTrendRows(points) {
+function buildTrendRows(points, expectedScenarios, selectedProfile) {
   const groups = groupBy(points, point => `${point.method}__${point.providerName}__${point.profile}`)
   const rows = []
+  const seenKeys = new Set()
 
   for (const groupPoints of groups.values()) {
     const meanSeries = withoutInteriorOutliers(groupPoints, 'meanMicroseconds')
@@ -439,6 +464,32 @@ function buildTrendRows(points) {
       meanDelta30,
       slope,
       status
+    })
+    seenKeys.add(`${latest.method}__${latest.providerName}__${latest.profile}`)
+  }
+
+  for (const scenario of expectedScenarios) {
+    const key = `${scenario.method}__${scenario.providerName}__${selectedProfile}`
+    if (seenKeys.has(key)) {
+      continue
+    }
+
+    rows.push({
+      key,
+      method: scenario.method,
+      providerName: scenario.providerName,
+      profile: selectedProfile,
+      category: scenario.category,
+      latest: null,
+      rawRunCount: 0,
+      runCount: 0,
+      skippedOutlierCount: 0,
+      meanDeltaPrevious: null,
+      allocationDeltaPrevious: null,
+      meanDelta7: null,
+      meanDelta30: null,
+      slope: null,
+      status: 'missing'
     })
   }
 
@@ -576,8 +627,8 @@ function formatMetric(value) {
   return absolute < 0.1 ? formatNumber(value, 2) : formatNumber(value, 1)
 }
 
-function renderTrendTable(points, commitUrlTemplate) {
-  const rows = buildTrendRows(points)
+function renderTrendTable(points, expectedScenarios, selectedProfile, commitUrlTemplate) {
+  const rows = buildTrendRows(points, expectedScenarios, selectedProfile)
   if (rows.length === 0) {
     return '<p class="benchmark-muted">No benchmark history rows match the current filters.</p>'
   }
@@ -591,27 +642,29 @@ function renderTrendTable(points, commitUrlTemplate) {
     const outlierText = row.skippedOutlierCount > 0
       ? ` ${row.skippedOutlierCount} one-off outlier${row.skippedOutlierCount === 1 ? '' : 's'} skipped.`
       : ''
+    const detail = row.latest
+      ? `<span>${escapeHtml(row.runCount)} ${escapeHtml(row.profile)} runs. Last run ${escapeHtml(formatDateTime(row.latest.generatedAtUtc))} on ${escapeHtml(row.latest.runnerOs ?? 'unknown runner')}.${escapeHtml(outlierText)}</span>${renderTelemetryDetails(row.latest)}`
+      : `<span>No ${escapeHtml(row.profile)} run has been published for this scenario yet.</span>`
 
     return `
       ${categoryHeader}
       <tr class="benchmark-data-row">
         <td class="benchmark-scenario-name">${escapeHtml(row.method)}</td>
-        <td class="benchmark-number">${formatMicroseconds(row.latest.meanMicroseconds)}</td>
-        <td class="benchmark-number">${formatBytes(row.latest.allocatedBytes)}</td>
-        <td class="benchmark-number">${formatUnsignedPercent(row.latest.uncertaintyPercent)}</td>
+        <td class="benchmark-number">${formatMicroseconds(row.latest?.meanMicroseconds)}</td>
+        <td class="benchmark-number">${formatBytes(row.latest?.allocatedBytes)}</td>
+        <td class="benchmark-number">${formatUnsignedPercent(row.latest?.uncertaintyPercent)}</td>
         <td class="benchmark-number">${formatPercent(row.meanDeltaPrevious)}</td>
         <td class="benchmark-number">${formatPercent(row.meanDelta7)}</td>
         <td class="benchmark-number">${formatPercent(row.meanDelta30)}</td>
         <td class="benchmark-number">${formatPercent(row.slope)}</td>
-        <td>${renderCommitLink(row.latest.commit, commitUrlTemplate)}</td>
+        <td>${row.latest ? renderCommitLink(row.latest.commit, commitUrlTemplate) : '-'}</td>
         <td>${renderStatus(row.status)}</td>
       </tr>
       <tr class="benchmark-detail-row">
         <td colspan="10">
           <div class="benchmark-detail-content">
             <div class="benchmark-row-meta">
-              <span>${escapeHtml(row.runCount)} ${escapeHtml(row.profile)} runs. Last run ${escapeHtml(formatDateTime(row.latest.generatedAtUtc))} on ${escapeHtml(row.latest.runnerOs ?? 'unknown runner')}.${escapeHtml(outlierText)}</span>
-              ${renderTelemetryDetails(row.latest)}
+              ${detail}
             </div>
           </div>
         </td>
@@ -772,7 +825,19 @@ function showChartHover(frame, point) {
   hoverPoint.setAttribute('cx', point.x)
   hoverPoint.setAttribute('cy', point.y)
   tooltip.innerHTML = renderTooltipHtml(point.title)
-  tooltip.style.left = `${Math.min(92, Math.max(8, (point.x / 520) * 100))}%`
+  tooltip.classList.remove(
+    'benchmark-chart-tooltip-left',
+    'benchmark-chart-tooltip-center',
+    'benchmark-chart-tooltip-right')
+  const xPercent = (point.x / 520) * 100
+  const clampedXPercent = Math.min(96, Math.max(4, xPercent))
+  tooltip.classList.add(
+    xPercent > 68
+      ? 'benchmark-chart-tooltip-right'
+      : xPercent < 32
+        ? 'benchmark-chart-tooltip-left'
+        : 'benchmark-chart-tooltip-center')
+  tooltip.style.left = `${clampedXPercent}%`
   tooltip.style.top = `${Math.min(84, Math.max(28, (point.y / 190) * 100))}%`
   frame.classList.add('benchmark-chart-frame-active')
 }
@@ -869,7 +934,7 @@ function renderProfileSwitch(profiles, selectedProfile) {
   `
 }
 
-function renderBenchmarkPage(root, points, selectedProfile, allowedProviders, commitUrlTemplate) {
+function renderBenchmarkPage(root, points, selectedProfile, allowedProviders, expectedScenarios, commitUrlTemplate) {
   root.dataset.selectedProfile = selectedProfile
   const profilePoints = points.filter(point => point.profile === selectedProfile)
   const latestPoint = profilePoints[profilePoints.length - 1]
@@ -896,7 +961,7 @@ function renderBenchmarkPage(root, points, selectedProfile, allowedProviders, co
       </div>
     </section>
     <h2>Trend Summary</h2>
-    ${renderTrendTable(profilePoints, commitUrlTemplate)}
+    ${renderTrendTable(profilePoints, expectedScenarios, selectedProfile, commitUrlTemplate)}
     <h2>Charts</h2>
     <div class="benchmark-card-list">
       ${renderTrendCards(profilePoints)}
@@ -905,7 +970,7 @@ function renderBenchmarkPage(root, points, selectedProfile, allowedProviders, co
 
   for (const button of root.querySelectorAll('[data-profile-select]')) {
     button.addEventListener('click', () => {
-      renderBenchmarkPage(root, points, button.dataset.profileSelect, allowedProviders, commitUrlTemplate)
+      renderBenchmarkPage(root, points, button.dataset.profileSelect, allowedProviders, expectedScenarios, commitUrlTemplate)
     })
   }
 
@@ -930,6 +995,7 @@ async function renderBenchmarkResults() {
 
     const history = filterHistory(rawHistory, allowedProviders, allowedMethods)
     const points = flattenHistory(history)
+    const expectedScenarios = getExpectedScenarios(points, allowedMethods, allowedProviders)
     const profiles = getAvailableProfiles(points)
     if (profiles.length === 0) {
       root.innerHTML = '<p class="benchmark-muted">No benchmark history rows match the current filters.</p>'
@@ -941,6 +1007,7 @@ async function renderBenchmarkResults() {
       points,
       chooseProfile(root, profiles),
       allowedProviders,
+      expectedScenarios,
       commitUrlTemplate)
   } catch (error) {
     root.innerHTML = `<p class="benchmark-error">Failed to load published benchmark history. ${escapeHtml(error?.message ?? String(error))}</p>`

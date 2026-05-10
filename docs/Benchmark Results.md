@@ -21,6 +21,7 @@ Important limits:
 - the numbers come from GitHub-hosted CI runners, so absolute timings still include runner variance
 - the current suite is intentionally narrow and should be read as hot-path trend data, not as a full product performance verdict
 - `default` and `heavy` benchmark profiles are selected separately, because comparing them in one table is noisy and misleading
+- older published history used different benchmark category selections, so the page filters to the current published scenario set
 - high-noise rows should be treated with suspicion even when the line moves in an exciting direction
 
 ## Profiles
@@ -37,7 +38,8 @@ Do not compare default numbers directly against heavy numbers. They use differen
   id="benchmark-results-root"
   data-history-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/history.json"
   data-commit-url-template="https://github.com/bazer/DataLinq/commit/{commit}"
-  data-provider-filter="sqlite-memory">
+  data-provider-filter="sqlite-memory"
+  data-method-filter="Provider initialization,Startup primary-key fetch,Cold primary-key fetch,Warm primary-key fetch,Cold relation traversal,Warm relation traversal,Update employees,CRUD workflow small,CRUD workflow batch">
   Loading benchmark history...
 </div>
 
