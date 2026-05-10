@@ -33,7 +33,7 @@ public class TableDefinition(string dbName) : IDefinition
         DbName = dbName;
     }
 
-    public TableModel TableModel { get; private set; }
+    public TableModel TableModel { get; private set; } = null!;
 
     internal void SetTableModel(TableModel tableModel)
     {

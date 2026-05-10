@@ -4,11 +4,8 @@ namespace DataLinq.Exceptions;
 
 public class InvalidMutationObjectException : System.Exception
 {
-    private readonly string message;
-
-    public InvalidMutationObjectException(string message)
+    public InvalidMutationObjectException(string message) : base(message)
     {
-        this.message = message + " ";
     }
 
     public InvalidMutationObjectException() : base()
@@ -19,11 +16,8 @@ public class InvalidMutationObjectException : System.Exception
     {
     }
 
-    public override string Message
-    {
-        get
-        {
-            return "The client query is invalid: " + message;
-        }
-    }
+    public override string Message =>
+        string.IsNullOrWhiteSpace(base.Message)
+            ? "The client query is invalid."
+            : "The client query is invalid: " + base.Message;
 }

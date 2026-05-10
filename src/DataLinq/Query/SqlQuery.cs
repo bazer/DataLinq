@@ -34,11 +34,11 @@ public class SqlQuery : SqlQuery<object>
 
 public class SqlQuery<T>
 {
-    protected WhereGroup<T> WhereGroup;
-    internal Dictionary<string, object> SetList = new Dictionary<string, object>();
+    protected WhereGroup<T>? WhereGroup;
+    internal Dictionary<string, object?> SetList = new Dictionary<string, object?>();
     protected List<Join<T>> JoinList = new List<Join<T>>();
     internal List<OrderBy> OrderByList = new List<OrderBy>();
-    internal List<string> WhatList;
+    internal List<string>? WhatList;
     protected int? limit;
     protected int? offset;
     public bool LastIdQuery { get; protected set; }
@@ -371,15 +371,16 @@ public class SqlQuery<T>
         if (length == 0)
             return sql;
 
+        var prefix = paramPrefix ?? string.Empty;
         int i = 0;
         foreach (var with in SetList)
         {
-            DataSource.Provider.GetParameter(sql, paramPrefix + "v" + i, with.Value);
+            DataSource.Provider.GetParameter(sql, prefix + "v" + i, with.Value);
             Operand.Column(with.Key).AddName(sql, EscapeCharacter);
             sql.AddText(" ");
             sql.AddText(DataSource.Provider.GetOperatorSql(Operator.Equal));
             sql.AddText(" ");
-            sql.AddText(DataSource.Provider.GetParameterName(Operator.Equal, [paramPrefix + "v" + i]));
+            sql.AddText(DataSource.Provider.GetParameterName(Operator.Equal, [prefix + "v" + i]));
 
             if (i + 1 < length)
                 sql.AddText(",");

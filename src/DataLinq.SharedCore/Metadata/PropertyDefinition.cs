@@ -145,7 +145,7 @@ public abstract class PropertyDefinition(string propertyName, CsTypeDeclaration 
 
 public class ValueProperty : PropertyDefinition
 {
-    public ColumnDefinition Column { get; private set; }
+    public ColumnDefinition Column { get; private set; } = null!;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetColumn(ColumnDefinition column)
@@ -318,7 +318,7 @@ public record struct EnumProperty
 
 public class RelationProperty : PropertyDefinition
 {
-    public RelationPart RelationPart { get; private set; }
+    public RelationPart RelationPart { get; private set; } = null!;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetRelationPart(RelationPart relationPart)

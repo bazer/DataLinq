@@ -41,7 +41,7 @@ public class WhereGroup<T> : IWhere<T>
     /// <summary>
     /// Renders the SQL for this WHERE group.
     /// </summary>
-    public void AddCommandString(Sql sql, string prefix = "", bool addCommandParameter = true, bool addParentheses = false)
+    public void AddCommandString(Sql sql, string? prefix = "", bool addCommandParameter = true, bool addParentheses = false)
     {
         int length = whereList?.Count ?? 0;
         if (length == 0)

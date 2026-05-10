@@ -4,7 +4,7 @@ namespace DataLinq.Query;
 
 public static class QueryUtils
 {
-    public static (string name, string alias) ParseTableNameAndAlias(string nameAndAlias)
+    public static (string name, string? alias) ParseTableNameAndAlias(string nameAndAlias)
     {
         return nameAndAlias.IndexOf(' ') switch
         {
@@ -14,7 +14,7 @@ public static class QueryUtils
         };
     }
 
-    public static (string name, string alias) ParseColumnNameAndAlias(string nameAndAlias)
+    public static (string name, string? alias) ParseColumnNameAndAlias(string nameAndAlias)
     {
         return nameAndAlias.IndexOf('.') switch
         {

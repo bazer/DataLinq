@@ -4,7 +4,7 @@ namespace DataLinq.Mutation;
 
 public class History
 {
-    public List<StateChange> Changes { get; }
+    public List<StateChange> Changes { get; } = [];
 
     public void AddChanges(params StateChange[] changes)
     {

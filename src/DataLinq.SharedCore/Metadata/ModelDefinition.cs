@@ -40,7 +40,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         CsFile = csFile;
     }
 
-    public TableModel TableModel { get; private set; }
+    public TableModel TableModel { get; private set; } = null!;
 
     internal void SetTableModel(TableModel tableModel)
     {

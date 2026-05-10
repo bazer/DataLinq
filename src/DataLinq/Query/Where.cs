@@ -33,7 +33,7 @@ public interface IWhere<T> : IQueryPart
 
 internal class ExistsWhere<T>(SqlQuery<object> subQuery, bool isNegated = false) : IWhere<T>
 {
-    public void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false)
+    public void AddCommandString(Sql sql, string? prefix, bool addCommandParameter = true, bool addParentheses = false)
     {
         if (addParentheses)
             sql.AddText("(");
@@ -256,7 +256,7 @@ public class Where<T> : IWhere<T>
         return WhereGroup;
     }
 
-    public void AddCommandString(Sql sql, string prefix, bool addCommandParameter = true, bool addParentheses = false)
+    public void AddCommandString(Sql sql, string? prefix, bool addCommandParameter = true, bool addParentheses = false)
     {
         // Handle fixed conditions first
         if (Operator == Operator.AlwaysTrue || Operator == Operator.AlwaysFalse)
@@ -314,8 +314,10 @@ public class Where<T> : IWhere<T>
         return WhereGroup.Query.DataSource.Provider.GetOperatorSql(operatorToUse);
     }
 
-    protected void AddOperandSql(Operand operand, Sql sql, string prefix, bool addCommandParameter)
+    protected void AddOperandSql(Operand operand, Sql sql, string? prefix, bool addCommandParameter)
     {
+        prefix ??= string.Empty;
+
         if (operand is ValueOperand valueOperand)
         {
             // Check for empty IN/NOT IN here before calling provider

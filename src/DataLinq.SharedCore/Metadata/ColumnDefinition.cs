@@ -175,7 +175,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     }
 
     public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
-    public ValueProperty ValueProperty { get; private set; }
+    public ValueProperty ValueProperty { get; private set; } = null!;
 
     public CsFileDeclaration? CsFile => Table?.Model?.CsFile;
 
