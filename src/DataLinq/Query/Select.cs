@@ -193,11 +193,45 @@ public class Select<T> : IQuery
 
     public IEnumerable<(IKey fk, IKey[] pks)> ReadPrimaryAndForeignKeys(ColumnIndex foreignKeyIndex)
     {
-        return ReadReader()
-            .Select(x => new RowData(x, query.Table, query.Table.PrimaryKeyColumns.Concat(foreignKeyIndex.Columns).Distinct().ToArray(), false))
-            .Select(x => (fk: KeyFactory.CreateKeyFromValues(x.GetValues(foreignKeyIndex.Columns)), pk: KeyFactory.GetKey(x, query.Table.PrimaryKeyColumns)))
-            .GroupBy(x => x.fk)
-            .Select(x => (x.Key, x.Select(y => y.pk).ToArray()));
+        var columnsToRead = GetPrimaryAndForeignKeyColumns(foreignKeyIndex);
+        var primaryKeysByForeignKey = new Dictionary<IKey, List<IKey>>();
+
+        foreach (var reader in ReadReader())
+        {
+            var row = new RowData(reader, query.Table, columnsToRead, false);
+            var foreignKey = KeyFactory.CreateKeyFromValues(row.GetValues(foreignKeyIndex.Columns));
+            var primaryKey = KeyFactory.GetKey(row, query.Table.PrimaryKeyColumns);
+
+            if (!primaryKeysByForeignKey.TryGetValue(foreignKey, out var primaryKeys))
+            {
+                primaryKeys = [];
+                primaryKeysByForeignKey.Add(foreignKey, primaryKeys);
+            }
+
+            primaryKeys.Add(primaryKey);
+        }
+
+        foreach (var group in primaryKeysByForeignKey)
+            yield return (group.Key, group.Value.ToArray());
+    }
+
+    private IReadOnlyList<ColumnDefinition> GetPrimaryAndForeignKeyColumns(ColumnIndex foreignKeyIndex)
+    {
+        var primaryKeyColumns = query.Table.PrimaryKeyColumns;
+        var foreignKeyColumns = foreignKeyIndex.Columns;
+        var columns = new List<ColumnDefinition>(primaryKeyColumns.Count + foreignKeyColumns.Count);
+
+        for (var i = 0; i < primaryKeyColumns.Count; i++)
+            columns.Add(primaryKeyColumns[i]);
+
+        for (var i = 0; i < foreignKeyColumns.Count; i++)
+        {
+            var foreignKeyColumn = foreignKeyColumns[i];
+            if (!columns.Contains(foreignKeyColumn))
+                columns.Add(foreignKeyColumn);
+        }
+
+        return columns;
     }
 
     public IEnumerable<V> ExecuteAs<V>() =>

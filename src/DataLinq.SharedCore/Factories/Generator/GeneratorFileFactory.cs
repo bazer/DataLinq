@@ -365,6 +365,8 @@ public class GeneratorFileFactory
         yield return $"{indent}{{";
         foreach (var row in DatabaseColumnTypeCollection("DbTypes", column.DbTypes, childIndent))
             yield return row;
+        if (column.DbTypes.Count > 0)
+            yield return $"{childIndent}OwnsDbTypes = true,";
         yield return $"{childIndent}PrimaryKey = {FormatBool(column.PrimaryKey)},";
         yield return $"{childIndent}ForeignKey = {FormatBool(column.ForeignKey)},";
         yield return $"{childIndent}AutoIncrement = {FormatBool(column.AutoIncrement)},";

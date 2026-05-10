@@ -380,7 +380,7 @@ public class SqlQuery<T>
             sql.AddText(" ");
             sql.AddText(DataSource.Provider.GetOperatorSql(Operator.Equal));
             sql.AddText(" ");
-            sql.AddText(DataSource.Provider.GetParameterName(Operator.Equal, [prefix + "v" + i]));
+            DataSource.Provider.AppendParameterName(sql, Operator.Equal, prefix + "v" + i);
 
             if (i + 1 < length)
                 sql.AddText(",");

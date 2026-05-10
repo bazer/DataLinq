@@ -328,10 +328,7 @@ public class Where<T> : IWhere<T>
             }
             else
             {
-                var parameterNames = addCommandParameter
-                    ? AddCommandParameters(valueOperand, sql, prefix)
-                    : [prefix + "w" + sql.Index];
-                sql.AddText(WhereGroup.Query.DataSource.Provider.GetParameterName(Operator, parameterNames));
+                AppendParameterNames(valueOperand, sql, prefix, addCommandParameter);
             }
         }
         else if (operand is RawSqlOperand rawOperand)
@@ -344,18 +341,35 @@ public class Where<T> : IWhere<T>
             throw new NotSupportedException($"Unsupported operand type: {operand.GetType().Name}");
     }
 
-    private string[] AddCommandParameters(ValueOperand operand, Sql sql, string prefix)
+    private void AppendParameterNames(ValueOperand operand, Sql sql, string prefix, bool addCommandParameter)
     {
         var values = operand.Values;
-        var parameterNames = new string[values.Length];
+        var wrapInParentheses = values.Length > 1 || Operator == Operator.In || Operator == Operator.NotIn;
+
+        if (wrapInParentheses)
+            sql.AddText("(");
+
         for (var i = 0; i < values.Length; i++)
         {
-            var parameterName = prefix + "w" + sql.IndexAdd();
-            parameterNames[i] = parameterName;
-            WhereGroup.Query.DataSource.Provider.GetParameter(sql, parameterName, values[i]);
+            if (i > 0)
+                sql.AddText(", ");
+
+            var parameterName = addCommandParameter
+                ? AddCommandParameter(values[i], sql, prefix)
+                : prefix + "w" + (sql.Index + i);
+
+            WhereGroup.Query.DataSource.Provider.GetParameterValue(sql, parameterName);
         }
 
-        return parameterNames;
+        if (wrapInParentheses)
+            sql.AddText(")");
+    }
+
+    private string AddCommandParameter(object? value, Sql sql, string prefix)
+    {
+        var parameterName = prefix + "w" + sql.IndexAdd();
+        WhereGroup.Query.DataSource.Provider.GetParameter(sql, parameterName, value);
+        return parameterName;
     }
 
     public override string ToString()

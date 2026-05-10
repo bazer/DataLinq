@@ -58,6 +58,7 @@ public sealed record MetadataTableDraft(string DbName)
 public sealed record MetadataColumnDraft(string DbName)
 {
     public IReadOnlyList<DatabaseColumnType> DbTypes { get; init; } = [];
+    public bool OwnsDbTypes { get; init; }
     public bool PrimaryKey { get; init; }
     public bool ForeignKey { get; init; }
     public bool AutoIncrement { get; init; }
@@ -112,8 +113,9 @@ internal static class MetadataTypedDraftConverter
         database.CacheCleanup.AddRangeCore(draft.CacheCleanup ?? []);
         database.IndexCache.AddRangeCore(draft.IndexCache ?? []);
 
-        var tableModels = new List<TableModel>();
-        foreach (var tableModelDraft in draft.TableModels ?? [])
+        var tableModelDrafts = draft.TableModels ?? [];
+        var tableModels = new List<TableModel>(tableModelDrafts.Count);
+        foreach (var tableModelDraft in tableModelDrafts)
         {
             if (tableModelDraft is null)
                 return DLOptionFailure.Fail(DLFailureType.InvalidModel, $"Typed metadata draft for database '{database.DbName}' contains a null table model.");
@@ -305,8 +307,9 @@ internal static class MetadataTypedDraftConverter
         TableDefinition table,
         MetadataModelDraft draft)
     {
-        var columns = new List<ColumnDefinition>();
-        foreach (var propertyDraft in draft.ValueProperties ?? [])
+        var valueProperties = draft.ValueProperties ?? [];
+        var columns = new List<ColumnDefinition>(valueProperties.Count);
+        foreach (var propertyDraft in valueProperties)
         {
             var property = CreateValueProperty(model, propertyDraft);
             model.AddPropertyCore(property);
@@ -319,7 +322,8 @@ internal static class MetadataTypedDraftConverter
 
         table.SetColumnsCore(columns);
 
-        foreach (var propertyDraft in draft.RelationProperties ?? [])
+        var relationProperties = draft.RelationProperties ?? [];
+        foreach (var propertyDraft in relationProperties)
         {
             var property = new RelationProperty(
                 propertyDraft.PropertyName,
@@ -364,7 +368,7 @@ internal static class MetadataTypedDraftConverter
         var column = new ColumnDefinition(draft.DbName, table);
 
         foreach (var dbType in draft.DbTypes ?? [])
-            column.AddDbTypeCore(dbType is null ? null! : dbType.Clone());
+            column.AddDbTypeCore(dbType is null ? null! : draft.OwnsDbTypes ? dbType : dbType.Clone());
 
         return column;
     }

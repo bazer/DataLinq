@@ -60,6 +60,36 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TypedDraft_ClonesColumnTypesByDefault()
+    {
+        var sourceDbType = new DatabaseColumnType(DatabaseType.MySQL, "int");
+        var database = CreateSingleColumnTypedDraft(sourceDbType, ownsDbTypes: false);
+
+        var built = new MetadataDefinitionFactory().Build(database).ValueOrException();
+        var builtDbType = built.GetTableModel("orders").Table.GetColumnByDbName("id").DbTypes.Single();
+
+        await Assert.That(ReferenceEquals(sourceDbType, builtDbType)).IsFalse();
+        await Assert.That(sourceDbType.IsFrozen).IsFalse();
+
+        sourceDbType.SetNameCore("bigint");
+
+        await Assert.That(builtDbType.Name).IsEqualTo("int");
+    }
+
+    [Test]
+    public async Task Build_TypedDraft_UsesOwnedColumnTypesWithoutClone()
+    {
+        var sourceDbType = new DatabaseColumnType(DatabaseType.MySQL, "int");
+        var database = CreateSingleColumnTypedDraft(sourceDbType, ownsDbTypes: true);
+
+        var built = new MetadataDefinitionFactory().Build(database).ValueOrException();
+        var builtDbType = built.GetTableModel("orders").Table.GetColumnByDbName("id").DbTypes.Single();
+
+        await Assert.That(ReferenceEquals(sourceDbType, builtDbType)).IsTrue();
+        await Assert.That(sourceDbType.IsFrozen).IsTrue();
+    }
+
+    [Test]
     public async Task Build_TypedRelationDraft_ReturnsFrozenMetadataSnapshot()
     {
         var database = CreateRelationTypedDraft(includeFreezeCoverageMetadata: true);
@@ -4041,6 +4071,36 @@ public class MetadataDefinitionFactoryTests
         ]);
 
         return database;
+    }
+
+    private static MetadataDatabaseDraft CreateSingleColumnTypedDraft(DatabaseColumnType dbType, bool ownsDbTypes)
+    {
+        return new MetadataDatabaseDraft(
+            "TestDb",
+            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class))
+        {
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Orders",
+                    new MetadataModelDraft(new CsTypeDeclaration("Order", "TestNamespace", ModelCsType.Class))
+                    {
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id")
+                                {
+                                    PrimaryKey = true,
+                                    DbTypes = [dbType],
+                                    OwnsDbTypes = ownsDbTypes
+                                })
+                        ]
+                    },
+                    new MetadataTableDraft("orders"))
+            ]
+        };
     }
 
     private static MetadataDatabaseDraft CreateRelationTypedDraft(

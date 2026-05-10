@@ -41,6 +41,9 @@ public interface IDatabaseProvider : IDisposable
 
     string GetParameterName(Operator relation, string[] key);
 
+    Sql AppendParameterName(Sql sql, Operator relation, string key)
+        => sql.AddText(GetParameterName(relation, [key]));
+
     Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] prefix);
 
     Sql GetLimitOffset(Sql sql, int? limit, int? offset);

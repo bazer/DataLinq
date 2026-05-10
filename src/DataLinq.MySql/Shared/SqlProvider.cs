@@ -178,12 +178,28 @@ public abstract class SqlProvider<T> : DatabaseProvider<T>, IDisposable
 
     public override Sql GetParameterComparison(Sql sql, string field, Operator @operator, string[] key)
     {
-        return sql
+        sql
             .AddText(field)
             .AddText(" ")
             .AddText(GetOperatorSql(@operator))
-            .AddText(" ")
-            .AddText(GetParameterName(@operator, key));
+            .AddText(" ");
+
+        return key.Length == 1
+            ? AppendParameterName(sql, @operator, key[0])
+            : sql.AddText(GetParameterName(@operator, key));
+    }
+
+    public override Sql AppendParameterName(Sql sql, Operator relation, string key)
+    {
+        if (relation == Operator.In || relation == Operator.NotIn)
+            sql.AddText("(");
+
+        sql.AddText("?").AddText(key);
+
+        if (relation == Operator.In || relation == Operator.NotIn)
+            sql.AddText(")");
+
+        return sql;
     }
 
     public override string GetParameterName(Operator relation, string[] key)

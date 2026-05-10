@@ -177,6 +177,8 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
     public abstract Sql GetParameterValue(Sql sql, string key);
     public abstract Sql GetParameterComparison(Sql sql, string field, Query.Operator relation, string[] key);
     public abstract string GetParameterName(Operator relation, string[] key);
+    public virtual Sql AppendParameterName(Sql sql, Operator relation, string key) =>
+        sql.AddText(GetParameterName(relation, [key]));
     public abstract Sql GetLimitOffset(Sql sql, int? limit, int? offset);
     public abstract Sql GetTableName(Sql sql, string tableName, string? alias = null);
     public abstract Sql GetCreateSql();
