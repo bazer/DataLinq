@@ -147,10 +147,11 @@ public sealed class MetadataDefinitionFactory
         if (!MetadataFactory.ValidateExistingRelationParts(draft).TryUnwrap(out _, out var relationPartFailure))
             return relationPartFailure;
 
-        if (!MetadataFactory.ParseRelationsCore(draft).TryUnwrap(out _, out var relationFailure))
+        if (!MetadataFactory.ParseRelationsCore(draft, out var generatedRelationProperties).TryUnwrap(out _, out var relationFailure))
             return relationFailure;
 
-        if (!MetadataFactory.ValidateCSharpSymbolNames(draft).TryUnwrap(out _, out var finalizedCsharpSymbolFailure))
+        if (generatedRelationProperties &&
+            !MetadataFactory.ValidateCSharpSymbolNames(draft).TryUnwrap(out _, out var finalizedCsharpSymbolFailure))
             return finalizedCsharpSymbolFailure;
 
         if (!MetadataFactory.ValidateExistingRelationPropertyBindings(draft).TryUnwrap(out _, out var finalizedRelationPropertyFailure))

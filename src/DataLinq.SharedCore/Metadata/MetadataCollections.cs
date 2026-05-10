@@ -30,11 +30,10 @@ public sealed class MetadataCollection<T> : IReadOnlyList<T>
 
 public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
 {
-    private readonly List<T> items;
+    private List<T>? items;
 
     public MetadataList()
     {
-        items = [];
     }
 
     public MetadataList(IEnumerable<T> items)
@@ -43,12 +42,18 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     }
 
     public bool IsFrozen { get; private set; }
-    public int Count => items.Count;
+    public int Count => items?.Count ?? 0;
     public bool IsReadOnly => IsFrozen;
 
     public T this[int index]
     {
-        get => items[index];
+        get
+        {
+            if (items is null)
+                throw new ArgumentOutOfRangeException(nameof(index));
+
+            return items[index];
+        }
         [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
         set
         {
@@ -59,6 +64,9 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     internal void SetCore(int index, T value)
     {
         ThrowIfFrozen();
+        if (items is null)
+            throw new ArgumentOutOfRangeException(nameof(index));
+
         items[index] = value;
     }
 
@@ -71,7 +79,7 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     internal void AddCore(T item)
     {
         ThrowIfFrozen();
-        items.Add(item);
+        (items ??= []).Add(item);
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -83,7 +91,13 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     internal void AddRangeCore(IEnumerable<T> range)
     {
         ThrowIfFrozen();
-        items.AddRange(range);
+        if (range is null)
+            throw new ArgumentNullException(nameof(range));
+
+        if (range is ICollection<T> { Count: 0 })
+            return;
+
+        (items ??= []).AddRange(range);
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -95,16 +109,28 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     internal void ClearCore()
     {
         ThrowIfFrozen();
-        items.Clear();
+        items?.Clear();
     }
 
-    public bool Contains(T item) => items.Contains(item);
+    public bool Contains(T item) => items?.Contains(item) ?? false;
 
-    public void CopyTo(T[] array, int arrayIndex) => items.CopyTo(array, arrayIndex);
+    public void CopyTo(T[] array, int arrayIndex)
+    {
+        if (items is null)
+        {
+            Array.Empty<T>().CopyTo(array, arrayIndex);
+            return;
+        }
 
-    public IEnumerator<T> GetEnumerator() => items.GetEnumerator();
+        items.CopyTo(array, arrayIndex);
+    }
 
-    public int IndexOf(T item) => items.IndexOf(item);
+    public IEnumerator<T> GetEnumerator() =>
+        items is null
+            ? ((IEnumerable<T>)Array.Empty<T>()).GetEnumerator()
+            : items.GetEnumerator();
+
+    public int IndexOf(T item) => items?.IndexOf(item) ?? -1;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void Insert(int index, T item)
@@ -115,7 +141,7 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     internal void InsertCore(int index, T item)
     {
         ThrowIfFrozen();
-        items.Insert(index, item);
+        (items ??= []).Insert(index, item);
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -127,7 +153,7 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     internal bool RemoveCore(T item)
     {
         ThrowIfFrozen();
-        return items.Remove(item);
+        return items?.Remove(item) ?? false;
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -139,6 +165,9 @@ public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
     internal void RemoveAtCore(int index)
     {
         ThrowIfFrozen();
+        if (items is null)
+            throw new ArgumentOutOfRangeException(nameof(index));
+
         items.RemoveAt(index);
     }
 

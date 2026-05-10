@@ -1555,45 +1555,71 @@ public static class MetadataFactory
 
     private static IDLOptionFailure? ValidateRepeatedIndexAttributeMetadata(TableModel tableModel)
     {
-        var definitions = new List<(IndexAttribute Attribute, ValueProperty? Property)>();
+        List<(IndexAttribute Attribute, ValueProperty? Property)>? definitions = null;
         var model = tableModel.Model;
 
-        foreach (var attribute in model.Attributes.OfType<IndexAttribute>())
-            definitions.Add((attribute, null));
+        foreach (var attribute in model.Attributes)
+        {
+            if (attribute is IndexAttribute indexAttribute)
+            {
+                definitions ??= [];
+                definitions.Add((indexAttribute, null));
+            }
+        }
 
         foreach (var property in model.ValueProperties.Values)
         {
-            foreach (var attribute in property.Attributes.OfType<IndexAttribute>())
-                definitions.Add((attribute, property));
+            foreach (var attribute in property.Attributes)
+            {
+                if (attribute is IndexAttribute indexAttribute)
+                {
+                    definitions ??= [];
+                    definitions.Add((indexAttribute, property));
+                }
+            }
         }
 
-        foreach (var group in definitions.GroupBy(definition => definition.Attribute.Name, StringComparer.Ordinal))
+        if (definitions is null || definitions.Count <= 1)
+            return null;
+
+        var validatedNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < definitions.Count; i++)
         {
-            var first = group.First();
-            var conflict = group
-                .Skip(1)
-                .FirstOrDefault(definition =>
-                    definition.Attribute.Characteristic != first.Attribute.Characteristic ||
-                    definition.Attribute.Type != first.Attribute.Type);
-
-            if (conflict.Attribute is null)
-            {
-                var columnConflict = ValidateRepeatedIndexAttributeColumns(
-                    tableModel,
-                    model,
-                    group);
-                if (columnConflict is not null)
-                    return columnConflict;
-
+            var first = definitions[i];
+            if (!validatedNames.Add(first.Attribute.Name))
                 continue;
+
+            List<(IndexAttribute Attribute, ValueProperty? Property)>? group = null;
+            for (var candidateIndex = i + 1; candidateIndex < definitions.Count; candidateIndex++)
+            {
+                var candidate = definitions[candidateIndex];
+                if (!string.Equals(candidate.Attribute.Name, first.Attribute.Name, StringComparison.Ordinal))
+                    continue;
+
+                if (candidate.Attribute.Characteristic != first.Attribute.Characteristic ||
+                    candidate.Attribute.Type != first.Attribute.Type)
+                {
+                    var message = $"Index attribute '{candidate.Attribute.Name}' on table '{tableModel.Table.DbName}' uses characteristic '{candidate.Attribute.Characteristic}' and type '{candidate.Attribute.Type}', but another attribute with the same name uses characteristic '{first.Attribute.Characteristic}' and type '{first.Attribute.Type}'. Repeated index attributes with the same name on a table must agree on characteristic and type.";
+                    return CreateIndexAttributeFailure(
+                        model,
+                        candidate.Property,
+                        candidate.Attribute,
+                        message);
+                }
+
+                group ??= [first];
+                group.Add(candidate);
             }
 
-            var message = $"Index attribute '{conflict.Attribute.Name}' on table '{tableModel.Table.DbName}' uses characteristic '{conflict.Attribute.Characteristic}' and type '{conflict.Attribute.Type}', but another attribute with the same name uses characteristic '{first.Attribute.Characteristic}' and type '{first.Attribute.Type}'. Repeated index attributes with the same name on a table must agree on characteristic and type.";
-            return CreateIndexAttributeFailure(
+            if (group is null)
+                continue;
+
+            var columnConflict = ValidateRepeatedIndexAttributeColumns(
+                tableModel,
                 model,
-                conflict.Property,
-                conflict.Attribute,
-                message);
+                group);
+            if (columnConflict is not null)
+                return columnConflict;
         }
 
         return null;
@@ -3516,6 +3542,14 @@ public static class MetadataFactory
 
     internal static Option<bool, IDLOptionFailure> ParseRelationsCore(DatabaseDefinition database)
     {
+        return ParseRelationsCore(database, out _);
+    }
+
+    internal static Option<bool, IDLOptionFailure> ParseRelationsCore(
+        DatabaseDefinition database,
+        out bool generatedRelationProperties)
+    {
+        generatedRelationProperties = false;
         var foreignKeys = new List<ForeignKeyColumn>();
         foreach (var tableModel in database.TableModels)
         {
@@ -3638,7 +3672,7 @@ public static class MetadataFactory
             if (!TryGetRelationProperty(
                 manySideModel,
                 oneSideModel.Table.DbName,
-                candidateColumns.Select(x => x.DbName).ToArray(),
+                candidateColumns,
                 firstAttribute.Name,
                 out var manyToOneProp,
                 out var manyToOnePropertyFailure))
@@ -3661,13 +3695,14 @@ public static class MetadataFactory
                 var propType = oneSideModel.CsType;
                 var propAttr = new RelationAttribute(oneSideModel.Table.DbName, candidateColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
                 AddRelationPropertyCore(manySideModel, propName, propType, manySidePart, propAttr);
+                generatedRelationProperties = true;
             }
 
             // --- Link or Create One-to-Many Property ---
             if (!TryGetRelationProperty(
                 oneSideModel,
                 manySideModel.Table.DbName,
-                foreignKeyColumns.Select(x => x.DbName).ToArray(),
+                foreignKeyColumns,
                 firstAttribute.Name,
                 out var oneToManyProp,
                 out var oneToManyPropertyFailure))
@@ -3691,6 +3726,7 @@ public static class MetadataFactory
                 var propType = new CsTypeDeclaration($"IImmutableRelation<{genericTypeName}>", "DataLinq.Instances", ModelCsType.Interface);
                 var propAttr = new RelationAttribute(manySideModel.Table.DbName, foreignKeyColumns.Select(x => x.DbName).ToArray(), firstAttribute.Name);
                 AddRelationPropertyCore(oneSideModel, propName, propType, oneSidePart, propAttr);
+                generatedRelationProperties = true;
             }
         }
 
@@ -3863,46 +3899,73 @@ public static class MetadataFactory
     private static bool TryGetRelationProperty(
         ModelDefinition model,
         string referencedTableName,
-        string[] referencedColumnNames,
+        IReadOnlyList<ColumnDefinition> referencedColumns,
         string constraintName,
         out RelationProperty? property,
         out IDLOptionFailure failure)
     {
-        // Find a property in the model that has a [Relation] attribute matching the target table, columns, and constraint name.
-        var matches = model.RelationProperties.Values
-            .Where(p => p.Attributes.OfType<RelationAttribute>().Any(a =>
-                RelationAttributeMatches(a, referencedTableName, referencedColumnNames, constraintName)))
-            .ToArray();
+        property = null;
+        RelationAttribute? duplicateAttribute = null;
+        RelationProperty? duplicateProperty = null;
 
-        if (matches.Length <= 1)
+        foreach (var candidate in model.RelationProperties.Values)
         {
-            property = matches.FirstOrDefault();
+            foreach (var attribute in candidate.Attributes)
+            {
+                if (attribute is not RelationAttribute relationAttribute ||
+                    !RelationAttributeMatches(relationAttribute, referencedTableName, referencedColumns, constraintName))
+                    continue;
+
+                if (property is null)
+                {
+                    property = candidate;
+                    break;
+                }
+
+                duplicateProperty = candidate;
+                duplicateAttribute = relationAttribute;
+                break;
+            }
+
+            if (duplicateProperty is not null)
+                break;
+        }
+
+        if (duplicateProperty is null)
+        {
             failure = null!;
             return true;
         }
 
-        property = null;
-
-        var target = $"{referencedTableName}.({referencedColumnNames.ToJoinedString(", ")})";
-        var propertyNames = matches.Select(x => x.PropertyName).ToJoinedString(", ");
+        var target = $"{referencedTableName}.({FormatColumnNames(referencedColumns)})";
+        var propertyNames = $"{property!.PropertyName}, {duplicateProperty.PropertyName}";
         var message = $"Multiple relation properties on model '{model.CsType.Name}' match relation target '{target}' for constraint '{constraintName}': {propertyNames}. Relation attributes must identify at most one property for a database relation.";
-        var duplicateAttribute = matches[1]
-            .Attributes
-            .OfType<RelationAttribute>()
-            .FirstOrDefault(attribute => RelationAttributeMatches(attribute, referencedTableName, referencedColumnNames, constraintName));
 
-        failure = CreateRelationPropertyFailure(matches[1], duplicateAttribute, message);
+        property = null;
+        failure = CreateRelationPropertyFailure(duplicateProperty, duplicateAttribute, message);
         return false;
     }
 
     private static bool RelationAttributeMatches(
         RelationAttribute attribute,
         string referencedTableName,
-        string[] referencedColumnNames,
+        IReadOnlyList<ColumnDefinition> referencedColumns,
         string constraintName) =>
         attribute.Table == referencedTableName &&
-        attribute.Columns.SequenceEqual(referencedColumnNames) &&
+        RelationAttributeColumnsMatch(attribute.Columns, referencedColumns) &&
         (attribute.Name == null || attribute.Name == constraintName);
+
+    private static string FormatColumnNames(IReadOnlyList<ColumnDefinition> columns)
+    {
+        if (columns.Count == 0)
+            return string.Empty;
+
+        var names = new string[columns.Count];
+        for (var i = 0; i < columns.Count; i++)
+            names[i] = columns[i].DbName;
+
+        return names.ToJoinedString(", ");
+    }
 
     private static Option<bool, IDLOptionFailure> ValidateGeneratedRelationPropertyName(
         ModelDefinition model,
