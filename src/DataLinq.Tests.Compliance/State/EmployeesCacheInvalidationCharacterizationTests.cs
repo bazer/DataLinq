@@ -88,6 +88,45 @@ public class EmployeesCacheInvalidationCharacterizationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_UpdateBeforeCommit_UsesTransactionLocalRowCache(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Cache_UpdateBeforeCommit_UsesTransactionLocalRowCache),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var employee = employees.GetOrCreateEmployee(999974, employeesDatabase);
+        var employeeNumber = employee.emp_no;
+        var employeeCache = GetTableCache<Employee, EmployeesDb>(employeesDatabase);
+
+        employeesDatabase.Provider.State.ClearCache();
+
+        using var transaction = employeesDatabase.Transaction();
+        var transactionEmployee = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber);
+        var transactionEmployeeAgain = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber);
+
+        await Assert.That(ReferenceEquals(transactionEmployee, transactionEmployeeAgain)).IsTrue();
+        await Assert.That(employeeCache.TransactionRowsCount).IsEqualTo(1);
+        await Assert.That(employeeCache.GetTransactionRows(transaction).Count()).IsEqualTo(1);
+
+        var newBirthDate = transactionEmployee.birth_date.AddDays(1);
+        var mutable = transactionEmployee.Mutate();
+        mutable.birth_date = newBirthDate;
+
+        var updatedEmployee = transaction.Update(mutable);
+        var transactionEmployeeAfterUpdate = transaction.Query().Employees.Single(x => x.emp_no == employeeNumber);
+
+        await Assert.That(ReferenceEquals(updatedEmployee, transactionEmployeeAfterUpdate)).IsTrue();
+        await Assert.That(transactionEmployeeAfterUpdate.birth_date).IsEqualTo(newBirthDate);
+        await Assert.That(employeeCache.TransactionRowsCount).IsEqualTo(1);
+        await Assert.That(employeeCache.GetTransactionRows(transaction).Count()).IsEqualTo(1);
+
+        transaction.Rollback();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_Rollback_CurrentlyLeavesReadOnlyRowCacheInvalidatedAfterMutation(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(

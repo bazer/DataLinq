@@ -233,7 +233,7 @@ Exit criteria:
 
 Status: Complete as of 2026-05-10.
 
-The cache-invalidation characterization suite now covers committed update/delete row-cache invalidation, the current rollback behavior, relation/index invalidation when a foreign key changes, the current broad relation clearing when non-foreign-key columns change, table-change subscriber notification, and `state_change` cache-maintenance telemetry. Existing cache notification manager tests cover dead-subscriber compaction and notification cleanup preserving live subscribers. Two current semantics are deliberately documented as Workstream G inputs rather than hidden: read-only row cache entries are invalidated as soon as a write transaction mutates a row, even if the transaction later rolls back, and relation collections are cleared broadly for changed rows even when the relation/index columns did not change.
+The cache-invalidation characterization suite now covers committed update/delete row-cache invalidation, transaction-local update cache behavior before commit, the current rollback behavior, relation/index invalidation when a foreign key changes, the current broad relation clearing when non-foreign-key columns change, table-change subscriber notification, and `state_change` cache-maintenance telemetry. Existing cache notification manager tests cover dead-subscriber compaction and notification cleanup preserving live subscribers. Two current semantics are deliberately documented as Workstream G inputs rather than hidden: read-only row cache entries are invalidated as soon as a write transaction mutates a row, even if the transaction later rolls back, and relation collections are cleared broadly for changed rows even when the relation/index columns did not change.
 
 Goals:
 
