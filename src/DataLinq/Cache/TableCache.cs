@@ -25,11 +25,15 @@ public class TableCache
 {
     internal sealed class CacheNotificationManager
     {
+        private sealed record CacheNotificationSubscription(
+            WeakReference<ICacheNotification> Subscriber,
+            Transaction? Transaction);
+
         // Use ConcurrentQueue. Subscribe stays lock-free and O(1).
         // Notify self-clears by swapping the queue, and Clean compacts dead
         // weak references for read-heavy workloads that don't notify often.
         private readonly DataLinqTableMetricsHandle metricsHandle;
-        private ConcurrentQueue<WeakReference<ICacheNotification>> _subscribers = new();
+        private ConcurrentQueue<CacheNotificationSubscription> _subscribers = new();
         private int _maintenanceState = 0;
         private int _approximateSubscriberCount = 0;
 
@@ -38,15 +42,19 @@ public class TableCache
             this.metricsHandle = metricsHandle;
         }
 
-        internal void Subscribe(ICacheNotification subscriber)
+        internal void Subscribe(ICacheNotification subscriber) => Subscribe(subscriber, null);
+
+        internal void Subscribe(ICacheNotification subscriber, Transaction? transaction)
         {
             // This is a fully thread-safe, lock-free, O(1) operation.
-            _subscribers.Enqueue(new WeakReference<ICacheNotification>(subscriber));
+            _subscribers.Enqueue(new CacheNotificationSubscription(new WeakReference<ICacheNotification>(subscriber), transaction));
             var approximateQueueDepth = Interlocked.Increment(ref _approximateSubscriberCount);
             metricsHandle.RecordCacheNotificationSubscribe(approximateQueueDepth);
         }
 
-        internal void Notify()
+        internal void Notify() => Notify(null);
+
+        internal void Notify(Transaction? transaction)
         {
             // 1. Check if there's anything to do. This is a quick, lock-free check.
             if (_subscribers.IsEmpty)
@@ -60,7 +68,7 @@ public class TableCache
             while (Interlocked.CompareExchange(ref _maintenanceState, 1, 0) != 0)
                 spinWait.SpinOnce();
 
-            ConcurrentQueue<WeakReference<ICacheNotification>>? subscribersToNotify = null;
+            ConcurrentQueue<CacheNotificationSubscription>? subscribersToNotify = null;
             try
             {
                 // Another maintenance operation may already have swapped the queue
@@ -73,7 +81,7 @@ public class TableCache
                 // 3. Atomically swap the current queue with a new, empty one.
                 // Any new calls to Subscribe() from other threads will now add
                 // to the new queue without interfering with this notification pass.
-                subscribersToNotify = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+                subscribersToNotify = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<CacheNotificationSubscription>());
                 Interlocked.Exchange(ref _approximateSubscriberCount, 0);
             }
             finally
@@ -84,17 +92,26 @@ public class TableCache
             // 4. Iterate over our private snapshot outside the maintenance gate.
             var snapshotEntries = 0;
             var liveSubscribers = 0;
-            foreach (var weakRef in subscribersToNotify)
+            var requeuedSubscribers = 0;
+            foreach (var subscription in subscribersToNotify)
             {
                 snapshotEntries++;
-                if (weakRef.TryGetTarget(out var subscriber))
+                if (subscription.Subscriber.TryGetTarget(out var subscriber))
                 {
-                    liveSubscribers++;
-                    subscriber.Clear();
+                    if (transaction == null || ReferenceEquals(subscription.Transaction, transaction))
+                    {
+                        liveSubscribers++;
+                        subscriber.Clear();
+                    }
+                    else
+                    {
+                        _subscribers.Enqueue(subscription);
+                        requeuedSubscribers++;
+                    }
                 }
             }
 
-            var approximateQueueDepth = Volatile.Read(ref _approximateSubscriberCount);
+            var approximateQueueDepth = Interlocked.Add(ref _approximateSubscriberCount, requeuedSubscribers);
             metricsHandle.RecordCacheNotificationNotifySweep(snapshotEntries, liveSubscribers, approximateQueueDepth);
         }
 
@@ -119,16 +136,16 @@ public class TableCache
                     return;
                 }
 
-                var subscribersToKeep = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<WeakReference<ICacheNotification>>());
+                var subscribersToKeep = Interlocked.Exchange(ref _subscribers, new ConcurrentQueue<CacheNotificationSubscription>());
                 Interlocked.Exchange(ref _approximateSubscriberCount, 0);
                 var snapshotEntries = 0;
                 var requeuedSubscribers = 0;
-                foreach (var weakRef in subscribersToKeep)
+                foreach (var subscription in subscribersToKeep)
                 {
                     snapshotEntries++;
-                    if (weakRef.TryGetTarget(out _))
+                    if (subscription.Subscriber.TryGetTarget(out _))
                     {
-                        _subscribers.Enqueue(weakRef);
+                        _subscribers.Enqueue(subscription);
                         requeuedSubscribers++;
                     }
                 }
@@ -161,9 +178,9 @@ public class TableCache
     // This table weakly maps a relation object to its subscription manager.
     private readonly CacheNotificationManager notificationManager;
 
-    public void SubscribeToChanges(ICacheNotification subscriber)
+    public void SubscribeToChanges(ICacheNotification subscriber, Transaction? transaction = null)
     {
-        notificationManager.Subscribe(subscriber);
+        notificationManager.Subscribe(subscriber, transaction);
     }
 
     public TableCache(TableDefinition table, DatabaseCache databaseCache, DataLinqLoggingConfiguration loggingConfiguration)
@@ -209,25 +226,57 @@ public class TableCache
 
     public int ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
     {
+        var relevantChanges = changes.Where(x => x.Table == Table).ToList();
+        if (relevantChanges.Count == 0)
+            return 0;
+
+        return transaction == null
+            ? ApplyCommittedChanges(relevantChanges)
+            : ApplyTransactionChanges(relevantChanges, transaction);
+    }
+
+    private int ApplyTransactionChanges(IReadOnlyList<StateChange> changes, Transaction transaction)
+    {
+        var startedAt = Stopwatch.GetTimestamp();
         var numRows = 0;
 
         foreach (var change in changes)
         {
-            if (change.Table != Table)
-                continue;
-
             if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
             {
-                if (transaction != null)
-                {
-                    if (TryRemoveTransactionRow(change.PrimaryKeys, transaction, out var transRows))
-                        numRows += transRows;
-                }
+                if (TryRemoveTransactionRow(change.PrimaryKeys, transaction, out var transRows))
+                    numRows += transRows;
+            }
+        }
 
+        var duration = Stopwatch.GetElapsedTime(startedAt);
+        if (numRows > 0)
+        {
+            MetricsHandle.RecordCacheCleanup(numRows, duration);
+            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "transaction_state_change", numRows, duration);
+        }
+
+        MetricsHandle.RecordCacheCleanup(0, duration);
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "transaction_state_change_table", 0, duration);
+
+        RefreshOccupancyMetrics();
+        OnRowChanged(transaction);
+
+        return numRows;
+    }
+
+    private int ApplyCommittedChanges(IReadOnlyList<StateChange> changes)
+    {
+        var startedAt = Stopwatch.GetTimestamp();
+        var numRows = 0;
+
+        foreach (var change in changes)
+        {
+            if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
+            {
                 RowCache.TryRemoveRow(change.PrimaryKeys, out var rows);
                 numRows += rows;
             }
-
 
             TryRemoveRowFromAllIndices(change.PrimaryKeys, out var indexRows);
             numRows += indexRows;
@@ -247,13 +296,15 @@ public class TableCache
             }
         }
 
-        // At this point, all cache changes have been applied.
-        // Raise the event to notify any observers that a change has occurred.
+        var duration = Stopwatch.GetElapsedTime(startedAt);
         if (numRows > 0)
         {
-            MetricsHandle.RecordCacheCleanup(numRows, TimeSpan.Zero);
-            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "state_change", numRows, TimeSpan.Zero);
+            MetricsHandle.RecordCacheCleanup(numRows, duration);
+            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "state_change_precise", numRows, duration);
         }
+
+        MetricsHandle.RecordCacheCleanup(0, duration);
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "state_change_table", 0, duration);
 
         RefreshOccupancyMetrics();
         OnRowChanged();
@@ -275,9 +326,9 @@ public class TableCache
         }
     }
 
-    protected virtual void OnRowChanged()
+    protected virtual void OnRowChanged(Transaction? transaction = null)
     {
-        notificationManager.Notify();
+        notificationManager.Notify(transaction);
     }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()

@@ -60,7 +60,7 @@ public class ImmutableForeignKey<T>(IKey foreignKey, IDataSourceAccess dataSourc
                     var source = GetDataSource();
                     var tableCache = GetTableCache(source);
 
-                    tableCache.SubscribeToChanges(this);
+                    tableCache.SubscribeToChanges(this, source as Transaction);
 
                     valueHolder = new((T?)tableCache
                         .GetRows(foreignKey, property, dataSource)

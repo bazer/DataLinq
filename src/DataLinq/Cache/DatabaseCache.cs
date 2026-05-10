@@ -31,8 +31,6 @@ public class DatabaseCache : IDisposable
         this.TableCaches = this.Database.Metadata.TableModels
             .ToDictionary(x => x.Table, x => new TableCache(x.Table, this, loggingConfiguration));
 
-        this.MakeSnapshot();
-
         if (IsBrowserRuntime())
             return;
 

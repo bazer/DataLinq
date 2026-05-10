@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Data;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -121,8 +120,8 @@ public class CacheNotificationManagerTests
     private int GetSubscriberCount()
     {
         var subscribersField = typeof(TableCache.CacheNotificationManager).GetField("_subscribers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var queue = (ConcurrentQueue<WeakReference<ICacheNotification>>)subscribersField!.GetValue(manager)!;
-        return queue.Count;
+        var queue = subscribersField!.GetValue(manager)!;
+        return (int)queue.GetType().GetProperty("Count")!.GetValue(queue)!;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

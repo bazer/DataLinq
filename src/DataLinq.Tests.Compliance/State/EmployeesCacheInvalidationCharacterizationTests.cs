@@ -38,6 +38,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         var cachedEmployeeAgain = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
         await Assert.That(ReferenceEquals(cachedEmployee, cachedEmployeeAgain)).IsTrue();
         await Assert.That(employeeCache.RowCount).IsEqualTo(1);
+        await Assert.That(employeeCache.TotalBytes).IsGreaterThan(0);
 
         var newBirthDate = cachedEmployee.birth_date.AddDays(1);
         var mutable = cachedEmployee.Mutate();
@@ -49,6 +50,9 @@ public class EmployeesCacheInvalidationCharacterizationTests
             await Assert.That(updatedEmployee.birth_date).IsEqualTo(newBirthDate);
             transaction.Commit();
         }
+
+        await Assert.That(employeeCache.RowCount).IsEqualTo(0);
+        await Assert.That(employeeCache.TotalBytes).IsEqualTo(0);
 
         var persistedEmployee = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
 
@@ -127,11 +131,11 @@ public class EmployeesCacheInvalidationCharacterizationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
-    public async Task Cache_Rollback_CurrentlyLeavesReadOnlyRowCacheInvalidatedAfterMutation(TestProviderDescriptor provider)
+    public async Task Cache_Rollback_DoesNotInvalidateReadOnlyRowCacheForUncommittedMutation(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(
             provider,
-            nameof(Cache_Rollback_CurrentlyLeavesReadOnlyRowCacheInvalidatedAfterMutation),
+            nameof(Cache_Rollback_DoesNotInvalidateReadOnlyRowCacheForUncommittedMutation),
             EmployeesSeedMode.Bogus);
 
         var employeesDatabase = databaseScope.Database;
@@ -153,7 +157,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
             _ = transaction.Update(mutable);
 
             await Assert.That(transaction.Status).IsEqualTo(DatabaseTransactionStatus.Open);
-            await Assert.That(employeeCache.RowCount).IsEqualTo(0);
+            await Assert.That(employeeCache.RowCount).IsEqualTo(1);
 
             transaction.Rollback();
         }
@@ -161,7 +165,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         var persistedEmployee = employeesDatabase.Query().Employees.Single(x => x.emp_no == employeeNumber);
 
         await Assert.That(persistedEmployee.birth_date).IsEqualTo(originalBirthDate);
-        await Assert.That(ReferenceEquals(cachedEmployee, persistedEmployee)).IsFalse();
+        await Assert.That(ReferenceEquals(cachedEmployee, persistedEmployee)).IsTrue();
         await Assert.That(employeeCache.RowCount).IsEqualTo(1);
     }
 
@@ -219,6 +223,7 @@ public class EmployeesCacheInvalidationCharacterizationTests
         using (var transaction = databaseScope.Database.Transaction())
         {
             _ = transaction.Update(mutable);
+            await Assert.That(subscriber.ClearCount).IsEqualTo(0);
             transaction.Commit();
         }
 
@@ -324,25 +329,33 @@ public class EmployeesCacheInvalidationCharacterizationTests
                 transaction.Commit();
             }
 
-            var maintenanceOperations = measurements
+            var preciseMaintenanceOperations = measurements
                 .Where(x =>
                     x.InstrumentName == "datalinq.cache.maintenance.operations" &&
                     HasTag(x.Tags, "datalinq.table", "employees") &&
-                    HasTag(x.Tags, "datalinq.cache.operation", "state_change"))
+                    HasTag(x.Tags, "datalinq.cache.operation", "state_change_precise"))
+                .Sum(x => x.Value);
+
+            var tableMaintenanceOperations = measurements
+                .Where(x =>
+                    x.InstrumentName == "datalinq.cache.maintenance.operations" &&
+                    HasTag(x.Tags, "datalinq.table", "employees") &&
+                    HasTag(x.Tags, "datalinq.cache.operation", "state_change_table"))
                 .Sum(x => x.Value);
 
             var rowsRemoved = measurements
                 .Where(x =>
                     x.InstrumentName == "datalinq.cache.rows.removed" &&
                     HasTag(x.Tags, "datalinq.table", "employees") &&
-                    HasTag(x.Tags, "datalinq.cache.operation", "state_change"))
+                    HasTag(x.Tags, "datalinq.cache.operation", "state_change_precise"))
                 .Sum(x => x.Value);
 
             var tableMetrics = GetTableMetrics(databaseScope.Database, "employees");
 
-            await Assert.That(maintenanceOperations).IsGreaterThanOrEqualTo(1L);
+            await Assert.That(preciseMaintenanceOperations).IsGreaterThanOrEqualTo(1L);
+            await Assert.That(tableMaintenanceOperations).IsGreaterThanOrEqualTo(1L);
             await Assert.That(rowsRemoved).IsGreaterThanOrEqualTo(1L);
-            await Assert.That(tableMetrics.Cleanup.Operations).IsGreaterThanOrEqualTo(1L);
+            await Assert.That(tableMetrics.Cleanup.Operations).IsGreaterThanOrEqualTo(2L);
             await Assert.That(tableMetrics.Cleanup.RowsRemoved).IsGreaterThanOrEqualTo(1L);
         }
         finally

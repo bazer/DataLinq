@@ -457,10 +457,7 @@ public class EmployeesTransactionLifecycleTests
 
             transaction.Insert(newSalary);
 
-            if (employeesDatabase.DatabaseType == DatabaseType.SQLite)
-                await Assert.That(employee.salaries.Count).IsEqualTo(1);
-            else
-                await Assert.That(employee.salaries).IsEmpty();
+            await Assert.That(employee.salaries).IsEmpty();
 
             transaction.Commit();
         }

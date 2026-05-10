@@ -17,6 +17,31 @@ public class DatabaseCacheTests
 {
     [Test]
     [NotInParallel]
+    public async Task Constructor_DoesNotCreateHistorySnapshotUntilRequested()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(CreateMetadata()),
+                DataLinqLoggingConfiguration.NullConfiguration);
+
+            await Assert.That(cache.History.Count).IsEqualTo(0u);
+
+            _ = cache.GetLatestSnapshot();
+
+            await Assert.That(cache.History.Count).IsEqualTo(1u);
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
+    [Test]
+    [NotInParallel]
     public async Task Constructor_DoesNotStartCleanupWorker_InBrowserRuntime()
     {
         var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;

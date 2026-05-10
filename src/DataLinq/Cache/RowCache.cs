@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using DataLinq.Instances;
 using DataLinq.Utils;
 
@@ -9,11 +10,14 @@ namespace DataLinq.Cache;
 
 public class RowCache
 {
+    private readonly object rowsLock = new();
     private readonly object keyTicksQueueLock = new();
     private (IKey keys, long ticks, int size)? oldestKeyTick;
     private readonly Queue<(IKey keys, long ticks, int size)> keysTicks = new();
 
     protected ConcurrentDictionary<IKey, IImmutableInstance> rows = new();
+    private readonly ConcurrentDictionary<IKey, (int size, long ticks)> rowMetadata = new();
+    private long totalBytes;
 
     public IEnumerable<IImmutableInstance> Rows => rows.Values.AsEnumerable();
     public int Count => rows.Count;
@@ -37,27 +41,24 @@ public class RowCache
         }
     }
 
-    public long TotalBytes
-    {
-        get
-        {
-            lock (keyTicksQueueLock)
-            {
-                return keysTicks.Sum(x => x.size);
-            }
-        }
-    }
+    public long TotalBytes => Interlocked.Read(ref totalBytes);
 
     public string TotalBytesFormatted => TotalBytes.ToFileSize();
 
     public void ClearRows()
     {
-        rows.Clear();
         lock (keyTicksQueueLock)
         {
+            lock (rowsLock)
+            {
+                rows.Clear();
+                rowMetadata.Clear();
+                Interlocked.Exchange(ref totalBytes, 0);
+            }
+
             keysTicks.Clear();
+            oldestKeyTick = null;
         }
-        oldestKeyTick = null;
     }
 
     public int RemoveRowsOverRowLimit(int maxRows)
@@ -75,7 +76,7 @@ public class RowCache
 
             while (rowCount > maxRows)
             {
-                if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
+                if (TryRemoveRow(oldestKeyTick.Value.keys, oldestKeyTick.Value.ticks, out var numRowsRemoved))
                 {
                     rowCount -= numRowsRemoved;
                     count += numRowsRemoved;
@@ -113,9 +114,11 @@ public class RowCache
 
             while (totalSize > maxSize)
             {
-                if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
+                if (TryRemoveRow(oldestKeyTick.Value.keys, oldestKeyTick.Value.ticks, out var numRowsRemoved))
                 {
-                    totalSize -= oldestKeyTick.Value.size;
+                    if (numRowsRemoved > 0)
+                        totalSize -= oldestKeyTick.Value.size;
+
                     count += numRowsRemoved;
 
                     keysTicks.TryDequeue(out _);
@@ -146,7 +149,7 @@ public class RowCache
         {
             while (oldestKeyTick?.ticks < tick)
             {
-                if (TryRemoveRow(oldestKeyTick.Value.keys, out var numRowsRemoved))
+                if (TryRemoveRow(oldestKeyTick.Value.keys, oldestKeyTick.Value.ticks, out var numRowsRemoved))
                 {
                     count += numRowsRemoved;
 
@@ -171,18 +174,32 @@ public class RowCache
     public bool TryGetValue(IKey primaryKeys, out IImmutableInstance? row) => rows.TryGetValue(primaryKeys, out row);
 
     public bool TryRemoveRow(IKey primaryKeys, out int numRowsRemoved)
+        => TryRemoveRow(primaryKeys, null, out numRowsRemoved);
+
+    private bool TryRemoveRow(IKey primaryKeys, long? expectedTicks, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
-        if (rows.ContainsKey(primaryKeys))
+        lock (rowsLock)
         {
-            if (rows.TryRemove(primaryKeys, out var _))
+            if (rows.ContainsKey(primaryKeys))
             {
-                numRowsRemoved = 1;
-                return true;
+                if (expectedTicks.HasValue &&
+                    (!rowMetadata.TryGetValue(primaryKeys, out var currentMetadata) ||
+                     currentMetadata.ticks != expectedTicks.Value))
+                    return true;
+
+                if (rows.TryRemove(primaryKeys, out var _))
+                {
+                    if (rowMetadata.TryRemove(primaryKeys, out var metadata))
+                        Interlocked.Add(ref totalBytes, -metadata.size);
+
+                    numRowsRemoved = 1;
+                    return true;
+                }
+                else
+                    return false;
             }
-            else
-                return false;
         }
 
         return true;
@@ -192,17 +209,30 @@ public class RowCache
     {
         var ticks = DateTime.Now.Ticks;
 
-        if (!rows.TryAdd(keys, instance))
-            return false;
-
         lock (keyTicksQueueLock)
         {
+            lock (rowsLock)
+            {
+                if (!rows.TryAdd(keys, instance))
+                    return false;
+
+                if (rowMetadata.TryGetValue(keys, out var existingMetadata))
+                {
+                    rowMetadata[keys] = (data.Size, ticks);
+                    Interlocked.Add(ref totalBytes, data.Size - existingMetadata.size);
+                }
+                else
+                {
+                    rowMetadata[keys] = (data.Size, ticks);
+                    Interlocked.Add(ref totalBytes, data.Size);
+                }
+            }
+
             keysTicks.Enqueue((keys, ticks, data.Size));
 
             if (!oldestKeyTick.HasValue)
                 oldestKeyTick = (keys, ticks, data.Size);
         }
-
 
         return true;
     }

@@ -142,7 +142,7 @@ public class ImmutableRelation<T>(IKey foreignKey, IDataSourceAccess dataSource,
                 var source = GetDataSource();
                 var tableCache = GetTableCache(source);
 
-                tableCache.SubscribeToChanges(this);
+                tableCache.SubscribeToChanges(this, source as Transaction);
 
                 relationInstances = tableCache
                     .GetRows(foreignKey, property, source)

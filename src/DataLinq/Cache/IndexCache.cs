@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Collections.Generic;
 using System.Linq;
 using DataLinq.Instances;
@@ -8,13 +9,14 @@ namespace DataLinq.Cache;
 
 public class IndexCache
 {
+    private readonly object cacheLock = new();
     private readonly object ticksQueueLock = new();
     private (IKey keys, long ticks)? oldestTick;
     private readonly Queue<(IKey keys, long ticks)> ticks = new();
 
-    private ConcurrentDictionary<IKey, List<IKey>> primaryKeysToForeignKeys = new();
+    private readonly ConcurrentDictionary<IKey, ImmutableArray<IKey>> primaryKeysToForeignKeys = new();
 
-    protected ConcurrentDictionary<IKey, IKey[]> foreignKeys = new();
+    protected readonly ConcurrentDictionary<IKey, IKey[]> foreignKeys = new();
 
     public int Count => foreignKeys.Count;
 
@@ -22,26 +24,21 @@ public class IndexCache
     {
         var ticksNow = DateTime.Now.Ticks;
 
-        if (!foreignKeys.TryAdd(foreignKey, primaryKeys))
-            return false;
-
         lock (ticksQueueLock)
         {
+            lock (cacheLock)
+            {
+                if (!foreignKeys.TryAdd(foreignKey, primaryKeys))
+                    return false;
+
+                foreach (var primaryKey in primaryKeys)
+                    AddReverseMapping(primaryKey, foreignKey);
+            }
+
             ticks.Enqueue((foreignKey, ticksNow));
 
             if (!oldestTick.HasValue)
                 oldestTick = (foreignKey, ticksNow);
-        }
-
-        foreach (var primaryKey in primaryKeys)
-        {
-            primaryKeysToForeignKeys.AddOrUpdate(primaryKey,
-                new List<IKey> { foreignKey },
-                (key, existingList) =>
-                {
-                    existingList.Add(foreignKey);
-                    return existingList;
-                });
         }
 
         return true;
@@ -51,26 +48,21 @@ public class IndexCache
     {
         numRowsRemoved = 0;
 
-        if (foreignKeys.ContainsKey(foreignKey))
+        lock (cacheLock)
         {
-            if (foreignKeys.TryRemove(foreignKey, out var pks))
+            if (foreignKeys.ContainsKey(foreignKey))
             {
-                numRowsRemoved = 1;
-                foreach (var pk in pks)
+                if (foreignKeys.TryRemove(foreignKey, out var pks))
                 {
-                    if (primaryKeysToForeignKeys.TryGetValue(pk, out var foreignKeysList))
-                    {
-                        foreignKeysList.Remove(foreignKey);
-                        if (foreignKeysList.Count == 0)
-                        {
-                            primaryKeysToForeignKeys.TryRemove(pk, out _);
-                        }
-                    }
+                    numRowsRemoved = 1;
+                    foreach (var pk in pks)
+                        RemoveReverseMapping(pk, foreignKey);
+
+                    return true;
                 }
-                return true;
+                else
+                    return false;
             }
-            else
-                return false;
         }
 
         return true;
@@ -78,8 +70,11 @@ public class IndexCache
 
     public IEnumerable<IKey> GetForeignKeysByPrimaryKey(IKey primaryKey)
     {
-        if (primaryKeysToForeignKeys.TryGetValue(primaryKey, out var foreignKeys))
-            return foreignKeys;
+        lock (cacheLock)
+        {
+            if (primaryKeysToForeignKeys.TryGetValue(primaryKey, out var foreignKeys))
+                return foreignKeys.IsDefaultOrEmpty ? [] : foreignKeys;
+        }
 
         return Enumerable.Empty<IKey>();
     }
@@ -137,9 +132,38 @@ public class IndexCache
 
     public void Clear()
     {
-        foreignKeys.Clear();
-        primaryKeysToForeignKeys.Clear();
-        ticks.Clear();
-        oldestTick = null;
+        lock (ticksQueueLock)
+        {
+            lock (cacheLock)
+            {
+                foreignKeys.Clear();
+                primaryKeysToForeignKeys.Clear();
+            }
+
+            ticks.Clear();
+            oldestTick = null;
+        }
+    }
+
+    private void AddReverseMapping(IKey primaryKey, IKey foreignKey)
+    {
+        primaryKeysToForeignKeys.AddOrUpdate(
+            primaryKey,
+            ImmutableArray.Create(foreignKey),
+            (_, existingForeignKeys) => existingForeignKeys.Contains(foreignKey)
+                ? existingForeignKeys
+                : existingForeignKeys.Add(foreignKey));
+    }
+
+    private void RemoveReverseMapping(IKey primaryKey, IKey foreignKey)
+    {
+        if (!primaryKeysToForeignKeys.TryGetValue(primaryKey, out var existingForeignKeys))
+            return;
+
+        var updatedForeignKeys = existingForeignKeys.Remove(foreignKey);
+        if (updatedForeignKeys.IsDefaultOrEmpty)
+            primaryKeysToForeignKeys.TryRemove(primaryKey, out _);
+        else
+            primaryKeysToForeignKeys[primaryKey] = updatedForeignKeys;
     }
 }
