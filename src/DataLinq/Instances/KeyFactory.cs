@@ -47,15 +47,66 @@ public static class KeyFactory
 
     public static IKey CreateKeyFromValues(IEnumerable<object?> values)
     {
-        var array = values.Select(NormalizeKeyValue).ToArray();
+        if (values is IReadOnlyList<object?> list)
+            return CreateKeyFromList(list);
 
-        if (array.Length == 1)
-            return CreateKeyFromValue(array[0]);
+        using var enumerator = values.GetEnumerator();
+        if (!enumerator.MoveNext())
+            return new NullKey();
 
-        if (array.All(x => x == null))
+        var firstValue = enumerator.Current;
+        if (!enumerator.MoveNext())
+            return CreateKeyFromValue(firstValue);
+
+        var array = new object?[] { NormalizeKeyValue(firstValue), NormalizeKeyValue(enumerator.Current) };
+        var count = 2;
+
+        while (enumerator.MoveNext())
+        {
+            if (count == array.Length)
+                Array.Resize(ref array, array.Length * 2);
+
+            array[count++] = NormalizeKeyValue(enumerator.Current);
+        }
+
+        if (count != array.Length)
+            Array.Resize(ref array, count);
+
+        return CreateCompositeKeyFromNormalizedValues(array);
+    }
+
+    private static IKey CreateKeyFromList(IReadOnlyList<object?> values)
+    {
+        if (values.Count == 0)
+            return new NullKey();
+
+        if (values.Count == 1)
+            return CreateKeyFromValue(values[0]);
+
+        var array = new object?[values.Count];
+        for (var i = 0; i < values.Count; i++)
+            array[i] = NormalizeKeyValue(values[i]);
+
+        return CreateCompositeKeyFromNormalizedValues(array);
+    }
+
+    private static IKey CreateCompositeKeyFromNormalizedValues(object?[] array)
+    {
+        if (AllValuesAreNull(array))
             return new NullKey();
 
         return new CompositeKey(array);
+    }
+
+    private static bool AllValuesAreNull(object?[] values)
+    {
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (values[i] is not null)
+                return false;
+        }
+
+        return true;
     }
 
     private static object? NormalizeKeyValue(object? value)

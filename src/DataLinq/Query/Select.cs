@@ -254,18 +254,25 @@ public class Select<T> : IQuery
         {
             if (query.Table.PrimaryKeyColumns.Length != 0)
             {
-                this.What(query.Table.PrimaryKeyColumns);
-
                 // OPTIMIZATION: Try to extract keys directly from the query structure (e.g. Single(x => x.Id == 1))
                 // This avoids the first round-trip to fetch keys if the query is a simple PK lookup.
                 var simpleKey = query.TryGetSimplePrimaryKey();
+                var tableCache = query.DataSource.Provider.GetTableCache(query.Table);
 
-                var keys = simpleKey != null
-                    ? [simpleKey]
-                    : this.ReadKeys().ToArray();
+                if (simpleKey != null)
+                {
+                    var row = tableCache.GetRow(simpleKey, query.DataSource);
+                    if (row is not null)
+                        yield return row;
+                }
+                else
+                {
+                    this.What(query.Table.PrimaryKeyColumns);
+                    var keys = this.ReadKeys().ToArray();
 
-                foreach (var row in query.DataSource.Provider.GetTableCache(query.Table).GetRows(keys, query.DataSource, orderings: query.OrderByList))
-                    yield return row;
+                    foreach (var row in tableCache.GetRows(keys, query.DataSource, orderings: query.OrderByList))
+                        yield return row;
+                }
             }
             else
             {

@@ -550,21 +550,51 @@ public class TableCache
         return GetRows(GetKeys(foreignKey, otherSide, dataSource), dataSource);
     }
 
-    public IImmutableInstance? GetRow(IKey primaryKeys, IDataSourceAccess dataSource) =>
-        GetRows([primaryKeys], dataSource).SingleOrDefault();
+    public IImmutableInstance? GetRow(IKey primaryKeys, IDataSourceAccess dataSource)
+    {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        EnsureTransactionRowCache(dataSource);
+
+        if (GetRowFromCache(primaryKeys, dataSource, out var row))
+        {
+            MetricsHandle.RecordRowCacheHits(1);
+            MetricsHandle.RecordRowCacheMisses(0);
+            Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, 1);
+            return row;
+        }
+
+        MetricsHandle.RecordRowCacheHits(0);
+        MetricsHandle.RecordRowCacheMisses(1);
+        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, 0);
+
+        foreach (var rowData in GetRowDataFromPrimaryKey(primaryKeys, dataSource))
+        {
+            MetricsHandle.RecordDatabaseRowsLoaded(1);
+            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
+            return AddRow(rowData, dataSource);
+        }
+
+        Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
+        return null;
+    }
 
     public IEnumerable<IImmutableInstance> GetRows(IKey[] primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
+    {
+        EnsureTransactionRowCache(dataSource);
+
+        if (orderings == null || orderings.Count == 0)
+            return LoadRowsFromDatabaseAndCache(primaryKeys, dataSource);
+        else
+            return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
+    }
+
+    private void EnsureTransactionRowCache(IDataSourceAccess dataSource)
     {
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
         {
             TransactionRows.TryAdd(transaction, new RowCache());
             RefreshOccupancyMetrics();
         }
-
-        if (orderings == null || orderings.Count == 0)
-            return LoadRowsFromDatabaseAndCache(primaryKeys, dataSource);
-        else
-            return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
     }
 
     private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache(IKey[] primaryKeys, IDataSourceAccess dataSource)
@@ -699,6 +729,31 @@ public class TableCache
         {
             foreach (var order in orderings)
                 q.OrderBy(order.Column, order.Alias, order.Ascending);
+        }
+
+        return q
+            .SelectQuery()
+            .ReadRows();
+    }
+
+    private IEnumerable<RowData> GetRowDataFromPrimaryKey(IKey key, IDataSourceAccess dataSource)
+    {
+        var q = new SqlQuery(Table, dataSource);
+
+        if (Table.PrimaryKeyColumns.Length == 1)
+        {
+            var pkColumn = Table.PrimaryKeyColumns[0];
+            q.Where(pkColumn.DbName)
+             .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key.GetValue(0)));
+        }
+        else
+        {
+            for (var i = 0; i < primaryKeyColumnsCount; i++)
+            {
+                var pkColumn = Table.PrimaryKeyColumns[i];
+                q.Where(pkColumn.DbName)
+                 .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key.GetValue(i)));
+            }
         }
 
         return q

@@ -208,7 +208,10 @@ public class WhereGroup<T> : IWhere<T>
                 return null;
         }
 
-        var collectedValues = new object?[pkColumns.Count];
+        object? singlePrimaryKeyValue = null;
+        object?[]? collectedValues = pkColumns.Count == 1
+            ? null
+            : new object?[pkColumns.Count];
         var foundColumns = 0;
 
         // 3. Iterate conditions
@@ -237,7 +240,11 @@ public class WhereGroup<T> : IWhere<T>
                     if (pkIndex != -1)
                     {
                         // Found a PK column constraint.
-                        collectedValues[pkIndex] = valOp.FirstValue;
+                        if (pkColumns.Count == 1)
+                            singlePrimaryKeyValue = valOp.FirstValue;
+                        else
+                            collectedValues![pkIndex] = valOp.FirstValue;
+
                         foundColumns++;
                     }
                     else
@@ -257,7 +264,9 @@ public class WhereGroup<T> : IWhere<T>
             return null;
 
         // 5. Create the key
-        return KeyFactory.CreateKeyFromValues(collectedValues);
+        return pkColumns.Count == 1
+            ? KeyFactory.CreateKeyFromValue(singlePrimaryKeyValue)
+            : KeyFactory.CreateKeyFromValues(collectedValues!);
     }
 
     internal bool TryGetTemplatePredicates(
