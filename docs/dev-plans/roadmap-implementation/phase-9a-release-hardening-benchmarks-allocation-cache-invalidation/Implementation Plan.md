@@ -264,6 +264,12 @@ Exit criteria:
 
 ## Workstream G: Cache Invalidation And Cache Internals Hardening
 
+Status: Complete as of 2026-05-10.
+
+The cache hardening pass now keeps provider construction from creating an initial cache-history snapshot until a snapshot is requested. `IndexCache` reverse mappings no longer expose mutable `List<IKey>` buckets; updates are lock-coordinated and return stable immutable snapshots for primary-key reverse lookups. `RowCache.TotalBytes` is maintained as an O(1) running counter with row tick metadata so direct invalidation does not leave stale age-queue entries capable of evicting a newer row for the same key.
+
+Committed mutations still use conservative table-level relation invalidation where precision would risk stale immutable relation contents, but row and index eviction are separated from that fallback telemetry. Transaction-local mutations now clear only transaction-owned cached rows and relation subscriptions. Global row, index, and relation invalidation is published from the post-commit path, after the database commit succeeds; rollback removes transaction-local cache state without clearing read-only/global relation caches.
+
 Goals:
 
 - make invalidation precise where precision is cheap and correct
@@ -290,6 +296,13 @@ Exit criteria:
 - rollback does not clear global relation caches for uncommitted changes
 - commit invalidation happens after successful database commit
 - telemetry can distinguish precise, table-level, cleanup, and notification invalidation work
+
+Verification completed:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+```
 
 ## Workstream H: Benchmark Closeout And Release Evidence
 
