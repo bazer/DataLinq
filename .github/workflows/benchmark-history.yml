@@ -94,7 +94,7 @@ jobs:
             --filter "*EmployeesBenchmarks*" \
             --history-json artifacts/benchmarks/ci/latest-history.json \
             "${baseline_args[@]}" \
-            -- --anyCategories stable macro-bulk
+            -- --anyCategories stable macro-readwrite macro-bulk
 
       - name: Update published benchmark history
         if: success() && github.ref == 'refs/heads/master'

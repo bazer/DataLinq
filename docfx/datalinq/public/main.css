@@ -97,16 +97,6 @@ article h4 {
   border-color: #64748b;
 }
 
-.benchmark-profile-explainer {
-  border-left: 3px solid var(--color-border);
-  margin: 0 0 1.5rem;
-  padding-left: 1rem;
-}
-
-.benchmark-profile-explainer p {
-  margin: 0.3rem 0;
-}
-
 .benchmark-table {
   width: 100%;
   border-collapse: collapse;
@@ -143,15 +133,30 @@ article h4 {
 }
 
 .benchmark-group-row th {
-  padding-top: 1rem;
+  padding-top: 1.15rem;
   background: color-mix(in srgb, var(--color-bg-primary) 78%, var(--bs-body-color) 22%);
   font-size: 0.82rem;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
+.benchmark-data-row td {
+  padding-top: 0.85rem;
+}
+
+.benchmark-scenario-name {
+  font-weight: 700;
+}
+
+.benchmark-trend-table a {
+  color: inherit;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
 .benchmark-detail-row td {
   padding-top: 0;
+  padding-bottom: 0.9rem;
   background: color-mix(in srgb, var(--color-bg-primary) 96%, var(--bs-body-color) 4%);
 }
 
@@ -162,29 +167,36 @@ article h4 {
 }
 
 .benchmark-row-meta {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.55rem;
+  display: block;
 }
 
 .benchmark-row-meta > span {
   display: inline;
+  font-style: italic;
 }
 
 .benchmark-details {
-  display: inline-block;
+  display: inline;
+  margin-left: 0.45rem;
 }
 
 .benchmark-details summary {
   cursor: pointer;
   font-weight: 700;
   display: inline;
+  list-style: none;
+}
+
+.benchmark-details summary::marker {
+  content: "";
+}
+
+.benchmark-details summary::-webkit-details-marker {
+  display: none;
 }
 
 .benchmark-details[open] {
-  display: block;
-  flex-basis: 100%;
+  display: inline;
 }
 
 .benchmark-telemetry-grid {

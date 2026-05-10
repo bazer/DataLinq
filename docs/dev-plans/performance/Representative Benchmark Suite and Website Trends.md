@@ -2,7 +2,7 @@
 > This document is planning material. It describes benchmark and website changes that should be implemented deliberately, then promoted only after the data proves they are stable enough to trust.
 # Representative Benchmark Suite and Website Trends
 
-**Status:** Website and history interpretation implemented in Phase 9A Workstream B. The existing macro-bulk CRUD workflow is now published; broader representative macro promotion remains evidence-gated.
+**Status:** Website and history interpretation implemented in Phase 9A Workstream B. Small and batch CRUD workflows are now published; broader representative macro promotion remains evidence-gated.
 **Goal:** Add representative library-usage benchmarks, reduce avoidable benchmark noise, and make the website show performance direction over time instead of only the latest run.
 
 ## Current State
@@ -19,7 +19,7 @@ That foundation is good. The weak parts are now narrower and easier to name:
 
 - the published suite is still too hot-path oriented to describe ordinary library use
 - the website table mostly answers "what changed since the previous latest run?", not "what direction is this going over the last N runs?"
-- broader representative macro coverage is still thin beyond the first macro-bulk CRUD workflow
+- broader representative macro coverage is still thin beyond the two employees CRUD workflows
 - the published history includes both `default` and `heavy` benchmark profiles, so the website must keep them visually separated
 - the current `NoisePercent` is based on `Error / Mean`; that is useful, but it is not the same thing as a full variance story
 
@@ -51,7 +51,7 @@ These are not "normal app workflows", but they are still valuable. They tell us 
 
 ### Promote or Refine the Existing CRUD Work
 
-There is already a `CrudWorkflow` scenario categorized as `experimental` and `macro-bulk`. It performs a real unit-of-work loop:
+There are now `CrudWorkflowSmall` and `CrudWorkflowBatch` scenarios categorized as `experimental` macro read/write rows. They perform the same real unit-of-work loop:
 
 1. start a transaction
 2. read an employee
@@ -62,7 +62,7 @@ There is already a `CrudWorkflow` scenario categorized as `experimental` and `ma
 7. delete the inserted employee
 8. commit
 
-That is exactly the kind of scenario we want. It is now published in the macro-bulk lane, but it should still be interpreted as a macro trend rather than as part of the microbenchmark stable category:
+That is exactly the kind of scenario we want. The smaller version is published in the `macro-readwrite` lane with 50 workflows per invocation. The broader version is published in the `macro-bulk` lane with 300 workflows per invocation. Both should still be interpreted as macro trends rather than as part of the microbenchmark stable category:
 
 - inspect BenchmarkDotNet warnings
 - inspect `NoisePercent`
@@ -72,9 +72,9 @@ That is exactly the kind of scenario we want. It is now published in the macro-b
 
 If it becomes too noisy, remove it from published history again. Keeping a bad macro signal would be worse than admitting the scenario needs more work.
 
-### Add a Small CRUD Workflow
+### Small CRUD Workflow
 
-Add `CrudWorkflowSmall` or `CrudWorkflowUnitOfWork` under a `macro-readwrite` category.
+`CrudWorkflowSmall` is published under the `macro-readwrite` category.
 
 Purpose:
 
@@ -89,17 +89,15 @@ Shape:
 - each workflow should use a transaction and include read, relation traversal, update, insert, reload, delete, commit
 - cleanup must be deterministic and outside the measured section where possible
 
-Initial recommendation:
-
-- start with 25 to 100 workflows per invocation
+- current count is 50 workflows per invocation
 - keep the published metric normalized per workflow
 - only publish after several runs prove it is stable
 
 Do not make this a single CRUD operation benchmark unless BenchmarkDotNet shows it is long enough. A "single request" label is fine, but a measurement that is too short is garbage with a polite table around it.
 
-### Add a Larger CRUD Batch
+### Larger CRUD Batch
 
-Add `CrudWorkflowBatch` or refine the existing one into a `macro-bulk` category after evidence.
+`CrudWorkflowBatch` is published under the `macro-bulk` category.
 
 Purpose:
 
@@ -363,7 +361,7 @@ Recommended `history` additions:
       },
       "Rows": [
         {
-          "Method": "CRUD workflow",
+          "Method": "CRUD workflow small",
           "ProviderName": "sqlite-memory",
           "Category": "macro-readwrite",
           "MeanMicroseconds": 123.4,
@@ -482,7 +480,7 @@ For website changes:
 1. The website should use a page-wide profile switch. Showing default and heavy together made the table and charts harder to read, and the profiles use different BenchmarkDotNet jobs.
 2. Keep the published suite on `sqlite-memory` for now. `sqlite-file` remains local-only until there is a strong reason to accept filesystem variance on the public trend page.
 3. Retain history by age, not raw run count. Keep all recent runs, then thin older data to representative weekly or monthly points so multi-year drift remains visible without bloating the page.
-4. Publish the existing macro CRUD workflow as `macro-bulk`; reserve `macro-readwrite` for a smaller request-sized workflow once it exists.
+4. Publish the smaller CRUD workflow as `macro-readwrite` and the broader CRUD workflow as `macro-bulk`.
 5. Try expandable telemetry rows. Tooltips can keep compact telemetry summaries, but expandable rows are the better diagnostic surface if they stay collapsed by default.
 
 ## Suggested First Slice
@@ -492,9 +490,8 @@ The best first slice is not adding the benchmark methods. It is making history i
 After that:
 
 1. add `DeleteEmployeesBatch`
-2. split the current CRUD workflow into small and batch variants
-3. run them locally under `heavy`
-4. promote only the rows that stay boring
-5. upgrade the website table, expandable telemetry rows, and hover charts against the improved history shape
+2. run the CRUD rows locally under `heavy`
+3. promote only the additional rows that stay boring
+4. upgrade the website table, expandable telemetry rows, and hover charts against the improved history shape
 
 That sequence is less glamorous than dumping new scenarios into CI, but it is the path that keeps the benchmark page useful instead of decorative.

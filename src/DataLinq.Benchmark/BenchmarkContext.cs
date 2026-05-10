@@ -13,6 +13,7 @@ internal sealed class BenchmarkContext : IDisposable
     private const int SeedEmployeeCount = 1000;
     internal const int BatchOperationCount = 1000;
     internal const int MutationBatchOperationCount = 1000;
+    internal const int CrudWorkflowSmallOperationCount = 50;
     internal const int CrudWorkflowOperationCount = 300;
 
     private readonly TestProviderDescriptor provider;
@@ -249,11 +250,17 @@ internal sealed class BenchmarkContext : IDisposable
         return checksum;
     }
 
+    public int RunCrudWorkflowSmall()
+        => RunCrudWorkflow(CrudWorkflowSmallOperationCount);
+
     public int RunCrudWorkflowBatch()
+        => RunCrudWorkflow(CrudWorkflowOperationCount);
+
+    private int RunCrudWorkflow(int operationCount)
     {
         var checksum = 0;
 
-        for (var i = 0; i < CrudWorkflowOperationCount; i++)
+        for (var i = 0; i < operationCount; i++)
         {
             var employeeNumber = sampleCrudWorkflowEmployeeNumbers[i];
             var template = insertEmployeeTemplates[i];
@@ -343,6 +350,7 @@ internal sealed class BenchmarkContext : IDisposable
                     _ = TraverseDepartmentNamesBatch();
                     DataLinqMetrics.Reset();
                     break;
+                case BenchmarkScenario.CrudWorkflowSmall:
                 case BenchmarkScenario.CrudWorkflowBatch:
                     CleanupCrudWorkflowEmployees();
                     break;
@@ -365,6 +373,7 @@ internal sealed class BenchmarkContext : IDisposable
         {
             BenchmarkScenario.ProviderInitialization => InitializeProviderAndMetadataOnFreshScope(),
             BenchmarkScenario.StartupPrimaryKeyFetch => LoadEmployeeByPrimaryKeyOnFreshScope(),
+            BenchmarkScenario.CrudWorkflowSmall => RunCrudWorkflowSmall(),
             BenchmarkScenario.CrudWorkflowBatch => RunCrudWorkflowBatch(),
             BenchmarkScenario.InsertEmployeesBatch => InsertEmployeesBatch(),
             BenchmarkScenario.UpdateEmployeesBatch => UpdateEmployeesBatch(),
@@ -381,6 +390,7 @@ internal sealed class BenchmarkContext : IDisposable
 
         switch (scenario)
         {
+            case BenchmarkScenario.CrudWorkflowSmall:
             case BenchmarkScenario.CrudWorkflowBatch:
                 CleanupCrudWorkflowEmployees();
                 break;
@@ -448,6 +458,7 @@ internal sealed class BenchmarkContext : IDisposable
         {
             BenchmarkScenario.ProviderInitialization => 1,
             BenchmarkScenario.StartupPrimaryKeyFetch => 1,
+            BenchmarkScenario.CrudWorkflowSmall => CrudWorkflowSmallOperationCount,
             BenchmarkScenario.CrudWorkflowBatch => CrudWorkflowOperationCount,
             BenchmarkScenario.InsertEmployeesBatch => MutationBatchOperationCount,
             BenchmarkScenario.UpdateEmployeesBatch => MutationBatchOperationCount,
@@ -492,7 +503,8 @@ internal sealed class BenchmarkContext : IDisposable
         {
             BenchmarkScenario.ProviderInitialization => "Provider initialization",
             BenchmarkScenario.StartupPrimaryKeyFetch => "Startup primary-key fetch",
-            BenchmarkScenario.CrudWorkflowBatch => "CRUD workflow",
+            BenchmarkScenario.CrudWorkflowSmall => "CRUD workflow small",
+            BenchmarkScenario.CrudWorkflowBatch => "CRUD workflow batch",
             BenchmarkScenario.InsertEmployeesBatch => "Insert employees",
             BenchmarkScenario.UpdateEmployeesBatch => "Update employees",
             BenchmarkScenario.ColdPrimaryKeyFetch => "Cold primary-key fetch",

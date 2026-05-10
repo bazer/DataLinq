@@ -128,7 +128,7 @@ Tasks:
    - thin older runs to weekly or monthly representative points
    - preserve immutable per-run files longer when storage permits
 6. Keep published provider scope to `sqlite-memory`.
-7. Add `macro-readwrite` and `macro-bulk` category policy.
+7. Add `macro-readwrite` and `macro-bulk` category policy and publish small/batch CRUD rows through those lanes.
 8. Add expandable telemetry rows to the benchmark results page.
 9. Add hoverable SVG chart inspection with date, commit, profile, value, allocation, and uncertainty.
 

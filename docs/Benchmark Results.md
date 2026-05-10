@@ -7,7 +7,7 @@ The point is not to pretend these numbers are universal truth. They are not.
 They are useful because they are:
 
 - run repeatedly on one controlled CI lane
-- limited to the current stable benchmark category plus the macro CRUD lane that is useful enough to watch separately
+- limited to the current stable benchmark category plus small and batch macro CRUD lanes that are useful enough to watch separately
 - currently trended only on the `sqlite-memory` provider to avoid redundant file-vs-memory noise
 - stored in a consistent machine-readable format
 - plotted over time so regressions, profile differences, and trend changes are visible
@@ -36,7 +36,7 @@ Do not compare default numbers directly against heavy numbers. They use differen
 <div
   id="benchmark-results-root"
   data-history-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/history.json"
-  data-comparison-url="https://raw.githubusercontent.com/bazer/DataLinq/benchmark-data/benchmarks/latest-comparison.json"
+  data-commit-url-template="https://github.com/bazer/DataLinq/commit/{commit}"
   data-provider-filter="sqlite-memory">
   Loading benchmark history...
 </div>

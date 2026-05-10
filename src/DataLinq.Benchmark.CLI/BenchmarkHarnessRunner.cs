@@ -938,7 +938,9 @@ internal sealed class BenchmarkHarnessRunner
             "Insert employees" => "mutation",
             "Update employees" => "mutation",
             "Delete employees" => "mutation",
+            "CRUD workflow small" => MacroReadWriteCategory,
             "CRUD workflow" => MacroBulkCategory,
+            "CRUD workflow batch" => MacroBulkCategory,
             _ => "other"
         };
 
@@ -1051,7 +1053,9 @@ internal sealed class BenchmarkHarnessRunner
         {
             "Provider initialization" => "Provider init",
             "Startup primary-key fetch" => "Startup PK",
+            "CRUD workflow small" => "CRUD small",
             "CRUD workflow" => "CRUD flow",
+            "CRUD workflow batch" => "CRUD batch",
             "Insert employees" => "Insert",
             "Update employees" => "Update",
             "Warm relation traversal" => "Warm rel",

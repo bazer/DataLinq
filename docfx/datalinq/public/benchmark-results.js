@@ -43,7 +43,7 @@ const CATEGORY_LABELS = new Map([
 const PROFILE_ORDER = ['default', 'heavy', 'smoke']
 const OUTLIER_PERCENT_THRESHOLD = 35
 const OUTLIER_NEIGHBOR_SPREAD_THRESHOLD = 15
-const SMOOTHING_WINDOW = 5
+const SMOOTHING_WINDOW = 3
 
 function formatNumber(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -140,6 +140,22 @@ function shortCommit(value) {
   return value ? String(value).slice(0, 7) : 'unknown'
 }
 
+function commitUrl(value, template) {
+  if (!value || !template) {
+    return null
+  }
+
+  return template.replace('{commit}', encodeURIComponent(value))
+}
+
+function renderCommitLink(value, template) {
+  const label = shortCommit(value)
+  const url = commitUrl(value, template)
+  return url
+    ? `<a href="${escapeHtml(url)}">${escapeHtml(label)}</a>`
+    : escapeHtml(label)
+}
+
 async function fetchJson(url) {
   const separator = url.includes('?') ? '&' : '?'
   const response = await fetch(`${url}${separator}ts=${Date.now()}`, { cache: 'no-store' })
@@ -206,7 +222,10 @@ function inferCategory(method) {
     case 'Update employees':
     case 'Delete employees':
       return 'mutation'
+    case 'CRUD workflow small':
+      return 'macro-readwrite'
     case 'CRUD workflow':
+    case 'CRUD workflow batch':
       return 'macro-bulk'
     default:
       return 'other'
@@ -525,7 +544,7 @@ function renderTelemetryDetails(point) {
 
   return `
     <details class="benchmark-details">
-      <summary>Telemetry deltas</summary>
+      <summary>Telemetry deltas &gt;</summary>
       <dl class="benchmark-telemetry-grid">${items}</dl>
     </details>
   `
@@ -557,7 +576,7 @@ function formatMetric(value) {
   return absolute < 0.1 ? formatNumber(value, 2) : formatNumber(value, 1)
 }
 
-function renderTrendTable(points) {
+function renderTrendTable(points, commitUrlTemplate) {
   const rows = buildTrendRows(points)
   if (rows.length === 0) {
     return '<p class="benchmark-muted">No benchmark history rows match the current filters.</p>'
@@ -575,8 +594,8 @@ function renderTrendTable(points) {
 
     return `
       ${categoryHeader}
-      <tr>
-        <td>${escapeHtml(row.method)}</td>
+      <tr class="benchmark-data-row">
+        <td class="benchmark-scenario-name">${escapeHtml(row.method)}</td>
         <td class="benchmark-number">${formatMicroseconds(row.latest.meanMicroseconds)}</td>
         <td class="benchmark-number">${formatBytes(row.latest.allocatedBytes)}</td>
         <td class="benchmark-number">${formatUnsignedPercent(row.latest.uncertaintyPercent)}</td>
@@ -584,7 +603,7 @@ function renderTrendTable(points) {
         <td class="benchmark-number">${formatPercent(row.meanDelta7)}</td>
         <td class="benchmark-number">${formatPercent(row.meanDelta30)}</td>
         <td class="benchmark-number">${formatPercent(row.slope)}</td>
-        <td>${escapeHtml(shortCommit(row.latest.commit))}</td>
+        <td>${renderCommitLink(row.latest.commit, commitUrlTemplate)}</td>
         <td>${renderStatus(row.status)}</td>
       </tr>
       <tr class="benchmark-detail-row">
@@ -623,13 +642,20 @@ function renderTrendTable(points) {
 
 function renderPointTitle(point, selector) {
   return [
-    `${point.method} (${point.providerName}, ${point.profile})`,
-    `run: ${formatDateTime(point.generatedAtUtc)}`,
-    `commit: ${shortCommit(point.commit)}`,
+    `${formatDateTime(point.generatedAtUtc)} (${shortCommit(point.commit)})`,
     `${selector === 'allocatedBytes' ? 'allocated' : 'mean'}: ${formatMetricValue(point[selector], selector)}`,
     `uncertainty: ${formatUnsignedPercent(point.uncertaintyPercent)}`,
     `telemetry: ${formatTelemetrySummary(point.telemetryDelta)}`
   ].join('\n')
+}
+
+function renderTooltipHtml(title) {
+  const lines = escapeHtml(title).split('\n')
+  if (lines.length === 0) {
+    return ''
+  }
+
+  return [`<strong>${lines[0]}</strong>`, ...lines.slice(1)].join('<br>')
 }
 
 function buildSmoothPath(coordinates) {
@@ -745,7 +771,7 @@ function showChartHover(frame, point) {
   crosshair.setAttribute('x2', point.x)
   hoverPoint.setAttribute('cx', point.x)
   hoverPoint.setAttribute('cy', point.y)
-  tooltip.innerHTML = escapeHtml(point.title).replaceAll('\n', '<br>')
+  tooltip.innerHTML = renderTooltipHtml(point.title)
   tooltip.style.left = `${Math.min(92, Math.max(8, (point.x / 520) * 100))}%`
   tooltip.style.top = `${Math.min(84, Math.max(28, (point.y / 190) * 100))}%`
   frame.classList.add('benchmark-chart-frame-active')
@@ -843,43 +869,12 @@ function renderProfileSwitch(profiles, selectedProfile) {
   `
 }
 
-function renderProfileExplanation(selectedProfile) {
-  const selected = PROFILE_DETAILS.get(selectedProfile)
-  const defaultText = PROFILE_DETAILS.get('default')?.summary
-  const heavyText = PROFILE_DETAILS.get('heavy')?.summary
-
-  return `
-    <section class="benchmark-profile-explainer">
-      <p>${escapeHtml(defaultText)}</p>
-      <p>${escapeHtml(heavyText)}</p>
-      <p>The page shows one profile at a time because default and heavy answer different questions. Mixing them makes the trend table look precise while comparing unlike measurement windows.</p>
-      ${selected ? `<p><strong>Showing:</strong> ${escapeHtml(selected.summary)}</p>` : ''}
-    </section>
-  `
-}
-
-function renderComparisonStatus(rawComparison, selectedProfile) {
-  const comparisonProfile = rawComparison?.Candidate?.Profile ?? rawComparison?.Candidate?.Metadata?.Profile
-  if (!rawComparison) {
-    return 'history-derived same-profile deltas'
-  }
-
-  if (comparisonProfile && comparisonProfile !== selectedProfile) {
-    return `latest comparison is ${comparisonProfile}; table uses ${selectedProfile} history`
-  }
-
-  return rawComparison.WarningCount > 0
-    ? `${rawComparison.WarningCount} comparison warnings`
-    : 'latest same-profile comparison clean'
-}
-
-function renderBenchmarkPage(root, rawComparison, points, selectedProfile, allowedProviders) {
+function renderBenchmarkPage(root, points, selectedProfile, allowedProviders, commitUrlTemplate) {
   root.dataset.selectedProfile = selectedProfile
   const profilePoints = points.filter(point => point.profile === selectedProfile)
   const latestPoint = profilePoints[profilePoints.length - 1]
   const profiles = getAvailableProfiles(points)
   const providerScope = allowedProviders.length === 0 ? 'all published providers' : allowedProviders.join(', ')
-  const comparisonStatus = renderComparisonStatus(rawComparison, selectedProfile)
 
   root.innerHTML = `
     <section class="benchmark-overview">
@@ -893,20 +888,15 @@ function renderBenchmarkPage(root, rawComparison, points, selectedProfile, allow
       </div>
       <div class="benchmark-overview-item">
         <strong>Commit</strong>
-        <span>${escapeHtml(shortCommit(latestPoint?.commit))}</span>
+        <span>${renderCommitLink(latestPoint?.commit, commitUrlTemplate)}</span>
       </div>
       <div class="benchmark-overview-item">
         <strong>Provider scope</strong>
         <span>${escapeHtml(providerScope)}</span>
       </div>
-      <div class="benchmark-overview-item">
-        <strong>Comparison</strong>
-        <span>${escapeHtml(comparisonStatus)}</span>
-      </div>
     </section>
-    ${renderProfileExplanation(selectedProfile)}
     <h2>Trend Summary</h2>
-    ${renderTrendTable(profilePoints)}
+    ${renderTrendTable(profilePoints, commitUrlTemplate)}
     <h2>Charts</h2>
     <div class="benchmark-card-list">
       ${renderTrendCards(profilePoints)}
@@ -915,7 +905,7 @@ function renderBenchmarkPage(root, rawComparison, points, selectedProfile, allow
 
   for (const button of root.querySelectorAll('[data-profile-select]')) {
     button.addEventListener('click', () => {
-      renderBenchmarkPage(root, rawComparison, points, button.dataset.profileSelect, allowedProviders)
+      renderBenchmarkPage(root, points, button.dataset.profileSelect, allowedProviders, commitUrlTemplate)
     })
   }
 
@@ -932,14 +922,11 @@ async function renderBenchmarkResults() {
 
   try {
     const historyUrl = root.dataset.historyUrl
-    const comparisonUrl = root.dataset.comparisonUrl
+    const commitUrlTemplate = root.dataset.commitUrlTemplate
     const allowedProviders = parseListFilter(root, 'providerFilter')
     const allowedMethods = parseListFilter(root, 'methodFilter')
 
-    const [rawHistory, rawComparison] = await Promise.all([
-      fetchJson(historyUrl),
-      comparisonUrl ? fetchJson(comparisonUrl).catch(() => null) : Promise.resolve(null)
-    ])
+    const rawHistory = await fetchJson(historyUrl)
 
     const history = filterHistory(rawHistory, allowedProviders, allowedMethods)
     const points = flattenHistory(history)
@@ -951,10 +938,10 @@ async function renderBenchmarkResults() {
 
     renderBenchmarkPage(
       root,
-      rawComparison,
       points,
       chooseProfile(root, profiles),
-      allowedProviders)
+      allowedProviders,
+      commitUrlTemplate)
   } catch (error) {
     root.innerHTML = `<p class="benchmark-error">Failed to load published benchmark history. ${escapeHtml(error?.message ?? String(error))}</p>`
   }

@@ -15,6 +15,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string StableCategory = "stable";
     private const string Phase2WatchCategory = "phase2-watch";
     private const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
+    private const string MacroReadWriteCategory = "macro-readwrite";
     private const string MacroBulkCategory = "macro-bulk";
     private BenchmarkContext? context;
     private BenchmarkScenario? executedScenario;
@@ -89,22 +90,43 @@ public class EmployeesBenchmarks : IDisposable
         return context!.LoadEmployeeByPrimaryKeyOnFreshScope();
     }
 
-    [IterationSetup(Target = nameof(CrudWorkflow))]
-    public void SetupCrudWorkflow()
+    [IterationSetup(Target = nameof(CrudWorkflowSmall))]
+    public void SetupCrudWorkflowSmall()
     {
         context!.CleanupCrudWorkflowEmployees();
         context.ResetState(clearCache: true);
     }
 
-    [IterationCleanup(Target = nameof(CrudWorkflow))]
-    public void CleanupCrudWorkflow()
+    [IterationCleanup(Target = nameof(CrudWorkflowSmall))]
+    public void CleanupCrudWorkflowSmall()
+    {
+        context!.CleanupCrudWorkflowEmployees();
+    }
+
+    [BenchmarkCategory("experimental", MacroReadWriteCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.CrudWorkflowSmallOperationCount, Description = "CRUD workflow small")]
+    public int CrudWorkflowSmall()
+    {
+        executedScenario = BenchmarkScenario.CrudWorkflowSmall;
+        return context!.RunCrudWorkflowSmall();
+    }
+
+    [IterationSetup(Target = nameof(CrudWorkflowBatch))]
+    public void SetupCrudWorkflowBatch()
+    {
+        context!.CleanupCrudWorkflowEmployees();
+        context.ResetState(clearCache: true);
+    }
+
+    [IterationCleanup(Target = nameof(CrudWorkflowBatch))]
+    public void CleanupCrudWorkflowBatch()
     {
         context!.CleanupCrudWorkflowEmployees();
     }
 
     [BenchmarkCategory("experimental", MacroBulkCategory)]
-    [Benchmark(OperationsPerInvoke = BenchmarkContext.CrudWorkflowOperationCount, Description = "CRUD workflow")]
-    public int CrudWorkflow()
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.CrudWorkflowOperationCount, Description = "CRUD workflow batch")]
+    public int CrudWorkflowBatch()
     {
         executedScenario = BenchmarkScenario.CrudWorkflowBatch;
         return context!.RunCrudWorkflowBatch();

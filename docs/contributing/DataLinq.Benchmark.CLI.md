@@ -72,7 +72,7 @@ Additional BenchmarkDotNet arguments can be passed after `--`.
 Example:
 
 ```bash
-dotnet run --project src/DataLinq.Benchmark.CLI -- run -- --anyCategories stable macro-bulk
+dotnet run --project src/DataLinq.Benchmark.CLI -- run -- --anyCategories stable macro-readwrite macro-bulk
 ```
 
 ## Phase 2 Watchpoints
@@ -180,7 +180,7 @@ The benchmark history lane is intentionally narrower than the full local benchma
 
 Current policy:
 
-- CI trends the `stable` benchmark category plus the `macro-bulk` CRUD workflow lane
+- CI trends the `stable` benchmark category plus the `macro-readwrite` and `macro-bulk` CRUD workflow lanes
 - CI currently trends the `sqlite-memory` provider only
 - scheduled history runs use the heavier benchmark profile
 - published history keeps all recent runs, then thins older runs by age instead of raw run count
@@ -188,8 +188,8 @@ Current policy:
 
 Macro category policy:
 
-- `macro-readwrite` is reserved for request-sized read/write workflows that pass the noise gate.
-- `macro-bulk` is reserved for larger batch workflows. The CRUD workflow is published there because it covers the read/write path the hot-path microbenchmarks do not.
+- `macro-readwrite` is reserved for request-sized read/write workflows. The small CRUD workflow is published there because it gives a lighter ordinary-use signal.
+- `macro-bulk` is reserved for larger batch workflows. The batch CRUD workflow is published there because it covers the broader read/write path the hot-path microbenchmarks do not.
 - Other macro scenarios should stay `experimental` until repeated local and scheduled history says they are boring enough to publish.
 
 That is the right tradeoff. Benchmark history should be boring and trustworthy, not broad and noisy.
