@@ -307,7 +307,7 @@ Key related plans:
 
 ### Phase 9A: Release Hardening, Benchmarks, Allocation, and Cache Invalidation
 
-Status: next release priority.
+Status: complete as of 2026-05-10.
 
 Goals:
 
@@ -318,6 +318,12 @@ Goals:
 - harden cache invalidation around updates, deletes, changed relation/index columns, transaction commit/rollback boundaries, and cache notification subscribers
 - clean low-risk cache internals such as lazy cache snapshots, `IndexCache` reverse-map concurrency, and `RowCache.TotalBytes`
 - add benchmark and telemetry coverage that can prove whether cache invalidation became narrower, broader, or noisier
+
+Closeout result:
+
+- warning cleanup, benchmark-history website work, allocation reductions, cache invalidation characterization, and conservative cache internals hardening are complete
+- final default-profile `sqlite-memory` benchmark closeout supports allocation and invalidation claims, but not latency claims because every timing comparison row was noisy
+- Phase 9B should start from the new invalidation tests, cache-maintenance telemetry, and profile-aware benchmark history rather than revisiting Phase 9A cleanup
 
 Why before the broader cache redesign:
 
@@ -339,7 +345,7 @@ Key related plans:
 
 ### Phase 9B: Row Freshness, External Invalidation, and Adaptive Cache Policy
 
-Status: highest priority for the release after Phase 9A.
+Status: next cache-semantics priority.
 
 Goals:
 
@@ -479,9 +485,9 @@ Phase 8 Native AOT and WebAssembly readiness is implemented for its planned gene
 
 Phase 8B is now the completed generated-contract and immutable metadata foundation. Phase 8C remains the bounded package/generated-runtime cleanup slice for constrained-platform polish, but it should not drag the Remotion/parser rewrite back into the critical path.
 
-The next release priority should be Phase 9A: warning cleanup, benchmark/history improvements, allocation reduction, and conservative cache invalidation hardening. This is the right release boundary because it makes the compiler quieter, makes performance evidence visible, removes measured allocation waste, and tightens invalidation behavior before adding new cache semantics.
+Phase 9A is now complete: warning cleanup, benchmark/history improvements, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The important caveat is performance wording: the closeout supports allocation and invalidation claims, not latency claims.
 
-The following release should prioritize Phase 9B: row freshness/hash primitives, external invalidation hooks, and adaptive cache policy. Those are high-value next steps, but they should build on Phase 9A's tests, telemetry, and benchmark baselines. Dependency-tracked result-set caching should remain later on the roadmap.
+The next broad runtime priority should be Phase 9B: row freshness/hash primitives, external invalidation hooks, and adaptive cache policy. Those are high-value next steps, and they can now build on Phase 9A's tests, telemetry, and benchmark baselines. Dependency-tracked result-set caching should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

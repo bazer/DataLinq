@@ -76,6 +76,7 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
 - `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/README.md`
 - `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation Plan.md`
+- `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Benchmark Closeout.md`
 - `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/README.md`
 - `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/Implementation Plan.md`
 - `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/README.md`
@@ -136,11 +137,11 @@ As of the Phase 8B/8C roadmap split on 2026-05-08:
 - Phase 8 Native AOT and WebAssembly readiness is implemented for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary. The honest follow-up work is split now: package/generated-runtime cleanup belongs in Phase 8C, while Remotion/query-parser and SQLitePCLRaw warning work is deferred to Phase 13.
 - Phase 8B generated contract and immutable metadata foundation is complete for its foundation scope: stale generated hooks fail early, malformed generated declarations fail during initialization, and runtime metadata snapshots are factory-built and frozen against ordinary mutation.
 - Phase 8C practical AOT package graph and generated runtime hardening is the bounded constrained-platform cleanup slice: size reports, Roslyn/runtime package split, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and packaging/public wording. It is not the current broad runtime priority unless constrained-platform polish is chosen ahead of memory work.
-- Phase 9A release hardening, benchmarks, allocation, and cache invalidation is the next release phase: warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening.
-- Phase 9B row freshness, external invalidation, and adaptive cache policy is the follow-up cache-semantics phase: row freshness/hash primitives, external invalidation hooks, adaptive cache policy, memory-pressure-aware cleanup, and measured deduplication.
+- Phase 9A release hardening, benchmarks, allocation, and cache invalidation is complete: warning cleanup, benchmark-history and website trends, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The honest performance claim is allocation evidence, not latency improvement.
+- Phase 9B row freshness, external invalidation, and adaptive cache policy is the next cache-semantics phase: row freshness/hash primitives, external invalidation hooks, adaptive cache policy, memory-pressure-aware cleanup, and measured deduplication.
 - Phase 13 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
 
-The next broad runtime work should be Phase 9A unless constrained-platform package cleanup becomes urgent enough to pull Phase 8C forward. Phase 9B should follow Phase 9A. The Remotion/parser rewrite should stay out of the immediate queue.
+The next broad runtime work should be Phase 9B unless constrained-platform package cleanup becomes urgent enough to pull Phase 8C forward. The Remotion/parser rewrite should stay out of the immediate queue.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

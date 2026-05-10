@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 9A: Release Hardening, Benchmarks, Allocation, and Cache Invalidation
 
-**Status:** Planned next release phase.
+**Status:** Complete as of 2026-05-10.
 
 ## Purpose
 
@@ -43,6 +43,7 @@ Out of scope:
 ## Source Plans
 
 - [Implementation Plan](Implementation%20Plan.md)
+- [Benchmark Closeout](Benchmark%20Closeout.md)
 - [Warning Cleanup Plan](../../tooling/Warning%20Cleanup%20Plan.md)
 - [Representative Benchmark Suite and Website Trends](../../performance/Representative%20Benchmark%20Suite%20and%20Website%20Trends.md)
 - [Allocation Reduction Audit](../../performance/Allocation%20Reduction%20Audit.md)
@@ -76,3 +77,5 @@ Phase 9A is done when:
 - `DatabaseCache` does not eagerly create initial history snapshots unless observable behavior requires it
 - `RowCache.TotalBytes` does not repeatedly sum the queue on every read
 - telemetry and benchmark output can explain whether cache invalidation changed scope or cost
+
+The [benchmark closeout](Benchmark%20Closeout.md) records the final measured boundary. Allocation evidence is usable; closeout timings were too noisy for latency claims.

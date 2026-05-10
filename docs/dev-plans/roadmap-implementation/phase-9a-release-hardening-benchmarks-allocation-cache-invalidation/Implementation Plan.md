@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 9A Implementation Plan: Release Hardening, Benchmarks, Allocation, and Cache Invalidation
 
-**Status:** In progress. Workstreams A through D and F are complete as of 2026-05-10.
+**Status:** Complete as of 2026-05-10. Workstream H closed the phase with benchmark evidence and release-note boundaries.
 
 ## Purpose
 
@@ -320,6 +320,14 @@ Verification completed:
 
 ## Workstream H: Benchmark Closeout And Release Evidence
 
+Status: Complete as of 2026-05-10.
+
+The closeout reran the default-profile `sqlite-memory` Phase 2 watch, Phase 3 query hot-path, and CRUD macro workflow slices. The durable closeout summary is in [Benchmark Closeout](Benchmark%20Closeout.md). The local history artifacts are under `artifacts/benchmarks/history/phase9a-final-*`.
+
+The final comparison against the Phase 9A allocation audit baseline recorded provider initialization allocation down 7.1%, warm primary-key fetch down 2.9%, repeated non-PK equality fetch down 2.6%, repeated scalar `Any` down 2.1%, and repeated `IN` predicate fetch down 0.2%. Startup primary-key fetch allocation was up 5.3%, below the comparison warning threshold and inside a noisy measurement set. Every timing comparison row was noisy, so Phase 9A should ship with allocation and invalidation claims, not latency claims.
+
+The CRUD macro closeout captured both `CRUD workflow small` and `CRUD workflow batch` for `sqlite-memory`. Both runs emitted invalidation-relevant telemetry deltas, but the macro timings were too noisy for regression gating.
+
 Goals:
 
 - prove the phase with the same evidence style used to plan it
@@ -394,9 +402,9 @@ Serve the generated site over HTTP before judging browser behavior. Do not inspe
 
 Phase 9A can ship when:
 
-- warning cleanup has a clean or explicitly documented baseline
-- benchmark website changes are implemented or consciously deferred with a smaller release note
-- allocation work has before/after measurement
-- cache invalidation tests cover the committed behavior
-- cache internals cleanup has no known concurrency regression
-- release notes clearly separate shipped Phase 9A behavior from deferred Phase 9B cache semantics
+- warning cleanup has a clean or explicitly documented baseline: satisfied
+- benchmark website changes are implemented or consciously deferred with a smaller release note: satisfied
+- allocation work has before/after measurement: satisfied in [Benchmark Closeout](Benchmark%20Closeout.md)
+- cache invalidation tests cover the committed behavior: satisfied
+- cache internals cleanup has no known concurrency regression: satisfied by focused unit and compliance runs
+- release notes clearly separate shipped Phase 9A behavior from deferred Phase 9B cache semantics: satisfied by the closeout claim boundary
