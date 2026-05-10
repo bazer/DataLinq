@@ -57,7 +57,7 @@ public abstract class SqlFromMetadataFactory : ISqlFromMetadataFactory
 
         foreach (var view in sql.SortViewsByForeignKeys(metadata.TableModels.Where(x => x.Table.Type == TableType.View).Select(x => x.Table).Cast<ViewDefinition>().ToList()))
         {
-            sql.CreateView(view.DbName, view.Definition);
+            sql.CreateView(view.DbName, view.Definition ?? string.Empty);
         }
 
         return sql.sql;

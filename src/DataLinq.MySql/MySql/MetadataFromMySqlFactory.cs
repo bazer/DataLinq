@@ -21,9 +21,16 @@ public class MetadataFromMySqlFactoryCreator : IMetadataFromDatabaseFactoryCreat
     }
 }
 
-public class MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options)
-    : MetadataFromSqlFactory(options, DatabaseType.MySQL)
+public class MetadataFromMySqlFactory : MetadataFromSqlFactory
 {
+    private readonly MetadataFromDatabaseFactoryOptions options;
+
+    public MetadataFromMySqlFactory(MetadataFromDatabaseFactoryOptions options)
+        : base(options, DatabaseType.MySQL)
+    {
+        this.options = options;
+    }
+
     public override Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) => DLOptionFailure.CatchAll<DatabaseDefinition>(() =>
     {
         var informationSchemaDb = new MySqlDatabase<MySQLInformationSchema>(connectionString, "information_schema");

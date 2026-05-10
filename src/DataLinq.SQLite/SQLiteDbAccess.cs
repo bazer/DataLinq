@@ -64,7 +64,7 @@ public class SQLiteDbAccess : DatabaseAccess
         ExecuteScalar(new SqliteCommand(query));
 
     public override T ExecuteScalar<T>(string query) =>
-        (T)ExecuteScalar(new SqliteCommand(query));
+        (T)ExecuteScalar(new SqliteCommand(query))!;
 
     public override T ExecuteScalar<T>(IDbCommand command) =>
         (T)ExecuteScalar(command)!;

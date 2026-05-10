@@ -10,7 +10,7 @@ namespace DataLinq.SQLite;
 public class SQLiteDatabaseTransaction : DatabaseTransaction
 {
     private IDbConnection dbConnection = null!;
-    private readonly string connectionString;
+    private readonly string? connectionString;
     private readonly DataLinqLoggingConfiguration loggingConfiguration;
 
     public SQLiteDatabaseTransaction(string connectionString, TransactionType type, DataLinqLoggingConfiguration loggingConfiguration)
@@ -52,6 +52,9 @@ public class SQLiteDatabaseTransaction : DatabaseTransaction
 
             if (Status == DatabaseTransactionStatus.Closed)
             {
+                if (connectionString == null)
+                    throw new InvalidOperationException("Attached SQLite transactions cannot be reopened after they are closed because DataLinq does not own their connection string.");
+
                 SetStatus(DatabaseTransactionStatus.Open);
                 dbConnection = new SqliteConnection(connectionString);
                 dbConnection.Open();

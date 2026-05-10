@@ -211,7 +211,7 @@ public class SQLiteProvider<T> : DatabaseProvider<T>, IDisposable
             SqlFunctionType.StringToUpper => $"UPPER({quotedColumnName})",
             SqlFunctionType.StringToLower => $"LOWER({quotedColumnName})",
             SqlFunctionType.StringTrim => $"TRIM({quotedColumnName})",
-            SqlFunctionType.StringSubstring => $"SUBSTR({quotedColumnName}, {arguments[0]}, {arguments[1]})",
+            SqlFunctionType.StringSubstring => $"SUBSTR({quotedColumnName}, {arguments![0]}, {arguments[1]})",
 
             _ => throw new NotImplementedException($"SQL function '{functionType}' not implemented for SQLite."),
         };

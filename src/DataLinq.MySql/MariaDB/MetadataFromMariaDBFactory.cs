@@ -22,9 +22,16 @@ public class MetadataFromMariaDBFactoryCreator : IMetadataFromDatabaseFactoryCre
     }
 }
 
-public class MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions options)
-    : MetadataFromSqlFactory(options, DatabaseType.MariaDB)
+public class MetadataFromMariaDBFactory : MetadataFromSqlFactory
 {
+    private readonly MetadataFromDatabaseFactoryOptions options;
+
+    public MetadataFromMariaDBFactory(MetadataFromDatabaseFactoryOptions options)
+        : base(options, DatabaseType.MariaDB)
+    {
+        this.options = options;
+    }
+
     public override Option<DatabaseDefinition, IDLOptionFailure> ParseDatabase(string name, string csTypeName, string csNamespace, string dbName, string connectionString) => DLOptionFailure.CatchAll<DatabaseDefinition>(() =>
     {
         var informationSchemaDb = new MariaDBDatabase<MariaDBInformationSchema>(connectionString, "information_schema");

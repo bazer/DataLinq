@@ -122,7 +122,8 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
         if (IsDbNull(ordinal))
             return default;
 
-        var csType = column.ValueProperty.CsType.Type;
+        var csType = column.ValueProperty.CsType.Type
+            ?? throw new InvalidOperationException($"Column '{column.Table.DbName}.{column.DbName}' does not have runtime C# type metadata.");
 
         if (csType == typeof(Guid) || csType == typeof(Guid?))
             return (T?)(object)GetGuid(ordinal);
@@ -142,11 +143,13 @@ public class SQLiteDataLinqDataReader : IDataLinqDataReader
         if (csType == typeof(TimeOnly) || csType == typeof(TimeOnly?))
             return (T?)(object)GetTimeOnly(ordinal);
 
-        if (csType?.IsEnum == true)
+        if (csType.IsEnum)
         {
+            var enumProperty = column.ValueProperty.EnumProperty
+                ?? throw new InvalidOperationException($"Column '{column.Table.DbName}.{column.DbName}' is mapped to enum type '{csType.Name}', but enum metadata is missing.");
             var enumValue = GetValue(ordinal);
             if (enumValue is string stringValue)
-                return (T?)Enum.ToObject(csType, column.ValueProperty.EnumProperty.Value.DbValuesOrCsValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
+                return (T?)Enum.ToObject(csType, enumProperty.DbValuesOrCsValues.Single(x => x.name.Equals(stringValue, StringComparison.OrdinalIgnoreCase)).value);
             else
                 return (T?)Enum.ToObject(csType, enumValue);
         }
