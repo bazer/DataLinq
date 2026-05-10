@@ -167,7 +167,12 @@ Important outputs include:
 - optional history JSON artifacts
 - optional comparison JSON artifacts
 
-Summary, history, and comparison JSON rows include `TrackingGroup` when a benchmark belongs to a narrower decision lane such as `phase2-watch`.
+Summary, history, and comparison JSON rows include:
+
+- run metadata: profile, commit, branch, runner, workflow, and filter
+- row metadata: provider, category, tracking group, operations per invoke, mean, median, error, standard deviation, allocation, uncertainty, and telemetry deltas when available
+
+Comparison artifacts intentionally prefer same-profile baselines. A `default` run should not get its primary regression verdict from a `heavy` run just because that happened to be the latest published artifact.
 
 ## Stable CI Lane
 
@@ -178,6 +183,13 @@ Current policy:
 - CI trends the `stable` benchmark category
 - CI currently trends the `sqlite-memory` provider only
 - scheduled history runs use the heavier benchmark profile
+- published history keeps all recent runs, then thins older runs by age instead of raw run count
 - broader or noisier scenarios stay available locally until they are stable enough to deserve regression history
+
+Macro category policy:
+
+- `macro-readwrite` is reserved for request-sized read/write workflows that pass the noise gate.
+- `macro-bulk` is reserved for larger batch workflows that pass the noise gate.
+- Macro scenarios should stay `experimental` until repeated local and scheduled history says they are boring enough to publish.
 
 That is the right tradeoff. Benchmark history should be boring and trustworthy, not broad and noisy.

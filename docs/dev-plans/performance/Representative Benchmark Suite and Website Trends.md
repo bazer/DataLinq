@@ -2,7 +2,7 @@
 > This document is planning material. It describes benchmark and website changes that should be implemented deliberately, then promoted only after the data proves they are stable enough to trust.
 # Representative Benchmark Suite and Website Trends
 
-**Status:** Proposed
+**Status:** Website and history interpretation implemented in Phase 9A Workstream B. Representative macro scenario promotion remains evidence-gated.
 **Goal:** Add representative library-usage benchmarks, reduce avoidable benchmark noise, and make the website show performance direction over time instead of only the latest run.
 
 ## Current State

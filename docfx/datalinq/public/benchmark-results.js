@@ -1,3 +1,30 @@
+const PROFILE_COLORS = new Map([
+  ['default', '#2563eb'],
+  ['heavy', '#b45309'],
+  ['smoke', '#64748b']
+])
+
+const STATUS_LABELS = new Map([
+  ['stable', 'stable'],
+  ['improved', 'improved'],
+  ['warning', 'warning'],
+  ['noisy', 'noisy'],
+  ['missing', 'missing'],
+  ['profile-mismatch', 'profile']
+])
+
+const CATEGORY_LABELS = new Map([
+  ['startup', 'Startup'],
+  ['read-hotpath', 'Read Hot Paths'],
+  ['relation-traversal', 'Relation Traversal'],
+  ['mutation', 'Mutation'],
+  ['macro-readwrite', 'Macro Read/Write'],
+  ['macro-bulk', 'Macro Bulk'],
+  ['phase2-watch', 'Phase 2 Watch'],
+  ['phase3-query-hotpath', 'Phase 3 Query Hot Path'],
+  ['other', 'Other']
+])
+
 function formatNumber(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return '-'
@@ -29,12 +56,20 @@ function formatBytes(value) {
   return `${formatNumber(value, 0)} B`
 }
 
-function formatPercent(value) {
+function formatPercent(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return '-'
   }
 
-  return `${value >= 0 ? '+' : ''}${formatNumber(value, 1)}%`
+  return `${value >= 0 ? '+' : ''}${formatNumber(value, digits)}%`
+}
+
+function formatUnsignedPercent(value, digits = 1) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return '-'
+  }
+
+  return `${formatNumber(value, digits)}%`
 }
 
 function escapeHtml(value) {
@@ -62,6 +97,29 @@ function formatDateLabel(value) {
   }).format(date)
 }
 
+function formatDateTime(value) {
+  if (!value) {
+    return '-'
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return String(value)
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date)
+}
+
+function shortCommit(value) {
+  return value ? String(value).slice(0, 7) : 'unknown'
+}
+
 async function fetchJson(url) {
   const separator = url.includes('?') ? '&' : '?'
   const response = await fetch(`${url}${separator}ts=${Date.now()}`, { cache: 'no-store' })
@@ -72,56 +130,16 @@ async function fetchJson(url) {
   return await response.json()
 }
 
-function groupHistoryRuns(history) {
-  const groups = new Map()
-
-  for (const run of history?.Runs ?? []) {
-    for (const row of run.Rows ?? []) {
-      const key = `${row.Method}__${row.ProviderName}`
-      const points = groups.get(key) ?? []
-      points.push({
-        runId: run.RunId,
-        generatedAtUtc: run.GeneratedAtUtc,
-        commit: run.Metadata?.Commit ?? null,
-        method: row.Method,
-        providerName: row.ProviderName,
-        meanMicroseconds: row.MeanMicroseconds,
-        allocatedBytes: row.AllocatedBytes,
-        noisePercent: row.NoisePercent
-      })
-      groups.set(key, points)
-    }
-  }
-
-  for (const points of groups.values()) {
-    points.sort((left, right) => String(left.generatedAtUtc).localeCompare(String(right.generatedAtUtc)))
-  }
-
-  return groups
-}
-
-function parseProviderFilter(root) {
-  const filter = root?.dataset?.providerFilter ?? ''
+function parseListFilter(root, name) {
+  const filter = root?.dataset?.[name] ?? ''
   return filter
     .split(',')
     .map(value => value.trim())
     .filter(Boolean)
 }
 
-function parseMethodFilter(root) {
-  const filter = root?.dataset?.methodFilter ?? ''
-  return filter
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean)
-}
-
-function isAllowedProvider(providerName, allowedProviders) {
-  return allowedProviders.length === 0 || allowedProviders.includes(providerName)
-}
-
-function isAllowedMethod(method, allowedMethods) {
-  return allowedMethods.length === 0 || allowedMethods.includes(method)
+function isAllowed(value, allowedValues) {
+  return allowedValues.length === 0 || allowedValues.includes(value)
 }
 
 function filterHistory(history, allowedProviders, allowedMethods) {
@@ -135,157 +153,373 @@ function filterHistory(history, allowedProviders, allowedMethods) {
       .map(run => ({
         ...run,
         Rows: (run.Rows ?? []).filter(row =>
-          isAllowedProvider(row.ProviderName, allowedProviders) &&
-          isAllowedMethod(row.Method, allowedMethods))
+          isAllowed(row.ProviderName, allowedProviders) &&
+          isAllowed(row.Method, allowedMethods))
       }))
       .filter(run => (run.Rows ?? []).length > 0)
   }
 }
 
-function filterLatest(latest, allowedProviders, allowedMethods) {
-  if (!latest?.Rows?.length) {
-    return latest
-  }
+function getProfile(run) {
+  return run?.Metadata?.Profile || 'default'
+}
 
-  return {
-    ...latest,
-    Rows: latest.Rows.filter(row =>
-      isAllowedProvider(row.ProviderName, allowedProviders) &&
-      isAllowedMethod(row.Method, allowedMethods))
+function getCategory(row) {
+  return row.Category || row.TrackingGroup || inferCategory(row.Method)
+}
+
+function inferCategory(method) {
+  switch (method) {
+    case 'Provider initialization':
+    case 'Startup primary-key fetch':
+      return 'startup'
+    case 'Cold primary-key fetch':
+    case 'Warm primary-key fetch':
+    case 'Repeated non-PK equality fetch':
+    case 'Repeated IN predicate fetch':
+    case 'Repeated scalar Any':
+      return 'read-hotpath'
+    case 'Cold relation traversal':
+    case 'Warm relation traversal':
+      return 'relation-traversal'
+    case 'Insert employees':
+    case 'Update employees':
+    case 'Delete employees':
+      return 'mutation'
+    case 'CRUD workflow':
+      return 'macro-bulk'
+    default:
+      return 'other'
   }
 }
 
-function filterComparison(comparison, allowedProviders, allowedMethods) {
-  if (!comparison?.Rows?.length) {
-    return comparison
+function flattenHistory(history) {
+  const points = []
+
+  for (const run of history?.Runs ?? []) {
+    const profile = getProfile(run)
+    for (const row of run.Rows ?? []) {
+      points.push({
+        runId: run.RunId,
+        generatedAtUtc: run.GeneratedAtUtc,
+        metadata: run.Metadata ?? {},
+        commit: run.Metadata?.Commit ?? null,
+        branch: run.Metadata?.Branch ?? null,
+        runnerOs: run.Metadata?.RunnerOs ?? null,
+        profile,
+        method: row.Method,
+        providerName: row.ProviderName,
+        category: getCategory(row),
+        meanMicroseconds: row.MeanMicroseconds,
+        medianMicroseconds: row.MedianMicroseconds,
+        errorMicroseconds: row.ErrorMicroseconds,
+        stdDevMicroseconds: row.StdDevMicroseconds,
+        allocatedBytes: row.AllocatedBytes,
+        uncertaintyPercent: row.UncertaintyPercent ?? row.NoisePercent,
+        stdDevPercent: row.StdDevPercent,
+        operationsPerInvoke: row.OperationsPerInvoke ?? row.TelemetryDelta?.OperationsPerInvoke,
+        telemetryDelta: row.TelemetryDelta ?? null
+      })
+    }
   }
 
-  return {
-    ...comparison,
-    Rows: comparison.Rows.filter(row =>
-      isAllowedProvider(row.ProviderName, allowedProviders) &&
-      isAllowedMethod(row.Method, allowedMethods))
-  }
+  points.sort((left, right) => String(left.generatedAtUtc).localeCompare(String(right.generatedAtUtc)))
+  return points
 }
 
-function formatYAxisValue(value, selector) {
-  if (selector === 'allocatedBytes') {
-    return formatBytes(value)
+function groupBy(points, keySelector) {
+  const groups = new Map()
+  for (const point of points) {
+    const key = keySelector(point)
+    const group = groups.get(key) ?? []
+    group.push(point)
+    groups.set(key, group)
   }
 
-  if (selector === 'meanMicroseconds') {
-    return formatMicroseconds(value)
-  }
-
-  return formatNumber(value, 1)
+  return groups
 }
 
-function renderTrendChart(points, selector, color) {
-  const values = points
-    .map(point => point[selector])
+function numericValue(point, selector) {
+  const value = point?.[selector]
+  return value === null || value === undefined || Number.isNaN(value) ? null : value
+}
+
+function median(values) {
+  const sorted = values
     .filter(value => value !== null && value !== undefined && !Number.isNaN(value))
+    .sort((left, right) => left - right)
 
-  if (values.length < 2) {
-    return '<div class="benchmark-empty-chart">Need at least two runs</div>'
+  if (sorted.length === 0) {
+    return null
   }
 
-  const width = 420
-  const height = 180
-  const paddingLeft = 60
-  const paddingRight = 18
-  const paddingTop = 20
-  const paddingBottom = 34
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = Math.max(max - min, 1)
-  const steps = values.length - 1
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle]
+}
 
-  const chartWidth = width - paddingLeft - paddingRight
-  const chartHeight = height - paddingTop - paddingBottom
-  const pointsText = values
-    .map((value, index) => {
-      const x = paddingLeft + (index / steps) * chartWidth
-      const normalized = (value - min) / range
-      const y = height - paddingBottom - normalized * chartHeight
-      return `${x.toFixed(1)},${y.toFixed(1)}`
+function deltaPercent(baseline, candidate) {
+  if (baseline === null || baseline === undefined || candidate === null || candidate === undefined || baseline === 0) {
+    return null
+  }
+
+  return ((candidate - baseline) / baseline) * 100
+}
+
+function getRecentSlopePercent(points, selector) {
+  const valid = points.filter(point => numericValue(point, selector) !== null)
+  if (valid.length < 2) {
+    return null
+  }
+
+  const window = valid.slice(-7)
+  const first = numericValue(window[0], selector)
+  const latest = numericValue(window[window.length - 1], selector)
+  return deltaPercent(first, latest)
+}
+
+function buildTrendRows(points) {
+  const groups = groupBy(points, point => `${point.method}__${point.providerName}__${point.profile}`)
+  const rows = []
+
+  for (const groupPoints of groups.values()) {
+    const validMeanPoints = groupPoints.filter(point => numericValue(point, 'meanMicroseconds') !== null)
+    if (validMeanPoints.length === 0) {
+      continue
+    }
+
+    const latest = validMeanPoints[validMeanPoints.length - 1]
+    const previous = validMeanPoints.length > 1 ? validMeanPoints[validMeanPoints.length - 2] : null
+    const priorPoints = validMeanPoints.slice(0, -1)
+    const previousMean = previous ? numericValue(previous, 'meanMicroseconds') : null
+    const latestMean = numericValue(latest, 'meanMicroseconds')
+    const previousAllocated = previous ? numericValue(previous, 'allocatedBytes') : null
+    const latestAllocated = numericValue(latest, 'allocatedBytes')
+    const median7 = median(priorPoints.slice(-7).map(point => point.meanMicroseconds))
+    const median30 = median(priorPoints.slice(-30).map(point => point.meanMicroseconds))
+    const meanDeltaPrevious = deltaPercent(previousMean, latestMean)
+    const allocationDeltaPrevious = deltaPercent(previousAllocated, latestAllocated)
+    const meanDelta7 = deltaPercent(median7, latestMean)
+    const meanDelta30 = deltaPercent(median30, latestMean)
+    const slope = getRecentSlopePercent(validMeanPoints, 'meanMicroseconds')
+    const uncertainty = latest.uncertaintyPercent
+    const primaryDelta = meanDelta7 ?? meanDeltaPrevious
+    const primaryAllocationDelta = allocationDeltaPrevious
+    const status = classifyStatus(primaryDelta, primaryAllocationDelta, uncertainty)
+
+    rows.push({
+      key: `${latest.method}__${latest.providerName}__${latest.profile}`,
+      method: latest.method,
+      providerName: latest.providerName,
+      profile: latest.profile,
+      category: latest.category,
+      latest,
+      runCount: validMeanPoints.length,
+      meanDeltaPrevious,
+      allocationDeltaPrevious,
+      meanDelta7,
+      meanDelta30,
+      slope,
+      status
     })
-    .join(' ')
+  }
 
-  const firstDate = formatDateLabel(points[0]?.generatedAtUtc)
-  const lastDate = formatDateLabel(points[points.length - 1]?.generatedAtUtc)
-  const latestValue = values[values.length - 1]
-  const latestX = paddingLeft + chartWidth
-  const latestNormalized = (latestValue - min) / range
-  const latestY = height - paddingBottom - latestNormalized * chartHeight
-  const midY = paddingTop + chartHeight / 2
-  const midValue = min + range / 2
+  rows.sort((left, right) =>
+    categoryRank(left.category) - categoryRank(right.category) ||
+    left.method.localeCompare(right.method) ||
+    left.providerName.localeCompare(right.providerName) ||
+    left.profile.localeCompare(right.profile))
+
+  return rows
+}
+
+function classifyStatus(meanDelta, allocatedDelta, uncertainty) {
+  if (uncertainty !== null && uncertainty !== undefined && uncertainty >= 20) {
+    return 'noisy'
+  }
+
+  if ((meanDelta ?? 0) >= 10 || (allocatedDelta ?? 0) >= 10) {
+    return 'warning'
+  }
+
+  if ((meanDelta ?? 0) <= -10 || (allocatedDelta ?? 0) <= -10) {
+    return 'improved'
+  }
+
+  return 'stable'
+}
+
+function categoryRank(category) {
+  const order = [
+    'startup',
+    'read-hotpath',
+    'relation-traversal',
+    'mutation',
+    'macro-readwrite',
+    'macro-bulk',
+    'phase2-watch',
+    'phase3-query-hotpath',
+    'other'
+  ]
+  const index = order.indexOf(category)
+  return index < 0 ? order.length : index
+}
+
+function renderStatus(status) {
+  const label = STATUS_LABELS.get(status) ?? status
+  return `<span class="benchmark-status benchmark-status-${escapeHtml(status)}">${escapeHtml(label)}</span>`
+}
+
+function renderProfile(profile) {
+  return `<span class="benchmark-profile benchmark-profile-${escapeHtml(profile)}">${escapeHtml(profile)}</span>`
+}
+
+function formatMetricValue(value, selector) {
+  return selector === 'allocatedBytes' ? formatBytes(value) : formatMicroseconds(value)
+}
+
+function formatTelemetrySummary(telemetry) {
+  if (!telemetry) {
+    return '-'
+  }
+
+  const parts = []
+  if (hasSignal(telemetry.EntityQueriesPerOperation, telemetry.ScalarQueriesPerOperation)) {
+    parts.push(`Q ${formatMetric(telemetry.EntityQueriesPerOperation)}/${formatMetric(telemetry.ScalarQueriesPerOperation)}`)
+  }
+  if (hasSignal(telemetry.TransactionStartsPerOperation, telemetry.TransactionCommitsPerOperation, telemetry.TransactionRollbacksPerOperation)) {
+    parts.push(`Tx ${formatMetric(telemetry.TransactionStartsPerOperation)}/${formatMetric(telemetry.TransactionCommitsPerOperation)}/${formatMetric(telemetry.TransactionRollbacksPerOperation)}`)
+  }
+  if (hasSignal(telemetry.MutationInsertsPerOperation, telemetry.MutationUpdatesPerOperation, telemetry.MutationDeletesPerOperation, telemetry.MutationAffectedRowsPerOperation)) {
+    parts.push(`Mut ${formatMetric(telemetry.MutationInsertsPerOperation)}/${formatMetric(telemetry.MutationUpdatesPerOperation)}/${formatMetric(telemetry.MutationDeletesPerOperation)} rows ${formatMetric(telemetry.MutationAffectedRowsPerOperation)}`)
+  }
+  if (hasSignal(telemetry.RowCacheHitsPerOperation, telemetry.RowCacheMissesPerOperation, telemetry.RowCacheStoresPerOperation)) {
+    parts.push(`Row ${formatMetric(telemetry.RowCacheHitsPerOperation)}/${formatMetric(telemetry.RowCacheMissesPerOperation)}/${formatMetric(telemetry.RowCacheStoresPerOperation)}`)
+  }
+  if (hasSignal(telemetry.RelationHitsPerOperation, telemetry.RelationLoadsPerOperation)) {
+    parts.push(`Rel ${formatMetric(telemetry.RelationHitsPerOperation)}/${formatMetric(telemetry.RelationLoadsPerOperation)}`)
+  }
+  if (hasSignal(telemetry.DatabaseRowsPerOperation)) {
+    parts.push(`DB ${formatMetric(telemetry.DatabaseRowsPerOperation)}`)
+  }
+  if (hasSignal(telemetry.MaterializationsPerOperation)) {
+    parts.push(`Mat ${formatMetric(telemetry.MaterializationsPerOperation)}`)
+  }
+
+  return parts.length === 0 ? '-' : parts.join('  ')
+}
+
+function renderTelemetryDetails(point) {
+  const telemetry = point.telemetryDelta
+  const rows = [
+    ['Operations per invoke', point.operationsPerInvoke],
+    ['Queries entity/scalar', telemetry ? `${formatMetric(telemetry.EntityQueriesPerOperation)} / ${formatMetric(telemetry.ScalarQueriesPerOperation)}` : '-'],
+    ['Transactions start/commit/rollback', telemetry ? `${formatMetric(telemetry.TransactionStartsPerOperation)} / ${formatMetric(telemetry.TransactionCommitsPerOperation)} / ${formatMetric(telemetry.TransactionRollbacksPerOperation)}` : '-'],
+    ['Mutations insert/update/delete/rows', telemetry ? `${formatMetric(telemetry.MutationInsertsPerOperation)} / ${formatMetric(telemetry.MutationUpdatesPerOperation)} / ${formatMetric(telemetry.MutationDeletesPerOperation)} / ${formatMetric(telemetry.MutationAffectedRowsPerOperation)}` : '-'],
+    ['Row cache hit/miss/store', telemetry ? `${formatMetric(telemetry.RowCacheHitsPerOperation)} / ${formatMetric(telemetry.RowCacheMissesPerOperation)} / ${formatMetric(telemetry.RowCacheStoresPerOperation)}` : '-'],
+    ['Database rows/materializations', telemetry ? `${formatMetric(telemetry.DatabaseRowsPerOperation)} / ${formatMetric(telemetry.MaterializationsPerOperation)}` : '-'],
+    ['Relation hit/load', telemetry ? `${formatMetric(telemetry.RelationHitsPerOperation)} / ${formatMetric(telemetry.RelationLoadsPerOperation)}` : '-']
+  ]
+
+  const items = rows.map(([label, value]) => `
+    <div>
+      <dt>${escapeHtml(label)}</dt>
+      <dd>${escapeHtml(value ?? '-')}</dd>
+    </div>
+  `).join('')
 
   return `
-    <svg class="benchmark-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="benchmark trend">
-      <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
-      <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
-      <line x1="${paddingLeft}" y1="${paddingTop}" x2="${width - paddingRight}" y2="${paddingTop}" class="benchmark-grid"></line>
-      <line x1="${paddingLeft}" y1="${midY}" x2="${width - paddingRight}" y2="${midY}" class="benchmark-grid"></line>
-      <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-grid"></line>
-      <text x="${paddingLeft - 8}" y="${paddingTop + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatYAxisValue(max, selector))}</text>
-      <text x="${paddingLeft - 8}" y="${midY + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatYAxisValue(midValue, selector))}</text>
-      <text x="${paddingLeft - 8}" y="${height - paddingBottom + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatYAxisValue(min, selector))}</text>
-      <text x="${paddingLeft}" y="${height - 8}" text-anchor="start" class="benchmark-axis-label">${escapeHtml(firstDate)}</text>
-      <text x="${width - paddingRight}" y="${height - 8}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(lastDate)}</text>
-      <polyline fill="none" stroke="${color}" stroke-width="3" points="${pointsText}"></polyline>
-      <circle cx="${latestX}" cy="${latestY}" r="4" fill="${color}"></circle>
-    </svg>
+    <details class="benchmark-details">
+      <summary>Telemetry deltas</summary>
+      <dl class="benchmark-telemetry-grid">${items}</dl>
+    </details>
   `
 }
 
-function renderLatestSnapshotTable(latest, comparison) {
-  const latestRows = latest?.Rows ?? []
-  const comparisonRows = comparison?.Rows ?? []
-  const comparisonByKey = new Map(
-    comparisonRows.map(row => [`${row.Method}__${row.ProviderName}`, row])
-  )
+function hasSignal(...values) {
+  return values.some(value => value !== null && value !== undefined && Math.abs(value) >= 0.0001)
+}
 
-  const rows = [...latestRows]
-    .sort((left, right) => (left.MeanMicroseconds ?? Number.MAX_VALUE) - (right.MeanMicroseconds ?? Number.MAX_VALUE))
-
-  if (rows.length === 0) {
-    return '<p class="benchmark-muted">No latest benchmark summary has been published yet.</p>'
+function formatMetric(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return '-'
   }
 
+  const absolute = Math.abs(value)
+  if (absolute < 0.0001) {
+    return '0'
+  }
+
+  if (absolute < 0.01) {
+    return '<0.01'
+  }
+
+  const rounded = Math.round(value)
+  if (absolute >= 0.95 && Math.abs(value - rounded) < 0.05) {
+    return String(rounded)
+  }
+
+  return absolute < 0.1 ? formatNumber(value, 2) : formatNumber(value, 1)
+}
+
+function renderTrendTable(points) {
+  const rows = buildTrendRows(points)
+  if (rows.length === 0) {
+    return '<p class="benchmark-muted">No benchmark history rows match the current filters.</p>'
+  }
+
+  let currentCategory = null
   const body = rows.map(row => {
-    const key = `${row.Method}__${row.ProviderName}`
-    const comparisonRow = comparisonByKey.get(key)
-    const statusClass = comparisonRow?.Status === 'warning'
-      ? 'benchmark-status-warning'
-      : comparisonRow?.Status === 'improved'
-        ? 'benchmark-status-good'
-        : ''
+    const categoryHeader = row.category !== currentCategory
+      ? `<tr class="benchmark-group-row"><th colspan="13">${escapeHtml(CATEGORY_LABELS.get(row.category) ?? row.category)}</th></tr>`
+      : ''
+    currentCategory = row.category
 
     return `
+      ${categoryHeader}
       <tr>
-        <td>${escapeHtml(row.Method)}</td>
-        <td>${escapeHtml(row.ProviderName)}</td>
-        <td>${formatMicroseconds(row.MeanMicroseconds)}</td>
-        <td>${formatBytes(row.AllocatedBytes)}</td>
-        <td>${row.NoisePercent === null || row.NoisePercent === undefined ? '-' : `${formatNumber(row.NoisePercent, 1)}%`}</td>
-        <td class="${statusClass}">${comparisonRow ? formatPercent(comparisonRow.MeanDeltaPercent) : '-'}</td>
-        <td class="${statusClass}">${comparisonRow ? formatPercent(comparisonRow.AllocatedDeltaPercent) : '-'}</td>
-        <td class="${statusClass}">${escapeHtml(comparisonRow?.Status ?? '-')}</td>
+        <td>${escapeHtml(row.method)}</td>
+        <td>${escapeHtml(row.providerName)}</td>
+        <td>${renderProfile(row.profile)}</td>
+        <td>${formatDateLabel(row.latest.generatedAtUtc)}</td>
+        <td>${formatMicroseconds(row.latest.meanMicroseconds)}</td>
+        <td>${formatBytes(row.latest.allocatedBytes)}</td>
+        <td>${formatUnsignedPercent(row.latest.uncertaintyPercent)}</td>
+        <td>${formatPercent(row.meanDeltaPrevious)}</td>
+        <td>${formatPercent(row.meanDelta7)}</td>
+        <td>${formatPercent(row.meanDelta30)}</td>
+        <td>${formatPercent(row.slope)}</td>
+        <td>${escapeHtml(shortCommit(row.latest.commit))}</td>
+        <td>${renderStatus(row.status)}</td>
+      </tr>
+      <tr class="benchmark-detail-row">
+        <td colspan="13">
+          <div class="benchmark-detail-content">
+            <span>${escapeHtml(row.runCount)} same-profile runs. Last run ${escapeHtml(formatDateTime(row.latest.generatedAtUtc))} on ${escapeHtml(row.latest.runnerOs ?? 'unknown runner')}.</span>
+            ${renderTelemetryDetails(row.latest)}
+          </div>
+        </td>
       </tr>
     `
   }).join('')
 
   return `
-    <table class="benchmark-table">
+    <table class="benchmark-table benchmark-trend-table">
       <thead>
         <tr>
-          <th>Method</th>
+          <th>Scenario</th>
           <th>Provider</th>
+          <th>Profile</th>
+          <th>Last run</th>
           <th>Mean</th>
           <th>Allocated</th>
-          <th>Noise</th>
-          <th>Mean Δ</th>
-          <th>Allocated Δ</th>
+          <th>Uncertainty</th>
+          <th>Vs prev</th>
+          <th>Vs 7 median</th>
+          <th>Vs 30 median</th>
+          <th>Slope</th>
+          <th>Commit</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -294,33 +528,126 @@ function renderLatestSnapshotTable(latest, comparison) {
   `
 }
 
-function renderTrendCards(history) {
-  const groups = [...groupHistoryRuns(history).entries()]
-    .sort((left, right) => left[0].localeCompare(right[0]))
+function renderPointTitle(point, selector) {
+  return [
+    `${point.method} (${point.providerName}, ${point.profile})`,
+    `run: ${formatDateTime(point.generatedAtUtc)}`,
+    `commit: ${shortCommit(point.commit)}`,
+    `${selector === 'allocatedBytes' ? 'allocated' : 'mean'}: ${formatMetricValue(point[selector], selector)}`,
+    `uncertainty: ${formatUnsignedPercent(point.uncertaintyPercent)}`,
+    `telemetry: ${formatTelemetrySummary(point.telemetryDelta)}`
+  ].join('\n')
+}
+
+function renderTrendChart(points, selector) {
+  const validPoints = points.filter(point => numericValue(point, selector) !== null)
+  if (validPoints.length < 2) {
+    return '<div class="benchmark-empty-chart">Need at least two runs</div>'
+  }
+
+  const width = 520
+  const height = 190
+  const paddingLeft = 68
+  const paddingRight = 20
+  const paddingTop = 22
+  const paddingBottom = 34
+  const values = validPoints.map(point => numericValue(point, selector))
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = Math.max(max - min, 1)
+  const steps = Math.max(validPoints.length - 1, 1)
+  const chartWidth = width - paddingLeft - paddingRight
+  const chartHeight = height - paddingTop - paddingBottom
+  const midY = paddingTop + chartHeight / 2
+  const midValue = min + range / 2
+
+  const coordinates = validPoints.map((point, index) => {
+    const value = numericValue(point, selector)
+    const x = paddingLeft + (index / steps) * chartWidth
+    const y = height - paddingBottom - ((value - min) / range) * chartHeight
+    return { point, value, x, y }
+  })
+
+  const lines = [...groupBy(coordinates, item => item.point.profile).entries()]
+    .map(([profile, items]) => {
+      if (items.length < 2) {
+        return ''
+      }
+
+      const color = PROFILE_COLORS.get(profile) ?? '#334155'
+      const text = items.map(item => `${item.x.toFixed(1)},${item.y.toFixed(1)}`).join(' ')
+      return `<polyline fill="none" stroke="${color}" stroke-width="2.6" points="${text}"></polyline>`
+    })
+    .join('')
+
+  const circles = coordinates.map(item => {
+    const color = PROFILE_COLORS.get(item.point.profile) ?? '#334155'
+    return `
+      <circle
+        class="benchmark-chart-point"
+        cx="${item.x.toFixed(1)}"
+        cy="${item.y.toFixed(1)}"
+        r="4.2"
+        fill="${color}"
+        tabindex="0"
+        aria-label="${escapeHtml(renderPointTitle(item.point, selector))}">
+        <title>${escapeHtml(renderPointTitle(item.point, selector))}</title>
+      </circle>
+    `
+  }).join('')
+
+  return `
+    <svg class="benchmark-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="benchmark trend">
+      <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
+      <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
+      <line x1="${paddingLeft}" y1="${paddingTop}" x2="${width - paddingRight}" y2="${paddingTop}" class="benchmark-grid"></line>
+      <line x1="${paddingLeft}" y1="${midY}" x2="${width - paddingRight}" y2="${midY}" class="benchmark-grid"></line>
+      <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-grid"></line>
+      <text x="${paddingLeft - 8}" y="${paddingTop + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(max, selector))}</text>
+      <text x="${paddingLeft - 8}" y="${midY + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(midValue, selector))}</text>
+      <text x="${paddingLeft - 8}" y="${height - paddingBottom + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(min, selector))}</text>
+      <text x="${paddingLeft}" y="${height - 8}" text-anchor="start" class="benchmark-axis-label">${escapeHtml(formatDateLabel(validPoints[0]?.generatedAtUtc))}</text>
+      <text x="${width - paddingRight}" y="${height - 8}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatDateLabel(validPoints[validPoints.length - 1]?.generatedAtUtc))}</text>
+      ${lines}
+      ${circles}
+    </svg>
+  `
+}
+
+function renderTrendCards(points) {
+  const groups = [...groupBy(points, point => `${point.method}__${point.providerName}`).values()]
+    .sort((left, right) =>
+      categoryRank(left[left.length - 1].category) - categoryRank(right[right.length - 1].category) ||
+      left[left.length - 1].method.localeCompare(right[right.length - 1].method) ||
+      left[left.length - 1].providerName.localeCompare(right[right.length - 1].providerName))
 
   if (groups.length === 0) {
     return '<p class="benchmark-muted">No benchmark history is published yet.</p>'
   }
 
-  return groups.map(([, points]) => {
-    const latest = points[points.length - 1]
+  return groups.map(groupPoints => {
+    const latest = groupPoints[groupPoints.length - 1]
+    const profiles = [...new Set(groupPoints.map(point => point.profile))]
+    const legend = profiles.map(renderProfile).join('')
+
     return `
       <section class="benchmark-card">
         <header class="benchmark-card-header">
           <div>
             <h3>${escapeHtml(latest.method)} <span>${escapeHtml(latest.providerName)}</span></h3>
-            <p>${points.length} published runs</p>
+            <p>${groupPoints.length} published runs across ${escapeHtml(profiles.join(', '))}</p>
           </div>
+          <div class="benchmark-profile-list">${legend}</div>
         </header>
         <div class="benchmark-card-grid">
           <div>
             <h4>Mean Time</h4>
-            ${renderTrendChart(points, 'meanMicroseconds', '#d97706')}
+            ${renderTrendChart(groupPoints, 'meanMicroseconds')}
             <p class="benchmark-card-value">${formatMicroseconds(latest.meanMicroseconds)}</p>
           </div>
           <div>
             <h4>Allocated Bytes</h4>
-            ${renderTrendChart(points, 'allocatedBytes', '#0f766e')}
+            ${renderTrendChart(groupPoints, 'allocatedBytes')}
             <p class="benchmark-card-value">${formatBytes(latest.allocatedBytes)}</p>
           </div>
         </div>
@@ -341,52 +668,54 @@ async function renderBenchmarkResults() {
     const historyUrl = root.dataset.historyUrl
     const latestUrl = root.dataset.latestUrl
     const comparisonUrl = root.dataset.comparisonUrl
-    const allowedProviders = parseProviderFilter(root)
-    const allowedMethods = parseMethodFilter(root)
+    const allowedProviders = parseListFilter(root, 'providerFilter')
+    const allowedMethods = parseListFilter(root, 'methodFilter')
 
     const [rawHistory, rawLatest, rawComparison] = await Promise.all([
       fetchJson(historyUrl),
-      fetchJson(latestUrl),
+      latestUrl ? fetchJson(latestUrl).catch(() => null) : Promise.resolve(null),
       comparisonUrl ? fetchJson(comparisonUrl).catch(() => null) : Promise.resolve(null)
     ])
 
     const history = filterHistory(rawHistory, allowedProviders, allowedMethods)
-    const latest = filterLatest(rawLatest, allowedProviders, allowedMethods)
-    const comparison = filterComparison(rawComparison, allowedProviders, allowedMethods)
-
-    const latestCommit = latest?.Metadata?.Commit ? latest.Metadata.Commit.slice(0, 7) : 'unknown'
-    const latestBranch = latest?.Metadata?.Branch ?? 'unknown'
-    const latestRunner = latest?.Metadata?.RunnerOs ?? 'unknown runner'
+    const points = flattenHistory(history)
+    const latestPoint = points[points.length - 1]
+    const profiles = [...new Set(points.map(point => point.profile))].sort()
     const providerScope = allowedProviders.length === 0 ? 'all published providers' : allowedProviders.join(', ')
+    const comparisonStatus = rawComparison?.WarningCount > 0
+      ? `${rawComparison.WarningCount} comparison warnings`
+      : rawComparison
+        ? 'latest same-profile comparison clean'
+        : 'no same-profile comparison yet'
 
     root.innerHTML = `
       <section class="benchmark-overview">
         <div class="benchmark-overview-item">
           <strong>Latest run</strong>
-          <span>${escapeHtml(latest?.GeneratedAtUtc ?? '-')}</span>
+          <span>${escapeHtml(formatDateTime(rawLatest?.GeneratedAtUtc ?? latestPoint?.generatedAtUtc))}</span>
         </div>
         <div class="benchmark-overview-item">
           <strong>Commit</strong>
-          <span>${escapeHtml(latestCommit)}</span>
+          <span>${escapeHtml(shortCommit(rawLatest?.Metadata?.Commit ?? latestPoint?.commit))}</span>
         </div>
         <div class="benchmark-overview-item">
-          <strong>Branch</strong>
-          <span>${escapeHtml(latestBranch)}</span>
-        </div>
-        <div class="benchmark-overview-item">
-          <strong>Runner</strong>
-          <span>${escapeHtml(latestRunner)}</span>
+          <strong>Profiles</strong>
+          <span>${profiles.map(renderProfile).join('')}</span>
         </div>
         <div class="benchmark-overview-item">
           <strong>Provider scope</strong>
           <span>${escapeHtml(providerScope)}</span>
         </div>
+        <div class="benchmark-overview-item">
+          <strong>Comparison</strong>
+          <span>${escapeHtml(comparisonStatus)}</span>
+        </div>
       </section>
-      <h2>Latest Snapshot</h2>
-      ${renderLatestSnapshotTable(latest, comparison)}
-      <h2>Trends</h2>
+      <h2>Trend Summary</h2>
+      ${renderTrendTable(points)}
+      <h2>Charts</h2>
       <div class="benchmark-card-list">
-        ${renderTrendCards(history)}
+        ${renderTrendCards(points)}
       </div>
     `
   } catch (error) {

@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 9A Implementation Plan: Release Hardening, Benchmarks, Allocation, and Cache Invalidation
 
-**Status:** In progress. Workstream A warning cleanup is complete as of 2026-05-10.
+**Status:** In progress. Workstreams A and B are complete as of 2026-05-10.
 
 ## Purpose
 
@@ -102,6 +102,10 @@ Exit criteria:
 - warning enforcement can be enabled without blocking legitimate build environments
 
 ## Workstream B: Benchmark History And Website Trends
+
+Status: Complete as of 2026-05-10.
+
+Benchmark history artifacts now carry richer row metadata for category, operations per invoke, median/stddev fields when BenchmarkDotNet emits them, uncertainty, allocation, profile, commit, runner, and telemetry deltas. The benchmark-history workflow compares against the latest same-profile baseline and uses age-based thinning for older published runs. The website trend page shows profile-specific trend rows, last-run dates, rolling previous/7-run/30-run comparisons, recent slope, profile-marked charts, and expandable telemetry details while keeping the published provider scope on `sqlite-memory`.
 
 Goals:
 
