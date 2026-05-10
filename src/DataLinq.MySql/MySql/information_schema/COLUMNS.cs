@@ -8,14 +8,14 @@ using DataLinq.MySql.Shared;
 
 namespace DataLinq.MySql.information_schema;
 
-public partial interface IMYSQLCOLUMNS: ICOLUMNS
+public partial interface IMYSQLCOLUMNS
 {
 }
 
 [Definition("")]
 [View("COLUMNS")]
 [Interface<IMYSQLCOLUMNS>]
-public abstract partial class COLUMNS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<COLUMNS, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>
+public abstract partial class COLUMNS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<COLUMNS, MySQLInformationSchema>(rowData, dataSource), IViewModel<MySQLInformationSchema>, ICOLUMNS
 {
     [Nullable]
     [Type(DatabaseType.MySQL, "bigint")]

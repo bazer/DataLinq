@@ -17,23 +17,21 @@ public enum TABLE_TYPE
 
 public interface ICOLUMNS
 {
-    string TABLE_SCHEMA { get; }
-    string TABLE_NAME { get; }
-    string DATA_TYPE { get; }
+    string? TABLE_SCHEMA { get; }
+    string? TABLE_NAME { get; }
+    string? DATA_TYPE { get; }
     string COLUMN_TYPE { get; }
     ulong? NUMERIC_PRECISION { get; }
     ulong? NUMERIC_SCALE { get; }
     ulong? CHARACTER_MAXIMUM_LENGTH { get; }
     string IS_NULLABLE { get; }
     COLUMN_KEY COLUMN_KEY { get; }
-    string EXTRA { get; }
+    string? EXTRA { get; }
     string? GENERATION_EXPRESSION { get; }
-    string COLUMN_DEFAULT { get; }
-    string COLUMN_NAME { get; }
+    string? COLUMN_DEFAULT { get; }
+    string? COLUMN_NAME { get; }
     string COLUMN_COMMENT { get; }
 }
-//public partial interface IMYSQLCOLUMNS : ICOLUMNS { }
-//public partial interface IMARIADBCOLUMNS : ICOLUMNS { }
 
 public interface ITABLES
 {

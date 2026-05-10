@@ -67,6 +67,16 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
     protected Option<ProviderColumnImport, IDLOptionFailure> ParseColumn(ProviderTableDraft table, ICOLUMNS dbColumns)
     {
+        if (string.IsNullOrWhiteSpace(dbColumns.COLUMN_NAME))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Malformed {databaseType} column metadata row for table '{table.DbName}': column name is required.");
+
+        if (string.IsNullOrWhiteSpace(dbColumns.DATA_TYPE))
+            return DLOptionFailure.Fail(
+                DLFailureType.InvalidModel,
+                $"Malformed {databaseType} column metadata row for '{table.DbName}.{dbColumns.COLUMN_NAME}': data type is required.");
+
         if (IsGeneratedColumn(dbColumns))
         {
             options.Log?.Invoke($"Warning: Skipping unsupported {databaseType} generated column '{table.DbName}.{dbColumns.COLUMN_NAME}'.");
@@ -101,7 +111,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
         {
             Nullable = dbColumns.IS_NULLABLE == "YES",
             PrimaryKey = dbColumns.COLUMN_KEY == COLUMN_KEY.PRI,
-            AutoIncrement = dbColumns.EXTRA.Contains("auto_increment")
+            AutoIncrement = dbColumns.EXTRA?.Contains("auto_increment", StringComparison.OrdinalIgnoreCase) == true
         };
         column.DbTypes.Add(dbType);
 
@@ -142,7 +152,7 @@ public abstract class MetadataFromSqlFactory : IMetadataFromSqlFactory
 
     private static bool IsGeneratedColumn(ICOLUMNS dbColumns)
     {
-        var extra = dbColumns.EXTRA.Replace("_", " ");
+        var extra = (dbColumns.EXTRA ?? string.Empty).Replace("_", " ");
         if (extra.Contains("VIRTUAL GENERATED", StringComparison.OrdinalIgnoreCase) ||
             extra.Contains("STORED GENERATED", StringComparison.OrdinalIgnoreCase) ||
             extra.Contains("PERSISTENT", StringComparison.OrdinalIgnoreCase))

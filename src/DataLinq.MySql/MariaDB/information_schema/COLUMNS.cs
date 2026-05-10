@@ -7,14 +7,14 @@ using DataLinq.MySql.Shared;
 
 namespace DataLinq.MariaDB.information_schema;
 
-public partial interface IMARIADBCOLUMNS: ICOLUMNS
+public partial interface IMARIADBCOLUMNS
 {
 }
 
 [Definition("")]
 [View("COLUMNS")]
 [Interface<IMARIADBCOLUMNS>]
-public abstract partial class COLUMNS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<COLUMNS, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>
+public abstract partial class COLUMNS(IRowData rowData, IDataSourceAccess dataSource) : Immutable<COLUMNS, MariaDBInformationSchema>(rowData, dataSource), IViewModel<MariaDBInformationSchema>, ICOLUMNS
 {
     [Nullable]
     [Type(DatabaseType.MariaDB, "bigint", 21, false)]
