@@ -47,7 +47,7 @@ public class EmployeesOptimizationTests
         await Assert.That(key).IsTypeOf<CompositeKey>();
 
         var compositeKey = (CompositeKey)key!;
-        await Assert.That(compositeKey.Values.Length).IsEqualTo(2);
+        await Assert.That(compositeKey.ValueCount).IsEqualTo(2);
         await Assert.That(compositeKey.Values.Contains("d001")).IsTrue();
         await Assert.That(compositeKey.Values.Contains(1001)).IsTrue();
     }
