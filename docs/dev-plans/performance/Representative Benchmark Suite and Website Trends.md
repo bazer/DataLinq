@@ -20,7 +20,7 @@ That foundation is good. The weak parts are now narrower and easier to name:
 - the published suite is still too hot-path oriented to describe ordinary library use
 - the website table mostly answers "what changed since the previous latest run?", not "what direction is this going over the last N runs?"
 - the trend charts are static SVGs with no hover inspection
-- the published history currently mixes `default` and `heavy` benchmark profiles in the same timeline, which makes some trend interpretation weaker than it needs to be
+- the published history currently mixes `default` and `heavy` benchmark profiles without making profile, cadence, and last-run dates visible enough
 - the current `NoisePercent` is based on `Error / Mean`; that is useful, but it is not the same thing as a full variance story
 
 The blunt version: we have enough plumbing to avoid benchmark theater, but only if we stop promoting broad scenarios before they earn it.
@@ -28,8 +28,8 @@ The blunt version: we have enough plumbing to avoid benchmark theater, but only 
 ## Objectives
 
 1. Add representative macro benchmarks that resemble ordinary DataLinq usage.
-2. Keep the published history small enough that the numbers remain boring and believable.
-3. Separate benchmark profiles in history and comparison so the website does not compare apples to oranges.
+2. Keep enough published history to show multi-year direction without letting the main page become heavy.
+3. Make benchmark profile, provider, cadence, and last-run date visible so mixed histories are interpretable.
 4. Improve noise reporting with better statistics and policy, not wishful thresholds.
 5. Upgrade the website table and charts so trends, dates, commits, values, and confidence are visible.
 
@@ -71,11 +71,11 @@ That is exactly the kind of scenario we want, but it should not be blindly moved
 - confirm cleanup restores deterministic state
 - confirm it does not dominate CI runtime
 
-If it stays below the noise bar, promote it to a new `macro-stable` category and include it in the website. If it remains noisy, keep it visible locally and do not publish it as a regression signal.
+If it stays below the noise bar, promote it into the relevant published macro category and include it in the website. If it remains noisy, keep it visible locally and do not publish it as a regression signal.
 
 ### Add a Small CRUD Workflow
 
-Add `CrudWorkflowSmall` or `CrudWorkflowUnitOfWork`.
+Add `CrudWorkflowSmall` or `CrudWorkflowUnitOfWork` under a `macro-readwrite` category.
 
 Purpose:
 
@@ -100,7 +100,7 @@ Do not make this a single CRUD operation benchmark unless BenchmarkDotNet shows 
 
 ### Add a Larger CRUD Batch
 
-Add `CrudWorkflowBatch` or refine the existing one into the stable macro lane after evidence.
+Add `CrudWorkflowBatch` or refine the existing one into a `macro-bulk` category after evidence.
 
 Purpose:
 
@@ -152,33 +152,27 @@ This should be a second wave. Pulling it in too early expands setup complexity b
 
 ## Noise Reduction Plan
 
-### Separate Profiles Before Doing Anything Else
+### Make Profiles Visible Before Doing Anything Else
 
 The current benchmark-history workflow uses:
 
 - `default` profile on push
 - `heavy` profile on scheduled runs
 
-Both are appended to the same `history.json`, and the website does not split the trend by profile. The history row contains `Metadata.Profile`, so the data exists, but the presentation and baseline selection do not respect it.
+Both are appended to the same `history.json`, and the website does not make profile differences prominent enough. The history row contains `Metadata.Profile`, so the data exists, but the presentation and baseline selection do not respect it.
 
 This should be fixed before new macro results are treated as meaningful.
 
 Recommended fix:
 
-- publish separate latest and history files per profile:
-  - `benchmarks/default/latest.json`
-  - `benchmarks/default/history.json`
-  - `benchmarks/heavy/latest.json`
-  - `benchmarks/heavy/history.json`
-- compare candidates only against the latest artifact for the same profile
-- make the website default to `heavy` for long-term trend interpretation
-- optionally show `default` as a faster feedback lane, clearly labeled
+- keep one published history surface that can show all runs together
+- preserve `Metadata.Profile` on every run and expose it in tables, chart hover details, point styling, and filters
+- compare candidates against the latest compatible artifact for the same profile when producing automated warning/improved status
+- compute long-term visual trends across all comparable runs, but mark each point as `default` or `heavy`
+- show when each scenario was last run, because some scenarios may only update on scheduled heavy runs
+- make profile filtering available, but do not hide push/default runs by default
 
-Alternative:
-
-- keep one `history.json`, but group every chart and table calculation by `Metadata.Profile`
-
-The first option is cleaner. It makes accidental cross-profile comparison harder.
+`default` and `heavy` are directionally comparable because they run the same benchmark methods, providers, and normalized operation counts. They are not statistically identical evidence: `default` maps to BenchmarkDotNet `ShortRun`, while `heavy` maps to `MediumRun`. That means the website can plot them in one long-term timeline, but regression verdicts should prefer same-profile comparisons and rolling medians. If `default` and `heavy` diverge persistently for a row, that is a signal to inspect the benchmark rather than to average the disagreement away.
 
 ### Improve the Statistical Artifact
 
@@ -226,11 +220,24 @@ Add derived trend comparisons:
 
 Regression status should prefer rolling medians over single-run deltas. Single-run deltas are a canary, not a verdict.
 
+### Retain By Age, Not Run Count
+
+The current workflow keeps the last 120 runs. That is the wrong unit. A scheduled-only row and a push-updated row do not have the same meaning when retention is counted by raw run count.
+
+Use age-based retention with thinning:
+
+- keep all published runs for the most recent 6 months
+- after 6 months, keep at most one representative run per week per scenario/provider/profile
+- after 2 years, either keep one representative run per month in the main `history.json` or keep weekly points if the JSON remains comfortably small
+- keep immutable per-run files longer than the compact history index if storage stays reasonable
+
+My opinion: this should bias toward keeping years of data. Performance trends are most valuable when they catch slow drift, and slow drift is invisible if the website only remembers a few months. The only caveat is page weight. The fix is not deleting old evidence; it is decimating the main history file while preserving enough older points to show long-term direction.
+
 ### Keep Provider Scope Deliberate
 
 Continue using `sqlite-memory` for architecture-sensitive hot-path trends. It is the cleanest signal for library overhead.
 
-For representative macro usage, consider adding `sqlite-file` only after the scenario is stable. It is more realistic for persistence cost, but it also brings more filesystem variance.
+Keep the published benchmark-history suite on `sqlite-memory` for now, including macro CRUD. `sqlite-file` is more realistic for persistence cost, but it also brings filesystem variance that will make hosted trend interpretation worse. Keep it local-only until `sqlite-memory` macro coverage has proved useful and boring.
 
 Do not add Podman-backed MySQL/MariaDB to the published benchmark-history lane yet. Those runs are valuable for provider behavior checks, but hosted CI network/container variance will swamp small library changes.
 
@@ -245,6 +252,7 @@ Recommended columns:
 - scenario
 - provider
 - profile
+- last run
 - latest mean
 - latest allocated
 - uncertainty
@@ -261,7 +269,8 @@ Rows should be grouped by scenario category:
 - read hot paths
 - relation traversal
 - mutation
-- macro CRUD
+- macro read/write
+- macro bulk
 
 The old "latest snapshot" table can remain available, but it should not be the main interpretation surface.
 
@@ -299,7 +308,22 @@ Each scenario should expose at least:
 
 The default view should show mean time. Allocations deserve a first-class toggle because DataLinq performance wins often show up as lower allocation pressure before they show up as lower mean time on CI.
 
-Avoid showing every telemetry counter as a chart by default. Put telemetry in hover details or an expandable row. Too much chart surface will make the page look more precise while becoming less readable.
+Avoid showing every telemetry counter as a chart by default. Put telemetry in hover details and expandable table rows. Too much chart surface will make the page look more precise while becoming less readable.
+
+### Table: Add Expandable Telemetry Rows
+
+Expose telemetry deltas as expandable detail rows under each benchmark row. Keep the collapsed row focused on the numbers people scan most: time, allocation, uncertainty, trend, profile, and last run.
+
+The expanded row should show compact per-operation telemetry groups:
+
+- queries: entity and scalar
+- transactions: starts, commits, rollbacks
+- mutations: inserts, updates, deletes, affected rows
+- row cache: hits, misses, stores
+- relation cache: hits and loads
+- database/materialization counts
+
+This is better than tooltip-only telemetry because it makes regression diagnosis possible on touch devices and in screenshots. The guardrail is that telemetry should be hidden by default and grouped, not sprayed into new columns.
 
 ### Visual Design
 
@@ -343,7 +367,7 @@ Recommended `history` additions:
         {
           "Method": "CRUD workflow",
           "ProviderName": "sqlite-memory",
-          "Category": "macro-stable",
+          "Category": "macro-readwrite",
           "MeanMicroseconds": 123.4,
           "MedianMicroseconds": 121.9,
           "ErrorMicroseconds": 4.2,
@@ -364,11 +388,12 @@ The exact names can change during implementation. The important rule is that the
 
 ## Implementation Order
 
-### 1. Fix history/profile separation
+### 1. Fix profile-aware history interpretation
 
-- split published history by profile, or make the website and comparison logic group by profile
+- keep the website capable of showing all published runs together
+- make the website and comparison logic profile-aware
 - ensure baseline comparison uses the same profile
-- update the benchmark-results page to show which profile is being viewed
+- update the benchmark-results page to show profile and last-run date per scenario
 
 This should happen before adding broad macro charts.
 
@@ -389,30 +414,40 @@ At this point, keep new scenarios out of the published stable lane unless eviden
 
 ### 4. Add macro category policy
 
-- introduce `macro-stable` for representative workflows that pass the noise gate
+- introduce `macro-readwrite` for request-sized read/write workflows that pass the noise gate
+- introduce `macro-bulk` for larger batch workflows that pass the noise gate
 - keep `experimental` for broader local probes
 - document promotion criteria in `docs/contributing/DataLinq.Benchmark.CLI.md`
 
-### 5. Upgrade website data calculations
+### 5. Add age-based history thinning
+
+- retain all runs for the recent window
+- thin older history by age, not raw run count
+- preserve representative weekly or monthly points for multi-year trends
+- keep per-run archive files longer than the compact website history if storage permits
+
+### 6. Upgrade website data calculations
 
 - compute previous-run delta
 - compute 7-run median delta
 - compute 30-run median delta
 - compute recent slope
 - compute status from rolling trend plus uncertainty
+- compute last-run date per scenario/provider/profile
 
-### 6. Upgrade website presentation
+### 7. Upgrade website presentation
 
 - replace the table with the trend table
 - add inline sparklines
 - add hoverable SVG charts
 - add metric toggles for mean time and allocated bytes
 - expose tooltip details with date, value, commit, profile, and noise
+- expose telemetry deltas in expandable rows
 
-### 7. Promote scenarios after evidence
+### 8. Promote scenarios after evidence
 
 - let the new scenarios accumulate local and scheduled history
-- promote only the stable ones to the website default filter
+- promote only the stable ones to the published website surface
 - explicitly mark noisy scenarios instead of hiding their flaws
 
 ## Verification
@@ -431,9 +466,10 @@ For website changes:
 - verify generated `_site/docs/Benchmark Results.html`
 - serve through HTTP, not `file://`
 - test hover tooltips on desktop and narrow mobile widths
+- test expandable telemetry rows on desktop and narrow mobile widths
 - test missing `latest-comparison.json`
 - test histories with fewer than 2, 7, and 30 runs
-- test mixed-profile history input even if the preferred implementation splits files
+- test mixed-profile history input because the website should show all comparable published runs together
 
 ## Non-Goals
 
@@ -443,17 +479,17 @@ For website changes:
 - no large charting dependency unless the custom SVG approach proves painful
 - no claim that hosted CI timings are absolute truth
 
-## Open Questions
+## Resolved Questions And Remaining Gaps
 
-1. Should the website default to the `heavy` scheduled lane only, with push/default runs hidden behind a toggle?
-2. Should `sqlite-file` become visible for macro CRUD scenarios after enough evidence, or remain local-only?
-3. How many historical runs should be kept per profile: 120 per profile is probably enough, but macro trend lines may benefit from a longer window.
-4. Should macro CRUD be one category or split into `macro-readwrite` and `macro-bulk`?
-5. Should the website expose telemetry deltas in expandable rows, or keep them tooltip-only?
+1. The website should show all comparable published runs together by default, not hide push/default runs behind a heavy-only view. Each row and point must show profile and last-run date. Automated comparison status should still prefer same-profile baselines.
+2. Keep the published suite on `sqlite-memory` for now. `sqlite-file` remains local-only until there is a strong reason to accept filesystem variance on the public trend page.
+3. Retain history by age, not raw run count. Keep all recent runs, then thin older data to representative weekly or monthly points so multi-year drift remains visible without bloating the page.
+4. Split macro CRUD into `macro-readwrite` and `macro-bulk`.
+5. Try expandable telemetry rows. Tooltips can keep compact telemetry summaries, but expandable rows are the better diagnostic surface if they stay collapsed by default.
 
 ## Suggested First Slice
 
-The best first slice is not adding the benchmark methods. It is fixing profile separation and trend interpretation.
+The best first slice is not adding the benchmark methods. It is making history interpretation profile-aware, adding last-run visibility, and avoiding raw run-count retention.
 
 After that:
 
@@ -461,6 +497,6 @@ After that:
 2. split the current CRUD workflow into small and batch variants
 3. run them locally under `heavy`
 4. promote only the rows that stay boring
-5. upgrade the website table and hover charts against the improved history shape
+5. upgrade the website table, expandable telemetry rows, and hover charts against the improved history shape
 
 That sequence is less glamorous than dumping new scenarios into CI, but it is the path that keeps the benchmark page useful instead of decorative.
