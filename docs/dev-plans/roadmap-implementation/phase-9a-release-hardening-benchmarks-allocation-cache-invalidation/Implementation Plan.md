@@ -116,7 +116,7 @@ Goals:
 Tasks:
 
 1. Preserve profile, provider, commit, runner, category, and last-run information in the published data model.
-2. Keep one website surface that can show all comparable published runs together.
+2. Keep one website surface with a page-wide profile switch so default and heavy histories are not blended.
 3. Make automated warning/improved status prefer same-profile baselines.
 4. Add rolling comparisons:
    - latest vs previous compatible run
@@ -134,8 +134,8 @@ Tasks:
 
 Exit criteria:
 
-- website shows profile and last-run date per scenario/provider
-- mixed `default` and `heavy` runs are visually interpretable, not silently blended
+- website shows one selected profile at a time, with last-run date per scenario/provider
+- mixed `default` and `heavy` runs are separated by the page-wide profile switch
 - benchmark comparison does not use a different profile as the primary automated verdict
 - historical retention is age-based or the implementation plan has an explicit migration path
 - telemetry deltas are accessible through collapsed details without crowding the default table

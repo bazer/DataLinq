@@ -59,7 +59,7 @@ jobs:
             popd
           fi
 
-      - name: Run stable benchmark subset
+      - name: Run published benchmark subset
         shell: bash
         run: |
           mkdir -p artifacts/benchmarks/ci
@@ -94,7 +94,7 @@ jobs:
             --filter "*EmployeesBenchmarks*" \
             --history-json artifacts/benchmarks/ci/latest-history.json \
             "${baseline_args[@]}" \
-            -- --anyCategories stable
+            -- --anyCategories stable macro-bulk
 
       - name: Update published benchmark history
         if: success() && github.ref == 'refs/heads/master'

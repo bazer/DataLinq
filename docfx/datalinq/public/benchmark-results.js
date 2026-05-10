@@ -4,6 +4,21 @@ const PROFILE_COLORS = new Map([
   ['smoke', '#64748b']
 ])
 
+const PROFILE_DETAILS = new Map([
+  ['default', {
+    label: 'default',
+    summary: 'Default uses BenchmarkDotNet ShortRun. It is the normal push/manual CI profile: fast enough to publish often, but noisier than the nightly lane.'
+  }],
+  ['heavy', {
+    label: 'heavy',
+    summary: 'Heavy uses BenchmarkDotNet MediumRun. It is the scheduled profile: slower, more repeated, and better for deciding whether a movement is real.'
+  }],
+  ['smoke', {
+    label: 'smoke',
+    summary: 'Smoke uses BenchmarkDotNet Dry. It exists for local plumbing checks and is not a performance signal.'
+  }]
+])
+
 const STATUS_LABELS = new Map([
   ['stable', 'stable'],
   ['improved', 'improved'],
@@ -24,6 +39,11 @@ const CATEGORY_LABELS = new Map([
   ['phase3-query-hotpath', 'Phase 3 Query Hot Path'],
   ['other', 'Other']
 ])
+
+const PROFILE_ORDER = ['default', 'heavy', 'smoke']
+const OUTLIER_PERCENT_THRESHOLD = 35
+const OUTLIER_NEIGHBOR_SPREAD_THRESHOLD = 15
+const SMOOTHING_WINDOW = 5
 
 function formatNumber(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -239,9 +259,32 @@ function groupBy(points, keySelector) {
   return groups
 }
 
+function profileRank(profile) {
+  const index = PROFILE_ORDER.indexOf(profile)
+  return index < 0 ? PROFILE_ORDER.length : index
+}
+
+function getAvailableProfiles(points) {
+  return [...new Set(points.map(point => point.profile))]
+    .sort((left, right) => profileRank(left) - profileRank(right) || left.localeCompare(right))
+}
+
+function chooseProfile(root, profiles) {
+  const requested = root?.dataset?.selectedProfile || root?.dataset?.profile || ''
+  if (requested && profiles.includes(requested)) {
+    return requested
+  }
+
+  return profiles.includes('default') ? 'default' : profiles[0]
+}
+
 function numericValue(point, selector) {
   const value = point?.[selector]
   return value === null || value === undefined || Number.isNaN(value) ? null : value
+}
+
+function finiteValues(points, selector) {
+  return points.filter(point => numericValue(point, selector) !== null)
 }
 
 function median(values) {
@@ -267,6 +310,58 @@ function deltaPercent(baseline, candidate) {
   return ((candidate - baseline) / baseline) * 100
 }
 
+function isInteriorOutlier(previousValue, currentValue, nextValue) {
+  const isLocalSpike = currentValue > previousValue && currentValue > nextValue
+  const isLocalDrop = currentValue < previousValue && currentValue < nextValue
+  if (!isLocalSpike && !isLocalDrop) {
+    return false
+  }
+
+  const neighborAverage = (previousValue + nextValue) / 2
+  const currentDelta = Math.abs(deltaPercent(neighborAverage, currentValue) ?? 0)
+  const neighborSpread = Math.abs(deltaPercent(previousValue, nextValue) ?? 0)
+
+  return currentDelta >= OUTLIER_PERCENT_THRESHOLD &&
+    neighborSpread <= OUTLIER_NEIGHBOR_SPREAD_THRESHOLD
+}
+
+function withoutInteriorOutliers(points, selector) {
+  const valid = finiteValues(points, selector)
+  if (valid.length < 5) {
+    return { points: valid, skipped: 0 }
+  }
+
+  const skipped = new Set()
+  for (let index = 1; index < valid.length - 1; index += 1) {
+    const previousValue = numericValue(valid[index - 1], selector)
+    const currentValue = numericValue(valid[index], selector)
+    const nextValue = numericValue(valid[index + 1], selector)
+
+    if (isInteriorOutlier(previousValue, currentValue, nextValue)) {
+      skipped.add(valid[index])
+    }
+  }
+
+  return {
+    points: valid.filter(point => !skipped.has(point)),
+    skipped: skipped.size
+  }
+}
+
+function smoothSeries(points, selector) {
+  const radius = Math.floor(SMOOTHING_WINDOW / 2)
+  return points.map((point, index) => {
+    const start = Math.max(0, index - radius)
+    const end = Math.min(points.length, index + radius + 1)
+    const windowValues = points
+      .slice(start, end)
+      .map(item => numericValue(item, selector))
+      .filter(value => value !== null)
+    const smoothedValue = windowValues.reduce((sum, value) => sum + value, 0) / windowValues.length
+    return { point, smoothedValue }
+  })
+}
+
 function getRecentSlopePercent(points, selector) {
   const valid = points.filter(point => numericValue(point, selector) !== null)
   if (valid.length < 2) {
@@ -284,7 +379,8 @@ function buildTrendRows(points) {
   const rows = []
 
   for (const groupPoints of groups.values()) {
-    const validMeanPoints = groupPoints.filter(point => numericValue(point, 'meanMicroseconds') !== null)
+    const meanSeries = withoutInteriorOutliers(groupPoints, 'meanMicroseconds')
+    const validMeanPoints = meanSeries.points
     if (validMeanPoints.length === 0) {
       continue
     }
@@ -315,7 +411,9 @@ function buildTrendRows(points) {
       profile: latest.profile,
       category: latest.category,
       latest,
+      rawRunCount: finiteValues(groupPoints, 'meanMicroseconds').length,
       runCount: validMeanPoints.length,
+      skippedOutlierCount: meanSeries.skipped,
       meanDeltaPrevious,
       allocationDeltaPrevious,
       meanDelta7,
@@ -371,10 +469,6 @@ function renderStatus(status) {
   return `<span class="benchmark-status benchmark-status-${escapeHtml(status)}">${escapeHtml(label)}</span>`
 }
 
-function renderProfile(profile) {
-  return `<span class="benchmark-profile benchmark-profile-${escapeHtml(profile)}">${escapeHtml(profile)}</span>`
-}
-
 function formatMetricValue(value, selector) {
   return selector === 'allocatedBytes' ? formatBytes(value) : formatMicroseconds(value)
 }
@@ -413,13 +507,13 @@ function formatTelemetrySummary(telemetry) {
 function renderTelemetryDetails(point) {
   const telemetry = point.telemetryDelta
   const rows = [
-    ['Operations per invoke', point.operationsPerInvoke],
-    ['Queries entity/scalar', telemetry ? `${formatMetric(telemetry.EntityQueriesPerOperation)} / ${formatMetric(telemetry.ScalarQueriesPerOperation)}` : '-'],
-    ['Transactions start/commit/rollback', telemetry ? `${formatMetric(telemetry.TransactionStartsPerOperation)} / ${formatMetric(telemetry.TransactionCommitsPerOperation)} / ${formatMetric(telemetry.TransactionRollbacksPerOperation)}` : '-'],
-    ['Mutations insert/update/delete/rows', telemetry ? `${formatMetric(telemetry.MutationInsertsPerOperation)} / ${formatMetric(telemetry.MutationUpdatesPerOperation)} / ${formatMetric(telemetry.MutationDeletesPerOperation)} / ${formatMetric(telemetry.MutationAffectedRowsPerOperation)}` : '-'],
-    ['Row cache hit/miss/store', telemetry ? `${formatMetric(telemetry.RowCacheHitsPerOperation)} / ${formatMetric(telemetry.RowCacheMissesPerOperation)} / ${formatMetric(telemetry.RowCacheStoresPerOperation)}` : '-'],
-    ['Database rows/materializations', telemetry ? `${formatMetric(telemetry.DatabaseRowsPerOperation)} / ${formatMetric(telemetry.MaterializationsPerOperation)}` : '-'],
-    ['Relation hit/load', telemetry ? `${formatMetric(telemetry.RelationHitsPerOperation)} / ${formatMetric(telemetry.RelationLoadsPerOperation)}` : '-']
+    ['Ops/invoke', point.operationsPerInvoke],
+    ['Queries', telemetry ? `${formatMetric(telemetry.EntityQueriesPerOperation)} / ${formatMetric(telemetry.ScalarQueriesPerOperation)}` : '-'],
+    ['Transactions', telemetry ? `${formatMetric(telemetry.TransactionStartsPerOperation)} / ${formatMetric(telemetry.TransactionCommitsPerOperation)} / ${formatMetric(telemetry.TransactionRollbacksPerOperation)}` : '-'],
+    ['Mutations', telemetry ? `${formatMetric(telemetry.MutationInsertsPerOperation)} / ${formatMetric(telemetry.MutationUpdatesPerOperation)} / ${formatMetric(telemetry.MutationDeletesPerOperation)} / ${formatMetric(telemetry.MutationAffectedRowsPerOperation)}` : '-'],
+    ['Row cache', telemetry ? `${formatMetric(telemetry.RowCacheHitsPerOperation)} / ${formatMetric(telemetry.RowCacheMissesPerOperation)} / ${formatMetric(telemetry.RowCacheStoresPerOperation)}` : '-'],
+    ['Rows/materialized', telemetry ? `${formatMetric(telemetry.DatabaseRowsPerOperation)} / ${formatMetric(telemetry.MaterializationsPerOperation)}` : '-'],
+    ['Relations', telemetry ? `${formatMetric(telemetry.RelationHitsPerOperation)} / ${formatMetric(telemetry.RelationLoadsPerOperation)}` : '-']
   ]
 
   const items = rows.map(([label, value]) => `
@@ -472,32 +566,34 @@ function renderTrendTable(points) {
   let currentCategory = null
   const body = rows.map(row => {
     const categoryHeader = row.category !== currentCategory
-      ? `<tr class="benchmark-group-row"><th colspan="13">${escapeHtml(CATEGORY_LABELS.get(row.category) ?? row.category)}</th></tr>`
+      ? `<tr class="benchmark-group-row"><th colspan="10">${escapeHtml(CATEGORY_LABELS.get(row.category) ?? row.category)}</th></tr>`
       : ''
     currentCategory = row.category
+    const outlierText = row.skippedOutlierCount > 0
+      ? ` ${row.skippedOutlierCount} one-off outlier${row.skippedOutlierCount === 1 ? '' : 's'} skipped.`
+      : ''
 
     return `
       ${categoryHeader}
       <tr>
         <td>${escapeHtml(row.method)}</td>
-        <td>${escapeHtml(row.providerName)}</td>
-        <td>${renderProfile(row.profile)}</td>
-        <td>${formatDateLabel(row.latest.generatedAtUtc)}</td>
-        <td>${formatMicroseconds(row.latest.meanMicroseconds)}</td>
-        <td>${formatBytes(row.latest.allocatedBytes)}</td>
-        <td>${formatUnsignedPercent(row.latest.uncertaintyPercent)}</td>
-        <td>${formatPercent(row.meanDeltaPrevious)}</td>
-        <td>${formatPercent(row.meanDelta7)}</td>
-        <td>${formatPercent(row.meanDelta30)}</td>
-        <td>${formatPercent(row.slope)}</td>
+        <td class="benchmark-number">${formatMicroseconds(row.latest.meanMicroseconds)}</td>
+        <td class="benchmark-number">${formatBytes(row.latest.allocatedBytes)}</td>
+        <td class="benchmark-number">${formatUnsignedPercent(row.latest.uncertaintyPercent)}</td>
+        <td class="benchmark-number">${formatPercent(row.meanDeltaPrevious)}</td>
+        <td class="benchmark-number">${formatPercent(row.meanDelta7)}</td>
+        <td class="benchmark-number">${formatPercent(row.meanDelta30)}</td>
+        <td class="benchmark-number">${formatPercent(row.slope)}</td>
         <td>${escapeHtml(shortCommit(row.latest.commit))}</td>
         <td>${renderStatus(row.status)}</td>
       </tr>
       <tr class="benchmark-detail-row">
-        <td colspan="13">
+        <td colspan="10">
           <div class="benchmark-detail-content">
-            <span>${escapeHtml(row.runCount)} same-profile runs. Last run ${escapeHtml(formatDateTime(row.latest.generatedAtUtc))} on ${escapeHtml(row.latest.runnerOs ?? 'unknown runner')}.</span>
-            ${renderTelemetryDetails(row.latest)}
+            <div class="benchmark-row-meta">
+              <span>${escapeHtml(row.runCount)} ${escapeHtml(row.profile)} runs. Last run ${escapeHtml(formatDateTime(row.latest.generatedAtUtc))} on ${escapeHtml(row.latest.runnerOs ?? 'unknown runner')}.${escapeHtml(outlierText)}</span>
+              ${renderTelemetryDetails(row.latest)}
+            </div>
           </div>
         </td>
       </tr>
@@ -509,9 +605,6 @@ function renderTrendTable(points) {
       <thead>
         <tr>
           <th>Scenario</th>
-          <th>Provider</th>
-          <th>Profile</th>
-          <th>Last run</th>
           <th>Mean</th>
           <th>Allocated</th>
           <th>Uncertainty</th>
@@ -539,8 +632,34 @@ function renderPointTitle(point, selector) {
   ].join('\n')
 }
 
+function buildSmoothPath(coordinates) {
+  if (coordinates.length === 0) {
+    return ''
+  }
+
+  if (coordinates.length === 1) {
+    return `M ${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`
+  }
+
+  let path = `M ${coordinates[0].x.toFixed(1)} ${coordinates[0].y.toFixed(1)}`
+  for (let index = 0; index < coordinates.length - 1; index += 1) {
+    const current = coordinates[index]
+    const next = coordinates[index + 1]
+    const previous = coordinates[index - 1] ?? current
+    const afterNext = coordinates[index + 2] ?? next
+    const cp1x = current.x + (next.x - previous.x) / 6
+    const cp1y = current.y + (next.y - previous.y) / 6
+    const cp2x = next.x - (afterNext.x - current.x) / 6
+    const cp2y = next.y - (afterNext.y - current.y) / 6
+    path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${next.x.toFixed(1)} ${next.y.toFixed(1)}`
+  }
+
+  return path
+}
+
 function renderTrendChart(points, selector) {
-  const validPoints = points.filter(point => numericValue(point, selector) !== null)
+  const series = withoutInteriorOutliers(points, selector)
+  const validPoints = series.points
   if (validPoints.length < 2) {
     return '<div class="benchmark-empty-chart">Need at least two runs</div>'
   }
@@ -551,7 +670,11 @@ function renderTrendChart(points, selector) {
   const paddingRight = 20
   const paddingTop = 22
   const paddingBottom = 34
-  const values = validPoints.map(point => numericValue(point, selector))
+  const smoothed = smoothSeries(validPoints, selector)
+  const values = [
+    ...validPoints.map(point => numericValue(point, selector)),
+    ...smoothed.map(item => item.smoothedValue)
+  ]
   const min = Math.min(...values)
   const max = Math.max(...values)
   const range = Math.max(max - min, 1)
@@ -561,57 +684,101 @@ function renderTrendChart(points, selector) {
   const midY = paddingTop + chartHeight / 2
   const midValue = min + range / 2
 
-  const coordinates = validPoints.map((point, index) => {
-    const value = numericValue(point, selector)
+  const coordinates = smoothed.map(({ point, smoothedValue }, index) => {
     const x = paddingLeft + (index / steps) * chartWidth
-    const y = height - paddingBottom - ((value - min) / range) * chartHeight
-    return { point, value, x, y }
+    const y = height - paddingBottom - ((smoothedValue - min) / range) * chartHeight
+    return { point, value: numericValue(point, selector), x, y }
   })
 
-  const lines = [...groupBy(coordinates, item => item.point.profile).entries()]
-    .map(([profile, items]) => {
-      if (items.length < 2) {
-        return ''
-      }
-
-      const color = PROFILE_COLORS.get(profile) ?? '#334155'
-      const text = items.map(item => `${item.x.toFixed(1)},${item.y.toFixed(1)}`).join(' ')
-      return `<polyline fill="none" stroke="${color}" stroke-width="2.6" points="${text}"></polyline>`
-    })
-    .join('')
-
-  const circles = coordinates.map(item => {
-    const color = PROFILE_COLORS.get(item.point.profile) ?? '#334155'
-    return `
-      <circle
-        class="benchmark-chart-point"
-        cx="${item.x.toFixed(1)}"
-        cy="${item.y.toFixed(1)}"
-        r="4.2"
-        fill="${color}"
-        tabindex="0"
-        aria-label="${escapeHtml(renderPointTitle(item.point, selector))}">
-        <title>${escapeHtml(renderPointTitle(item.point, selector))}</title>
-      </circle>
-    `
-  }).join('')
+  const profile = validPoints[validPoints.length - 1].profile
+  const color = PROFILE_COLORS.get(profile) ?? '#334155'
+  const path = buildSmoothPath(coordinates)
+  const hoverPoints = coordinates.map(item => ({
+    x: Number(item.x.toFixed(1)),
+    y: Number(item.y.toFixed(1)),
+    title: renderPointTitle(item.point, selector)
+  }))
 
   return `
-    <svg class="benchmark-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="benchmark trend">
-      <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
-      <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
-      <line x1="${paddingLeft}" y1="${paddingTop}" x2="${width - paddingRight}" y2="${paddingTop}" class="benchmark-grid"></line>
-      <line x1="${paddingLeft}" y1="${midY}" x2="${width - paddingRight}" y2="${midY}" class="benchmark-grid"></line>
-      <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-grid"></line>
-      <text x="${paddingLeft - 8}" y="${paddingTop + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(max, selector))}</text>
-      <text x="${paddingLeft - 8}" y="${midY + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(midValue, selector))}</text>
-      <text x="${paddingLeft - 8}" y="${height - paddingBottom + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(min, selector))}</text>
-      <text x="${paddingLeft}" y="${height - 8}" text-anchor="start" class="benchmark-axis-label">${escapeHtml(formatDateLabel(validPoints[0]?.generatedAtUtc))}</text>
-      <text x="${width - paddingRight}" y="${height - 8}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatDateLabel(validPoints[validPoints.length - 1]?.generatedAtUtc))}</text>
-      ${lines}
-      ${circles}
-    </svg>
+    <div class="benchmark-chart-frame" tabindex="0" data-chart-points="${escapeHtml(JSON.stringify(hoverPoints))}">
+      <svg class="benchmark-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="benchmark trend">
+        <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
+        <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-axis"></line>
+        <line x1="${paddingLeft}" y1="${paddingTop}" x2="${width - paddingRight}" y2="${paddingTop}" class="benchmark-grid"></line>
+        <line x1="${paddingLeft}" y1="${midY}" x2="${width - paddingRight}" y2="${midY}" class="benchmark-grid"></line>
+        <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" class="benchmark-grid"></line>
+        <text x="${paddingLeft - 8}" y="${paddingTop + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(max, selector))}</text>
+        <text x="${paddingLeft - 8}" y="${midY + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(midValue, selector))}</text>
+        <text x="${paddingLeft - 8}" y="${height - paddingBottom + 4}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatMetricValue(min, selector))}</text>
+        <text x="${paddingLeft}" y="${height - 8}" text-anchor="start" class="benchmark-axis-label">${escapeHtml(formatDateLabel(validPoints[0]?.generatedAtUtc))}</text>
+        <text x="${width - paddingRight}" y="${height - 8}" text-anchor="end" class="benchmark-axis-label">${escapeHtml(formatDateLabel(validPoints[validPoints.length - 1]?.generatedAtUtc))}</text>
+        <path class="benchmark-chart-line" fill="none" stroke="${color}" d="${path}">
+          <title>${escapeHtml(renderPointTitle(validPoints[validPoints.length - 1], selector))}</title>
+        </path>
+        <line class="benchmark-chart-crosshair" x1="0" y1="${paddingTop}" x2="0" y2="${height - paddingBottom}"></line>
+        <circle class="benchmark-chart-hover-point" cx="0" cy="0" r="4.2" fill="${color}"></circle>
+      </svg>
+      <div class="benchmark-chart-tooltip" role="tooltip"></div>
+      ${series.skipped > 0 ? `<p class="benchmark-chart-note">${series.skipped} one-off outlier${series.skipped === 1 ? '' : 's'} skipped.</p>` : ''}
+    </div>
   `
+}
+
+function getChartPoints(frame) {
+  if (!frame.chartPoints) {
+    frame.chartPoints = JSON.parse(frame.dataset.chartPoints || '[]')
+  }
+
+  return frame.chartPoints
+}
+
+function showChartHover(frame, point) {
+  const svg = frame.querySelector('svg')
+  const tooltip = frame.querySelector('.benchmark-chart-tooltip')
+  const crosshair = frame.querySelector('.benchmark-chart-crosshair')
+  const hoverPoint = frame.querySelector('.benchmark-chart-hover-point')
+  if (!svg || !tooltip || !crosshair || !hoverPoint || !point) {
+    return
+  }
+
+  crosshair.setAttribute('x1', point.x)
+  crosshair.setAttribute('x2', point.x)
+  hoverPoint.setAttribute('cx', point.x)
+  hoverPoint.setAttribute('cy', point.y)
+  tooltip.innerHTML = escapeHtml(point.title).replaceAll('\n', '<br>')
+  tooltip.style.left = `${Math.min(92, Math.max(8, (point.x / 520) * 100))}%`
+  tooltip.style.top = `${Math.min(84, Math.max(28, (point.y / 190) * 100))}%`
+  frame.classList.add('benchmark-chart-frame-active')
+}
+
+function hideChartHover(frame) {
+  frame.classList.remove('benchmark-chart-frame-active')
+}
+
+function installChartHover(root) {
+  for (const frame of root.querySelectorAll('.benchmark-chart-frame')) {
+    const points = getChartPoints(frame)
+    if (points.length === 0) {
+      continue
+    }
+
+    frame.addEventListener('pointermove', event => {
+      const svg = frame.querySelector('svg')
+      const bounds = svg?.getBoundingClientRect()
+      if (!bounds || bounds.width === 0) {
+        return
+      }
+
+      const chartX = ((event.clientX - bounds.left) / bounds.width) * 520
+      const nearest = points.reduce((best, point) =>
+        Math.abs(point.x - chartX) < Math.abs(best.x - chartX) ? point : best)
+      showChartHover(frame, nearest)
+    })
+
+    frame.addEventListener('pointerleave', () => hideChartHover(frame))
+    frame.addEventListener('focus', () => showChartHover(frame, points[points.length - 1]))
+    frame.addEventListener('blur', () => hideChartHover(frame))
+  }
 }
 
 function renderTrendCards(points) {
@@ -626,18 +793,20 @@ function renderTrendCards(points) {
   }
 
   return groups.map(groupPoints => {
-    const latest = groupPoints[groupPoints.length - 1]
-    const profiles = [...new Set(groupPoints.map(point => point.profile))]
-    const legend = profiles.map(renderProfile).join('')
+    const meanSeries = withoutInteriorOutliers(groupPoints, 'meanMicroseconds')
+    const latest = meanSeries.points[meanSeries.points.length - 1] ?? groupPoints[groupPoints.length - 1]
+    const skipped = meanSeries.skipped
+    const skippedText = skipped > 0
+      ? `, ${skipped} one-off outlier${skipped === 1 ? '' : 's'} skipped`
+      : ''
 
     return `
       <section class="benchmark-card">
         <header class="benchmark-card-header">
           <div>
-            <h3>${escapeHtml(latest.method)} <span>${escapeHtml(latest.providerName)}</span></h3>
-            <p>${groupPoints.length} published runs across ${escapeHtml(profiles.join(', '))}</p>
+            <h3>${escapeHtml(latest.method)}</h3>
+            <p>${meanSeries.points.length} ${escapeHtml(latest.profile)} runs${skippedText}</p>
           </div>
-          <div class="benchmark-profile-list">${legend}</div>
         </header>
         <div class="benchmark-card-grid">
           <div>
@@ -656,6 +825,103 @@ function renderTrendCards(points) {
   }).join('')
 }
 
+function renderProfileSwitch(profiles, selectedProfile) {
+  const buttons = profiles.map(profile => `
+    <button
+      type="button"
+      class="benchmark-profile-button benchmark-profile-button-${escapeHtml(profile)}"
+      data-profile-select="${escapeHtml(profile)}"
+      aria-pressed="${profile === selectedProfile ? 'true' : 'false'}">
+      ${escapeHtml(PROFILE_DETAILS.get(profile)?.label ?? profile)}
+    </button>
+  `).join('')
+
+  return `
+    <div class="benchmark-profile-switch" role="group" aria-label="Benchmark profile">
+      ${buttons}
+    </div>
+  `
+}
+
+function renderProfileExplanation(selectedProfile) {
+  const selected = PROFILE_DETAILS.get(selectedProfile)
+  const defaultText = PROFILE_DETAILS.get('default')?.summary
+  const heavyText = PROFILE_DETAILS.get('heavy')?.summary
+
+  return `
+    <section class="benchmark-profile-explainer">
+      <p>${escapeHtml(defaultText)}</p>
+      <p>${escapeHtml(heavyText)}</p>
+      <p>The page shows one profile at a time because default and heavy answer different questions. Mixing them makes the trend table look precise while comparing unlike measurement windows.</p>
+      ${selected ? `<p><strong>Showing:</strong> ${escapeHtml(selected.summary)}</p>` : ''}
+    </section>
+  `
+}
+
+function renderComparisonStatus(rawComparison, selectedProfile) {
+  const comparisonProfile = rawComparison?.Candidate?.Profile ?? rawComparison?.Candidate?.Metadata?.Profile
+  if (!rawComparison) {
+    return 'history-derived same-profile deltas'
+  }
+
+  if (comparisonProfile && comparisonProfile !== selectedProfile) {
+    return `latest comparison is ${comparisonProfile}; table uses ${selectedProfile} history`
+  }
+
+  return rawComparison.WarningCount > 0
+    ? `${rawComparison.WarningCount} comparison warnings`
+    : 'latest same-profile comparison clean'
+}
+
+function renderBenchmarkPage(root, rawComparison, points, selectedProfile, allowedProviders) {
+  root.dataset.selectedProfile = selectedProfile
+  const profilePoints = points.filter(point => point.profile === selectedProfile)
+  const latestPoint = profilePoints[profilePoints.length - 1]
+  const profiles = getAvailableProfiles(points)
+  const providerScope = allowedProviders.length === 0 ? 'all published providers' : allowedProviders.join(', ')
+  const comparisonStatus = renderComparisonStatus(rawComparison, selectedProfile)
+
+  root.innerHTML = `
+    <section class="benchmark-overview">
+      <div class="benchmark-overview-item benchmark-overview-profile">
+        <strong>Profile</strong>
+        ${renderProfileSwitch(profiles, selectedProfile)}
+      </div>
+      <div class="benchmark-overview-item">
+        <strong>Latest ${escapeHtml(selectedProfile)} run</strong>
+        <span>${escapeHtml(formatDateTime(latestPoint?.generatedAtUtc))}</span>
+      </div>
+      <div class="benchmark-overview-item">
+        <strong>Commit</strong>
+        <span>${escapeHtml(shortCommit(latestPoint?.commit))}</span>
+      </div>
+      <div class="benchmark-overview-item">
+        <strong>Provider scope</strong>
+        <span>${escapeHtml(providerScope)}</span>
+      </div>
+      <div class="benchmark-overview-item">
+        <strong>Comparison</strong>
+        <span>${escapeHtml(comparisonStatus)}</span>
+      </div>
+    </section>
+    ${renderProfileExplanation(selectedProfile)}
+    <h2>Trend Summary</h2>
+    ${renderTrendTable(profilePoints)}
+    <h2>Charts</h2>
+    <div class="benchmark-card-list">
+      ${renderTrendCards(profilePoints)}
+    </div>
+  `
+
+  for (const button of root.querySelectorAll('[data-profile-select]')) {
+    button.addEventListener('click', () => {
+      renderBenchmarkPage(root, rawComparison, points, button.dataset.profileSelect, allowedProviders)
+    })
+  }
+
+  installChartHover(root)
+}
+
 async function renderBenchmarkResults() {
   const root = document.getElementById('benchmark-results-root')
   if (!root) {
@@ -666,58 +932,29 @@ async function renderBenchmarkResults() {
 
   try {
     const historyUrl = root.dataset.historyUrl
-    const latestUrl = root.dataset.latestUrl
     const comparisonUrl = root.dataset.comparisonUrl
     const allowedProviders = parseListFilter(root, 'providerFilter')
     const allowedMethods = parseListFilter(root, 'methodFilter')
 
-    const [rawHistory, rawLatest, rawComparison] = await Promise.all([
+    const [rawHistory, rawComparison] = await Promise.all([
       fetchJson(historyUrl),
-      latestUrl ? fetchJson(latestUrl).catch(() => null) : Promise.resolve(null),
       comparisonUrl ? fetchJson(comparisonUrl).catch(() => null) : Promise.resolve(null)
     ])
 
     const history = filterHistory(rawHistory, allowedProviders, allowedMethods)
     const points = flattenHistory(history)
-    const latestPoint = points[points.length - 1]
-    const profiles = [...new Set(points.map(point => point.profile))].sort()
-    const providerScope = allowedProviders.length === 0 ? 'all published providers' : allowedProviders.join(', ')
-    const comparisonStatus = rawComparison?.WarningCount > 0
-      ? `${rawComparison.WarningCount} comparison warnings`
-      : rawComparison
-        ? 'latest same-profile comparison clean'
-        : 'no same-profile comparison yet'
+    const profiles = getAvailableProfiles(points)
+    if (profiles.length === 0) {
+      root.innerHTML = '<p class="benchmark-muted">No benchmark history rows match the current filters.</p>'
+      return
+    }
 
-    root.innerHTML = `
-      <section class="benchmark-overview">
-        <div class="benchmark-overview-item">
-          <strong>Latest run</strong>
-          <span>${escapeHtml(formatDateTime(rawLatest?.GeneratedAtUtc ?? latestPoint?.generatedAtUtc))}</span>
-        </div>
-        <div class="benchmark-overview-item">
-          <strong>Commit</strong>
-          <span>${escapeHtml(shortCommit(rawLatest?.Metadata?.Commit ?? latestPoint?.commit))}</span>
-        </div>
-        <div class="benchmark-overview-item">
-          <strong>Profiles</strong>
-          <span>${profiles.map(renderProfile).join('')}</span>
-        </div>
-        <div class="benchmark-overview-item">
-          <strong>Provider scope</strong>
-          <span>${escapeHtml(providerScope)}</span>
-        </div>
-        <div class="benchmark-overview-item">
-          <strong>Comparison</strong>
-          <span>${escapeHtml(comparisonStatus)}</span>
-        </div>
-      </section>
-      <h2>Trend Summary</h2>
-      ${renderTrendTable(points)}
-      <h2>Charts</h2>
-      <div class="benchmark-card-list">
-        ${renderTrendCards(points)}
-      </div>
-    `
+    renderBenchmarkPage(
+      root,
+      rawComparison,
+      points,
+      chooseProfile(root, profiles),
+      allowedProviders)
   } catch (error) {
     root.innerHTML = `<p class="benchmark-error">Failed to load published benchmark history. ${escapeHtml(error?.message ?? String(error))}</p>`
   }

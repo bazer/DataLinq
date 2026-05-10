@@ -2,7 +2,7 @@
 > This document is planning material. It describes benchmark and website changes that should be implemented deliberately, then promoted only after the data proves they are stable enough to trust.
 # Representative Benchmark Suite and Website Trends
 
-**Status:** Website and history interpretation implemented in Phase 9A Workstream B. Representative macro scenario promotion remains evidence-gated.
+**Status:** Website and history interpretation implemented in Phase 9A Workstream B. The existing macro-bulk CRUD workflow is now published; broader representative macro promotion remains evidence-gated.
 **Goal:** Add representative library-usage benchmarks, reduce avoidable benchmark noise, and make the website show performance direction over time instead of only the latest run.
 
 ## Current State
@@ -19,8 +19,8 @@ That foundation is good. The weak parts are now narrower and easier to name:
 
 - the published suite is still too hot-path oriented to describe ordinary library use
 - the website table mostly answers "what changed since the previous latest run?", not "what direction is this going over the last N runs?"
-- the trend charts are static SVGs with no hover inspection
-- the published history currently mixes `default` and `heavy` benchmark profiles without making profile, cadence, and last-run dates visible enough
+- broader representative macro coverage is still thin beyond the first macro-bulk CRUD workflow
+- the published history includes both `default` and `heavy` benchmark profiles, so the website must keep them visually separated
 - the current `NoisePercent` is based on `Error / Mean`; that is useful, but it is not the same thing as a full variance story
 
 The blunt version: we have enough plumbing to avoid benchmark theater, but only if we stop promoting broad scenarios before they earn it.
@@ -51,7 +51,7 @@ These are not "normal app workflows", but they are still valuable. They tell us 
 
 ### Promote or Refine the Existing CRUD Work
 
-There is already a `CrudWorkflow` scenario, but it is currently categorized as `experimental` and `macro`. It performs a real unit-of-work loop:
+There is already a `CrudWorkflow` scenario categorized as `experimental` and `macro-bulk`. It performs a real unit-of-work loop:
 
 1. start a transaction
 2. read an employee
@@ -62,16 +62,15 @@ There is already a `CrudWorkflow` scenario, but it is currently categorized as `
 7. delete the inserted employee
 8. commit
 
-That is exactly the kind of scenario we want, but it should not be blindly moved into the published stable lane. First it needs a promotion pass:
+That is exactly the kind of scenario we want. It is now published in the macro-bulk lane, but it should still be interpreted as a macro trend rather than as part of the microbenchmark stable category:
 
-- run it locally with `default` and `heavy`
 - inspect BenchmarkDotNet warnings
 - inspect `NoisePercent`
 - inspect telemetry deltas per operation
 - confirm cleanup restores deterministic state
 - confirm it does not dominate CI runtime
 
-If it stays below the noise bar, promote it into the relevant published macro category and include it in the website. If it remains noisy, keep it visible locally and do not publish it as a regression signal.
+If it becomes too noisy, remove it from published history again. Keeping a bad macro signal would be worse than admitting the scenario needs more work.
 
 ### Add a Small CRUD Workflow
 
@@ -165,14 +164,13 @@ This should be fixed before new macro results are treated as meaningful.
 
 Recommended fix:
 
-- keep one published history surface that can show all runs together
-- preserve `Metadata.Profile` on every run and expose it in tables, chart hover details, point styling, and filters
+- keep one published history surface with a page-wide profile switch
+- preserve `Metadata.Profile` on every run and expose it in profile selection, tables, chart hover details, and comparison text
 - compare candidates against the latest compatible artifact for the same profile when producing automated warning/improved status
-- compute long-term visual trends across all comparable runs, but mark each point as `default` or `heavy`
+- compute long-term visual trends within the selected profile
 - show when each scenario was last run, because some scenarios may only update on scheduled heavy runs
-- make profile filtering available, but do not hide push/default runs by default
 
-`default` and `heavy` are directionally comparable because they run the same benchmark methods, providers, and normalized operation counts. They are not statistically identical evidence: `default` maps to BenchmarkDotNet `ShortRun`, while `heavy` maps to `MediumRun`. That means the website can plot them in one long-term timeline, but regression verdicts should prefer same-profile comparisons and rolling medians. If `default` and `heavy` diverge persistently for a row, that is a signal to inspect the benchmark rather than to average the disagreement away.
+`default` and `heavy` run the same benchmark methods, providers, and normalized operation counts, but they are not statistically identical evidence: `default` maps to BenchmarkDotNet `ShortRun`, while `heavy` maps to `MediumRun`. The website should not blend them in one table. If `default` and `heavy` diverge persistently for a row, that is a signal to inspect the benchmark rather than to average the disagreement away.
 
 ### Improve the Statistical Artifact
 
@@ -481,10 +479,10 @@ For website changes:
 
 ## Resolved Questions And Remaining Gaps
 
-1. The website should show all comparable published runs together by default, not hide push/default runs behind a heavy-only view. Each row and point must show profile and last-run date. Automated comparison status should still prefer same-profile baselines.
+1. The website should use a page-wide profile switch. Showing default and heavy together made the table and charts harder to read, and the profiles use different BenchmarkDotNet jobs.
 2. Keep the published suite on `sqlite-memory` for now. `sqlite-file` remains local-only until there is a strong reason to accept filesystem variance on the public trend page.
 3. Retain history by age, not raw run count. Keep all recent runs, then thin older data to representative weekly or monthly points so multi-year drift remains visible without bloating the page.
-4. Split macro CRUD into `macro-readwrite` and `macro-bulk`.
+4. Publish the existing macro CRUD workflow as `macro-bulk`; reserve `macro-readwrite` for a smaller request-sized workflow once it exists.
 5. Try expandable telemetry rows. Tooltips can keep compact telemetry summaries, but expandable rows are the better diagnostic surface if they stay collapsed by default.
 
 ## Suggested First Slice
