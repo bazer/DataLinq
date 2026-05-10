@@ -23,7 +23,8 @@ public class MetadataFromSqlFactoryDefaultParsingTests
     {
         public DefaultAttribute? ParseDefaultForTest(TableDefinition table, ICOLUMNS column, ValueProperty property)
         {
-            var draftColumn = new ProviderColumnDraft(column.COLUMN_NAME);
+            var draftColumn = new ProviderColumnDraft(
+                column.COLUMN_NAME ?? throw new InvalidOperationException("Test column metadata must include a column name."));
             var draftProperty = new ProviderValuePropertyDraft(
                 property.PropertyName,
                 property.CsType,

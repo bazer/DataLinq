@@ -75,9 +75,9 @@
 
 
 @code {
-    private DatabaseCache cache;
-    private DatabaseCacheSnapshot snapshot;
-    private RandomTableData randomTableData;
+    private DatabaseCache cache = null!;
+    private DatabaseCacheSnapshot snapshot = null!;
+    private RandomTableData randomTableData = null!;
 
     protected override async Task OnInitializedAsync()
     {

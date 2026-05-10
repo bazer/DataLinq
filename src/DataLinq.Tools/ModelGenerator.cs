@@ -178,7 +178,11 @@ public class ModelGenerator : Generator
             log($"Writing {filepath}");
 
             if (!File.Exists(filepath))
-                Directory.CreateDirectory(Path.GetDirectoryName(filepath));
+            {
+                var directory = Path.GetDirectoryName(filepath);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+            }
 
             File.WriteAllText(filepath, file.contents, fileEncoding);
         }

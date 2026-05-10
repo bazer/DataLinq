@@ -22,7 +22,7 @@ static class Program
     public class CreateSqlOptions : CreateOptions
     {
         [Option('o', "output", HelpText = "Path to output file", Required = true)]
-        public string OutputFile { get; set; }
+        public string OutputFile { get; set; } = string.Empty;
     }
 
     [Verb("create-models", HelpText = "Create models for selected database")]
@@ -52,13 +52,13 @@ static class Program
     public class CreateOptions : Options
     {
         [Option('d', "datasource", HelpText = "Name of the database instance on the server or file on disk, depending on the connection type", Required = false)]
-        public string DataSource { get; set; }
+        public string? DataSource { get; set; }
 
         [Option('n', "name", HelpText = "Name in the DataLinq config file", Required = false)]
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         [Option('t', "type", HelpText = "Which database connection type to create the database for", Required = false)]
-        public string ConnectionType { get; set; }
+        public string? ConnectionType { get; set; }
     }
 
 
@@ -73,12 +73,11 @@ static class Program
         public bool Verbose { get; set; }
 
         [Option('c', "config", Required = false, HelpText = "Path to config file")]
-        public string ConfigPath { get; set; }
+        public string? ConfigPath { get; set; }
     }
 
-    static bool Verbose;
     static string ConfigPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}datalinq.json";
-    static DataLinqConfig ConfigFile;
+    static DataLinqConfig ConfigFile = null!;
     static string ConfigBasePath => ConfigFile.BasePath;
 
     static public bool ReadConfig(Action<string>? log = null)
@@ -114,7 +113,6 @@ static class Program
             {
                 if (options.Verbose)
                 {
-                    Verbose = true;
                     Console.WriteLine($"Verbose output enabled.");
                 }
 
@@ -184,7 +182,7 @@ static class Program
                     OverwritePropertyTypes = options.OverwriteTypes
                 });
 
-                var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
+                var databaseMetadata = generator.CreateModels(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? db.Name);
 
                 if (databaseMetadata.HasFailed)
                 {
@@ -244,7 +242,7 @@ static class Program
                 {
                 });
 
-                var createResult = generator.Create(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? options.Name);
+                var createResult = generator.Create(connection, ConfigBasePath, options.DataSource ?? connection.DataSourceName ?? db.Name);
                 if (createResult.HasFailed)
                 {
                     Console.WriteLine(createResult.Failure);

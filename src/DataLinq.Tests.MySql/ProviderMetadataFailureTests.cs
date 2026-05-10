@@ -99,13 +99,7 @@ public class ProviderMetadataFailureTests
 
     private static TableDefinition CreateTable()
     {
-        var database = new DatabaseDefinition(
-            "TestDb",
-            new CsTypeDeclaration("TestDb", "TestNamespace", ModelCsType.Class));
-        var table = new TableDefinition("items");
-        _ = new TableModel("Items", database, table, "Item");
-
-        return table;
+        return new TableDefinition("items");
     }
 
     private sealed class ExposedMetadataFromSqlFactory(
