@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using DataLinq.Interfaces;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
@@ -13,7 +14,7 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
     where T : IModel
     where M : class, IDatabaseModel
 {
-    protected ConcurrentDictionary<RelationProperty, IKey> relationKeys = new();
+    protected ConcurrentDictionary<RelationProperty, IKey>? relationKeys;
 
     protected ConcurrentDictionary<string, object?>? lazyValues = null;
 
@@ -26,7 +27,7 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
 
     public ModelDefinition Metadata() => rowData.Table.Model;
     // Use the cached version
-    public IKey PrimaryKeys() => _cachedPrimaryKey ??= KeyFactory.CreateKeyFromValues(rowData.GetValues(rowData.Table.PrimaryKeyColumns));
+    public IKey PrimaryKeys() => _cachedPrimaryKey ??= KeyFactory.GetKey(rowData, rowData.Table.PrimaryKeyColumns);
     public bool HasPrimaryKeysSet() => !(PrimaryKeys() is NullKey);
 
     public IRowData GetRowData() => rowData;
@@ -92,8 +93,11 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
         return result;
     }
 
-    private IKey GetRelationKey(RelationProperty property) =>
-        relationKeys.GetOrAdd(property, relationProperty => KeyFactory.CreateKeyFromValues(rowData.GetValues(relationProperty.RelationPart.ColumnIndex.Columns)));
+    private IKey GetRelationKey(RelationProperty property)
+    {
+        var keys = LazyInitializer.EnsureInitialized(ref relationKeys);
+        return keys.GetOrAdd(property, relationProperty => KeyFactory.GetKey(rowData, relationProperty.RelationPart.ColumnIndex.Columns));
+    }
 
     public IDataSourceAccess GetDataSource()
     {

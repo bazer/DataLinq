@@ -136,6 +136,20 @@ public class Select<T> : IQuery
             .Select(x => new RowData(x, query.Table, columnsToRead, true));
     }
 
+    public RowData? ReadFirstRow()
+    {
+        // Resolve the actual columns being fetched to ensure the RowData
+        // reader aligns with the DataReader's fields.
+        var columnsToRead = GetColumnsToRead();
+
+        using var command = query.DataSource.Provider.ToDbCommand(this);
+        using var reader = query.DataSource.DatabaseAccess.ExecuteReader(command);
+
+        return reader.ReadNextRow()
+            ? new RowData(reader, query.Table, columnsToRead, true)
+            : null;
+    }
+
     private IReadOnlyList<ColumnDefinition> GetColumnsToRead()
     {
         // If no specific columns requested, return all (default SELECT *)

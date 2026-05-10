@@ -567,7 +567,8 @@ public class TableCache
         MetricsHandle.RecordRowCacheMisses(1);
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, 0);
 
-        foreach (var rowData in GetRowDataFromPrimaryKey(primaryKeys, dataSource))
+        var rowData = GetRowDataFromPrimaryKey(primaryKeys, dataSource);
+        if (rowData is not null)
         {
             MetricsHandle.RecordDatabaseRowsLoaded(1);
             Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
@@ -736,7 +737,7 @@ public class TableCache
             .ReadRows();
     }
 
-    private IEnumerable<RowData> GetRowDataFromPrimaryKey(IKey key, IDataSourceAccess dataSource)
+    private RowData? GetRowDataFromPrimaryKey(IKey key, IDataSourceAccess dataSource)
     {
         var q = new SqlQuery(Table, dataSource);
 
@@ -758,7 +759,7 @@ public class TableCache
 
         return q
             .SelectQuery()
-            .ReadRows();
+            .ReadFirstRow();
     }
 
     private bool GetRowFromCache(IKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)

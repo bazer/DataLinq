@@ -136,8 +136,13 @@ public static class KeyFactory
         return CreateKeyFromValues(columns.Select(x => reader.GetValue<object>(x)));
     }
 
-    public static IKey GetKey(RowData row, IReadOnlyList<ColumnDefinition> columns) =>
-        CreateKeyFromValues(columns.Select(row.GetValue));
+    public static IKey GetKey(IRowData row, IReadOnlyList<ColumnDefinition> columns)
+    {
+        if (columns.Count == 1)
+            return CreateKeyFromValue(row.GetValue(columns[0]));
+
+        return CreateKeyFromValues(columns.Select(row.GetValue));
+    }
 
     public static IEnumerable<IKey> GetKeys<T>(Select<T> select, IReadOnlyList<ColumnDefinition> columns) => select
         .ReadReader()
