@@ -4,6 +4,7 @@ using System.Linq;
 using DataLinq.Extensions.Helpers;
 using DataLinq.Interfaces;
 using System;
+using System.Threading;
 
 namespace DataLinq.Metadata;
 
@@ -219,16 +220,30 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     {
         ThrowIfFrozen();
         dbTypes = new MetadataCollection<DatabaseColumnType>(dbTypes.Append(columnType));
-        cachedDbTypes.Clear();
+        cachedDbTypes?.Clear();
     }
 
-    private readonly ConcurrentDictionary<DatabaseType, DatabaseColumnType?> cachedDbTypes = new();
+    internal void SetDbTypesCore(IEnumerable<DatabaseColumnType> columnTypes)
+    {
+        ThrowIfFrozen();
+        dbTypes = new MetadataCollection<DatabaseColumnType>(columnTypes);
+        cachedDbTypes?.Clear();
+    }
+
+    private ConcurrentDictionary<DatabaseType, DatabaseColumnType?>? cachedDbTypes;
     public DatabaseColumnType? GetDbTypeFor(DatabaseType databaseType)
     {
-        if (cachedDbTypes.TryGetValue(databaseType, out DatabaseColumnType? result))
+        var cache = cachedDbTypes;
+        if (cache is not null && cache.TryGetValue(databaseType, out DatabaseColumnType? result))
             return result;
-        else
-            return cachedDbTypes.GetOrAdd(databaseType, type => dbTypes.FirstOrDefault(x => x.DatabaseType == type) ?? dbTypes.FirstOrDefault());
+
+        if (cache is null)
+        {
+            var newCache = new ConcurrentDictionary<DatabaseType, DatabaseColumnType?>();
+            cache = Interlocked.CompareExchange(ref cachedDbTypes, newCache, null) ?? newCache;
+        }
+
+        return cache.GetOrAdd(databaseType, type => dbTypes.FirstOrDefault(x => x.DatabaseType == type) ?? dbTypes.FirstOrDefault());
     }
 
     public override string ToString() => $"{Table.DbName}.{DbName} ({dbTypes.ToJoinedString(", ")})";

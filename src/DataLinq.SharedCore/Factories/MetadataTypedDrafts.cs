@@ -366,9 +366,22 @@ internal static class MetadataTypedDraftConverter
     private static ColumnDefinition CreateColumn(TableDefinition table, MetadataColumnDraft draft)
     {
         var column = new ColumnDefinition(draft.DbName, table);
+        var sourceDbTypes = draft.DbTypes ?? [];
+        if (sourceDbTypes.Count > 0)
+        {
+            var dbTypes = new DatabaseColumnType[sourceDbTypes.Count];
+            for (var i = 0; i < sourceDbTypes.Count; i++)
+            {
+                var dbType = sourceDbTypes[i];
+                dbTypes[i] = dbType is null
+                    ? null!
+                    : draft.OwnsDbTypes
+                        ? dbType
+                        : dbType.Clone();
+            }
 
-        foreach (var dbType in draft.DbTypes ?? [])
-            column.AddDbTypeCore(dbType is null ? null! : draft.OwnsDbTypes ? dbType : dbType.Clone());
+            column.SetDbTypesCore(dbTypes);
+        }
 
         return column;
     }

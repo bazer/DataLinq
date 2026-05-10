@@ -26,22 +26,6 @@ public struct MetadataFromDatabaseFactoryOptions
 
 public static class MetadataFactory
 {
-    private static readonly HashSet<string> CSharpKeywords = new(StringComparer.Ordinal)
-    {
-        "abstract", "as", "base", "bool", "break", "byte", "case", "catch",
-        "char", "checked", "class", "const", "continue", "decimal", "default",
-        "delegate", "do", "double", "else", "enum", "event", "explicit",
-        "extern", "false", "finally", "fixed", "float", "for", "foreach",
-        "goto", "if", "implicit", "in", "int", "interface", "internal",
-        "is", "lock", "long", "namespace", "new", "null", "object",
-        "operator", "out", "override", "params", "private", "protected",
-        "public", "readonly", "ref", "return", "sbyte", "sealed", "short",
-        "sizeof", "stackalloc", "static", "string", "struct", "switch",
-        "this", "throw", "true", "try", "typeof", "uint", "ulong",
-        "unchecked", "unsafe", "ushort", "using", "virtual", "void",
-        "volatile", "while"
-    };
-
     [Obsolete(MetadataMutationGuard.MutableFactoryHelperObsoleteMessage)]
     public static void ParseInterfaces(DatabaseDefinition database)
     {
@@ -791,11 +775,20 @@ public static class MetadataFactory
         if (string.IsNullOrEmpty(value))
             return true;
 
-        var namespaceName = value!;
+        var namespaceName = value.AsSpan();
+        var segmentStart = 0;
+        for (var i = 0; i <= namespaceName.Length; i++)
+        {
+            if (i < namespaceName.Length && namespaceName[i] != '.')
+                continue;
 
-        return namespaceName
-            .Split('.')
-            .All(IsValidCSharpIdentifier);
+            if (!IsValidCSharpIdentifier(namespaceName.Slice(segmentStart, i - segmentStart)))
+                return false;
+
+            segmentStart = i + 1;
+        }
+
+        return true;
     }
 
     public static Option<bool, IDLOptionFailure> ValidateCacheMetadata(DatabaseDefinition database)
@@ -898,17 +891,18 @@ public static class MetadataFactory
 
     private static IDLOptionFailure? ValidateDatabaseCacheAttributes(DatabaseDefinition database)
     {
-        var useCacheAttributes = database.Attributes
-            .OfType<UseCacheAttribute>()
-            .ToArray();
-
-        if (useCacheAttributes.Length > 1)
+        if (!TryGetSingleAttribute<UseCacheAttribute>(
+                database.Attributes,
+                out var useCacheAttribute,
+                out var duplicateUseCacheAttribute))
+        {
             return CreateDatabaseAttributeFailure(
                 database,
-                useCacheAttributes[1],
+                duplicateUseCacheAttribute!,
                 $"Database '{database.DbName}' has multiple [UseCache] attributes. Database cache metadata can define the cache flag only once.");
+        }
 
-        if (useCacheAttributes.SingleOrDefault() is { } useCacheAttribute &&
+        if (useCacheAttribute is not null &&
             useCacheAttribute.UseCache != database.UseCache)
         {
             return CreateDatabaseAttributeFailure(
@@ -918,7 +912,7 @@ public static class MetadataFactory
         }
 
         var cacheLimitFailure = ValidateCacheLimitAttributes(
-            database.Attributes.OfType<CacheLimitAttribute>().ToArray(),
+            database.Attributes,
             database.CacheLimits,
             $"Database '{database.DbName}'",
             (attribute, message) => CreateDatabaseAttributeFailure(database, attribute, message));
@@ -926,7 +920,7 @@ public static class MetadataFactory
             return cacheLimitFailure;
 
         var cacheCleanupFailure = ValidateCacheCleanupAttributes(
-            database.Attributes.OfType<CacheCleanupAttribute>().ToArray(),
+            database.Attributes,
             database.CacheCleanup,
             $"Database '{database.DbName}'",
             (attribute, message) => CreateDatabaseAttributeFailure(database, attribute, message));
@@ -934,7 +928,7 @@ public static class MetadataFactory
             return cacheCleanupFailure;
 
         return ValidateIndexCacheAttributes(
-            database.Attributes.OfType<IndexCacheAttribute>().ToArray(),
+            database.Attributes,
             database.IndexCache,
             $"Database '{database.DbName}'",
             (attribute, message) => CreateDatabaseAttributeFailure(database, attribute, message));
@@ -945,17 +939,18 @@ public static class MetadataFactory
         var model = tableModel.Model;
         var table = tableModel.Table;
         var scope = $"Model '{model.CsType.Name}'";
-        var useCacheAttributes = model.Attributes
-            .OfType<UseCacheAttribute>()
-            .ToArray();
-
-        if (useCacheAttributes.Length > 1)
+        if (!TryGetSingleAttribute<UseCacheAttribute>(
+                model.Attributes,
+                out var useCacheAttribute,
+                out var duplicateUseCacheAttribute))
+        {
             return CreateModelAttributeFailure(
                 model,
-                useCacheAttributes[1],
+                duplicateUseCacheAttribute!,
                 $"{scope} has multiple [UseCache] attributes. Table cache metadata can define an explicit cache override only once.");
+        }
 
-        if (useCacheAttributes.SingleOrDefault() is { } useCacheAttribute)
+        if (useCacheAttribute is not null)
         {
             if (!table.explicitUseCache.HasValue)
                 return CreateModelAttributeFailure(
@@ -970,14 +965,14 @@ public static class MetadataFactory
                     $"{scope} has [UseCache] value '{useCacheAttribute.UseCache}', but linked table '{table.DbName}' resolves its explicit cache override to '{table.explicitUseCache.Value}'.");
         }
 
-        if (model.Attributes.OfType<CacheCleanupAttribute>().FirstOrDefault() is { } cacheCleanupAttribute)
+        if (FirstAttributeOrDefault<CacheCleanupAttribute>(model.Attributes) is { } cacheCleanupAttribute)
             return CreateModelAttributeFailure(
                 model,
                 cacheCleanupAttribute,
                 $"{scope} has [CacheCleanup] metadata, but cache cleanup is database-scoped and is not supported on table models.");
 
         var cacheLimitFailure = ValidateCacheLimitAttributes(
-            model.Attributes.OfType<CacheLimitAttribute>().ToArray(),
+            model.Attributes,
             table.CacheLimits,
             scope,
             (attribute, message) => CreateModelAttributeFailure(model, attribute, message));
@@ -985,20 +980,23 @@ public static class MetadataFactory
             return cacheLimitFailure;
 
         return ValidateIndexCacheAttributes(
-            model.Attributes.OfType<IndexCacheAttribute>().ToArray(),
+            model.Attributes,
             table.IndexCache,
             scope,
             (attribute, message) => CreateModelAttributeFailure(model, attribute, message));
     }
 
     private static IDLOptionFailure? ValidateCacheLimitAttributes(
-        IReadOnlyList<CacheLimitAttribute> attributes,
+        IReadOnlyList<Attribute> attributes,
         IReadOnlyList<(CacheLimitType limitType, long amount)> metadata,
         string scope,
         Func<Attribute, string, IDLOptionFailure> createFailure)
     {
-        foreach (var attribute in attributes)
+        for (var i = 0; i < attributes.Count; i++)
         {
+            if (attributes[i] is not CacheLimitAttribute attribute)
+                continue;
+
             if (!Enum.IsDefined(typeof(CacheLimitType), attribute.LimitType))
                 return createFailure(
                     attribute,
@@ -1010,17 +1008,28 @@ public static class MetadataFactory
                     $"{scope} has [CacheLimit] metadata for '{attribute.LimitType}' with amount '{attribute.Amount}'. Cache limit amounts must be greater than zero.");
         }
 
-        var duplicateGroup = attributes
-            .GroupBy(attribute => attribute.LimitType)
-            .FirstOrDefault(group => group.Count() > 1);
-
-        if (duplicateGroup is not null)
-            return createFailure(
-                duplicateGroup.Skip(1).First(),
-                $"{scope} has multiple [CacheLimit] attributes for '{duplicateGroup.Key}'. Cache limits can include multiple limit types, but each type can be configured only once.");
-
-        foreach (var attribute in attributes)
+        for (var i = 0; i < attributes.Count; i++)
         {
+            if (attributes[i] is not CacheLimitAttribute attribute)
+                continue;
+
+            for (var previousIndex = 0; previousIndex < i; previousIndex++)
+            {
+                if (attributes[previousIndex] is CacheLimitAttribute previous &&
+                    previous.LimitType == attribute.LimitType)
+                {
+                    return createFailure(
+                        attribute,
+                        $"{scope} has multiple [CacheLimit] attributes for '{attribute.LimitType}'. Cache limits can include multiple limit types, but each type can be configured only once.");
+                }
+            }
+        }
+
+        for (var i = 0; i < attributes.Count; i++)
+        {
+            if (attributes[i] is not CacheLimitAttribute attribute)
+                continue;
+
             if (metadata.Contains((attribute.LimitType, attribute.Amount)))
                 continue;
 
@@ -1036,13 +1045,16 @@ public static class MetadataFactory
     }
 
     private static IDLOptionFailure? ValidateCacheCleanupAttributes(
-        IReadOnlyList<CacheCleanupAttribute> attributes,
+        IReadOnlyList<Attribute> attributes,
         IReadOnlyList<(CacheCleanupType cleanupType, long amount)> metadata,
         string scope,
         Func<Attribute, string, IDLOptionFailure> createFailure)
     {
-        foreach (var attribute in attributes)
+        for (var i = 0; i < attributes.Count; i++)
         {
+            if (attributes[i] is not CacheCleanupAttribute attribute)
+                continue;
+
             if (!Enum.IsDefined(typeof(CacheCleanupType), attribute.LimitType))
                 return createFailure(
                     attribute,
@@ -1054,17 +1066,28 @@ public static class MetadataFactory
                     $"{scope} has [CacheCleanup] metadata for '{attribute.LimitType}' with amount '{attribute.Amount}'. Cache cleanup amounts must be greater than zero.");
         }
 
-        var duplicateGroup = attributes
-            .GroupBy(attribute => attribute.LimitType)
-            .FirstOrDefault(group => group.Count() > 1);
-
-        if (duplicateGroup is not null)
-            return createFailure(
-                duplicateGroup.Skip(1).First(),
-                $"{scope} has multiple [CacheCleanup] attributes for '{duplicateGroup.Key}'. Cache cleanup can configure each cleanup type only once.");
-
-        foreach (var attribute in attributes)
+        for (var i = 0; i < attributes.Count; i++)
         {
+            if (attributes[i] is not CacheCleanupAttribute attribute)
+                continue;
+
+            for (var previousIndex = 0; previousIndex < i; previousIndex++)
+            {
+                if (attributes[previousIndex] is CacheCleanupAttribute previous &&
+                    previous.LimitType == attribute.LimitType)
+                {
+                    return createFailure(
+                        attribute,
+                        $"{scope} has multiple [CacheCleanup] attributes for '{attribute.LimitType}'. Cache cleanup can configure each cleanup type only once.");
+                }
+            }
+        }
+
+        for (var i = 0; i < attributes.Count; i++)
+        {
+            if (attributes[i] is not CacheCleanupAttribute attribute)
+                continue;
+
             if (metadata.Contains((attribute.LimitType, attribute.Amount)))
                 continue;
 
@@ -1080,13 +1103,16 @@ public static class MetadataFactory
     }
 
     private static IDLOptionFailure? ValidateIndexCacheAttributes(
-        IReadOnlyList<IndexCacheAttribute> attributes,
+        IReadOnlyList<Attribute> attributes,
         IReadOnlyList<(IndexCacheType indexCacheType, int? amount)> metadata,
         string scope,
         Func<Attribute, string, IDLOptionFailure> createFailure)
     {
-        foreach (var attribute in attributes)
+        for (var i = 0; i < attributes.Count; i++)
         {
+            if (attributes[i] is not IndexCacheAttribute attribute)
+                continue;
+
             if (!Enum.IsDefined(typeof(IndexCacheType), attribute.Type))
                 return createFailure(
                     attribute,
@@ -1108,27 +1134,36 @@ public static class MetadataFactory
                     $"{scope} has [IndexCache] metadata for '{attribute.Type}' with amount '{attribute.Amount}', but only MaxAmountRows can specify an amount.");
         }
 
-        var duplicateGroup = attributes
-            .GroupBy(attribute => attribute.Type)
-            .FirstOrDefault(group => group.Count() > 1);
-
-        if (duplicateGroup is not null)
-            return createFailure(
-                duplicateGroup.Skip(1).First(),
-                $"{scope} has multiple [IndexCache] attributes for '{duplicateGroup.Key}'. A cache scope can configure each index-cache policy type only once.");
-
-        var policyTypes = attributes
-            .Select(attribute => attribute.Type)
-            .Distinct()
-            .ToArray();
-
-        if (policyTypes.Length > 1)
-            return createFailure(
-                attributes[1],
-                $"{scope} has conflicting [IndexCache] policies '{policyTypes.ToJoinedString(", ")}'. A cache scope can use only one index-cache policy.");
-
-        foreach (var attribute in attributes)
+        IndexCacheAttribute? firstPolicy = null;
+        for (var i = 0; i < attributes.Count; i++)
         {
+            if (attributes[i] is not IndexCacheAttribute attribute)
+                continue;
+
+            if (firstPolicy is null)
+            {
+                firstPolicy = attribute;
+            }
+            else
+            {
+                if (firstPolicy.Type == attribute.Type)
+                {
+                    return createFailure(
+                        attribute,
+                        $"{scope} has multiple [IndexCache] attributes for '{attribute.Type}'. A cache scope can configure each index-cache policy type only once.");
+                }
+
+                return createFailure(
+                    attribute,
+                    $"{scope} has conflicting [IndexCache] policies '{firstPolicy.Type}, {attribute.Type}'. A cache scope can use only one index-cache policy.");
+            }
+        }
+
+        for (var i = 0; i < attributes.Count; i++)
+        {
+            if (attributes[i] is not IndexCacheAttribute attribute)
+                continue;
+
             if (metadata.Contains((attribute.Type, attribute.Amount)))
                 continue;
 
@@ -1409,12 +1444,18 @@ public static class MetadataFactory
 
     public static Option<bool, IDLOptionFailure> ValidateRelationalAttributeMetadata(DatabaseDefinition database)
     {
-        foreach (var tableModel in database.TableModels.Where(x => !x.IsStub))
+        foreach (var tableModel in database.TableModels)
         {
+            if (tableModel.IsStub)
+                continue;
+
             var model = tableModel.Model;
 
-            foreach (var index in model.Attributes.OfType<IndexAttribute>())
+            foreach (var attribute in model.Attributes)
             {
+                if (attribute is not IndexAttribute index)
+                    continue;
+
                 var failure = ValidateIndexAttribute(
                     index,
                     $"Class-level index attribute on model '{model.CsType.Name}'",
@@ -1426,22 +1467,25 @@ public static class MetadataFactory
 
             foreach (var property in model.ValueProperties.Values)
             {
-                foreach (var index in property.Attributes.OfType<IndexAttribute>())
+                foreach (var attribute in property.Attributes)
                 {
-                    var failure = ValidateIndexAttribute(
-                        index,
-                        $"Index attribute on value property '{GetValuePropertyDisplayName(property)}'",
-                        requiresColumns: false,
-                        message => CreateValuePropertyAttributeFailure(property, index, message));
-                    if (failure is not null)
-                        return failure;
-                }
+                    if (attribute is IndexAttribute index)
+                    {
+                        var failure = ValidateIndexAttribute(
+                            index,
+                            $"Index attribute on value property '{GetValuePropertyDisplayName(property)}'",
+                            requiresColumns: false,
+                            message => CreateValuePropertyAttributeFailure(property, index, message));
+                        if (failure is not null)
+                            return failure;
+                    }
 
-                foreach (var foreignKey in property.Attributes.OfType<ForeignKeyAttribute>())
-                {
-                    var failure = ValidateForeignKeyAttribute(property, foreignKey);
-                    if (failure is not null)
-                        return failure;
+                    if (attribute is ForeignKeyAttribute foreignKey)
+                    {
+                        var failure = ValidateForeignKeyAttribute(property, foreignKey);
+                        if (failure is not null)
+                            return failure;
+                    }
                 }
             }
 
@@ -1451,21 +1495,20 @@ public static class MetadataFactory
 
             foreach (var property in model.RelationProperties.Values)
             {
-                var relationAttributes = property.Attributes
-                    .OfType<RelationAttribute>()
-                    .ToList();
-
-                if (relationAttributes.Count > 1)
+                if (!TryGetSingleAttribute<RelationAttribute>(
+                        property.Attributes,
+                        out var relationAttribute,
+                        out var duplicateRelationAttribute))
                 {
                     return CreateRelationPropertyFailure(
                         property,
-                        relationAttributes[1],
+                        duplicateRelationAttribute,
                         $"Relation property '{GetRelationPropertyDisplayName(property)}' has multiple [Relation] attributes. A relation property can identify only one database relation.");
                 }
 
-                foreach (var relation in relationAttributes)
+                if (relationAttribute is not null)
                 {
-                    var failure = ValidateRelationAttribute(property, relation);
+                    var failure = ValidateRelationAttribute(property, relationAttribute);
                     if (failure is not null)
                         return failure;
                 }
@@ -1662,52 +1705,55 @@ public static class MetadataFactory
 
     private static IDLOptionFailure? ValidateForeignKeyConstraintAttributeMetadata(TableModel tableModel)
     {
-        var definitions = tableModel.Model.ValueProperties.Values
-            .SelectMany(property => property.Attributes
-                .OfType<ForeignKeyAttribute>()
-                .Select(attribute => (Property: property, Attribute: attribute)))
-            .GroupBy(definition => definition.Attribute.Name, StringComparer.Ordinal);
-
-        foreach (var group in definitions)
+        List<(ValueProperty Property, ForeignKeyAttribute Attribute)>? definitions = null;
+        foreach (var property in tableModel.Model.ValueProperties.Values)
         {
-            var first = group.First();
-            var duplicateProperty = group
-                .GroupBy(definition => definition.Property)
-                .FirstOrDefault(propertyGroup => propertyGroup.Count() > 1);
-
-            if (duplicateProperty is not null)
+            foreach (var attribute in property.Attributes)
             {
-                var conflict = duplicateProperty.Skip(1).First();
-                return CreateValuePropertyAttributeFailure(
-                    conflict.Property,
-                    conflict.Attribute,
-                    $"Value property '{GetValuePropertyDisplayName(conflict.Property)}' has multiple [ForeignKey] attributes with constraint name '{conflict.Attribute.Name}'. A single value property can contribute only one column to a foreign-key constraint.");
+                if (attribute is not ForeignKeyAttribute foreignKey)
+                    continue;
+
+                definitions ??= [];
+                definitions.Add((property, foreignKey));
             }
+        }
 
-            var targetTableConflict = group
-                .Skip(1)
-                .FirstOrDefault(definition => !string.Equals(definition.Attribute.Table, first.Attribute.Table, StringComparison.Ordinal));
+        if (definitions is null)
+            return null;
 
-            if (targetTableConflict.Attribute is not null)
+        for (var i = 0; i < definitions.Count; i++)
+        {
+            var current = definitions[i];
+            for (var previousIndex = 0; previousIndex < i; previousIndex++)
             {
-                return CreateValuePropertyAttributeFailure(
-                    targetTableConflict.Property,
-                    targetTableConflict.Attribute,
-                    $"Foreign key attribute '{targetTableConflict.Attribute.Name}' on table '{tableModel.Table.DbName}' references table '{targetTableConflict.Attribute.Table}', but another attribute with the same constraint name references table '{first.Attribute.Table}'. Foreign-key attributes with the same constraint name on a table must target one referenced table.");
-            }
+                var previous = definitions[previousIndex];
+                if (!string.Equals(current.Attribute.Name, previous.Attribute.Name, StringComparison.Ordinal))
+                    continue;
 
-            var actionConflict = group
-                .Skip(1)
-                .FirstOrDefault(definition =>
-                    definition.Attribute.OnUpdate != first.Attribute.OnUpdate ||
-                    definition.Attribute.OnDelete != first.Attribute.OnDelete);
+                if (ReferenceEquals(current.Property, previous.Property))
+                {
+                    return CreateValuePropertyAttributeFailure(
+                        current.Property,
+                        current.Attribute,
+                        $"Value property '{GetValuePropertyDisplayName(current.Property)}' has multiple [ForeignKey] attributes with constraint name '{current.Attribute.Name}'. A single value property can contribute only one column to a foreign-key constraint.");
+                }
 
-            if (actionConflict.Attribute is not null)
-            {
-                return CreateValuePropertyAttributeFailure(
-                    actionConflict.Property,
-                    actionConflict.Attribute,
-                    $"Foreign key attribute '{actionConflict.Attribute.Name}' on table '{tableModel.Table.DbName}' uses on-update action '{actionConflict.Attribute.OnUpdate}' and on-delete action '{actionConflict.Attribute.OnDelete}', but another attribute with the same constraint name uses on-update action '{first.Attribute.OnUpdate}' and on-delete action '{first.Attribute.OnDelete}'. Foreign-key attributes with the same constraint name must agree on referential actions.");
+                if (!string.Equals(current.Attribute.Table, previous.Attribute.Table, StringComparison.Ordinal))
+                {
+                    return CreateValuePropertyAttributeFailure(
+                        current.Property,
+                        current.Attribute,
+                        $"Foreign key attribute '{current.Attribute.Name}' on table '{tableModel.Table.DbName}' references table '{current.Attribute.Table}', but another attribute with the same constraint name references table '{previous.Attribute.Table}'. Foreign-key attributes with the same constraint name on a table must target one referenced table.");
+                }
+
+                if (current.Attribute.OnUpdate != previous.Attribute.OnUpdate ||
+                    current.Attribute.OnDelete != previous.Attribute.OnDelete)
+                {
+                    return CreateValuePropertyAttributeFailure(
+                        current.Property,
+                        current.Attribute,
+                        $"Foreign key attribute '{current.Attribute.Name}' on table '{tableModel.Table.DbName}' uses on-update action '{current.Attribute.OnUpdate}' and on-delete action '{current.Attribute.OnDelete}', but another attribute with the same constraint name uses on-update action '{previous.Attribute.OnUpdate}' and on-delete action '{previous.Attribute.OnDelete}'. Foreign-key attributes with the same constraint name must agree on referential actions.");
+                }
             }
         }
 
@@ -2310,16 +2356,19 @@ public static class MetadataFactory
 
     private static IDLOptionFailure? ValidateValuePropertyColumnAttributes(ValueProperty property, ColumnDefinition column)
     {
-        var columnAttributes = property.Attributes.OfType<ColumnAttribute>().ToArray();
-        if (columnAttributes.Length > 1)
+        if (!TryGetSingleAttribute<ColumnAttribute>(
+                property.Attributes,
+                out var columnAttribute,
+                out var duplicateColumnAttribute))
+        {
             return CreateValuePropertyAttributeFailure(
                 property,
-                columnAttributes[1],
+                duplicateColumnAttribute!,
                 $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [Column] attributes. A value property can identify only one database column.");
+        }
 
-        if (columnAttributes.Length == 1)
+        if (columnAttribute is not null)
         {
-            var columnAttribute = columnAttributes[0];
             if (string.IsNullOrWhiteSpace(columnAttribute.Name))
                 return CreateValuePropertyAttributeFailure(
                     property,
@@ -2360,14 +2409,14 @@ public static class MetadataFactory
         if (autoIncrementFailure is not null)
             return autoIncrementFailure;
 
-        var foreignKeyAttributes = property.Attributes.OfType<ForeignKeyAttribute>().ToArray();
-        if (foreignKeyAttributes.Length > 0 && !column.ForeignKey)
+        var foreignKeyAttribute = FirstAttributeOrDefault<ForeignKeyAttribute>(property.Attributes);
+        if (foreignKeyAttribute is not null && !column.ForeignKey)
             return CreateValuePropertyAttributeFailure(
                 property,
-                foreignKeyAttributes[0],
+                foreignKeyAttribute,
                 $"Value property '{GetValuePropertyDisplayName(property)}' has [ForeignKey] metadata, but linked column '{column.Table.DbName}.{column.DbName}' is not marked as a foreign key.");
 
-        if (column.ForeignKey && foreignKeyAttributes.Length == 0)
+        if (column.ForeignKey && foreignKeyAttribute is null)
             return CreateValuePropertyFailure(
                 property,
                 $"Column '{column.Table.DbName}.{column.DbName}' is marked as a foreign key, but value property '{GetValuePropertyDisplayName(property)}' has no [ForeignKey] attribute.");
@@ -2383,17 +2432,21 @@ public static class MetadataFactory
         string metadataName)
         where TAttribute : Attribute
     {
-        var attributes = property.Attributes.OfType<TAttribute>().ToArray();
-        if (attributes.Length > 1)
+        if (!TryGetSingleAttribute<TAttribute>(
+                property.Attributes,
+                out var attribute,
+                out var duplicateAttribute))
+        {
             return CreateValuePropertyAttributeFailure(
                 property,
-                attributes[1],
+                duplicateAttribute!,
                 $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [{attributeName}] attributes.");
+        }
 
-        if (attributes.Length == 1 && !columnValue)
+        if (attribute is not null && !columnValue)
             return CreateValuePropertyAttributeFailure(
                 property,
-                attributes[0],
+                attribute,
                 $"Value property '{GetValuePropertyDisplayName(property)}' has [{attributeName}], but linked column '{column.Table.DbName}.{column.DbName}' is not marked as {metadataName}.");
 
         return null;
@@ -2401,23 +2454,31 @@ public static class MetadataFactory
 
     private static IDLOptionFailure? ValidateValuePropertyTypeAttributes(ValueProperty property, ColumnDefinition column)
     {
-        var typeAttributes = property.Attributes.OfType<TypeAttribute>().ToArray();
-        var duplicateTypeGroup = typeAttributes
-            .GroupBy(attribute => attribute.DatabaseType)
-            .FirstOrDefault(group => group.Count() > 1);
-
-        if (duplicateTypeGroup is not null)
+        var attributes = property.Attributes;
+        for (var i = 0; i < attributes.Count; i++)
         {
-            var duplicate = duplicateTypeGroup.Skip(1).First();
-            return CreateValuePropertyAttributeFailure(
-                property,
-                duplicate,
-                $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [Type] attributes for database type '{duplicate.DatabaseType}'. A value property can define only one type attribute per provider.");
+            if (attributes[i] is not TypeAttribute attribute)
+                continue;
+
+            for (var previousIndex = 0; previousIndex < i; previousIndex++)
+            {
+                if (attributes[previousIndex] is TypeAttribute previous &&
+                    previous.DatabaseType == attribute.DatabaseType)
+                {
+                    return CreateValuePropertyAttributeFailure(
+                        property,
+                        attribute,
+                        $"Value property '{GetValuePropertyDisplayName(property)}' has multiple [Type] attributes for database type '{attribute.DatabaseType}'. A value property can define only one type attribute per provider.");
+                }
+            }
         }
 
-        foreach (var attribute in typeAttributes)
+        for (var i = 0; i < attributes.Count; i++)
         {
-            var columnType = column.DbTypes.FirstOrDefault(type => type.DatabaseType == attribute.DatabaseType);
+            if (attributes[i] is not TypeAttribute attribute)
+                continue;
+
+            var columnType = FindColumnType(column.DbTypes, attribute.DatabaseType);
             if (columnType is null)
                 return CreateValuePropertyAttributeFailure(
                     property,
@@ -2429,6 +2490,58 @@ public static class MetadataFactory
                     property,
                     attribute,
                     $"Value property '{GetValuePropertyDisplayName(property)}' has [Type] metadata '{FormatTypeAttribute(attribute)}', but linked column '{column.Table.DbName}.{column.DbName}' defines '{FormatDatabaseColumnType(columnType)}'. Value-property type attributes must match linked column metadata.");
+        }
+
+        return null;
+    }
+
+    private static DatabaseColumnType? FindColumnType(
+        IReadOnlyList<DatabaseColumnType> columnTypes,
+        DatabaseType databaseType)
+    {
+        for (var i = 0; i < columnTypes.Count; i++)
+        {
+            var columnType = columnTypes[i];
+            if (columnType is not null && columnType.DatabaseType == databaseType)
+                return columnType;
+        }
+
+        return null;
+    }
+
+    private static bool TryGetSingleAttribute<TAttribute>(
+        IReadOnlyList<Attribute> attributes,
+        out TAttribute? attribute,
+        out TAttribute? duplicateAttribute)
+        where TAttribute : Attribute
+    {
+        attribute = null;
+        duplicateAttribute = null;
+
+        for (var i = 0; i < attributes.Count; i++)
+        {
+            if (attributes[i] is not TAttribute current)
+                continue;
+
+            if (attribute is not null)
+            {
+                duplicateAttribute = current;
+                return false;
+            }
+
+            attribute = current;
+        }
+
+        return true;
+    }
+
+    private static TAttribute? FirstAttributeOrDefault<TAttribute>(IReadOnlyList<Attribute> attributes)
+        where TAttribute : Attribute
+    {
+        for (var i = 0; i < attributes.Count; i++)
+        {
+            if (attributes[i] is TAttribute attribute)
+                return attribute;
         }
 
         return null;
@@ -2593,12 +2706,18 @@ public static class MetadataFactory
         if (string.IsNullOrWhiteSpace(value))
             return false;
 
-        var identifier = value!;
+        return IsValidCSharpIdentifier(value.AsSpan());
+    }
+
+    private static bool IsValidCSharpIdentifier(ReadOnlySpan<char> identifier)
+    {
+        if (identifier.Length == 0)
+            return false;
 
         if (!IsCSharpIdentifierStart(identifier[0]))
             return false;
 
-        if (CSharpKeywords.Contains(identifier))
+        if (IsCSharpKeyword(identifier))
             return false;
 
         for (var i = 1; i < identifier.Length; i++)
@@ -2628,28 +2747,26 @@ public static class MetadataFactory
     private static bool IsCSharpIdentifierPart(char character) =>
         character == '_' || char.IsLetterOrDigit(character);
 
-    private sealed class CSharpTypeReferenceNameParser
-    {
-        private static readonly HashSet<string> PredefinedTypeNames = new(StringComparer.Ordinal)
+    private static bool IsCSharpKeyword(ReadOnlySpan<char> identifier) =>
+        identifier switch
         {
-            "bool",
-            "byte",
-            "char",
-            "decimal",
-            "double",
-            "float",
-            "int",
-            "long",
-            "object",
-            "sbyte",
-            "short",
-            "string",
-            "uint",
-            "ulong",
-            "ushort",
-            "void"
+            "abstract" or "as" or "base" or "bool" or "break" or "byte" or "case" or "catch" or
+            "char" or "checked" or "class" or "const" or "continue" or "decimal" or "default" or
+            "delegate" or "do" or "double" or "else" or "enum" or "event" or "explicit" or
+            "extern" or "false" or "finally" or "fixed" or "float" or "for" or "foreach" or
+            "goto" or "if" or "implicit" or "in" or "int" or "interface" or "internal" or
+            "is" or "lock" or "long" or "namespace" or "new" or "null" or "object" or
+            "operator" or "out" or "override" or "params" or "private" or "protected" or
+            "public" or "readonly" or "ref" or "return" or "sbyte" or "sealed" or "short" or
+            "sizeof" or "stackalloc" or "static" or "string" or "struct" or "switch" or
+            "this" or "throw" or "true" or "try" or "typeof" or "uint" or "ulong" or
+            "unchecked" or "unsafe" or "ushort" or "using" or "virtual" or "void" or
+            "volatile" or "while" => true,
+            _ => false
         };
 
+    private struct CSharpTypeReferenceNameParser
+    {
         private readonly string text;
         private int position;
 
@@ -2705,25 +2822,24 @@ public static class MetadataFactory
 
         private bool TryParseQualifiedIdentifier()
         {
-            if (!TryParseIdentifier(out _))
+            if (!TryParseIdentifier())
                 return false;
 
-            if (TryConsume("::") && !TryParseIdentifier(out _))
+            if (TryConsume("::") && !TryParseIdentifier())
                 return false;
 
             while (TryConsume('.'))
             {
-                if (!TryParseIdentifier(out _))
+                if (!TryParseIdentifier())
                     return false;
             }
 
             return true;
         }
 
-        private bool TryParseIdentifier(out string identifier)
+        private bool TryParseIdentifier()
         {
             SkipWhitespace();
-            identifier = string.Empty;
 
             if (position >= text.Length || !IsCSharpIdentifierStart(text[position]))
                 return false;
@@ -2732,9 +2848,18 @@ public static class MetadataFactory
             while (position < text.Length && IsCSharpIdentifierPart(text[position]))
                 position++;
 
-            identifier = text.Substring(start, position - start);
-            return !CSharpKeywords.Contains(identifier) || PredefinedTypeNames.Contains(identifier);
+            var identifier = text.AsSpan(start, position - start);
+            return !IsCSharpKeyword(identifier) || IsPredefinedTypeName(identifier);
         }
+
+        private static bool IsPredefinedTypeName(ReadOnlySpan<char> identifier) =>
+            identifier switch
+            {
+                "bool" or "byte" or "char" or "decimal" or "double" or "float" or
+                "int" or "long" or "object" or "sbyte" or "short" or "string" or
+                "uint" or "ulong" or "ushort" or "void" => true,
+                _ => false
+            };
 
         private bool TryParseArrayRank()
         {
@@ -3391,30 +3516,59 @@ public static class MetadataFactory
 
     internal static Option<bool, IDLOptionFailure> ParseRelationsCore(DatabaseDefinition database)
     {
-        foreach (var table in database.TableModels.Where(x => !x.IsStub && x.Table.Type == TableType.Table).Select(x => x.Table))
+        var foreignKeys = new List<ForeignKeyColumn>();
+        foreach (var tableModel in database.TableModels)
         {
-            var columns = table.Columns.Where(x => x.PrimaryKey).ToList();
-            if (!columns.Any())
+            if (tableModel.IsStub || tableModel.Table.Type != TableType.Table)
+                continue;
+
+            var table = tableModel.Table;
+            var primaryKeyColumns = new List<ColumnDefinition>();
+            foreach (var column in table.Columns)
+            {
+                if (column.PrimaryKey)
+                    primaryKeyColumns.Add(column);
+
+                if (!column.ForeignKey)
+                    continue;
+
+                foreach (var attribute in column.ValueProperty.Attributes)
+                {
+                    if (attribute is ForeignKeyAttribute foreignKey)
+                        foreignKeys.Add(new ForeignKeyColumn(column, foreignKey));
+                }
+            }
+
+            if (primaryKeyColumns.Count == 0)
                 return CreateMissingPrimaryKeyFailure(table);
 
-            if (!table.ColumnIndices.Any(x => x.Characteristic == IndexCharacteristic.PrimaryKey))
-                table.ColumnIndices.AddCore(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, columns));
+            if (!HasColumnIndex(table, IndexCharacteristic.PrimaryKey))
+                table.ColumnIndices.AddCore(new ColumnIndex($"{table.DbName}_primary_key", IndexCharacteristic.PrimaryKey, IndexType.BTREE, primaryKeyColumns));
         }
 
-        foreach (var foreignKeyGroup in database.TableModels
-            .Where(x => !x.IsStub && x.Table.Type == TableType.Table)
-            .Select(x => x.Table)
-            .SelectMany(table => table.Columns
-                .Where(column => column.ForeignKey)
-                .SelectMany(column => column.ValueProperty.Attributes
-                    .OfType<ForeignKeyAttribute>()
-                    .Select(attribute => new ForeignKeyColumn(column, attribute))))
-            .GroupBy(x => new { ForeignKeyTable = x.Column.Table, x.Attribute.Name, CandidateTableName = x.Attribute.Table }))
+        for (var groupStart = 0; groupStart < foreignKeys.Count; groupStart++)
         {
-            var orderedForeignKeys = foreignKeyGroup
-                .OrderBy(x => x.Attribute.Ordinal ?? x.Column.Index)
-                .ThenBy(x => x.Column.Index)
-                .ToList();
+            var firstGroupItem = foreignKeys[groupStart];
+            if (HasEarlierForeignKeyGroup(foreignKeys, groupStart, firstGroupItem))
+                continue;
+
+            var orderedForeignKeys = new List<ForeignKeyColumn>();
+            for (var i = groupStart; i < foreignKeys.Count; i++)
+            {
+                var foreignKey = foreignKeys[i];
+                if (ForeignKeyGroupsMatch(firstGroupItem, foreignKey))
+                    orderedForeignKeys.Add(foreignKey);
+            }
+
+            orderedForeignKeys.Sort(static (left, right) =>
+            {
+                var ordinalComparison = (left.Attribute.Ordinal ?? left.Column.Index)
+                    .CompareTo(right.Attribute.Ordinal ?? right.Column.Index);
+                return ordinalComparison != 0
+                    ? ordinalComparison
+                    : left.Column.Index.CompareTo(right.Column.Index);
+            });
+
             var firstForeignKey = orderedForeignKeys[0];
             var firstAttribute = firstForeignKey.Attribute;
             var foreignKeyTable = firstForeignKey.Column.Table;
@@ -3543,6 +3697,36 @@ public static class MetadataFactory
         return ValidateResolvedRelationProperties(database);
     }
 
+    private static bool HasColumnIndex(TableDefinition table, IndexCharacteristic characteristic)
+    {
+        foreach (var index in table.ColumnIndices)
+        {
+            if (index.Characteristic == characteristic)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasEarlierForeignKeyGroup(
+        IReadOnlyList<ForeignKeyColumn> foreignKeys,
+        int currentIndex,
+        ForeignKeyColumn current)
+    {
+        for (var i = 0; i < currentIndex; i++)
+        {
+            if (ForeignKeyGroupsMatch(foreignKeys[i], current))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ForeignKeyGroupsMatch(ForeignKeyColumn left, ForeignKeyColumn right) =>
+        ReferenceEquals(left.Column.Table, right.Column.Table) &&
+        string.Equals(left.Attribute.Name, right.Attribute.Name, StringComparison.Ordinal) &&
+        string.Equals(left.Attribute.Table, right.Attribute.Table, StringComparison.Ordinal);
+
     public static Option<bool, IDLOptionFailure> ValidateResolvedRelationProperties(DatabaseDefinition database)
     {
         var unresolvedRelation = database.TableModels
@@ -3658,7 +3842,7 @@ public static class MetadataFactory
         }
     }
 
-    private sealed class ForeignKeyColumn
+    private readonly struct ForeignKeyColumn
     {
         public ForeignKeyColumn(ColumnDefinition column, ForeignKeyAttribute attribute)
         {

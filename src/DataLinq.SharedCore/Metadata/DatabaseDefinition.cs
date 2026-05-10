@@ -12,8 +12,8 @@ public class DatabaseDefinition : IDefinition
     private static readonly ConcurrentDictionary<Type, DatabaseDefinition> loadedDatabases = new();
     private MetadataCollection<Attribute> attributes = MetadataCollection<Attribute>.Empty;
     private MetadataCollection<TableModel> tableModels = MetadataCollection<TableModel>.Empty;
-    private Dictionary<Type, TableModel> tableModelsByModelType = new();
-    private Dictionary<string, TableModel> tableModelsByDbName = new(StringComparer.Ordinal);
+    private Dictionary<Type, TableModel>? tableModelsByModelType;
+    private Dictionary<string, TableModel>? tableModelsByDbName;
 
     [Obsolete("Direct mutation of the global metadata registry is obsolete. Runtime code should use provider-owned metadata or internal registry helpers.")]
     public static ConcurrentDictionary<Type, DatabaseDefinition> LoadedDatabases => loadedDatabases;
@@ -155,7 +155,7 @@ public class DatabaseDefinition : IDefinition
         SourceSpan = sourceSpan;
     }
 
-    private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
+    private Dictionary<Attribute, SourceTextSpan>? attributeSourceSpans;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
@@ -166,6 +166,7 @@ public class DatabaseDefinition : IDefinition
     internal void SetAttributeSourceSpanCore(Attribute attribute, SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
+        attributeSourceSpans ??= new Dictionary<Attribute, SourceTextSpan>(AttributeReferenceEqualityComparer.Instance);
         attributeSourceSpans[attribute] = sourceSpan;
     }
 
@@ -179,7 +180,9 @@ public class DatabaseDefinition : IDefinition
 
     public SourceLocation? GetAttributeSourceLocation(Attribute attribute)
     {
-        if (!CsFile.HasValue || !attributeSourceSpans.TryGetValue(attribute, out var sourceSpan))
+        if (!CsFile.HasValue ||
+            attributeSourceSpans is null ||
+            !attributeSourceSpans.TryGetValue(attribute, out var sourceSpan))
             return null;
 
         return new SourceLocation(CsFile.Value, sourceSpan);
@@ -200,7 +203,8 @@ public class DatabaseDefinition : IDefinition
         if (modelType is null)
             throw new ArgumentNullException(nameof(modelType));
 
-        if (tableModelsByModelType.TryGetValue(modelType, out var exactMatch))
+        if (tableModelsByModelType is not null &&
+            tableModelsByModelType.TryGetValue(modelType, out var exactMatch))
         {
             tableModel = exactMatch;
             return true;
@@ -232,7 +236,12 @@ public class DatabaseDefinition : IDefinition
         if (tableName is null)
             throw new ArgumentNullException(nameof(tableName));
 
-        return tableModelsByDbName.TryGetValue(tableName, out tableModel!);
+        if (tableModelsByDbName is not null &&
+            tableModelsByDbName.TryGetValue(tableName, out tableModel!))
+            return true;
+
+        tableModel = null!;
+        return false;
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -267,14 +276,25 @@ public class DatabaseDefinition : IDefinition
         IndexCache.Freeze();
         CacheCleanup.Freeze();
 
-        foreach (var relation in tableModels
-            .SelectMany(tableModel => tableModel.Table.ColumnIndices)
-            .SelectMany(index => index.RelationParts ?? Enumerable.Empty<RelationPart>())
-            .Select(part => part.Relation)
-            .Where(relation => relation is not null)
-            .Distinct())
+        HashSet<RelationDefinition>? frozenRelations = null;
+        foreach (var tableModel in tableModels)
         {
-            relation.Freeze();
+            foreach (var index in tableModel.Table.ColumnIndices)
+            {
+                if (index.RelationParts is null)
+                    continue;
+
+                foreach (var part in index.RelationParts)
+                {
+                    var relation = part.Relation;
+                    if (relation is null)
+                        continue;
+
+                    frozenRelations ??= [];
+                    if (frozenRelations.Add(relation))
+                        relation.Freeze();
+                }
+            }
         }
     }
 

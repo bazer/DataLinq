@@ -17,8 +17,8 @@ public class TableDefinition(string dbName) : IDefinition
 {
     private MetadataCollection<ColumnDefinition> columns = MetadataCollection<ColumnDefinition>.Empty;
     private MetadataCollection<ColumnDefinition> primaryKeyColumns = MetadataCollection<ColumnDefinition>.Empty;
-    private Dictionary<string, ColumnDefinition> columnsByDbName = new(StringComparer.Ordinal);
-    private Dictionary<string, ColumnDefinition> columnsByPropertyName = new(StringComparer.Ordinal);
+    private Dictionary<string, ColumnDefinition>? columnsByDbName;
+    private Dictionary<string, ColumnDefinition>? columnsByPropertyName;
 
     public string DbName { get; private set; } = dbName;
     public bool IsFrozen { get; private set; }
@@ -63,7 +63,12 @@ public class TableDefinition(string dbName) : IDefinition
         if (dbName is null)
             throw new ArgumentNullException(nameof(dbName));
 
-        return columnsByDbName.TryGetValue(dbName, out column!);
+        if (columnsByDbName is not null &&
+            columnsByDbName.TryGetValue(dbName, out column!))
+            return true;
+
+        column = null!;
+        return false;
     }
 
     public ColumnDefinition GetColumnByPropertyName(string propertyName)
@@ -79,7 +84,12 @@ public class TableDefinition(string dbName) : IDefinition
         if (propertyName is null)
             throw new ArgumentNullException(nameof(propertyName));
 
-        return columnsByPropertyName.TryGetValue(propertyName, out column!);
+        if (columnsByPropertyName is not null &&
+            columnsByPropertyName.TryGetValue(propertyName, out column!))
+            return true;
+
+        column = null!;
+        return false;
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]

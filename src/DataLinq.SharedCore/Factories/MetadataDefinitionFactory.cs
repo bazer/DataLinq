@@ -33,7 +33,10 @@ public sealed class MetadataDefinitionFactory
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
 
-        return Build(MetadataDefinitionDraft.FromTypedMetadata(draft));
+        if (!MetadataTypedDraftConverter.ToConstructionGraph(draft).TryUnwrap(out var constructionGraph, out var constructionGraphFailure))
+            return constructionGraphFailure;
+
+        return DLOptionFailure.CatchAll(() => BuildCore(constructionGraph));
     }
 
     [Obsolete(MetadataMutationGuard.MutableFactoryInputObsoleteMessage)]
@@ -61,7 +64,10 @@ public sealed class MetadataDefinitionFactory
         if (draft is null)
             return DLOptionFailure.Fail(DLFailureType.UnexpectedNull, "Metadata draft cannot be null.");
 
-        return BuildProviderMetadata(MetadataDefinitionDraft.FromTypedMetadata(draft));
+        if (!MetadataTypedDraftConverter.ToConstructionGraph(draft).TryUnwrap(out var constructionGraph, out var constructionGraphFailure))
+            return constructionGraphFailure;
+
+        return DLOptionFailure.CatchAll(() => BuildProviderMetadataCore(constructionGraph));
     }
 
     private static Option<DatabaseDefinition, IDLOptionFailure> BuildProviderMetadataCore(DatabaseDefinition draft)

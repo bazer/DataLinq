@@ -176,7 +176,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         SourceSpan = sourceSpan;
     }
 
-    private readonly Dictionary<Attribute, SourceTextSpan> attributeSourceSpans = new(AttributeReferenceEqualityComparer.Instance);
+    private Dictionary<Attribute, SourceTextSpan>? attributeSourceSpans;
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetAttributeSourceSpan(Attribute attribute, SourceTextSpan sourceSpan)
@@ -187,6 +187,7 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
     internal void SetAttributeSourceSpanCore(Attribute attribute, SourceTextSpan sourceSpan)
     {
         ThrowIfFrozen();
+        attributeSourceSpans ??= new Dictionary<Attribute, SourceTextSpan>(AttributeReferenceEqualityComparer.Instance);
         attributeSourceSpans[attribute] = sourceSpan;
     }
 
@@ -200,7 +201,9 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
 
     public SourceLocation? GetAttributeSourceLocation(Attribute attribute)
     {
-        if (!CsFile.HasValue || !attributeSourceSpans.TryGetValue(attribute, out var sourceSpan))
+        if (!CsFile.HasValue ||
+            attributeSourceSpans is null ||
+            !attributeSourceSpans.TryGetValue(attribute, out var sourceSpan))
             return null;
 
         return new SourceLocation(CsFile.Value, sourceSpan);

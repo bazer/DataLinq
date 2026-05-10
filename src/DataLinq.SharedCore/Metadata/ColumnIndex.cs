@@ -175,12 +175,19 @@ public class ColumnIndex : IDefinition
 
         IsFrozen = true;
 
-        foreach (var relation in (RelationParts ?? [])
-            .Select(part => part.Relation)
-            .Where(relation => relation is not null)
-            .Distinct())
+        HashSet<RelationDefinition>? frozenRelations = null;
+        if (RelationParts is not null)
         {
-            relation.Freeze();
+            foreach (var part in RelationParts)
+            {
+                var relation = part.Relation;
+                if (relation is null)
+                    continue;
+
+                frozenRelations ??= [];
+                if (frozenRelations.Add(relation))
+                    relation.Freeze();
+            }
         }
 
         Columns.Freeze();
