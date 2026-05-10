@@ -19,7 +19,7 @@ public class EmployeesContainsTranslationTests
 
         var results = databaseScope.Database.Query()
             .Employees
-            .Where(x => Array.Empty<int>().Contains(x.emp_no.Value))
+            .Where(x => Array.Empty<int>().Contains(x.emp_no!.Value))
             .ToList();
 
         await Assert.That(results).IsEmpty();
@@ -36,7 +36,7 @@ public class EmployeesContainsTranslationTests
 
         var employeesDatabase = databaseScope.Database;
         var ids = employeesDatabase.Query().Employees
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .Take(3)
             .ToArray();
 
@@ -44,8 +44,8 @@ public class EmployeesContainsTranslationTests
 
         var include = ids.Take(2).ToArray();
         var outside = employeesDatabase.Query().Employees
-            .Where(x => !include.Contains(x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => !include.Contains(x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .ToList();
 
         await Assert.That(outside.Contains(include[0])).IsFalse();
@@ -63,7 +63,7 @@ public class EmployeesContainsTranslationTests
 
         var employeesDatabase = databaseScope.Database;
         var ids = employeesDatabase.Query().Employees
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .Take(2)
             .ToArray();
 
@@ -71,8 +71,8 @@ public class EmployeesContainsTranslationTests
 
         var arr = ids.ToArray();
         var results = employeesDatabase.Query().Employees
-            .Where(x => ((ReadOnlySpan<int>)arr).Contains(x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => ((ReadOnlySpan<int>)arr).Contains(x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .ToArray();
 
         await Assert.That(results.Length).IsGreaterThanOrEqualTo(2);
@@ -93,14 +93,14 @@ public class EmployeesContainsTranslationTests
         var ids = employeesDatabase.Query().Employees
             .OrderBy(x => x.emp_no)
             .Take(3)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .ToArray();
         var localIds = ids.Select(x => new LocalEmployeeId(x)).ToArray();
 
         var results = employeesDatabase.Query().Employees
-            .Where(x => localIds.Select(id => id.Value).Contains(x.emp_no.Value))
+            .Where(x => localIds.Select(id => id.Value).Contains(x.emp_no!.Value))
             .OrderBy(x => x.emp_no)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .ToArray();
 
         await Assert.That(results).IsEquivalentTo(ids);
@@ -118,7 +118,7 @@ public class EmployeesContainsTranslationTests
         var localIds = Array.Empty<LocalEmployeeId>();
 
         var results = databaseScope.Database.Query().Employees
-            .Where(x => localIds.Select(id => id.Value).Contains(x.emp_no.Value))
+            .Where(x => localIds.Select(id => id.Value).Contains(x.emp_no!.Value))
             .ToList();
 
         await Assert.That(results).IsEmpty();
@@ -135,7 +135,7 @@ public class EmployeesContainsTranslationTests
 
         var employeesDatabase = databaseScope.Database;
         var anyId = employeesDatabase.Query().Employees
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .First();
 
         var allCount = employeesDatabase.Query().Employees.Count();
@@ -157,7 +157,7 @@ public class EmployeesContainsTranslationTests
 
         var employeesDatabase = databaseScope.Database;
         var ids = employeesDatabase.Query().Employees
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .Take(2)
             .ToArray();
 

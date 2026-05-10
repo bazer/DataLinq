@@ -119,8 +119,10 @@ public class EmployeesTransactionLifecycleTests
             .SelectQuery()
             .ToDbCommand();
 
-        var dbTransaction = transaction.DatabaseAccess.DbTransaction;
-        command.Connection = dbTransaction.Connection;
+        var dbTransaction = transaction.DatabaseAccess.DbTransaction
+            ?? throw new InvalidOperationException("Transaction has no active database transaction.");
+        command.Connection = dbTransaction.Connection
+            ?? throw new InvalidOperationException("Transaction connection was not available.");
         command.Transaction = dbTransaction;
 
         using var reader = command.ExecuteReader();

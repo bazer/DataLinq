@@ -19,7 +19,7 @@ public class EmployeesEmptyListQueryTests
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
-            .Where(x => emptyList.Contains(x.emp_no.Value))
+            .Where(x => emptyList.Contains(x.emp_no!.Value))
             .ToList();
 
         await Assert.That(result).IsEmpty();
@@ -36,7 +36,7 @@ public class EmployeesEmptyListQueryTests
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
-            .Where(x => x.gender == Employee.Employeegender.M && emptyList.Contains(x.emp_no.Value))
+            .Where(x => x.gender == Employee.Employeegender.M && emptyList.Contains(x.emp_no!.Value))
             .ToList();
 
         await Assert.That(result).IsEmpty();
@@ -56,13 +56,13 @@ public class EmployeesEmptyListQueryTests
         var specificFirstName = employeesDatabase.Query().Employees.Select(x => x.first_name).First();
         var expected = employeesDatabase.Query().Employees
             .Where(x => x.first_name == specificFirstName)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => x.first_name == specificFirstName || emptyList.Contains(x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => x.first_name == specificFirstName || emptyList.Contains(x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -100,17 +100,17 @@ public class EmployeesEmptyListQueryTests
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
-        var employeeNumber = employeesDatabase.Query().Employees.Select(x => x.emp_no.Value).First();
+        var employeeNumber = employeesDatabase.Query().Employees.Select(x => x.emp_no!.Value).First();
         var nonEmptyList = new List<int> { employeeNumber };
 
         var expected = employeesDatabase.Query().Employees
-            .Where(x => nonEmptyList.Contains(x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => nonEmptyList.Contains(x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
         var result = employeesDatabase.Query().Employees
-            .Where(x => nonEmptyList.Contains(x.emp_no.Value) || emptyList.Contains(x.gender == Employee.Employeegender.M ? 1 : 0))
-            .Select(x => x.emp_no.Value)
+            .Where(x => nonEmptyList.Contains(x.emp_no!.Value) || emptyList.Contains(x.gender == Employee.Employeegender.M ? 1 : 0))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -128,11 +128,11 @@ public class EmployeesEmptyListQueryTests
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
-        var employeeNumber = employeesDatabase.Query().Employees.Select(x => x.emp_no.Value).First();
+        var employeeNumber = employeesDatabase.Query().Employees.Select(x => x.emp_no!.Value).First();
         var nonEmptyList = new List<int> { employeeNumber };
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => nonEmptyList.Contains(x.emp_no.Value) && emptyList.Contains(x.gender == Employee.Employeegender.M ? 1 : 0))
+            .Where(x => nonEmptyList.Contains(x.emp_no!.Value) && emptyList.Contains(x.gender == Employee.Employeegender.M ? 1 : 0))
             .ToList();
 
         await Assert.That(result).IsEmpty();
@@ -149,7 +149,7 @@ public class EmployeesEmptyListQueryTests
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
-            .Where(x => emptyList.Any(id => id == x.emp_no.Value))
+            .Where(x => emptyList.Any(id => id == x.emp_no!.Value))
             .ToList();
 
         await Assert.That(result).IsEmpty();
@@ -166,7 +166,7 @@ public class EmployeesEmptyListQueryTests
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
-            .Where(x => x.gender == Employee.Employeegender.M && emptyList.Any(id => id == x.emp_no.Value))
+            .Where(x => x.gender == Employee.Employeegender.M && emptyList.Any(id => id == x.emp_no!.Value))
             .ToList();
 
         await Assert.That(result).IsEmpty();
@@ -186,13 +186,13 @@ public class EmployeesEmptyListQueryTests
         var specificFirstName = employeesDatabase.Query().Employees.Select(x => x.first_name).First();
         var expected = employeesDatabase.Query().Employees
             .Where(x => x.first_name == specificFirstName)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => x.first_name == specificFirstName || emptyList.Any(id => id == x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => x.first_name == specificFirstName || emptyList.Any(id => id == x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -213,12 +213,12 @@ public class EmployeesEmptyListQueryTests
         var knownEmployeeNumbers = employeesDatabase.Query().Employees
             .OrderBy(x => x.emp_no)
             .Take(5)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => knownEmployeeNumbers.Contains(x.emp_no.Value) && !emptyList.Any(id => id == x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => knownEmployeeNumbers.Contains(x.emp_no!.Value) && !emptyList.Any(id => id == x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -236,18 +236,18 @@ public class EmployeesEmptyListQueryTests
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
-        var employeeNumber = employeesDatabase.Query().Employees.Select(x => x.emp_no.Value).First();
+        var employeeNumber = employeesDatabase.Query().Employees.Select(x => x.emp_no!.Value).First();
         var nonEmptyList = new List<int> { employeeNumber };
 
         var expected = employeesDatabase.Query().Employees
-            .Where(x => nonEmptyList.Any(id => id == x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => nonEmptyList.Any(id => id == x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => nonEmptyList.Any(id => id == x.emp_no.Value) || emptyList.Any(id => id == x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => nonEmptyList.Any(id => id == x.emp_no!.Value) || emptyList.Any(id => id == x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -265,11 +265,11 @@ public class EmployeesEmptyListQueryTests
 
         var employeesDatabase = databaseScope.Database;
         var emptyList = new List<int>();
-        var employeeNumber = employeesDatabase.Query().Employees.Select(x => x.emp_no.Value).First();
+        var employeeNumber = employeesDatabase.Query().Employees.Select(x => x.emp_no!.Value).First();
         var nonEmptyList = new List<int> { employeeNumber };
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => nonEmptyList.Any(id => id == x.emp_no.Value) && emptyList.Any(id => id == x.emp_no.Value))
+            .Where(x => nonEmptyList.Any(id => id == x.emp_no!.Value) && emptyList.Any(id => id == x.emp_no!.Value))
             .ToList();
 
         await Assert.That(result).IsEmpty();
@@ -286,7 +286,7 @@ public class EmployeesEmptyListQueryTests
 
         var emptyList = new List<int>();
         var result = databaseScope.Database.Query().Employees
-            .Where(x => emptyList.Any(id => id > 1000 && id == x.emp_no.Value))
+            .Where(x => emptyList.Any(id => id > 1000 && id == x.emp_no!.Value))
             .ToList();
 
         await Assert.That(result).IsEmpty();

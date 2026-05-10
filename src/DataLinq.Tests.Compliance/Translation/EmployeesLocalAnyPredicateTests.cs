@@ -19,12 +19,12 @@ public class EmployeesLocalAnyPredicateTests
         var selectedIds = employeesDatabase.Query().Employees
             .OrderBy(x => x.emp_no)
             .Take(4)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => selectedIds.Any(id => id == x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => selectedIds.Any(id => id == x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -44,13 +44,13 @@ public class EmployeesLocalAnyPredicateTests
         var selectedIds = employeesDatabase.Query().Employees
             .OrderBy(x => x.emp_no)
             .Take(4)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .ToArray();
         var localIds = selectedIds.Select(id => new LocalEmployeeId(id)).ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => localIds.Any(id => id.Value == x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => localIds.Any(id => id.Value == x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -70,13 +70,13 @@ public class EmployeesLocalAnyPredicateTests
         var selectedIds = employeesDatabase.Query().Employees
             .OrderBy(x => x.emp_no)
             .Take(4)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .ToArray();
         var localIds = selectedIds.Select(id => new LocalEmployeeId(id)).ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => localIds.Any(id => x.emp_no.Value == id.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => localIds.Any(id => x.emp_no!.Value == id.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -96,13 +96,13 @@ public class EmployeesLocalAnyPredicateTests
         var selectedIds = employeesDatabase.Query().Employees
             .OrderBy(x => x.emp_no)
             .Take(4)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .ToArray();
         var localIds = selectedIds.Select(id => new NullableLocalEmployeeId(id)).ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => localIds.Any(id => id.Value.Value == x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => localIds.Any(id => id.Value!.Value == x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
@@ -122,14 +122,14 @@ public class EmployeesLocalAnyPredicateTests
         var selectedIds = employeesDatabase.Query().Employees
             .OrderBy(x => x.emp_no)
             .Take(5)
-            .Select(x => x.emp_no.Value)
+            .Select(x => x.emp_no!.Value)
             .ToArray();
         var excludedLocalIds = selectedIds.Take(2).Select(id => new LocalEmployeeId(id)).ToArray();
         var expected = selectedIds.Skip(2).ToArray();
 
         var result = employeesDatabase.Query().Employees
-            .Where(x => selectedIds.Contains(x.emp_no.Value) && !excludedLocalIds.Any(id => id.Value == x.emp_no.Value))
-            .Select(x => x.emp_no.Value)
+            .Where(x => selectedIds.Contains(x.emp_no!.Value) && !excludedLocalIds.Any(id => id.Value == x.emp_no!.Value))
+            .Select(x => x.emp_no!.Value)
             .OrderBy(x => x)
             .ToArray();
 
