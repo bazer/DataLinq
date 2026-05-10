@@ -35,7 +35,13 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
     /// <param name="connectionString">The connection string to the database.</param>
     /// <param name="databaseType">The type of the database.</param>
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration)
-        : base(connectionString, typeof(T), databaseType, loggingConfiguration, metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>)
+        : base(
+            connectionString,
+            typeof(T),
+            databaseType,
+            loggingConfiguration,
+            metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
+            createReadOnlyAccess: false)
     {
         T.SetDataLinqGeneratedMetadata(Metadata);
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
@@ -48,7 +54,14 @@ public abstract class DatabaseProvider<T> : DatabaseProvider, IDatabaseProvider<
     /// <param name="databaseType">The type of the database.</param>
     /// <param name="databaseName">The name of the database.</param>
     protected DatabaseProvider(string connectionString, DatabaseType databaseType, DataLinqLoggingConfiguration loggingConfiguration, string? databaseName)
-        : base(connectionString, typeof(T), databaseType, loggingConfiguration, databaseName, MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>)
+        : base(
+            connectionString,
+            typeof(T),
+            databaseType,
+            loggingConfiguration,
+            databaseName: databaseName,
+            metadataFactory: MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel<T>,
+            createReadOnlyAccess: false)
     {
         T.SetDataLinqGeneratedMetadata(Metadata);
         ReadOnlyAccess = new ReadOnlyAccess<T>(this);
@@ -70,7 +83,7 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
 
     public string ConnectionString { get; }
     public abstract DatabaseAccess DatabaseAccess { get; }
-    public virtual ReadOnlyAccess ReadOnlyAccess { get; protected set; }
+    public virtual ReadOnlyAccess ReadOnlyAccess { get; protected set; } = null!;
     public DatabaseDefinition Metadata { get; }
     public State State { get; }
 
@@ -96,7 +109,8 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         DatabaseType databaseType,
         DataLinqLoggingConfiguration loggingConfiguration,
         string? databaseName = null,
-        Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory = null)
+        Func<Option<DatabaseDefinition, IDLOptionFailure>>? metadataFactory = null,
+        bool createReadOnlyAccess = true)
     {
         DatabaseDefinition resolvedMetadata;
         lock (lockObject)
@@ -126,7 +140,8 @@ public abstract class DatabaseProvider : IDatabaseProvider, IDisposable
         ConnectionString = connectionString;
         State = new State(this, loggingConfiguration);
 
-        this.ReadOnlyAccess ??= new ReadOnlyAccess(this);
+        if (createReadOnlyAccess)
+            this.ReadOnlyAccess ??= new ReadOnlyAccess(this);
     }
 
     

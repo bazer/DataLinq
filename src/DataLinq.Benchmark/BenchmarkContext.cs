@@ -16,7 +16,6 @@ internal sealed class BenchmarkContext : IDisposable
     internal const int CrudWorkflowSmallOperationCount = 50;
     internal const int CrudWorkflowOperationCount = 300;
 
-    private readonly TestProviderDescriptor provider;
     private readonly EmployeesTestDatabase databaseScope;
     private readonly int[] sampleEmployeeNumbers;
     private readonly int[] sampleEmployeeWithDepartmentNumbers;
@@ -29,11 +28,11 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly InsertEmployeeTemplate[] insertEmployeeTemplates;
     private readonly Dictionary<int, string> originalMutationLastNames;
     private readonly int startupEmployeeNumber;
+    private readonly TestConnectionDefinition startupConnection;
     private readonly List<Employee> insertedEmployees = [];
 
     public BenchmarkContext(TestProviderDescriptor provider)
     {
-        this.provider = provider;
         databaseScope = EmployeesTestDatabase.CreateIsolatedBogus(
             provider,
             "benchmark",
@@ -115,6 +114,7 @@ internal sealed class BenchmarkContext : IDisposable
             "benchmark-startup",
             EmployeesSeedMode.Bogus);
 
+        startupConnection = startupScope.Connection;
         startupEmployeeNumber = startupScope.Database.Query().Employees
             .OrderBy(x => x.emp_no)
             .Select(x => x.emp_no!.Value)
@@ -224,12 +224,9 @@ internal sealed class BenchmarkContext : IDisposable
 
     public int LoadEmployeeByPrimaryKeyOnFreshScope()
     {
-        using var startupScope = EmployeesTestDatabase.OpenSharedSeeded(
-            provider,
-            "benchmark-startup",
-            EmployeesSeedMode.Bogus);
+        using var startupDatabase = OpenStartupDatabase();
 
-        var employee = startupScope.Database.Query().Employees.Single(x => x.emp_no == startupEmployeeNumber);
+        var employee = startupDatabase.Query().Employees.Single(x => x.emp_no == startupEmployeeNumber);
         return employee.emp_no!.Value;
     }
 
@@ -237,12 +234,17 @@ internal sealed class BenchmarkContext : IDisposable
     {
         DatabaseDefinition.TryRemoveLoadedDatabase(typeof(EmployeesDb), out _);
 
-        using var startupScope = EmployeesTestDatabase.OpenSharedSeeded(
-            provider,
-            "benchmark-startup",
-            EmployeesSeedMode.Bogus);
+        using var startupDatabase = OpenStartupDatabase();
 
-        return startupScope.Database.Provider.Metadata.TableModels.Length;
+        return startupDatabase.Provider.Metadata.TableModels.Length;
+    }
+
+    private Database<EmployeesDb> OpenStartupDatabase()
+    {
+        var creator = PluginHook.DatabaseProviders.Single(x => x.Key == startupConnection.DatabaseType).Value;
+        return creator.GetDatabaseProvider<EmployeesDb>(
+            startupConnection.ConnectionString,
+            startupConnection.DataSourceName);
     }
 
     public int InsertEmployeesBatch()

@@ -13,6 +13,7 @@ using DataLinq.Logging;
 using DataLinq.Metadata;
 using DataLinq.Mutation;
 using DataLinq.Query;
+using DataLinq.Utils;
 
 namespace DataLinq.Cache;
 
@@ -164,9 +165,10 @@ public class TableCache
         }
     }
 
-    protected Dictionary<ColumnIndex, IndexCache> IndexCaches;
-    protected RowCache RowCache = new();
-    protected ConcurrentDictionary<Transaction, RowCache> TransactionRows = new();
+    private readonly object indexCacheGate = new();
+    private Dictionary<ColumnIndex, IndexCache>? indexCaches;
+    private RowCache? rowCache;
+    private ConcurrentDictionary<Transaction, RowCache>? transactionRows;
 
     protected int primaryKeyColumnsCount;
     protected IReadOnlyList<ColumnIndex> indices;
@@ -176,11 +178,11 @@ public class TableCache
     internal DataLinqTableMetricsHandle MetricsHandle { get; }
 
     // This table weakly maps a relation object to its subscription manager.
-    private readonly CacheNotificationManager notificationManager;
+    private CacheNotificationManager? notificationManager;
 
     public void SubscribeToChanges(ICacheNotification subscriber, Transaction? transaction = null)
     {
-        notificationManager.Subscribe(subscriber, transaction);
+        (notificationManager ??= new CacheNotificationManager(MetricsHandle)).Subscribe(subscriber, transaction);
     }
 
     public TableCache(TableDefinition table, DatabaseCache databaseCache, DataLinqLoggingConfiguration loggingConfiguration)
@@ -193,35 +195,91 @@ public class TableCache
         this.indices = Table.ColumnIndices;
         this.indexCachePolicy = GetIndexCachePolicy();
         MetricsHandle = DataLinqMetrics.RegisterTable(databaseCache.Database, table.DbName);
-        this.notificationManager = new CacheNotificationManager(MetricsHandle);
         DataLinqTelemetry.RegisterTableCache(
             telemetryContext,
             table.DbName,
             GetOccupancySnapshot,
             MetricsHandle.GetCacheNotificationSnapshot);
 
-        IndexCaches = indices.ToDictionary(x => x, _ => new IndexCache());
         RefreshOccupancyMetrics();
     }
 
-    public long? OldestTick => RowCache.OldestTick;
-    public long? NewestTick => RowCache.NewestTick;
-    public int RowCount => RowCache.Count;
-    public long TotalBytes => RowCache.TotalBytes;
-    public string TotalBytesFormatted => RowCache.TotalBytesFormatted;
-    public int TransactionRowsCount => TransactionRows.Count;
-    public IEnumerable<(string index, int count)> IndicesCount => indices.Select(x => (x.Name, IndexCaches[x].Count));
+    public long? OldestTick => rowCache?.OldestTick;
+    public long? NewestTick => rowCache?.NewestTick;
+    public int RowCount => rowCache?.Count ?? 0;
+    public long TotalBytes => rowCache?.TotalBytes ?? 0;
+    public string TotalBytesFormatted => TotalBytes.ToFileSize();
+    public int TransactionRowsCount => transactionRows?.Count ?? 0;
+    public IEnumerable<(string index, int count)> IndicesCount => indices.Select(x => (x.Name, TryGetIndexCache(x)?.Count ?? 0));
 
     public TableDefinition Table { get; }
     public DatabaseCache DatabaseCache { get; }
 
-    public bool IsTransactionInCache(Transaction transaction) => TransactionRows.ContainsKey(transaction);
+    private RowCache GetOrCreateRowCache()
+    {
+        var cache = rowCache;
+        if (cache is not null)
+            return cache;
+
+        cache = new RowCache();
+        var existing = Interlocked.CompareExchange(ref rowCache, cache, null);
+        return existing ?? cache;
+    }
+
+    private ConcurrentDictionary<Transaction, RowCache> GetOrCreateTransactionRows()
+    {
+        var rows = transactionRows;
+        if (rows is not null)
+            return rows;
+
+        rows = new ConcurrentDictionary<Transaction, RowCache>();
+        var existing = Interlocked.CompareExchange(ref transactionRows, rows, null);
+        return existing ?? rows;
+    }
+
+    private IndexCache GetIndexCache(ColumnIndex index)
+    {
+        lock (indexCacheGate)
+        {
+            indexCaches ??= new Dictionary<ColumnIndex, IndexCache>();
+
+            if (!indexCaches.TryGetValue(index, out var cache))
+            {
+                cache = new IndexCache();
+                indexCaches.Add(index, cache);
+            }
+
+            return cache;
+        }
+    }
+
+    private IndexCache? TryGetIndexCache(ColumnIndex index)
+    {
+        lock (indexCacheGate)
+        {
+            return indexCaches is not null && indexCaches.TryGetValue(index, out var cache)
+                ? cache
+                : null;
+        }
+    }
+
+    private IndexCache[] GetLoadedIndexCaches()
+    {
+        lock (indexCacheGate)
+        {
+            return indexCaches is null
+                ? []
+                : indexCaches.Values.ToArray();
+        }
+    }
+
+    public bool IsTransactionInCache(Transaction transaction) => transactionRows?.ContainsKey(transaction) == true;
     public IEnumerable<IImmutableInstance> GetTransactionRows(Transaction transaction)
     {
-        if (TransactionRows.TryGetValue(transaction, out var result))
+        if (transactionRows?.TryGetValue(transaction, out var result) == true)
             return result.Rows;
 
-        return new List<IImmutableInstance>();
+        return [];
     }
 
     public int ApplyChanges(IEnumerable<StateChange> changes, Transaction? transaction = null)
@@ -274,8 +332,8 @@ public class TableCache
         {
             if (change.Type == TransactionChangeType.Delete || change.Type == TransactionChangeType.Update)
             {
-                RowCache.TryRemoveRow(change.PrimaryKeys, out var rows);
-                numRows += rows;
+                if (rowCache?.TryRemoveRow(change.PrimaryKeys, out var rows) == true)
+                    numRows += rows;
             }
 
             TryRemoveRowFromAllIndices(change.PrimaryKeys, out var indexRows);
@@ -328,7 +386,7 @@ public class TableCache
 
     protected virtual void OnRowChanged(Transaction? transaction = null)
     {
-        notificationManager.Notify(transaction);
+        notificationManager?.Notify(transaction);
     }
 
     public (IndexCacheType, int? amount) GetIndexCachePolicy()
@@ -346,7 +404,7 @@ public class TableCache
     {
         var rowsRemoved = RowCount;
         var startedAt = Stopwatch.GetTimestamp();
-        RowCache.ClearRows();
+        rowCache?.ClearRows();
         var duration = Stopwatch.GetElapsedTime(startedAt);
         RefreshOccupancyMetrics();
         DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "clear", rowsRemoved, duration);
@@ -356,15 +414,15 @@ public class TableCache
 
     public void ClearIndex()
     {
-        for (var i = 0; i < indices.Count; i++)
-            IndexCaches[indices[i]].Clear();
+        foreach (var indexCache in GetLoadedIndexCaches())
+            indexCache.Clear();
 
         RefreshOccupancyMetrics();
     }
 
     public void CleanRelationNotifications()
     {
-        notificationManager.Clean();
+        notificationManager?.Clean();
     }
 
     public int RemoveRowsByLimit(CacheLimitType limitType, long amount)
@@ -387,11 +445,11 @@ public class TableCache
         var startedAt = Stopwatch.GetTimestamp();
         var rowsRemoved = limitType switch
         {
-            CacheLimitType.Rows => RowCache.RemoveRowsOverRowLimit((int)amount),
-            CacheLimitType.Bytes => RowCache.RemoveRowsOverSizeLimit(amount),
-            CacheLimitType.Kilobytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024),
-            CacheLimitType.Megabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024),
-            CacheLimitType.Gigabytes => RowCache.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024),
+            CacheLimitType.Rows => rowCache?.RemoveRowsOverRowLimit((int)amount) ?? 0,
+            CacheLimitType.Bytes => rowCache?.RemoveRowsOverSizeLimit(amount) ?? 0,
+            CacheLimitType.Kilobytes => rowCache?.RemoveRowsOverSizeLimit(amount * 1024) ?? 0,
+            CacheLimitType.Megabytes => rowCache?.RemoveRowsOverSizeLimit(amount * 1024 * 1024) ?? 0,
+            CacheLimitType.Gigabytes => rowCache?.RemoveRowsOverSizeLimit(amount * 1024 * 1024 * 1024) ?? 0,
             _ => throw new NotImplementedException($"CacheLimitType '{limitType}' is not implemented.")
         };
 
@@ -406,7 +464,7 @@ public class TableCache
     {
         var startedAt = Stopwatch.GetTimestamp();
         RemoveAllIndicesInsertedBeforeTick(tick);
-        var rowsRemoved = RowCache.RemoveRowsInsertedBeforeTick(tick);
+        var rowsRemoved = rowCache?.RemoveRowsInsertedBeforeTick(tick) ?? 0;
         var duration = Stopwatch.GetElapsedTime(startedAt);
         RefreshOccupancyMetrics();
         DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "age_limit", rowsRemoved, duration);
@@ -419,35 +477,55 @@ public class TableCache
     {
         numRowsRemoved = 0;
 
-        for (var i = 0; i < indices.Count; i++)
+        foreach (var indexCache in GetLoadedIndexCaches())
         {
-            if (IndexCaches[indices[i]].TryRemovePrimaryKey(primaryKeys, out var rowsRemoved))
+            if (indexCache.TryRemovePrimaryKey(primaryKeys, out var rowsRemoved))
                 numRowsRemoved += rowsRemoved;
         }
     }
 
-    public bool TryRemoveForeignKeyIndex(ColumnIndex columnIndex, IKey foreignKey, out int numRowsRemoved) =>
-        IndexCaches[columnIndex].TryRemoveForeignKey(foreignKey, out numRowsRemoved);
+    public bool TryRemoveForeignKeyIndex(ColumnIndex columnIndex, IKey foreignKey, out int numRowsRemoved)
+    {
+        var indexCache = TryGetIndexCache(columnIndex);
+        if (indexCache is null)
+        {
+            numRowsRemoved = 0;
+            return true;
+        }
 
-    public bool TryRemovePrimaryKeyIndex(ColumnIndex columnIndex, IKey primaryKeys, out int numRowsRemoved) =>
-        IndexCaches[columnIndex].TryRemovePrimaryKey(primaryKeys, out numRowsRemoved);
+        return indexCache.TryRemoveForeignKey(foreignKey, out numRowsRemoved);
+    }
+
+    public bool TryRemovePrimaryKeyIndex(ColumnIndex columnIndex, IKey primaryKeys, out int numRowsRemoved)
+    {
+        var indexCache = TryGetIndexCache(columnIndex);
+        if (indexCache is null)
+        {
+            numRowsRemoved = 0;
+            return true;
+        }
+
+        return indexCache.TryRemovePrimaryKey(primaryKeys, out numRowsRemoved);
+    }
 
     public int RemoveAllIndicesInsertedBeforeTick(long tick) =>
-        IndexCaches.Select(x => x.Value.RemoveInsertedBeforeTick(tick)).Sum();
+        GetLoadedIndexCaches().Sum(x => x.RemoveInsertedBeforeTick(tick));
 
     public bool TryRemoveTransactionRow(IKey primaryKeys, Transaction transaction, out int numRowsRemoved)
     {
         numRowsRemoved = 0;
 
-        return TransactionRows.TryGetValue(transaction, out RowCache? rowCache) && rowCache.TryRemoveRow(primaryKeys, out numRowsRemoved);
+        return transactionRows?.TryGetValue(transaction, out var transactionRowCache) == true &&
+            transactionRowCache.TryRemoveRow(primaryKeys, out numRowsRemoved);
     }
 
     public bool TryRemoveTransaction(Transaction transaction)
     {
-        if (TransactionRows.ContainsKey(transaction))
+        var rowsByTransaction = transactionRows;
+        if (rowsByTransaction?.ContainsKey(transaction) == true)
         {
             var startedAt = Stopwatch.GetTimestamp();
-            if (TransactionRows.TryRemove(transaction, out var rows))
+            if (rowsByTransaction.TryRemove(transaction, out var rows))
             {
                 var rowsRemoved = rows.Count;
                 var duration = Stopwatch.GetElapsedTime(startedAt);
@@ -478,7 +556,7 @@ public class TableCache
             query.Limit(limitRows.Value);
 
         foreach (var (fk, pk) in query.SelectQuery().ReadPrimaryAndForeignKeys(index))
-            IndexCaches[index].TryAdd(fk, pk);
+            GetIndexCache(index).TryAdd(fk, pk);
 
 
         var otherColumns = otherSide.RelationPart.ColumnIndex.Columns;
@@ -498,7 +576,7 @@ public class TableCache
             query.Limit(limitRows.Value);
 
         foreach (var pk in query.SelectQuery().ReadKeys())
-            IndexCaches[index].TryAdd(pk, []);
+            GetIndexCache(index).TryAdd(pk, []);
 
         RefreshOccupancyMetrics();
     }
@@ -511,7 +589,7 @@ public class TableCache
 
         if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None)
         {
-            if (IndexCaches[index].TryGetValue(foreignKey, out var keys))
+            if (TryGetIndexCache(index)?.TryGetValue(foreignKey, out var keys) == true)
                 return keys!;
 
             //if (IndexCaches[index].Count == 0)
@@ -535,7 +613,7 @@ public class TableCache
         var newKeys = KeyFactory.GetKeys(select, Table.PrimaryKeyColumns).ToArray();
 
         if (indexCachePolicy.type != IndexCacheType.None)
-            IndexCaches[index].TryAdd(foreignKey, newKeys);
+            GetIndexCache(index).TryAdd(foreignKey, newKeys);
 
         RefreshOccupancyMetrics();
 
@@ -557,7 +635,9 @@ public class TableCache
             return row is null ? [] : [row];
         }
 
-        if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None && IndexCaches[index].TryGetValue(foreignKey, out var keys))
+        if (dataSource is ReadOnlyAccess &&
+            indexCachePolicy.type != IndexCacheType.None &&
+            TryGetIndexCache(index)?.TryGetValue(foreignKey, out var keys) == true)
             return GetRows(keys!, dataSource);
 
         return LoadRowsFromForeignKeyAndCache(foreignKey, index, dataSource);
@@ -615,10 +695,14 @@ public class TableCache
 
     private void EnsureTransactionRowCache(IDataSourceAccess dataSource)
     {
-        if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly && !TransactionRows.ContainsKey(transaction))
+        if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly)
         {
-            TransactionRows.TryAdd(transaction, new RowCache());
-            RefreshOccupancyMetrics();
+            var rowsByTransaction = GetOrCreateTransactionRows();
+            if (!rowsByTransaction.ContainsKey(transaction))
+            {
+                rowsByTransaction.TryAdd(transaction, new RowCache());
+                RefreshOccupancyMetrics();
+            }
         }
     }
 
@@ -689,7 +773,7 @@ public class TableCache
         Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, rowCacheMisses);
 
         if (primaryKeys is not null)
-            IndexCaches[index].TryAdd(foreignKey, primaryKeys.ToArray());
+            GetIndexCache(index).TryAdd(foreignKey, primaryKeys.ToArray());
 
         RefreshOccupancyMetrics();
 
@@ -829,9 +913,12 @@ public class TableCache
 
     private bool GetRowFromCache(IKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
     {
-        if (dataSource is ReadOnlyAccess && RowCache.TryGetValue(key, out row))
+        if (dataSource is ReadOnlyAccess && rowCache is not null && rowCache.TryGetValue(key, out row))
             return true;
-        else if (dataSource is Transaction transaction && TransactionRows.TryGetValue(transaction, out var transactionRows) && transactionRows.TryGetValue(key, out row))
+        else if (dataSource is Transaction transaction &&
+            transactionRows is not null &&
+            transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
+            transactionRowCache.TryGetValue(key, out row))
             return true;
 
         row = null;
@@ -849,8 +936,11 @@ public class TableCache
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
         var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
 
-        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || RowCache.TryAddRow(keys, rowData, row)))
-            || (dataSource is Transaction transaction && TransactionRows.TryGetValue(transaction, out var rowCache) && rowCache.TryAddRow(keys, rowData, row));
+        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || GetOrCreateRowCache().TryAddRow(keys, rowData, row)))
+            || (dataSource is Transaction transaction &&
+                transactionRows is not null &&
+                transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
+                transactionRowCache.TryAddRow(keys, rowData, row));
 
         if (added)
         {
@@ -874,9 +964,9 @@ public class TableCache
     private CacheOccupancyMetricsSnapshot GetOccupancySnapshot()
         => new(
             Rows: RowCount,
-            TransactionRows: TransactionRows.Values.Sum(x => (long)x.Count),
+            TransactionRows: transactionRows?.Values.Sum(x => (long)x.Count) ?? 0,
             Bytes: TotalBytes,
-            IndexEntries: IndexCaches.Values.Sum(x => (long)x.Count));
+            IndexEntries: GetLoadedIndexCaches().Sum(x => (long)x.Count));
 
     private void RefreshOccupancyMetrics()
     {
