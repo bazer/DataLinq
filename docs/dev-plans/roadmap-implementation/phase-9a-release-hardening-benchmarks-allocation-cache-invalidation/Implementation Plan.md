@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 9A Implementation Plan: Release Hardening, Benchmarks, Allocation, and Cache Invalidation
 
-**Status:** In progress. Workstreams A and B are complete as of 2026-05-10.
+**Status:** In progress. Workstreams A through D are complete as of 2026-05-10.
 
 ## Purpose
 
@@ -177,6 +177,8 @@ Exit criteria:
 - allocation benchmarks are rerun after the change
 
 ## Workstream D: Key And Cache Hot-Path Allocation
+
+Workstream D is implemented. `IKey` now exposes direct `ValueCount`, `GetValue(int)`, and `TryGetSingleValue(...)` access, while `Values` is a stable read-only surface instead of an array snapshot. Simple keys no longer allocate one-element arrays for direct value reads, composite keys store normalized raw values instead of nested child key snapshots, and cache predicate construction uses direct key access in its hot paths. Focused unit tests cover read-only key values and non-allocating simple/composite direct value reads. The 2026-05-10 default-profile `sqlite-memory` rerun recorded 15.30 KB for warm primary-key fetch, 15.36 KB for warm relation traversal, and 39.95 KB for cold relation traversal. Timing variance was high, so these runs are allocation evidence rather than latency claims.
 
 Goals:
 
