@@ -22,6 +22,20 @@ The outside-sandbox solution build currently succeeds with:
 0 Error(s)
 ```
 
+## Workstream A Result
+
+Updated: 2026-05-10
+
+`.\scripts\dotnet-sandbox.ps1 build src\DataLinq.sln -c Debug -v minimal --no-incremental` now succeeds with all DataLinq-owned C# compiler warnings removed. The baseline is down to the two remaining `WASM0001` WebAssembly SDK warning events from `DataLinq.BlazorWasm`.
+
+`src/Directory.Build.props` now enables `TreatWarningsAsErrors` for compiler warnings. That is intentionally compiler-level enforcement rather than a broad MSBuild warning-as-error switch, because the remaining `WASM0001` finding is an explicit third-party/runtime exception tracked below.
+
+Remaining warning disposition:
+
+| Warning | Owner | Reason | Future disposition |
+| --- | --- | --- | --- |
+| `WASM0001` in `DataLinq.BlazorWasm` | Phase 13 query plan and WebAssembly warning work | The Blazor WebAssembly project is deliberately a SQLite smoke project, and `SQLitePCLRaw.provider.e_sqlite3` links native varargs exports such as `sqlite3_config` and `sqlite3_db_config`. The warning is real: calling those exports from WebAssembly would fail. | Keep the warning visible. Do not suppress it in library code. Phase 13 must either prove the affected symbols are unreachable for the supported smoke path, switch to a browser-safe SQLite provider/bundle, or keep the warning as an explicit support caveat. |
+
 The per-project audit artifacts are:
 
 - `artifacts/dev/warning-audit-after-restore-20260505.log`

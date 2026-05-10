@@ -4,6 +4,7 @@
 		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
 		<LangVersion>14.0</LangVersion>
 		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 		<!-- MSBuild 10.0.201 is currently unstable on this project graph when analyzer

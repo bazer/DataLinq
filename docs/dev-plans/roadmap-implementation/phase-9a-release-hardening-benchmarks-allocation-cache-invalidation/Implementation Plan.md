@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 9A Implementation Plan: Release Hardening, Benchmarks, Allocation, and Cache Invalidation
 
-**Status:** Planned next release phase.
+**Status:** In progress. Workstream A warning cleanup is complete as of 2026-05-10.
 
 ## Purpose
 
@@ -60,6 +60,10 @@ Known starting points:
 - hiding warnings through blanket suppression
 
 ## Workstream A: Warning Cleanup
+
+Status: Complete as of 2026-05-10.
+
+The Debug solution build is clean for DataLinq-owned C# compiler warnings, with compiler warnings now treated as errors through `src/Directory.Build.props`. The only remaining build warnings are the two documented `WASM0001` events from `DataLinq.BlazorWasm` linking SQLitePCLRaw's `e_sqlite3` WebAssembly native asset. That warning is intentionally not suppressed; Phase 13 owns the call-path proof, provider/bundle investigation, or public support caveat.
 
 Goals:
 
