@@ -20,6 +20,7 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly EmployeesTestDatabase databaseScope;
     private readonly int[] sampleEmployeeNumbers;
     private readonly int[] sampleEmployeeWithDepartmentNumbers;
+    private readonly Employee[] sampleEmployeesWithDepartments;
     private readonly int[] sampleMutationEmployeeNumbers;
     private readonly int[] sampleCrudWorkflowEmployeeNumbers;
     private readonly string[] sampleEmployeeLastNames;
@@ -96,6 +97,10 @@ internal sealed class BenchmarkContext : IDisposable
         if (sampleEmployeeWithDepartmentNumbers.Length != BatchOperationCount)
             throw new InvalidOperationException(
                 $"The deterministic employees benchmark dataset only yielded {sampleEmployeeWithDepartmentNumbers.Length} relation-traversal samples. Expected at least {BatchOperationCount}.");
+
+        sampleEmployeesWithDepartments = sampleEmployeeWithDepartmentNumbers
+            .Select(employeeNumber => Database.Query().Employees.Single(x => x.emp_no == employeeNumber))
+            .ToArray();
 
         if (sampleMutationEmployeeNumbers.Length != MutationBatchOperationCount)
             throw new InvalidOperationException(
@@ -199,6 +204,22 @@ internal sealed class BenchmarkContext : IDisposable
         }
 
         return checksum;
+    }
+
+    public int TraverseWarmDepartmentNamesBatch()
+    {
+        var checksum = 0;
+
+        foreach (var employee in sampleEmployeesWithDepartments)
+            checksum += employee.dept_emp.First().departments.Name.Length;
+
+        return checksum;
+    }
+
+    public void ClearWarmRelationTraversalCache()
+    {
+        foreach (var employee in sampleEmployeesWithDepartments)
+            employee.dept_emp.Clear();
     }
 
     public int LoadEmployeeByPrimaryKeyOnFreshScope()
@@ -347,7 +368,8 @@ internal sealed class BenchmarkContext : IDisposable
                     DataLinqMetrics.Reset();
                     break;
                 case BenchmarkScenario.WarmRelationTraversal:
-                    _ = TraverseDepartmentNamesBatch();
+                    ClearWarmRelationTraversalCache();
+                    _ = TraverseWarmDepartmentNamesBatch();
                     DataLinqMetrics.Reset();
                     break;
                 case BenchmarkScenario.CrudWorkflowSmall:
@@ -378,7 +400,8 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.InsertEmployeesBatch => InsertEmployeesBatch(),
             BenchmarkScenario.UpdateEmployeesBatch => UpdateEmployeesBatch(),
             BenchmarkScenario.ColdPrimaryKeyFetch or BenchmarkScenario.WarmPrimaryKeyFetch => LoadEmployeesByPrimaryKeyBatch(),
-            BenchmarkScenario.ColdRelationTraversal or BenchmarkScenario.WarmRelationTraversal => TraverseDepartmentNamesBatch(),
+            BenchmarkScenario.ColdRelationTraversal => TraverseDepartmentNamesBatch(),
+            BenchmarkScenario.WarmRelationTraversal => TraverseWarmDepartmentNamesBatch(),
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => LoadEmployeesByNonPrimaryKeyEqualityBatch(),
             BenchmarkScenario.RepeatedInPredicateFetch => LoadEmployeesByInPredicateBatch(),
             BenchmarkScenario.RepeatedScalarAny => ExecuteScalarAnyBatch(),

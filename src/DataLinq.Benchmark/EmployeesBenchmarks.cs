@@ -264,7 +264,8 @@ public class EmployeesBenchmarks : IDisposable
     public void SetupWarmRelationTraversal()
     {
         context!.ResetState(clearCache: true);
-        _ = context.TraverseDepartmentNamesBatch();
+        context.ClearWarmRelationTraversalCache();
+        _ = context.TraverseWarmDepartmentNamesBatch();
         DataLinqMetrics.Reset();
     }
 
@@ -273,7 +274,7 @@ public class EmployeesBenchmarks : IDisposable
     public int WarmRelationTraversal()
     {
         executedScenario = BenchmarkScenario.WarmRelationTraversal;
-        return context!.TraverseDepartmentNamesBatch();
+        return context!.TraverseWarmDepartmentNamesBatch();
     }
 
     public void Dispose()
