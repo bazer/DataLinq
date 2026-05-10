@@ -329,6 +329,8 @@ Why before the broader cache redesign:
 
 Key related plans:
 
+- `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/README.md`
+- `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation Plan.md`
 - `tooling/Warning Cleanup Plan.md`
 - `performance/Representative Benchmark Suite and Website Trends.md`
 - `performance/Allocation Reduction Audit.md`
@@ -357,6 +359,8 @@ Why after Phase 9A:
 
 Key related plans:
 
+- `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/README.md`
+- `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/Implementation Plan.md`
 - `architecture/Distributed Cache Coordination and CDC.md`
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
