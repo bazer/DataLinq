@@ -205,6 +205,20 @@ Exit criteria:
 
 ## Workstream E: Generated Metadata And Query Temporary Allocation
 
+Status: Complete as of 2026-05-10.
+
+Generated typed metadata conversion now pre-sizes table and column construction lists and lets generated metadata mark freshly-created `DatabaseColumnType` instances as owned, avoiding defensive clone churn while preserving clone isolation for user-authored typed drafts. Query rendering now appends provider parameter tokens directly for `WHERE` predicates, including multi-value `IN`/`NOT IN`, and update `SET` rendering avoids one-element parameter-name arrays. Relation index preload now precomputes the primary/foreign-key column projection once and groups primary keys with a dictionary instead of per-row `Concat`/`Distinct`/`ToArray` plus LINQ `GroupBy`.
+
+Verification completed:
+
+```powershell
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite generators --alias quick --output failures --build
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build
+```
+
+Benchmark evidence from the 2026-05-10 default-profile `sqlite-memory` rerun recorded Phase 2 watch allocations of 835.17 KB for provider initialization, 153.69 KB for startup primary-key fetch, and 15.30 KB for warm primary-key fetch. The Phase 3 query-hotpath rerun recorded 32.45 KB for repeated non-PK equality fetch, 25.19 KB for repeated scalar `Any`, and 47.70 KB for repeated `IN` predicate fetch. The direct SQL parameter-array removal is real, but the repeated `IN` benchmark remains dominated by LINQ `Contains` translation, row materialization, and database-read/cache behavior, so the allocation movement is small rather than a clean benchmark-level win. Timing noise was high and should not be used for latency claims.
+
 Goals:
 
 - reduce cold provider initialization allocation after metadata collection fixes land
