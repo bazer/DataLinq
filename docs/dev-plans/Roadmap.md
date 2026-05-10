@@ -305,24 +305,55 @@ Key related plans:
 - `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 
-### Phase 9: Cache, Memory, and Invalidation Foundations
+### Phase 9A: Release Hardening, Benchmarks, Allocation, and Cache Invalidation
 
-Status: recommended next broad runtime priority after the Phase 8B foundation, unless constrained-platform polish becomes urgent.
+Status: next release priority.
 
 Goals:
 
-- value deduplication and scoped interning
-- key deduplication where it proves worthwhile
-- cache compaction and better cleanup heuristics
-- tighter cache invalidation and memory-pressure awareness
-- row versioning or hash-based freshness primitives where they prove necessary
+- complete the warning cleanup plan and establish a credible warning baseline before deeper runtime changes
+- upgrade the benchmark history and website trend surface so future performance work has visible long-term evidence
+- implement the allocation-reduction audit workstreams: metadata collection shape, frozen metadata lookups, non-allocating key value access, generated metadata startup allocation, query temporary-array cleanup, and cache internals cleanup
+- characterize cache invalidation behavior with tests before changing semantics
+- harden cache invalidation around updates, deletes, changed relation/index columns, transaction commit/rollback boundaries, and cache notification subscribers
+- clean low-risk cache internals such as lazy cache snapshots, `IndexCache` reverse-map concurrency, and `RowCache.TotalBytes`
+- add benchmark and telemetry coverage that can prove whether cache invalidation became narrower, broader, or noisier
 
-Why not first:
+Why before the broader cache redesign:
 
-- memory work is easy to overdesign
-- the repo already has part of the structural groundwork in place
-- this should be driven by benchmark and observability evidence, not by aesthetic preference
-- dependency-tracked result-set caching depends on this work and should not force these foundations into Phase 3
+- warning noise should not be carried into a cache-semantics phase
+- allocation work is already measured and concrete enough to execute now
+- benchmark/trend work makes the rest of Phase 9 falsifiable instead of anecdotal
+- cache invalidation correctness is a foundation for row freshness, external invalidation, adaptive heuristics, and later result-set caching
+- this phase is large enough already; row hashing, external invalidation, and adaptive cache policy should not be mixed into the same release
+
+Key related plans:
+
+- `tooling/Warning Cleanup Plan.md`
+- `performance/Representative Benchmark Suite and Website Trends.md`
+- `performance/Allocation Reduction Audit.md`
+- `performance/Memory Optimization and Deduplication.md`
+- `performance/Memory management.md`
+
+### Phase 9B: Row Freshness, External Invalidation, and Adaptive Cache Policy
+
+Status: highest priority for the release after Phase 9A.
+
+Goals:
+
+- introduce row versioning or hash-based freshness primitives where they prove necessary
+- add explicit external invalidation hooks for host applications and event-driven integrations
+- implement adaptive cache heuristics only after Phase 9A telemetry can show whether they help
+- add memory-pressure-aware cleanup behavior and better cleanup scheduling
+- evaluate value/key deduplication and scoped interning with benchmark evidence before adopting global caches
+- keep cache behavior observable enough that users can tell whether invalidation came from mutation, external signal, freshness check, cleanup, or memory pressure
+
+Why after Phase 9A:
+
+- row hashing and external invalidation are product semantics, not cleanup
+- adaptive heuristics are dangerous without a measured baseline and clear override story
+- global key/value deduplication can easily add contention or retention bugs if it is not benchmark-led
+- dependency-tracked result-set caching depends on these foundations but remains a later semantic feature, not part of Phase 9B
 
 Key related plans:
 
@@ -442,7 +473,11 @@ Phase 7 LINQ feature expansion is implemented for its planned support boundary: 
 
 Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw emits WebAssembly native varargs warnings, and Roslyn still leaks into constrained publish payloads.
 
-Phase 8B is now the completed generated-contract and immutable metadata foundation. Phase 8C remains the bounded package/generated-runtime cleanup slice for constrained-platform polish, but it should not drag the Remotion/parser rewrite back into the critical path. The next broad runtime priority should be Phase 9 cache, memory, and invalidation foundations unless constrained-platform package cleanup becomes urgent.
+Phase 8B is now the completed generated-contract and immutable metadata foundation. Phase 8C remains the bounded package/generated-runtime cleanup slice for constrained-platform polish, but it should not drag the Remotion/parser rewrite back into the critical path.
+
+The next release priority should be Phase 9A: warning cleanup, benchmark/history improvements, allocation reduction, and conservative cache invalidation hardening. This is the right release boundary because it makes the compiler quieter, makes performance evidence visible, removes measured allocation waste, and tightens invalidation behavior before adding new cache semantics.
+
+The following release should prioritize Phase 9B: row freshness/hash primitives, external invalidation hooks, and adaptive cache policy. Those are high-value next steps, but they should build on Phase 9A's tests, telemetry, and benchmark baselines. Dependency-tracked result-set caching should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
