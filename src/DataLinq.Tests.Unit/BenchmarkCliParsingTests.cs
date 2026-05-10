@@ -23,4 +23,20 @@ public class BenchmarkCliParsingTests
 
         await Assert.That(result).IsEqualTo(0.25d);
     }
+
+    [Test]
+    public async Task ProfileCompatibility_DefaultsMissingProfileToDefault()
+    {
+        var result = BenchmarkHarnessRunner.AreBenchmarkProfilesCompatible(null, "default");
+
+        await Assert.That(result).IsTrue();
+    }
+
+    [Test]
+    public async Task ProfileCompatibility_RejectsMixedBenchmarkProfiles()
+    {
+        var result = BenchmarkHarnessRunner.AreBenchmarkProfilesCompatible("default", "heavy");
+
+        await Assert.That(result).IsFalse();
+    }
 }

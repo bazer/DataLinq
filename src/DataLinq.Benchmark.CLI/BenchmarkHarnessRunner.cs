@@ -24,6 +24,8 @@ internal sealed class BenchmarkHarnessRunner
     ];
     internal const string Phase2WatchCategory = "phase2-watch";
     internal const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
+    internal const string MacroReadWriteCategory = "macro-readwrite";
+    internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
     private const string BenchmarkRunIdEnvironmentVariable = "DATALINQ_BENCHMARK_RUN_ID";
     private const string BenchmarkResultsDirectoryEnvironmentVariable = "DATALINQ_BENCHMARK_RESULTS_DIR";
@@ -400,6 +402,10 @@ internal sealed class BenchmarkHarnessRunner
         var providerIndex = Array.IndexOf(headers, "ProviderName");
         var meanIndex = Array.IndexOf(headers, "Mean");
         var errorIndex = Array.IndexOf(headers, "Error");
+        var medianIndex = Array.IndexOf(headers, "Median");
+        var stdDevIndex = Array.IndexOf(headers, "StdDev");
+        var minIndex = Array.IndexOf(headers, "Min");
+        var maxIndex = Array.IndexOf(headers, "Max");
         var allocatedIndex = Array.IndexOf(headers, "Allocated");
 
         if (methodIndex < 0 || providerIndex < 0 || meanIndex < 0 || errorIndex < 0)
@@ -428,6 +434,10 @@ internal sealed class BenchmarkHarnessRunner
                     : "-",
                 MeanMicroseconds: TryParseDurationInMicroseconds(columns[meanIndex]),
                 ErrorMicroseconds: TryParseDurationInMicroseconds(columns[errorIndex]),
+                MedianMicroseconds: TryParseOptionalDuration(columns, medianIndex),
+                StdDevMicroseconds: TryParseOptionalDuration(columns, stdDevIndex),
+                MinMicroseconds: TryParseOptionalDuration(columns, minIndex),
+                MaxMicroseconds: TryParseOptionalDuration(columns, maxIndex),
                 AllocatedBytes: allocatedIndex >= 0 && columns.Length > allocatedIndex
                     ? TryParseAllocatedBytes(columns[allocatedIndex])
                     : null));
@@ -561,6 +571,11 @@ internal sealed class BenchmarkHarnessRunner
     private static string NormalizeCell(string value) =>
         value.Trim().Trim('\'', '"');
 
+    private static double? TryParseOptionalDuration(IReadOnlyList<string> columns, int index) =>
+        index >= 0 && columns.Count > index
+            ? TryParseDurationInMicroseconds(columns[index])
+            : null;
+
     private static Dictionary<(string Method, string ProviderName), BenchmarkTelemetryDeltaArtifact> LoadTelemetryDeltas(string resultsDirectory, string runId)
     {
         var deltas = new Dictionary<(string Method, string ProviderName), BenchmarkTelemetryDeltaArtifact>();
@@ -601,13 +616,21 @@ internal sealed class BenchmarkHarnessRunner
             Rows: rows.Select(static row => new BenchmarkSummaryArtifactRow(
                 Method: row.Method,
                 ProviderName: row.ProviderName,
+                Category: GetScenarioCategory(row.Method),
                 Mean: row.Mean,
                 Error: row.Error,
                 Allocated: row.Allocated,
                 MeanMicroseconds: row.MeanMicroseconds,
                 ErrorMicroseconds: row.ErrorMicroseconds,
+                MedianMicroseconds: row.MedianMicroseconds,
+                StdDevMicroseconds: row.StdDevMicroseconds,
+                MinMicroseconds: row.MinMicroseconds,
+                MaxMicroseconds: row.MaxMicroseconds,
                 AllocatedBytes: row.AllocatedBytes,
                 NoisePercent: GetRelativeError(row.MeanMicroseconds, row.ErrorMicroseconds) is double relativeError ? relativeError * 100d : null,
+                UncertaintyPercent: GetRelativeError(row.MeanMicroseconds, row.ErrorMicroseconds) is double uncertainty ? uncertainty * 100d : null,
+                StdDevPercent: GetRelativeError(row.MeanMicroseconds, row.StdDevMicroseconds) is double stdDevRelative ? stdDevRelative * 100d : null,
+                OperationsPerInvoke: row.TelemetryDelta?.OperationsPerInvoke,
                 TrackingGroup: GetTrackingGroup(row.Method),
                 TelemetryDelta: row.TelemetryDelta)).ToArray());
     }
@@ -626,17 +649,25 @@ internal sealed class BenchmarkHarnessRunner
 
     private static BenchmarkHistoryArtifact CreateHistoryArtifact(BenchmarkSummaryArtifact summaryArtifact)
         => new(
-            SchemaVersion: 1,
+            SchemaVersion: 2,
             RunId: summaryArtifact.RunId,
             GeneratedAtUtc: summaryArtifact.GeneratedAtUtc,
             Metadata: summaryArtifact.Metadata,
             Rows: summaryArtifact.Rows.Select(static row => new BenchmarkHistoryArtifactRow(
                 Method: row.Method,
                 ProviderName: row.ProviderName,
+                Category: row.Category,
                 MeanMicroseconds: row.MeanMicroseconds,
                 ErrorMicroseconds: row.ErrorMicroseconds,
+                MedianMicroseconds: row.MedianMicroseconds,
+                StdDevMicroseconds: row.StdDevMicroseconds,
+                MinMicroseconds: row.MinMicroseconds,
+                MaxMicroseconds: row.MaxMicroseconds,
                 AllocatedBytes: row.AllocatedBytes,
                 NoisePercent: row.NoisePercent,
+                UncertaintyPercent: row.UncertaintyPercent,
+                StdDevPercent: row.StdDevPercent,
+                OperationsPerInvoke: row.OperationsPerInvoke,
                 TrackingGroup: row.TrackingGroup,
                 TelemetryDelta: row.TelemetryDelta)).ToArray());
 
@@ -775,14 +806,21 @@ internal sealed class BenchmarkHarnessRunner
 
         var rows = new List<BenchmarkComparisonArtifactRow>(allKeys.Length);
         var warningCount = 0;
+        var profilesCompatible = AreBenchmarkProfilesCompatible(
+            baselineArtifact.Metadata.Profile,
+            candidateArtifact.Metadata.Profile);
 
         foreach (var key in allKeys)
         {
             baselineRows.TryGetValue(key, out var baselineRow);
             candidateRows.TryGetValue(key, out var candidateRow);
 
-            var meanDeltaPercent = GetDeltaPercent(baselineRow?.MeanMicroseconds, candidateRow?.MeanMicroseconds);
-            var allocatedDeltaPercent = GetDeltaPercent(baselineRow?.AllocatedBytes, candidateRow?.AllocatedBytes);
+            var meanDeltaPercent = profilesCompatible
+                ? GetDeltaPercent(baselineRow?.MeanMicroseconds, candidateRow?.MeanMicroseconds)
+                : null;
+            var allocatedDeltaPercent = profilesCompatible
+                ? GetDeltaPercent(baselineRow?.AllocatedBytes, candidateRow?.AllocatedBytes)
+                : null;
             var maxNoisePercent = new[] { baselineRow?.NoisePercent, candidateRow?.NoisePercent }
                 .Where(static value => value.HasValue)
                 .Select(static value => value!.Value)
@@ -795,7 +833,8 @@ internal sealed class BenchmarkHarnessRunner
                 meanDeltaPercent,
                 allocatedDeltaPercent,
                 maxNoisePercent,
-                warningThresholdPercent);
+                warningThresholdPercent,
+                profilesCompatible);
 
             if (status == "warning")
                 warningCount++;
@@ -803,6 +842,7 @@ internal sealed class BenchmarkHarnessRunner
             rows.Add(new BenchmarkComparisonArtifactRow(
                 Method: key.Method,
                 ProviderName: key.ProviderName,
+                Category: ResolveCategory(baselineRow, candidateRow, key.Method),
                 BaselineMeanMicroseconds: baselineRow?.MeanMicroseconds,
                 CandidateMeanMicroseconds: candidateRow?.MeanMicroseconds,
                 MeanDeltaPercent: meanDeltaPercent,
@@ -815,7 +855,7 @@ internal sealed class BenchmarkHarnessRunner
         }
 
         return new BenchmarkComparisonArtifact(
-            SchemaVersion: 1,
+            SchemaVersion: 2,
             GeneratedAtUtc: DateTime.UtcNow,
             WarningThresholdPercent: warningThresholdPercent,
             WarningCount: warningCount,
@@ -830,8 +870,12 @@ internal sealed class BenchmarkHarnessRunner
         double? meanDeltaPercent,
         double? allocatedDeltaPercent,
         double maxNoisePercent,
-        double warningThresholdPercent)
+        double warningThresholdPercent,
+        bool profilesCompatible)
     {
+        if (!profilesCompatible)
+            return "profile-mismatch";
+
         if (baselineRow is null || candidateRow is null)
             return "missing";
 
@@ -847,10 +891,25 @@ internal sealed class BenchmarkHarnessRunner
         return "stable";
     }
 
+    internal static bool AreBenchmarkProfilesCompatible(string? baselineProfile, string? candidateProfile) =>
+        string.Equals(
+            NormalizeBenchmarkProfile(baselineProfile),
+            NormalizeBenchmarkProfile(candidateProfile),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeBenchmarkProfile(string? profile) =>
+        string.IsNullOrWhiteSpace(profile) ? "default" : profile.Trim();
+
     private static string? ResolveTrackingGroup(
         BenchmarkHistoryArtifactRow? baselineRow,
         BenchmarkHistoryArtifactRow? candidateRow)
         => candidateRow?.TrackingGroup ?? baselineRow?.TrackingGroup ?? GetTrackingGroup(candidateRow?.Method ?? baselineRow?.Method);
+
+    private static string ResolveCategory(
+        BenchmarkHistoryArtifactRow? baselineRow,
+        BenchmarkHistoryArtifactRow? candidateRow,
+        string method)
+        => candidateRow?.Category ?? baselineRow?.Category ?? GetScenarioCategory(method);
 
     private static string? GetTrackingGroup(string? method)
         => method switch
@@ -862,6 +921,25 @@ internal sealed class BenchmarkHarnessRunner
             "Repeated IN predicate fetch" => Phase3QueryHotPathCategory,
             "Repeated scalar Any" => Phase3QueryHotPathCategory,
             _ => null
+        };
+
+    private static string GetScenarioCategory(string method)
+        => method switch
+        {
+            "Provider initialization" => "startup",
+            "Startup primary-key fetch" => "startup",
+            "Cold primary-key fetch" => "read-hotpath",
+            "Warm primary-key fetch" => "read-hotpath",
+            "Repeated non-PK equality fetch" => "read-hotpath",
+            "Repeated IN predicate fetch" => "read-hotpath",
+            "Repeated scalar Any" => "read-hotpath",
+            "Cold relation traversal" => "relation-traversal",
+            "Warm relation traversal" => "relation-traversal",
+            "Insert employees" => "mutation",
+            "Update employees" => "mutation",
+            "Delete employees" => "mutation",
+            "CRUD workflow" => MacroBulkCategory,
+            _ => "other"
         };
 
     private static double? GetDeltaPercent(double? baselineValue, double? candidateValue)
@@ -939,6 +1017,7 @@ internal sealed class BenchmarkHarnessRunner
             "noisy" => CreateMarkupCell("noisy", "yellow"),
             "improved" => CreateMarkupCell("improved", "green"),
             "missing" => CreateMarkupCell("missing", "grey"),
+            "profile-mismatch" => CreateMarkupCell("profile", "grey"),
             _ => new Text(status)
         };
 
@@ -1143,6 +1222,10 @@ internal sealed class BenchmarkHarnessRunner
         string Allocated,
         double? MeanMicroseconds,
         double? ErrorMicroseconds,
+        double? MedianMicroseconds,
+        double? StdDevMicroseconds,
+        double? MinMicroseconds,
+        double? MaxMicroseconds,
         double? AllocatedBytes);
 
     private sealed record MergedBenchmarkSummaryRow(
@@ -1153,11 +1236,28 @@ internal sealed class BenchmarkHarnessRunner
         string Allocated,
         double? MeanMicroseconds,
         double? ErrorMicroseconds,
+        double? MedianMicroseconds,
+        double? StdDevMicroseconds,
+        double? MinMicroseconds,
+        double? MaxMicroseconds,
         double? AllocatedBytes,
         BenchmarkTelemetryDeltaArtifact? TelemetryDelta)
     {
         public MergedBenchmarkSummaryRow(BenchmarkSummaryRow row, BenchmarkTelemetryDeltaArtifact? telemetryDelta)
-            : this(row.Method, row.ProviderName, row.Mean, row.Error, row.Allocated, row.MeanMicroseconds, row.ErrorMicroseconds, row.AllocatedBytes, telemetryDelta)
+            : this(
+                row.Method,
+                row.ProviderName,
+                row.Mean,
+                row.Error,
+                row.Allocated,
+                row.MeanMicroseconds,
+                row.ErrorMicroseconds,
+                row.MedianMicroseconds,
+                row.StdDevMicroseconds,
+                row.MinMicroseconds,
+                row.MaxMicroseconds,
+                row.AllocatedBytes,
+                telemetryDelta)
         {
         }
     }
@@ -1171,13 +1271,21 @@ internal sealed class BenchmarkHarnessRunner
     private sealed record BenchmarkSummaryArtifactRow(
         string Method,
         string ProviderName,
+        string Category,
         string Mean,
         string Error,
         string Allocated,
         double? MeanMicroseconds,
         double? ErrorMicroseconds,
+        double? MedianMicroseconds,
+        double? StdDevMicroseconds,
+        double? MinMicroseconds,
+        double? MaxMicroseconds,
         double? AllocatedBytes,
         double? NoisePercent,
+        double? UncertaintyPercent,
+        double? StdDevPercent,
+        int? OperationsPerInvoke,
         string? TrackingGroup,
         BenchmarkTelemetryDeltaArtifact? TelemetryDelta);
 
@@ -1225,10 +1333,18 @@ internal sealed class BenchmarkHarnessRunner
     private sealed record BenchmarkHistoryArtifactRow(
         string Method,
         string ProviderName,
+        string Category,
         double? MeanMicroseconds,
         double? ErrorMicroseconds,
+        double? MedianMicroseconds,
+        double? StdDevMicroseconds,
+        double? MinMicroseconds,
+        double? MaxMicroseconds,
         double? AllocatedBytes,
         double? NoisePercent,
+        double? UncertaintyPercent,
+        double? StdDevPercent,
+        int? OperationsPerInvoke,
         string? TrackingGroup,
         BenchmarkTelemetryDeltaArtifact? TelemetryDelta);
 
@@ -1244,6 +1360,7 @@ internal sealed class BenchmarkHarnessRunner
     private sealed record BenchmarkComparisonArtifactRow(
         string Method,
         string ProviderName,
+        string Category,
         double? BaselineMeanMicroseconds,
         double? CandidateMeanMicroseconds,
         double? MeanDeltaPercent,

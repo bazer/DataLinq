@@ -21,8 +21,6 @@ internal sealed class DataLinqBenchmarkConfig : ManualConfig
         HideColumns(
             Column.Job,
             Column.StdErr,
-            Column.StdDev,
-            Column.Median,
             Column.RatioSD,
             Column.Gen0,
             Column.Gen1,

@@ -15,6 +15,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string StableCategory = "stable";
     private const string Phase2WatchCategory = "phase2-watch";
     private const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
+    private const string MacroBulkCategory = "macro-bulk";
     private BenchmarkContext? context;
     private BenchmarkScenario? executedScenario;
 
@@ -101,7 +102,7 @@ public class EmployeesBenchmarks : IDisposable
         context!.CleanupCrudWorkflowEmployees();
     }
 
-    [BenchmarkCategory("experimental", "macro")]
+    [BenchmarkCategory("experimental", MacroBulkCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.CrudWorkflowOperationCount, Description = "CRUD workflow")]
     public int CrudWorkflow()
     {

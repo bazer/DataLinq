@@ -64,9 +64,28 @@ jobs:
         run: |
           mkdir -p artifacts/benchmarks/ci
 
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          profile = os.environ.get("BENCHMARK_PROFILE", "default")
+          history_path = Path("benchmark-data-worktree/benchmarks/history.json")
+          baseline_path = Path("artifacts/benchmarks/ci/baseline-same-profile.json")
+
+          if history_path.exists():
+              history = json.loads(history_path.read_text(encoding="utf-8"))
+              candidates = [
+                  run for run in history.get("Runs", [])
+                  if (run.get("Metadata") or {}).get("Profile", "default") == profile
+              ]
+              if candidates:
+                  baseline_path.write_text(json.dumps(candidates[-1], indent=2) + "\n", encoding="utf-8")
+          PY
+
           baseline_args=()
-          if [ -f benchmark-data-worktree/benchmarks/latest.json ]; then
-            baseline_args+=(--baseline benchmark-data-worktree/benchmarks/latest.json)
+          if [ -f artifacts/benchmarks/ci/baseline-same-profile.json ]; then
+            baseline_args+=(--baseline artifacts/benchmarks/ci/baseline-same-profile.json)
             baseline_args+=(--comparison-json artifacts/benchmarks/ci/latest-comparison.json)
           fi
 
@@ -91,6 +110,7 @@ jobs:
           python - <<'PY'
           import json
           import shutil
+          from datetime import datetime, timedelta, timezone
           from pathlib import Path
 
           latest_run_path = Path("artifacts/benchmarks/ci/latest-history.json")
@@ -119,9 +139,47 @@ jobs:
           runs = [run for run in history.get("Runs", []) if run.get("RunId") != latest_run.get("RunId")]
           runs.append(latest_run)
           runs.sort(key=lambda run: run.get("GeneratedAtUtc", ""))
-          runs = runs[-120:]
 
-          history["SchemaVersion"] = 1
+          def parse_utc(value):
+              if not value:
+                  return None
+              try:
+                  return datetime.fromisoformat(value.replace("Z", "+00:00"))
+              except ValueError:
+                  return None
+
+          latest_at = parse_utc(latest_run.get("GeneratedAtUtc")) or datetime.now(timezone.utc)
+          recent_cutoff = latest_at - timedelta(days=183)
+          weekly_cutoff = latest_at - timedelta(days=730)
+          retained = []
+          thinned = {}
+
+          for run in runs:
+              generated_at = parse_utc(run.get("GeneratedAtUtc"))
+              if generated_at is None:
+                  retained.append(run)
+                  continue
+
+              if generated_at >= recent_cutoff:
+                  retained.append(run)
+                  continue
+
+              profile = (run.get("Metadata") or {}).get("Profile", "default")
+              if generated_at >= weekly_cutoff:
+                  iso_year, iso_week, _ = generated_at.isocalendar()
+                  key = ("week", profile, iso_year, iso_week)
+              else:
+                  key = ("month", profile, generated_at.year, generated_at.month)
+
+              thinned[key] = run
+
+          by_run_id = {}
+          for run in retained + list(thinned.values()):
+              by_run_id[run.get("RunId") or f"anonymous-{len(by_run_id)}"] = run
+
+          runs = sorted(by_run_id.values(), key=lambda run: run.get("GeneratedAtUtc", ""))
+
+          history["SchemaVersion"] = 2
           history["GeneratedAtUtc"] = latest_run["GeneratedAtUtc"]
           history["Runs"] = runs
 
