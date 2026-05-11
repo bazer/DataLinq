@@ -15,11 +15,14 @@ This phase should be deliberately dull. The important feature is not a clever di
 Phase 11 should start from:
 
 - Phase 9A invalidation tests and telemetry
-- Phase 10 provider-key cache paths or a clearly documented temporary bridge
+- Phase 10 provider-key table/key descriptors or generated key accessors
+- Phase 10 row-cache remove paths by provider key components
+- Phase 10 relation/index invalidation hooks by provider key components, or a documented conservative table-level fallback
+- Phase 10's list of remaining `IKey` dependencies and whether Phase 11 may touch them
 - mutation invalidation behavior that is characterized for update, delete, commit, and rollback
 - benchmark baselines for warm primary-key fetch, relation traversal, and cache cleanup
 
-If Phase 10 has not removed `IKey` from the relevant cache APIs yet, Phase 11 may use transitional adapters internally, but the public invalidation shape should still be provider-key-oriented.
+If Phase 10 has not removed `IKey` from every relevant cache API, Phase 11 may use transitional adapters internally. It must not promote those adapters into the public invalidation surface.
 
 ## Goals
 
@@ -53,24 +56,28 @@ Candidate shape:
 database.Cache.Clear();
 database.Cache.ClearTable<TModel>();
 database.Cache.ClearTable(TableDefinition table);
-database.Cache.Invalidate<TModel>(providerPrimaryKey);
-database.Cache.Invalidate(TableDefinition table, IReadOnlyList<object?> providerPrimaryKey);
-database.Cache.InvalidateMany(TableDefinition table, IReadOnlyList<IReadOnlyList<object?>> providerPrimaryKeys);
+database.Cache.Invalidate<TModel, TKey>(TKey providerPrimaryKey);
+database.Cache.Invalidate<TModel>(DataLinqKeyComponents providerPrimaryKey);
+database.Cache.Invalidate(TableDefinition table, DataLinqKeyComponents providerPrimaryKey);
+database.Cache.InvalidateMany(TableDefinition table, IReadOnlyList<DataLinqKeyComponents> providerPrimaryKeys);
 ```
+
+The exact public shape can differ. The important boundary is that generated and typed call sites should use provider-key components directly, while dynamic metadata call sites may use a small key-component carrier. That carrier must not become `IKey` under a new name.
 
 Tasks:
 
 1. Decide where the public surface belongs: `Database`, provider state, cache facade, or a dedicated cache coordinator.
 2. Add table-level and database-level clear operations.
-3. Add primary-key invalidation by generated provider-key accessors.
-4. Add composite provider-key invalidation without requiring `object?[]` on hot generated paths.
+3. Add primary-key invalidation through Phase 10 generated/provider-key accessors.
+4. Add a dynamic metadata fallback for composite provider-key invalidation without requiring `object?[]` on generated hot paths.
 5. Define unknown-key behavior: no-op, diagnostic event, or exception depending on API shape.
-6. Add unit tests for clear all, clear table, clear one row, clear many rows, and unknown row signals.
+6. Add unit tests for clear all, clear table, clear one row, clear many rows, composite keys, and unknown row signals.
 
 Exit criteria:
 
 - applications can explicitly clear cached rows without internal access
 - generated table APIs can call invalidation without constructing `IKey`
+- dynamic invalidation uses a bounded provider-key component carrier, not `IKey`
 - table-level clear exists as a conservative fallback
 
 ## Workstream B: Relation And Index Invalidation
@@ -83,8 +90,8 @@ Goals:
 Tasks:
 
 1. Reuse mutation invalidation internals where possible.
-2. Invalidate relation indexes affected by a row key.
-3. Invalidate table-level relation/index state when key-level precision is unavailable.
+2. Invalidate relation indexes affected by provider key components.
+3. Invalidate table-level relation/index state when key-level precision is unavailable or when Phase 10 left only a conservative fallback.
 4. Add tests for FK relation loading followed by external parent/child invalidation.
 5. Add tests for changed relation/index columns where external invalidation cannot know the old value.
 
@@ -106,6 +113,7 @@ Candidate fields:
 - database name or generated database type
 - table name or table model type
 - provider primary-key components
+- key arity and provider component types when useful for validation
 - invalidation scope: row, rows, table, database
 - source name: mutation, external, manual, cleanup, freshness, memory-pressure
 - optional freshness/version token
@@ -117,12 +125,14 @@ Tasks:
 2. Support manual construction for application-driven invalidation.
 3. Keep transport-specific metadata out of the core DTO.
 4. Add validation for missing table/key fields.
-5. Add tests for conservative downgrade when an event lacks precise keys.
+5. Add tests for component-count/type mismatches.
+6. Add tests for conservative downgrade when an event lacks precise keys.
 
 Exit criteria:
 
 - external adapters can feed invalidation without referencing cache internals
 - invalidation signals are serializable or easy to serialize in application code
+- event handling validates key arity and provider component compatibility before touching cache internals
 - unsupported payloads fail clearly or downgrade conservatively
 
 ## Workstream D: Freshness Vocabulary
@@ -161,14 +171,16 @@ Tasks:
 1. Add telemetry dimensions for invalidation source, scope, table, and approximate work performed.
 2. Add stress tests for concurrent external invalidation during reads.
 3. Add benchmark probes for invalidating one row, many rows, a table, and a database.
-4. Update cache documentation only for shipped behavior.
-5. Leave CDC, adaptive policy, and result-set caching explicitly deferred.
+4. Record whether invalidation used precise provider-key removal or conservative table fallback.
+5. Update cache documentation only for shipped behavior.
+6. Leave CDC, adaptive policy, and result-set caching explicitly deferred.
 
 Exit criteria:
 
 - cache invalidation behavior is test-covered by scope and source
 - telemetry can explain why a cache entry disappeared
 - benchmark evidence exists for invalidation overhead
+- closeout states which invalidation paths are provider-key precise and which are conservative fallbacks
 
 ## Verification
 
@@ -198,6 +210,7 @@ Phase 11 can ship when:
 
 - external invalidation works without optional bus/CDC dependencies
 - database, table, and provider-key row invalidation scopes are public and tested
+- generated invalidation paths use Phase 10 provider-key accessors or explicitly documented temporary bridges
 - relation/index invalidation does not diverge from mutation invalidation
 - invalidation telemetry records source and scope
 - docs explain that external invalidation is explicit signaling, not automatic distributed coherence

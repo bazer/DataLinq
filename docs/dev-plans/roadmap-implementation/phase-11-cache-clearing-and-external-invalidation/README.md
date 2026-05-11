@@ -17,6 +17,7 @@ In scope:
 - explicit cache clearing APIs for database, table, and primary-key scopes
 - invalidation event envelopes suitable for later CDC/message-bus adapters
 - relation/index invalidation through the same internals as mutation invalidation
+- provider-key invalidation through Phase 10 key descriptors/accessors, with any dynamic key carrier kept bounded and separate from legacy `IKey`
 - cache telemetry that identifies mutation, external, cleanup, memory-pressure, and freshness-related invalidation sources
 - a minimal row freshness vocabulary for later validation and result-set caching work
 
@@ -32,6 +33,7 @@ Out of scope:
 ## Source Plans
 
 - [Implementation Plan](Implementation%20Plan.md)
+- [Phase 10 Implementation Plan](../phase-10-key-and-allocation-foundation/Implementation%20Plan.md)
 - [Phase 9A Implementation Plan](../../archive/roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation%20Plan.md)
 - [Distributed Cache Coordination and CDC](../../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 - [Memory management](../../performance/Memory%20management.md)
@@ -43,6 +45,7 @@ Phase 11 is done when:
 
 - applications can explicitly clear all cached data, one table, or specific primary-key rows
 - external invalidation can use provider-key values without constructing legacy `IKey` objects
+- dynamic invalidation does not reintroduce a universal key abstraction under a new name
 - relation and index cache entries are invalidated consistently with mutation invalidation
 - invalidation telemetry records source, table, scope, and approximate cost
 - unsupported or unknown invalidation signals fail predictably or degrade to conservative table invalidation

@@ -365,6 +365,7 @@ Why first:
 Key related plans:
 
 - `roadmap-implementation/phase-10-key-and-allocation-foundation/README.md`
+- `roadmap-implementation/phase-10-key-and-allocation-foundation/Implementation Plan.md`
 - `performance/Generated Provider-Key Cache Design.md`
 - `performance/Allocation Reduction Audit.md`
 - `metadata-and-generation/Scalar Converter Support.md`
