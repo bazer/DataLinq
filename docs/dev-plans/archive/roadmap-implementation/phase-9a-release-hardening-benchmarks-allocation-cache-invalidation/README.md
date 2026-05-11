@@ -17,7 +17,7 @@ The goal is not to ship a clever new cache system yet. The goal is to make the e
 - harden cache invalidation around mutation and transaction boundaries
 - clean small cache internals that are already known to be allocation or concurrency risks
 
-That combination is large, but it is coherent. It improves trust in the product before Phase 9B introduces row freshness, external invalidation hooks, and adaptive policy.
+That combination is large, but it is coherent. It improves trust in the product before the follow-up Phase 10-12 key/cache work introduces provider-key cache paths, external invalidation hooks, memory-pressure cleanup, and adaptive policy.
 
 ## Execution Boundary
 

@@ -3,7 +3,7 @@
 
 # Allocation Reduction Audit
 
-**Status:** Draft audit, refreshed with 2026-05-10 local benchmark data
+**Status:** Draft audit, refreshed with 2026-05-10 local benchmark data. Remaining execution is split between Phase 10 key/allocation foundation and Phase 12 memory-pressure cleanup/deduplication.
 **Created:** 2026-05-09  
 **Scope:** provider initialization, generated metadata startup, metadata access, keys, row data, cache internals, and query construction.
 

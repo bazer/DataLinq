@@ -20,8 +20,14 @@ Active or deferred execution plans:
 
 | Phase | Status | Directory |
 | --- | --- | --- |
-| Phase 9B: Row Freshness, External Invalidation, and Adaptive Cache Policy | Planned follow-up cache-semantics release | `phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/` |
-| Phase 13: Query Plan and Remotion Isolation | Deferred query-boundary and WebAssembly warning phase | `phase-13-query-plan-and-remotion-isolation/` |
+| Phase 10: Key and Allocation Foundation | Next implementation priority | `phase-10-key-and-allocation-foundation/` |
+| Phase 11: Cache Clearing and External Invalidation | Planned cache-control phase | `phase-11-cache-clearing-and-external-invalidation/` |
+| Phase 12: Memory-Pressure Cleanup and Measured Deduplication | Planned cache-maintenance phase | `phase-12-memory-pressure-cleanup-and-measured-deduplication/` |
+| Phase 13: Explicit Multi-Join Composition | Planned query-composition phase | `phase-13-explicit-multi-join-composition/` |
+| Phase 14: Relation-Aware Joins and Left Joins | Planned join API phase | `phase-14-relation-aware-joins-and-left-joins/` |
+| Phase 15: Scalar Converters and Typed-Key Ergonomics | Planned conversion/key ergonomics phase | `phase-15-scalar-converters-and-typed-key-ergonomics/` |
+| Phase 16: Dependency-Tracked Result-Set Caching | Deferred semantic cache phase | `phase-16-dependency-tracked-result-set-caching/` |
+| Phase 17: Query Plan and Remotion Isolation | Deferred query-boundary and WebAssembly warning phase | `phase-17-query-plan-and-remotion-isolation/` |
 
 Completed execution records for Phases 1 through 9A live in [`../archive/roadmap-implementation/README.md`](../archive/roadmap-implementation/README.md).
 
@@ -39,9 +45,9 @@ The Phase 7 plan completed scalar aggregates, projection expansion, nullable pre
 
 The Phase 8 plan closed with executable generated SQLite smoke coverage for Native AOT, trimmed publish, and Blazor WebAssembly AOT. Phase 8B closed the generated-contract and immutable metadata foundation. Phase 8C then completed the bounded package/generated-runtime cleanup: repeatable size reports, Roslyn removal from runtime dependency groups, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and package/public wording.
 
-The query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw warning work remain Phase 13 at the back of the roadmap.
+The query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw warning work remain Phase 17 at the back of the roadmap.
 
-Phase 9 is now split into two execution slices. Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims. Phase 9B is the follow-up cache-semantics phase: row freshness, external invalidation hooks, adaptive cache policy, memory-pressure-aware cleanup, and measured deduplication.
+Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims. The remaining roadmap now starts at Phase 10 with the key/allocation foundation, then moves through explicit cache clearing, memory cleanup, joins, scalar converters, result-set caching, and finally Remotion isolation.
 
 For the older Phase 4/5 checkpoint, see the archived [Phase 4 and 5 Status Review](../archive/roadmap-implementation/Phase%204%20and%205%20Status%20Review.md).
 

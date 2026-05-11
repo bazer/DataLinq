@@ -1,6 +1,6 @@
 > [!WARNING]
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
-# Phase 13 Implementation Plan: Query Plan and Remotion Isolation
+# Phase 17 Implementation Plan: Query Plan and Remotion Isolation
 
 **Status:** Deferred to the back of the roadmap.
 
@@ -207,7 +207,7 @@ Blazor WebAssembly builds are known to be unreliable inside the Codex sandbox on
 
 ## Exit Criteria
 
-Phase 13 is complete when:
+Phase 17 is complete when:
 
 - Remotion still parses compatibility queries, but ordinary SQL generation consumes DataLinq plan nodes
 - generated SQLite AOT and trim smokes run without `Remotion.Linq` roots or warnings

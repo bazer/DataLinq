@@ -34,7 +34,7 @@ Remaining warning disposition:
 
 | Warning | Owner | Reason | Future disposition |
 | --- | --- | --- | --- |
-| `WASM0001` in `DataLinq.BlazorWasm` | Phase 13 query plan and WebAssembly warning work | The Blazor WebAssembly project is deliberately a SQLite smoke project, and `SQLitePCLRaw.provider.e_sqlite3` links native varargs exports such as `sqlite3_config` and `sqlite3_db_config`. The warning is real: calling those exports from WebAssembly would fail. | Keep the warning visible. Do not suppress it in library code. Phase 13 must either prove the affected symbols are unreachable for the supported smoke path, switch to a browser-safe SQLite provider/bundle, or keep the warning as an explicit support caveat. |
+| `WASM0001` in `DataLinq.BlazorWasm` | Phase 17 query plan and WebAssembly warning work | The Blazor WebAssembly project is deliberately a SQLite smoke project, and `SQLitePCLRaw.provider.e_sqlite3` links native varargs exports such as `sqlite3_config` and `sqlite3_db_config`. The warning is real: calling those exports from WebAssembly would fail. | Keep the warning visible. Do not suppress it in library code. Phase 17 must either prove the affected symbols are unreachable for the supported smoke path, switch to a browser-safe SQLite provider/bundle, or keep the warning as an explicit support caveat. |
 
 The per-project audit artifacts are:
 

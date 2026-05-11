@@ -2,11 +2,11 @@
 > This document is roadmap and engineering planning material. It is not normative product documentation and should not be treated as a shipped support claim.
 # Remotion.Linq Replacement Plan
 
-**Status:** Deferred follow-up plan after Phase 8; roadmap execution moved to Phase 13.
+**Status:** Deferred follow-up plan after Phase 8; roadmap execution moved to Phase 17.
 
 **Created:** 2026-05-05.
 
-**Update 2026-05-08:** This is no longer part of Phase 8B or Phase 8C. The executable roadmap slice is [Phase 13: Query Plan and Remotion Isolation](../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md), after the nearer memory/cache priorities unless constrained-platform query support becomes urgent.
+**Update 2026-05-11:** This is no longer part of Phase 8B or Phase 8C. The executable roadmap slice is [Phase 17: Query Plan and Remotion Isolation](../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md), after the nearer key/cache, join, scalar-converter, and result-set caching priorities unless constrained-platform query support becomes urgent.
 
 ## Purpose
 

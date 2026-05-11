@@ -298,7 +298,7 @@ Closeout result:
 - Roslyn/compiler dependencies are split out of the runtime package graph
 - generated startup uses complete generated metadata through the factory path instead of rediscovering ordinary model metadata through reflection
 - generated immutable, mutable, and relation access paths use generated indices or handles where that removes avoidable runtime lookup
-- public compatibility wording is narrow and leaves the Remotion/query-parser and SQLitePCLRaw warning work to Phase 13
+- public compatibility wording is narrow and leaves the Remotion/query-parser and SQLitePCLRaw warning work to Phase 17
 
 Key related plans:
 
@@ -314,7 +314,7 @@ Goals:
 
 - complete the warning cleanup plan and establish a credible warning baseline before deeper runtime changes
 - upgrade the benchmark history and website trend surface so future performance work has visible long-term evidence
-- implement the allocation-reduction audit workstreams: metadata collection shape, frozen metadata lookups, non-allocating key value access, generated metadata startup allocation, query temporary-array cleanup, and cache internals cleanup
+- implement the first allocation-reduction pass and leave the deeper provider-key/cache identity work to the follow-up foundation phase
 - characterize cache invalidation behavior with tests before changing semantics
 - harden cache invalidation around updates, deletes, changed relation/index columns, transaction commit/rollback boundaries, and cache notification subscribers
 - clean low-risk cache internals such as lazy cache snapshots, `IndexCache` reverse-map concurrency, and `RowCache.TotalBytes`
@@ -324,7 +324,7 @@ Closeout result:
 
 - warning cleanup, benchmark-history website work, allocation reductions, cache invalidation characterization, and conservative cache internals hardening are complete
 - final default-profile `sqlite-memory` benchmark closeout supports allocation and invalidation claims, but not latency claims because every timing comparison row was noisy
-- Phase 9B should start from the new invalidation tests, cache-maintenance telemetry, and profile-aware benchmark history rather than revisiting Phase 9A cleanup
+- Phase 10 and Phase 11 should start from the new invalidation tests, cache-maintenance telemetry, and profile-aware benchmark history rather than revisiting Phase 9A cleanup
 
 Why before the broader cache redesign:
 
@@ -344,101 +344,176 @@ Key related plans:
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
 
-### Phase 9B: Row Freshness, External Invalidation, and Adaptive Cache Policy
+### Phase 10: Key and Allocation Foundation
 
-Status: next cache-semantics priority.
+Status: next implementation priority.
 
 Goals:
 
-- introduce row versioning or hash-based freshness primitives where they prove necessary
-- add explicit external invalidation hooks for host applications and event-driven integrations
-- implement adaptive cache heuristics only after Phase 9A telemetry can show whether they help
-- add memory-pressure-aware cleanup behavior and better cleanup scheduling
-- evaluate value/key deduplication and scoped interning with benchmark evidence before adopting global caches
-- keep cache behavior observable enough that users can tell whether invalidation came from mutation, external signal, freshness check, cleanup, or memory pressure
+- replace defensive metadata array snapshots with stable read-only collection APIs and internal non-copying accessors
+- add frozen lookup maps for common table and column resolution
+- move generated primary-key and relation cache paths toward provider-key components instead of lookup-only `IKey` objects
+- keep scalar-converter hooks in the design without blocking the first provider-key cache pass on full typed-ID ergonomics
+- refresh allocation benchmarks before and after the work
 
-Why after Phase 9A:
+Why first:
 
-- row hashing and external invalidation are product semantics, not cleanup
-- adaptive heuristics are dangerous without a measured baseline and clear override story
-- global key/value deduplication can easily add contention or retention bugs if it is not benchmark-led
-- dependency-tracked result-set caching depends on these foundations but remains a later semantic feature, not part of Phase 9B
+- joins multiply materialization and key lookup costs
+- external invalidation should be designed around provider-key values, not around an abstraction we plan to delete
+- later cache and result-set work needs a credible identity layer
 
 Key related plans:
 
-- `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/README.md`
-- `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/Implementation Plan.md`
+- `roadmap-implementation/phase-10-key-and-allocation-foundation/README.md`
+- `performance/Generated Provider-Key Cache Design.md`
+- `performance/Allocation Reduction Audit.md`
+- `metadata-and-generation/Scalar Converter Support.md`
+
+### Phase 11: Cache Clearing and External Invalidation
+
+Status: planned after Phase 10.
+
+Goals:
+
+- add explicit cache clearing APIs for database, table, and provider-key row scopes
+- support external invalidation event envelopes without depending on a message bus or CDC package
+- invalidate relation and index cache entries through the same mechanics as mutation invalidation
+- define a minimal row freshness vocabulary without forcing provider hash/version checks into the first invalidation slice
+- make invalidation telemetry identify source, scope, table, and approximate cost
+
+Why after Phase 10:
+
+- explicit invalidation needs stable key identity
+- the first user-facing cache API should not expose `IKey` if `IKey` is being removed
+- row freshness and result-set caching need invalidation semantics they can build on
+
+Key related plans:
+
+- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md`
+- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Implementation Plan.md`
 - `architecture/Distributed Cache Coordination and CDC.md`
-- `performance/Memory Optimization and Deduplication.md`
 - `performance/Memory management.md`
 
-### Phase 10: Async and Loading Semantics
+### Phase 12: Memory-Pressure Cleanup and Measured Deduplication
+
+Status: planned after Phase 11.
 
 Goals:
 
-- define a serious async provider pipeline
-- decide how explicit or implicit lazy loading should be
-- add strong sync/async boundary rules before widening the public API
+- make cache cleanup react to memory pressure through a testable abstraction
+- add better cleanup scheduling without unbounded background work
+- clean cache internals such as lazy snapshots, index reverse-map concurrency, and row-cache byte accounting
+- evaluate value/key deduplication and scoped interning with retention and contention evidence
+- keep adaptive policy conservative and overrideable
 
-Why later:
+Why after explicit invalidation:
 
-- async support matters, but it is also easy to make deceptively magical and difficult to reason about
-- this work benefits from benchmark data, observability, and stronger runtime primitives
-- DataLinq should not commit too early to a cute API that hides expensive I/O
-
-Important stance:
-
-- first-class async query and mutation APIs are good
-- hidden sync fallback on property access is dangerous and must remain tightly controlled if it exists at all
-- explicit preload/include mechanisms should remain the primary answer to N+1 issues
+- cleanup policy is easier to debug when invalidation sources and scopes are already observable
+- global key/value deduplication can easily add contention or retention bugs if it is not benchmark-led
+- adaptive behavior should not precede clear user-driven cache control
 
 Key related plans:
 
-- `query-and-runtime/Async and Lazy Loading.md`
+- `roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/README.md`
+- `performance/Memory Optimization and Deduplication.md`
+- `performance/Memory management.md`
+- `performance/Allocation Reduction Audit.md`
 
-### Phase 11: Capability Expansion
+### Phase 13: Explicit Multi-Join Composition
+
+Status: planned after Phase 12.
 
 Goals:
 
-- add features that expand scope after the core is measured and hardened
-- examples include JSON columns, in-memory provider work, broader query pipeline abstraction, projections/views, and batched mutations
+- make standard C# query-syntax joins a documented, tested path
+- support multiple explicit inner joins instead of the current narrow single-join boundary
+- support filtering, ordering, paging, and result operators over joined row shapes
+- keep joined materialization on provider-key components where Phase 10 made that possible
+- update public query docs and the support matrix only for shipped join shapes
 
-Why last:
+Why before relation-aware joins:
 
-- these features are easier to justify after the core product is more trustworthy
-- several of them depend on earlier architectural work anyway
+- `JoinBy(...)` should not be prettier syntax over a weak explicit-join engine
+- query syntax remains the clearest shape for joins that are not backed by relation metadata
+- explicit joins expose materialization and aliasing problems before the API surface widens
 
 Key related plans:
 
+- `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
+- `query-and-runtime/Relation-Aware Join API.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### Phase 14: Relation-Aware Joins and Left Joins
+
+Status: planned after Phase 13.
+
+Goals:
+
+- add relation-expression resolution for generated singular and collection relations
+- implement `JoinBy(...)` and `JoinMany(...)`
+- add join-local `on:` predicates
+- add `LeftJoinBy(...)` and `LeftJoinMany(...)` with honest nullable joined values
+- document `ON` versus `WHERE` behavior for left joins
+
+Why after explicit joins:
+
+- relation metadata should supply key equality, not hide an immature join engine
+- left joins add nullability and cardinality complexity that should land after inner join composition is stable
+
+Key related plans:
+
+- `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
+- `query-and-runtime/Relation-Aware Join API.md`
+- `../support-matrices/LINQ Translation Support Matrix.md`
+
+### Phase 15: Scalar Converters and Typed-Key Ergonomics
+
+Status: planned after Phase 14 unless typed-key demand pulls it forward.
+
+Goals:
+
+- add first-class scalar converter metadata and explicit converter registration
+- normalize model values to provider values for reads, writes, query constants, joins, keys, and relations
+- support typed-ID equality and local membership queries
+- update schema validation so provider storage type, not model CLR type, drives database comparison
+- add typed-key generation only after manual converter behavior is stable
+
+Why here:
+
+- Phase 10 should make room for provider-key storage, but full typed-key ergonomics are broader than cache internals
+- joins should work for ordinary provider values before typed-ID joins become a product promise
+- scalar converters unlock more than keys: JSON-as-value, legacy string parsing, and domain value objects all depend on the same layer
+
+Key related plans:
+
+- `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
 - `metadata-and-generation/Scalar Converter Support.md`
-- `providers-and-features/JSON Data Type Support.md`
-- `providers-and-features/In-Memory Provider.md`
-- `query-and-runtime/Query Pipeline Abstraction.md`
-- `query-and-runtime/Projections and Views.md`
-- `query-and-runtime/Batched mutations.md`
+- `performance/Generated Provider-Key Cache Design.md`
 
-### Phase 12: Dependency-Tracked Result-Set Caching
+### Phase 16: Dependency-Tracked Result-Set Caching
+
+Status: deferred until cache invalidation, freshness vocabulary, joins, and projection semantics are stronger.
 
 Goals:
 
 - support explicit cached computation scopes
 - record dependency fingerprints for rows read during a computation
-- validate stamped results against current row version markers
-- integrate cached result invalidation with the cache/memory foundations rather than arbitrary TTLs
+- validate stamped results against current dependency state
+- integrate result invalidation with the cache/key/join foundations instead of arbitrary TTLs
 
-Why last:
+Why late:
 
 - this is not SQL-generation optimization; it is a semantic caching feature
-- it depends on row freshness/versioning, invalidation behavior, projection/view semantics, and observability
+- it depends on invalidation behavior, freshness vocabulary, projection/view semantics, joins, and observability
 - shipping it too early would create a clever cache whose correctness story is harder to defend than the performance win
 
 Key related plans:
 
+- `roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md`
 - `query-and-runtime/Result set caching.md`
 - `query-and-runtime/Projections and Views.md`
-- `performance/Memory management.md`
 
-### Phase 13: Query Plan and Remotion Isolation
+### Phase 17: Query Plan and Remotion Isolation
 
 Status: deferred to the back of the roadmap.
 
@@ -455,13 +530,13 @@ Why last:
 
 - this is a query-pipeline migration, not a cleanup task
 - it has high regression risk across the LINQ support matrix
-- memory/cache work is more important right now
-- Phase 8C can clean the package/generated-runtime surface without forcing a parser rewrite
+- key/cache and join work are more important right now
+- Phase 8C cleaned the package/generated-runtime surface without forcing a parser rewrite
 
 Key related plans:
 
-- `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/README.md`
-- `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation Plan.md`
+- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md`
+- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
 - `query-and-runtime/Remotion.Linq Replacement Plan.md`
 - `../support-matrices/LINQ Translation Support Matrix.md`
 
@@ -488,7 +563,7 @@ Phase 8B is the completed generated-contract and immutable metadata foundation. 
 
 Phase 9A is now complete: warning cleanup, benchmark/history improvements, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The important caveat is performance wording: the closeout supports allocation and invalidation claims, not latency claims.
 
-The next broad runtime priority should be Phase 9B: row freshness/hash primitives, external invalidation hooks, and adaptive cache policy. Those are high-value next steps, and they can now build on Phase 9A's tests, telemetry, and benchmark baselines. Dependency-tracked result-set caching should remain later on the roadmap.
+The next broad runtime priority should be Phase 10: key and allocation foundation. That should be followed by Phase 11 explicit cache clearing/external invalidation, Phase 12 memory-pressure cleanup, and then the join work in Phases 13 and 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 
@@ -502,6 +577,7 @@ These may still be good ideas, but they should not lead the queue:
 - large documentation rewrites unrelated to immediate product clarity
 - query abstraction for hypothetical future backends before the current SQL path is fully measured
 - committing to a magical lazy-loading async API before sync/async boundaries are tested and defended
+- Remotion replacement before the nearer key/cache and join phases force a real parser-boundary decision
 
 ## Review Trigger
 

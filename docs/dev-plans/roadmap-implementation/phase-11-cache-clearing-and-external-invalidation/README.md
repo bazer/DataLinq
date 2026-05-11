@@ -1,0 +1,49 @@
+> [!WARNING]
+> This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
+# Phase 11: Cache Clearing and External Invalidation
+
+**Status:** Planned after Phase 10.
+
+## Purpose
+
+Phase 11 turns the cache from an internal implementation detail into something host applications can explicitly coordinate with.
+
+The priority is cache clearing first, not magical freshness. Applications need a boring, reliable way to say "this table changed" or "this row changed" when work happens outside the current `Database` instance. Row freshness terminology should be defined here so later phases have a clean vocabulary, but provider-backed hash/version checks should not block the first external invalidation surface.
+
+## Execution Boundary
+
+In scope:
+
+- explicit cache clearing APIs for database, table, and primary-key scopes
+- invalidation event envelopes suitable for later CDC/message-bus adapters
+- relation/index invalidation through the same internals as mutation invalidation
+- cache telemetry that identifies mutation, external, cleanup, memory-pressure, and freshness-related invalidation sources
+- a minimal row freshness vocabulary for later validation and result-set caching work
+
+Out of scope:
+
+- dependency-tracked result-set caching
+- automatic Kafka, Debezium, or database CDC clients
+- transparent distributed cache coherence
+- adaptive cache policy and memory-pressure cleanup
+- broad provider-backed row hashing
+- query-plan migration or Remotion replacement
+
+## Source Plans
+
+- [Implementation Plan](Implementation%20Plan.md)
+- [Phase 9A Implementation Plan](../../archive/roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation%20Plan.md)
+- [Distributed Cache Coordination and CDC](../../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
+- [Memory management](../../performance/Memory%20management.md)
+- [Result set caching](../../query-and-runtime/Result%20set%20caching.md)
+
+## Exit Criteria
+
+Phase 11 is done when:
+
+- applications can explicitly clear all cached data, one table, or specific primary-key rows
+- external invalidation can use provider-key values without constructing legacy `IKey` objects
+- relation and index cache entries are invalidated consistently with mutation invalidation
+- invalidation telemetry records source, table, scope, and approximate cost
+- unsupported or unknown invalidation signals fail predictably or degrade to conservative table invalidation
+- later CDC and result-set caching plans have a stable invalidation envelope to build on

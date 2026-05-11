@@ -34,7 +34,7 @@ The artifact directory is intentionally ignored by git. This page records the re
 | Repeated scalar `Any` | 25.73 KB | 25.19 KB | -2.1% | 463.0 us | noisy |
 | Repeated `IN` predicate fetch | 47.91 KB | 47.81 KB | -0.2% | 645.6 us | noisy |
 
-No row crossed the comparison warning threshold as a non-noisy regression. Startup primary-key fetch moved up by 5.3% allocation, but both baseline and candidate timings were noisy and the allocation change is below the configured 10% warning threshold. This does not need an owner beyond normal Phase 9B monitoring.
+No row crossed the comparison warning threshold as a non-noisy regression. Startup primary-key fetch moved up by 5.3% allocation, but both baseline and candidate timings were noisy and the allocation change is below the configured 10% warning threshold. This does not need an owner beyond normal follow-up key/cache monitoring.
 
 ## CRUD Macro Evidence
 
@@ -61,8 +61,8 @@ Unsafe claims:
 
 - Do not claim Phase 9A made hot-path latency faster. Every closeout comparison row is noisy.
 - Do not claim CRUD macro timings are stable enough for regression enforcement.
-- Do not imply Phase 9A shipped row freshness, external invalidation hooks, adaptive cache policy, dependency-tracked result-set caching, or global deduplication. Those remain Phase 9B or later work.
+- Do not imply Phase 9A shipped provider-key cache cleanup, external invalidation hooks, adaptive cache policy, dependency-tracked result-set caching, or global deduplication. Those remain Phase 10-12 or later work.
 
-## Phase 9B Starting Point
+## Follow-Up Cache Starting Point
 
-Phase 9B can start from a better foundation: invalidation behavior is covered by targeted tests, cache maintenance emits telemetry that can explain work performed, and benchmark history can show whether future cache-semantics work changes allocation, noise, or invalidation shape.
+The follow-up key/cache phases can start from a better foundation: invalidation behavior is covered by targeted tests, cache maintenance emits telemetry that can explain work performed, and benchmark history can show whether future cache-semantics work changes allocation, noise, or invalidation shape.

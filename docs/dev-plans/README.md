@@ -47,10 +47,16 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Roadmap implementation
 
 - `roadmap-implementation/README.md`
-- `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/README.md`
-- `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/Implementation Plan.md`
-- `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/README.md`
-- `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation Plan.md`
+- `roadmap-implementation/phase-10-key-and-allocation-foundation/README.md`
+- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md`
+- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Implementation Plan.md`
+- `roadmap-implementation/phase-12-memory-pressure-cleanup-and-measured-deduplication/README.md`
+- `roadmap-implementation/phase-13-explicit-multi-join-composition/README.md`
+- `roadmap-implementation/phase-14-relation-aware-joins-and-left-joins/README.md`
+- `roadmap-implementation/phase-15-scalar-converters-and-typed-key-ergonomics/README.md`
+- `roadmap-implementation/phase-16-dependency-tracked-result-set-caching/README.md`
+- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md`
+- `roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation Plan.md`
 
 ### Providers and features
 
@@ -110,10 +116,16 @@ As of the post-Phase 9A cleanup on 2026-05-11:
 - Phase 8B generated contract and immutable metadata foundation is complete for its foundation scope: stale generated hooks fail early, malformed generated declarations fail during initialization, and runtime metadata snapshots are factory-built and frozen against ordinary mutation.
 - Phase 8C practical AOT package graph and generated runtime hardening is complete: size reports, Roslyn/runtime package split, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and packaging/public wording have landed.
 - Phase 9A release hardening, benchmarks, allocation, and cache invalidation is complete: warning cleanup, benchmark-history and website trends, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The honest performance claim is allocation evidence, not latency improvement.
-- Phase 9B row freshness, external invalidation, and adaptive cache policy is the next cache-semantics phase: row freshness/hash primitives, external invalidation hooks, adaptive cache policy, memory-pressure-aware cleanup, and measured deduplication.
-- Phase 13 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
+- Phase 10 key and allocation foundation is the next implementation priority: metadata collection shape, frozen lookups, generated provider-key cache paths, relation lookup without lookup-only `IKey`, and allocation benchmarks.
+- Phase 11 cache clearing and external invalidation follows Phase 10: explicit database/table/provider-key invalidation APIs, relation/index invalidation, invalidation envelopes, and cache telemetry.
+- Phase 12 memory-pressure cleanup and measured deduplication follows Phase 11: memory-pressure-aware cleanup, cleanup scheduling, cache-internal cleanup, and benchmark-led value/key deduplication only where it wins.
+- Phase 13 explicit multi-join composition comes before relation-aware join syntax: standard query-syntax joins, multiple explicit joins, and filtering/ordering/paging/counting over joined rows.
+- Phase 14 relation-aware joins and left joins owns `JoinBy(...)`, `JoinMany(...)`, join-local `on:` predicates, and left-join nullability semantics.
+- Phase 15 scalar converters and typed-key ergonomics owns provider/model value conversion after the provider-key cache design has room for it.
+- Phase 16 dependency-tracked result-set caching remains deferred until cache invalidation, freshness vocabulary, joins, and projection semantics are stronger.
+- Phase 17 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
 - Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 
-The next broad runtime work should be Phase 9B. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
+The next broad runtime work should be Phase 10, followed by cache clearing, memory cleanup, and joins. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **Specification for Advanced Caching and Memory Management**
 
-**Status:** Older broad cache specification. Phase 9B owns the active cache-semantics work, and generated key/cache identity work should follow [Generated Provider-Key Cache Design](Generated%20Provider-Key%20Cache%20Design.md).
+**Status:** Older broad cache specification. Phase 10 owns generated key/cache identity, Phase 11 owns explicit cache clearing and external invalidation, and Phase 12 owns memory-pressure cleanup and measured deduplication.
 
 #### **1. Overview**
 

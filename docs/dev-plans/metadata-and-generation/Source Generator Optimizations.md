@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Source Generator Optimizations
 
-**Status:** Mostly implemented across Roadmap Phase 2, Phase 8, Phase 8B, and Phase 8C. Remaining generator/runtime ideas now belong to newer focused plans such as scalar converters, generated provider-key cache cleanup, and Phase 13 query-plan work.
+**Status:** Mostly implemented across Roadmap Phase 2, Phase 8, Phase 8B, and Phase 8C. Remaining generator/runtime ideas now belong to newer focused plans such as scalar converters, generated provider-key cache cleanup, and Phase 17 query-plan work.
 **Goal:** Shift the heavy lifting of object instantiation, metadata discovery, and property mapping from **Runtime** (Reflection/Dictionaries) to **Compile Time** (Source Generation). This enables instant startup, Native AOT compatibility, and O(1) property access.
 
 For the archived fail-fast generated hook plan, see [Generated Metadata Contract and Runtime Fallback Removal](../archive/metadata-and-generation/Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md).

@@ -63,7 +63,7 @@ Known starting points:
 
 Status: Complete as of 2026-05-10.
 
-The Debug solution build is clean for DataLinq-owned C# compiler warnings, with compiler warnings now treated as errors through `src/Directory.Build.props`. The only remaining build warnings are the two documented `WASM0001` events from `DataLinq.BlazorWasm` linking SQLitePCLRaw's `e_sqlite3` WebAssembly native asset. That warning is intentionally not suppressed; Phase 13 owns the call-path proof, provider/bundle investigation, or public support caveat.
+The Debug solution build is clean for DataLinq-owned C# compiler warnings, with compiler warnings now treated as errors through `src/Directory.Build.props`. The only remaining build warnings are the two documented `WASM0001` events from `DataLinq.BlazorWasm` linking SQLitePCLRaw's `e_sqlite3` WebAssembly native asset. That warning is intentionally not suppressed; Phase 17 owns the call-path proof, provider/bundle investigation, or public support caveat.
 
 Goals:
 
@@ -349,7 +349,7 @@ Exit criteria:
 - benchmark artifacts exist for before/after allocation comparison
 - release notes can state allocation and invalidation changes without guessing
 - any benchmark regression has an owner and explanation
-- Phase 9B starts from documented cache telemetry and invalidation behavior
+- Phase 10-12 start from documented cache telemetry and invalidation behavior
 
 ## Suggested Implementation Order
 
@@ -407,4 +407,4 @@ Phase 9A can ship when:
 - allocation work has before/after measurement: satisfied in [Benchmark Closeout](Benchmark%20Closeout.md)
 - cache invalidation tests cover the committed behavior: satisfied
 - cache internals cleanup has no known concurrency regression: satisfied by focused unit and compliance runs
-- release notes clearly separate shipped Phase 9A behavior from deferred Phase 9B cache semantics: satisfied by the closeout claim boundary
+- release notes clearly separate shipped Phase 9A behavior from deferred Phase 10-12 key/cache semantics: satisfied by the closeout claim boundary

@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **DataLinq: Specification for Dependency-Tracked Result-Set Caching**
 
-**Status:** Future design note. This depends on Phase 9B row freshness and external invalidation primitives, and it is not current shipped behavior.
+**Status:** Future design note. Roadmap execution is Phase 16. This depends on Phase 11 invalidation primitives, the shared freshness vocabulary, and stronger join/projection semantics; it is not current shipped behavior.
 
 #### **1. Vision and Principle: Beyond TTL Caching**
 

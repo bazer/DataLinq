@@ -2,7 +2,7 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Memory Optimization and Deduplication
 
-**Status:** Draft
+**Status:** Draft. Roadmap execution belongs to Phase 12 memory-pressure cleanup and measured deduplication.
 **Goal:** Drastically reduce the memory footprint of the DataLinq cache by altering the internal structure of `RowData` and implementing intelligent value deduplication (interning).
 
 ---

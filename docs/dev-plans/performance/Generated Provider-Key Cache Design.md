@@ -3,7 +3,7 @@
 
 # Generated Provider-Key Cache Design
 
-**Status:** Draft design
+**Status:** Draft design. Roadmap execution starts in Phase 10 key and allocation foundation.
 **Created:** 2026-05-11
 **Updated:** 2026-05-11
 **Scope:** generated primary-key lookup, row-cache keys, relation/index-cache keys, scalar converter integration, and removal of the legacy `IKey` abstraction.

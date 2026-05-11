@@ -19,7 +19,7 @@ Phase 8B owns the foundation that had to come first:
 The rest of the practical AOT work is split out:
 
 - Phase 8C owns package graph cleanup, complete generated metadata startup, generated indexed access, and packaging/public wording.
-- Phase 13 owns the query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw WebAssembly warning disposition work.
+- Phase 17 owns the query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw WebAssembly warning disposition work.
 
 ## Execution Boundary
 
@@ -50,7 +50,7 @@ Out of scope:
 - [Immutable Metadata Definitions and Factory Plan](../../metadata-and-generation/Immutable%20Metadata%20Definitions%20and%20Factory%20Plan.md)
 - [Phase 8 Compatibility Results](../phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md)
 - [Phase 8C Practical AOT Package Graph and Generated Runtime Hardening](../phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md)
-- [Phase 13 Query Plan and Remotion Isolation](../../../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/README.md)
+- [Phase 17 Query Plan and Remotion Isolation](../../../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/README.md)
 
 ## Exit Criteria
 

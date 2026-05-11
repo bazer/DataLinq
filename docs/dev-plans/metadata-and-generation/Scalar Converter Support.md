@@ -3,7 +3,7 @@
 
 # Specification: Scalar Converter Support
 
-**Status:** Draft
+**Status:** Draft. Roadmap execution is Phase 15 scalar converters and typed-key ergonomics.
 **Goal:** Add a first-class scalar conversion layer so a model property can use a domain CLR type while DataLinq stores, queries, caches, validates, and mutates the underlying provider CLR value consistently.
 
 The core idea is simple:
@@ -517,4 +517,3 @@ Minimum coverage:
 - How much `.Value` unwrapping should query translation support for typed IDs?
 - Should DataLinq ship a small built-in typed ID generator, or only the scalar converter layer plus optional adapter packages?
 - Should converter failures be recoverable diagnostics in validation mode but hard exceptions at runtime?
-

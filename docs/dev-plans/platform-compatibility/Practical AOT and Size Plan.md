@@ -2,11 +2,11 @@
 > This document is roadmap and engineering planning material. It is not normative product documentation and should not be treated as a support claim.
 # Practical AOT and Size Plan
 
-**Status:** Split historical plan. Phase 8C completed the package graph, size reporting, generated startup, and packaging work; Phase 13 still owns Remotion/query-parser and SQLitePCLRaw warning-disposition work.
+**Status:** Split historical plan. Phase 8C completed the package graph, size reporting, generated startup, and packaging work; Phase 17 still owns Remotion/query-parser and SQLitePCLRaw warning-disposition work.
 
 **Created:** 2026-05-05.
 
-**Update 2026-05-11:** The package graph, size reporting, generated startup, and packaging work landed in archived [Phase 8C](../archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work remains in [Phase 13](../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md).
+**Update 2026-05-11:** The package graph, size reporting, generated startup, and packaging work landed in archived [Phase 8C](../archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work remains in [Phase 17](../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md).
 
 ## Purpose
 

@@ -19,7 +19,7 @@ Phase 8B closed that foundation gap:
 The broader work that used to live in this oversized plan is now split:
 
 - Phase 8C owns compatibility size reports, Roslyn/runtime package graph cleanup, complete generated metadata startup, generated indexed access, and package/public wording.
-- Phase 13 owns the DataLinq query plan, Remotion adapter, supported-subset parser, AOT query-boundary switch, and SQLitePCLRaw WebAssembly warning disposition.
+- Phase 17 owns the DataLinq query plan, Remotion adapter, supported-subset parser, AOT query-boundary switch, and SQLitePCLRaw WebAssembly warning disposition.
 
 ## Phase-Start Baseline
 
@@ -39,7 +39,7 @@ The relevant starting code shape was:
 - `MetadataFromTypeFactory` still rebuilt ordinary table metadata from reflected attributes, interfaces, properties, enum values, and nullability after finding the generated bootstrap declaration.
 - `DatabaseDefinition`, `ModelDefinition`, `TableDefinition`, `ColumnDefinition`, `ValueProperty`, `RelationProperty`, `ColumnIndex`, and `RelationDefinition` still exposed mutable construction surfaces.
 
-The package-graph, generated startup, query-boundary, and SQLitePCLRaw warning items stayed real, but they no longer belong in Phase 8B. They are now split between Phase 8C and Phase 13.
+The package-graph, generated startup, query-boundary, and SQLitePCLRaw warning items stayed real, but they no longer belong in Phase 8B. They are now split between Phase 8C and Phase 17.
 
 ## Goals
 
@@ -215,7 +215,7 @@ Moved to [Phase 8C](../phase-8c-practical-aot-package-graph-and-generated-runtim
 - generated indexed access and metadata handles
 - packaging and public compatibility wording
 
-Moved to [Phase 13](../../../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md):
+Moved to [Phase 17](../../../roadmap-implementation/phase-17-query-plan-and-remotion-isolation/Implementation%20Plan.md):
 
 - DataLinq query plan behind Remotion
 - supported-subset expression parser and AOT boundary switch
@@ -250,7 +250,7 @@ Phase 8B is complete when:
 - metadata equivalence tests are green across source, generated, and provider-derived metadata
 - cache policy tests prove defaults are not injected by mutating `DatabaseDefinition`
 
-Until Phase 8C and Phase 13 land, the accurate public statement remains:
+Until Phase 8C and Phase 17 land, the accurate public statement remains:
 
 > DataLinq has a proven generated SQLite Native AOT, trimmed publish, and Blazor WebAssembly AOT smoke boundary.
 

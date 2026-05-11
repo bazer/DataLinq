@@ -1,14 +1,14 @@
 > [!WARNING]
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
-# Phase 13: Query Plan and Remotion Isolation
+# Phase 17: Query Plan and Remotion Isolation
 
-**Status:** Deferred. This is intentionally behind the memory/cache, async/loading, capability-expansion, and result-set caching roadmap work unless a concrete product need pulls AOT query support forward.
+**Status:** Deferred. This is intentionally behind the key/cache, join, scalar-converter, and result-set caching roadmap work unless a concrete product need pulls AOT query support forward.
 
 ## Purpose
 
 The query-plan and parser work is too large to hide inside Phase 8B or Phase 8C. It touches query semantics, SQL generation, unsupported-shape diagnostics, projection execution, and the AOT support boundary. That is a real phase, not a cleanup task.
 
-Phase 13 owns the work needed to replace or isolate `Remotion.Linq` and to resolve the remaining WebAssembly SQLite warning story:
+Phase 17 owns the work needed to replace or isolate `Remotion.Linq` and to resolve the remaining WebAssembly SQLite warning story:
 
 - introduce a DataLinq-owned query plan behind the current Remotion parser
 - move SQL generation and diagnostics behind that plan
@@ -19,7 +19,7 @@ Phase 13 owns the work needed to replace or isolate `Remotion.Linq` and to resol
 
 ## Why Deferred
 
-Memory/cache work is more important right now. The query-boundary work is valuable, but it is also a high-blast-radius migration. It should not crowd out the cache, memory, invalidation, async, and capability work unless constrained-platform support becomes the dominant product priority.
+Key/cache and join work is more important right now. The query-boundary work is valuable, but it is also a high-blast-radius migration. It should not crowd out the nearer allocation, invalidation, cleanup, join, scalar-converter, and result-set caching phases unless constrained-platform query support becomes the dominant product priority.
 
 ## Source Plans
 
@@ -31,7 +31,7 @@ Memory/cache work is more important right now. The query-boundary work is valuab
 
 ## Exit Criteria
 
-Phase 13 is done when:
+Phase 17 is done when:
 
 - Remotion still works only as an explicit compatibility path, or is removed
 - SQL generation consumes DataLinq query-plan nodes rather than Remotion clause types

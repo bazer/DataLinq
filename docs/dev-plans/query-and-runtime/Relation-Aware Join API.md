@@ -3,7 +3,7 @@
 
 # Relation-Aware Join API
 
-**Status:** Draft design.
+**Status:** Draft design. Roadmap execution is split across Phase 13 explicit multi-join composition and Phase 14 relation-aware joins and left joins.
 
 ## Purpose
 
