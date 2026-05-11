@@ -2,6 +2,8 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **Architectural Vision: Application Patterns for DataLinq**
 
+**Status:** Draft architecture vision. It is not implemented as a first-class DI/session API.
+
 #### **1. Introduction & Guiding Philosophy**
 
 DataLinq's core strength lies in its opinionated design: immutability, high-performance reads via an aggressive cache, and explicit, transactional writes. To date, the focus has been on the core ORM mechanics. This document outlines a vision for how to best integrate DataLinq into modern application architectures, ensuring that the patterns we promote are a natural extension of its core philosophy.

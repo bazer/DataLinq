@@ -2,6 +2,8 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **Specification for Advanced Caching and Memory Management**
 
+**Status:** Older broad cache specification. Phase 9B owns the active cache-semantics work, and generated key/cache identity work should follow [Generated Provider-Key Cache Design](Generated%20Provider-Key%20Cache%20Design.md).
+
 #### **1. Overview**
 
 This document outlines the major features and architectural changes for DataLinq. The primary goals for this release are to significantly reduce the memory footprint of the caching system, introduce more sophisticated and robust cache invalidation strategies, and provide a more powerful and intuitive programmatic configuration API.
@@ -53,15 +55,13 @@ The final effective configuration for any setting will be determined in the foll
 
 ---
 
-#### **3. Core Feature: Global Key Cache (Key Factory)**
+#### **3. Key Identity and Cache Keys**
 
-##### **3.1. Concept & Rationale**
-To reduce memory usage, a Global Key Cache will act as a central, application-wide repository for all `IKey` instances. The `KeyFactory` will be modified to use this cache, ensuring that only one instance of any unique key (e.g., `IntKey(123)`) exists in memory, regardless of how many times it is referenced.
+The old version of this plan proposed a global `IKey` cache. Do not use that design as current guidance.
 
-##### **3.2. Implementation Details**
-*   A new static, thread-safe `KeyCache` class will be implemented using a `ConcurrentDictionary<int, IKey>`.
-*   The existing `KeyFactory` will be refactored to check this cache before creating a new `IKey` instance.
-*   A reference counting or a weak reference mechanism will be implemented to allow for the garbage collection of unused keys. The `CleanCacheWorker` will periodically purge keys with a reference count of zero.
+The better direction is the newer [Generated Provider-Key Cache Design](Generated%20Provider-Key%20Cache%20Design.md): generated primary-key and relation access should move cache lookups toward provider CLR values and table-specific accessors instead of preserving `IKey` as the universal hot-path abstraction.
+
+That distinction matters. Deduplicating `IKey` objects would optimize around the abstraction causing the allocation problem. The newer design removes or bypasses that abstraction in the generated runtime path.
 
 ---
 
@@ -84,7 +84,7 @@ An API will be provided to allow external systems (e.g., a message queue like Ka
     ```csharp
     public interface ICacheInvalidator
     {
-        void Invalidate(TableDefinition table, IKey primaryKey);
+        void Invalidate(TableDefinition table, IReadOnlyList<object?> providerPrimaryKey);
         // ... other methods
     }
 

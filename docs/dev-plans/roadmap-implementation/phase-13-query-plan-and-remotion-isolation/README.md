@@ -27,7 +27,7 @@ Memory/cache work is more important right now. The query-boundary work is valuab
 - [Remotion.Linq Replacement Plan](../../query-and-runtime/Remotion.Linq%20Replacement%20Plan.md)
 - [LINQ Translation Support Matrix](../../../support-matrices/LINQ%20Translation%20Support%20Matrix.md)
 - [Practical AOT and Size Plan](../../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md)
-- [Phase 8 Compatibility Results](../phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md)
+- [Phase 8 Compatibility Results](../../archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md)
 
 ## Exit Criteria
 
@@ -39,4 +39,3 @@ Phase 13 is done when:
 - generated SQLite AOT and trim smokes no longer root `Remotion.Linq`
 - unsupported query shapes fail with DataLinq-owned diagnostics
 - SQLitePCLRaw WebAssembly warning disposition is documented with exact managed/native call-path evidence
-

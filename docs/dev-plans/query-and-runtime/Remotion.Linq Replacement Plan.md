@@ -19,7 +19,7 @@ The Phase 8 compatibility report is blunt about the boundary:
 - Blazor WebAssembly AOT runs, but the support claim is still narrow and payload-sensitive
 - hot-path `Expression.Compile()` was removed from the checked LINQ and instance paths, leaving Remotion as a warning-producing dependency boundary
 
-See [Compatibility Results](../roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md) and [Practical AOT and Size Plan](../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md).
+See archived [Compatibility Results](../archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md) and [Practical AOT and Size Plan](../platform-compatibility/Practical%20AOT%20and%20Size%20Plan.md).
 
 This plan describes how DataLinq should replace `Remotion.Linq` without detonating the query support gained in Phases 6 and 7.
 

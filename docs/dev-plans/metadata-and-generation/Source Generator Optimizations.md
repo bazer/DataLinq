@@ -2,10 +2,10 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 # Specification: Source Generator Optimizations
 
-**Status:** Partially implemented by Roadmap Phase 2, Phase 8, and Phase 8B; runtime/package-graph generated startup cleanup remains in Phase 8C.
+**Status:** Mostly implemented across Roadmap Phase 2, Phase 8, Phase 8B, and Phase 8C. Remaining generator/runtime ideas now belong to newer focused plans such as scalar converters, generated provider-key cache cleanup, and Phase 13 query-plan work.
 **Goal:** Shift the heavy lifting of object instantiation, metadata discovery, and property mapping from **Runtime** (Reflection/Dictionaries) to **Compile Time** (Source Generation). This enables instant startup, Native AOT compatibility, and O(1) property access.
 
-For the current fail-fast generated hook plan, see [Generated Metadata Contract and Runtime Fallback Removal](Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md).
+For the archived fail-fast generated hook plan, see [Generated Metadata Contract and Runtime Fallback Removal](../archive/metadata-and-generation/Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md).
 
 ## Current Implementation State
 
@@ -17,14 +17,14 @@ Phase 2 and Phase 8 implemented the low-risk parts that paid off immediately:
 - the incremental generator uses normalized model declarations and stronger input comparers
 - generator diagnostics are stronger, including default-value compatibility diagnostics
 
-Still not implemented:
+Still not fully implemented:
 
 - `InstanceFactory` is not gone; it still owns materialization dispatch and last-resort factory-shape guards
-- the generator does not emit a complete static `BuildMetadata()` graph for runtime startup
-- property access has not universally moved to generated `GetFast(int)`-style accessors
+- generated metadata startup does not emit a single direct `BuildMetadata()` object graph; instead it emits typed metadata drafts consumed by `MetadataDefinitionFactory`
+- some compatibility and tooling paths remain metadata-driven rather than generated-only
 - this work improves AOT-readiness, and Phase 8 proved a generated SQLite smoke boundary, but it does not make DataLinq broadly Native AOT-safe
 
-Phase 8B removed the stale generated-hook compatibility path and built the immutable metadata foundation. The next serious continuation belongs in Phase 8C: split Roslyn from the runtime surface, generate complete metadata startup, use indexed generated access, and avoid silently falling back to reflection or dynamic-code paths under constrained publishing.
+Phase 8B removed the stale generated-hook compatibility path and built the immutable metadata foundation. Phase 8C then split Roslyn from the runtime surface, generated complete metadata startup, used indexed generated access, and removed ordinary runtime reflection metadata discovery from the generated startup path.
 
 ---
 
@@ -125,8 +125,8 @@ Combined with the **Memory Optimization** plan (which converts `RowData` to an `
 // ImmutableEmployee.cs
 
 // 0 = emp_no, 1 = first_name, 2 = last_name
-public override int emp_no => (int)rowData.GetFast(0); 
-public override string first_name => (string)rowData.GetFast(1);
+public override int emp_no => (int)rowData.GetValue(0)!; 
+public override string first_name => (string)rowData.GetValue(1)!;
 ```
 
 *   **Performance:** Property access becomes an Array Indexer operation `ary[i]`. This is as fast as raw C#.
@@ -136,13 +136,13 @@ public override string first_name => (string)rowData.GetFast(1);
 ## 4. Implementation Checklist
 
 1.  **Tighten generated hook contract:**
-    *   Remove the stale `GetDataLinqGeneratedTableModels()` shim.
+    *   [x] Remove the stale `GetDataLinqGeneratedTableModels()` shim.
     *   Validate generated table declarations during provider initialization.
     *   Require immutable factories for all generated models and mutable types for ordinary tables.
 2.  **Metadata Generation:**
-    *   Update Generator to emit a `BuildMetadata()` method returning the full `DatabaseDefinition`.
-    *   Change runtime to prefer this static metadata over Reflection-based loading.
+    *   [x] Update the generator to emit complete typed metadata drafts through `GetDataLinqGeneratedMetadata()`.
+    *   [x] Change generic generated startup to build metadata through `MetadataDefinitionFactory` instead of runtime reflection over app model metadata.
 3.  **Indexed Access (Dependency: Memory Optimization Phase 1):**
     *   [x] Ensure `RowData` exposes value access by `int index`.
-    *   Update Generator to calculate column indices during generation.
-    *   Update `Immutable` template to emit `GetFast(int)` calls.
+    *   [x] Update generated metadata to carry stable column indices.
+    *   [x] Update generated immutable/mutable/relation paths to use indexed access and generated metadata handles where the runtime benefits.

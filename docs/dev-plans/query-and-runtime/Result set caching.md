@@ -2,6 +2,8 @@
 > This document is roadmap or specification material. It may describe planned, experimental, or partially implemented behavior rather than current DataLinq behavior.
 ### **DataLinq: Specification for Dependency-Tracked Result-Set Caching**
 
+**Status:** Future design note. This depends on Phase 9B row freshness and external invalidation primitives, and it is not current shipped behavior.
+
 #### **1. Vision and Principle: Beyond TTL Caching**
 
 **The Problem:** Modern applications often have complex, read-heavy views (dashboards, reports, aggregated lists) that are computationally expensive to generate on every request. The standard solution is to use an application-level cache (like `IMemoryCache`) with a fixed Time-To-Live (TTL), for example, "cache this dashboard for 5 minutes."

@@ -1,15 +1,14 @@
 # Testing Dev Plans
 
-This folder now contains the active testing-related dev-plan material.
+This folder is currently a placeholder for future testing-related dev-plan material.
 
 ## Active Documents
 
-- `Test Infrastructure CLI.md`
-  Implemented design record for the current `DataLinq.Testing.CLI` workflow.
+There are no active testing execution plans at the moment. Current testing workflow documentation lives in [`../../contributing/DataLinq.Testing.CLI.md`](../../contributing/DataLinq.Testing.CLI.md).
 
 ## Historical Material
 
-The xUnit-to-TUnit migration and legacy-suite removal documents were completed and moved to:
+The xUnit-to-TUnit migration, legacy-suite removal, and implemented Testing CLI design records were completed and moved to:
 
 - `../archive/testing/README.md`
 

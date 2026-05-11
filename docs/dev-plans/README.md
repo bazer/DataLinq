@@ -29,12 +29,9 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Tooling
 
 - `tooling/Build Environment and Output Control.md`
-- `tooling/Warning Cleanup Plan.md`
 
 ### Metadata and generation
 
-- `metadata-and-generation/Generated Metadata Contract and Runtime Fallback Removal.md`
-- `metadata-and-generation/Immutable Metadata Definitions and Factory Plan.md`
 - `metadata-and-generation/Metadata Architecture.md`
 - `metadata-and-generation/Scalar Converter Support.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
@@ -45,39 +42,11 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 - `performance/Memory Optimization and Deduplication.md`
 - `performance/Generated Provider-Key Cache Design.md`
 - `performance/Allocation Reduction Audit.md`
-- `performance/Performance Benchmarking.md`
 - `performance/Representative Benchmark Suite and Website Trends.md`
 
 ### Roadmap implementation
 
 - `roadmap-implementation/README.md`
-- `roadmap-implementation/phase-1-benchmarking-and-observability/README.md`
-- `roadmap-implementation/phase-1-benchmarking-and-observability/Implementation Plan.md`
-- `roadmap-implementation/phase-2-metadata-generator-and-diagnostics-hardening/README.md`
-- `roadmap-implementation/phase-2-metadata-generator-and-diagnostics-hardening/Implementation Plan.md`
-- `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/README.md`
-- `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
-- `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/README.md`
-- `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
-- `roadmap-implementation/phase-4b-provider-fidelity-hardening/README.md`
-- `roadmap-implementation/phase-4b-provider-fidelity-hardening/Implementation Plan.md`
-- `roadmap-implementation/phase-5-product-trust-features/README.md`
-- `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
-- `roadmap-implementation/phase-5-product-trust-features/Snapshot Migration Design.md`
-- `roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/README.md`
-- `roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`
-- `roadmap-implementation/phase-7-linq-feature-expansion/README.md`
-- `roadmap-implementation/phase-7-linq-feature-expansion/Implementation Plan.md`
-- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/README.md`
-- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
-- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
-- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
-- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
-- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
-- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
-- `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/README.md`
-- `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation Plan.md`
-- `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Benchmark Closeout.md`
 - `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/README.md`
 - `roadmap-implementation/phase-9b-row-freshness-external-invalidation-adaptive-cache-policy/Implementation Plan.md`
 - `roadmap-implementation/phase-13-query-plan-and-remotion-isolation/README.md`
@@ -96,7 +65,6 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 
 - `query-and-runtime/Async and Lazy Loading.md`
 - `query-and-runtime/Batched mutations.md`
-- `query-and-runtime/LINQ Translation Support.md`
 - `query-and-runtime/Projections and Views.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
 - `query-and-runtime/Relation-Aware Join API.md`
@@ -108,24 +76,27 @@ The point of this folder is not to look tidy. The point is to stop roadmap mater
 ### Testing
 
 - `testing/README.md`
-- `testing/Test Infrastructure CLI.md`
 
 ### Archive
 
 - `archive/documentation/README.md`
+- `archive/metadata-and-generation/README.md`
+- `archive/performance/README.md`
+- `archive/query-and-runtime/README.md`
 - `archive/roadmap-implementation/README.md`
 - `archive/testing/README.md`
+- `archive/tooling/README.md`
 
 ## Notes
 
-- The active testing material now lives under `testing/`, while completed migration records live under `archive/testing/`.
+- Testing dev-plan material is currently historical. Current workflow documentation lives under `../contributing/`, while completed design records live under `archive/testing/`.
 - Completed or superseded documentation and roadmap checkpoints now live under `archive/` so active planning pages do not point readers at old "next step" guidance.
 - Some documents in this folder describe ideas that are still valid but not implemented. That is fine. The real mistake is presenting those ideas as current product behavior.
-- The `roadmap-implementation/` folder is where high-level roadmap phases are turned into concrete execution plans. It should stay tightly linked to `Roadmap.md` rather than drifting into a second roadmap.
+- The `roadmap-implementation/` folder contains only active or deferred execution plans. Completed phase execution records belong under `archive/roadmap-implementation/`.
 
 ## Current Stage Audit
 
-As of the Phase 8B/8C roadmap split on 2026-05-08:
+As of the post-Phase 9A cleanup on 2026-05-11:
 
 - Phase 1 benchmarking and observability is substantially implemented; benchmark-history evidence still matters for noisy scenarios.
 - Phase 2 metadata/generator/diagnostics hardening is implemented as a narrow foundation, not as a full immutable metadata rewrite.
@@ -135,14 +106,14 @@ As of the Phase 8B/8C roadmap split on 2026-05-08:
 - Phase 5 product-trust work is implemented for the intended validation/diff/snapshot scope: schema validation, CLI validation output, conservative diff scripts, and the versioned snapshot DTO/design are in place.
 - Phase 6 LINQ translation coverage and query composition is implemented: the support audit, chained `Where(...)` fix, projected local `Contains(...)`, equality-based local object-list `Any(predicate)` expansion, fixed-condition invariants, and unsupported-query diagnostics have landed.
 - Phase 7 LINQ feature expansion is implemented: scalar aggregates, computed projections, nullable predicate polish, explicit joins, and relation-aware predicate translation have landed within their documented support boundaries.
-- Phase 8 Native AOT and WebAssembly readiness is implemented for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary. The honest follow-up work is split now: package/generated-runtime cleanup belongs in Phase 8C, while Remotion/query-parser and SQLitePCLRaw warning work is deferred to Phase 13.
+- Phase 8 Native AOT and WebAssembly readiness is implemented for the generated SQLite Native AOT, trimmed runtime, and Blazor WebAssembly AOT smoke boundary.
 - Phase 8B generated contract and immutable metadata foundation is complete for its foundation scope: stale generated hooks fail early, malformed generated declarations fail during initialization, and runtime metadata snapshots are factory-built and frozen against ordinary mutation.
-- Phase 8C practical AOT package graph and generated runtime hardening is the bounded constrained-platform cleanup slice: size reports, Roslyn/runtime package split, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and packaging/public wording. It is not the current broad runtime priority unless constrained-platform polish is chosen ahead of memory work.
+- Phase 8C practical AOT package graph and generated runtime hardening is complete: size reports, Roslyn/runtime package split, complete generated metadata startup, runtime reflection metadata-discovery removal, generated indexed access, and packaging/public wording have landed.
 - Phase 9A release hardening, benchmarks, allocation, and cache invalidation is complete: warning cleanup, benchmark-history and website trends, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The honest performance claim is allocation evidence, not latency improvement.
 - Phase 9B row freshness, external invalidation, and adaptive cache policy is the next cache-semantics phase: row freshness/hash primitives, external invalidation hooks, adaptive cache policy, memory-pressure-aware cleanup, and measured deduplication.
 - Phase 13 query plan and Remotion isolation is deferred to the back of the roadmap. It owns the DataLinq query plan, supported-subset parser, Remotion removal/isolation, and SQLitePCLRaw WebAssembly warning disposition.
-- The older benchmark, metadata, source-generator, provider-fidelity, and migration specs now have status notes explaining which parts landed and which remain future work.
+- Completed phase records and superseded implementation plans have moved under `archive/`; active docs should describe future work or current strategy.
 
-The next broad runtime work should be Phase 9B unless constrained-platform package cleanup becomes urgent enough to pull Phase 8C forward. The Remotion/parser rewrite should stay out of the immediate queue.
+The next broad runtime work should be Phase 9B. The Remotion/parser rewrite should stay out of the immediate queue unless constrained-platform query support becomes the concrete blocker.
 
 The main thing not to blur at this stage is the boundary between implemented product-trust tooling and planned migration history. `validate` and `diff` are real. Full `add-migration`, `update-database`, runtime migration APIs, and applied-migration tracking are still future work.

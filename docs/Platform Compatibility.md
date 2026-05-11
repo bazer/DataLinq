@@ -68,4 +68,4 @@ Not accurate yet:
 
 The second statement has to wait until the query dependency boundary and remaining third-party warning work are cleaned up.
 
-For the engineering evidence, see the Phase 8 [Compatibility Results](dev-plans/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md) and the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands.
+For the engineering evidence, see the Phase 8 [Compatibility Results](dev-plans/archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md) and the repo-local `DataLinq.Dev.CLI` `size-report` and `package-report` commands.

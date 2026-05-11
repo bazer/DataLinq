@@ -2,40 +2,39 @@
 > This document is roadmap and engineering planning material. It is not normative product documentation and should not be treated as a support claim.
 # Practical AOT and Size Plan
 
-**Status:** Draft follow-up plan after Phase 8, now split across Phase 8C and Phase 13.
+**Status:** Split historical plan. Phase 8C completed the package graph, size reporting, generated startup, and packaging work; Phase 13 still owns Remotion/query-parser and SQLitePCLRaw warning-disposition work.
 
 **Created:** 2026-05-05.
 
-**Update 2026-05-08:** The package graph, size reporting, generated startup, and packaging work belongs to [Phase 8C](../roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work belongs to [Phase 13](../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md).
+**Update 2026-05-11:** The package graph, size reporting, generated startup, and packaging work landed in archived [Phase 8C](../archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md). The Remotion/query-parser and SQLitePCLRaw warning-disposition work remains in [Phase 13](../roadmap-implementation/phase-13-query-plan-and-remotion-isolation/Implementation%20Plan.md).
 
 ## Purpose
 
 Phase 8 proved something real: generated SQLite models can run under Native AOT, trimmed publish, and Blazor WebAssembly AOT. That is a serious milestone.
 
-It did not prove that DataLinq is ready to advertise practical AOT support. The current implementation still has three ugly facts:
+It did not prove that DataLinq is broadly AOT-compatible. Phase 8C fixed the first ugly fact from this original plan, but two remain:
 
-1. The runtime package pulls Roslyn into constrained publishes.
-2. The query pipeline still depends on `Remotion.Linq`, which emits Native AOT and trim warnings.
-3. The browser SQLite path works under WASM AOT, but the published payload is large and SQLitePCLRaw emits WebAssembly native varargs warnings.
+1. The query pipeline still depends on `Remotion.Linq`, which emits Native AOT and trim warnings.
+2. The browser SQLite path works under WASM AOT, but the published payload is large and SQLitePCLRaw emits WebAssembly native varargs warnings.
 
 This plan describes what must happen before DataLinq can have a practical AOT story: one that works, publishes cleanly, and has file sizes a normal user would not immediately hate.
 
 ## Current Evidence
 
-The source of truth for the Phase 8 proof is [Compatibility Results](../roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md).
+The source of truth for the Phase 8 proof is [Compatibility Results](../archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility%20Results.md).
 
 Current measured output:
 
 | Target | Result | Current size | Main problem |
 | --- | --- | ---: | --- |
 | Native AOT SQLite smoke | passes | 18.61 MiB executable, 76.76 MiB folder including PDBs | symbols dominate folder size; `Remotion.Linq` warnings remain |
-| Trimmed SQLite smoke | passes | 32.10 MiB folder | Roslyn and `Remotion.Linq` remain in runtime graph |
+| Trimmed SQLite smoke | passes | 32.10 MiB folder | historical pre-Phase 8C number; `Remotion.Linq` remains the query-boundary warning problem |
 | Blazor WASM no-AOT publish | publishes, runtime unsupported | 7.91 MiB Brotli assets | Mono interpreter fails on the SQLite/DataLinq path |
-| Blazor WASM AOT | publishes and browser smoke passes | 18.80 MiB Brotli assets | AOT runtime size plus Roslyn payload plus SQLitePCLRaw warnings |
+| Blazor WASM AOT | publishes and browser smoke passes | 18.80 MiB Brotli assets | historical pre-Phase 8C number; AOT runtime size plus SQLitePCLRaw warnings remain |
 
 The good news: the generated SQLite path is viable.
 
-The bad news: the package graph is still amateur-hour for constrained deployment. Shipping compiler assemblies in a browser database sample is the kind of thing users will notice, and not in a fond way.
+The old bad news was that the package graph was amateur-hour for constrained deployment. Phase 8C fixed the Roslyn/compiler payload part. The remaining bad news is the query dependency and SQLitePCLRaw warning boundary.
 
 ## Practical Support Definition
 
@@ -72,7 +71,9 @@ The WASM AOT target is deliberately not fantasy. `dotnet.native.wasm` is already
 
 ## Workstream 1: Split Runtime From Roslyn
 
-This is the highest-return work. Do it first.
+Status: implemented in [Phase 8C](../archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation%20Plan.md).
+
+This was the highest-return work and it is now done.
 
 Current problem:
 
@@ -201,7 +202,7 @@ Exit criteria:
 
 Phase 8 already made generated hooks mandatory for the generic database/provider path. That was the correct call.
 
-The focused execution plan is [Generated Metadata Contract and Runtime Fallback Removal](../metadata-and-generation/Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md).
+The archived focused execution plan is [Generated Metadata Contract and Runtime Fallback Removal](../archive/metadata-and-generation/Generated%20Metadata%20Contract%20and%20Runtime%20Fallback%20Removal.md).
 
 The next step is to turn generated models into a clean product contract:
 

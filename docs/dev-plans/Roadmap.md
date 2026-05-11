@@ -23,7 +23,7 @@ Several important things are already true:
 - The runtime metadata graph now has a Phase 8B factory/freeze boundary for ordinary construction. A complete generated metadata switch should target that builder-built snapshot path rather than reviving reflection-heavy startup.
 - Provider metadata roundtrip fidelity now has an explicit support boundary for SQLite, MySQL, and MariaDB, including tested coverage for the ordinary table/column/index/relation subset and documented unsupported provider details.
 - Schema validation and conservative diff-script tooling now exist for that supported subset; full versioned migration execution remains intentionally deferred.
-- Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT, but it also exposed the practical compatibility debt: Roslyn still leaks into constrained publish payloads, `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw still emits WebAssembly native varargs warnings, and no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path yet.
+- Phase 8 proved generated SQLite models under Native AOT, trimming, and Blazor WebAssembly AOT. Phase 8C then removed Roslyn/compiler payloads from the runtime package graph and constrained publish outputs. The remaining practical compatibility debt is narrower but real: `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw still emits WebAssembly native varargs warnings, and no-AOT browser WebAssembly is not supportable for the SQLite/DataLinq path yet.
 
 That last point matters. A fast ORM that is hard to validate or debug is still a risky tool.
 
@@ -104,7 +104,7 @@ Why here:
 Key related plans:
 
 - `query-and-runtime/Sql Generation Optimization.md`
-- `roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-3-query-and-runtime-hot-path-optimization/Implementation Plan.md`
 
 ### Phase 4: Provider Metadata Roundtrip Fidelity
 
@@ -127,7 +127,7 @@ Why before schema validation:
 Key related plans:
 
 - `providers-and-features/Provider Metadata Roundtrip Fidelity.md`
-- `roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-4-provider-metadata-roundtrip-fidelity/Implementation Plan.md`
 
 ### Phase 4B: Provider Fidelity Hardening
 
@@ -144,7 +144,7 @@ Why this phase exists:
 
 Execution plan:
 
-- `roadmap-implementation/phase-4b-provider-fidelity-hardening/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-4b-provider-fidelity-hardening/Implementation Plan.md`
 
 ### Phase 5: Product Trust Features
 
@@ -166,8 +166,8 @@ Why before broad feature expansion:
 Key related plans:
 
 - `providers-and-features/Migrations and Validation.md`
-- `roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
-- `roadmap-implementation/phase-5-product-trust-features/Snapshot Migration Design.md`
+- `archive/roadmap-implementation/phase-5-product-trust-features/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-5-product-trust-features/Snapshot Migration Design.md`
 
 ### Phase 6: LINQ Translation Coverage and Query Composition
 
@@ -189,8 +189,8 @@ Why here:
 
 Key related plans:
 
-- `roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`
-- `query-and-runtime/LINQ Translation Support.md`
+- `archive/roadmap-implementation/phase-6-linq-translation-coverage-and-query-composition/Implementation Plan.md`
+- `archive/query-and-runtime/LINQ Translation Support.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
 
 ### Phase 7: LINQ Feature Expansion
@@ -214,8 +214,8 @@ Why here:
 
 Key related plans:
 
-- `roadmap-implementation/phase-7-linq-feature-expansion/Implementation Plan.md`
-- `query-and-runtime/LINQ Translation Support.md`
+- `archive/roadmap-implementation/phase-7-linq-feature-expansion/Implementation Plan.md`
+- `archive/query-and-runtime/LINQ Translation Support.md`
 - `query-and-runtime/Query Pipeline Abstraction.md`
 
 ### Phase 8: Native AOT and WebAssembly Readiness
@@ -239,12 +239,12 @@ Why here:
 
 Key related plans:
 
-- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
-- `roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
-- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
-- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
-- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
-- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-8-native-aot-and-webassembly-readiness/Compatibility Results.md`
+- `archive/roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
+- `archive/roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
+- `archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
 - `platform-compatibility/AOT and WebAssembly Strategy.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 - `metadata-and-generation/Source Generator Optimizations.md`
@@ -272,14 +272,14 @@ Why before generated package/runtime work:
 
 Key related plans:
 
-- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
-- `roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
-- `metadata-and-generation/Generated Metadata Contract and Runtime Fallback Removal.md`
-- `metadata-and-generation/Immutable Metadata Definitions and Factory Plan.md`
+- `archive/roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/README.md`
+- `archive/roadmap-implementation/phase-8b-practical-aot-and-package-graph-hardening/Implementation Plan.md`
+- `archive/metadata-and-generation/Generated Metadata Contract and Runtime Fallback Removal.md`
+- `archive/metadata-and-generation/Immutable Metadata Definitions and Factory Plan.md`
 
 ### Phase 8C: Practical AOT Package Graph and Generated Runtime Hardening
 
-Status: planned follow-up, but not the current priority unless constrained-platform polish is chosen ahead of memory/cache work.
+Status: complete as of 2026-05-08 for the package/generated-runtime cleanup boundary.
 
 Goals:
 
@@ -292,17 +292,18 @@ Goals:
 - inspect packed package assets, not only project references
 - keep public compatibility wording narrow until the later query-boundary work is complete
 
-Why separate from Phase 8B:
+Closeout result:
 
-- Workstream C became a real implementation phase, not a small prerequisite
-- runtime package cleanup should not be mixed with the historical metadata foundation log
-- generated startup and indexed access are important, but they are not the same job as replacing the query parser
-- this slice can improve package/runtime hygiene without blocking memory/cache work on the larger Remotion replacement
+- repeatable size reports and banned-payload checks exist in `DataLinq.Dev.CLI`
+- Roslyn/compiler dependencies are split out of the runtime package graph
+- generated startup uses complete generated metadata through the factory path instead of rediscovering ordinary model metadata through reflection
+- generated immutable, mutable, and relation access paths use generated indices or handles where that removes avoidable runtime lookup
+- public compatibility wording is narrow and leaves the Remotion/query-parser and SQLitePCLRaw warning work to Phase 13
 
 Key related plans:
 
-- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
-- `roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
+- `archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/README.md`
+- `archive/roadmap-implementation/phase-8c-practical-aot-package-graph-and-generated-runtime-hardening/Implementation Plan.md`
 - `platform-compatibility/Practical AOT and Size Plan.md`
 
 ### Phase 9A: Release Hardening, Benchmarks, Allocation, and Cache Invalidation
@@ -335,9 +336,9 @@ Why before the broader cache redesign:
 
 Key related plans:
 
-- `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/README.md`
-- `roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation Plan.md`
-- `tooling/Warning Cleanup Plan.md`
+- `archive/roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/README.md`
+- `archive/roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation Plan.md`
+- `archive/tooling/Warning Cleanup Plan.md`
 - `performance/Representative Benchmark Suite and Website Trends.md`
 - `performance/Allocation Reduction Audit.md`
 - `performance/Memory Optimization and Deduplication.md`
@@ -481,9 +482,9 @@ Phase 6 LINQ translation coverage and query composition is implemented for its p
 
 Phase 7 LINQ feature expansion is implemented for its planned support boundary: scalar aggregates, computed post-materialization projections, nullable predicate polish, a narrow explicit `Join(...)` baseline, and one-to-many relation existence predicates.
 
-Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, `Remotion.Linq` still produces AOT/trimming warnings, SQLitePCLRaw emits WebAssembly native varargs warnings, and Roslyn still leaks into constrained publish payloads.
+Phase 8 Native AOT and WebAssembly readiness is implemented for its planned generated SQLite boundary: Native AOT publish/run, trimmed publish/run, Blazor WebAssembly AOT publish/browser smoke, generated metadata/factory enforcement, hot-path projection compilation removal, and browser cache-worker avoidance.
 
-Phase 8B is now the completed generated-contract and immutable metadata foundation. Phase 8C remains the bounded package/generated-runtime cleanup slice for constrained-platform polish, but it should not drag the Remotion/parser rewrite back into the critical path.
+Phase 8B is the completed generated-contract and immutable metadata foundation. Phase 8C is also complete for the bounded package/generated-runtime cleanup: Roslyn is out of runtime dependency groups, complete generated metadata startup is the normal generated path, and generated indexed/handle access landed. The remaining caveats are real and should not be hand-waved: no-AOT browser WebAssembly fails in the Mono interpreter, `Remotion.Linq` still produces AOT/trimming warnings, and SQLitePCLRaw emits WebAssembly native varargs warnings.
 
 Phase 9A is now complete: warning cleanup, benchmark/history improvements, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The important caveat is performance wording: the closeout supports allocation and invalidation claims, not latency claims.
 

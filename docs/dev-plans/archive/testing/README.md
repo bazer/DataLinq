@@ -12,5 +12,7 @@ This folder contains completed testing-migration records that are no longer acti
   Historical mapping from legacy xUnit files to their TUnit replacements.
 - `Testing and Infrastructure.md`
   Original migration architecture and staged cutover design.
+- `Test Infrastructure CLI.md`
+  Implemented design record for the `DataLinq.Testing.CLI` workflow. Current command usage lives in `../../../contributing/DataLinq.Testing.CLI.md`.
 
 These documents are retained because they explain why the current test architecture looks the way it does. They are not the source of truth for current workflow.

@@ -58,8 +58,8 @@ public sealed class EmployeeMaterializer : IMaterializer<Employee>
     public Employee Materialize(IRowData row)
     {
         return new ImmutableEmployee(
-            (int)row.GetFast(0),       // Id
-            (string)row.GetFast(1),    // Name
+            (int)row.GetValue(0)!,       // Id
+            (string)row.GetValue(1)!,    // Name
             row                        // Underlying data for lazy loading
         );
     }

@@ -44,7 +44,7 @@ Out of scope:
 ## Source Plans
 
 - [Implementation Plan](Implementation%20Plan.md)
-- [Phase 9A Implementation Plan](../phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation%20Plan.md)
+- [Phase 9A Implementation Plan](../../archive/roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation%20Plan.md)
 - [Distributed Cache Coordination and CDC](../../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 - [Memory Optimization and Deduplication](../../performance/Memory%20Optimization%20and%20Deduplication.md)
 - [Memory management](../../performance/Memory%20management.md)
