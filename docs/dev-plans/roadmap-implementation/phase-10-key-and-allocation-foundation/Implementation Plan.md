@@ -206,7 +206,7 @@ Exit criteria:
 
 ## Workstream E: Provider-Key Row Stores
 
-Status: in progress; generated scalar `Get(...)` now routes through provider-key row-store access.
+Status: complete as of 2026-05-12.
 
 Goals:
 
@@ -231,17 +231,28 @@ Tasks:
 Implementation notes:
 
 - `TableDefinition.PrimaryKeyShape` describes primary-key arity, component ordinals, CLR types, nullability, scalar store kind, and the placeholder converter handle.
-- `RowCache` now keeps scalar provider-key stores for `int`, `long`, `Guid`, and `string` alongside the legacy `IKey` dictionary; eviction metadata still belongs to the legacy dictionary until Workstream E fully routes generated lookup and Phase 11 invalidation can take over.
+- `RowCache` now keeps scalar provider-key stores for `int`, `long`, `Guid`, and `string` alongside the legacy `IKey` dictionary; eviction metadata still belongs to the legacy dictionary until Phase 11 invalidation can take over.
+- `RowCache.TryRemoveProviderKey(...)` and `TableCache.TryRemoveProviderKey(...)` provide the provider-key removal hook Phase 11 needs, while internally coordinating with the legacy eviction metadata.
 - Generated scalar primary-key `Get(...)` methods call `IImmutable<T>.GetByProviderKey(...)`; generated composite primary-key `Get(...)` methods remain on `IKey` until the composite provider-key design is widened beyond the correctness-preserving adapter path.
-- Composite keys intentionally remain on the legacy adapter path for correctness in this slice.
+- Composite keys intentionally remain on the legacy adapter path for correctness in this slice; arity-limited composite provider-key stores are the follow-up once generated relation/query key flow stops being `IKey`-first.
 
-Candidate internal shape:
+Verification:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug` (`542/542` passed)
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug` (`32/32` passed)
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build` (`542/542` passed)
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build` (`405/405` passed for `sqlite-file` and `sqlite-memory`)
+
+Initial internal shape:
 
 ```csharp
-internal interface ITableKeyAccessor<TModel>
+public sealed class TableKeyShape
 {
     int Arity { get; }
-    object? GetProviderKeyComponent(TModel model, int index);
+    MetadataCollection<TableKeyComponentDefinition> Components { get; }
+    bool SupportsScalarProviderKeyStore { get; }
 }
 
 internal sealed class RowStore<TKey>
