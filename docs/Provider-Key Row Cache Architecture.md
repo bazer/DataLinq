@@ -82,6 +82,38 @@ Generated Dept_emp.departments
 
 Nullable scalar foreign keys still have a dynamic null branch. That branch uses `DataLinqKey.Null` as the compact null carrier so relation traversal can return an empty collection or `null` reference without inventing a nullable provider-key store.
 
+## Query Materialization Flow
+
+Entity queries use the same provider-key boundary.
+
+For a simple scalar primary-key predicate, the query optimizer keeps the predicate value as the provider CLR value:
+
+```text
+Where(emp_no == 1001)
+  -> TryGetSimpleScalarPrimaryKey()
+  -> TableCache.GetRow<int>(1001, dataSource)
+  -> RowStore<int>
+```
+
+For broader scalar primary-key materialization, DataLinq still runs the key-first query shape, but the key reader now collects provider values instead of `DataLinqKey` wrappers:
+
+```text
+SELECT emp_no FROM employees WHERE ...
+  -> reader.GetValue<int>(emp_no, ordinal: 0)
+  -> TableCache.GetRows<int>(keys, dataSource)
+  -> RowStore<int>
+```
+
+Joined materialization reads each selected source primary key by reader ordinal and lets the generated table accessor construct the table's provider key:
+
+```text
+SELECT t0.emp_no AS dl_0_pk_0, t1.dept_no AS dl_1_pk_0 ...
+  -> DataLinqProviderKeyRowStoreAccessor.TryGetRow(reader, ordinals, dataSource)
+  -> TableCache.GetRow<TKey>(providerKey, dataSource)
+```
+
+Composite generated joins therefore use the generated `DataLinqPrimaryKey` struct when the joined source has a composite primary key. Dynamic metadata fallback still uses `DataLinqKey`.
+
 ## Metadata-Driven Flow
 
 Not every runtime path starts inside generated table-specific code. Query materialization, relation traversal, index maintenance, mutation state, and dynamic direct lookup may only have metadata and raw key components.
@@ -138,6 +170,8 @@ The cache key architecture depends on these invariants:
 - one relation index cache has one foreign-key store, typed for scalar generated foreign keys when supported
 - generated primary-key row stores use provider key values directly
 - generated scalar relation traversal passes provider foreign-key values directly
+- scalar entity query materialization reads provider primary-key values directly from readers
+- joined materialization lets generated accessors build provider keys from reader ordinals
 - generated composite primary keys use generated structs, not object arrays as row-store keys
 - `DataLinqKey` is allowed in metadata-driven plumbing, not as a replacement for generated provider keys
 - cache invalidation should remove rows by provider-key components through the same table-specific accessor path

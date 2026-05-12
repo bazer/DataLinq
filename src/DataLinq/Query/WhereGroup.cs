@@ -269,6 +269,27 @@ public class WhereGroup<T> : IWhere<T>
             : KeyFactory.CreateKeyFromValues(collectedValues!);
     }
 
+    internal bool TryGetSimpleScalarPrimaryKey(ColumnDefinition pkColumn, out object? primaryKey)
+    {
+        primaryKey = null;
+
+        if (whereList == null || whereList.Count != 1 || IsNegated)
+            return false;
+
+        var (part, _) = whereList[0];
+        if (part is not Where<T> where ||
+            where.IsNegated ||
+            where.Left is not ColumnOperand columnOperand ||
+            where.Operator != Operator.Equal ||
+            where.Right is not ValueOperand valueOperand ||
+            !valueOperand.HasOneValue ||
+            columnOperand.Name != pkColumn.DbName)
+            return false;
+
+        primaryKey = valueOperand.FirstValue;
+        return true;
+    }
+
     internal bool TryGetTemplatePredicates(
         out SelectSqlTemplatePredicate[] predicates,
         out object?[] values)

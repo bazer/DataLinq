@@ -896,6 +896,22 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}" + "}";
                 yield return "";
 
+                yield return $"{namespaceTab}{tab}internal static bool TryCreateDataLinqPrimaryKey(global::DataLinq.IDataLinqDataReader reader, global::System.Collections.Generic.IReadOnlyList<int> primaryKeyOrdinals, out {keyTypeName} providerKey)";
+                yield return $"{namespaceTab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}if (primaryKeyOrdinals.Count == {primaryKeys.Count.ToString(CultureInfo.InvariantCulture)}";
+                for (var i = 0; i < primaryKeys.Count; i++)
+                    yield return $"{namespaceTab}{tab}{tab}{tab}&& reader.GetValue<{primaryKeys[i].CsType.Name}>({GetGeneratedColumnHandleName(primaryKeys[i])}, primaryKeyOrdinals[{i.ToString(CultureInfo.InvariantCulture)}]) is {primaryKeys[i].CsType.Name} {primaryKeys[i].PropertyName.ToCamelCase()}";
+                yield return $"{namespaceTab}{tab}{tab}{tab})";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}providerKey = {providerKeyExpression};";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return true;";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}providerKey = default!;";
+                yield return $"{namespaceTab}{tab}{tab}return false;";
+                yield return $"{namespaceTab}{tab}" + "}";
+                yield return "";
+
                 yield return $"{namespaceTab}{tab}internal static bool TryCreateDataLinqPrimaryKey(global::DataLinq.Instances.DataLinqKey key, out {keyTypeName} providerKey)";
                 yield return $"{namespaceTab}{tab}" + "{";
                 yield return $"{namespaceTab}{tab}{tab}if (key.ValueCount == {primaryKeys.Count.ToString(CultureInfo.InvariantCulture)}";
@@ -928,7 +944,7 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}" + "}";
                 yield return "";
 
-                yield return $"{namespaceTab}{tab}internal sealed class DataLinqProviderKeyRowStoreAccessor : global::DataLinq.Instances.IProviderKeyRowStoreAccessor";
+                yield return $"{namespaceTab}{tab}internal sealed class DataLinqProviderKeyRowStoreAccessor : global::DataLinq.Instances.IProviderKeyDataReaderRowStoreAccessor";
                 yield return $"{namespaceTab}{tab}" + "{";
                 yield return $"{namespaceTab}{tab}{tab}public bool TryAddRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.RowData rowData, global::DataLinq.Instances.IImmutableInstance row)";
                 yield return $"{namespaceTab}{tab}{tab}" + "{";
@@ -947,6 +963,19 @@ public class GeneratorFileFactory
                 yield return $"{namespaceTab}{tab}{tab}{tab}" + "}";
                 yield return "";
                 yield return $"{namespaceTab}{tab}{tab}{tab}return cache.TryGetValue(providerKey, out row);";
+                yield return $"{namespaceTab}{tab}{tab}" + "}";
+                yield return "";
+
+                yield return $"{namespaceTab}{tab}{tab}public bool TryGetRow(global::DataLinq.Cache.TableCache tableCache, global::DataLinq.IDataLinqDataReader reader, global::System.Collections.Generic.IReadOnlyList<int> primaryKeyOrdinals, global::DataLinq.Interfaces.IDataSourceAccess dataSource, out global::DataLinq.Instances.IImmutableInstance? row)";
+                yield return $"{namespaceTab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}if (!TryCreateDataLinqPrimaryKey(reader, primaryKeyOrdinals, out var providerKey))";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "{";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}row = null;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}{tab}return false;";
+                yield return $"{namespaceTab}{tab}{tab}{tab}" + "}";
+                yield return "";
+                yield return $"{namespaceTab}{tab}{tab}{tab}row = tableCache.GetRow(providerKey, dataSource);";
+                yield return $"{namespaceTab}{tab}{tab}{tab}return true;";
                 yield return $"{namespaceTab}{tab}{tab}" + "}";
                 yield return "";
                 yield return $"{namespaceTab}{tab}{tab}public bool TryRemoveRow(global::DataLinq.Cache.RowCache cache, global::DataLinq.Instances.DataLinqKey key, out int numRowsRemoved)";

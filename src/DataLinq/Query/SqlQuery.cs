@@ -565,4 +565,17 @@ public class SqlQuery<T>
         // Delegate the complex analysis to the WhereGroup
         return WhereGroup.TryGetSimplePrimaryKey(Table.PrimaryKeyColumns);
     }
+
+    internal bool TryGetSimpleScalarPrimaryKey(out object? primaryKey)
+    {
+        primaryKey = null;
+
+        if (WhereGroup == null || WhereGroup.IsNegated)
+            return false;
+
+        if (!Table.PrimaryKeyShape.SupportsScalarProviderKeyStore)
+            return false;
+
+        return WhereGroup.TryGetSimpleScalarPrimaryKey(Table.PrimaryKeyColumns[0], out primaryKey);
+    }
 }

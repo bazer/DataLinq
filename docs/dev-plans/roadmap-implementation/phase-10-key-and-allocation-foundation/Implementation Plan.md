@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 10 Implementation Plan: Key and Allocation Foundation
 
-**Status:** Active implementation. Workstreams A through F are implemented as of 2026-05-12.
+**Status:** Active implementation. Workstreams A through G are implemented as of 2026-05-12.
 
 ## Purpose
 
@@ -331,6 +331,8 @@ Exit criteria:
 
 ## Workstream G: Query And Materialization Key Reads
 
+Status: complete as of 2026-05-12.
+
 Goals:
 
 - stop query/materialization paths from creating generic key objects where provider components are already available
@@ -343,6 +345,26 @@ Tasks:
 3. Update joined materialization to pass provider key components for each joined source slot where the current architecture allows it.
 4. Keep unsupported or dynamic query shapes on the transitional path with diagnostics or comments.
 5. Add tests that materialization still uses the cache identity consistently after update/delete/reload.
+
+Implementation notes:
+
+- Simple scalar primary-key predicates now use `TryGetSimpleScalarPrimaryKey(...)` and call `TableCache.GetRow<TKey>(...)` with the provider value instead of constructing a dynamic key carrier first.
+- Scalar key-first entity materialization still uses the existing key-query shape, but reads provider primary-key values from the data reader by ordinal and calls `TableCache.GetRows<TKey>(...)`.
+- Generated provider-key row-store accessors now implement `IProviderKeyDataReaderRowStoreAccessor`, allowing joined materialization to resolve each source row from data-reader primary-key aliases without building a lookup-only `DataLinqKey`.
+- Joined materialization caches primary-key reader ordinals once per result reader and asks each source table cache to materialize by provider key.
+- Composite and unsupported dynamic metadata paths remain on `DataLinqKey`; generated composite joined sources use their generated `DataLinqPrimaryKey` structs through the reader accessor.
+
+Verification:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug` (`32/32` passed)
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-build` (`547/547` passed)
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build` (`407/407` passed for `sqlite-file` and `sqlite-memory`)
+- `rg -n "IKey" src -g "*.cs"` (no production source matches)
+- `git diff --check`
+- `docfx build docfx.json` (succeeded with one unrelated invalid-file-link warning in `docs/Benchmark Results.md`)
 
 Exit criteria:
 

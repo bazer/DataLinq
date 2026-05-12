@@ -92,6 +92,57 @@ public class EmployeesCacheInvalidationCharacterizationTests
 
     [Test]
     [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
+    public async Task Cache_NonPrimaryKeyMaterialization_UsesProviderKeyCacheThroughUpdateAndDelete(TestProviderDescriptor provider)
+    {
+        using var databaseScope = EmployeesTestDatabase.CreateIsolated(
+            provider,
+            nameof(Cache_NonPrimaryKeyMaterialization_UsesProviderKeyCacheThroughUpdateAndDelete),
+            EmployeesSeedMode.Bogus);
+
+        var employeesDatabase = databaseScope.Database;
+        var employee = employees.GetOrCreateEmployee(999975, employeesDatabase);
+        var employeeNumber = employee.emp_no;
+        var firstName = employee.first_name;
+        var employeeCache = GetTableCache<Employee, EmployeesDb>(employeesDatabase);
+
+        employeesDatabase.Provider.State.ClearCache();
+
+        var cachedEmployee = employeesDatabase.Query().Employees.Single(x => x.first_name == firstName && x.emp_no == employeeNumber);
+        var cachedEmployeeAgain = employeesDatabase.Query().Employees.Single(x => x.first_name == firstName && x.emp_no == employeeNumber);
+
+        await Assert.That(ReferenceEquals(cachedEmployee, cachedEmployeeAgain)).IsTrue();
+        await Assert.That(employeeCache.RowCount).IsEqualTo(1);
+
+        var newBirthDate = cachedEmployee.birth_date.AddDays(1);
+        var mutable = cachedEmployee.Mutate();
+        mutable.birth_date = newBirthDate;
+
+        using (var transaction = employeesDatabase.Transaction())
+        {
+            _ = transaction.Update(mutable);
+            transaction.Commit();
+        }
+
+        await Assert.That(employeeCache.RowCount).IsEqualTo(0);
+
+        var reloadedEmployee = employeesDatabase.Query().Employees.Single(x => x.first_name == firstName && x.emp_no == employeeNumber);
+
+        await Assert.That(reloadedEmployee.birth_date).IsEqualTo(newBirthDate);
+        await Assert.That(ReferenceEquals(cachedEmployee, reloadedEmployee)).IsFalse();
+        await Assert.That(employeeCache.RowCount).IsEqualTo(1);
+
+        using (var transaction = employeesDatabase.Transaction())
+        {
+            transaction.Delete(reloadedEmployee);
+            transaction.Commit();
+        }
+
+        await Assert.That(employeeCache.RowCount).IsEqualTo(0);
+        await Assert.That(employeesDatabase.Query().Employees.Any(x => x.first_name == firstName && x.emp_no == employeeNumber)).IsFalse();
+    }
+
+    [Test]
+    [MethodDataSource(typeof(TestProviderDataSources), nameof(TestProviderDataSources.ActiveProviders))]
     public async Task Cache_UpdateBeforeCommit_UsesTransactionLocalRowCache(TestProviderDescriptor provider)
     {
         using var databaseScope = EmployeesTestDatabase.CreateIsolated(

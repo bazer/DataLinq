@@ -865,6 +865,100 @@ public class TableCache
         return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
     }
 
+    internal bool TryGetRowsFromScalarPrimaryKeyQuery<T>(
+        Select<T> select,
+        IDataSourceAccess dataSource,
+        List<OrderBy>? orderings,
+        out IEnumerable<IImmutableInstance> rows)
+    {
+        if (!Table.PrimaryKeyShape.SupportsScalarProviderKeyStore)
+        {
+            rows = [];
+            return false;
+        }
+
+        select.What(Table.PrimaryKeyColumns);
+        var primaryKeyColumn = Table.PrimaryKeyColumns[0];
+
+        rows = Table.PrimaryKeyShape[0].StoreKind switch
+        {
+            TableKeyComponentStoreKind.Int32 => GetRows(ReadScalarPrimaryKeys<T, int>(select, primaryKeyColumn), dataSource, orderings),
+            TableKeyComponentStoreKind.Int64 => GetRows(ReadScalarPrimaryKeys<T, long>(select, primaryKeyColumn), dataSource, orderings),
+            TableKeyComponentStoreKind.Guid => GetRows(ReadScalarPrimaryKeys<T, Guid>(select, primaryKeyColumn), dataSource, orderings),
+            TableKeyComponentStoreKind.String => GetRows(ReadScalarPrimaryKeys<T, string>(select, primaryKeyColumn), dataSource, orderings),
+            _ => []
+        };
+
+        return true;
+    }
+
+    internal IEnumerable<IImmutableInstance> GetRows<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
+        where TKey : notnull
+    {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        EnsureTransactionRowCache(dataSource);
+
+        if (primaryKeys.Count == 0)
+            return [];
+
+        if (orderings == null || orderings.Count == 0)
+        {
+            if (primaryKeys.Count == 1)
+            {
+                var row = GetRow(primaryKeys[0], dataSource);
+                return row is null ? [] : [row];
+            }
+
+            return LoadRowsFromDatabaseAndCache(primaryKeys, dataSource);
+        }
+
+        return LoadOrderedRowsFromDatabaseAndCache(primaryKeys, dataSource, orderings);
+    }
+
+    internal bool TryGetRowFromProviderKeyValue(object? primaryKey, IDataSourceAccess dataSource, out IImmutableInstance? row)
+    {
+        row = null;
+        if (primaryKey is null || !Table.PrimaryKeyShape.SupportsScalarProviderKeyStore)
+            return false;
+
+        switch (Table.PrimaryKeyShape[0].StoreKind)
+        {
+            case TableKeyComponentStoreKind.Int32 when primaryKey is int intKey:
+                row = GetRow(intKey, dataSource);
+                return true;
+            case TableKeyComponentStoreKind.Int64 when primaryKey is long longKey:
+                row = GetRow(longKey, dataSource);
+                return true;
+            case TableKeyComponentStoreKind.Guid when primaryKey is Guid guidKey:
+                row = GetRow(guidKey, dataSource);
+                return true;
+            case TableKeyComponentStoreKind.String when primaryKey is string stringKey:
+                row = GetRow(stringKey, dataSource);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    internal IImmutableInstance? GetRow(
+        IDataLinqDataReader reader,
+        IReadOnlyList<int> primaryKeyOrdinals,
+        IDataSourceAccess dataSource)
+    {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        EnsureTransactionRowCache(dataSource);
+
+        if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyDataReaderRowStoreAccessor providerKeyAccessor &&
+            providerKeyAccessor.TryGetRow(this, reader, primaryKeyOrdinals, dataSource, out var row))
+            return row;
+
+        if (TryReadScalarPrimaryKeyValue(reader, primaryKeyOrdinals, out var primaryKey) &&
+            TryGetRowFromProviderKeyValue(primaryKey, dataSource, out row))
+            return row;
+
+        return GetRow(ReadPrimaryKey(reader, primaryKeyOrdinals), dataSource);
+    }
+
     private void EnsureTransactionRowCache(IDataSourceAccess dataSource)
     {
         if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly)
@@ -901,6 +995,40 @@ public class TableCache
             foreach (var split in keysToLoad.SplitList(500))
             {
                 foreach (var rowData in GetRowDataFromPrimaryKeys(split, dataSource))
+                {
+                    MetricsHandle.RecordDatabaseRowsLoaded(1);
+                    yield return AddRow(rowData, dataSource);
+                }
+            }
+
+            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
+        }
+    }
+
+    private IEnumerable<IImmutableInstance> LoadRowsFromDatabaseAndCache<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource)
+        where TKey : notnull
+    {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+
+        var keysToLoad = new List<TKey>(primaryKeys.Count);
+        foreach (var key in primaryKeys)
+        {
+            if (GetRowFromCache(key, dataSource, out var row))
+                yield return row!;
+            else
+                keysToLoad.Add(key);
+        }
+
+        MetricsHandle.RecordRowCacheHits(primaryKeys.Count - keysToLoad.Count);
+        MetricsHandle.RecordRowCacheMisses(keysToLoad.Count);
+
+        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, primaryKeys.Count - keysToLoad.Count);
+
+        if (keysToLoad.Count != 0)
+        {
+            foreach (var split in keysToLoad.SplitList(500))
+            {
+                foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource))
                 {
                     MetricsHandle.RecordDatabaseRowsLoaded(1);
                     yield return AddRow(rowData, dataSource);
@@ -1053,6 +1181,71 @@ public class TableCache
             : orderedRows;
     }
 
+    private IEnumerable<IImmutableInstance> LoadOrderedRowsFromDatabaseAndCache<TKey>(IReadOnlyList<TKey> primaryKeys, IDataSourceAccess dataSource, List<OrderBy> orderings)
+        where TKey : notnull
+    {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+
+        var keysToLoad = new List<TKey>(primaryKeys.Count);
+        var loadedRows = new List<IImmutableInstance>(primaryKeys.Count);
+
+        foreach (var key in primaryKeys)
+        {
+            if (GetRowFromCache(key, dataSource, out var row))
+                loadedRows.Add(row!);
+            else
+                keysToLoad.Add(key);
+        }
+
+        MetricsHandle.RecordRowCacheHits(loadedRows.Count);
+        MetricsHandle.RecordRowCacheMisses(keysToLoad.Count);
+
+        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, loadedRows.Count);
+
+        if (keysToLoad.Count != 0)
+        {
+            foreach (var split in keysToLoad.SplitList(500))
+            {
+                foreach (var rowData in GetRowDataFromPrimaryKeyValues(split, dataSource, orderings))
+                {
+                    MetricsHandle.RecordDatabaseRowsLoaded(1);
+                    loadedRows.Add(AddRow(rowData, dataSource));
+                }
+            }
+
+            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, keysToLoad.Count);
+        }
+
+        return ApplyOrderings(loadedRows, orderings);
+    }
+
+    private static IEnumerable<IImmutableInstance> ApplyOrderings(
+        IEnumerable<IImmutableInstance> rows,
+        List<OrderBy> orderings)
+    {
+        IOrderedEnumerable<IImmutableInstance>? orderedRows = null;
+
+        foreach (var ordering in orderings)
+        {
+            Func<IImmutableInstance, IComparable?> keySelector = x => (IComparable?)x.GetValues([ordering.Column]).First().Value;
+
+            if (orderedRows == null)
+            {
+                orderedRows = ordering.Ascending
+                    ? rows.OrderBy(keySelector)
+                    : rows.OrderByDescending(keySelector);
+            }
+            else
+            {
+                orderedRows = ordering.Ascending
+                    ? orderedRows.ThenBy(keySelector)
+                    : orderedRows.ThenByDescending(keySelector);
+            }
+        }
+
+        return orderedRows ?? rows;
+    }
+
     private IEnumerable<RowData> GetRowDataFromPrimaryKeys(IEnumerable<DataLinqKey> keys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
     {
         var q = new SqlQuery(Table, dataSource);
@@ -1098,6 +1291,105 @@ public class TableCache
         return q
             .SelectQuery()
             .ReadRows();
+    }
+
+    private IEnumerable<RowData> GetRowDataFromPrimaryKeyValues<TKey>(IEnumerable<TKey> keys, IDataSourceAccess dataSource, List<OrderBy>? orderings = null)
+        where TKey : notnull
+    {
+        var keyArray = keys as TKey[] ?? keys.ToArray();
+        if (keyArray.Length == 0)
+            return [];
+
+        var q = new SqlQuery(Table, dataSource);
+
+        if (Table.PrimaryKeyColumns.Length == 1)
+        {
+            var pkColumn = Table.PrimaryKeyColumns[0];
+
+            q.Where(pkColumn.DbName)
+             .In(keyArray.Select(key => dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key)));
+        }
+        else
+        {
+            var first = true;
+            foreach (var key in keyArray)
+            {
+                if (key is not IProviderKey providerKey)
+                    throw new InvalidOperationException(
+                        $"Provider key for table '{Table.DbName}' must expose components for composite lookup.");
+
+                if (providerKey.ValueCount != primaryKeyColumnsCount)
+                    throw new InvalidOperationException(
+                        $"Provider key for table '{Table.DbName}' has {providerKey.ValueCount} components, expected {primaryKeyColumnsCount}.");
+
+                var keySpecificAndGroup = q.AddWhereGroup(first ? BooleanType.And : BooleanType.Or);
+                first = false;
+
+                for (var i = 0; i < primaryKeyColumnsCount; i++)
+                {
+                    var pkColumn = Table.PrimaryKeyColumns[i];
+                    keySpecificAndGroup.Where(pkColumn.DbName)
+                        .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, providerKey.GetValue(i)));
+                }
+            }
+        }
+
+        if (orderings != null)
+        {
+            foreach (var order in orderings)
+                q.OrderBy(order.Column, order.Alias, order.Ascending);
+        }
+
+        return q
+            .SelectQuery()
+            .ReadRows();
+    }
+
+    private static List<TKey> ReadScalarPrimaryKeys<TSelect, TKey>(Select<TSelect> select, ColumnDefinition column)
+        where TKey : notnull
+    {
+        var keys = new List<TKey>();
+        foreach (var reader in select.ReadReader())
+        {
+            if (reader.GetValue<TKey>(column, 0) is TKey key)
+                keys.Add(key);
+        }
+
+        return keys;
+    }
+
+    private DataLinqKey ReadPrimaryKey(IDataLinqDataReader reader, IReadOnlyList<int> primaryKeyOrdinals)
+    {
+        if (primaryKeyColumnsCount == 1)
+            return DataLinqKey.FromValue(reader.GetValue<object>(Table.PrimaryKeyColumns[0], primaryKeyOrdinals[0]));
+
+        var values = new object?[primaryKeyColumnsCount];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = reader.GetValue<object>(Table.PrimaryKeyColumns[i], primaryKeyOrdinals[i]);
+
+        return DataLinqKey.FromValues(values);
+    }
+
+    private bool TryReadScalarPrimaryKeyValue(
+        IDataLinqDataReader reader,
+        IReadOnlyList<int> primaryKeyOrdinals,
+        out object? primaryKey)
+    {
+        primaryKey = null;
+        if (!Table.PrimaryKeyShape.SupportsScalarProviderKeyStore || primaryKeyOrdinals.Count != 1)
+            return false;
+
+        var column = Table.PrimaryKeyColumns[0];
+        primaryKey = Table.PrimaryKeyShape[0].StoreKind switch
+        {
+            TableKeyComponentStoreKind.Int32 => reader.GetValue<int>(column, primaryKeyOrdinals[0]),
+            TableKeyComponentStoreKind.Int64 => reader.GetValue<long>(column, primaryKeyOrdinals[0]),
+            TableKeyComponentStoreKind.Guid => reader.GetValue<Guid>(column, primaryKeyOrdinals[0]),
+            TableKeyComponentStoreKind.String => reader.GetValue<string>(column, primaryKeyOrdinals[0]),
+            _ => null
+        };
+
+        return primaryKey is not null;
     }
 
     private RowData? GetRowDataFromPrimaryKey(DataLinqKey key, IDataSourceAccess dataSource)

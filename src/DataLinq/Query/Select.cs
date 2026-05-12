@@ -270,15 +270,23 @@ public class Select<T> : IQuery
         {
             if (query.Table.PrimaryKeyColumns.Length != 0)
             {
-                // OPTIMIZATION: Try to extract keys directly from the query structure (e.g. Single(x => x.Id == 1))
-                // This avoids the first round-trip to fetch keys if the query is a simple PK lookup.
-                var simpleKey = query.TryGetSimplePrimaryKey();
                 var tableCache = query.DataSource.Provider.GetTableCache(query.Table);
 
-                if (simpleKey.HasValue)
+                if (query.TryGetSimpleScalarPrimaryKey(out var simpleScalarKey) &&
+                    tableCache.TryGetRowFromProviderKeyValue(simpleScalarKey, query.DataSource, out var scalarRow))
                 {
-                    var row = tableCache.GetRow(simpleKey.Value, query.DataSource);
+                    if (scalarRow is not null)
+                        yield return scalarRow;
+                }
+                else if (query.TryGetSimplePrimaryKey() is DataLinqKey simpleKey)
+                {
+                    var row = tableCache.GetRow(simpleKey, query.DataSource);
                     if (row is not null)
+                        yield return row;
+                }
+                else if (tableCache.TryGetRowsFromScalarPrimaryKeyQuery(this, query.DataSource, query.OrderByList, out var providerKeyRows))
+                {
+                    foreach (var row in providerKeyRows)
                         yield return row;
                 }
                 else

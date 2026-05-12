@@ -332,15 +332,16 @@ internal class QueryExecutor : IQueryExecutor
         select.What(GetJoinedPrimaryKeySelectors(query, sources).ToArray());
 
         var projector = GetJoinedSelectFunc<T>(queryModel.SelectClause, sources);
+        int[][]? primaryKeyOrdinalsBySource = null;
         foreach (var reader in select.ReadReader())
         {
+            primaryKeyOrdinalsBySource ??= GetJoinedPrimaryKeyOrdinals(reader, sources);
             var rows = new object?[sources.Length];
             for (var sourceIndex = 0; sourceIndex < sources.Length; sourceIndex++)
             {
                 var source = sources[sourceIndex];
-                var key = ReadJoinedPrimaryKey(reader, source, sourceIndex);
-                rows[sourceIndex] = Transaction.Provider.GetTableCache(source.Table).GetRow(key, Transaction)
-                    ?? throw new InvalidOperationException($"Joined row for table '{source.Table.DbName}' and key '{key}' could not be materialized.");
+                rows[sourceIndex] = Transaction.Provider.GetTableCache(source.Table).GetRow(reader, primaryKeyOrdinalsBySource[sourceIndex], Transaction)
+                    ?? throw new InvalidOperationException($"Joined row for table '{source.Table.DbName}' could not be materialized from its provider primary key.");
             }
 
             yield return projector(rows);
@@ -394,13 +395,18 @@ internal class QueryExecutor : IQueryExecutor
         }
     }
 
-    private static DataLinqKey ReadJoinedPrimaryKey(IDataLinqDataReader reader, JoinQuerySource source, int sourceIndex)
+    private static int[][] GetJoinedPrimaryKeyOrdinals(IDataLinqDataReader reader, IReadOnlyList<JoinQuerySource> sources)
     {
-        var values = source.Table.PrimaryKeyColumns
-            .Select((column, columnIndex) => reader.GetValue<object>(column, reader.GetOrdinal(GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex))))
-            .ToArray();
+        var ordinals = new int[sources.Count][];
+        for (var sourceIndex = 0; sourceIndex < sources.Count; sourceIndex++)
+        {
+            var source = sources[sourceIndex];
+            ordinals[sourceIndex] = new int[source.Table.PrimaryKeyColumns.Length];
+            for (var columnIndex = 0; columnIndex < ordinals[sourceIndex].Length; columnIndex++)
+                ordinals[sourceIndex][columnIndex] = reader.GetOrdinal(GetJoinedPrimaryKeyAlias(sourceIndex, columnIndex));
+        }
 
-        return KeyFactory.CreateKeyFromValues(values);
+        return ordinals;
     }
 
     private static string GetJoinedPrimaryKeyAlias(int sourceIndex, int columnIndex)
