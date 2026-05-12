@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Metadata;
 
@@ -96,7 +95,10 @@ internal sealed class DatabaseCachePolicy
         ArgumentNullException.ThrowIfNull(table);
         ArgumentNullException.ThrowIfNull(cacheLimits);
 
-        var snapshot = cacheLimits.ToArray();
+        var snapshot = new (CacheLimitType limitType, long amount)[cacheLimits.Count];
+        for (var i = 0; i < cacheLimits.Count; i++)
+            snapshot[i] = cacheLimits[i];
+
         bool hadPrevious;
         IReadOnlyList<(CacheLimitType limitType, long amount)>? previous;
 
@@ -120,8 +122,8 @@ internal sealed class DatabaseCachePolicy
 
     private static IReadOnlyList<(CacheLimitType limitType, long amount)> GetDatabaseCacheLimits(DatabaseDefinition metadata)
     {
-        if (metadata.CacheLimits.Any())
-            return metadata.CacheLimits.ToArray();
+        if (metadata.CacheLimits.Count != 0)
+            return metadata.CacheLimits;
 
         return metadata.UseCache
             ? EnabledDefaultCacheLimits
@@ -130,8 +132,8 @@ internal sealed class DatabaseCachePolicy
 
     private static IReadOnlyList<(CacheCleanupType cleanupType, long amount)> GetCacheCleanup(DatabaseDefinition metadata)
     {
-        if (metadata.CacheCleanup.Any())
-            return metadata.CacheCleanup.ToArray();
+        if (metadata.CacheCleanup.Count != 0)
+            return metadata.CacheCleanup;
 
         return metadata.UseCache
             ? EnabledDefaultCacheCleanup
@@ -140,8 +142,8 @@ internal sealed class DatabaseCachePolicy
 
     private static IReadOnlyList<(IndexCacheType indexCacheType, int? amount)> GetIndexCache(DatabaseDefinition metadata)
     {
-        if (metadata.IndexCache.Any())
-            return metadata.IndexCache.ToArray();
+        if (metadata.IndexCache.Count != 0)
+            return metadata.IndexCache;
 
         return metadata.UseCache
             ? EnabledDefaultIndexCache
@@ -149,22 +151,34 @@ internal sealed class DatabaseCachePolicy
     }
 
     private static Dictionary<TableDefinition, IReadOnlyList<(CacheLimitType limitType, long amount)>> GetTableCacheLimits(
-        DatabaseDefinition metadata) =>
-        metadata.TableModels
-            .Select(tableModel => tableModel.Table)
-            .Where(table => table.CacheLimits.Any())
-            .ToDictionary(
-                table => table,
-                table => (IReadOnlyList<(CacheLimitType limitType, long amount)>)table.CacheLimits.ToArray());
+        DatabaseDefinition metadata)
+    {
+        var result = new Dictionary<TableDefinition, IReadOnlyList<(CacheLimitType limitType, long amount)>>();
+
+        for (var i = 0; i < metadata.TableModels.Count; i++)
+        {
+            var table = metadata.TableModels[i].Table;
+            if (table.CacheLimits.Count != 0)
+                result.Add(table, table.CacheLimits);
+        }
+
+        return result;
+    }
 
     private static Dictionary<TableDefinition, IReadOnlyList<(IndexCacheType indexCacheType, int? amount)>> GetTableIndexCache(
-        DatabaseDefinition metadata) =>
-        metadata.TableModels
-            .Select(tableModel => tableModel.Table)
-            .Where(table => table.IndexCache.Any())
-            .ToDictionary(
-                table => table,
-                table => (IReadOnlyList<(IndexCacheType indexCacheType, int? amount)>)table.IndexCache.ToArray());
+        DatabaseDefinition metadata)
+    {
+        var result = new Dictionary<TableDefinition, IReadOnlyList<(IndexCacheType indexCacheType, int? amount)>>();
+
+        for (var i = 0; i < metadata.TableModels.Count; i++)
+        {
+            var table = metadata.TableModels[i].Table;
+            if (table.IndexCache.Count != 0)
+                result.Add(table, table.IndexCache);
+        }
+
+        return result;
+    }
 
     private sealed class PolicyOverride(Action dispose) : IDisposable
     {

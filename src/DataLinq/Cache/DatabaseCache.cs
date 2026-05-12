@@ -28,14 +28,20 @@ public class DatabaseCache : IDisposable
         this.Database = database;
         this.loggingConfiguration = loggingConfiguration;
         this.Policy = DatabaseCachePolicy.FromMetadata(database.Metadata);
-        this.TableCaches = this.Database.Metadata.TableModels
-            .ToDictionary(x => x.Table, x => new TableCache(x.Table, this, loggingConfiguration));
+        this.TableCaches = new Dictionary<TableDefinition, TableCache>(this.Database.Metadata.TableModels.Count);
+        for (var i = 0; i < this.Database.Metadata.TableModels.Count; i++)
+        {
+            var table = this.Database.Metadata.TableModels[i].Table;
+            this.TableCaches.Add(table, new TableCache(table, this, loggingConfiguration));
+        }
 
         if (IsBrowserRuntime())
             return;
 
-        foreach (var timespan in Policy.CacheCleanup.Select(x => GetFromCacheCleanupType(x.cleanupType, x.amount)))
+        for (var i = 0; i < Policy.CacheCleanup.Count; i++)
         {
+            var cacheCleanup = Policy.CacheCleanup[i];
+            var timespan = GetFromCacheCleanupType(cacheCleanup.cleanupType, cacheCleanup.amount);
             this.CleanCacheWorker = new CleanCacheWorker(database, new LongRunningTaskCreator(), timespan);
             this.CleanCacheWorker.Start();
         }
@@ -85,13 +91,28 @@ public class DatabaseCache : IDisposable
     private static (IndexCacheType, int? amount) GetIndexCachePolicy(
         IReadOnlyList<(IndexCacheType indexCacheType, int? amount)> indexCache)
     {
-        if (!indexCache.Any() || indexCache.Any(x => x.indexCacheType == IndexCacheType.None))
+        if (indexCache.Count == 0)
             return (IndexCacheType.None, 0);
 
-        if (indexCache.Any(x => x.indexCacheType == IndexCacheType.MaxAmountRows))
-            return (IndexCacheType.MaxAmountRows, indexCache.First(x => x.indexCacheType == IndexCacheType.MaxAmountRows).amount);
+        (IndexCacheType indexCacheType, int? amount)? maxRowsPolicy = null;
+        var hasAllPolicy = false;
 
-        if (indexCache.Any(x => x.indexCacheType == IndexCacheType.All))
+        for (var i = 0; i < indexCache.Count; i++)
+        {
+            var policy = indexCache[i];
+            if (policy.indexCacheType == IndexCacheType.None)
+                return (IndexCacheType.None, 0);
+
+            if (policy.indexCacheType == IndexCacheType.MaxAmountRows)
+                maxRowsPolicy = policy;
+            else if (policy.indexCacheType == IndexCacheType.All)
+                hasAllPolicy = true;
+        }
+
+        if (maxRowsPolicy.HasValue)
+            return maxRowsPolicy.Value;
+
+        if (hasAllPolicy)
             return (IndexCacheType.All, null);
 
         throw new NotImplementedException();

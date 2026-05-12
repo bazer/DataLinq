@@ -155,6 +155,34 @@ public class DatabaseCacheTests
         }
     }
 
+    [Test]
+    [NotInParallel]
+    public async Task Constructor_ExplicitCachePolicy_ReusesFrozenMetadataCollections()
+    {
+        var previousBrowserRuntime = DatabaseCache.IsBrowserRuntime;
+        DatabaseCache.IsBrowserRuntime = static () => true;
+
+        var metadata = CreateMetadataWithExplicitCachePolicy();
+        var table = metadata.TableModels[0].Table;
+
+        try
+        {
+            using var cache = new DatabaseCache(
+                new FakeDatabaseProvider(metadata),
+                DataLinqLoggingConfiguration.NullConfiguration);
+
+            await Assert.That(ReferenceEquals(cache.Policy.DatabaseCacheLimits, metadata.CacheLimits)).IsTrue();
+            await Assert.That(ReferenceEquals(cache.Policy.CacheCleanup, metadata.CacheCleanup)).IsTrue();
+            await Assert.That(ReferenceEquals(cache.Policy.IndexCache, metadata.IndexCache)).IsTrue();
+            await Assert.That(ReferenceEquals(cache.Policy.GetTableCacheLimits(table), table.CacheLimits)).IsTrue();
+            await Assert.That(ReferenceEquals(cache.Policy.GetTableIndexCache(table), table.IndexCache)).IsTrue();
+        }
+        finally
+        {
+            DatabaseCache.IsBrowserRuntime = previousBrowserRuntime;
+        }
+    }
+
     private static DatabaseDefinition CreateMetadata(bool includeExplicitCleanup = true, bool useCache = false)
     {
         var draft = new MetadataDatabaseDraft(
@@ -165,6 +193,47 @@ public class DatabaseCacheTests
             CacheCleanup = includeExplicitCleanup
                 ? [(CacheCleanupType.Minutes, 1)]
                 : []
+        };
+
+        return new MetadataDefinitionFactory().Build(draft).ValueOrException();
+    }
+
+    private static DatabaseDefinition CreateMetadataWithExplicitCachePolicy()
+    {
+        var draft = new MetadataDatabaseDraft(
+            "cachetest",
+            new CsTypeDeclaration("CacheTestDb", "DataLinq.Tests.Unit", ModelCsType.Class))
+        {
+            CacheLimits = [(CacheLimitType.Rows, 200)],
+            CacheCleanup = [(CacheCleanupType.Seconds, 15)],
+            IndexCache = [(IndexCacheType.All, null)],
+            TableModels =
+            [
+                new MetadataTableModelDraft(
+                    "Items",
+                    new MetadataModelDraft(new CsTypeDeclaration("CacheTestItem", "DataLinq.Tests.Unit", ModelCsType.Class))
+                    {
+                        OriginalInterfaces =
+                        [
+                            new CsTypeDeclaration("ITableModel", "DataLinq.Interfaces", ModelCsType.Interface)
+                        ],
+                        ValueProperties =
+                        [
+                            new MetadataValuePropertyDraft(
+                                "Id",
+                                new CsTypeDeclaration(typeof(int)),
+                                new MetadataColumnDraft("id") { PrimaryKey = true })
+                            {
+                                Attributes = [new PrimaryKeyAttribute(), new ColumnAttribute("id")]
+                            }
+                        ]
+                    },
+                    new MetadataTableDraft("items")
+                    {
+                        CacheLimits = [(CacheLimitType.Rows, 50)],
+                        IndexCache = [(IndexCacheType.MaxAmountRows, 100)]
+                    })
+            ]
         };
 
         return new MetadataDefinitionFactory().Build(draft).ValueOrException();
