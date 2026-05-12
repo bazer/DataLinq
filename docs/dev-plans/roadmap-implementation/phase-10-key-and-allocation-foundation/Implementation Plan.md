@@ -160,7 +160,7 @@ Exit criteria:
 
 ## Workstream D: Transitional Non-Allocating `IKey` Access
 
-Status: in progress; component API and hot-path migration implemented, verification in progress.
+Status: complete as of 2026-05-12.
 
 Goals:
 
@@ -189,6 +189,14 @@ Implementation notes:
 - Simple and composite `IKey` implementations expose `ValueCount`, `GetValue(int)`, and `TryGetSingleValue(out object?)` without routing through `Values`.
 - Mutable primary-key recomputation, relation foreign-key grouping, and index invalidation now use indexed `KeyFactory.GetKey(...)` helpers instead of enumerable key-value bridges.
 - Cache SQL key predicates use indexed `IKey` component reads directly; remaining `IKey.Values` coverage is compatibility/defensive-copy behavior, not ordinary cache inspection.
+- Full `IKey` dependency removal is owned by Workstream E provider-key row stores and Phase 11 provider-key invalidation APIs.
+
+Verification:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug` (`538/538` passed)
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build` (`538/538` passed)
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build` (`405/405` passed for `sqlite-file` and `sqlite-memory`)
 
 Exit criteria:
 
