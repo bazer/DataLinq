@@ -57,7 +57,11 @@ public interface IImmutable<T>
         return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource);
     }
 
-    static T? GetByProviderKey<TKey>(TKey key, IDataSourceAccess dataSource)
+    static T? GetByProviderKey<TKey>(
+        TKey key,
+        IDataSourceAccess dataSource,
+        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory = null)
+        where TKey : notnull
     {
         if (dataSource == null)
             throw new ArgumentNullException(nameof(dataSource), "Data source cannot be null");
@@ -65,7 +69,7 @@ public interface IImmutable<T>
         if (!dataSource.Provider.Metadata.TryGetTableModel(typeof(T), out var tableModel))
             throw new Exception($"Found no TableDefinition for model '{typeof(T)}'");
 
-        return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource);
+        return (T?)dataSource.Provider.GetTableCache(tableModel.Table).GetRow(key, dataSource, legacyKeyFactory);
     }
 }
 

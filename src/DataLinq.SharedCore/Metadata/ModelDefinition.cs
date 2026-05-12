@@ -78,6 +78,20 @@ public class ModelDefinition(CsTypeDeclaration csType) : IDefinition
         ImmutableFactory = immutableFactory;
     }
 
+    public object? ProviderKeyRowStoreAccessor { get; private set; }
+
+    [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
+    public void SetProviderKeyRowStoreAccessor(object? providerKeyRowStoreAccessor)
+    {
+        SetProviderKeyRowStoreAccessorCore(providerKeyRowStoreAccessor);
+    }
+
+    internal void SetProviderKeyRowStoreAccessorCore(object? providerKeyRowStoreAccessor)
+    {
+        ThrowIfFrozen();
+        ProviderKeyRowStoreAccessor = providerKeyRowStoreAccessor;
+    }
+
     public CsTypeDeclaration? MutableType { get; private set; }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]

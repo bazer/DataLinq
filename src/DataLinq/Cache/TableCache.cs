@@ -528,6 +528,7 @@ public class TableCache
     }
 
     public bool TryRemoveProviderKey<TKey>(TKey primaryKey, IDataSourceAccess dataSource, out int numRowsRemoved)
+        where TKey : notnull
     {
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
         EnsureTransactionRowCache(dataSource);
@@ -695,10 +696,14 @@ public class TableCache
         return null;
     }
 
-    public IImmutableInstance? GetRow<TKey>(TKey primaryKey, IDataSourceAccess dataSource)
+    public IImmutableInstance? GetRow<TKey>(
+        TKey primaryKey,
+        IDataSourceAccess dataSource,
+        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory = null)
+        where TKey : notnull
     {
-        if (!CanUseScalarProviderKey(primaryKey))
-            return GetRow(KeyFactory.CreateKeyFromValue(primaryKey), dataSource);
+        if (primaryKey is null)
+            return null;
 
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
         EnsureTransactionRowCache(dataSource);
@@ -720,7 +725,7 @@ public class TableCache
         {
             MetricsHandle.RecordDatabaseRowsLoaded(1);
             Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
-            return AddRow(rowData, dataSource);
+            return AddRow(rowData, dataSource, primaryKey, legacyKeyFactory);
         }
 
         Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
@@ -967,11 +972,29 @@ public class TableCache
     }
 
     private RowData? GetRowDataFromPrimaryKeyValue<TKey>(TKey key, IDataSourceAccess dataSource)
+        where TKey : notnull
     {
-        var pkColumn = Table.PrimaryKeyColumns[0];
         var q = new SqlQuery(Table, dataSource);
-        q.Where(pkColumn.DbName)
-         .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key));
+
+        if (key is IProviderKey providerKey)
+        {
+            if (providerKey.ValueCount != primaryKeyColumnsCount)
+                throw new InvalidOperationException(
+                    $"Provider key for table '{Table.DbName}' has {providerKey.ValueCount} components, expected {primaryKeyColumnsCount}.");
+
+            for (var i = 0; i < primaryKeyColumnsCount; i++)
+            {
+                var pkColumn = Table.PrimaryKeyColumns[i];
+                q.Where(pkColumn.DbName)
+                 .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, providerKey.GetValue(i)));
+            }
+        }
+        else
+        {
+            var pkColumn = Table.PrimaryKeyColumns[0];
+            q.Where(pkColumn.DbName)
+             .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key));
+        }
 
         return q
             .SelectQuery()
@@ -993,6 +1016,7 @@ public class TableCache
     }
 
     private bool GetRowFromCache<TKey>(TKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
+        where TKey : notnull
     {
         if (dataSource is ReadOnlyAccess && rowCache is not null && rowCache.TryGetValue(key, out row))
             return true;
@@ -1004,12 +1028,6 @@ public class TableCache
 
         row = null;
         return false;
-    }
-
-    private bool CanUseScalarProviderKey<TKey>(TKey primaryKey)
-    {
-        return primaryKey is not null &&
-            Table.PrimaryKeyShape.SupportsScalarProviderKey(primaryKey.GetType());
     }
 
     private static bool RemoveNoRows(out int numRowsRemoved)
@@ -1024,16 +1042,26 @@ public class TableCache
         return row;
     }
 
+    private IImmutableInstance AddRow<TKey>(
+        RowData rowData,
+        IDataSourceAccess transaction,
+        TKey primaryKey,
+        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory)
+        where TKey : notnull
+    {
+        TryAddRow(rowData, transaction, primaryKey, legacyKeyFactory, out var row);
+        return row;
+    }
+
     private bool TryAddRow(RowData rowData, IDataSourceAccess dataSource, out IImmutableInstance row)
     {
         row = InstanceFactory.NewImmutableRow(rowData, dataSource);
-        var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
 
-        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || GetOrCreateRowCache().TryAddRow(keys, rowData, row)))
+        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || TryAddRowToCache(GetOrCreateRowCache(), rowData, row)))
             || (dataSource is Transaction transaction &&
                 transactionRows is not null &&
                 transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
-                transactionRowCache.TryAddRow(keys, rowData, row));
+                TryAddRowToCache(transactionRowCache, rowData, row));
 
         if (added)
         {
@@ -1042,6 +1070,57 @@ public class TableCache
         }
 
         return added;
+    }
+
+    private bool TryAddRow<TKey>(
+        RowData rowData,
+        IDataSourceAccess dataSource,
+        TKey primaryKey,
+        ProviderKeyFromLegacyKey<TKey>? legacyKeyFactory,
+        out IImmutableInstance row)
+        where TKey : notnull
+    {
+        row = InstanceFactory.NewImmutableRow(rowData, dataSource);
+
+        var added = (dataSource is ReadOnlyAccess && (!Table.UseCache || GetOrCreateRowCache().TryAddRow(primaryKey, rowData.Size, row, legacyKeyFactory)))
+            || (dataSource is Transaction transaction &&
+                transactionRows is not null &&
+                transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
+                transactionRowCache.TryAddRow(primaryKey, rowData.Size, row, legacyKeyFactory));
+
+        if (added)
+        {
+            MetricsHandle.RecordRowCacheStore();
+            RefreshOccupancyMetrics();
+        }
+
+        return added;
+    }
+
+    private bool TryAddRowToCache(RowCache cache, RowData rowData, IImmutableInstance row)
+    {
+        if (Table.Model.ProviderKeyRowStoreAccessor is IProviderKeyRowStoreAccessor providerKeyAccessor)
+            return providerKeyAccessor.TryAddRow(cache, rowData, row);
+
+        if (Table.PrimaryKeyShape.IsScalar)
+        {
+            var column = Table.PrimaryKeyColumns[0];
+            var value = rowData.GetValue(column);
+            if (value is null)
+                return false;
+
+            return Table.PrimaryKeyShape[0].StoreKind switch
+            {
+                TableKeyComponentStoreKind.Int32 when value is int intKey => cache.TryAddRow(intKey, rowData.Size, row),
+                TableKeyComponentStoreKind.Int64 when value is long longKey => cache.TryAddRow(longKey, rowData.Size, row),
+                TableKeyComponentStoreKind.Guid when value is Guid guidKey => cache.TryAddRow(guidKey, rowData.Size, row),
+                TableKeyComponentStoreKind.String when value is string stringKey => cache.TryAddRow(stringKey, rowData.Size, row),
+                _ => false
+            };
+        }
+
+        var keys = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
+        return cache.TryAddRow(keys, rowData, row);
     }
 
     public TableCacheSnapshot MakeSnapshot()

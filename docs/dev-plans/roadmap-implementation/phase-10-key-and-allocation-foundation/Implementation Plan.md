@@ -160,7 +160,7 @@ Exit criteria:
 
 ## Workstream D: Transitional Non-Allocating `IKey` Access
 
-Status: complete as of 2026-05-12.
+Status: corrected implementation complete as of 2026-05-12.
 
 Goals:
 
@@ -222,27 +222,30 @@ Tasks:
    - nullability
    - column ordinals
    - scalar-converter handle placeholder
-2. Add scalar provider-key row store APIs for common key types.
-3. Add a composite-key design that avoids `object?[]` on generated lookup paths, even if the first implementation is arity-limited.
-4. Route generated static `Get(...)` through provider-key store access for scalar primary keys.
+2. Add a single provider-key row store API that is generic over the table's actual provider-key type.
+3. Add a composite-key design that avoids `object?[]` and `IKey` storage on generated lookup paths.
+4. Route generated static `Get(...)` through provider-key store access for scalar and composite primary keys.
 5. Keep legacy dynamic lookup working through a clearly isolated adapter if needed.
-6. Add tests for `int`, `long`, `Guid`, and `string` primary keys.
+6. Add tests for `int`, `long`, `Guid`, `string`, generated composite provider keys, and legacy composite rejection.
 
 Implementation notes:
 
 - `TableDefinition.PrimaryKeyShape` describes primary-key arity, component ordinals, CLR types, nullability, scalar store kind, and the placeholder converter handle.
-- `RowCache` now keeps scalar provider-key stores for `int`, `long`, `Guid`, and `string` alongside the legacy `IKey` dictionary; eviction metadata still belongs to the legacy dictionary until Phase 11 invalidation can take over.
-- `RowCache.TryRemoveProviderKey(...)` and `TableCache.TryRemoveProviderKey(...)` provide the provider-key removal hook Phase 11 needs, while internally coordinating with the legacy eviction metadata.
-- Generated scalar primary-key `Get(...)` methods call `IImmutable<T>.GetByProviderKey(...)`; generated composite primary-key `Get(...)` methods remain on `IKey` until the composite provider-key design is widened beyond the correctness-preserving adapter path.
-- Composite keys intentionally remain on the legacy adapter path for correctness in this slice; arity-limited composite provider-key stores are the follow-up once generated relation/query key flow stops being `IKey`-first.
+- The initial side-dictionary implementation was rejected because it stored every key twice. The corrected design gives each `RowCache` exactly one `RowStore<TKey>` selected by the table's provider-key shape.
+- `RowCache` no longer has an `IKey` dictionary, scalar side stores, or a duplicate key-age queue. Rows, byte totals, and age cleanup are owned by the single typed store.
+- `RowCache.TryRemoveProviderKey(...)` and `TableCache.TryRemoveProviderKey(...)` provide the provider-key removal hook Phase 11 needs without coordinating with legacy key storage.
+- Generated scalar primary-key `Get(...)` methods call `IImmutable<T>.GetByProviderKey(...)` with the scalar provider value directly.
+- Generated composite primary-key `Get(...)` methods use an internal generated `DataLinqPrimaryKey` record struct that implements the provider-key component reader and acts as the cache key. The struct is stored directly by `Dictionary<DataLinqPrimaryKey, ...>`, so the cache does not box scalar components or keep a parallel `IKey`.
+- Generated metadata also carries a provider-key row-store accessor per primary-key table. Query and relation materialization use that accessor to populate the same typed store as generated static `Get(...)`, so composite tables do not lose cache population when rows arrive outside the direct lookup path.
+- Legacy `IKey` lookup/add/remove paths are compatibility adapters only. Scalar legacy keys can create the typed store for existing dynamic call sites; composite legacy keys can only adapt into an already-created generated composite store via the generated converter. A bare legacy composite key is not allowed to create an `IKey`-backed row store.
 
 Verification:
 
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental`
-- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug` (`542/542` passed)
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug` (`544/544` passed)
 - `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug` (`32/32` passed)
 - `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Models\DataLinq.Tests.Models.csproj -c Debug -v minimal --no-incremental`
-- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build` (`542/542` passed)
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite unit --alias quick --output failures --build` (`544/544` passed)
 - `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build` (`405/405` passed for `sqlite-file` and `sqlite-memory`)
 
 Initial internal shape:
@@ -259,8 +262,13 @@ internal sealed class RowStore<TKey>
     where TKey : notnull
 {
     public bool TryGet(TKey key, out IImmutableInstance? row);
-    public bool TryAdd(TKey key, IImmutableInstance row);
-    public bool TryRemove(TKey key, out IImmutableInstance? row);
+    public bool TryAdd(TKey key, int size, IImmutableInstance row);
+    public bool TryRemove(TKey key, out int numRowsRemoved);
+}
+
+public interface IProviderKeyRowStoreAccessor
+{
+    bool TryAddRow(RowCache cache, RowData rowData, IImmutableInstance row);
 }
 ```
 
@@ -268,7 +276,7 @@ Exit criteria:
 
 - generated scalar primary-key `Get(...)` can hit cache without constructing `IKey`
 - generated provider-key removal exists for Phase 11 row invalidation
-- composite keys have a correctness-preserving path and a documented optimization follow-up if not fully optimized
+- generated composite primary-key `Get(...)` can hit cache through a generated provider-key struct without constructing or storing `IKey`
 
 ## Workstream F: Generated Relation Provider-Key Access
 
