@@ -17,6 +17,7 @@ In scope:
 - explicit cache clearing APIs for database, table, and primary-key scopes
 - invalidation event envelopes suitable for later CDC/message-bus adapters
 - relation/index invalidation through the same internals as mutation invalidation
+- precise relation-object invalidation for loaded `ImmutableRelation<T>` and `ImmutableForeignKey<T>` instances when affected keys are known
 - provider-key invalidation through Phase 10 key descriptors/accessors, with any dynamic key carrier kept bounded and separate from legacy `IKey`
 - cache telemetry that identifies mutation, external, cleanup, memory-pressure, and freshness-related invalidation sources
 - a minimal row freshness vocabulary for later validation and result-set caching work
@@ -33,6 +34,7 @@ Out of scope:
 ## Source Plans
 
 - [Implementation Plan](Implementation%20Plan.md)
+- [Precise Relation Cache Invalidation](Precise%20Relation%20Cache%20Invalidation.md)
 - [Phase 10 Implementation Plan](../phase-10-key-and-allocation-foundation/Implementation%20Plan.md)
 - [Provider-Key Row Cache Architecture](../../../Provider-Key%20Row%20Cache%20Architecture.md)
 - [Phase 9A Implementation Plan](../../archive/roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation%20Plan.md)
@@ -48,6 +50,7 @@ Phase 11 is done when:
 - external invalidation can use provider-key values without constructing legacy `IKey` objects or reintroducing an equivalent universal key interface
 - dynamic invalidation does not reintroduce a universal key abstraction under a new name
 - relation and index cache entries are invalidated consistently with mutation invalidation
+- loaded relation objects are invalidated by affected relation key or loaded primary key when precision is available, with table-wide clearing reserved as a correctness fallback
 - invalidation telemetry records source, table, scope, and approximate cost
 - unsupported or unknown invalidation signals fail predictably or degrade to conservative table invalidation
 - later CDC and result-set caching plans have a stable invalidation envelope to build on

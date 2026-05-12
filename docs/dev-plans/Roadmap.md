@@ -379,6 +379,7 @@ Goals:
 - add explicit cache clearing APIs for database, table, and provider-key row scopes
 - support external invalidation event envelopes without depending on a message bus or CDC package
 - invalidate relation and index cache entries through the same mechanics as mutation invalidation
+- invalidate loaded relation objects by affected relation key or loaded primary key instead of clearing every relation subscriber for a changed table when precision is available
 - define a minimal row freshness vocabulary without forcing provider hash/version checks into the first invalidation slice
 - make invalidation telemetry identify source, scope, table, and approximate cost
 
@@ -392,6 +393,7 @@ Key related plans:
 
 - `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/README.md`
 - `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Implementation Plan.md`
+- `roadmap-implementation/phase-11-cache-clearing-and-external-invalidation/Precise Relation Cache Invalidation.md`
 - `architecture/Distributed Cache Coordination and CDC.md`
 - `performance/Memory management.md`
 

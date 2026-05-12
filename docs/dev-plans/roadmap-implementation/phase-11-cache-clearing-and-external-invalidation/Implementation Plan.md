@@ -41,6 +41,7 @@ As of 2026-05-12, Phase 11 can rely on these artifacts:
 - expose explicit cache clearing APIs for database, table, and primary-key scopes
 - make external invalidation provider-neutral and message-bus-agnostic
 - invalidate relation and index cache state through the same path as local mutations
+- avoid broad loaded-relation clearing when mutation or external invalidation impacts can be described by provider primary keys and relation keys
 - define an invalidation event envelope for future CDC/message-bus adapters
 - define a minimal row freshness vocabulary without forcing provider-backed hashes into this phase
 - make invalidation telemetry identify source, scope, and cost
@@ -98,20 +99,32 @@ Goals:
 
 - keep relation/index caches coherent after external signals
 - avoid a separate invalidation path that diverges from mutation invalidation
+- make loaded `ImmutableRelation<T>` and `ImmutableForeignKey<T>` invalidation precise when affected keys are known
+- preserve table-wide clearing as the explicit fallback when precision is unavailable
 
 Tasks:
 
 1. Reuse mutation invalidation internals where possible.
 2. Invalidate relation indexes affected by provider key components.
-3. Invalidate table-level relation/index state when key-level precision is unavailable or when Phase 10 left only a conservative fallback.
-4. Add tests for FK relation loading followed by external parent/child invalidation.
-5. Add tests for changed relation/index columns where external invalidation cannot know the old value.
+3. Add an internal invalidation impact model that can carry table fallback, changed primary keys, and changed relation keys.
+4. Extend relation-object subscription and notification matching so loaded relation objects are cleared by affected relation key or by intersection with changed loaded primary keys.
+5. Normalize local `StateChange` mutation effects into that impact model before notifying relation subscribers.
+6. Invalidate table-level relation/index state when key-level precision is unavailable or when Phase 10 left only a conservative fallback.
+7. Add tests for FK relation loading followed by external parent/child invalidation.
+8. Add tests for changed relation/index columns where external invalidation cannot know the old value.
+9. Convert the current broad relation-clear characterization into a regression test for precise invalidation.
 
 Exit criteria:
 
 - relation traversal after external invalidation cannot return known-stale cached rows
+- relation-object invalidation is precise for key-known local mutation and external invalidation paths
+- duplicate same-target foreign keys are invalidated independently rather than by raw key value alone
 - table-level invalidation remains a correct fallback when precise relation keys are unavailable
 - mutation and external invalidation share the same core cache invalidation mechanics
+
+Required companion design:
+
+- [Precise Relation Cache Invalidation](Precise%20Relation%20Cache%20Invalidation.md)
 
 ## Workstream C: Invalidation Event Envelope
 
@@ -126,6 +139,8 @@ Candidate fields:
 - table name or table model type
 - provider primary-key components
 - key arity and provider component types when useful for validation
+- changed columns when known
+- old and new relation/index provider-key values when known
 - invalidation scope: row, rows, table, database
 - source name: mutation, external, manual, cleanup, freshness, memory-pressure
 - optional freshness/version token
@@ -138,13 +153,15 @@ Tasks:
 3. Keep transport-specific metadata out of the core DTO.
 4. Add validation for missing table/key fields.
 5. Add tests for component-count/type mismatches.
-6. Add tests for conservative downgrade when an event lacks precise keys.
+6. Add tests for conservative downgrade when an event lacks precise primary keys or old/new relation/index values.
+7. Ensure relation-object invalidation consumes the normalized event impact rather than a separate notification shape.
 
 Exit criteria:
 
 - external adapters can feed invalidation without referencing cache internals
 - invalidation signals are serializable or easy to serialize in application code
 - event handling validates key arity and provider component compatibility before touching cache internals
+- old/new relation/index values can drive precise relation-object and index invalidation when supplied
 - unsupported payloads fail clearly or downgrade conservatively
 
 ## Workstream D: Freshness Vocabulary
@@ -213,6 +230,7 @@ Stress checks should cover:
 
 - concurrent external invalidation
 - concurrent relation/index invalidation
+- concurrent targeted relation-object invalidation
 - cleanup during active readers
 - conservative table invalidation fallback
 
@@ -224,5 +242,6 @@ Phase 11 can ship when:
 - database, table, and provider-key row invalidation scopes are public and tested
 - generated invalidation paths use Phase 10 provider-key accessors or explicitly documented temporary bridges
 - relation/index invalidation does not diverge from mutation invalidation
+- loaded relation objects are invalidated precisely when affected primary keys or relation keys are known
 - invalidation telemetry records source and scope
 - docs explain that external invalidation is explicit signaling, not automatic distributed coherence
