@@ -17,6 +17,10 @@ public class RowCache
 
     protected ConcurrentDictionary<IKey, IImmutableInstance> rows = new();
     private readonly ConcurrentDictionary<IKey, (int size, long ticks)> rowMetadata = new();
+    private RowStore<int>? intRows;
+    private RowStore<long>? longRows;
+    private RowStore<Guid>? guidRows;
+    private RowStore<string>? stringRows;
     private long totalBytes;
 
     public IEnumerable<IImmutableInstance> Rows => rows.Values.AsEnumerable();
@@ -53,6 +57,10 @@ public class RowCache
             {
                 rows.Clear();
                 rowMetadata.Clear();
+                intRows?.Clear();
+                longRows?.Clear();
+                guidRows?.Clear();
+                stringRows?.Clear();
                 Interlocked.Exchange(ref totalBytes, 0);
             }
 
@@ -173,8 +181,41 @@ public class RowCache
 
     public bool TryGetValue(IKey primaryKeys, out IImmutableInstance? row) => rows.TryGetValue(primaryKeys, out row);
 
+    public bool TryGetValue<TKey>(TKey primaryKey, out IImmutableInstance? row)
+    {
+        row = null;
+
+        if (primaryKey is null)
+            return false;
+
+        if (primaryKey is int intKey && intRows is not null)
+            return intRows.TryGet(intKey, out row);
+
+        if (primaryKey is long longKey && longRows is not null)
+            return longRows.TryGet(longKey, out row);
+
+        if (primaryKey is Guid guidKey && guidRows is not null)
+            return guidRows.TryGet(guidKey, out row);
+
+        if (primaryKey is string stringKey && stringRows is not null)
+            return stringRows.TryGet(stringKey, out row);
+
+        return false;
+    }
+
     public bool TryRemoveRow(IKey primaryKeys, out int numRowsRemoved)
         => TryRemoveRow(primaryKeys, null, out numRowsRemoved);
+
+    public bool TryRemoveProviderKey<TKey>(TKey primaryKey, out int numRowsRemoved)
+    {
+        if (primaryKey is null)
+        {
+            numRowsRemoved = 0;
+            return true;
+        }
+
+        return TryRemoveRow(KeyFactory.CreateKeyFromValue(primaryKey), out numRowsRemoved);
+    }
 
     private bool TryRemoveRow(IKey primaryKeys, long? expectedTicks, out int numRowsRemoved)
     {
@@ -194,6 +235,7 @@ public class RowCache
                     if (rowMetadata.TryRemove(primaryKeys, out var metadata))
                         Interlocked.Add(ref totalBytes, -metadata.size);
 
+                    RemoveProviderKey(primaryKeys);
                     numRowsRemoved = 1;
                     return true;
                 }
@@ -206,6 +248,9 @@ public class RowCache
     }
 
     public bool TryAddRow(IKey keys, RowData data, IImmutableInstance instance)
+        => TryAddRow(keys, data.Size, instance);
+
+    internal bool TryAddRow(IKey keys, int size, IImmutableInstance instance)
     {
         var ticks = DateTime.Now.Ticks;
 
@@ -218,22 +263,74 @@ public class RowCache
 
                 if (rowMetadata.TryGetValue(keys, out var existingMetadata))
                 {
-                    rowMetadata[keys] = (data.Size, ticks);
-                    Interlocked.Add(ref totalBytes, data.Size - existingMetadata.size);
+                    rowMetadata[keys] = (size, ticks);
+                    Interlocked.Add(ref totalBytes, size - existingMetadata.size);
                 }
                 else
                 {
-                    rowMetadata[keys] = (data.Size, ticks);
-                    Interlocked.Add(ref totalBytes, data.Size);
+                    rowMetadata[keys] = (size, ticks);
+                    Interlocked.Add(ref totalBytes, size);
                 }
+
+                AddProviderKey(keys, instance);
             }
 
-            keysTicks.Enqueue((keys, ticks, data.Size));
+            keysTicks.Enqueue((keys, ticks, size));
 
             if (!oldestKeyTick.HasValue)
-                oldestKeyTick = (keys, ticks, data.Size);
+                oldestKeyTick = (keys, ticks, size);
         }
 
         return true;
     }
+
+    private void AddProviderKey(IKey keys, IImmutableInstance instance)
+    {
+        if (!keys.TryGetSingleValue(out var value) || value is null)
+            return;
+
+        if (value is int intKey)
+            (intRows ??= new RowStore<int>()).TryAdd(intKey, instance);
+        else if (value is long longKey)
+            (longRows ??= new RowStore<long>()).TryAdd(longKey, instance);
+        else if (value is Guid guidKey)
+            (guidRows ??= new RowStore<Guid>()).TryAdd(guidKey, instance);
+        else if (value is string stringKey)
+            (stringRows ??= new RowStore<string>()).TryAdd(stringKey, instance);
+    }
+
+    private void RemoveProviderKey(IKey keys)
+    {
+        if (!keys.TryGetSingleValue(out var value) || value is null)
+            return;
+
+        if (value is int intKey)
+            intRows?.TryRemove(intKey, out _);
+        else if (value is long longKey)
+            longRows?.TryRemove(longKey, out _);
+        else if (value is Guid guidKey)
+            guidRows?.TryRemove(guidKey, out _);
+        else if (value is string stringKey)
+            stringRows?.TryRemove(stringKey, out _);
+    }
+}
+
+internal sealed class RowStore<TKey>
+    where TKey : notnull
+{
+    private readonly ConcurrentDictionary<TKey, IImmutableInstance> rows = new();
+
+    public int Count => rows.Count;
+
+    public bool TryGet(TKey key, out IImmutableInstance? row) =>
+        rows.TryGetValue(key, out row);
+
+    public bool TryAdd(TKey key, IImmutableInstance row) =>
+        rows.TryAdd(key, row);
+
+    public bool TryRemove(TKey key, out IImmutableInstance? row) =>
+        rows.TryRemove(key, out row);
+
+    public void Clear() =>
+        rows.Clear();
 }

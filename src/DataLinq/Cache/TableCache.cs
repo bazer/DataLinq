@@ -527,6 +527,21 @@ public class TableCache
             transactionRowCache.TryRemoveRow(primaryKeys, out numRowsRemoved);
     }
 
+    public bool TryRemoveProviderKey<TKey>(TKey primaryKey, IDataSourceAccess dataSource, out int numRowsRemoved)
+    {
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        EnsureTransactionRowCache(dataSource);
+
+        if (dataSource is Transaction transaction && transaction.Type != TransactionType.ReadOnly)
+        {
+            numRowsRemoved = 0;
+            return transactionRows?.TryGetValue(transaction, out var transactionRowCache) == true &&
+                transactionRowCache.TryRemoveProviderKey(primaryKey, out numRowsRemoved);
+        }
+
+        return rowCache?.TryRemoveProviderKey(primaryKey, out numRowsRemoved) ?? RemoveNoRows(out numRowsRemoved);
+    }
+
     public bool TryRemoveTransaction(Transaction transaction)
     {
         var rowsByTransaction = transactionRows;
@@ -669,6 +684,38 @@ public class TableCache
         Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, 0);
 
         var rowData = GetRowDataFromPrimaryKey(primaryKeys, dataSource);
+        if (rowData is not null)
+        {
+            MetricsHandle.RecordDatabaseRowsLoaded(1);
+            Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
+            return AddRow(rowData, dataSource);
+        }
+
+        Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, 1);
+        return null;
+    }
+
+    public IImmutableInstance? GetRow<TKey>(TKey primaryKey, IDataSourceAccess dataSource)
+    {
+        if (!CanUseScalarProviderKey(primaryKey))
+            return GetRow(KeyFactory.CreateKeyFromValue(primaryKey), dataSource);
+
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        EnsureTransactionRowCache(dataSource);
+
+        if (GetRowFromCache(primaryKey, dataSource, out var row))
+        {
+            MetricsHandle.RecordRowCacheHits(1);
+            MetricsHandle.RecordRowCacheMisses(0);
+            Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, 1);
+            return row;
+        }
+
+        MetricsHandle.RecordRowCacheHits(0);
+        MetricsHandle.RecordRowCacheMisses(1);
+        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, 0);
+
+        var rowData = GetRowDataFromPrimaryKeyValue(primaryKey, dataSource);
         if (rowData is not null)
         {
             MetricsHandle.RecordDatabaseRowsLoaded(1);
@@ -919,6 +966,18 @@ public class TableCache
             .ReadFirstRow();
     }
 
+    private RowData? GetRowDataFromPrimaryKeyValue<TKey>(TKey key, IDataSourceAccess dataSource)
+    {
+        var pkColumn = Table.PrimaryKeyColumns[0];
+        var q = new SqlQuery(Table, dataSource);
+        q.Where(pkColumn.DbName)
+         .EqualTo(dataSource.Provider.GetWriter().ConvertColumnValue(pkColumn, key));
+
+        return q
+            .SelectQuery()
+            .ReadFirstRow();
+    }
+
     private bool GetRowFromCache(IKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
     {
         if (dataSource is ReadOnlyAccess && rowCache is not null && rowCache.TryGetValue(key, out row))
@@ -931,6 +990,32 @@ public class TableCache
 
         row = null;
         return false;
+    }
+
+    private bool GetRowFromCache<TKey>(TKey key, IDataSourceAccess dataSource, out IImmutableInstance? row)
+    {
+        if (dataSource is ReadOnlyAccess && rowCache is not null && rowCache.TryGetValue(key, out row))
+            return true;
+        else if (dataSource is Transaction transaction &&
+            transactionRows is not null &&
+            transactionRows.TryGetValue(transaction, out var transactionRowCache) &&
+            transactionRowCache.TryGetValue(key, out row))
+            return true;
+
+        row = null;
+        return false;
+    }
+
+    private bool CanUseScalarProviderKey<TKey>(TKey primaryKey)
+    {
+        return primaryKey is not null &&
+            Table.PrimaryKeyShape.SupportsScalarProviderKey(primaryKey.GetType());
+    }
+
+    private static bool RemoveNoRows(out int numRowsRemoved)
+    {
+        numRowsRemoved = 0;
+        return true;
     }
 
     private IImmutableInstance AddRow(RowData rowData, IDataSourceAccess transaction)
