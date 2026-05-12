@@ -132,8 +132,8 @@ public class Select<T> : IQuery
         // reader aligns with the DataReader's fields.
         var columnsToRead = GetColumnsToRead();
 
-        return ReadReader()
-            .Select(x => new RowData(x, query.Table, columnsToRead, true));
+        foreach (var reader in ReadReader())
+            yield return new RowData(reader, query.Table, columnsToRead, true);
     }
 
     public RowData? ReadFirstRow()
@@ -171,7 +171,7 @@ public class Select<T> : IQuery
             // RowData is designed for Entity Materialization, so it expects mapped columns.
             var col = query.Table.TryGetColumnByDbName(cleanName, out var exactColumn)
                 ? exactColumn
-                : query.Table.Columns.FirstOrDefault(c => c.DbName.Equals(cleanName, StringComparison.OrdinalIgnoreCase));
+                : GetColumnByDbNameIgnoreCase(cleanName);
 
             if (col != null)
             {
@@ -190,7 +190,20 @@ public class Select<T> : IQuery
 
         // If we found NO matching columns (e.g. only aggregates), return empty
         // This effectively means RowData will be empty/useless, which is expected for purely aggregate queries.
-        return definitions.ToArray();
+        return definitions;
+    }
+
+    private ColumnDefinition? GetColumnByDbNameIgnoreCase(string dbName)
+    {
+        var columns = query.Table.Columns;
+        for (var i = 0; i < columns.Count; i++)
+        {
+            var column = columns[i];
+            if (column.DbName.Equals(dbName, StringComparison.OrdinalIgnoreCase))
+                return column;
+        }
+
+        return null;
     }
 
     public IEnumerable<IKey> ReadKeys()
@@ -290,12 +303,8 @@ public class Select<T> : IQuery
             }
             else
             {
-                var rows = this
-                    .ReadRows()
-                    .Select(x => InstanceFactory.NewImmutableRow(x, query.DataSource));
-
-                foreach (var row in rows)
-                    yield return row;
+                foreach (var rowData in this.ReadRows())
+                    yield return InstanceFactory.NewImmutableRow(rowData, query.DataSource);
             }
 
             succeeded = true;

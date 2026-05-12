@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using DataLinq.Metadata;
 
 namespace DataLinq.Instances;
@@ -61,7 +60,11 @@ public sealed class RowData : IRowData, IEquatable<RowData>
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues()
     {
-        return Table.Columns.Select(col => new KeyValuePair<ColumnDefinition, object?>(col, data[col.Index]));
+        for (var i = 0; i < Table.Columns.Count; i++)
+        {
+            var column = Table.Columns[i];
+            yield return new KeyValuePair<ColumnDefinition, object?>(column, data[column.Index]);
+        }
     }
 
     public IEnumerable<KeyValuePair<ColumnDefinition, object?>> GetColumnAndValues(IEnumerable<ColumnDefinition> columns)
@@ -95,8 +98,9 @@ public sealed class RowData : IRowData, IEquatable<RowData>
     {
         var size = 0;
 
-        foreach (var column in columns)
+        for (var i = 0; i < columns.Count; i++)
         {
+            var column = columns[i];
             var value = reader.GetValue<object>(column);
             size += GetSize(column, value);
 
