@@ -18,7 +18,9 @@ public class TableDefinition(string dbName) : IDefinition
     private MetadataCollection<ColumnDefinition> columns = MetadataCollection<ColumnDefinition>.Empty;
     private MetadataCollection<ColumnDefinition> primaryKeyColumns = MetadataCollection<ColumnDefinition>.Empty;
     private Dictionary<string, ColumnDefinition>? columnsByDbName;
+    private Dictionary<string, ColumnDefinition>? columnsByDbNameIgnoreCase;
     private Dictionary<string, ColumnDefinition>? columnsByPropertyName;
+    private Dictionary<ColumnDefinition, MetadataCollection<ColumnIndex>>? columnIndicesByColumn;
 
     public string DbName { get; private set; } = dbName;
     public bool IsFrozen { get; private set; }
@@ -52,7 +54,12 @@ public class TableDefinition(string dbName) : IDefinition
 
     public ColumnDefinition GetColumnByDbName(string dbName)
     {
-        if (TryGetColumnByDbName(dbName, out var column))
+        return GetColumnByDbName(dbName, StringComparison.Ordinal);
+    }
+
+    public ColumnDefinition GetColumnByDbName(string dbName, StringComparison comparison)
+    {
+        if (TryGetColumnByDbName(dbName, comparison, out var column))
             return column;
 
         throw new KeyNotFoundException($"No column named '{dbName}' exists on table '{DbName}'.");
@@ -60,12 +67,37 @@ public class TableDefinition(string dbName) : IDefinition
 
     public bool TryGetColumnByDbName(string dbName, out ColumnDefinition column)
     {
+        return TryGetColumnByDbName(dbName, StringComparison.Ordinal, out column);
+    }
+
+    public bool TryGetColumnByDbName(string dbName, StringComparison comparison, out ColumnDefinition column)
+    {
         if (dbName is null)
             throw new ArgumentNullException(nameof(dbName));
 
-        if (columnsByDbName is not null &&
-            columnsByDbName.TryGetValue(dbName, out column!))
-            return true;
+        var lookup = comparison == StringComparison.OrdinalIgnoreCase
+            ? columnsByDbNameIgnoreCase
+            : comparison == StringComparison.Ordinal
+                ? columnsByDbName
+                : null;
+
+        if (lookup is not null)
+        {
+            if (lookup.TryGetValue(dbName, out column!))
+                return true;
+
+            column = null!;
+            return false;
+        }
+
+        foreach (var candidate in columns)
+        {
+            if (string.Equals(candidate.DbName, dbName, comparison))
+            {
+                column = candidate;
+                return true;
+            }
+        }
 
         column = null!;
         return false;
@@ -92,6 +124,30 @@ public class TableDefinition(string dbName) : IDefinition
         return false;
     }
 
+    public MetadataCollection<ColumnIndex> GetColumnIndices(ColumnDefinition column)
+    {
+        if (column is null)
+            throw new ArgumentNullException(nameof(column));
+
+        if (IsFrozen &&
+            columnIndicesByColumn is not null &&
+            columnIndicesByColumn.TryGetValue(column, out var frozenIndices))
+            return frozenIndices;
+
+        if (IsFrozen)
+            return MetadataCollection<ColumnIndex>.Empty;
+
+        var indices = new List<ColumnIndex>();
+        for (var i = 0; i < ColumnIndices.Count; i++)
+        {
+            var index = ColumnIndices[i];
+            if (index.Columns.Contains(column))
+                indices.Add(index);
+        }
+
+        return new MetadataCollection<ColumnIndex>(indices);
+    }
+
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
     public void SetColumns(IEnumerable<ColumnDefinition> columns)
     {
@@ -103,6 +159,7 @@ public class TableDefinition(string dbName) : IDefinition
         ThrowIfFrozen();
         this.columns = new MetadataCollection<ColumnDefinition>(columns);
         RebuildColumnLookups();
+        columnIndicesByColumn = null;
     }
 
     public MetadataCollection<ColumnDefinition> PrimaryKeyColumns => primaryKeyColumns;
@@ -176,6 +233,7 @@ public class TableDefinition(string dbName) : IDefinition
             return;
 
         RebuildColumnLookups();
+        RebuildColumnIndexLookups();
         IsFrozen = true;
 
         foreach (var column in columns)
@@ -192,6 +250,7 @@ public class TableDefinition(string dbName) : IDefinition
     private void RebuildColumnLookups()
     {
         var byDbName = new Dictionary<string, ColumnDefinition>(StringComparer.Ordinal);
+        var byDbNameIgnoreCase = new Dictionary<string, ColumnDefinition>(StringComparer.OrdinalIgnoreCase);
         var byPropertyName = new Dictionary<string, ColumnDefinition>(StringComparer.Ordinal);
 
         foreach (var column in columns)
@@ -202,12 +261,43 @@ public class TableDefinition(string dbName) : IDefinition
             if (!byDbName.ContainsKey(column.DbName))
                 byDbName.Add(column.DbName, column);
 
+            if (!byDbNameIgnoreCase.ContainsKey(column.DbName))
+                byDbNameIgnoreCase.Add(column.DbName, column);
+
             if (column.ValueProperty is not null && !byPropertyName.ContainsKey(column.ValueProperty.PropertyName))
                 byPropertyName.Add(column.ValueProperty.PropertyName, column);
         }
 
         columnsByDbName = byDbName;
+        columnsByDbNameIgnoreCase = byDbNameIgnoreCase;
         columnsByPropertyName = byPropertyName;
+    }
+
+    private void RebuildColumnIndexLookups()
+    {
+        var mutableLookup = new Dictionary<ColumnDefinition, List<ColumnIndex>>();
+
+        for (var indexPosition = 0; indexPosition < ColumnIndices.Count; indexPosition++)
+        {
+            var index = ColumnIndices[indexPosition];
+            for (var columnPosition = 0; columnPosition < index.Columns.Count; columnPosition++)
+            {
+                var column = index.Columns[columnPosition];
+                if (!mutableLookup.TryGetValue(column, out var indices))
+                {
+                    indices = [];
+                    mutableLookup.Add(column, indices);
+                }
+
+                indices.Add(index);
+            }
+        }
+
+        var frozenLookup = new Dictionary<ColumnDefinition, MetadataCollection<ColumnIndex>>();
+        foreach (var item in mutableLookup)
+            frozenLookup.Add(item.Key, new MetadataCollection<ColumnIndex>(item.Value));
+
+        columnIndicesByColumn = frozenLookup;
     }
 
     protected void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);

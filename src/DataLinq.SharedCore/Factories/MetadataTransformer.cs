@@ -113,15 +113,15 @@ public class MetadataTransformer
 
         foreach (var srcProperty in srcTable.Model.ValueProperties.Values)
         {
-            var destPropertyKeyValue = destTable.Model.ValueProperties.FirstOrDefault(x => x.Value.Column?.DbName == srcProperty.Column?.DbName);
-            var key = destPropertyKeyValue.Key;
-            var destProperty = destPropertyKeyValue.Value;
-
-            if (destProperty == null)
+            if (srcProperty.Column is null ||
+                !destTable.Table.TryGetColumnByDbName(srcProperty.Column.DbName, out var destColumn))
             {
                 //log($"Couldn't find property with name '{srcProperty.CsName}' in {destTable.Table.DbName}");
                 continue;
             }
+
+            var destProperty = destColumn.ValueProperty;
+            var key = destProperty.PropertyName;
 
             // Check if the property name has changed and update the key
             if (key != srcProperty.PropertyName)

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -87,10 +86,10 @@ public class ColumnIndex : IDefinition
         Characteristic = characteristic;
         Type = type;
         Columns = new MetadataList<ColumnDefinition>(columns ?? []);
-        if (!this.Columns.Any())
+        if (Columns.Count == 0)
             throw new InvalidOperationException("An index should have at least one column.");
 
-        table = this.Columns.First().Table;
+        table = Columns[0].Table;
         Validate();
     }
 
@@ -116,7 +115,7 @@ public class ColumnIndex : IDefinition
     /// <returns>A string representation of the index.</returns>
     public override string ToString()
     {
-        return $"{Name} ({Type}, {Characteristic}) on columns: {string.Join(", ", Columns.Select(c => c.DbName))}";
+        return $"{Name} ({Type}, {Characteristic}) on columns: {string.Join(", ", GetColumnNames())}";
     }
 
     /// <summary>
@@ -131,14 +130,15 @@ public class ColumnIndex : IDefinition
         }
 
         // An index should have at least one column.
-        if (!Columns.Any())
+        if (Columns.Count == 0)
         {
             throw new InvalidOperationException("An index should have at least one column.");
         }
 
-        if (Columns.Any(c => c.Table != Table))
+        for (var i = 0; i < Columns.Count; i++)
         {
-            throw new InvalidOperationException("All columns in an index must belong to the same table.");
+            if (Columns[i].Table != Table)
+                throw new InvalidOperationException("All columns in an index must belong to the same table.");
         }
 
         // A FULLTEXT index should not be a primary key or unique.
@@ -166,6 +166,12 @@ public class ColumnIndex : IDefinition
         }
 
         // Additional validations can be added here as needed.
+    }
+
+    private IEnumerable<string> GetColumnNames()
+    {
+        for (var i = 0; i < Columns.Count; i++)
+            yield return Columns[i].DbName;
     }
 
     internal void Freeze()

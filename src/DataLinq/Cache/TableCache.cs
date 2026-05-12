@@ -341,9 +341,17 @@ public class TableCache
 
             if (change.Type == TransactionChangeType.Update)
             {
-                var changedValues = change.GetChanges().ToList();
-                foreach (var columnIndex in change.Table.ColumnIndices.Where(x => changedValues.Any(y => x.Columns.Contains(y.Key))))
-                    RemoveIndexOnBothSides(columnIndex, change.Model);
+                var invalidatedIndices = new HashSet<ColumnIndex>();
+                foreach (var changedValue in change.GetChanges())
+                {
+                    var columnIndices = change.Table.GetColumnIndices(changedValue.Key);
+                    for (var i = 0; i < columnIndices.Count; i++)
+                    {
+                        var columnIndex = columnIndices[i];
+                        if (invalidatedIndices.Add(columnIndex))
+                            RemoveIndexOnBothSides(columnIndex, change.Model);
+                    }
+                }
             }
             else
             {

@@ -49,12 +49,22 @@ public class MetadataDefinitionFactoryTests
         var orders = built.GetTableModel("orders");
         var userId = users.Table.GetColumnByDbName("user_id");
         var customerId = orders.Table.GetColumnByPropertyName("CustomerId");
+        var firstUserIdIndices = users.Table.GetColumnIndices(userId);
+        var secondUserIdIndices = users.Table.GetColumnIndices(userId);
 
         await Assert.That(ReferenceEquals(users, built.TableModels.Single(tm => tm.Table.DbName == "users"))).IsTrue();
+        await Assert.That(ReferenceEquals(users, built.GetTableModel("USERS", StringComparison.OrdinalIgnoreCase))).IsTrue();
         await Assert.That(ReferenceEquals(userId, users.Table.GetColumn(0))).IsTrue();
         await Assert.That(ReferenceEquals(customerId, orders.Table.GetColumnByDbName("customer_id"))).IsTrue();
+        await Assert.That(ReferenceEquals(userId, users.Table.GetColumnByDbName("USER_ID", StringComparison.OrdinalIgnoreCase))).IsTrue();
+        await Assert.That(ReferenceEquals(firstUserIdIndices, secondUserIdIndices)).IsTrue();
+        await Assert.That(ReferenceEquals(firstUserIdIndices, userId.ColumnIndices)).IsTrue();
+        await Assert.That(firstUserIdIndices.Any(index => index.Characteristic == IndexCharacteristic.PrimaryKey)).IsTrue();
+        await Assert.That(orders.Table.GetColumnIndices(customerId).Any(index => index.Characteristic == IndexCharacteristic.ForeignKey)).IsTrue();
         await Assert.That(users.Table.ColumnCount).IsEqualTo(users.Table.Columns.Length);
+        await Assert.That(built.TryGetTableModel("USERS", out _)).IsFalse();
         await Assert.That(built.TryGetTableModel("missing", out _)).IsFalse();
+        await Assert.That(users.Table.TryGetColumnByDbName("USER_ID", out _)).IsFalse();
         await Assert.That(users.Table.TryGetColumnByDbName("missing", out _)).IsFalse();
         await Assert.That(users.Table.TryGetColumnByPropertyName("Missing", out _)).IsFalse();
     }

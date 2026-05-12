@@ -146,7 +146,20 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
     }
 
     public bool PrimaryKey { get; private set; }
-    public bool Unique => ColumnIndices.Any(x => x.Characteristic == Attributes.IndexCharacteristic.Unique);
+    public bool Unique
+    {
+        get
+        {
+            var indices = Table.GetColumnIndices(this);
+            for (var i = 0; i < indices.Count; i++)
+            {
+                if (indices[i].Characteristic == Attributes.IndexCharacteristic.Unique)
+                    return true;
+            }
+
+            return false;
+        }
+    }
     public bool AutoIncrement { get; private set; }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -175,7 +188,7 @@ public class ColumnDefinition(string dbName, TableDefinition table) : IDefinitio
         Nullable = value;
     }
 
-    public IEnumerable<ColumnIndex> ColumnIndices => Table.ColumnIndices.Where(x => x.Columns.Contains(this));
+    public IEnumerable<ColumnIndex> ColumnIndices => Table.GetColumnIndices(this);
     public ValueProperty ValueProperty { get; private set; } = null!;
 
     public CsFileDeclaration? CsFile => Table?.Model?.CsFile;

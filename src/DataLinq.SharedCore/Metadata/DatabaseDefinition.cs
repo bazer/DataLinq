@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using DataLinq.Attributes;
 using DataLinq.Interfaces;
 
@@ -14,6 +13,7 @@ public class DatabaseDefinition : IDefinition
     private MetadataCollection<TableModel> tableModels = MetadataCollection<TableModel>.Empty;
     private Dictionary<Type, TableModel>? tableModelsByModelType;
     private Dictionary<string, TableModel>? tableModelsByDbName;
+    private Dictionary<string, TableModel>? tableModelsByDbNameIgnoreCase;
 
     [Obsolete("Direct mutation of the global metadata registry is obsolete. Runtime code should use provider-owned metadata or internal registry helpers.")]
     public static ConcurrentDictionary<Type, DatabaseDefinition> LoadedDatabases => loadedDatabases;
@@ -225,7 +225,12 @@ public class DatabaseDefinition : IDefinition
 
     public TableModel GetTableModel(string tableName)
     {
-        if (TryGetTableModel(tableName, out var tableModel))
+        return GetTableModel(tableName, StringComparison.Ordinal);
+    }
+
+    public TableModel GetTableModel(string tableName, StringComparison comparison)
+    {
+        if (TryGetTableModel(tableName, comparison, out var tableModel))
             return tableModel;
 
         throw new KeyNotFoundException($"No table model registered for database table '{tableName}'.");
@@ -233,12 +238,37 @@ public class DatabaseDefinition : IDefinition
 
     public bool TryGetTableModel(string tableName, out TableModel tableModel)
     {
+        return TryGetTableModel(tableName, StringComparison.Ordinal, out tableModel);
+    }
+
+    public bool TryGetTableModel(string tableName, StringComparison comparison, out TableModel tableModel)
+    {
         if (tableName is null)
             throw new ArgumentNullException(nameof(tableName));
 
-        if (tableModelsByDbName is not null &&
-            tableModelsByDbName.TryGetValue(tableName, out tableModel!))
-            return true;
+        var lookup = comparison == StringComparison.OrdinalIgnoreCase
+            ? tableModelsByDbNameIgnoreCase
+            : comparison == StringComparison.Ordinal
+                ? tableModelsByDbName
+                : null;
+
+        if (lookup is not null)
+        {
+            if (lookup.TryGetValue(tableName, out tableModel!))
+                return true;
+
+            tableModel = null!;
+            return false;
+        }
+
+        foreach (var candidate in tableModels)
+        {
+            if (string.Equals(candidate.Table.DbName, tableName, comparison))
+            {
+                tableModel = candidate;
+                return true;
+            }
+        }
 
         tableModel = null!;
         return false;
@@ -302,22 +332,34 @@ public class DatabaseDefinition : IDefinition
     {
         var byModelType = new Dictionary<Type, TableModel>();
         var byDbName = new Dictionary<string, TableModel>(StringComparer.Ordinal);
+        var byDbNameIgnoreCase = new Dictionary<string, TableModel>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var tableModel in tableModels)
         {
             if (tableModel is null)
                 continue;
 
-            var modelType = tableModel.Model.CsType.Type;
-            if (modelType is not null && !byModelType.ContainsKey(modelType))
-                byModelType.Add(modelType, tableModel);
+            AddModelTypeLookup(byModelType, tableModel.Model.CsType.Type, tableModel);
+            AddModelTypeLookup(byModelType, tableModel.Model.ImmutableType?.Type, tableModel);
+            AddModelTypeLookup(byModelType, tableModel.Model.MutableType?.Type, tableModel);
+            AddModelTypeLookup(byModelType, tableModel.Model.ModelInstanceInterface?.Type, tableModel);
 
             if (!byDbName.ContainsKey(tableModel.Table.DbName))
                 byDbName.Add(tableModel.Table.DbName, tableModel);
+
+            if (!byDbNameIgnoreCase.ContainsKey(tableModel.Table.DbName))
+                byDbNameIgnoreCase.Add(tableModel.Table.DbName, tableModel);
         }
 
         tableModelsByModelType = byModelType;
         tableModelsByDbName = byDbName;
+        tableModelsByDbNameIgnoreCase = byDbNameIgnoreCase;
+    }
+
+    private static void AddModelTypeLookup(Dictionary<Type, TableModel> lookup, Type? type, TableModel tableModel)
+    {
+        if (type is not null && !lookup.ContainsKey(type))
+            lookup.Add(type, tableModel);
     }
 
     private void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);

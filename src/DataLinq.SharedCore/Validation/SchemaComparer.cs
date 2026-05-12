@@ -48,13 +48,12 @@ public sealed class SchemaComparer
         var databaseTables = GetComparableTables(database)
             .OrderBy(x => x.Table.DbName, StringComparer.Ordinal)
             .ToList();
+        var modelTableLookup = BuildTableLookup(modelTables, tableComparer);
+        var databaseTableLookup = BuildTableLookup(databaseTables, tableComparer);
 
         foreach (var modelTable in modelTables)
         {
-            var databaseTable = databaseTables
-                .FirstOrDefault(x => tableComparer.Equals(x.Table.DbName, modelTable.Table.DbName));
-
-            if (databaseTable == null)
+            if (!databaseTableLookup.TryGetValue(modelTable.Table.DbName, out var databaseTable))
             {
                 var objectKind = FormatObjectKind(modelTable.Table);
                 differences.Add(new SchemaDifference(
@@ -101,10 +100,7 @@ public sealed class SchemaComparer
 
         foreach (var databaseTable in databaseTables)
         {
-            var modelTable = modelTables
-                .FirstOrDefault(x => tableComparer.Equals(x.Table.DbName, databaseTable.Table.DbName));
-
-            if (modelTable != null)
+            if (modelTableLookup.ContainsKey(databaseTable.Table.DbName))
                 continue;
 
             var objectKind = FormatObjectKind(databaseTable.Table);
@@ -124,7 +120,7 @@ public sealed class SchemaComparer
         TableDefinition databaseTable,
         List<SchemaDifference> differences)
     {
-        var columnComparer = options.Capabilities.ColumnNameComparer;
+        var columnComparison = ToStringComparison(options.Capabilities.ColumnNameComparison);
         var modelColumns = modelTable.Columns
             .OrderBy(x => x.DbName, StringComparer.Ordinal)
             .ToList();
@@ -134,10 +130,7 @@ public sealed class SchemaComparer
 
         foreach (var modelColumn in modelColumns)
         {
-            var databaseColumn = databaseColumns
-                .FirstOrDefault(x => columnComparer.Equals(x.DbName, modelColumn.DbName));
-
-            if (databaseColumn != null)
+            if (databaseTable.TryGetColumnByDbName(modelColumn.DbName, columnComparison, out var databaseColumn))
             {
                 CompareColumnShape(modelColumn, databaseColumn, differences);
                 continue;
@@ -156,10 +149,7 @@ public sealed class SchemaComparer
 
         foreach (var databaseColumn in databaseColumns)
         {
-            var modelColumn = modelColumns
-                .FirstOrDefault(x => columnComparer.Equals(x.DbName, databaseColumn.DbName));
-
-            if (modelColumn != null)
+            if (modelTable.TryGetColumnByDbName(databaseColumn.DbName, columnComparison, out _))
                 continue;
 
             var path = $"{databaseTable.DbName}.{databaseColumn.DbName}";
@@ -544,6 +534,25 @@ public sealed class SchemaComparer
         return database.TableModels
             .Where(x => !x.IsStub && x.Table.Type is TableType.Table or TableType.View);
     }
+
+    private static Dictionary<string, TableModel> BuildTableLookup(
+        IEnumerable<TableModel> tables,
+        StringComparer comparer)
+    {
+        var lookup = new Dictionary<string, TableModel>(comparer);
+        foreach (var table in tables)
+        {
+            if (!lookup.ContainsKey(table.Table.DbName))
+                lookup.Add(table.Table.DbName, table);
+        }
+
+        return lookup;
+    }
+
+    private static StringComparison ToStringComparison(SchemaIdentifierComparison comparison) =>
+        comparison == SchemaIdentifierComparison.OrdinalIgnoreCase
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
     private static string FormatObjectKind(TableDefinition table) =>
         table.Type == TableType.View ? "view" : "table";
