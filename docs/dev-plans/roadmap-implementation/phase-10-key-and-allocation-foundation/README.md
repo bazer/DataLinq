@@ -33,6 +33,7 @@ Out of scope:
 ## Source Plans
 
 - [Implementation Plan](Implementation%20Plan.md)
+- [Measurement Baseline](Measurement%20Baseline.md)
 - [Generated Provider-Key Cache Design](../../performance/Generated%20Provider-Key%20Cache%20Design.md)
 - [Allocation Reduction Audit](../../performance/Allocation%20Reduction%20Audit.md)
 - [Source Generator Optimizations](../../metadata-and-generation/Source%20Generator%20Optimizations.md)

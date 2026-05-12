@@ -31,6 +31,7 @@ Required baseline lanes:
 $env:DATALINQ_BENCHMARK_PROVIDERS = 'sqlite-memory'
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile default --history-json artifacts\benchmarks\history\phase10-baseline-phase2-watch.json
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile default --history-json artifacts\benchmarks\history\phase10-baseline-phase3-query-hotpath.json
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase10-key-foundation --profile default --history-json artifacts\benchmarks\history\phase10-baseline-key-foundation.json
 ```
 
 If benchmark naming changes, preserve the intent: provider initialization, startup primary-key fetch, warm primary-key fetch, repeated non-PK equality, scalar `Any`, `IN` predicates, and relation traversal.
@@ -343,6 +344,7 @@ Benchmark checks:
 $env:DATALINQ_BENCHMARK_PROVIDERS = 'sqlite-memory'
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile default --history-json artifacts\benchmarks\history\phase10-closeout-phase2-watch.json
 .\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile default --history-json artifacts\benchmarks\history\phase10-closeout-phase3-query-hotpath.json
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase10-key-foundation --profile default --history-json artifacts\benchmarks\history\phase10-closeout-key-foundation.json
 ```
 
 Add focused tests for:
