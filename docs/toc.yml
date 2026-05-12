@@ -64,6 +64,8 @@
       href: Technical documentation.md
     - name: Metadata Structure
       href: Metadata Structure.md
+    - name: Provider-Key Row Cache Architecture
+      href: Provider-Key Row Cache Architecture.md
     - name: Source Generator
       href: Source Generator.md
     - name: Query Translator

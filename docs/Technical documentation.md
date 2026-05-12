@@ -18,7 +18,7 @@ The important building blocks are:
 - **LINQ Integration:**
   Queries are written in LINQ, but only a test-backed subset is translated.
 - **Robust Caching:**
-  Row, index, and key caches reduce repeated reads and preserve identity where possible.
+  Row and index caches reduce repeated reads and preserve identity where possible.
 - **Backend Flexibility:**
   The current concrete providers are MySQL/MariaDB and SQLite.
 
@@ -84,7 +84,7 @@ DataLinq is organized into several interconnected layers:
 - **Instance Creation and Mutation:**
   Immutable objects are created from `RowData`. Mutations happen through mutable wrappers and return fresh immutable instances.
 - **Caching Subsystem:**
-  `RowCache`, `IndexCache`, `KeyCache`, and `TableCache` cooperate to reduce repeated work.
+  `RowCache`, `RowStore<TKey>`, `IndexCache`, and `TableCache` cooperate to reduce repeated work. For key identity details, see [Provider-Key Row Cache Architecture](Provider-Key%20Row%20Cache%20Architecture.md).
 - **Query Engine:**
   LINQ expressions are parsed and translated into backend-specific SQL for the supported surface.
 - **Backend Flexibility:**
@@ -118,9 +118,9 @@ DataLinq is organized into several interconnected layers:
 ### 3.3 Caching Mechanisms
 
 - **RowCache:**
-  Stores immutable rows keyed by primary key.
-- **IndexCache and KeyCache:**
-  Store relation and key lookup data.
+  Stores immutable rows in a single provider-key row store.
+- **IndexCache:**
+  Stores relation lookup data from foreign-key components to primary-key components.
 - **TableCache:**
   Owns the cache state for a table and coordinates updates after writes.
 
