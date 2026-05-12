@@ -379,7 +379,7 @@ public class TableCache
 
         int RemoveIndexOnBothSides(ColumnIndex columnIndex, IModelInstance model)
         {
-            var fk = KeyFactory.CreateKeyFromValues(model.GetValues(columnIndex.Columns).Select(x => x.Value));
+            var fk = KeyFactory.GetKey(model, columnIndex.Columns);
 
             if (TryRemoveForeignKeyIndex(columnIndex, fk, out var indexRowsThisSide))
                 numRows += indexRowsThisSide;
@@ -615,7 +615,7 @@ public class TableCache
 
         var select = new SqlQuery(Table, dataSource ?? DatabaseCache.Database.ReadOnlyAccess)
             .What(Table.PrimaryKeyColumns)
-            .Where(index.Columns.Select((x, i) => (x.DbName, foreignKey.GetValue(i))))
+            .Where(index.Columns, foreignKey)
             .SelectQuery();
 
         var newKeys = KeyFactory.GetKeys(select, Table.PrimaryKeyColumns).ToArray();
@@ -750,7 +750,7 @@ public class TableCache
     private IImmutableInstance[] LoadRowsFromForeignKeyAndCache(IKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
     {
         var q = new SqlQuery(Table, dataSource)
-            .Where(index.Columns.Select((x, i) => (x.DbName, foreignKey.GetValue(i))))
+            .Where(index.Columns, foreignKey)
             .SelectQuery();
 
         var rows = new List<IImmutableInstance>();

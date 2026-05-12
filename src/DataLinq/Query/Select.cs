@@ -215,7 +215,7 @@ public class Select<T> : IQuery
         foreach (var reader in ReadReader())
         {
             var row = new RowData(reader, query.Table, columnsToRead, false);
-            var foreignKey = KeyFactory.CreateKeyFromValues(row.GetValues(foreignKeyIndex.Columns));
+            var foreignKey = KeyFactory.GetKey(row, foreignKeyIndex.Columns);
             var primaryKey = KeyFactory.GetKey(row, query.Table.PrimaryKeyColumns);
 
             if (!primaryKeysByForeignKey.TryGetValue(foreignKey, out var primaryKeys))

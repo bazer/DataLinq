@@ -160,7 +160,7 @@ Exit criteria:
 
 ## Workstream D: Transitional Non-Allocating `IKey` Access
 
-Status: in progress.
+Status: in progress; component API and hot-path migration implemented, verification in progress.
 
 Goals:
 
@@ -183,6 +183,12 @@ bool TryGetSingleValue(out object? value);
 4. Migrate `TableCache`, relation matching, index maintenance, and mutation invalidation off `IKey.Values`.
 5. Mark `Values` as a compatibility surface if it cannot be removed yet.
 6. Add tests that simple and composite key reads do not allocate just to inspect key components.
+
+Implementation notes:
+
+- Simple and composite `IKey` implementations expose `ValueCount`, `GetValue(int)`, and `TryGetSingleValue(out object?)` without routing through `Values`.
+- Mutable primary-key recomputation, relation foreign-key grouping, and index invalidation now use indexed `KeyFactory.GetKey(...)` helpers instead of enumerable key-value bridges.
+- Cache SQL key predicates use indexed `IKey` component reads directly; remaining `IKey.Values` coverage is compatibility/defensive-copy behavior, not ordinary cache inspection.
 
 Exit criteria:
 

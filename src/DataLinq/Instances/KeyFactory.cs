@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using DataLinq.Metadata;
 using DataLinq.Query;
 
@@ -152,7 +151,21 @@ public static class KeyFactory
         return CreateKeyFromValues(values);
     }
 
-    public static IEnumerable<IKey> GetKeys<T>(Select<T> select, IReadOnlyList<ColumnDefinition> columns) => select
-        .ReadReader()
-        .Select(x => GetKey(x, columns));
+    public static IKey GetKey(IModelInstance model, IReadOnlyList<ColumnDefinition> columns)
+    {
+        if (columns.Count == 1)
+            return CreateKeyFromValue(model[columns[0]]);
+
+        var values = new object?[columns.Count];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = model[columns[i]];
+
+        return CreateKeyFromValues(values);
+    }
+
+    public static IEnumerable<IKey> GetKeys<T>(Select<T> select, IReadOnlyList<ColumnDefinition> columns)
+    {
+        foreach (var reader in select.ReadReader())
+            yield return GetKey(reader, columns);
+    }
 }

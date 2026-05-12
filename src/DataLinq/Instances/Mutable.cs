@@ -52,8 +52,7 @@ public class Mutable<T> : IMutableInstance,
         }
 
         // 2. Need to calculate/recalculate PK from current data
-        var currentPkValues = mutableRowData.GetValues(metadata.Table.PrimaryKeyColumns).ToArray();
-        _cachedPrimaryKey = KeyFactory.CreateKeyFromValues(currentPkValues);
+        _cachedPrimaryKey = KeyFactory.GetKey(mutableRowData, metadata.Table.PrimaryKeyColumns);
 
         // 3. Determine if the calculated key is actually "set" (not NullKey)
         //    This replaces the recursive HasPrimaryKeysSet() check
@@ -150,7 +149,7 @@ public class Mutable<T> : IMutableInstance,
                                 // If it was created with new(), isNew remains true.
                                 // Re-cache PK based on reset state
         _cachedPrimaryKey = immutableInstance?.PrimaryKeys() // Use original PK if possible
-            ?? (isNew ? null : KeyFactory.CreateKeyFromValues(mutableRowData.GetValues(metadata.Table.PrimaryKeyColumns))); // Recalc only if not new
+            ?? (isNew ? null : KeyFactory.GetKey(mutableRowData, metadata.Table.PrimaryKeyColumns)); // Recalc only if not new
         _isPkCached = _cachedPrimaryKey != null;
     }
 

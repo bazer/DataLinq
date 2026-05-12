@@ -139,6 +139,16 @@ public class SqlQuery<T>
         return WhereGroup;
     }
 
+    public WhereGroup<T> Where(IReadOnlyList<ColumnDefinition> columns, IKey key, BooleanType type = BooleanType.And, string? alias = null)
+    {
+        WhereGroup ??= new WhereGroup<T>(this);
+
+        for (var i = 0; i < columns.Count; i++)
+            WhereGroup.AddWhere(columns[i].DbName, alias, type).EqualTo(key.GetValue(i));
+
+        return WhereGroup;
+    }
+
     public WhereGroup<T> Where(Action<WhereGroup<T>> func)
     {
         this.WhereGroup = new WhereGroup<T>(this, BooleanType.And); // Root group for this WHERE clause, its own children will be ANDed
