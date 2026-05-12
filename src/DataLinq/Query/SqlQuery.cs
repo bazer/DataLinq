@@ -149,8 +149,10 @@ public class SqlQuery<T>
             columns.Count,
             "Provider key");
 
+        var writer = DataSource.Provider.GetWriter();
         for (var i = 0; i < columns.Count; i++)
-            WhereGroup.AddWhere(columns[i].DbName, alias, type).EqualTo(ProviderKeyComponents.GetValue(key, i));
+            WhereGroup.AddWhere(columns[i].DbName, alias, type)
+                .EqualTo(writer.ConvertColumnValue(columns[i], ProviderKeyComponents.GetValue(key, i)));
 
         return WhereGroup;
     }
