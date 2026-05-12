@@ -2676,8 +2676,8 @@ public static class MetadataFactory
                 }
 
                 var enumProperty = property.EnumProperty.Value;
-                var csValues = enumProperty.CsEnumValues ?? [];
-                var explicitDbValues = enumProperty.DbEnumValues ?? [];
+                var csValues = enumProperty.CsEnumValues;
+                var explicitDbValues = enumProperty.DbEnumValues;
                 var dbValues = explicitDbValues.Count != 0 ? explicitDbValues : csValues;
 
                 if (!IsValidCSharpIdentifier(property.CsType.Name))
@@ -2690,12 +2690,12 @@ public static class MetadataFactory
                         property,
                         $"Enum value property '{GetValuePropertyDisplayName(property)}' must define at least one enum value.");
 
-                foreach (var (name, _) in csValues)
+                foreach (var value in csValues)
                 {
-                    if (!IsValidCSharpIdentifier(name))
+                    if (!IsValidCSharpIdentifier(value.name))
                         return CreateValuePropertyFailure(
                             property,
-                            $"Enum value property '{GetValuePropertyDisplayName(property)}' has invalid C# enum member name '{name}'. Enum member names must be valid unescaped C# identifiers.");
+                            $"Enum value property '{GetValuePropertyDisplayName(property)}' has invalid C# enum member name '{value.name}'. Enum member names must be valid unescaped C# identifiers.");
                 }
 
                 var duplicateCsValue = csValues
@@ -2706,9 +2706,9 @@ public static class MetadataFactory
                         property,
                         $"Enum value property '{GetValuePropertyDisplayName(property)}' defines duplicate C# enum member name '{duplicateCsValue.Key}'.");
 
-                foreach (var (name, _) in dbValues)
+                foreach (var value in dbValues)
                 {
-                    if (name is null)
+                    if (value.name is null)
                         return CreateValuePropertyFailure(
                             property,
                             $"Enum value property '{GetValuePropertyDisplayName(property)}' has a null database enum value.");

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -249,7 +250,7 @@ public class MetadataFromTypeFactoryTests
     }
 
     [Test]
-    public async Task GeneratedDatabaseModelDeclaration_TableModels_ReturnsDefensiveCopy()
+    public async Task GeneratedDatabaseModelDeclaration_TableModels_ReturnsStableReadOnlyCollection()
     {
         var tableModel = new GeneratedTableModelDeclaration(
             "Rows",
@@ -263,9 +264,13 @@ public class MetadataFromTypeFactoryTests
         var declaration = new GeneratedDatabaseModelDeclaration(source);
         source[0] = default;
 
-        var returned = declaration.TableModels;
-        returned[0] = default;
+        var firstRead = declaration.TableModels;
+        var secondRead = declaration.TableModels;
+        var collectionAsObject = (object)firstRead;
 
+        await Assert.That(ReferenceEquals(firstRead, secondRead)).IsTrue();
+        await Assert.That(collectionAsObject is GeneratedTableModelDeclaration[]).IsFalse();
+        await Assert.That(collectionAsObject is IList<GeneratedTableModelDeclaration>).IsFalse();
         await Assert.That(declaration.TableModels.Single().CsPropertyName).IsEqualTo("Rows");
         await Assert.That(declaration.TryValidate(typeof(BootstrapHookDb)).HasValue).IsTrue();
     }

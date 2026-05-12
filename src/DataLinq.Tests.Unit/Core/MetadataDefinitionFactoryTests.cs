@@ -311,7 +311,7 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
-    public async Task EnumProperty_ReturnsDefensiveCopies()
+    public async Task EnumProperty_ReturnsStableReadOnlyCollections()
     {
         var dbEnumValues = new List<(string name, int value)>
         {
@@ -334,10 +334,24 @@ public class MetadataDefinitionFactoryTests
         await Assert.That(enumProperty.CsValuesOrDbValues).IsEquivalentTo([("Active", 1), ("Inactive", 2)]);
         await Assert.That(enumProperty.DbValuesOrCsValues).IsEquivalentTo([("active", 1), ("inactive", 2)]);
 
-        await Assert.That(enumProperty.DbEnumValues is (string name, int value)[]).IsFalse();
-        await Assert.That(enumProperty.CsEnumValues is (string name, int value)[]).IsFalse();
-        await Assert.That(enumProperty.CsValuesOrDbValues is (string name, int value)[]).IsFalse();
-        await Assert.That(enumProperty.DbValuesOrCsValues is (string name, int value)[]).IsFalse();
+        var firstDbEnumValues = enumProperty.DbEnumValues;
+        var firstCsEnumValues = enumProperty.CsEnumValues;
+        var firstCsValuesOrDbValues = enumProperty.CsValuesOrDbValues;
+        var firstDbValuesOrCsValues = enumProperty.DbValuesOrCsValues;
+
+        await Assert.That(ReferenceEquals(firstDbEnumValues, enumProperty.DbEnumValues)).IsTrue();
+        await Assert.That(ReferenceEquals(firstCsEnumValues, enumProperty.CsEnumValues)).IsTrue();
+        await Assert.That(ReferenceEquals(firstCsValuesOrDbValues, enumProperty.CsValuesOrDbValues)).IsTrue();
+        await Assert.That(ReferenceEquals(firstDbValuesOrCsValues, enumProperty.DbValuesOrCsValues)).IsTrue();
+
+        await Assert.That((object)firstDbEnumValues is (string name, int value)[]).IsFalse();
+        await Assert.That((object)firstCsEnumValues is (string name, int value)[]).IsFalse();
+        await Assert.That((object)firstCsValuesOrDbValues is (string name, int value)[]).IsFalse();
+        await Assert.That((object)firstDbValuesOrCsValues is (string name, int value)[]).IsFalse();
+        await Assert.That((object)firstDbEnumValues is IList<(string name, int value)>).IsFalse();
+        await Assert.That((object)firstCsEnumValues is IList<(string name, int value)>).IsFalse();
+        await Assert.That((object)firstCsValuesOrDbValues is IList<(string name, int value)>).IsFalse();
+        await Assert.That((object)firstDbValuesOrCsValues is IList<(string name, int value)>).IsFalse();
 
         await Assert.That(enumProperty.DbEnumValues).IsEquivalentTo([("active", 1), ("inactive", 2)]);
         await Assert.That(enumProperty.CsEnumValues).IsEquivalentTo([("Active", 1), ("Inactive", 2)]);

@@ -8,14 +8,15 @@ namespace DataLinq.Metadata;
 
 public readonly struct GeneratedDatabaseModelDeclaration
 {
-    private readonly GeneratedTableModelDeclaration[]? tableModels;
+    private readonly MetadataCollection<GeneratedTableModelDeclaration>? tableModels;
 
     public GeneratedDatabaseModelDeclaration(params GeneratedTableModelDeclaration[] tableModels)
     {
-        this.tableModels = tableModels?.ToArray();
+        this.tableModels = new MetadataCollection<GeneratedTableModelDeclaration>(tableModels ?? []);
     }
 
-    public GeneratedTableModelDeclaration[] TableModels => tableModels?.ToArray() ?? [];
+    public MetadataCollection<GeneratedTableModelDeclaration> TableModels =>
+        tableModels ?? MetadataCollection<GeneratedTableModelDeclaration>.Empty;
 
     public Option<bool, IDLOptionFailure> TryValidate(Type databaseType)
     {

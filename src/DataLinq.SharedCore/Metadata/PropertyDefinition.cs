@@ -302,20 +302,28 @@ public class ValueProperty : PropertyDefinition
 
 public record struct EnumProperty
 {
-    private readonly (string name, int value)[]? dbEnumValues;
-    private readonly (string name, int value)[]? csEnumValues;
+    private readonly MetadataCollection<(string name, int value)>? dbEnumValues;
+    private readonly MetadataCollection<(string name, int value)>? csEnumValues;
 
     public EnumProperty(IEnumerable<(string name, int value)>? enumValues = null, IEnumerable<(string name, int value)>? csEnumValues = null, bool declaredInClass = true)
     {
-        dbEnumValues = enumValues?.ToArray() ?? [];
-        this.csEnumValues = csEnumValues?.ToArray() ?? [];
+        dbEnumValues = new MetadataCollection<(string name, int value)>(enumValues ?? []);
+        this.csEnumValues = new MetadataCollection<(string name, int value)>(csEnumValues ?? []);
         DeclaredInClass = declaredInClass;
     }
 
-    public IReadOnlyList<(string name, int value)> DbEnumValues => dbEnumValues is null ? [] : [.. dbEnumValues];
-    public IReadOnlyList<(string name, int value)> CsEnumValues => csEnumValues is null ? [] : [.. csEnumValues];
-    public IReadOnlyList<(string name, int value)> CsValuesOrDbValues => csEnumValues?.Length > 0 ? [.. csEnumValues] : DbEnumValues;
-    public IReadOnlyList<(string name, int value)> DbValuesOrCsValues => dbEnumValues?.Length > 0 ? [.. dbEnumValues] : CsEnumValues;
+    public MetadataCollection<(string name, int value)> DbEnumValues =>
+        dbEnumValues ?? MetadataCollection<(string name, int value)>.Empty;
+
+    public MetadataCollection<(string name, int value)> CsEnumValues =>
+        csEnumValues ?? MetadataCollection<(string name, int value)>.Empty;
+
+    public MetadataCollection<(string name, int value)> CsValuesOrDbValues =>
+        CsEnumValues.Count > 0 ? CsEnumValues : DbEnumValues;
+
+    public MetadataCollection<(string name, int value)> DbValuesOrCsValues =>
+        DbEnumValues.Count > 0 ? DbEnumValues : CsEnumValues;
+
     public bool DeclaredInClass { get; }
 }
 

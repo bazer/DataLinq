@@ -23,9 +23,49 @@ public sealed class MetadataCollection<T> : IReadOnlyList<T>
 
     public T[] ToArray() => items.ToArray();
 
-    public IEnumerator<T> GetEnumerator() => ((IEnumerable<T>)items).GetEnumerator();
+    public Enumerator GetEnumerator() => new(items);
+
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public struct Enumerator : IEnumerator<T>
+    {
+        private readonly T[] items;
+        private int index;
+
+        internal Enumerator(T[] items)
+        {
+            this.items = items;
+            index = -1;
+        }
+
+        public T Current => items[index];
+
+        object? IEnumerator.Current => Current;
+
+        public bool MoveNext()
+        {
+            var nextIndex = index + 1;
+            if ((uint)nextIndex >= (uint)items.Length)
+            {
+                index = items.Length;
+                return false;
+            }
+
+            index = nextIndex;
+            return true;
+        }
+
+        public void Reset()
+        {
+            index = -1;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
 }
 
 public sealed class MetadataList<T> : IList<T>, IReadOnlyList<T>
