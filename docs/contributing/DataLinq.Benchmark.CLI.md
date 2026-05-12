@@ -40,6 +40,7 @@ dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile smoke
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --profile heavy
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase2-watch
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase10-key-foundation
 ```
 
 Important options:
@@ -58,6 +59,8 @@ Important options:
   Runs only the Phase 2 benchmark watchpoints.
 - `--phase3-query-hotpath`
   Runs only the Phase 3 query/runtime hot-path benchmark lane.
+- `--phase10-key-foundation`
+  Runs only the Phase 10 key/cache attribution lane.
 - `--history-json`
   Writes a stable benchmark history entry JSON artifact.
 - `--baseline`
@@ -125,6 +128,33 @@ For quick local smoke validation:
 
 ```bash
 dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile smoke
+```
+
+Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.
+
+## Phase 10 Key Foundation
+
+Phase 10 key/cache work should use the `phase10-key-foundation` benchmark category to attribute changes that the broader Phase 2 and Phase 3 lanes would otherwise blur together.
+
+That category intentionally contains:
+
+- `WarmGeneratedStaticGet`
+  Tracks the generated static primary-key fetch surface after the row cache has already been populated.
+- `WarmRelationTraversal`
+  Tracks relation traversal after relation and row-cache warmup.
+- `ScalarRowCacheAddGetRemove`
+  Tracks direct scalar primary-key row-cache add/get/remove operations without SQL execution noise.
+
+Run the lane with:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase10-key-foundation
+```
+
+For quick local smoke validation:
+
+```bash
+dotnet run --project src/DataLinq.Benchmark.CLI -- run --phase10-key-foundation --profile smoke
 ```
 
 Use the smoke profile only to prove the lane is wired correctly. Use the default or heavy profile before interpreting performance.

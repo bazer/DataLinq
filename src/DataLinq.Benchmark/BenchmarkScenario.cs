@@ -10,8 +10,10 @@ internal enum BenchmarkScenario
     UpdateEmployeesBatch,
     ColdPrimaryKeyFetch,
     WarmPrimaryKeyFetch,
+    WarmGeneratedStaticGet,
     ColdRelationTraversal,
     WarmRelationTraversal,
+    ScalarRowCacheAddGetRemove,
     RepeatedNonPrimaryKeyEqualityFetch,
     RepeatedInPredicateFetch,
     RepeatedScalarAny

@@ -15,6 +15,7 @@ public class EmployeesBenchmarks : IDisposable
     private const string StableCategory = "stable";
     private const string Phase2WatchCategory = "phase2-watch";
     private const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
+    private const string Phase10KeyFoundationCategory = "phase10-key-foundation";
     private const string MacroReadWriteCategory = "macro-readwrite";
     private const string MacroBulkCategory = "macro-bulk";
     private BenchmarkContext? context;
@@ -204,6 +205,22 @@ public class EmployeesBenchmarks : IDisposable
         return context!.LoadEmployeesByPrimaryKeyBatch();
     }
 
+    [IterationSetup(Target = nameof(WarmGeneratedStaticGet))]
+    public void SetupWarmGeneratedStaticGet()
+    {
+        context!.ResetState(clearCache: true);
+        _ = context.LoadEmployeesByGeneratedStaticGetBatch();
+        DataLinqMetrics.Reset();
+    }
+
+    [BenchmarkCategory(Phase10KeyFoundationCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm generated static Get")]
+    public int WarmGeneratedStaticGet()
+    {
+        executedScenario = BenchmarkScenario.WarmGeneratedStaticGet;
+        return context!.LoadEmployeesByGeneratedStaticGetBatch();
+    }
+
     [IterationSetup(Target = nameof(RepeatedNonPrimaryKeyEqualityFetch))]
     public void SetupRepeatedNonPrimaryKeyEqualityFetch()
     {
@@ -269,12 +286,26 @@ public class EmployeesBenchmarks : IDisposable
         DataLinqMetrics.Reset();
     }
 
-    [BenchmarkCategory(StableCategory)]
+    [BenchmarkCategory(StableCategory, Phase10KeyFoundationCategory)]
     [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Warm relation traversal")]
     public int WarmRelationTraversal()
     {
         executedScenario = BenchmarkScenario.WarmRelationTraversal;
         return context!.TraverseWarmDepartmentNamesBatch();
+    }
+
+    [IterationSetup(Target = nameof(ScalarRowCacheAddGetRemove))]
+    public void SetupScalarRowCacheAddGetRemove()
+    {
+        context!.ResetScalarRowCacheProbe();
+    }
+
+    [BenchmarkCategory(Phase10KeyFoundationCategory)]
+    [Benchmark(OperationsPerInvoke = BenchmarkContext.BatchOperationCount, Description = "Scalar row-cache add/get/remove")]
+    public int ScalarRowCacheAddGetRemove()
+    {
+        executedScenario = BenchmarkScenario.ScalarRowCacheAddGetRemove;
+        return context!.AddGetRemoveScalarRowCacheEntries();
     }
 
     public void Dispose()

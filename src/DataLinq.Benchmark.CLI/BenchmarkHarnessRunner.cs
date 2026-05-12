@@ -24,6 +24,7 @@ internal sealed class BenchmarkHarnessRunner
     ];
     internal const string Phase2WatchCategory = "phase2-watch";
     internal const string Phase3QueryHotPathCategory = "phase3-query-hotpath";
+    internal const string Phase10KeyFoundationCategory = "phase10-key-foundation";
     internal const string MacroReadWriteCategory = "macro-readwrite";
     internal const string MacroBulkCategory = "macro-bulk";
     private const string BenchmarkProfileEnvironmentVariable = "DATALINQ_BENCHMARK_PROFILE";
@@ -78,6 +79,7 @@ internal sealed class BenchmarkHarnessRunner
         bool verbose,
         bool phase2Watch,
         bool phase3QueryHotPath,
+        bool phase10KeyFoundation,
         string? historyJsonPath,
         string? baselinePath,
         string? comparisonJsonPath,
@@ -86,8 +88,11 @@ internal sealed class BenchmarkHarnessRunner
     {
         settings.EnsureDirectories();
 
-        if (phase2Watch && phase3QueryHotPath)
-            throw new InvalidOperationException("Benchmark category options '--phase2-watch' and '--phase3-query-hotpath' cannot be combined.");
+        if (new[] { phase2Watch, phase3QueryHotPath, phase10KeyFoundation }.Count(static selected => selected) > 1)
+        {
+            throw new InvalidOperationException(
+                "Benchmark category options '--phase2-watch', '--phase3-query-hotpath', and '--phase10-key-foundation' cannot be combined.");
+        }
 
         if (!noBuild)
             RestoreAndBuild(verbose);
@@ -116,6 +121,9 @@ internal sealed class BenchmarkHarnessRunner
 
         if (phase3QueryHotPath)
             arguments.AddRange(["--anyCategories", Phase3QueryHotPathCategory]);
+
+        if (phase10KeyFoundation)
+            arguments.AddRange(["--anyCategories", Phase10KeyFoundationCategory]);
 
         arguments.AddRange(additionalArgs);
 
@@ -218,12 +226,23 @@ internal sealed class BenchmarkHarnessRunner
                 environmentVariables[pair.Key] = pair.Value;
         }
 
+        var workingDirectory = IsBenchmarkAssemblyInvocation(arguments)
+            ? Path.GetDirectoryName(settings.BenchmarkProjectPath) ?? settings.RepositoryRoot
+            : settings.RepositoryRoot;
+
         return ExternalProcessRunner.Execute(
             "dotnet",
             arguments,
-            settings.RepositoryRoot,
+            workingDirectory,
             environmentVariables);
     }
+
+    private bool IsBenchmarkAssemblyInvocation(IReadOnlyList<string> arguments)
+        => arguments.Count > 0 &&
+           string.Equals(
+               Path.GetFullPath(arguments[0]),
+               Path.GetFullPath(settings.BenchmarkAssemblyPath),
+               StringComparison.OrdinalIgnoreCase);
 
     private string WriteLog(string prefix, ExternalCommandResult result)
     {
@@ -920,6 +939,9 @@ internal sealed class BenchmarkHarnessRunner
             "Repeated non-PK equality fetch" => Phase3QueryHotPathCategory,
             "Repeated IN predicate fetch" => Phase3QueryHotPathCategory,
             "Repeated scalar Any" => Phase3QueryHotPathCategory,
+            "Warm generated static Get" => Phase10KeyFoundationCategory,
+            "Warm relation traversal" => Phase10KeyFoundationCategory,
+            "Scalar row-cache add/get/remove" => Phase10KeyFoundationCategory,
             _ => null
         };
 
@@ -930,11 +952,13 @@ internal sealed class BenchmarkHarnessRunner
             "Startup primary-key fetch" => "startup",
             "Cold primary-key fetch" => "read-hotpath",
             "Warm primary-key fetch" => "read-hotpath",
+            "Warm generated static Get" => "read-hotpath",
             "Repeated non-PK equality fetch" => "read-hotpath",
             "Repeated IN predicate fetch" => "read-hotpath",
             "Repeated scalar Any" => "read-hotpath",
             "Cold relation traversal" => "relation-traversal",
             "Warm relation traversal" => "relation-traversal",
+            "Scalar row-cache add/get/remove" => "cache-hotpath",
             "Insert employees" => "mutation",
             "Update employees" => "mutation",
             "Delete employees" => "mutation",

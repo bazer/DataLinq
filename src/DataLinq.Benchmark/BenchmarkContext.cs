@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataLinq.Cache;
 using DataLinq.Diagnostics;
+using DataLinq.Instances;
 using DataLinq.Metadata;
 using DataLinq.Testing;
 using DataLinq.Tests.Models.Employees;
@@ -18,8 +20,11 @@ internal sealed class BenchmarkContext : IDisposable
 
     private readonly EmployeesTestDatabase databaseScope;
     private readonly int[] sampleEmployeeNumbers;
+    private readonly Employee[] sampleEmployees;
     private readonly int[] sampleEmployeeWithDepartmentNumbers;
     private readonly Employee[] sampleEmployeesWithDepartments;
+    private readonly IKey[] sampleEmployeePrimaryKeys;
+    private readonly RowData[] sampleEmployeeRowData;
     private readonly int[] sampleMutationEmployeeNumbers;
     private readonly int[] sampleCrudWorkflowEmployeeNumbers;
     private readonly string[] sampleEmployeeLastNames;
@@ -30,6 +35,7 @@ internal sealed class BenchmarkContext : IDisposable
     private readonly int startupEmployeeNumber;
     private readonly TestConnectionDefinition startupConnection;
     private readonly List<Employee> insertedEmployees = [];
+    private RowCache scalarRowCacheProbe = new();
 
     public BenchmarkContext(TestProviderDescriptor provider)
     {
@@ -44,15 +50,21 @@ internal sealed class BenchmarkContext : IDisposable
             .Select(x => x.emp_no!.Value)
             .Take(BatchOperationCount)
             .ToArray();
-        var queryHotPathSamples = Database.Query().Employees
+        sampleEmployees = Database.Query().Employees
             .OrderBy(x => x.emp_no)
             .Take(BatchOperationCount)
             .ToArray();
-        sampleEmployeeLastNames = queryHotPathSamples
+        sampleEmployeeLastNames = sampleEmployees
             .Select(x => x.last_name)
             .ToArray();
-        sampleEmployeeGenders = queryHotPathSamples
+        sampleEmployeeGenders = sampleEmployees
             .Select(x => x.gender)
+            .ToArray();
+        sampleEmployeePrimaryKeys = sampleEmployees
+            .Select(static x => KeyFactory.CreateKeyFromValue(x.emp_no!.Value))
+            .ToArray();
+        sampleEmployeeRowData = sampleEmployees
+            .Select(static x => (RowData)x.GetRowData())
             .ToArray();
         sampleInPredicateEmployeeNumbers = Enumerable.Range(0, BatchOperationCount)
             .Select(index => new[]
@@ -91,7 +103,11 @@ internal sealed class BenchmarkContext : IDisposable
 
         if (sampleEmployeeLastNames.Length != BatchOperationCount || sampleEmployeeGenders.Length != BatchOperationCount)
             throw new InvalidOperationException(
-                $"The deterministic employees benchmark dataset only yielded {queryHotPathSamples.Length} query hot-path samples. Expected at least {BatchOperationCount}.");
+                $"The deterministic employees benchmark dataset only yielded {sampleEmployees.Length} query hot-path samples. Expected at least {BatchOperationCount}.");
+
+        if (sampleEmployeePrimaryKeys.Length != BatchOperationCount || sampleEmployeeRowData.Length != BatchOperationCount)
+            throw new InvalidOperationException(
+                $"The deterministic employees benchmark dataset only yielded {sampleEmployees.Length} row-cache samples. Expected at least {BatchOperationCount}.");
 
         if (sampleEmployeeWithDepartmentNumbers.Length != BatchOperationCount)
             throw new InvalidOperationException(
@@ -138,6 +154,20 @@ internal sealed class BenchmarkContext : IDisposable
         foreach (var employeeNumber in sampleEmployeeNumbers)
         {
             var employee = Database.Query().Employees.Single(x => x.emp_no == employeeNumber);
+            checksum += employee.emp_no!.Value;
+        }
+
+        return checksum;
+    }
+
+    public int LoadEmployeesByGeneratedStaticGetBatch()
+    {
+        var checksum = 0;
+
+        foreach (var employeeNumber in sampleEmployeeNumbers)
+        {
+            var employee = Employee.Get(employeeNumber, Database)
+                ?? throw new InvalidOperationException($"Generated static Get returned no employee for primary key {employeeNumber}.");
             checksum += employee.emp_no!.Value;
         }
 
@@ -220,6 +250,36 @@ internal sealed class BenchmarkContext : IDisposable
     {
         foreach (var employee in sampleEmployeesWithDepartments)
             employee.dept_emp.Clear();
+    }
+
+    public void ResetScalarRowCacheProbe()
+    {
+        scalarRowCacheProbe = new RowCache();
+    }
+
+    public int AddGetRemoveScalarRowCacheEntries()
+    {
+        var checksum = 0;
+
+        for (var i = 0; i < sampleEmployeePrimaryKeys.Length; i++)
+        {
+            var key = sampleEmployeePrimaryKeys[i];
+            var rowData = sampleEmployeeRowData[i];
+            var employee = sampleEmployees[i];
+
+            if (!scalarRowCacheProbe.TryAddRow(key, rowData, employee))
+                throw new InvalidOperationException($"Scalar row-cache add failed for sample index {i}.");
+
+            if (!scalarRowCacheProbe.TryGetValue(key, out var cached))
+                throw new InvalidOperationException($"Scalar row-cache get failed for sample index {i}.");
+
+            checksum += ((Employee)cached!).emp_no!.Value;
+
+            if (!scalarRowCacheProbe.TryRemoveRow(key, out var rowsRemoved) || rowsRemoved != 1)
+                throw new InvalidOperationException($"Scalar row-cache remove failed for sample index {i}.");
+        }
+
+        return checksum;
     }
 
     public int LoadEmployeeByPrimaryKeyOnFreshScope()
@@ -369,6 +429,10 @@ internal sealed class BenchmarkContext : IDisposable
                     _ = LoadEmployeesByPrimaryKeyBatch();
                     DataLinqMetrics.Reset();
                     break;
+                case BenchmarkScenario.WarmGeneratedStaticGet:
+                    _ = LoadEmployeesByGeneratedStaticGetBatch();
+                    DataLinqMetrics.Reset();
+                    break;
                 case BenchmarkScenario.WarmRelationTraversal:
                     ClearWarmRelationTraversalCache();
                     _ = TraverseWarmDepartmentNamesBatch();
@@ -402,8 +466,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.InsertEmployeesBatch => InsertEmployeesBatch(),
             BenchmarkScenario.UpdateEmployeesBatch => UpdateEmployeesBatch(),
             BenchmarkScenario.ColdPrimaryKeyFetch or BenchmarkScenario.WarmPrimaryKeyFetch => LoadEmployeesByPrimaryKeyBatch(),
+            BenchmarkScenario.WarmGeneratedStaticGet => LoadEmployeesByGeneratedStaticGetBatch(),
             BenchmarkScenario.ColdRelationTraversal => TraverseDepartmentNamesBatch(),
             BenchmarkScenario.WarmRelationTraversal => TraverseWarmDepartmentNamesBatch(),
+            BenchmarkScenario.ScalarRowCacheAddGetRemove => AddGetRemoveScalarRowCacheEntries(),
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => LoadEmployeesByNonPrimaryKeyEqualityBatch(),
             BenchmarkScenario.RepeatedInPredicateFetch => LoadEmployeesByInPredicateBatch(),
             BenchmarkScenario.RepeatedScalarAny => ExecuteScalarAnyBatch(),
@@ -489,8 +555,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.UpdateEmployeesBatch => MutationBatchOperationCount,
             BenchmarkScenario.ColdPrimaryKeyFetch => BatchOperationCount,
             BenchmarkScenario.WarmPrimaryKeyFetch => BatchOperationCount,
+            BenchmarkScenario.WarmGeneratedStaticGet => BatchOperationCount,
             BenchmarkScenario.ColdRelationTraversal => BatchOperationCount,
             BenchmarkScenario.WarmRelationTraversal => BatchOperationCount,
+            BenchmarkScenario.ScalarRowCacheAddGetRemove => BatchOperationCount,
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedInPredicateFetch => BatchOperationCount,
             BenchmarkScenario.RepeatedScalarAny => BatchOperationCount,
@@ -534,8 +602,10 @@ internal sealed class BenchmarkContext : IDisposable
             BenchmarkScenario.UpdateEmployeesBatch => "Update employees",
             BenchmarkScenario.ColdPrimaryKeyFetch => "Cold primary-key fetch",
             BenchmarkScenario.WarmPrimaryKeyFetch => "Warm primary-key fetch",
+            BenchmarkScenario.WarmGeneratedStaticGet => "Warm generated static Get",
             BenchmarkScenario.ColdRelationTraversal => "Cold relation traversal",
             BenchmarkScenario.WarmRelationTraversal => "Warm relation traversal",
+            BenchmarkScenario.ScalarRowCacheAddGetRemove => "Scalar row-cache add/get/remove",
             BenchmarkScenario.RepeatedNonPrimaryKeyEqualityFetch => "Repeated non-PK equality fetch",
             BenchmarkScenario.RepeatedInPredicateFetch => "Repeated IN predicate fetch",
             BenchmarkScenario.RepeatedScalarAny => "Repeated scalar Any",
