@@ -1,6 +1,6 @@
 > [!WARNING]
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
-# Phase 10 Measurement Baseline
+# Phase 10 Measurement Baseline And Closeout
 
 Workstream A baseline was captured on 2026-05-12 after adding the focused Phase 10 key-foundation benchmark lane.
 
@@ -89,3 +89,44 @@ Not claimed:
 - no latency improvement
 - no provider-key cache implementation yet
 - no deletion of `IKey` paths yet
+
+## Phase 10 Closeout
+
+Closeout was captured on 2026-05-12 during Workstream I after provider-key row stores, generated relation access, query/materialization key reads, and the scalar-converter seam had landed.
+
+Local closeout artifacts:
+
+- `artifacts/benchmarks/history/phase10-closeout-phase2-watch.json`
+- `artifacts/benchmarks/history/phase10-closeout-phase3-query-hotpath.json`
+- `artifacts/benchmarks/history/phase10-closeout-key-foundation.json`
+
+Supporting summary artifacts:
+
+- `artifacts/benchmarks/results/20260512-200238977-195a071bb7934cc8b88a0ebdbd6ef61b-summary.json`
+- `artifacts/benchmarks/results/20260512-200404431-5b3f7f11b9f14fb9bbb74fa0ac6e8416-summary.json`
+- `artifacts/benchmarks/results/20260512-200524303-d36f321dc6964027b9ff9b6186d9e6c5-summary.json`
+
+Closeout commands:
+
+```powershell
+$env:DATALINQ_BENCHMARK_PROVIDERS = 'sqlite-memory'
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile default --history-json artifacts\benchmarks\history\phase10-closeout-phase2-watch.json
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile default --history-json artifacts\benchmarks\history\phase10-closeout-phase3-query-hotpath.json
+.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase10-key-foundation --profile default --history-json artifacts\benchmarks\history\phase10-closeout-key-foundation.json
+```
+
+## Closeout Allocation Summary
+
+| Scenario | Baseline allocated | Closeout allocated | Notes |
+| --- | ---: | ---: | --- |
+| Provider initialization | 310.91 KB | 314.58 KB | Slightly higher; not a claimed win. |
+| Startup primary-key fetch | 54.03 KB | 49.95 KB | Lower allocation after provider-key row-store work. |
+| Warm primary-key fetch | 14.86 KB | 14.84 KB | Essentially unchanged in the broader SQL-backed lane. |
+| Repeated non-PK equality fetch | 31.61 KB | 31.41 KB | Stable/slightly lower. |
+| Repeated scalar `Any` | 25.20 KB | 25.10 KB | Stable/slightly lower. |
+| Repeated `IN` predicate fetch | 45.46 KB | 44.69 KB | Lower allocation after query key-read work. |
+| Warm generated static `Get` | 0.05 KB | 0 KB | Target hot-path allocation removed. |
+| Scalar row-cache add/get/remove | 0.15 KB | 0.04 KB | Direct row-cache probe allocation reduced, but not fully zero in the harness. |
+| Warm relation traversal | 0 KB | 0 KB | Relation traversal remains allocation-free in the focused lane. |
+
+The honest conclusion is allocation-focused: Phase 10 delivered the main generated provider-key hot-path goals, especially warm generated `Get(...)` and scalar generated relation traversal. It did not produce a broad provider-initialization allocation win, and the timing columns are still too noisy for credible latency claims.

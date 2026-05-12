@@ -328,11 +328,11 @@ public class TableCache
         if (numRows > 0)
         {
             MetricsHandle.RecordCacheCleanup(numRows, duration);
-            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "transaction_state_change", numRows, duration);
+            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.TransactionStateChange, numRows, duration);
         }
 
         MetricsHandle.RecordCacheCleanup(0, duration);
-        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "transaction_state_change_table", 0, duration);
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.TransactionStateChangeTable, 0, duration);
 
         RefreshOccupancyMetrics();
         OnRowChanged(transaction);
@@ -383,11 +383,11 @@ public class TableCache
         if (numRows > 0)
         {
             MetricsHandle.RecordCacheCleanup(numRows, duration);
-            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "state_change_precise", numRows, duration);
+            DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.StateChangePrecise, numRows, duration);
         }
 
         MetricsHandle.RecordCacheCleanup(0, duration);
-        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "state_change_table", 0, duration);
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.StateChangeTable, 0, duration);
 
         RefreshOccupancyMetrics();
         OnRowChanged();
@@ -432,7 +432,7 @@ public class TableCache
         rowCache?.ClearRows();
         var duration = Stopwatch.GetElapsedTime(startedAt);
         RefreshOccupancyMetrics();
-        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "clear", rowsRemoved, duration);
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.Clear, rowsRemoved, duration);
         MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
         OnRowChanged();
     }
@@ -492,7 +492,7 @@ public class TableCache
         var rowsRemoved = rowCache?.RemoveRowsInsertedBeforeTick(tick) ?? 0;
         var duration = Stopwatch.GetElapsedTime(startedAt);
         RefreshOccupancyMetrics();
-        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "age_limit", rowsRemoved, duration);
+        DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.AgeLimit, rowsRemoved, duration);
         MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
         return rowsRemoved;
     }
@@ -584,7 +584,7 @@ public class TableCache
                 var rowsRemoved = rows.Count;
                 var duration = Stopwatch.GetElapsedTime(startedAt);
                 RefreshOccupancyMetrics();
-                DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, "transaction_remove", rowsRemoved, duration);
+                DataLinqTelemetry.RecordCacheMaintenance(telemetryContext, Table.DbName, CacheMaintenanceOperations.TransactionRemove, rowsRemoved, duration);
                 MetricsHandle.RecordCacheCleanup(rowsRemoved, duration);
                 return true;
             }
@@ -1610,16 +1610,16 @@ public class TableCache
     private static string GetCacheLimitOperationName(CacheLimitType limitType)
         => limitType switch
         {
-            CacheLimitType.Rows => "row_limit",
-            CacheLimitType.Bytes => "size_limit",
-            CacheLimitType.Kilobytes => "size_limit",
-            CacheLimitType.Megabytes => "size_limit",
-            CacheLimitType.Gigabytes => "size_limit",
-            CacheLimitType.Seconds => "age_limit",
-            CacheLimitType.Minutes => "age_limit",
-            CacheLimitType.Hours => "age_limit",
-            CacheLimitType.Days => "age_limit",
-            CacheLimitType.Ticks => "age_limit",
-            _ => "limit"
+            CacheLimitType.Rows => CacheMaintenanceOperations.RowLimit,
+            CacheLimitType.Bytes => CacheMaintenanceOperations.SizeLimit,
+            CacheLimitType.Kilobytes => CacheMaintenanceOperations.SizeLimit,
+            CacheLimitType.Megabytes => CacheMaintenanceOperations.SizeLimit,
+            CacheLimitType.Gigabytes => CacheMaintenanceOperations.SizeLimit,
+            CacheLimitType.Seconds => CacheMaintenanceOperations.AgeLimit,
+            CacheLimitType.Minutes => CacheMaintenanceOperations.AgeLimit,
+            CacheLimitType.Hours => CacheMaintenanceOperations.AgeLimit,
+            CacheLimitType.Days => CacheMaintenanceOperations.AgeLimit,
+            CacheLimitType.Ticks => CacheMaintenanceOperations.AgeLimit,
+            _ => CacheMaintenanceOperations.Limit
         };
 }

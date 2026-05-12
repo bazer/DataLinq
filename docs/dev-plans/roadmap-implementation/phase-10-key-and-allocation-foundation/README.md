@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 10: Key and Allocation Foundation
 
-**Status:** Active implementation. Workstreams A through E are implemented as of 2026-05-12.
+**Status:** Complete as of 2026-05-12.
 
 ## Purpose
 
@@ -48,6 +48,7 @@ Out of scope:
 5. Remove relation lookup-only `IKey` construction on generated relation paths.
 6. Convert query/materialization key reads to provider-key components where practical.
 7. Re-measure allocations and confirm no production `IKey` dependencies remain before moving to Phase 11.
+8. Hand Phase 11 concrete provider-key invalidation hooks, telemetry names, and benchmark artifact paths.
 
 ## Exit Criteria
 

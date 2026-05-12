@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 10 Implementation Plan: Key and Allocation Foundation
 
-**Status:** Active implementation. Workstreams A through H are implemented as of 2026-05-12.
+**Status:** Complete as of 2026-05-12.
 
 ## Purpose
 
@@ -417,6 +417,8 @@ Exit criteria:
 
 ## Workstream I: Handoff To Phase 11
 
+Status: complete as of 2026-05-12.
+
 Goals:
 
 - make explicit cache invalidation straightforward
@@ -430,6 +432,26 @@ Phase 10 should leave these handoff artifacts:
 - telemetry names or extension points for key/cache operations
 - list of remaining `IKey` dependencies with whether Phase 11 may touch them
 - before/after benchmark artifact paths
+
+Implementation notes:
+
+- Provider-key table descriptors are `TableDefinition.PrimaryKeyShape` and `TableKeyComponentDefinition`; generated table descriptors install `IProviderKeyRowStoreAccessor` or `IProviderKeyDataReaderRowStoreAccessor`.
+- Row-cache removal by provider key exists through `RowCache.TryRemoveProviderKey<TKey>(...)` and `TableCache.TryRemoveProviderKey<TKey>(...)`.
+- Relation/index invalidation can remove scalar foreign-key buckets through `TableCache.TryRemoveForeignKeyIndex<TKey>(...)`, remove primary-key references through `TryRemovePrimaryKeyIndex(...)`, or fall back to `ClearIndex()`/`ClearCache()` when precision is unavailable.
+- Cache maintenance telemetry operation names are centralized in `CacheMaintenanceOperations` and continue to flow through the `datalinq.cache.operation` tag.
+- Production source has no remaining `IKey` dependencies. Phase 11 may use `DataLinqKey` as the bounded dynamic carrier, but it should not resurrect a universal key interface or row-store identity abstraction.
+- Closeout benchmark paths are recorded in [Measurement Baseline](Measurement%20Baseline.md). Focused generated static `Get(...)` and generated relation traversal are 0 B in the closeout key-foundation lane; broad provider/query lanes remain allocation-stable but do not justify latency claims.
+
+Verification:
+
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase2-watch --profile default --history-json artifacts\benchmarks\history\phase10-closeout-phase2-watch.json`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase3-query-hotpath --profile default --history-json artifacts\benchmarks\history\phase10-closeout-phase3-query-hotpath.json`
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Benchmark.CLI -- run --phase10-key-foundation --profile default --history-json artifacts\benchmarks\history\phase10-closeout-key-foundation.json`
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug` (`547/547` passed)
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build` (`407/407` passed for `sqlite-file` and `sqlite-memory`)
+- `docfx build docfx.json` (succeeded with one unrelated invalid-file-link warning in `docs/Benchmark Results.md`)
+- `rg -n "IKey" src -g "*.cs"` (no production source matches)
 
 Exit criteria:
 

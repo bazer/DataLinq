@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11 Implementation Plan: Cache Clearing and External Invalidation
 
-**Status:** Planned after Phase 10.
+**Status:** Next implementation priority.
 
 ## Purpose
 
@@ -15,14 +15,26 @@ This phase should be deliberately dull. The important feature is not a clever di
 Phase 11 should start from:
 
 - Phase 9A invalidation tests and telemetry
-- Phase 10 provider-key table/key descriptors or generated key accessors
+- Phase 10 provider-key table/key descriptors and generated key accessors
 - Phase 10 row-cache remove paths by provider key components
-- Phase 10 relation/index invalidation hooks by provider key components, or a documented conservative table-level fallback
-- Phase 10's list of remaining `IKey` dependencies and whether Phase 11 may touch them
+- Phase 10 relation/index invalidation hooks by provider key components, plus conservative table/index clear fallbacks
+- Phase 10's confirmation that production source has no remaining `IKey` dependencies
 - mutation invalidation behavior that is characterized for update, delete, commit, and rollback
 - benchmark baselines for warm primary-key fetch, relation traversal, and cache cleanup
 
-If Phase 10 has not removed `IKey` from every relevant cache API, Phase 11 may use transitional adapters internally. It must not promote those adapters into the public invalidation surface.
+Phase 10 leaves `DataLinqKey` as a bounded dynamic provider-key carrier for metadata-driven paths. Phase 11 may use it as an internal adapter or explicit dynamic argument if that is the cleanest public shape, but it must not turn it into a new universal row-store identity abstraction.
+
+## Phase 10 Handoff State
+
+As of 2026-05-12, Phase 11 can rely on these artifacts:
+
+- `TableDefinition.PrimaryKeyShape` and `TableKeyComponentDefinition` describe primary-key arity, provider/model CLR types, provider store kind, nullability, column ordinals, and scalar-converter placeholders.
+- Generated table models install `IProviderKeyRowStoreAccessor` or `IProviderKeyDataReaderRowStoreAccessor` for primary-key tables.
+- `RowCache.TryRemoveProviderKey<TKey>(...)` and `TableCache.TryRemoveProviderKey<TKey>(...)` remove row-cache entries by provider key.
+- `TableCache.TryRemoveForeignKeyIndex<TKey>(...)` removes scalar relation/index entries by provider foreign-key value.
+- `TableCache.TryRemovePrimaryKeyIndex(...)`, `ClearIndex()`, and `ClearCache()` provide the conservative fallback path.
+- Cache maintenance telemetry already emits `datalinq.cache.operation`; current operation names live in `CacheMaintenanceOperations`.
+- Phase 10 closeout artifacts are recorded in the Phase 10 measurement document.
 
 ## Goals
 
@@ -77,7 +89,7 @@ Exit criteria:
 
 - applications can explicitly clear cached rows without internal access
 - generated table APIs can call invalidation without constructing `IKey`
-- dynamic invalidation uses a bounded provider-key component carrier, not `IKey`
+- dynamic invalidation uses a bounded provider-key component carrier, not `IKey` or a revived universal key interface
 - table-level clear exists as a conservative fallback
 
 ## Workstream B: Relation And Index Invalidation

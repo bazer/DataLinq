@@ -20,8 +20,8 @@ Active or deferred execution plans:
 
 | Phase | Status | Directory |
 | --- | --- | --- |
-| Phase 10: Key and Allocation Foundation | Next implementation priority | `phase-10-key-and-allocation-foundation/` |
-| Phase 11: Cache Clearing and External Invalidation | Planned cache-control phase | `phase-11-cache-clearing-and-external-invalidation/` |
+| Phase 10: Key and Allocation Foundation | Complete | `phase-10-key-and-allocation-foundation/` |
+| Phase 11: Cache Clearing and External Invalidation | Next implementation priority | `phase-11-cache-clearing-and-external-invalidation/` |
 | Phase 12: Memory-Pressure Cleanup and Measured Deduplication | Planned cache-maintenance phase | `phase-12-memory-pressure-cleanup-and-measured-deduplication/` |
 | Phase 13: Explicit Multi-Join Composition | Planned query-composition phase | `phase-13-explicit-multi-join-composition/` |
 | Phase 14: Relation-Aware Joins and Left Joins | Planned join API phase | `phase-14-relation-aware-joins-and-left-joins/` |
@@ -33,7 +33,7 @@ Completed execution records for Phases 1 through 9A live in [`../archive/roadmap
 
 ## Current Roadmap Position
 
-As of 2026-05-11, Phases 1 through 9A are closed execution history. The active implementation frontier should not jump straight to a broad "AOT-compatible ORM" story.
+As of 2026-05-12, Phases 1 through 10 are closed execution history. The active implementation frontier should not jump straight to a broad "AOT-compatible ORM" story.
 
 Phase 4 has the support matrix and provider roundtrip boundary that schema validation needed. Phase 5 has the comparer, validation CLI, conservative diff-script generator, and first snapshot migration contract. Full versioned migration execution is not a remaining Phase 5 cleanup task; it is a separate future product surface.
 
@@ -47,7 +47,9 @@ The Phase 8 plan closed with executable generated SQLite smoke coverage for Nati
 
 The query-plan, Remotion isolation, supported-subset parser, and SQLitePCLRaw warning work remain Phase 17 at the back of the roadmap.
 
-Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims. The remaining roadmap now starts at Phase 10 with the key/allocation foundation, then moves through explicit cache clearing, memory cleanup, joins, scalar converters, result-set caching, and finally Remotion isolation.
+Phase 9A is complete for warning cleanup, benchmark-history and website trends, allocation reduction, and conservative cache invalidation hardening. Its benchmark closeout supports allocation and invalidation claims, not latency claims.
+
+Phase 10 is complete for the key/allocation foundation: metadata collection and lookup cleanup, provider-key row stores, generated relation access, query/materialization provider-key reads, scalar-converter seams, and Phase 11 handoff artifacts. The remaining roadmap now starts at Phase 11 with explicit cache clearing, then moves through memory cleanup, joins, scalar converters, result-set caching, and finally Remotion isolation.
 
 For the older Phase 4/5 checkpoint, see the archived [Phase 4 and 5 Status Review](../archive/roadmap-implementation/Phase%204%20and%205%20Status%20Review.md).
 

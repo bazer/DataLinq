@@ -2,7 +2,7 @@
 > This folder contains roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 11: Cache Clearing and External Invalidation
 
-**Status:** Planned after Phase 10.
+**Status:** Next implementation priority.
 
 ## Purpose
 
@@ -34,6 +34,7 @@ Out of scope:
 
 - [Implementation Plan](Implementation%20Plan.md)
 - [Phase 10 Implementation Plan](../phase-10-key-and-allocation-foundation/Implementation%20Plan.md)
+- [Provider-Key Row Cache Architecture](../../../Provider-Key%20Row%20Cache%20Architecture.md)
 - [Phase 9A Implementation Plan](../../archive/roadmap-implementation/phase-9a-release-hardening-benchmarks-allocation-cache-invalidation/Implementation%20Plan.md)
 - [Distributed Cache Coordination and CDC](../../architecture/Distributed%20Cache%20Coordination%20and%20CDC.md)
 - [Memory management](../../performance/Memory%20management.md)
@@ -44,7 +45,7 @@ Out of scope:
 Phase 11 is done when:
 
 - applications can explicitly clear all cached data, one table, or specific primary-key rows
-- external invalidation can use provider-key values without constructing legacy `IKey` objects
+- external invalidation can use provider-key values without constructing legacy `IKey` objects or reintroducing an equivalent universal key interface
 - dynamic invalidation does not reintroduce a universal key abstraction under a new name
 - relation and index cache entries are invalidated consistently with mutation invalidation
 - invalidation telemetry records source, table, scope, and approximate cost

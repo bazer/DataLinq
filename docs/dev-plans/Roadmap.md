@@ -346,7 +346,7 @@ Key related plans:
 
 ### Phase 10: Key and Allocation Foundation
 
-Status: next implementation priority.
+Status: complete as of 2026-05-12.
 
 Goals:
 
@@ -372,7 +372,7 @@ Key related plans:
 
 ### Phase 11: Cache Clearing and External Invalidation
 
-Status: planned after Phase 10.
+Status: next implementation priority.
 
 Goals:
 
@@ -564,7 +564,9 @@ Phase 8B is the completed generated-contract and immutable metadata foundation. 
 
 Phase 9A is now complete: warning cleanup, benchmark/history improvements, allocation reduction, conservative cache invalidation hardening, and benchmark closeout evidence have landed. The important caveat is performance wording: the closeout supports allocation and invalidation claims, not latency claims.
 
-The next broad runtime priority should be Phase 10: key and allocation foundation. That should be followed by Phase 11 explicit cache clearing/external invalidation, Phase 12 memory-pressure cleanup, and then the join work in Phases 13 and 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
+Phase 10 is now complete: metadata collection and lookup cleanup, generated provider-key row stores, generated relation provider-key access, query/materialization provider-key reads, scalar-converter seams, and Phase 11 handoff artifacts have landed. Its closeout supports the generated provider-key allocation claims; it does not claim broad latency wins.
+
+The next broad runtime priority should be Phase 11 explicit cache clearing/external invalidation. That should be followed by Phase 12 memory-pressure cleanup and then the join work in Phases 13 and 14. Dependency-tracked result-set caching and Remotion isolation should remain later on the roadmap.
 
 Full `add-migration` / `update-database` work should remain a dedicated future feature. The migration foundation is now concrete enough to resume later without guessing, but folding execution into this phase would blur a useful boundary.
 

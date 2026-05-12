@@ -200,3 +200,18 @@ The cache key architecture depends on these invariants:
 - cache invalidation should remove rows by provider-key components through the same table-specific accessor path
 
 If a future change stores the same row under two key representations, it is almost certainly the wrong design.
+
+## Phase 11 Handoff
+
+Phase 11 cache clearing and external invalidation should start from these concrete Phase 10 artifacts:
+
+- `TableDefinition.PrimaryKeyShape` is the table/key descriptor. Its components expose provider/model CLR types, provider store kind, nullability, column ordinals, and the scalar-converter placeholder.
+- Generated table models install `IProviderKeyRowStoreAccessor` or `IProviderKeyDataReaderRowStoreAccessor` when a table has primary-key metadata. That accessor is the bridge from bounded dynamic components into the table's exact provider-key type.
+- `RowCache.TryRemoveProviderKey<TKey>(...)` removes a row from the single typed row store without constructing `IKey` or a duplicate side key.
+- `TableCache.TryRemoveProviderKey<TKey>(...)` applies provider-key row removal to the active read/transaction cache.
+- `TableCache.TryRemoveForeignKeyIndex<TKey>(...)` removes scalar relation/index buckets by provider foreign-key values. `TableCache.TryRemovePrimaryKeyIndex(...)` removes relation index entries that point at a primary key carrier.
+- `TableCache.ClearCache()`, `ClearRows()`, and `ClearIndex()` are the conservative table-level fallback when a future external invalidation signal cannot provide precise provider-key components.
+- Cache maintenance telemetry uses the `datalinq.cache.operation` tag. The current operation names are centralized in `CacheMaintenanceOperations`: `state_change_precise`, `state_change_table`, `transaction_state_change`, `transaction_state_change_table`, `transaction_remove`, `clear`, `row_limit`, `size_limit`, `age_limit`, and `limit`.
+- Production source has no remaining `IKey` dependency. `DataLinqKey` remains as the bounded dynamic provider-key carrier, not as a universal row-store identity.
+
+The practical Phase 11 rule is simple: public invalidation can expose convenient model/table APIs, but the point where it touches row or relation caches must be provider-key values or a conservative table clear. Reintroducing a universal key interface would undo the main Phase 10 cleanup.
