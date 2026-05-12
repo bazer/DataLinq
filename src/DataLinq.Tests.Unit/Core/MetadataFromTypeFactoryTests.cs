@@ -172,6 +172,35 @@ public class MetadataFromTypeFactoryTests
     }
 
     [Test]
+    public async Task ParseDatabase_TablePrimaryKeyShape_DescribesProviderKeyComponents()
+    {
+        var employeesMetadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(EmployeesDb)).ValueOrException();
+        var allroundMetadata = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(AllroundBenchmark)).ValueOrException();
+
+        var employeeShape = employeesMetadata.GetTableModel(typeof(Employee)).Table.PrimaryKeyShape;
+        var departmentShape = employeesMetadata.GetTableModel(typeof(Department)).Table.PrimaryKeyShape;
+        var locationShape = allroundMetadata.GetTableModel(typeof(Location)).Table.PrimaryKeyShape;
+        var departmentEmployeeShape = employeesMetadata.GetTableModel(typeof(Dept_emp)).Table.PrimaryKeyShape;
+
+        await Assert.That(employeeShape.Arity).IsEqualTo(1);
+        await Assert.That(employeeShape.SupportsScalarProviderKeyStore).IsTrue();
+        await Assert.That(employeeShape[0].Column.DbName).IsEqualTo("emp_no");
+        await Assert.That(employeeShape[0].ColumnOrdinal).IsEqualTo(employeeShape[0].Column.Index);
+        await Assert.That(employeeShape[0].StoreKind).IsEqualTo(TableKeyComponentStoreKind.Int32);
+        await Assert.That(employeeShape[0].Nullable).IsTrue();
+
+        await Assert.That(departmentShape.SupportsScalarProviderKeyStore).IsTrue();
+        await Assert.That(departmentShape[0].StoreKind).IsEqualTo(TableKeyComponentStoreKind.String);
+
+        await Assert.That(locationShape.SupportsScalarProviderKeyStore).IsTrue();
+        await Assert.That(locationShape[0].StoreKind).IsEqualTo(TableKeyComponentStoreKind.Guid);
+
+        await Assert.That(departmentEmployeeShape.IsComposite).IsTrue();
+        await Assert.That(departmentEmployeeShape.SupportsScalarProviderKeyStore).IsFalse();
+        await Assert.That(departmentEmployeeShape.Components.Select(x => x.Column.DbName).ToArray()).IsEquivalentTo(["dept_no", "emp_no"]);
+    }
+
+    [Test]
     public async Task ParseDatabase_OldGeneratedTableBootstrapOnly_ReturnsMissingGeneratedMetadataHookFailure()
     {
         var result = MetadataFromTypeFactory.ParseDatabaseFromDatabaseModel(typeof(OldBootstrapHookOnlyDb));

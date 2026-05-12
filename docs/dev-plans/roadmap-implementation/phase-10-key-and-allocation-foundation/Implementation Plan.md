@@ -206,6 +206,8 @@ Exit criteria:
 
 ## Workstream E: Provider-Key Row Stores
 
+Status: in progress.
+
 Goals:
 
 - let generated runtime paths address row caches with provider key components directly

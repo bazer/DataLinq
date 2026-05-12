@@ -22,6 +22,7 @@ public class TableDefinition(string dbName) : IDefinition
     private Dictionary<string, ColumnDefinition>? columnsByPropertyName;
     private Dictionary<ColumnDefinition, MetadataCollection<ColumnIndex>>? columnIndicesByColumn;
     private ColumnDefinition? autoIncrementPrimaryKeyColumn;
+    private TableKeyShape? primaryKeyShape;
 
     public string DbName { get; private set; } = dbName;
     public bool IsFrozen { get; private set; }
@@ -164,6 +165,11 @@ public class TableDefinition(string dbName) : IDefinition
     }
 
     public MetadataCollection<ColumnDefinition> PrimaryKeyColumns => primaryKeyColumns;
+    public TableKeyShape PrimaryKeyShape =>
+        IsFrozen
+            ? primaryKeyShape ?? TableKeyShape.Empty
+            : TableKeyShape.Create(primaryKeyColumns);
+
     public bool HasAutoIncrementPrimaryKey => AutoIncrementPrimaryKeyColumn is not null;
     public ColumnDefinition? AutoIncrementPrimaryKeyColumn =>
         IsFrozen
@@ -207,7 +213,10 @@ public class TableDefinition(string dbName) : IDefinition
         if (primaryKeyColumns.Contains(column))
             throw DLOptionFailure.Exception(DLFailureType.InvalidArgument, $"Column {column} already in primary key");
         else
+        {
             primaryKeyColumns = new MetadataCollection<ColumnDefinition>(primaryKeyColumns.Append(column));
+            primaryKeyShape = null;
+        }
     }
 
     [Obsolete(MetadataMutationGuard.PublicMutationObsoleteMessage)]
@@ -221,6 +230,7 @@ public class TableDefinition(string dbName) : IDefinition
         ThrowIfFrozen();
 
         primaryKeyColumns = new MetadataCollection<ColumnDefinition>(primaryKeyColumns.Where(x => x != column));
+        primaryKeyShape = null;
     }
 
 
@@ -242,6 +252,7 @@ public class TableDefinition(string dbName) : IDefinition
         RebuildColumnLookups();
         RebuildColumnIndexLookups();
         autoIncrementPrimaryKeyColumn = FindAutoIncrementPrimaryKeyColumn();
+        primaryKeyShape = TableKeyShape.Create(primaryKeyColumns);
         IsFrozen = true;
 
         foreach (var column in columns)
