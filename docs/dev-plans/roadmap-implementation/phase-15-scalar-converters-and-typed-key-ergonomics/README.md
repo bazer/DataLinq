@@ -10,6 +10,8 @@ Phase 15 adds a first-class scalar conversion layer so model APIs can expose dom
 
 Phase 10 should already design provider-key stores with converter hooks in mind. Phase 15 is where the full user-facing converter model, typed-key ergonomics, and generator support become product work.
 
+Phase 10 Workstream H installed the cache-side seam: key-shape metadata now carries separate model/provider CLR type fields, provider store selection is named `ProviderStoreKind`, and scalar converter handles are explicit but unresolved. Phase 15 should fill those converter handles and keep the cache identity model unchanged.
+
 ## Execution Boundary
 
 In scope:
@@ -36,7 +38,7 @@ Out of scope:
 
 ## Recommended Order
 
-1. Add metadata primitives for model CLR type, provider CLR type, and optional converter.
+1. Replace the Phase 10 null converter handles with resolved scalar converter metadata.
 2. Add explicit property and assembly-level converter registration.
 3. Normalize provider values in read, write, query, relation, and cache-key paths.
 4. Add typed-ID equality and local membership query tests.

@@ -277,7 +277,7 @@ public class TableCache
     {
         if (index.Columns.Count == 1)
         {
-            return TableKeyShape.GetStoreKind(index.Columns[0].ValueProperty.CsType) switch
+            return TableKeyShape.GetProviderStoreKind(index.Columns[0]) switch
             {
                 TableKeyComponentStoreKind.Int32 => new TypedIndexCache<int>(),
                 TableKeyComponentStoreKind.Int64 => new TypedIndexCache<long>(),
@@ -834,7 +834,7 @@ public class TableCache
         if (!Table.PrimaryKeyShape.IsScalar)
             return false;
 
-        return Table.PrimaryKeyShape[0].StoreKind switch
+        return Table.PrimaryKeyShape[0].ProviderStoreKind switch
         {
             TableKeyComponentStoreKind.Int32 => primaryKey is not int,
             TableKeyComponentStoreKind.Int64 => primaryKey is not long,
@@ -880,7 +880,7 @@ public class TableCache
         select.What(Table.PrimaryKeyColumns);
         var primaryKeyColumn = Table.PrimaryKeyColumns[0];
 
-        rows = Table.PrimaryKeyShape[0].StoreKind switch
+        rows = Table.PrimaryKeyShape[0].ProviderStoreKind switch
         {
             TableKeyComponentStoreKind.Int32 => GetRows(ReadScalarPrimaryKeys<T, int>(select, primaryKeyColumn), dataSource, orderings),
             TableKeyComponentStoreKind.Int64 => GetRows(ReadScalarPrimaryKeys<T, long>(select, primaryKeyColumn), dataSource, orderings),
@@ -921,7 +921,7 @@ public class TableCache
         if (primaryKey is null || !Table.PrimaryKeyShape.SupportsScalarProviderKeyStore)
             return false;
 
-        switch (Table.PrimaryKeyShape[0].StoreKind)
+        switch (Table.PrimaryKeyShape[0].ProviderStoreKind)
         {
             case TableKeyComponentStoreKind.Int32 when primaryKey is int intKey:
                 row = GetRow(intKey, dataSource);
@@ -1380,7 +1380,7 @@ public class TableCache
             return false;
 
         var column = Table.PrimaryKeyColumns[0];
-        primaryKey = Table.PrimaryKeyShape[0].StoreKind switch
+        primaryKey = Table.PrimaryKeyShape[0].ProviderStoreKind switch
         {
             TableKeyComponentStoreKind.Int32 => reader.GetValue<int>(column, primaryKeyOrdinals[0]),
             TableKeyComponentStoreKind.Int64 => reader.GetValue<long>(column, primaryKeyOrdinals[0]),
@@ -1571,7 +1571,7 @@ public class TableCache
             if (value is null)
                 return false;
 
-            return Table.PrimaryKeyShape[0].StoreKind switch
+            return Table.PrimaryKeyShape[0].ProviderStoreKind switch
             {
                 TableKeyComponentStoreKind.Int32 when value is int intKey => cache.TryAddRow(intKey, rowData.Size, row),
                 TableKeyComponentStoreKind.Int64 when value is long longKey => cache.TryAddRow(longKey, rowData.Size, row),

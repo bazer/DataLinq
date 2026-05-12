@@ -483,12 +483,12 @@ Rules:
 
 ## Implementation Plan
 
-1. Add metadata primitives for model CLR type, provider CLR type, and optional scalar converter.
+1. Build on the Phase 10 key-shape seam by resolving the existing model CLR type, provider CLR type, and scalar converter handle placeholders.
 2. Add explicit `[ScalarConverter]` and assembly-level converter registration attributes.
 3. Add converter resolution during metadata parsing from runtime types and Roslyn source models.
 4. Update provider readers/writers so values flow through provider CLR values before model conversion.
 5. Update query constant normalization for equality, local `Contains`, local `Any(predicate)`, explicit joins, relation predicates, and direct PK lookup.
-6. Update `KeyFactory`, relation index caches, and table cache lookups to normalize keys through provider values.
+6. Update generated provider-key row-store accessors, relation index caches, `DataLinqKey` fallback creation, and table cache lookups to normalize keys through provider values.
 7. Add schema validation and SQL generation tests proving provider type inference is based on provider CLR type.
 8. Add compliance tests for typed IDs across SQLite, MySQL, and MariaDB.
 9. Add docs explaining scalar conversion as a planned feature, then promote to user docs only after the runtime behavior lands.

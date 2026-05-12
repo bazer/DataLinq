@@ -184,20 +184,29 @@ public class MetadataFromTypeFactoryTests
 
         await Assert.That(employeeShape.Arity).IsEqualTo(1);
         await Assert.That(employeeShape.SupportsScalarProviderKeyStore).IsTrue();
+        await Assert.That(employeeShape.HasScalarConverter).IsFalse();
         await Assert.That(employeeShape[0].Column.DbName).IsEqualTo("emp_no");
         await Assert.That(employeeShape[0].ColumnOrdinal).IsEqualTo(employeeShape[0].Column.Index);
-        await Assert.That(employeeShape[0].StoreKind).IsEqualTo(TableKeyComponentStoreKind.Int32);
+        await Assert.That(employeeShape[0].ProviderStoreKind).IsEqualTo(TableKeyComponentStoreKind.Int32);
+        await Assert.That(employeeShape[0].ProviderCsType).IsEqualTo(employeeShape[0].ModelCsType);
+        await Assert.That(employeeShape[0].ProviderClrType).IsEqualTo(employeeShape[0].ModelClrType);
+        await Assert.That(employeeShape[0].ScalarConverterHandle).IsNull();
+        await Assert.That(employeeShape[0].HasScalarConverter).IsFalse();
         await Assert.That(employeeShape[0].Nullable).IsTrue();
 
         await Assert.That(departmentShape.SupportsScalarProviderKeyStore).IsTrue();
-        await Assert.That(departmentShape[0].StoreKind).IsEqualTo(TableKeyComponentStoreKind.String);
+        await Assert.That(departmentShape[0].ProviderStoreKind).IsEqualTo(TableKeyComponentStoreKind.String);
+        await Assert.That(departmentShape[0].ProviderCsType).IsEqualTo(departmentShape[0].ModelCsType);
 
         await Assert.That(locationShape.SupportsScalarProviderKeyStore).IsTrue();
-        await Assert.That(locationShape[0].StoreKind).IsEqualTo(TableKeyComponentStoreKind.Guid);
+        await Assert.That(locationShape[0].ProviderStoreKind).IsEqualTo(TableKeyComponentStoreKind.Guid);
+        await Assert.That(locationShape[0].ProviderCsType).IsEqualTo(locationShape[0].ModelCsType);
 
         await Assert.That(departmentEmployeeShape.IsComposite).IsTrue();
         await Assert.That(departmentEmployeeShape.SupportsScalarProviderKeyStore).IsFalse();
+        await Assert.That(departmentEmployeeShape.HasScalarConverter).IsFalse();
         await Assert.That(departmentEmployeeShape.Components.Select(x => x.Column.DbName).ToArray()).IsEquivalentTo(["dept_no", "emp_no"]);
+        await Assert.That(departmentEmployeeShape.Components.All(x => x.ProviderCsType == x.ModelCsType)).IsTrue();
     }
 
     [Test]

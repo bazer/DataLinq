@@ -1161,7 +1161,7 @@ public class GeneratorFileFactory
     {
         var columns = relationProperty.RelationPart.ColumnIndex.Columns;
         if (columns.Count == 1 &&
-            TableKeyShape.GetStoreKind(columns[0].ValueProperty.CsType) != TableKeyComponentStoreKind.Unsupported)
+            TableKeyShape.GetProviderStoreKind(columns[0]) != TableKeyComponentStoreKind.Unsupported)
         {
             keyProperty = columns[0].ValueProperty;
             return true;

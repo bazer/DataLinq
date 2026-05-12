@@ -27,7 +27,20 @@ public sealed class TableKeyShape
     public int Arity => components.Count;
     public bool IsScalar => Arity == 1;
     public bool IsComposite => Arity > 1;
-    public bool SupportsScalarProviderKeyStore => IsScalar && components[0].StoreKind != TableKeyComponentStoreKind.Unsupported;
+    public bool SupportsScalarProviderKeyStore => IsScalar && components[0].ProviderStoreKind != TableKeyComponentStoreKind.Unsupported;
+    public bool HasScalarConverter
+    {
+        get
+        {
+            foreach (var component in components)
+            {
+                if (component.HasScalarConverter)
+                    return true;
+            }
+
+            return false;
+        }
+    }
 
     public TableKeyComponentDefinition this[int index] => components[index];
 
@@ -36,7 +49,7 @@ public sealed class TableKeyShape
         if (!SupportsScalarProviderKeyStore)
             return false;
 
-        return GetStoreKind(keyType) == components[0].StoreKind;
+        return GetStoreKind(keyType) == components[0].ProviderStoreKind;
     }
 
     internal static TableKeyShape Create(IReadOnlyList<ColumnDefinition> columns)
@@ -84,6 +97,18 @@ public sealed class TableKeyShape
             _ => TableKeyComponentStoreKind.Unsupported
         };
     }
+
+    internal static CsTypeDeclaration GetProviderCsType(ColumnDefinition column)
+    {
+        // Phase 10 records the provider/model split. Phase 15 scalar converter
+        // resolution should replace this with converter-derived provider metadata.
+        return column.ValueProperty.CsType;
+    }
+
+    internal static TableKeyComponentStoreKind GetProviderStoreKind(ColumnDefinition column) =>
+        GetStoreKind(GetProviderCsType(column));
+
+    internal static object? GetScalarConverterHandle(ColumnDefinition column) => null;
 }
 
 public sealed class TableKeyComponentDefinition
@@ -93,16 +118,22 @@ public sealed class TableKeyComponentDefinition
         int keyOrdinal,
         Type? providerClrType,
         Type? modelClrType,
+        CsTypeDeclaration providerCsType,
+        CsTypeDeclaration modelCsType,
+        object? scalarConverterHandle,
         bool nullable,
-        TableKeyComponentStoreKind storeKind)
+        TableKeyComponentStoreKind providerStoreKind)
     {
         Column = column;
         KeyOrdinal = keyOrdinal;
         ColumnOrdinal = column.Index;
         ProviderClrType = providerClrType;
         ModelClrType = modelClrType;
+        ProviderCsType = providerCsType;
+        ModelCsType = modelCsType;
+        ScalarConverterHandle = scalarConverterHandle;
         Nullable = nullable;
-        StoreKind = storeKind;
+        ProviderStoreKind = providerStoreKind;
     }
 
     public ColumnDefinition Column { get; }
@@ -110,21 +141,28 @@ public sealed class TableKeyComponentDefinition
     public int ColumnOrdinal { get; }
     public Type? ProviderClrType { get; }
     public Type? ModelClrType { get; }
+    public CsTypeDeclaration ProviderCsType { get; }
+    public CsTypeDeclaration ModelCsType { get; }
     public bool Nullable { get; }
-    public object? ScalarConverterHandle => null;
-    public TableKeyComponentStoreKind StoreKind { get; }
+    public object? ScalarConverterHandle { get; }
+    public bool HasScalarConverter => ScalarConverterHandle is not null;
+    public TableKeyComponentStoreKind ProviderStoreKind { get; }
 
     internal static TableKeyComponentDefinition Create(ColumnDefinition column, int keyOrdinal)
     {
         var property = column.ValueProperty;
-        var modelClrType = property.CsType.Type;
+        var modelCsType = property.CsType;
+        var providerCsType = TableKeyShape.GetProviderCsType(column);
 
         return new TableKeyComponentDefinition(
             column,
             keyOrdinal,
-            providerClrType: modelClrType,
-            modelClrType: modelClrType,
+            providerClrType: providerCsType.Type,
+            modelClrType: modelCsType.Type,
+            providerCsType: providerCsType,
+            modelCsType: modelCsType,
+            scalarConverterHandle: TableKeyShape.GetScalarConverterHandle(column),
             nullable: column.Nullable || property.CsNullable,
-            storeKind: TableKeyShape.GetStoreKind(property.CsType));
+            providerStoreKind: TableKeyShape.GetProviderStoreKind(column));
     }
 }

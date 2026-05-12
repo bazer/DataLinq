@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 10 Implementation Plan: Key and Allocation Foundation
 
-**Status:** Active implementation. Workstreams A through G are implemented as of 2026-05-12.
+**Status:** Active implementation. Workstreams A through H are implemented as of 2026-05-12.
 
 ## Purpose
 
@@ -374,6 +374,8 @@ Exit criteria:
 
 ## Workstream H: Scalar Converter Seam
 
+Status: complete as of 2026-05-12.
+
 Goals:
 
 - avoid designing provider-key stores that assume model type equals provider type forever
@@ -390,6 +392,23 @@ Tasks:
    - query constants
    - mutation/default value handling
    - schema validation
+
+Implementation notes:
+
+- `TableKeyComponentDefinition` now exposes `ProviderCsType`, `ModelCsType`, `ProviderClrType`, `ModelClrType`, `ProviderStoreKind`, `ScalarConverterHandle`, and `HasScalarConverter`.
+- `StoreKind` was removed from the key component metadata surface. Cache and generator decisions now read `ProviderStoreKind` or the shared provider-store helper so the naming matches the actual identity boundary.
+- Phase 10 still leaves `ScalarConverterHandle` unresolved. The provider type helper currently returns the model value type, and Phase 15 owns replacing that with converter-derived provider metadata.
+- `TableCache` scalar primary-key lookup, scalar key query materialization, reader key extraction, row-cache insertion, relation index cache creation, and generator scalar relation eligibility all select stores through provider metadata.
+- Public direct lookup XML comments now describe provider-key arguments instead of generic model keys.
+- The internals page documents the Phase 15 plug-in points for generated `Get(...)`, relation traversal, query constants, mutation/default handling, and schema validation.
+
+Verification:
+
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq\DataLinq.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug` (`547/547` passed)
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug` (`32/32` passed)
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build` (`407/407` passed for `sqlite-file` and `sqlite-memory`)
+- `docfx build docfx.json` (succeeded with one unrelated invalid-file-link warning in `docs/Benchmark Results.md`)
 
 Exit criteria:
 

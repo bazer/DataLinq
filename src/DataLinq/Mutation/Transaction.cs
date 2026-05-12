@@ -484,10 +484,10 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
     public T Query() => Database;
 
     /// <summary>
-    /// Retrieves a model from the database using the specified key.
+    /// Retrieves a model from the database using the specified provider key.
     /// </summary>
     /// <typeparam name="M">The type of the model.</typeparam>
-    /// <param name="key">The key to identify the model.</param>
+    /// <param name="key">The provider-key components that identify the model.</param>
     /// <returns>The model if found; otherwise, <c>null</c>.</returns>
     public M? Get<M>(DataLinqKey key) where M : IImmutableInstance
     {
@@ -497,6 +497,13 @@ public class Transaction<T> : Transaction, IDataSourceAccess<T>
         return (M?)Provider.GetTableCache(tableModel.Table).GetRow(key, this);
     }
 
+    /// <summary>
+    /// Retrieves a model from the database using the specified provider key.
+    /// </summary>
+    /// <typeparam name="M">The type of the model.</typeparam>
+    /// <typeparam name="TKey">The provider-key type used by the table cache.</typeparam>
+    /// <param name="key">The provider key that identifies the model.</param>
+    /// <returns>The model if found; otherwise, <c>null</c>.</returns>
     public M? Get<M, TKey>(TKey key)
         where M : IImmutableInstance
         where TKey : notnull

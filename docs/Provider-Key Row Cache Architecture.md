@@ -36,6 +36,29 @@ That rule is the important part. DataLinq should not store the same row under bo
 `TypedIndexCache<TKey>`
 : Owns relation index buckets for one foreign-key index. Scalar generated relation paths use the provider foreign-key type directly, such as `int`, `long`, `Guid`, or `string`. Composite or unsupported shapes fall back to `IndexCache`, which is `TypedIndexCache<DataLinqKey>`.
 
+## Scalar Converter Boundary
+
+Phase 10 does not implement scalar converters, but the row-cache key shape now separates model metadata from provider metadata:
+
+- `TableKeyComponentDefinition.ModelCsType` and `ModelClrType` describe the value exposed by generated model APIs.
+- `TableKeyComponentDefinition.ProviderCsType` and `ProviderClrType` describe the value used by readers, query parameters, row stores, and relation index stores.
+- `TableKeyComponentDefinition.ProviderStoreKind` selects scalar cache/index stores. The old ambiguous `StoreKind` surface is gone because cache identity is provider identity.
+- `TableKeyComponentDefinition.ScalarConverterHandle` is currently `null`; it is the Phase 15 metadata slot for resolved converter information.
+
+Today, model and provider types are the same. That is an implementation state, not an architectural rule. The rule remains:
+
+> Cache keys and relation index keys are provider values.
+
+Phase 15 scalar converter work should plug into these exact places:
+
+- Generated `Get(...)` methods should keep their model-shaped public signatures, then convert model key arguments to provider values before calling `GetByProviderKey(...)`.
+- Generated relation traversal should convert foreign-key model properties to provider values before entering `GetImmutableRelation<..., TProviderKey>(...)`, `GetImmutableForeignKey<..., TProviderKey>(...)`, and `TypedIndexCache<TKey>`.
+- Query constants should normalize equality, local `Contains(...)`, simple primary-key extraction, and join key constants to provider values before SQL parameters or cache probes are created.
+- Mutation/default handling should accept model values at the mutable model boundary, convert to provider values for writes and cache invalidation, and convert database-generated provider defaults back to model values before updating mutable state.
+- Schema validation should compare database column storage against provider CLR type mapping and explicit database type metadata. The model CLR type should drive generated API shape and diagnostics, not storage compatibility.
+
+Those conversions must be generated, statically bound, or cached outside hot loops. Reflection-heavy converter lookup belongs in metadata construction or source generation, not in cache lookup, relation traversal, materialization, or query parameter creation.
+
 ## Generated Lookup Flow
 
 For a generated scalar primary-key lookup, the fast path is direct:
