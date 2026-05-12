@@ -8,8 +8,22 @@ using DataLinq.Mutation;
 
 namespace DataLinq.Instances;
 
-public class ImmutableForeignKey<T>(DataLinqKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : ICacheNotification
+public interface IImmutableForeignKey<out T> : ICacheNotification
     where T : IImmutableInstance
+{
+    T? Value { get; }
+}
+
+public class ImmutableForeignKey<T>(DataLinqKey foreignKey, IDataSourceAccess dataSource, RelationProperty property)
+    : ImmutableForeignKey<T, DataLinqKey>(foreignKey, dataSource, property)
+    where T : IImmutableInstance
+{
+    public static implicit operator T?(ImmutableForeignKey<T> foreignKey) => foreignKey.Value;
+}
+
+public class ImmutableForeignKey<T, TKey>(TKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableForeignKey<T>
+    where T : IImmutableInstance
+    where TKey : notnull
 {
     // A simple private class to hold our value. This is our "tuple on the heap".
     // A reference to this class can be read and written atomically.
@@ -51,9 +65,9 @@ public class ImmutableForeignKey<T>(DataLinqKey foreignKey, IDataSourceAccess da
         {
             if (valueHolder == null)
             {
-                if (foreignKey.IsNull)
+                if (foreignKey is DataLinqKey { IsNull: true })
                 {
-                    valueHolder = new (default);
+                    valueHolder = new(default);
                 }
                 else
                 {
@@ -97,7 +111,7 @@ public class ImmutableForeignKey<T>(DataLinqKey foreignKey, IDataSourceAccess da
         }
     }
 
-    public static implicit operator T?(ImmutableForeignKey<T> foreignKey) => foreignKey.Value;
+    public static implicit operator T?(ImmutableForeignKey<T, TKey> foreignKey) => foreignKey.Value;
 
     public override string ToString() => Value?.ToString() ?? "null";
 }

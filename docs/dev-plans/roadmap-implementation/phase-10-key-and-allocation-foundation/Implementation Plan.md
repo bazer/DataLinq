@@ -2,7 +2,7 @@
 > This document is roadmap execution material. It is not normative product documentation, and it should not be treated as a shipped support claim.
 # Phase 10 Implementation Plan: Key and Allocation Foundation
 
-**Status:** Active implementation. Workstreams A through E are implemented as of 2026-05-12.
+**Status:** Active implementation. Workstreams A through F are implemented as of 2026-05-12.
 
 ## Purpose
 
@@ -288,6 +288,8 @@ Exit criteria:
 
 ## Workstream F: Generated Relation Provider-Key Access
 
+Status: complete as of 2026-05-12.
+
 Goals:
 
 - stop generated relation traversal from creating lookup-only relation keys
@@ -301,6 +303,25 @@ Tasks:
 4. Preserve lazy relation collection behavior and cache policy behavior.
 5. Add tests for one-column FK relation traversal.
 6. Add at least one composite FK regression test, even if the first composite path is less optimized.
+
+Implementation notes:
+
+- Generated scalar relation properties now call typed helper overloads such as `GetImmutableRelation<TRelated, int>(emp_no.Value, relationHandle)` and `GetImmutableForeignKey<TRelated, string>(dept_no, relationHandle)`.
+- Nullable scalar relation properties use the typed provider-key path when a value exists and fall back to `DataLinqKey.Null` only for the null branch.
+- `ImmutableRelation<T, TKey>` and `ImmutableForeignKey<T, TKey>` carry the provider foreign key into `TableCache` without asking the base immutable instance to build a relation key first.
+- `TypedIndexCache<TKey>` gives each scalar relation index one foreign-key store. The dynamic `IndexCache` remains the composite/unsupported fallback by deriving from `TypedIndexCache<DataLinqKey>`.
+- `TableCache.GetRows<TKey>` and `TableCache.GetKeys<TKey>` use provider foreign keys for scalar relation index lookup and SQL predicates while still returning `DataLinqKey` primary-key carriers for relation collection dictionary APIs.
+- Remaining allocation boundary: relation collection dictionary APIs still expose `DataLinqKey` primary-key carriers, and composite/unsupported relation foreign keys stay on the dynamic `DataLinqKey` fallback. Workstream F removes lookup-only foreign-key construction from scalar generated relation traversal; closeout benchmarks should quantify the allocation delta.
+
+Verification:
+
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Generators.Tests\DataLinq.Generators.Tests.csproj -c Debug` (`32/32` passed)
+- `.\scripts\dotnet-sandbox.ps1 build src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug -v minimal --no-incremental`
+- `.\scripts\dotnet-sandbox.ps1 test --project src\DataLinq.Tests.Unit\DataLinq.Tests.Unit.csproj -c Debug --no-build` (`547/547` passed)
+- `.\scripts\dotnet-sandbox.ps1 run --project src\DataLinq.Testing.CLI -- run --suite compliance --alias quick --output failures --build` (`405/405` passed for `sqlite-file` and `sqlite-memory`)
+- `rg -n "IKey" src -g "*.cs"` (no production source matches)
+- `git diff --check`
+- `docfx build docfx.json` (succeeded with one unrelated invalid-file-link warning in `docs/Benchmark Results.md`)
 
 Exit criteria:
 

@@ -7,20 +7,61 @@ using DataLinq.Instances;
 
 namespace DataLinq.Cache;
 
-public class IndexCache
+public interface IIndexCache
+{
+    Type KeyType { get; }
+    int Count { get; }
+    IEnumerable<DataLinqKey[]> Values { get; }
+
+    bool TryAdd(DataLinqKey foreignKey, DataLinqKey[] primaryKeys);
+    bool TryAddProviderKey<TKey>(TKey foreignKey, DataLinqKey[] primaryKeys)
+        where TKey : notnull;
+    bool TryRemoveForeignKey(DataLinqKey foreignKey, out int numRowsRemoved);
+    bool TryRemoveProviderKey<TKey>(TKey foreignKey, out int numRowsRemoved)
+        where TKey : notnull;
+    bool TryRemovePrimaryKey(DataLinqKey primaryKey, out int numRowsRemoved);
+    int RemoveInsertedBeforeTick(long tick);
+    bool ContainsKey(DataLinqKey foreignKey);
+    bool TryGetValue(DataLinqKey foreignKey, out DataLinqKey[]? keys);
+    bool TryGetProviderKey<TKey>(TKey foreignKey, out DataLinqKey[]? keys)
+        where TKey : notnull;
+    void Clear();
+}
+
+public class IndexCache : TypedIndexCache<DataLinqKey>
+{
+}
+
+public class TypedIndexCache<TKey> : IIndexCache
+    where TKey : notnull
 {
     private readonly object cacheLock = new();
     private readonly object ticksQueueLock = new();
-    private (DataLinqKey keys, long ticks)? oldestTick;
-    private readonly Queue<(DataLinqKey keys, long ticks)> ticks = new();
+    private (TKey keys, long ticks)? oldestTick;
+    private readonly Queue<(TKey keys, long ticks)> ticks = new();
 
-    private readonly ConcurrentDictionary<DataLinqKey, ImmutableArray<DataLinqKey>> primaryKeysToForeignKeys = new();
+    private readonly ConcurrentDictionary<DataLinqKey, ImmutableArray<TKey>> primaryKeysToForeignKeys = new();
 
-    protected readonly ConcurrentDictionary<DataLinqKey, DataLinqKey[]> foreignKeys = new();
+    protected readonly ConcurrentDictionary<TKey, DataLinqKey[]> foreignKeys = new();
 
     public int Count => foreignKeys.Count;
 
+    public Type KeyType => typeof(TKey);
+
     public bool TryAdd(DataLinqKey foreignKey, DataLinqKey[] primaryKeys)
+    {
+        return TryConvertKey(foreignKey, out var providerKey) &&
+            TryAddCore(providerKey, primaryKeys);
+    }
+
+    public bool TryAddProviderKey<TProviderKey>(TProviderKey foreignKey, DataLinqKey[] primaryKeys)
+        where TProviderKey : notnull
+    {
+        return TryConvertProviderKey(foreignKey, out var providerKey) &&
+            TryAddCore(providerKey, primaryKeys);
+    }
+
+    private bool TryAddCore(TKey foreignKey, DataLinqKey[] primaryKeys)
     {
         var ticksNow = DateTime.Now.Ticks;
 
@@ -46,6 +87,25 @@ public class IndexCache
 
     public bool TryRemoveForeignKey(DataLinqKey foreignKey, out int numRowsRemoved)
     {
+        if (TryConvertKey(foreignKey, out var providerKey))
+            return TryRemoveProviderKeyCore(providerKey, out numRowsRemoved);
+
+        numRowsRemoved = 0;
+        return true;
+    }
+
+    public bool TryRemoveProviderKey<TProviderKey>(TProviderKey foreignKey, out int numRowsRemoved)
+        where TProviderKey : notnull
+    {
+        if (TryConvertProviderKey(foreignKey, out var providerKey))
+            return TryRemoveProviderKeyCore(providerKey, out numRowsRemoved);
+
+        numRowsRemoved = 0;
+        return true;
+    }
+
+    private bool TryRemoveProviderKeyCore(TKey foreignKey, out int numRowsRemoved)
+    {
         numRowsRemoved = 0;
 
         lock (cacheLock)
@@ -68,7 +128,7 @@ public class IndexCache
         return true;
     }
 
-    public IEnumerable<DataLinqKey> GetForeignKeysByPrimaryKey(DataLinqKey primaryKey)
+    private IEnumerable<TKey> GetForeignKeysByPrimaryKey(DataLinqKey primaryKey)
     {
         lock (cacheLock)
         {
@@ -76,7 +136,7 @@ public class IndexCache
                 return foreignKeys.IsDefaultOrEmpty ? [] : foreignKeys;
         }
 
-        return Enumerable.Empty<DataLinqKey>();
+        return Enumerable.Empty<TKey>();
     }
 
     public bool TryRemovePrimaryKey(DataLinqKey primaryKey, out int numRowsRemoved)
@@ -85,7 +145,7 @@ public class IndexCache
 
         foreach (var fk in GetForeignKeysByPrimaryKey(primaryKey).ToList())
         {
-            TryRemoveForeignKey(fk, out var num);
+            TryRemoveProviderKeyCore(fk, out var num);
             numRowsRemoved += num;
         }
 
@@ -102,7 +162,7 @@ public class IndexCache
         {
             while (oldestTick?.ticks < tick)
             {
-                if (TryRemoveForeignKey(oldestTick.Value.keys, out var numRowsRemoved))
+                if (TryRemoveProviderKeyCore(oldestTick.Value.keys, out var numRowsRemoved))
                 {
                     count += numRowsRemoved;
 
@@ -124,9 +184,28 @@ public class IndexCache
         return count;
     }
 
-    public bool ContainsKey(DataLinqKey foreignKey) => foreignKeys.ContainsKey(foreignKey);
+    public bool ContainsKey(DataLinqKey foreignKey) =>
+        TryConvertKey(foreignKey, out var providerKey) &&
+        foreignKeys.ContainsKey(providerKey);
 
-    public bool TryGetValue(DataLinqKey foreignKey, out DataLinqKey[]? keys) => foreignKeys.TryGetValue(foreignKey, out keys);
+    public bool TryGetValue(DataLinqKey foreignKey, out DataLinqKey[]? keys)
+    {
+        if (TryConvertKey(foreignKey, out var providerKey))
+            return foreignKeys.TryGetValue(providerKey, out keys);
+
+        keys = null;
+        return false;
+    }
+
+    public bool TryGetProviderKey<TProviderKey>(TProviderKey foreignKey, out DataLinqKey[]? keys)
+        where TProviderKey : notnull
+    {
+        if (TryConvertProviderKey(foreignKey, out var providerKey))
+            return foreignKeys.TryGetValue(providerKey, out keys);
+
+        keys = null;
+        return false;
+    }
 
     public IEnumerable<DataLinqKey[]> Values => foreignKeys.Values;
 
@@ -145,7 +224,7 @@ public class IndexCache
         }
     }
 
-    private void AddReverseMapping(DataLinqKey primaryKey, DataLinqKey foreignKey)
+    private void AddReverseMapping(DataLinqKey primaryKey, TKey foreignKey)
     {
         primaryKeysToForeignKeys.AddOrUpdate(
             primaryKey,
@@ -155,7 +234,7 @@ public class IndexCache
                 : existingForeignKeys.Add(foreignKey));
     }
 
-    private void RemoveReverseMapping(DataLinqKey primaryKey, DataLinqKey foreignKey)
+    private void RemoveReverseMapping(DataLinqKey primaryKey, TKey foreignKey)
     {
         if (!primaryKeysToForeignKeys.TryGetValue(primaryKey, out var existingForeignKeys))
             return;
@@ -165,5 +244,55 @@ public class IndexCache
             primaryKeysToForeignKeys.TryRemove(primaryKey, out _);
         else
             primaryKeysToForeignKeys[primaryKey] = updatedForeignKeys;
+    }
+
+    private bool TryConvertProviderKey<TProviderKey>(TProviderKey key, out TKey providerKey)
+        where TProviderKey : notnull
+    {
+        if (key is TKey typedKey)
+        {
+            providerKey = typedKey;
+            return true;
+        }
+
+        if (key is DataLinqKey dataLinqKey)
+            return TryConvertKey(dataLinqKey, out providerKey);
+
+        if (key is IProviderKey componentKey)
+        {
+            if (typeof(TKey) == typeof(DataLinqKey))
+            {
+                providerKey = (TKey)(object)DataLinqKey.FromProviderKey(componentKey);
+                return true;
+            }
+
+            if (componentKey.ValueCount == 1 &&
+                componentKey.GetValue(0) is TKey componentValue)
+            {
+                providerKey = componentValue;
+                return true;
+            }
+        }
+
+        providerKey = default!;
+        return false;
+    }
+
+    private bool TryConvertKey(DataLinqKey key, out TKey providerKey)
+    {
+        if (key is TKey directKey)
+        {
+            providerKey = directKey;
+            return true;
+        }
+
+        if (key.ValueCount == 1 && key.GetValue(0) is TKey typedKey)
+        {
+            providerKey = typedKey;
+            return true;
+        }
+
+        providerKey = default!;
+        return false;
     }
 }

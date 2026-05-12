@@ -47,8 +47,9 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(code.Contains("protected const int DataLinqColumnIndex_emp_no", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("internal static void SetDataLinqGeneratedModel(global::DataLinq.Metadata.ModelDefinition model)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("GetNullableValue(DataLinqColumnIndex_emp_no)", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(code.Contains("GetImmutableRelation<Dept_emp>(DataLinqRelation_dept_emp)", StringComparison.Ordinal)).IsTrue();
-        await Assert.That(code.Contains("GetImmutableForeignKey<Department>(DataLinqRelation_departments)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("emp_no.HasValue ? GetImmutableRelation<Dept_emp, int>(emp_no.Value, DataLinqRelation_dept_emp) : GetImmutableRelationFromKey<Dept_emp>(global::DataLinq.Instances.DataLinqKey.Null, DataLinqRelation_dept_emp)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("GetImmutableForeignKey<Department, string>(dept_no, DataLinqRelation_departments)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("private IImmutableForeignKey<Department>? _departments;", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("IImmutable<Employee>.GetByProviderKey(empNo, dataSource)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("IImmutable<Department>.GetByProviderKey(deptNo, dataSource)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("IImmutable<Employee>.Get(KeyFactory.CreateKeyFromValue(empNo), dataSource)", StringComparison.Ordinal)).IsFalse();

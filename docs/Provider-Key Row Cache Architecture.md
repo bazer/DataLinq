@@ -33,6 +33,9 @@ That rule is the important part. DataLinq should not store the same row under bo
 `DataLinqKey`
 : A bounded dynamic key carrier for metadata-driven paths. It is not the generated hot-path row-cache identity.
 
+`TypedIndexCache<TKey>`
+: Owns relation index buckets for one foreign-key index. Scalar generated relation paths use the provider foreign-key type directly, such as `int`, `long`, `Guid`, or `string`. Composite or unsupported shapes fall back to `IndexCache`, which is `TypedIndexCache<DataLinqKey>`.
+
 ## Generated Lookup Flow
 
 For a generated scalar primary-key lookup, the fast path is direct:
@@ -55,6 +58,29 @@ Generated Get(deptNo, empNo)
 ```
 
 No lookup-only wrapper is created for either path.
+
+## Generated Relation Flow
+
+Generated scalar relation properties also pass provider foreign-key values directly:
+
+```text
+Generated Employee.dept_emp
+  -> GetImmutableRelation<Dept_emp, int>(emp_no.Value, relationHandle)
+  -> TableCache.GetRows<int>(empNo, relationHandle, dataSource)
+  -> TypedIndexCache<int>
+  -> RowCache target lookup through provider-key row-store access
+```
+
+Generated scalar reference properties follow the same rule:
+
+```text
+Generated Dept_emp.departments
+  -> GetImmutableForeignKey<Department, string>(dept_no, relationHandle)
+  -> TableCache.GetRow<string>(deptNo, dataSource)
+  -> RowStore<string>
+```
+
+Nullable scalar foreign keys still have a dynamic null branch. That branch uses `DataLinqKey.Null` as the compact null carrier so relation traversal can return an empty collection or `null` reference without inventing a nullable provider-key store.
 
 ## Metadata-Driven Flow
 
@@ -93,19 +119,27 @@ That last point is the design boundary. `DataLinqKey` may allocate or box for so
 
 ## Index And Relation Keys
 
-Index caches and relation collections are more metadata-driven than row caches. They store `DataLinqKey` values because their job is to map dynamic foreign-key components to dynamic primary-key components.
+Relation collections still expose `DataLinqKey` primary keys because their public indexer and dictionary view are metadata-shaped APIs. That is acceptable: those keys describe the rows already loaded into the collection, not the storage identity of the target table.
 
-That does not contradict the row-cache rule. The index cache can carry key components dynamically, while the final row lookup still goes through the generated provider-key accessor when the target table has one.
+Index caches are more subtle. A relation index cache has one foreign-key store, selected from the relation index shape:
+
+- scalar `int`, `long`, `Guid`, and `string` foreign keys use `TypedIndexCache<TKey>`
+- composite or unsupported foreign keys use `IndexCache`, the `DataLinqKey` fallback
+
+The index cache values are still `DataLinqKey[]` primary-key carriers because a relation index maps one foreign key to many target primary keys. The important part is that scalar generated relation traversal does not allocate a lookup-only foreign-key carrier just to ask the index cache a question.
+
+That does not contradict the row-cache rule. The index cache can return dynamic primary-key carriers, while final row lookup still goes through the generated provider-key accessor when the target table has one.
 
 ## Invariants
 
 The cache key architecture depends on these invariants:
 
 - one `RowCache` has one `RowStore<TKey>`
+- one relation index cache has one foreign-key store, typed for scalar generated foreign keys when supported
 - generated primary-key row stores use provider key values directly
+- generated scalar relation traversal passes provider foreign-key values directly
 - generated composite primary keys use generated structs, not object arrays as row-store keys
 - `DataLinqKey` is allowed in metadata-driven plumbing, not as a replacement for generated provider keys
 - cache invalidation should remove rows by provider-key components through the same table-specific accessor path
 
 If a future change stores the same row under two key representations, it is almost certainly the wrong design.
-

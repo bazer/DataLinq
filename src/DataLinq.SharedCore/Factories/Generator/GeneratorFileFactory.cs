@@ -1070,13 +1070,13 @@ public class GeneratorFileFactory
                 var expressionPrefix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? "(" : "";
                 var expressionSuffix = (Options.UseNullableReferenceTypes && !relationProperty.CsNullable) ? ")!" : "";
 
-                yield return $"{namespaceTab}{tab}private ImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
-                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => {expressionPrefix}_{relationProperty.PropertyName} ??= GetImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>({GetGeneratedRelationHandleName(relationProperty)}){expressionSuffix};";
+                yield return $"{namespaceTab}{tab}private IImmutableForeignKey<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
+                yield return $"{namespaceTab}{tab}public override {otherPart.ColumnIndex.Table.Model.CsType.Name}{nullableChar} {relationProperty.PropertyName} => {expressionPrefix}(_{relationProperty.PropertyName} ??= {GetImmutableForeignKeyExpression(relationProperty, otherPart.ColumnIndex.Table.Model.CsType.Name)}).Value{expressionSuffix};";
             }
             else
             {
                 yield return $"{namespaceTab}{tab}private IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>{GetUseNullableReferenceTypes()} _{relationProperty.PropertyName};";
-                yield return $"{namespaceTab}{tab}public override IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= GetImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}>({GetGeneratedRelationHandleName(relationProperty)});";
+                yield return $"{namespaceTab}{tab}public override IImmutableRelation<{otherPart.ColumnIndex.Table.Model.CsType.Name}> {relationProperty.PropertyName} => _{relationProperty.PropertyName} ??= {GetImmutableRelationExpression(relationProperty, otherPart.ColumnIndex.Table.Model.CsType.Name)};";
             }
 
             yield return $"";
@@ -1086,6 +1086,60 @@ public class GeneratorFileFactory
         //    yield return $"{namespaceTab}{tab}public Mutable{model.CsType.Name} Mutate() => new(this);";
 
         yield return namespaceTab + "}";
+    }
+
+    private string GetImmutableRelationExpression(RelationProperty relationProperty, string relatedModelName)
+    {
+        if (!TryGetScalarProviderRelationKey(relationProperty, out var keyProperty))
+            return $"GetImmutableRelation<{relatedModelName}>({GetGeneratedRelationHandleName(relationProperty)})";
+
+        return GetProviderRelationExpression(
+            keyProperty,
+            $"GetImmutableRelation<{relatedModelName}, {GetCsTypeName(keyProperty)}>",
+            $"GetImmutableRelationFromKey<{relatedModelName}>",
+            GetGeneratedRelationHandleName(relationProperty));
+    }
+
+    private string GetImmutableForeignKeyExpression(RelationProperty relationProperty, string relatedModelName)
+    {
+        if (!TryGetScalarProviderRelationKey(relationProperty, out var keyProperty))
+            return $"GetImmutableForeignKey<{relatedModelName}>({GetGeneratedRelationHandleName(relationProperty)})";
+
+        return GetProviderRelationExpression(
+            keyProperty,
+            $"GetImmutableForeignKey<{relatedModelName}, {GetCsTypeName(keyProperty)}>",
+            $"GetImmutableForeignKeyFromKey<{relatedModelName}>",
+            GetGeneratedRelationHandleName(relationProperty));
+    }
+
+    private string GetProviderRelationExpression(
+        ValueProperty keyProperty,
+        string typedMethodName,
+        string dynamicMethodName,
+        string relationHandleName)
+    {
+        var propertyName = keyProperty.PropertyName;
+        if (!IsImmutablePropertyNullable(keyProperty))
+            return $"{typedMethodName}({propertyName}, {relationHandleName})";
+
+        if (MetadataTypeConverter.IsCsTypeNullable(keyProperty.CsType.Name))
+            return $"{propertyName}.HasValue ? {typedMethodName}({propertyName}.Value, {relationHandleName}) : {dynamicMethodName}(global::DataLinq.Instances.DataLinqKey.Null, {relationHandleName})";
+
+        return $"{propertyName} is not null ? {typedMethodName}({propertyName}, {relationHandleName}) : {dynamicMethodName}(global::DataLinq.Instances.DataLinqKey.Null, {relationHandleName})";
+    }
+
+    private static bool TryGetScalarProviderRelationKey(RelationProperty relationProperty, out ValueProperty keyProperty)
+    {
+        var columns = relationProperty.RelationPart.ColumnIndex.Columns;
+        if (columns.Count == 1 &&
+            TableKeyShape.GetStoreKind(columns[0].ValueProperty.CsType) != TableKeyComponentStoreKind.Unsupported)
+        {
+            keyProperty = columns[0].ValueProperty;
+            return true;
+        }
+
+        keyProperty = null!;
+        return false;
     }
 
     private IEnumerable<string> MutableModelFileContents(ModelDefinition model, GeneratorFileFactoryOptions options, List<ValueProperty> valueProps, List<RelationProperty> relationProps)

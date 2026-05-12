@@ -59,7 +59,20 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
 
     protected ImmutableForeignKey<V> GetImmutableForeignKey<V>(RelationProperty property) where V : IImmutableInstance
     {
-        return new ImmutableForeignKey<V>(GetRelationKey(property), GetDataSource(), property);
+        return GetImmutableForeignKeyFromKey<V>(GetRelationKey(property), property);
+    }
+
+    protected IImmutableForeignKey<V> GetImmutableForeignKey<V, TKey>(TKey foreignKey, RelationProperty property)
+        where V : IImmutableInstance
+        where TKey : notnull
+    {
+        return new ImmutableForeignKey<V, TKey>(foreignKey, GetDataSource(), property);
+    }
+
+    protected ImmutableForeignKey<V> GetImmutableForeignKeyFromKey<V>(DataLinqKey foreignKey, RelationProperty property)
+        where V : IImmutableInstance
+    {
+        return new ImmutableForeignKey<V>(foreignKey, GetDataSource(), property);
     }
 
     protected ImmutableRelation<V> GetImmutableRelation<V>(string propertyName) where V : IImmutableInstance
@@ -70,7 +83,20 @@ public abstract class Immutable<T, M>(IRowData rowData, IDataSourceAccess dataSo
 
     protected ImmutableRelation<V> GetImmutableRelation<V>(RelationProperty property) where V : IImmutableInstance
     {
-        return new ImmutableRelation<V>(GetRelationKey(property), GetDataSource(), property);
+        return GetImmutableRelationFromKey<V>(GetRelationKey(property), property);
+    }
+
+    protected ImmutableRelation<V, TKey> GetImmutableRelation<V, TKey>(TKey foreignKey, RelationProperty property)
+        where V : IImmutableInstance
+        where TKey : notnull
+    {
+        return new ImmutableRelation<V, TKey>(foreignKey, GetDataSource(), property);
+    }
+
+    protected ImmutableRelation<V> GetImmutableRelationFromKey<V>(DataLinqKey foreignKey, RelationProperty property)
+        where V : IImmutableInstance
+    {
+        return new ImmutableRelation<V>(foreignKey, GetDataSource(), property);
     }
 
     protected object GetValue(string propertyName) => GetNullableValue(propertyName) ?? throw new ArgumentNullException(propertyName);

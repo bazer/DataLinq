@@ -136,8 +136,15 @@ public class ImmutableRelationMock<T> : IImmutableRelation<T> where T : IModelIn
     }
 }
 
-public class ImmutableRelation<T>(DataLinqKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
+public class ImmutableRelation<T>(DataLinqKey foreignKey, IDataSourceAccess dataSource, RelationProperty property)
+    : ImmutableRelation<T, DataLinqKey>(foreignKey, dataSource, property)
     where T : IImmutableInstance
+{
+}
+
+public class ImmutableRelation<T, TKey>(TKey foreignKey, IDataSourceAccess dataSource, RelationProperty property) : IImmutableRelation<T>, ICacheNotification
+    where T : IImmutableInstance
+    where TKey : notnull
 {
     private volatile FrozenDictionary<DataLinqKey, T>? relationInstances;
     private ImmutableArray<T> relationValues;

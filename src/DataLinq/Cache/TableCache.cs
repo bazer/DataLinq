@@ -166,7 +166,7 @@ public class TableCache
     }
 
     private readonly object indexCacheGate = new();
-    private Dictionary<ColumnIndex, IndexCache>? indexCaches;
+    private Dictionary<ColumnIndex, IIndexCache>? indexCaches;
     private RowCache? rowCache;
     private ConcurrentDictionary<Transaction, RowCache>? transactionRows;
 
@@ -237,15 +237,15 @@ public class TableCache
         return existing ?? rows;
     }
 
-    private IndexCache GetIndexCache(ColumnIndex index)
+    private IIndexCache GetIndexCache(ColumnIndex index)
     {
         lock (indexCacheGate)
         {
-            indexCaches ??= new Dictionary<ColumnIndex, IndexCache>();
+            indexCaches ??= new Dictionary<ColumnIndex, IIndexCache>();
 
             if (!indexCaches.TryGetValue(index, out var cache))
             {
-                cache = new IndexCache();
+                cache = CreateIndexCache(index);
                 indexCaches.Add(index, cache);
             }
 
@@ -253,7 +253,7 @@ public class TableCache
         }
     }
 
-    private IndexCache? TryGetIndexCache(ColumnIndex index)
+    private IIndexCache? TryGetIndexCache(ColumnIndex index)
     {
         lock (indexCacheGate)
         {
@@ -263,7 +263,7 @@ public class TableCache
         }
     }
 
-    private IndexCache[] GetLoadedIndexCaches()
+    private IIndexCache[] GetLoadedIndexCaches()
     {
         lock (indexCacheGate)
         {
@@ -271,6 +271,23 @@ public class TableCache
                 ? []
                 : indexCaches.Values.ToArray();
         }
+    }
+
+    private static IIndexCache CreateIndexCache(ColumnIndex index)
+    {
+        if (index.Columns.Count == 1)
+        {
+            return TableKeyShape.GetStoreKind(index.Columns[0].ValueProperty.CsType) switch
+            {
+                TableKeyComponentStoreKind.Int32 => new TypedIndexCache<int>(),
+                TableKeyComponentStoreKind.Int64 => new TypedIndexCache<long>(),
+                TableKeyComponentStoreKind.Guid => new TypedIndexCache<Guid>(),
+                TableKeyComponentStoreKind.String => new TypedIndexCache<string>(),
+                _ => new IndexCache()
+            };
+        }
+
+        return new IndexCache();
     }
 
     public bool IsTransactionInCache(Transaction transaction) => transactionRows?.ContainsKey(transaction) == true;
@@ -504,6 +521,19 @@ public class TableCache
         return indexCache.TryRemoveForeignKey(foreignKey, out numRowsRemoved);
     }
 
+    public bool TryRemoveForeignKeyIndex<TKey>(ColumnIndex columnIndex, TKey foreignKey, out int numRowsRemoved)
+        where TKey : notnull
+    {
+        var indexCache = TryGetIndexCache(columnIndex);
+        if (indexCache is null)
+        {
+            numRowsRemoved = 0;
+            return true;
+        }
+
+        return indexCache.TryRemoveProviderKey(foreignKey, out numRowsRemoved);
+    }
+
     public bool TryRemovePrimaryKeyIndex(ColumnIndex columnIndex, DataLinqKey primaryKeys, out int numRowsRemoved)
     {
         var indexCache = TryGetIndexCache(columnIndex);
@@ -644,6 +674,37 @@ public class TableCache
         return newKeys;
     }
 
+    public DataLinqKey[] GetKeys<TKey>(TKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
+        where TKey : notnull
+    {
+        if (foreignKey is DataLinqKey dataLinqKey)
+            return GetKeys(dataLinqKey, otherSide, dataSource);
+
+        var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
+        if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
+            return [DataLinqKey.FromValue(foreignKey)];
+
+        if (dataSource is ReadOnlyAccess && indexCachePolicy.type != IndexCacheType.None)
+        {
+            if (TryGetIndexCache(index)?.TryGetProviderKey(foreignKey, out var keys) == true)
+                return keys!;
+        }
+
+        var select = new SqlQuery(Table, dataSource ?? DatabaseCache.Database.ReadOnlyAccess)
+            .What(Table.PrimaryKeyColumns)
+            .Where(index.Columns, foreignKey)
+            .SelectQuery();
+
+        var newKeys = KeyFactory.GetKeys(select, Table.PrimaryKeyColumns).ToArray();
+
+        if (indexCachePolicy.type != IndexCacheType.None)
+            GetIndexCache(index).TryAddProviderKey(foreignKey, newKeys);
+
+        RefreshOccupancyMetrics();
+
+        return newKeys;
+    }
+
     public IEnumerable<IImmutableInstance> GetRows(DataLinqKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
     {
         if (foreignKey.IsNull)
@@ -662,6 +723,30 @@ public class TableCache
         if (dataSource is ReadOnlyAccess &&
             indexCachePolicy.type != IndexCacheType.None &&
             TryGetIndexCache(index)?.TryGetValue(foreignKey, out var keys) == true)
+            return GetRows(keys!, dataSource);
+
+        return LoadRowsFromForeignKeyAndCache(foreignKey, index, dataSource);
+    }
+
+    public IEnumerable<IImmutableInstance> GetRows<TKey>(TKey foreignKey, RelationProperty otherSide, IDataSourceAccess dataSource)
+        where TKey : notnull
+    {
+        if (foreignKey is DataLinqKey dataLinqKey)
+            return GetRows(dataLinqKey, otherSide, dataSource);
+
+        dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
+        EnsureTransactionRowCache(dataSource);
+
+        var index = otherSide.RelationPart.GetOtherSide().ColumnIndex;
+        if (Table.PrimaryKeyColumns.SequenceEqual(index.Columns))
+        {
+            var row = GetRow(foreignKey, dataSource);
+            return row is null ? [] : [row];
+        }
+
+        if (dataSource is ReadOnlyAccess &&
+            indexCachePolicy.type != IndexCacheType.None &&
+            TryGetIndexCache(index)?.TryGetProviderKey(foreignKey, out var keys) == true)
             return GetRows(keys!, dataSource);
 
         return LoadRowsFromForeignKeyAndCache(foreignKey, index, dataSource);
@@ -703,6 +788,9 @@ public class TableCache
     {
         if (primaryKey is null)
             return null;
+
+        if (primaryKey is DataLinqKey dataLinqKey)
+            return GetRow(dataLinqKey, dataSource);
 
         dataSource ??= DatabaseCache.Database.ReadOnlyAccess;
         EnsureTransactionRowCache(dataSource);
@@ -858,6 +946,48 @@ public class TableCache
 
         if (primaryKeys is not null)
             GetIndexCache(index).TryAdd(foreignKey, primaryKeys.ToArray());
+
+        RefreshOccupancyMetrics();
+
+        return rows.ToArray();
+    }
+
+    private IImmutableInstance[] LoadRowsFromForeignKeyAndCache<TKey>(TKey foreignKey, ColumnIndex index, IDataSourceAccess dataSource)
+        where TKey : notnull
+    {
+        var q = new SqlQuery(Table, dataSource)
+            .Where(index.Columns, foreignKey)
+            .SelectQuery();
+
+        var rows = new List<IImmutableInstance>();
+        var primaryKeys = indexCachePolicy.type == IndexCacheType.None ? null : new List<DataLinqKey>();
+        var rowCacheHits = 0;
+        var rowCacheMisses = 0;
+
+        foreach (var rowData in q.ReadRows())
+        {
+            var primaryKey = KeyFactory.GetKey(rowData, Table.PrimaryKeyColumns);
+            primaryKeys?.Add(primaryKey);
+
+            if (GetRowFromCache(primaryKey, dataSource, out var cachedRow))
+            {
+                rowCacheHits++;
+                rows.Add(cachedRow!);
+                continue;
+            }
+
+            rowCacheMisses++;
+            MetricsHandle.RecordDatabaseRowsLoaded(1);
+            rows.Add(AddRow(rowData, dataSource));
+        }
+
+        MetricsHandle.RecordRowCacheHits(rowCacheHits);
+        MetricsHandle.RecordRowCacheMisses(rowCacheMisses);
+        Log.LoadRowsFromCache(loggingConfiguration.CacheLogger, Table, rowCacheHits);
+        Log.LoadRowsFromDatabase(loggingConfiguration.CacheLogger, Table, rowCacheMisses);
+
+        if (primaryKeys is not null)
+            GetIndexCache(index).TryAddProviderKey(foreignKey, primaryKeys.ToArray());
 
         RefreshOccupancyMetrics();
 
