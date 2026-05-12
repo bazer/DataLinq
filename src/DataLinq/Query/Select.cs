@@ -171,7 +171,9 @@ public class Select<T> : IQuery
             // RowData is designed for Entity Materialization, so it expects mapped columns.
             var col = query.Table.TryGetColumnByDbName(cleanName, out var exactColumn)
                 ? exactColumn
-                : GetColumnByDbNameIgnoreCase(cleanName);
+                : query.Table.TryGetColumnByDbName(cleanName, StringComparison.OrdinalIgnoreCase, out var ignoreCaseColumn)
+                    ? ignoreCaseColumn
+                    : null;
 
             if (col != null)
             {
@@ -191,19 +193,6 @@ public class Select<T> : IQuery
         // If we found NO matching columns (e.g. only aggregates), return empty
         // This effectively means RowData will be empty/useless, which is expected for purely aggregate queries.
         return definitions;
-    }
-
-    private ColumnDefinition? GetColumnByDbNameIgnoreCase(string dbName)
-    {
-        var columns = query.Table.Columns;
-        for (var i = 0; i < columns.Count; i++)
-        {
-            var column = columns[i];
-            if (column.DbName.Equals(dbName, StringComparison.OrdinalIgnoreCase))
-                return column;
-        }
-
-        return null;
     }
 
     public IEnumerable<IKey> ReadKeys()

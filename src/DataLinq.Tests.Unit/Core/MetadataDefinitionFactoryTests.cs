@@ -100,6 +100,22 @@ public class MetadataDefinitionFactoryTests
     }
 
     [Test]
+    public async Task Build_TypedDraft_BuildsAutoIncrementPrimaryKeyLookup()
+    {
+        var database = CreateSingleColumnTypedDraft(
+            new DatabaseColumnType(DatabaseType.MySQL, "int"),
+            ownsDbTypes: false,
+            autoIncrement: true);
+
+        var built = new MetadataDefinitionFactory().Build(database).ValueOrException();
+        var table = built.GetTableModel("orders").Table;
+        var idColumn = table.GetColumnByDbName("id");
+
+        await Assert.That(table.HasAutoIncrementPrimaryKey).IsTrue();
+        await Assert.That(ReferenceEquals(idColumn, table.AutoIncrementPrimaryKeyColumn)).IsTrue();
+    }
+
+    [Test]
     public async Task Build_TypedRelationDraft_ReturnsFrozenMetadataSnapshot()
     {
         var database = CreateRelationTypedDraft(includeFreezeCoverageMetadata: true);
@@ -4097,7 +4113,10 @@ public class MetadataDefinitionFactoryTests
         return database;
     }
 
-    private static MetadataDatabaseDraft CreateSingleColumnTypedDraft(DatabaseColumnType dbType, bool ownsDbTypes)
+    private static MetadataDatabaseDraft CreateSingleColumnTypedDraft(
+        DatabaseColumnType dbType,
+        bool ownsDbTypes,
+        bool autoIncrement = false)
     {
         return new MetadataDatabaseDraft(
             "TestDb",
@@ -4117,6 +4136,7 @@ public class MetadataDefinitionFactoryTests
                                 new MetadataColumnDraft("id")
                                 {
                                     PrimaryKey = true,
+                                    AutoIncrement = autoIncrement,
                                     DbTypes = [dbType],
                                     OwnsDbTypes = ownsDbTypes
                                 })

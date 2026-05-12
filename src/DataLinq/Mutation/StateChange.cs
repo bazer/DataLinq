@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
-using System.Linq;
 using DataLinq.Diagnostics;
 using DataLinq.Instances;
 using DataLinq.Metadata;
@@ -38,8 +37,7 @@ public class StateChange
     /// <summary>
     /// Determines if the model has an auto-incrementing primary key.
     /// </summary>
-    public bool HasAutoIncrement =>
-        Table.PrimaryKeyColumns.Any(x => x.AutoIncrement);
+    public bool HasAutoIncrement => Table.HasAutoIncrementPrimaryKey;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StateChange"/> class.
@@ -104,7 +102,7 @@ public class StateChange
 
                 if (Model is IMutableInstance mutable)
                 {
-                    var autoIncrement = Table.PrimaryKeyColumns.FirstOrDefault(x => x.AutoIncrement);
+                    var autoIncrement = Table.AutoIncrementPrimaryKeyColumn;
 
                     if (autoIncrement != null)
                         mutable[autoIncrement] = newId;

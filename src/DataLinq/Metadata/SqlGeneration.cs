@@ -24,22 +24,35 @@ public class SqlGeneration
         for (var i = 0; i < tables.Count; i++)
         {
             var table = tables[i];
-            foreach (var column in table.Columns.Where(x => x.ForeignKey))
+            for (var columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
             {
-                foreach (var fk in column.ColumnIndices.Where(x => x.Characteristic == Attributes.IndexCharacteristic.ForeignKey).SelectMany(x => x.RelationParts))
-                {
-                    var otherTable = fk.GetOtherSide().ColumnIndex.Table;
+                var column = table.Columns[columnIndex];
+                if (!column.ForeignKey)
+                    continue;
 
-                    if (otherTable == null)
+                var indices = table.GetColumnIndices(column);
+                for (var indexPosition = 0; indexPosition < indices.Count; indexPosition++)
+                {
+                    var index = indices[indexPosition];
+                    if (index.Characteristic != Attributes.IndexCharacteristic.ForeignKey)
                         continue;
 
-                    var fkIndex = tables.IndexOf(otherTable);
-                    var fkTable = tables[fkIndex];
-                    if (fkIndex > i)
+                    for (var relationPartPosition = 0; relationPartPosition < index.RelationParts.Count; relationPartPosition++)
                     {
-                        tables[i] = fkTable;
-                        tables[fkIndex] = table;
-                        return SortTablesByForeignKeys(tables);
+                        var fk = index.RelationParts[relationPartPosition];
+                        var otherTable = fk.GetOtherSide().ColumnIndex.Table;
+
+                        if (otherTable == null)
+                            continue;
+
+                        var fkIndex = tables.IndexOf(otherTable);
+                        var fkTable = tables[fkIndex];
+                        if (fkIndex > i)
+                        {
+                            tables[i] = fkTable;
+                            tables[fkIndex] = table;
+                            return SortTablesByForeignKeys(tables);
+                        }
                     }
                 }
             }
@@ -156,10 +169,10 @@ public class SqlGeneration
         => NewRow().Indent().Add($"UNIQUE KEY {QuotedString(name)} {ParenthesisList(columns)}");
     public SqlGeneration ForeignKey(RelationPart relation, bool restrict)
         => ForeignKey(
-            relation.Relation.ConstraintName == relation.ColumnIndex.Columns.First().DbName ? null : relation.Relation.ConstraintName,
-            relation.ColumnIndex.Columns.Select(x => x.DbName).ToArray(),
+            relation.Relation.ConstraintName == relation.ColumnIndex.Columns[0].DbName ? null : relation.Relation.ConstraintName,
+            GetColumnNames(relation.ColumnIndex.Columns),
             relation.Relation.CandidateKey.ColumnIndex.Table.DbName,
-            relation.Relation.CandidateKey.ColumnIndex.Columns.Select(x => x.DbName).ToArray(),
+            GetColumnNames(relation.Relation.CandidateKey.ColumnIndex.Columns),
             restrict,
             relation.Relation.OnUpdate,
             relation.Relation.OnDelete);
@@ -203,6 +216,15 @@ public class SqlGeneration
             ReferentialAction.SetDefault => "SET DEFAULT",
             _ => "NO ACTION"
         };
+
+    private static string[] GetColumnNames(IReadOnlyList<ColumnDefinition> columns)
+    {
+        var names = new string[columns.Count];
+        for (var i = 0; i < names.Length; i++)
+            names[i] = columns[i].DbName;
+
+        return names;
+    }
 
     private string ParenthesizeCheckExpression(string expression)
     {

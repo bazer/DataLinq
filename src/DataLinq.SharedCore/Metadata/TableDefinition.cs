@@ -21,6 +21,7 @@ public class TableDefinition(string dbName) : IDefinition
     private Dictionary<string, ColumnDefinition>? columnsByDbNameIgnoreCase;
     private Dictionary<string, ColumnDefinition>? columnsByPropertyName;
     private Dictionary<ColumnDefinition, MetadataCollection<ColumnIndex>>? columnIndicesByColumn;
+    private ColumnDefinition? autoIncrementPrimaryKeyColumn;
 
     public string DbName { get; private set; } = dbName;
     public bool IsFrozen { get; private set; }
@@ -163,6 +164,12 @@ public class TableDefinition(string dbName) : IDefinition
     }
 
     public MetadataCollection<ColumnDefinition> PrimaryKeyColumns => primaryKeyColumns;
+    public bool HasAutoIncrementPrimaryKey => AutoIncrementPrimaryKeyColumn is not null;
+    public ColumnDefinition? AutoIncrementPrimaryKeyColumn =>
+        IsFrozen
+            ? autoIncrementPrimaryKeyColumn
+            : FindAutoIncrementPrimaryKeyColumn();
+
     public MetadataList<ColumnIndex> ColumnIndices { get; } = new();
 
     public TableType Type { get; protected set; } = TableType.Table;
@@ -234,6 +241,7 @@ public class TableDefinition(string dbName) : IDefinition
 
         RebuildColumnLookups();
         RebuildColumnIndexLookups();
+        autoIncrementPrimaryKeyColumn = FindAutoIncrementPrimaryKeyColumn();
         IsFrozen = true;
 
         foreach (var column in columns)
@@ -298,6 +306,18 @@ public class TableDefinition(string dbName) : IDefinition
             frozenLookup.Add(item.Key, new MetadataCollection<ColumnIndex>(item.Value));
 
         columnIndicesByColumn = frozenLookup;
+    }
+
+    private ColumnDefinition? FindAutoIncrementPrimaryKeyColumn()
+    {
+        for (var i = 0; i < primaryKeyColumns.Count; i++)
+        {
+            var column = primaryKeyColumns[i];
+            if (column.AutoIncrement)
+                return column;
+        }
+
+        return null;
     }
 
     protected void ThrowIfFrozen() => MetadataMutationGuard.ThrowIfFrozen(IsFrozen, this);
