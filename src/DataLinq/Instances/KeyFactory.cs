@@ -133,7 +133,11 @@ public static class KeyFactory
                 return CreateKeyFromValue(reader.GetValue<object>(columns[0], 0));
         }
 
-        return CreateKeyFromValues(columns.Select(x => reader.GetValue<object>(x)));
+        var values = new object?[columns.Count];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = reader.GetValue<object>(columns[i]);
+
+        return CreateKeyFromValues(values);
     }
 
     public static IKey GetKey(IRowData row, IReadOnlyList<ColumnDefinition> columns)
@@ -141,7 +145,11 @@ public static class KeyFactory
         if (columns.Count == 1)
             return CreateKeyFromValue(row.GetValue(columns[0]));
 
-        return CreateKeyFromValues(columns.Select(row.GetValue));
+        var values = new object?[columns.Count];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = row.GetValue(columns[i]);
+
+        return CreateKeyFromValues(values);
     }
 
     public static IEnumerable<IKey> GetKeys<T>(Select<T> select, IReadOnlyList<ColumnDefinition> columns) => select

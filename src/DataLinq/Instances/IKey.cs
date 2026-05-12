@@ -7,6 +7,10 @@ namespace DataLinq.Instances;
 
 public interface IKey
 {
+    /// <summary>
+    /// Compatibility value surface. Prefer <see cref="ValueCount"/>, <see cref="GetValue"/>,
+    /// and <see cref="TryGetSingleValue"/> for key inspection on runtime paths.
+    /// </summary>
     public KeyValues Values { get; }
     public int ValueCount => Values.Count;
     public object? GetValue(int index) => Values[index];
@@ -20,6 +24,25 @@ public interface IKey
         }
 
         value = GetValue(0);
+        return true;
+    }
+}
+
+internal static class SingleKeyValue
+{
+    public const int Count = 1;
+
+    public static object? Get(object? value, int index)
+    {
+        if (index == 0)
+            return value;
+
+        throw new IndexOutOfRangeException();
+    }
+
+    public static bool TryGet(object? source, out object? value)
+    {
+        value = source;
         return true;
     }
 }
@@ -82,6 +105,9 @@ public readonly struct KeyValues : IReadOnlyList<object?>
 public readonly record struct NullKey() : IKey, IEquatable<NullKey>
 {
     public KeyValues Values => KeyValues.Single(null);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(null, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(null, out value);
 
     public bool Equals(NullKey other) =>
         true;
@@ -93,6 +119,9 @@ public readonly record struct NullKey() : IKey, IEquatable<NullKey>
 public readonly record struct ObjectKey(object Value) : IKey, IEquatable<ObjectKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
 
     public bool Equals(ObjectKey other) =>
         Value == other.Value;
@@ -104,6 +133,9 @@ public readonly record struct ObjectKey(object Value) : IKey, IEquatable<ObjectK
 public readonly record struct UIntKey(uint Value) : IKey, IEquatable<UIntKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
 
     public bool Equals(UIntKey other) =>
         Value == other.Value;
@@ -115,6 +147,9 @@ public readonly record struct UIntKey(uint Value) : IKey, IEquatable<UIntKey>
 public readonly record struct IntKey(int Value) : IKey, IEquatable<IntKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
 
     public bool Equals(IntKey other) =>
         Value == other.Value;
@@ -126,6 +161,9 @@ public readonly record struct IntKey(int Value) : IKey, IEquatable<IntKey>
 public readonly record struct ULongKey(ulong Value) : IKey, IEquatable<ULongKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
 
     public bool Equals(ULongKey other) =>
         Value == other.Value;
@@ -137,6 +175,9 @@ public readonly record struct ULongKey(ulong Value) : IKey, IEquatable<ULongKey>
 public readonly record struct LongKey(long Value) : IKey, IEquatable<LongKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
 
     public bool Equals(LongKey other) =>
         Value == other.Value;
@@ -148,6 +189,9 @@ public readonly record struct LongKey(long Value) : IKey, IEquatable<LongKey>
 public readonly record struct GuidKey(Guid Value) : IKey, IEquatable<GuidKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
 
     public bool Equals(GuidKey other) =>
         Value == other.Value;
@@ -159,6 +203,9 @@ public readonly record struct GuidKey(Guid Value) : IKey, IEquatable<GuidKey>
 public readonly record struct BytesKey(byte[] Value) : IKey, IEquatable<BytesKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
 
     public bool Equals(BytesKey other) =>
         Value.SequenceEqual(other.Value);
@@ -175,6 +222,9 @@ public readonly record struct BytesKey(byte[] Value) : IKey, IEquatable<BytesKey
 public readonly record struct StringKey(string Value) : IKey, IEquatable<StringKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
 
     public bool Equals(StringKey other) =>
         Value == other.Value;
@@ -186,6 +236,9 @@ public readonly record struct StringKey(string Value) : IKey, IEquatable<StringK
 public readonly record struct ShortKey(short Value) : IKey, IEquatable<ShortKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(ShortKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -193,6 +246,9 @@ public readonly record struct ShortKey(short Value) : IKey, IEquatable<ShortKey>
 public readonly record struct UShortKey(ushort Value) : IKey, IEquatable<UShortKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(UShortKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -200,6 +256,9 @@ public readonly record struct UShortKey(ushort Value) : IKey, IEquatable<UShortK
 public readonly record struct ByteKey(byte Value) : IKey, IEquatable<ByteKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(ByteKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -207,6 +266,9 @@ public readonly record struct ByteKey(byte Value) : IKey, IEquatable<ByteKey>
 public readonly record struct SByteKey(sbyte Value) : IKey, IEquatable<SByteKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(SByteKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -214,6 +276,9 @@ public readonly record struct SByteKey(sbyte Value) : IKey, IEquatable<SByteKey>
 public readonly record struct DateTimeKey(DateTime Value) : IKey, IEquatable<DateTimeKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(DateTimeKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -221,6 +286,9 @@ public readonly record struct DateTimeKey(DateTime Value) : IKey, IEquatable<Dat
 public readonly record struct DateOnlyKey(DateOnly Value) : IKey, IEquatable<DateOnlyKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(DateOnlyKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -228,6 +296,9 @@ public readonly record struct DateOnlyKey(DateOnly Value) : IKey, IEquatable<Dat
 public readonly record struct TimeOnlyKey(TimeOnly Value) : IKey, IEquatable<TimeOnlyKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(TimeOnlyKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -235,6 +306,9 @@ public readonly record struct TimeOnlyKey(TimeOnly Value) : IKey, IEquatable<Tim
 public readonly record struct BoolKey(bool Value) : IKey, IEquatable<BoolKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(BoolKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -242,6 +316,9 @@ public readonly record struct BoolKey(bool Value) : IKey, IEquatable<BoolKey>
 public readonly record struct DecimalKey(decimal Value) : IKey, IEquatable<DecimalKey>
 {
     public KeyValues Values => KeyValues.Single(Value);
+    public int ValueCount => SingleKeyValue.Count;
+    public object? GetValue(int index) => SingleKeyValue.Get(Value, index);
+    public bool TryGetSingleValue(out object? value) => SingleKeyValue.TryGet(Value, out value);
     public bool Equals(DecimalKey other) => Value == other.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }
@@ -254,6 +331,18 @@ public readonly record struct CompositeKey : IKey, IEquatable<CompositeKey>
     public KeyValues Values => KeyValues.Many(values);
     public int ValueCount => values.Length;
     public object? GetValue(int index) => values[index];
+
+    public bool TryGetSingleValue(out object? value)
+    {
+        if (values.Length != 1)
+        {
+            value = null;
+            return false;
+        }
+
+        value = values[0];
+        return true;
+    }
 
     public CompositeKey(object?[] values)
     {

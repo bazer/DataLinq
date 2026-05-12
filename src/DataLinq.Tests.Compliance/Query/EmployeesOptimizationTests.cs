@@ -48,8 +48,8 @@ public class EmployeesOptimizationTests
 
         var compositeKey = (CompositeKey)key!;
         await Assert.That(compositeKey.ValueCount).IsEqualTo(2);
-        await Assert.That(compositeKey.Values.Contains("d001")).IsTrue();
-        await Assert.That(compositeKey.Values.Contains(1001)).IsTrue();
+        await Assert.That(compositeKey.GetValue(0)).IsEqualTo("d001");
+        await Assert.That(compositeKey.GetValue(1)).IsEqualTo(1001);
     }
 
     [Test]

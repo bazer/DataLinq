@@ -160,6 +160,8 @@ Exit criteria:
 
 ## Workstream D: Transitional Non-Allocating `IKey` Access
 
+Status: in progress.
+
 Goals:
 
 - reduce key allocation immediately
