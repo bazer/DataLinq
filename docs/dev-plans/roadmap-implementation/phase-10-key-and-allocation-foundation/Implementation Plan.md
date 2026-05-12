@@ -206,7 +206,7 @@ Exit criteria:
 
 ## Workstream E: Provider-Key Row Stores
 
-Status: in progress; key-shape metadata and scalar provider-key row-store APIs implemented.
+Status: in progress; generated scalar `Get(...)` now routes through provider-key row-store access.
 
 Goals:
 
@@ -232,6 +232,7 @@ Implementation notes:
 
 - `TableDefinition.PrimaryKeyShape` describes primary-key arity, component ordinals, CLR types, nullability, scalar store kind, and the placeholder converter handle.
 - `RowCache` now keeps scalar provider-key stores for `int`, `long`, `Guid`, and `string` alongside the legacy `IKey` dictionary; eviction metadata still belongs to the legacy dictionary until Workstream E fully routes generated lookup and Phase 11 invalidation can take over.
+- Generated scalar primary-key `Get(...)` methods call `IImmutable<T>.GetByProviderKey(...)`; generated composite primary-key `Get(...)` methods remain on `IKey` until the composite provider-key design is widened beyond the correctness-preserving adapter path.
 - Composite keys intentionally remain on the legacy adapter path for correctness in this slice.
 
 Candidate internal shape:

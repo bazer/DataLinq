@@ -49,6 +49,10 @@ public class SourceGeneratorTests : GeneratorTestBase
         await Assert.That(code.Contains("GetNullableValue(DataLinqColumnIndex_emp_no)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("GetImmutableRelation<Dept_emp>(DataLinqRelation_dept_emp)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("GetImmutableForeignKey<Department>(DataLinqRelation_departments)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("IImmutable<Employee>.GetByProviderKey(empNo, dataSource)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("IImmutable<Department>.GetByProviderKey(deptNo, dataSource)", StringComparison.Ordinal)).IsTrue();
+        await Assert.That(code.Contains("IImmutable<Employee>.Get(KeyFactory.CreateKeyFromValue(empNo), dataSource)", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(code.Contains("IImmutable<Dept_emp>.Get(KeyFactory.CreateKeyFromValues([deptNo, empNo]), dataSource)", StringComparison.Ordinal)).IsTrue();
         await Assert.That(code.Contains("GetValue(nameof(", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("SetValue(nameof(", StringComparison.Ordinal)).IsFalse();
         await Assert.That(code.Contains("GetImmutableRelation<Dept_emp>(nameof(", StringComparison.Ordinal)).IsFalse();

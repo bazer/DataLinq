@@ -830,9 +830,9 @@ public class GeneratorFileFactory
 
                 if (primaryKeys.Count == 1)
                 {
-                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, IDataSourceAccess dataSource) => IImmutable<{model.CsType.Name}>.Get(KeyFactory.CreateKeyFromValue({keyValues}), dataSource);";
-                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.Get(KeyFactory.CreateKeyFromValue({keyValues}), database.Provider.ReadOnlyAccess);";
-                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.Get(KeyFactory.CreateKeyFromValue({keyValues}), transaction);";
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, IDataSourceAccess dataSource) => IImmutable<{model.CsType.Name}>.GetByProviderKey({keyValues}, dataSource);";
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Database<{model.Database.CsType.Name}> database) => IImmutable<{model.CsType.Name}>.GetByProviderKey({keyValues}, database.Provider.ReadOnlyAccess);";
+                    yield return $"{namespaceTab}{tab}public static {model.CsType.Name}{GetUseNullableReferenceTypes()} Get({keyString}, Transaction<{model.Database.CsType.Name}> transaction) => IImmutable<{model.CsType.Name}>.GetByProviderKey({keyValues}, transaction);";
                 }
                 else
                 {
